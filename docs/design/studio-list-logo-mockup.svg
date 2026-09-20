@@ -1,172 +1,142 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 934" width="720" height="934">
-<title>Studios list logo slot, HOLODEX-432: option C across the three skins, plus rejected A and B</title>
-<rect x="0" y="0" width="720" height="222" fill="#0c0a09"/>
-<text x="20" y="20" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">C · Fixed 96×32 slot (chosen) — Cinémathèque. Dashed outline = slot bounds, not rendered in product.</text>
-<rect x="20" y="30" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="36" y="40" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="62.3" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
-<clipPath id="c20_30"><rect x="144" y="30" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_30)" x="144" y="61" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
-<text x="304" y="60" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
-<rect x="340" y="30" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="356" y="40" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<circle cx="404" cy="56" r="16" fill="#f3ece1"/>
-<text x="404" y="62" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#0c0a09">K</text>
-<clipPath id="c340_30"><rect x="464" y="30" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_30)" x="464" y="61" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Kestrel Films</text>
-<text x="624" y="60" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">4</text>
-<rect x="20" y="90" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="36" y="100" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="120.9" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" letter-spacing="2" fill="#f3ece1">MERIDIAN</text>
-<clipPath id="c20_90"><rect x="144" y="90" width="108" height="52"/></clipPath>
-<text clip-path="url(#c20_90)" x="144" y="121" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Meridian Entertainment Group International</text>
-<circle cx="260" cy="116" r="6" fill="none" stroke="#2a2622" stroke-width="2"/>
-<circle cx="260" cy="116" r="6" fill="none" stroke="#e8a33d" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 116)"/>
-<text x="304" y="120" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">31</text>
-<rect x="340" y="90" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="356" y="100" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="384" y="103" width="40" height="26" rx="2" fill="#e9e0d0"/>
-<circle cx="404" cy="116" r="9" fill="#2a2018"/>
-<text x="404" y="119.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="10" fill="#e9e0d0">N</text>
-<clipPath id="c340_90"><rect x="464" y="90" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_90)" x="464" y="121" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Northwind</text>
-<text x="624" y="120" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">7</text>
-<rect x="20" y="150" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="36" y="160" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="64" y="163" width="40" height="26" rx="2" fill="#e9e0d0"/>
-<text x="84" y="180.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#2a2018">OL</text>
-<clipPath id="c20_150"><rect x="144" y="150" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_150)" x="144" y="181" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Orchard Lane</text>
-<text x="304" y="180" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">2</text>
-<rect x="340" y="150" width="300" height="52" rx="2" fill="#15110e" stroke="#e8a33d" stroke-width="1"/>
-<rect x="356" y="160" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="404" y="182.3" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
-<clipPath id="c340_150"><rect x="464" y="150" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_150)" x="464" y="181" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#e8a33d">Aurora Pictures (hover)</text>
-<text x="624" y="180" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
-<rect x="0" y="222" width="720" height="222" fill="#060814"/>
-<text x="20" y="242" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#6f7da6">Broadcast — same rows</text>
-<rect x="20" y="252" width="300" height="52" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
-<rect x="36" y="262" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="284.3" text-anchor="middle" font-family="VT323, monospace" font-size="18" letter-spacing="2" fill="#dfe9ff">AURORA</text>
-<clipPath id="c20_252"><rect x="144" y="252" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_252)" x="144" y="283" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Aurora Pictures</text>
-<text x="304" y="282" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">12</text>
-<rect x="340" y="252" width="300" height="52" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
-<rect x="356" y="262" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<circle cx="404" cy="278" r="16" fill="#dfe9ff"/>
-<text x="404" y="284" text-anchor="middle" font-family="VT323, monospace" font-size="17" font-weight="500" fill="#060814">K</text>
-<clipPath id="c340_252"><rect x="464" y="252" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_252)" x="464" y="283" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Kestrel Films</text>
-<text x="624" y="282" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">4</text>
-<rect x="20" y="312" width="300" height="52" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
-<rect x="36" y="322" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="342.9" text-anchor="middle" font-family="VT323, monospace" font-size="14" letter-spacing="2" fill="#dfe9ff">MERIDIAN</text>
-<clipPath id="c20_312"><rect x="144" y="312" width="108" height="52"/></clipPath>
-<text clip-path="url(#c20_312)" x="144" y="343" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Meridian Entertainment Group International</text>
-<circle cx="260" cy="338" r="6" fill="none" stroke="#1a2240" stroke-width="2"/>
-<circle cx="260" cy="338" r="6" fill="none" stroke="#36e0d0" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 338)"/>
-<text x="304" y="342" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">31</text>
-<rect x="340" y="312" width="300" height="52" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
-<rect x="356" y="322" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="384" y="325" width="40" height="26" rx="0" fill="#e4ebf8"/>
-<circle cx="404" cy="338" r="9" fill="#1a2240"/>
-<text x="404" y="341.5" text-anchor="middle" font-family="VT323, monospace" font-size="10" fill="#e4ebf8">N</text>
-<clipPath id="c340_312"><rect x="464" y="312" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_312)" x="464" y="343" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Northwind</text>
-<text x="624" y="342" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">7</text>
-<rect x="20" y="372" width="300" height="52" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
-<rect x="36" y="382" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="64" y="385" width="40" height="26" rx="0" fill="#e4ebf8"/>
-<text x="84" y="402.5" text-anchor="middle" font-family="VT323, monospace" font-size="13" font-weight="500" fill="#1a2240">OL</text>
-<clipPath id="c20_372"><rect x="144" y="372" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_372)" x="144" y="403" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Orchard Lane</text>
-<text x="304" y="402" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">2</text>
-<rect x="340" y="372" width="300" height="52" rx="0" fill="#0b0f22" stroke="#36e0d0" stroke-width="1"/>
-<rect x="356" y="382" width="96" height="32" fill="none" stroke="#36e0d0" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="404" y="404.3" text-anchor="middle" font-family="VT323, monospace" font-size="18" letter-spacing="2" fill="#dfe9ff">AURORA</text>
-<clipPath id="c340_372"><rect x="464" y="372" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_372)" x="464" y="403" font-family="'Share Tech Mono', monospace" font-size="14" fill="#36e0d0">Aurora Pictures (hover)</text>
-<text x="624" y="402" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">12</text>
-<rect x="0" y="444" width="720" height="222" fill="#0a0a0a"/>
-<text x="20" y="464" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#8a8a8a">Brutalist — same rows</text>
-<rect x="20" y="474" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
-<rect x="36" y="484" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="506.3" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="18" letter-spacing="2" fill="#fafafa">AURORA</text>
-<clipPath id="c20_474"><rect x="144" y="474" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_474)" x="144" y="505" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Aurora Pictures</text>
-<text x="304" y="504" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">12</text>
-<rect x="340" y="474" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
-<rect x="356" y="484" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<circle cx="404" cy="500" r="16" fill="#fafafa"/>
-<text x="404" y="506" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="17" font-weight="500" fill="#0a0a0a">K</text>
-<clipPath id="c340_474"><rect x="464" y="474" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_474)" x="464" y="505" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Kestrel Films</text>
-<text x="624" y="504" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">4</text>
-<rect x="20" y="534" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
-<rect x="36" y="544" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="564.9" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="14" letter-spacing="2" fill="#fafafa">MERIDIAN</text>
-<clipPath id="c20_534"><rect x="144" y="534" width="108" height="52"/></clipPath>
-<text clip-path="url(#c20_534)" x="144" y="565" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Meridian Entertainment Group International</text>
-<circle cx="260" cy="560" r="6" fill="none" stroke="#333333" stroke-width="2"/>
-<circle cx="260" cy="560" r="6" fill="none" stroke="#d6ff3f" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 560)"/>
-<text x="304" y="564" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">31</text>
-<rect x="340" y="534" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
-<rect x="356" y="544" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="384" y="547" width="40" height="26" rx="0" fill="#f0f0f0"/>
-<circle cx="404" cy="560" r="9" fill="#1a1a1a"/>
-<text x="404" y="563.5" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="10" fill="#f0f0f0">N</text>
-<clipPath id="c340_534"><rect x="464" y="534" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_534)" x="464" y="565" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Northwind</text>
-<text x="624" y="564" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">7</text>
-<rect x="20" y="594" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
-<rect x="36" y="604" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="64" y="607" width="40" height="26" rx="0" fill="#f0f0f0"/>
-<text x="84" y="624.5" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="13" font-weight="500" fill="#1a1a1a">OL</text>
-<clipPath id="c20_594"><rect x="144" y="594" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_594)" x="144" y="625" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Orchard Lane</text>
-<text x="304" y="624" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">2</text>
-<rect x="340" y="594" width="300" height="52" rx="0" fill="#0e0e0e" stroke="#d6ff3f" stroke-width="1"/>
-<rect x="356" y="604" width="96" height="32" fill="none" stroke="#d6ff3f" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="404" y="626.3" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="18" letter-spacing="2" fill="#fafafa">AURORA</text>
-<clipPath id="c340_594"><rect x="464" y="594" width="136" height="52"/></clipPath>
-<text clip-path="url(#c340_594)" x="464" y="625" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#d6ff3f">Aurora Pictures (hover)</text>
-<text x="624" y="624" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">12</text>
-<rect x="0" y="666" width="720" height="268" fill="#0c0a09"/>
-<text x="20" y="686" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">A · Free-width slot (rejected: name column jags by up to 56px)</text>
-<rect x="20" y="696" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="36" y="706" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="84" y="728.3" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
-<clipPath id="c20_696"><rect x="144" y="696" width="136" height="52"/></clipPath>
-<text clip-path="url(#c20_696)" x="144" y="727" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
-<text x="304" y="726" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
-<rect x="340" y="696" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="356" y="706" width="32" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<circle cx="372" cy="722" r="16" fill="#f3ece1"/>
-<text x="372" y="728" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#0c0a09">K</text>
-<clipPath id="c340_696"><rect x="400" y="696" width="200" height="52"/></clipPath>
-<text clip-path="url(#c340_696)" x="400" y="727" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Kestrel Films</text>
-<text x="624" y="726" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">4</text>
-<rect x="20" y="756" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="36" y="766" width="40" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<rect x="36" y="769" width="40" height="26" rx="2" fill="#e9e0d0"/>
-<text x="56" y="786.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#2a2018">OL</text>
-<clipPath id="c20_756"><rect x="88" y="756" width="192" height="52"/></clipPath>
-<text clip-path="url(#c20_756)" x="88" y="787" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Orchard Lane</text>
-<text x="304" y="786" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">2</text>
-<rect x="340" y="756" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-<rect x="356" y="766" width="96" height="32" fill="none" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 3" opacity="0.5"/>
-<text x="404" y="786.9" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" letter-spacing="2" fill="#f3ece1">MERIDIAN</text>
-<clipPath id="c340_756"><rect x="464" y="756" width="108" height="52"/></clipPath>
-<text clip-path="url(#c340_756)" x="464" y="787" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Meridian Entertainment Group International</text>
-<circle cx="580" cy="782" r="6" fill="none" stroke="#2a2622" stroke-width="2"/>
-<circle cx="580" cy="782" r="6" fill="none" stroke="#e8a33d" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 580 782)"/>
-<text x="624" y="786" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">31</text>
-<text x="20" y="836" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">B · Wordmark replaces the name (rejected: 68px rows, A–Z jump lands on an unnamed row)</text>
-<rect x="20" y="846" width="300" height="68" rx="2" fill="#15110e" stroke="#2a2622"/>
-<text x="36" y="889" font-family="Fraunces, Georgia, serif" font-size="26" letter-spacing="2" fill="#f3ece1">AURORA</text>
-<text x="304" y="884" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
-<rect x="340" y="846" width="300" height="68" rx="2" fill="#15110e" stroke="#2a2622"/>
-<text x="356" y="889" font-family="Fraunces, Georgia, serif" font-size="26" letter-spacing="2" fill="#f3ece1">MERIDIAN</text>
-<text x="624" y="884" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">31</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1140" width="720" height="1140">
+<title>Studios list logo rows, HOLODEX-432: option B (StudioLinkCard rule) across the three skins, plus rejected A and C</title>
+<rect x="0" y="0" width="720" height="276" fill="#0c0a09"/>
+<text x="20" y="20" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">B · StudioLinkCard rule (chosen) — Cinémathèque. Wordmark alone · symbol + name · 12:1 wordmark + ring · icon plate · monogram · hover</text>
+<rect x="20" y="30" width="300" height="70" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="100" y="73.4" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="24" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="304" y="69" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<rect x="340" y="30" width="300" height="70" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<circle cx="380" cy="65" r="20" fill="#f3ece1"/>
+<text x="380" y="72" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" font-weight="500" fill="#0c0a09">K</text>
+<clipPath id="c340_30"><rect x="416" y="30" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_30)" x="416" y="70" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Kestrel Films</text>
+<text x="624" y="69" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">4</text>
+<rect x="20" y="108" width="300" height="70" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="132" y="150" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="20" letter-spacing="2" fill="#f3ece1">MERIDIAN</text>
+<circle cx="260" cy="143" r="6" fill="none" stroke="#2a2622" stroke-width="2"/>
+<circle cx="260" cy="143" r="6" fill="none" stroke="#e8a33d" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 143)"/>
+<text x="304" y="147" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">31</text>
+<rect x="340" y="108" width="300" height="70" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="356" y="119" width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="380" cy="143" r="14" fill="#2a2018"/>
+<text x="380" y="148" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" fill="#e9e0d0">N</text>
+<clipPath id="c340_108"><rect x="416" y="108" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_108)" x="416" y="148" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Northwind</text>
+<text x="624" y="147" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">7</text>
+<rect x="20" y="186" width="300" height="70" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="36" y="197" width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="60" y="226" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" font-weight="500" fill="#2a2018">OL</text>
+<clipPath id="c20_186"><rect x="96" y="186" width="184" height="70"/></clipPath>
+<text clip-path="url(#c20_186)" x="96" y="226" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Orchard Lane</text>
+<text x="304" y="225" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">2</text>
+<rect x="340" y="186" width="300" height="70" rx="2" fill="#15110e" stroke="#e8a33d" stroke-width="1"/>
+<text x="420" y="229.4" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="24" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="624" y="225" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<rect x="0" y="276" width="720" height="276" fill="#060814"/>
+<text x="20" y="296" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#6f7da6">Broadcast — same rows</text>
+<rect x="20" y="306" width="300" height="70" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
+<text x="100" y="349.4" text-anchor="middle" font-family="VT323, monospace" font-size="24" letter-spacing="2" fill="#dfe9ff">AURORA</text>
+<text x="304" y="345" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">12</text>
+<rect x="340" y="306" width="300" height="70" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
+<circle cx="380" cy="341" r="20" fill="#dfe9ff"/>
+<text x="380" y="348" text-anchor="middle" font-family="VT323, monospace" font-size="20" font-weight="500" fill="#060814">K</text>
+<clipPath id="c340_306"><rect x="416" y="306" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_306)" x="416" y="346" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Kestrel Films</text>
+<text x="624" y="345" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">4</text>
+<rect x="20" y="384" width="300" height="70" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
+<text x="132" y="426" text-anchor="middle" font-family="VT323, monospace" font-size="20" letter-spacing="2" fill="#dfe9ff">MERIDIAN</text>
+<circle cx="260" cy="419" r="6" fill="none" stroke="#1a2240" stroke-width="2"/>
+<circle cx="260" cy="419" r="6" fill="none" stroke="#36e0d0" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 419)"/>
+<text x="304" y="423" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">31</text>
+<rect x="340" y="384" width="300" height="70" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
+<rect x="356" y="395" width="48" height="48" rx="0" fill="#e4ebf8" stroke="#1a2240" stroke-width="1"/>
+<circle cx="380" cy="419" r="14" fill="#1a2240"/>
+<text x="380" y="424" text-anchor="middle" font-family="VT323, monospace" font-size="14" fill="#e4ebf8">N</text>
+<clipPath id="c340_384"><rect x="416" y="384" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_384)" x="416" y="424" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Northwind</text>
+<text x="624" y="423" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">7</text>
+<rect x="20" y="462" width="300" height="70" rx="0" fill="#0b0f22" stroke="#1a2240" stroke-width="1"/>
+<rect x="36" y="473" width="48" height="48" rx="0" fill="#e4ebf8" stroke="#1a2240" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="60" y="502" text-anchor="middle" font-family="VT323, monospace" font-size="14" font-weight="500" fill="#1a2240">OL</text>
+<clipPath id="c20_462"><rect x="96" y="462" width="184" height="70"/></clipPath>
+<text clip-path="url(#c20_462)" x="96" y="502" font-family="'Share Tech Mono', monospace" font-size="14" fill="#dfe9ff">Orchard Lane</text>
+<text x="304" y="501" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">2</text>
+<rect x="340" y="462" width="300" height="70" rx="0" fill="#0b0f22" stroke="#36e0d0" stroke-width="1"/>
+<text x="420" y="505.4" text-anchor="middle" font-family="VT323, monospace" font-size="24" letter-spacing="2" fill="#dfe9ff">AURORA</text>
+<text x="624" y="501" text-anchor="end" font-family="'Share Tech Mono', monospace" font-size="12" fill="#6f7da6">12</text>
+<rect x="0" y="552" width="720" height="276" fill="#0a0a0a"/>
+<text x="20" y="572" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#8a8a8a">Brutalist — same rows</text>
+<rect x="20" y="582" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+<text x="100" y="625.4" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="24" letter-spacing="2" fill="#fafafa">AURORA</text>
+<text x="304" y="621" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">12</text>
+<rect x="340" y="582" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+<circle cx="380" cy="617" r="20" fill="#fafafa"/>
+<text x="380" y="624" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="20" font-weight="500" fill="#0a0a0a">K</text>
+<clipPath id="c340_582"><rect x="416" y="582" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_582)" x="416" y="622" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Kestrel Films</text>
+<text x="624" y="621" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">4</text>
+<rect x="20" y="660" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+<text x="132" y="702" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="20" letter-spacing="2" fill="#fafafa">MERIDIAN</text>
+<circle cx="260" cy="695" r="6" fill="none" stroke="#333333" stroke-width="2"/>
+<circle cx="260" cy="695" r="6" fill="none" stroke="#d6ff3f" stroke-width="2" stroke-dasharray="26 38" transform="rotate(-90 260 695)"/>
+<text x="304" y="699" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">31</text>
+<rect x="340" y="660" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+<rect x="356" y="671" width="48" height="48" rx="0" fill="#f0f0f0" stroke="#333333" stroke-width="1"/>
+<circle cx="380" cy="695" r="14" fill="#1a1a1a"/>
+<text x="380" y="700" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#f0f0f0">N</text>
+<clipPath id="c340_660"><rect x="416" y="660" width="184" height="70"/></clipPath>
+<text clip-path="url(#c340_660)" x="416" y="700" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Northwind</text>
+<text x="624" y="699" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">7</text>
+<rect x="20" y="738" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+<rect x="36" y="749" width="48" height="48" rx="0" fill="#f0f0f0" stroke="#333333" stroke-width="1" stroke-dasharray="3 2"/>
+<text x="60" y="778" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="14" font-weight="500" fill="#1a1a1a">OL</text>
+<clipPath id="c20_738"><rect x="96" y="738" width="184" height="70"/></clipPath>
+<text clip-path="url(#c20_738)" x="96" y="778" font-family="'Spline Sans Mono', monospace" font-size="14" fill="#fafafa">Orchard Lane</text>
+<text x="304" y="777" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">2</text>
+<rect x="340" y="738" width="300" height="70" rx="0" fill="#0e0e0e" stroke="#d6ff3f" stroke-width="1"/>
+<text x="420" y="781.4" text-anchor="middle" font-family="'Spline Sans Mono', monospace" font-size="24" letter-spacing="2" fill="#fafafa">AURORA</text>
+<text x="624" y="777" text-anchor="end" font-family="'Spline Sans Mono', monospace" font-size="12" fill="#8a8a8a">12</text>
+<rect x="0" y="828" width="720" height="312" fill="#0c0a09"/>
+<text x="20" y="848" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">A · Free-width 32px slot, name always shown (rejected: name column jags by up to 56px)</text>
+<rect x="20" y="858" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="84" y="890" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="144" y="889" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
+<text x="304" y="888" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<rect x="340" y="858" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<circle cx="372" cy="884" r="16" fill="#f3ece1"/>
+<text x="372" y="890" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#0c0a09">K</text>
+<text x="400" y="889" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Kestrel Films</text>
+<text x="624" y="888" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">4</text>
+<rect x="20" y="918" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="36" y="931" width="40" height="26" rx="2" fill="#e9e0d0"/>
+<text x="56" y="948.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#2a2018">OL</text>
+<text x="88" y="949" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Orchard Lane</text>
+<text x="304" y="948" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">2</text>
+<rect x="340" y="918" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="404" y="950" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="464" y="949" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
+<text x="624" y="948" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<text x="20" y="998" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">C · Fixed 96×32 slot, name always shown (rejected by the owner in favour of B)</text>
+<rect x="20" y="1008" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="84" y="1040" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="144" y="1039" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
+<text x="304" y="1038" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<line x1="144" y1="1004" x2="144" y2="1064" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.7"/>
+<rect x="340" y="1008" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<circle cx="404" cy="1034" r="16" fill="#f3ece1"/>
+<text x="404" y="1040" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="17" font-weight="500" fill="#0c0a09">K</text>
+<text x="464" y="1039" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Kestrel Films</text>
+<text x="624" y="1038" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">4</text>
+<line x1="464" y1="1004" x2="464" y2="1064" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.7"/>
+<rect x="20" y="1068" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="64" y="1081" width="40" height="26" rx="2" fill="#e9e0d0"/>
+<text x="84" y="1098.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="13" font-weight="500" fill="#2a2018">OL</text>
+<text x="144" y="1099" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Orchard Lane</text>
+<text x="304" y="1098" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">2</text>
+<line x1="144" y1="1064" x2="144" y2="1124" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.7"/>
+<rect x="340" y="1068" width="300" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="404" y="1100" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="18" letter-spacing="2" fill="#f3ece1">AURORA</text>
+<text x="464" y="1099" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Aurora Pictures</text>
+<text x="624" y="1098" text-anchor="end" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">12</text>
+<line x1="464" y1="1064" x2="464" y2="1124" stroke="#e8a33d" stroke-width="0.5" stroke-dasharray="2 2" opacity="0.7"/>
 </svg>

@@ -1,6 +1,6 @@
 # Design handoff: `/studios` list rows draw the studio logo
 
-**Status:** Proposed (option C recommended, 2026-09-19) — awaiting the owner's pick
+**Status:** Approved — **option B** (owner's pick, 2026-09-20; C had been recommended, see §1); implemented the same day
 **Story:** [HOLODEX-432](https://whoiskevinrich.atlassian.net/browse/HOLODEX-432) (child of F51, HOLODEX-246)
 **Owner:** Project owner
 **Date:** 2026-09-19
@@ -27,111 +27,76 @@ call today, the same two that moved `StudioLinkCard` to the logo (HOLODEX-397/41
    page just never reads it.
 
 This handoff changes the list well to draw the logo when there is one, with the HOLODEX-411
-rules already proven on `StudioLinkCard` — **bare** (no plate) and **aspect-following** — but
-with one list-specific layout decision the card never had to make: the row width is fixed and
-the name column has to stay scannable for the A–Z nav.
+rules already proven on `StudioLinkCard` — **bare** (no plate), **aspect-following**, and **a
+wordmark replaces the name** — applied verbatim: the card's image box is extracted into a shared
+`StudioLogoBox` and the list row mounts the same box in front of its name / ring / count.
 
 **Why no spec/ADR:** no new capability, endpoint, field, or schema — the logo is stored, served,
 and on the payload. Per the change-routing table this is `/design-handoff` +
 `/testing-strategy` only. Frontend-only; `internal/` is untouched.
 
-![Option C rows across all three skins (wordmark, square logo, long name + ring, icon on plate, monogram, hover), plus the rejected A and B strips](studio-list-logo-mockup.svg)
+![Option B rows across all three skins (wordmark alone, symbol mark + name, 12:1 wordmark + ring, icon plate, monogram, hover), plus the rejected A and C strips](studio-list-logo-mockup.svg)
 
 ---
 
 ## 1. Decisions
 
-Presented as inline mockups on 2026-09-19 at the `lg` column width (300px rows, ~140px of name
-column after the slot, ring and count), with the stressed row — "Meridian Entertainment Group
-International" + a wide wordmark + the ring + a count — in every option.
+Presented as inline mockups on 2026-09-19 at the `lg` column width (300px rows) with the stressed
+row — "Meridian Entertainment Group International" + a wide wordmark + the ring + a count — in
+every option. **The owner chose B on 2026-09-20**, over the recommended C.
 
-| Question | Decision (recommended) | Why |
+| Question | Decision | Why |
 |---|---|---|
-| Slot geometry | **C — fixed-width slot, `w-24 h-8` (96×32), logo bare and centred, name always shown.** *Rejected A — free-width slot (`h-8 w-auto max-w-24`), name always shown. Rejected B — the `StudioLinkCard` rule verbatim (`h-12 max-w-48`, a ≥2:1 wordmark replaces the name).* | The F38 handoff chose the fixed 40×26 plate so "rows stay aligned"; the list is an alphabetised column and the eye scans the name edge. **A** lets that edge jag by up to 56px between a 32px square mark, a 96px wordmark and the 40px plate. **B** grows rows 46→68px and leaves a wordmark row with no readable name, so the A–Z jump and a nav-search match can land on a row the user can't read — the "never unnamed" objection that already ruled out logo-only on the card. **C** keeps every name on one vertical line (as today), costs 6px of row height, and a 5:1 wordmark still renders 96×19. |
+| Row image | **B — the `StudioLinkCard` rule, verbatim.** Fixed 48px-tall box, width follows the logo's own aspect clamped to `[48, 192]px`, logo bare (no plate); **a wordmark (natural w ≥ 2h) replaces the name**; a symbol mark, an icon (on the 48×48 plate) and the monogram (dashed plate) keep the name beside them. *Rejected A — free-width 32px slot, name always shown. Rejected C (recommended) — fixed 96×32 slot, logo bare + centred, name always shown.* | Owner's call: one studio image treatment across every surface — the Film/Media detail card and the index draw the identical box, so a studio looks the same wherever it appears. The list's name column no longer aligns (a 48px symbol vs a 192px wordmark) and a wordmark row carries no visible name; the owner weighed that against a second, list-only logo shape and took the single rule. Costs recorded in §8. |
 | Precedence per row | `logo_url` → `icon_url` → monogram | Same order as `StudioLinkCard` (HOLODEX-397). The list stops being the one surface that ignores the role TMDB actually fills. |
-| Plate | **Logo: none** — bare on `bg-surface`. **Icon / monogram: today's 40×26 `bg-logo-plate` plate, unchanged, centred inside the 96×32 slot.** | HOLODEX-411: a transparent brand mark on a cream box read as a floating badge on the dark skins. The plate stays where it earns its keep — under an arbitrary square icon or the monogram — and stays its current size so legacy rows look exactly as they do today rather than gaining a 96px cream rectangle. |
-| Caption | **Name always shown** — no wordmark/aspect rule in the list. | The name is the list's primary key (sorting, jump-nav, in-place nav-search filter). The wordmark echo that HOLODEX-411 removed on the card is tolerable here because the slot is a third of the card's size and the name is doing navigational work, not captioning. |
-| Slot height | `h-8` (32px), not the card's `h-12` (48px) | Rows are `py-2.5`; 32px keeps the row at 52px (was 46px) and the 3-column grid dense. 48px would make `/studios` taller than `/people` (whose `PersonAvatar size="sm"` is 32px — this matches it). |
-| Slot width | `w-24` (96px) | 3:1 box. A 2:1 wordmark fills the height; a 5:1 renders 96×19; a square mark 32×32. Wider (128px) starts to eat the name column at the `lg` width where ~140px is left after ring + count; narrower (64px) makes a 5:1 wordmark 13px tall. |
+| Plate | **Logo: none** — bare on `bg-surface`. **Icon / monogram: the card's 48×48 `border-rule bg-logo-plate` plate** (dashed when there is no image at all), replacing the list's old 40×26 plate. | HOLODEX-411: a transparent brand mark on a cream box read as a floating badge on the dark skins. The plate is the card's, not the old well's, so a legacy row is the card's icon state exactly. |
+| Screen-reader name, once and only once | Name shown as text → `alt=""` (decorative). Name hidden (wordmark, or a bare logo still loading) → `alt={name}`, plus `title={name}` on the row link. The monogram stays `aria-hidden`. | Today's `alt="{name} icon"` next to the visible name announced the studio twice. `studioLogo.ts` `imageAlt()` owns the rule so the card and the row can't drift. |
+| Row height | 70px (48px box + `py-2.5` + 1px borders), was 46px | Consequence of B; `/people` rows stay 46px. Accepted. |
+| Where the rule lives | `web/src/lib/components/entity/studioLogo.ts` (`isWordmark`, `showName`, `imageAlt`) + `StudioLogoBox.svelte`; both `StudioLinkCard` and the new `StudioListRow` consume them. | Two surfaces, one implementation — the aspect threshold and the alt rule cannot diverge. |
 
 ## 2. Component change
 
-Edit in place in `web/src/routes/studios/+page.svelte` — the well is ~15 lines of inline markup
-and this page is its only consumer; do not extract a component for one call site (project
-simplicity rule; `StudioLinkCard` has a different shape — 48px, caption rule — and is not the
-same thing).
+Three files in `web/src/lib/components/entity/`, one page edit:
 
-### Before
-
-```svelte
-<span class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate">
-	{#if s.icon_url}
-		<img src={s.icon_url} alt={`${s.name} icon`} class="h-full w-full object-contain p-0.5" />
-	{:else}
-		<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true">{monogram(s.name)}</span>
-	{/if}
-</span>
-<span class="flex-1 truncate">{s.name}</span>
-```
-
-### After
+| File | Change |
+|---|---|
+| `studioLogo.ts` (new) | Pure rule: `isWordmark(w, h)` = `h > 0 && w >= 2h`; `showName(bare, wordmark)` = `!bare \|\| wordmark === false`; `imageAlt(name, bare, wordmark)` = `showName ? '' : name`. `Wordmark = boolean \| null` (null = logo not loaded yet). Unit-tested (`studioLogo.test.ts`). |
+| `StudioLogoBox.svelte` (new, extracted from `StudioLinkCard`) | The image box: `logo_url` → `icon_url` → monogram; `h-12 max-w-48 min-w-12`, `object-contain p-1`; plate classes only when not a logo; dashed when no image. Binds `wordmark` **out** (`bind:wordmark`), decided `onload` / for an already-`complete` cached image / `false` on error. `alt` from `imageAlt()`. `eager` prop → `loading="eager"` or `"lazy"`. |
+| `StudioLinkCard.svelte` | Mounts `StudioLogoBox` with `bind:wordmark`; keeps its `showName`, `title`, name + `videoCount` caption. Behaviour unchanged. |
+| `StudioListRow.svelte` (new) | The `/studios` row `<a>` (same classes as before), `StudioLogoBox` + `<span class="min-w-0 flex-1 truncate">{name if showName}</span>` + owner ring + count. `title={name}` when the name is hidden. A component only because the wordmark decision is per-row state, which an `{#each}` body cannot hold. |
+| `routes/studios/+page.svelte` | `{#each}` body → `<StudioListRow studio={s} eager={i < 6} />`; `monogram` / `CompletenessRing` imports dropped. |
 
 ```svelte
-<!-- Leading image slot (HOLODEX-432): a fixed 96×32 box keeps the name column on one
-     vertical line across logo / icon / monogram rows. A logo (the role TMDB fills) draws
-     bare, contained, centred (HOLODEX-411 — no plate under a brand mark). An icon or the
-     monogram keeps the 40×26 plate from HOLODEX-126, centred in the same slot. -->
-<span class="flex h-8 w-24 shrink-0 items-center justify-center overflow-hidden">
-	{#if s.logo_url}
-		<img src={s.logo_url} alt="" class="h-full w-auto max-w-full object-contain" loading="lazy" />
-	{:else}
-		<span class="flex h-[26px] w-10 items-center justify-center overflow-hidden rounded-theme bg-logo-plate">
-			{#if s.icon_url}
-				<img src={s.icon_url} alt="" class="h-full w-full object-contain p-0.5" loading="lazy" />
-			{:else}
-				<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true">{monogram(s.name)}</span>
-			{/if}
-		</span>
-	{/if}
-</span>
-<span class="flex-1 truncate">{s.name}</span>
+<!-- StudioListRow.svelte -->
+<a href={`/studios/${studio.id}`} class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
+   title={showName ? undefined : studio.name}>
+	<StudioLogoBox {studio} {eager} bind:wordmark />
+	<span class="min-w-0 flex-1 truncate">{#if showName}{studio.name}{/if}</span>
+	{#if studio.completeness}<CompletenessRing … size="row" />{/if}
+	<span class="text-xs text-muted">{studio.video_count}</span>
+</a>
 ```
 
-Notes for the implementer:
+Notes:
 
-- **`alt=""` on both images.** The name is the adjacent text in the same `<a>`; today's
-  `alt="{name} icon"` makes screen readers announce the name twice. Decorative, per
-  `StudioLinkCard`'s caption-present state.
-- **`loading="lazy"`** — the list can be hundreds of rows, each now a real image request; the
-  People list eager-loads only the first six avatars (`eager={i < 6}`). Same idea: `loading={i
-  < 6 ? 'eager' : 'lazy'}` if you want the first screen to paint without the lazy hop, otherwise
-  plain `lazy` is fine.
-- **No `p-1` inset on the bare logo** (the card has one). At 32px tall, 4px of padding is 25% of
-  the height; the slot's own 96px width already leaves air beside anything narrower than 3:1.
-- **No `onload` / natural-size logic.** There is no caption rule here, so nothing needs the
-  image's natural aspect — `object-contain` inside the fixed box does all the fitting.
-- **The `<a>` is unchanged**: `flex items-center gap-3 rounded-theme border border-rule
-  bg-surface px-4 py-2.5 text-ink hover:border-accent`. Row height becomes 52px from the slot's
-  `h-8`, not from padding.
-- Update the F38 comment block above the well (it still says "~40×26 plate keeps rows aligned
-  whether or not the studio has an icon") to the one in the snippet.
-- **Stale-comment sweep:** `web/src/lib/types.ts` `Studio.icon_url` says "icon (studios list
-  well)" and `logo_url` says "logo (detail page header)"; `internal/model/model.go` has the same
-  two comments on `IconURL` / `LogoURL`. Both become "logo → StudioLinkCard + the /studios list
-  (HOLODEX-432); icon → fallback on both when there is no logo". Comment-only Go change is
-  fine — no behaviour moves.
+- **The empty name `<span>` stays in the DOM** when the name is hidden — it is the `flex-1`
+  spacer that keeps the ring and count right-aligned.
+- **`eager={i < 6}`** mirrors the People list's avatar rule: the first six rows paint without
+  the lazy hop; the rest load as they scroll in. A lazy off-screen wordmark row shows nothing
+  beside its box until the image loads (its name is in `alt` throughout).
+- **Stale comments fixed** on `Studio.icon_url/logo_url` in `web/src/lib/types.ts` (the role
+  comment said "icon (studios list well), logo (detail page header)").
 
 ## 3. Call sites — unchanged
 
-`StudioLinkCard` (Film / Media detail), `EntityImageSlot` (studio detail Images section), the
-studio picker, and the nav-search Studios tab are untouched. `poster_url` still has no
-consumer.
+`StudioLinkCard`'s two call sites (Film / Media detail) render byte-identically — the extraction
+moved markup, not behaviour. `EntityImageSlot` (studio detail Images section), the studio picker,
+and the nav-search Studios tab are untouched. `poster_url` still has no consumer.
 
 ## 4. Backend — unchanged
 
 `GET /studios` already returns `logo_url` per row (`setStudioImageURLs`, `attachStudioImages`
-batch query over `studio_images`). No new field, no new query, no migration. The only `internal/`
-edit is the two comment lines in §2.
+batch query over `studio_images`). No new field, no new query, no migration, no `internal/` edit.
 
 ## 5. Design tokens used
 
@@ -139,70 +104,76 @@ edit is the two comment lines in §2.
 |---|---|
 | `bg-surface`, `border-rule`, `hover:border-accent`, `rounded-theme` | Row (unchanged) |
 | `text-ink`, `text-muted` | Name, count (unchanged) |
-| `bg-logo-plate`, `text-logo-plate-ink` | Icon / monogram plate only — never under a logo |
+| `border-rule`, `bg-logo-plate`, `text-logo-plate-ink` | Icon / monogram plate only — never under a logo |
 | `font-display` | Monogram glyph (unchanged) |
-| `h-8 w-24` | Slot — spacing-scale utilities, no arbitrary values beyond the existing `h-[26px]` plate |
+| `h-12 max-w-48 min-w-12`, `w-12` | Box — spacing-scale utilities only; the old `h-[26px]` arbitrary value is gone |
 
-No literal colours, radii, or fonts (`.claude/rules/frontend-theming.md`). The slot itself has
-no background and no border in any skin, so nothing new to theme.
+No literal colours, radii, or fonts (`.claude/rules/frontend-theming.md`). The logo box has no
+background and no border in any skin.
 
 ## 6. States
 
-| Row | Slot renders | Name |
-|---|---|---|
-| `logo_url` set | Logo, bare, `object-contain`, centred in 96×32 | Shown |
-| `logo_url` **and** `icon_url` set | Logo (precedence) | Shown |
-| `icon_url` only | 40×26 plate with the icon (`p-0.5`), centred in the slot | Shown |
-| Neither | 40×26 plate with the monogram | Shown |
-| Logo fails to load | Browser's broken-image glyph inside the 96×32 box, `alt=""` so no alt text renders; name beside it | Shown |
-| Hover / focus | Row border → `border-accent` (unchanged); no slot change | — |
-| Loading (page) | The existing "Loading…" line; rows appear all at once (unchanged) | — |
-| Image loading (row) | Empty 96×32 box, name already in place — no layout shift because the slot is fixed-size | Shown |
-| Selecting mode | n/a — studios have no merge-selection mode | — |
+| Row | Box | Name text | `img alt` | `a title` |
+|---|---|---|---|---|
+| Wordmark logo (w ≥ 2h) | bare, 48px tall, width from aspect ≤ 192 | hidden | name | name |
+| Symbol logo (w < 2h) | bare, 48px tall, width from aspect ≥ 48 | shown | `""` | — |
+| Bare logo still loading | bare, 48 × (≥48) | hidden (no caption flash) | name | name |
+| Logo fails to load | bare box, broken-image glyph | shown | `""` | — |
+| `logo_url` **and** `icon_url` | logo (precedence) | per the rows above | | |
+| `icon_url` only | 48×48 plate, `border-rule`, icon `object-contain p-1` | shown | `""` | — |
+| Neither | 48×48 dashed plate, monogram (`aria-hidden`) | shown | — | — |
+| Hover / focus | row border → `border-accent` (unchanged) | | | |
+| Page loading | the existing "Loading…" line; rows appear at once (unchanged) | | | |
 
-A failed logo load is not caught (no `onerror` fallback to the plate): `StudioLinkCard` doesn't
-fall back either, the slot is fixed-size so nothing shifts, and a `?v=` URL served by our own API
-fails only when the row is stale — the next reload heals it.
+Every row is 70px; the box is fixed-height so an image arriving late never shifts the row.
 
 ## 7. Responsive behaviour
 
-| Breakpoint | Row | Name column (after slot + `gap-3`, ring, count) |
+| Breakpoint | Row | Name column after a 48px box (symbol / icon / monogram rows) |
 |---|---|---|
-| `< sm` (1 col, 375px page) | ~343px wide | ~190px |
-| `sm–lg` (2 cols) | ~300–360px | ~140–200px |
-| `≥ lg` (3 cols) | ~300px | ~140px |
+| `< sm` (1 col, 375px page) | ~327px wide | ~215px |
+| `sm–lg` (2 cols) | ~300–360px | ~190–250px |
+| `≥ lg` (3 cols) | ~300px | ~190px |
 
-The slot is `shrink-0`; the name is `flex-1 truncate`. The row never wraps, and the slot never
-shrinks below 96px, so the smallest name column is the `lg` case above (~140px ≈ 18 characters
-at 14px), the same as today minus 56px. `document.documentElement.scrollWidth ===
-clientWidth` at 375px (the HOLODEX-356 guard).
+Wordmark rows have no name column: the box (≤ 192px) plus ring and count always fit a 300px
+row (192 + 16·2 + 12·2 + 28 + 24 = 300). The box is `shrink-0`; the name is `flex-1 truncate`;
+rows never wrap. Verified at 375px: every row 327px wide, boxes 48–192px, no row wider than
+the viewport. (The owner-only sort/facet toolbar above the grid does overflow at 375px —
+`FacetFilter`'s `min-w-[12rem]` — pre-existing and unrelated; filed as [HOLODEX-436](https://whoiskevinrich.atlassian.net/browse/HOLODEX-436).)
 
 ## 8. Edge cases
 
-- **Very wide wordmark (12:1, e.g. a 1200×100 PNG):** rendered 96×8 — a smear. Accept; the name
-  is beside it and the studio page shows the logo at size. `CheckRoleAspect` (HOLODEX-386)
-  guards nothing about the `logo` role, so this can happen, and the fixed slot bounds it.
-- **Portrait logo (2:3):** rendered 21×32, centred; the slot's empty sides are the cost of
-  alignment. Accept.
-- **Dark-on-transparent mark on a dark skin:** reads faint (HOLODEX-411's known cost). The name
-  beside it is the label. Do not add a halo or a plate.
-- **Long names:** `truncate` as today; ~18 characters at `lg`. Nothing new.
-- **Hundreds of rows:** every row is now an `<img>` request (today only icon rows are). `loading="lazy"`
-  keeps the initial burst to the first viewport; each image is a small PNG served with a `?v=`
-  cache key by our own API. Watch `read_network_requests` on the stress fixture (HOLODEX-342).
-- **Random sort / completeness sort / missing-facet filter:** slot markup is per-row and
-  order-independent; nothing to do.
-- **A–Z anchors:** `id="sl-X"` stays on the `<li>`; `scroll-mt-16` stays. Row height 52px still
-  clears the sticky letter nav.
+- **Unnamed rows (accepted cost of B):** a wordmark row shows no text. The A–Z jump-nav and
+  the in-place nav-search filter both work on data, not on visible text, so they still land on
+  and keep the row; the row's `title` supplies the name on hover and its `alt` to assistive
+  tech. Browser find-in-page will not match a wordmark studio's name. A dark-on-transparent
+  wordmark on a dark skin reads faint **with nothing beside it** (HOLODEX-411's known cost,
+  now without the name as a fallback label) — do not add a halo or a plate.
+- **Name column alignment (accepted cost of B):** names start at 16 + boxWidth + 12px, so a
+  symbol-mark or icon row's name sits at ~76px, a portrait logo's at ~60px and a 1.9:1 logo's
+  at ~120px. Same as the card.
+- **Very wide wordmark (12:1):** box 192×48, image 184×15 after inset — a bar. Verified live
+  with a 1000×83 upload. Accept; the studio page shows the logo at size.
+- **Portrait logo (2:3):** box `min-w-12` → 48×48, image 32×48 centred. Accept.
+- **Long names:** `truncate`; ~190px at `lg` on a captioned row (was ~140px with the old well).
+- **Hundreds of rows:** every row is now an `<img>` request (before, only icon rows were).
+  `eager={i < 6}` + `loading="lazy"` keeps the first paint to the first six; each image is a
+  small PNG served with a `?v=` cache key by our own API.
+- **Random / completeness sort, missing-facet filter:** per-row markup, order-independent.
+- **A–Z anchors:** `id="sl-X"` stays on the `<li>`; `scroll-mt-16` still clears the sticky
+  letter nav at 70px rows.
 
 ## 9. Accessibility
 
 - One `<a>` per row, unchanged tab order.
-- Both `<img>`s are `alt=""` (decorative — the name is the link's text). The monogram keeps
-  `aria-hidden="true"`.
-- Accessible name of each row link = the studio name (+ the count as today). Unchanged from
-  before except the duplicate "{name} icon" announcement goes away.
-- No colour-only information: the slot carries no state.
+- **The studio name is announced exactly once per row**, whichever shape renders: as the
+  visible text node (image `alt=""`, decorative) or as the image `alt` (no text node).
+  Verified in the accessibility tree: wordmark rows expose `link "Legendary"` from the alt;
+  captioned rows expose the text node with no image name. The old `alt="{name} icon"` beside
+  the visible name (a double announcement) is gone.
+- The monogram keeps `aria-hidden="true"`.
+- `title` on wordmark rows is a sighted-hover convenience, not the accessible name.
+- No colour-only information: the box carries no state.
 
 ## 10. Out of scope (deliberately) and follow-ups
 
@@ -212,34 +183,35 @@ clientWidth` at 375px (the HOLODEX-356 guard).
   handoff deferred it "until logos are common"; logos are now common for enriched studios. File
   as its own story if wanted — it is a view mode, not a row change.
 - **`poster_url`** still has no consumer.
-- **`StudioLinkCard`** is not touched and does not adopt the fixed slot; the two surfaces have
-  different jobs (caption vs. index).
+- **Owner-only toolbar overflow at 375px** on `/studios` (`FacetFilter` `min-w-[12rem]`) —
+  pre-existing, surfaced by §7's check; filed as [HOLODEX-436](https://whoiskevinrich.atlassian.net/browse/HOLODEX-436).
 
 ## 11. QA checklist
 
-Setup: a studio with a **wide raster logo** (TMDB-enriched or upload a ~5:1 PNG), one with a
-**square logo**, one with **icon only** (upload an icon, no logo), one with **neither**, one with
-**both**, and one with a **name > 30 characters**. Owner logged in with Admin mode on so the
-completeness ring renders.
+Setup: a studio with a **wide raster logo** (TMDB-enriched or upload a ~2.5:1 PNG), one with a
+**12:1 logo** (upload a 1200×100 PNG), one with a **square-ish logo** (< 2:1), one with **icon
+only** (upload an icon, no logo), one with **neither**. Owner logged in with Admin mode on so
+the completeness ring renders. Upload via `POST /api/v1/studios/{id}/images/{role}` with a
+multipart field named `image`.
 
 **Smoke**
-- 11.1 `[smoke]` `cd web && npm run check` clean; `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)|#[0-9a-f]{3,6}' web/src/routes/studios/+page.svelte` empty (the pre-existing `h-[26px]` is the only arbitrary value).
-- 11.2 `[smoke]` `cd web && npm run test` — `studios/+page` tests (if any) still pass; add a render test asserting the three slot states (§6 rows 1, 3, 4) by `img[src]` suffix / monogram text.
+- 11.1 `[smoke]` `cd web && npm run check` clean; `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)|#[0-9a-f]{3,6}|h-\[' web/src/lib/components/entity/StudioLogoBox.svelte web/src/lib/components/entity/StudioListRow.svelte` empty. ✅ 2026-09-20
+- 11.2 `[smoke]` `cd web && npm run test` — `studioLogo.test.ts` (6 cases: the 2:1 threshold, the three `showName` states, the alt rule) plus the existing suite. ✅ 385/385, 2026-09-20
 
-**Agent (driven browser, `getBoundingClientRect` + computed styles — no screenshots, per the
-three-skin QA reference)**
-- 11.3 `[agent]` Wide-logo row on `/studios`: slot box is 96×32, `background-color` `rgba(0, 0, 0, 0)`, `border-width: 0px`; `<img src>` ends in `/images/logo?v=`, `alt === ''`, computed `object-fit: contain`, rendered height ≤ 32 and width ≤ 96 with the natural aspect preserved.
-- 11.4 `[agent]` Both-logo-and-icon row: `<img src>` ends in `/images/logo?v=` — logo wins.
-- 11.5 `[agent]` Icon-only row: outer slot 96×32 transparent; inner plate 40×26 with `background-color` = the skin's `--logo-plate`; `<img src>` ends in `/images/icon?v=`, `alt === ''`.
-- 11.6 `[agent]` Neither: inner plate 40×26, no `<img>`, monogram text present with `aria-hidden="true"`.
-- 11.7 `[agent]` Alignment: for every row in one grid column, the name `<span>`'s `getBoundingClientRect().left` is identical (±0.5px) across logo, icon and monogram rows.
-- 11.8 `[agent]` Row height: every `<a>` is 52px tall (was 46).
-- 11.9 `[agent]` Viewport 375px: `document.documentElement.scrollWidth === clientWidth`; the > 30-char name is truncated (`scrollWidth > clientWidth` on the name span) and the count is still visible.
-- 11.10 `[agent]` Sort by name, click the letter of the wide-logo studio in the jump-nav: `document.getElementById('sl-X')` scrolls into view and its row's name text is non-empty.
-- 11.11 `[agent]` Repeat 11.3, 11.5, 11.6 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: logo slot transparent in every skin; plate `background-color` equals that skin's `--logo-plate`; plate `border-radius` 2px / 0 / 0.
-- 11.12 `[agent]` Network: on the stress fixture, `read_network_requests` filtered to `/images/logo` — requests are issued only for rows near the viewport on first paint (lazy), not for every row.
+**Agent (driven browser, `getBoundingClientRect` + computed styles + the accessibility tree)**
+- 11.3 `[agent]` Wordmark row (2.65:1): box 48px tall, width in `(48, 192]`, `background-color` `rgba(0, 0, 0, 0)`, `border-width: 0px`; `<img src>` ends in `/images/logo?v=`, `alt` = name, `object-fit: contain`; the name `<span>` is empty; `a[title]` = name. ✅ (114×48)
+- 11.4 `[agent]` 12:1 row: box exactly 192×48, same alt/title as 11.3. ✅ (1000×83 upload)
+- 11.5 `[agent]` Symbol-mark row (< 2:1): bare box ≈ 48–49px wide, name text present, `alt=""`, no `a[title]`. ✅ (1000×974)
+- 11.6 `[agent]` Icon-only row: box 48×48, `background-color` = the skin's `--logo-plate`, border solid, `<img src>` ends in `/images/icon?v=`, `alt=""`, name present. ✅
+- 11.7 `[agent]` Neither: box 48×48 dashed, no `<img>`, monogram text with `aria-hidden`, name present. ✅
+- 11.8 `[agent]` Accessibility tree: each row link exposes the studio name exactly once — wordmark rows as the link name (from alt), captioned rows as a text child with no image name. ✅ (`find`/`read_page`)
+- 11.9 `[agent]` Every row `<a>` is 70px tall. ✅
+- 11.10 `[agent]` Viewport 375px: every row narrower than the viewport, boxes 48–192px; one grid column. ✅ (rows 327px; the toolbar overflow above the grid is pre-existing — see §10)
+- 11.11 `[agent]` Repeat 11.3, 11.6, 11.7 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: logo box transparent in every skin; plate `background-color` = `#e9e0d0` / `#e4ebf8` / `#f0f0f0`; plate `border-radius` 2px / 0 / 0. ✅
+- 11.12 `[agent]` Sort by name, click the letter of a wordmark studio in the jump-nav: the row scrolls into view (its name is in `alt`/`title`, not text).
+- 11.13 `[agent]` `/media/{id}` and `/films/{id}` with a logo-bearing studio: `StudioLinkCard` renders exactly as on `main` (same box width, caption rule, alt/title) — the extraction changed no behaviour.
 
 **Human**
-- 11.13 `[human]` Open `/studios` in each skin. Every enriched studio should now show its logo sitting directly on the row — no cream box behind it — with the name beside it, and every name should start on the same vertical line down each column, exactly as the monogram rows do. Rows should look only slightly taller than before.
-- 11.14 `[human]` A studio with an owner-uploaded icon but no logo should look **exactly** as it does on `main` (same small cream plate, same icon), just shifted right by ~28px to centre in the wider slot.
-- 11.15 `[human]` Narrow to phone width: rows are one column, logos the same size, no sideways scroll.
+- 11.14 `[human]` Open `/studios` in each skin. Enriched studios show their logo sitting directly on the row, no cream box, at the same size as on a film page; wordmark studios show the logo alone with the count at the right; symbol-mark, icon and logo-less studios show image + name. Rows are visibly taller than People rows.
+- 11.15 `[human]` Hover a wordmark row: the browser tooltip shows the studio name.
+- 11.16 `[human]` Open a film whose studio has a logo: the studio row under the year looks exactly as it did before this change.

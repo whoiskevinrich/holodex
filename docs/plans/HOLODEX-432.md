@@ -3,40 +3,57 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-432
 status: in-progress
-release_note: The Studios list now shows each studio's logo in its row — the image TMDB actually supplies — instead of a monogram, with icon-only and logo-less studios looking exactly as before.
+release_note: The Studios list now shows each studio's logo in its row — the image TMDB actually supplies — the same way the film and media pages do; a wordmark logo stands in for the name, and icon-only or logo-less studios keep their plate.
 ---
 
 # HOLODEX-432 · Studios list rows draw the logo role
 
-`/studios` reads `icon_url` for its row well, but TMDB only ever fills the `logo` role, so every
-enriched studio shows a monogram in the list while its logo sits on the payload unused
-(`logo_url` is already on `GET /studios`). Frontend-only: swap the well for a fixed 96×32 slot
-that draws the logo bare (HOLODEX-411 rules) and keeps today's 40×26 plate for icon / monogram
-rows, centred in the same slot so the name column stays on one line. Child of F51
-(HOLODEX-246). No spec/ADR — presentation-only change to an existing page.
+`/studios` read `icon_url` for its row well, but TMDB only ever fills the `logo` role, so every
+enriched studio showed a monogram in the list while its logo sat on the payload unused
+(`logo_url` is already on `GET /studios`). Frontend-only: the `StudioLinkCard` image box is
+extracted into a shared `StudioLogoBox` (+ pure `studioLogo.ts` caption rule) and a new
+`StudioListRow` mounts it in front of the name / ring / count — **option B**, the card's rule
+verbatim (owner's pick 2026-09-20 over the recommended C). Child of F51 (HOLODEX-246). No
+spec/ADR — presentation-only change to an existing page.
 
 ## Gates — definition of done
 
 - [ ] spec — n/a (no new capability, field, or endpoint; recorded in the handoff's "Why no spec/ADR")
 - [ ] architecture — n/a (ADR-079 image roles untouched)
-- [/] design `design-handoff` — [studio-list-logo-handoff.md](../design/studio-list-logo-handoff.md) +
-  [mockup SVG](../design/studio-list-logo-mockup.svg); **option C recommended** (fixed `w-24 h-8`
-  slot, logo bare + centred, name always shown; A free-width and B wordmark-replaces-name rejected)
-  — waits on Kevin's pick
-- [ ] backend — n/a beyond two stale comment lines on `model.Studio.IconURL/LogoURL`
-- [ ] frontend — `web/src/routes/studios/+page.svelte` well → slot (handoff §2), `alt=""`,
-  `loading="lazy"`; stale comments in `types.ts`
-- [ ] testing `testing-strategy` — render test for the three slot states + agent rows 11.3–11.12
+- [x] design `design-handoff` — [studio-list-logo-handoff.md](../design/studio-list-logo-handoff.md) +
+  [mockup SVG](../design/studio-list-logo-mockup.svg); **B chosen** (StudioLinkCard rule: h-12
+  bare box, aspect-following, wordmark replaces the name; A free-width and C fixed-slot rejected);
+  name announced once (`alt=""` beside text, `alt={name}` + `title` when hidden)
+- [ ] backend — n/a (no `internal/` edit; the stale role comment lives in `types.ts` only)
+- [x] frontend — `entity/studioLogo.ts` (+test), `entity/StudioLogoBox.svelte` (extracted),
+  `entity/StudioLinkCard.svelte` (mounts the box), `entity/StudioListRow.svelte` (new),
+  `routes/studios/+page.svelte` (row → component); entity `CLAUDE.md` table + `types.ts` comment
+- [x] testing `testing-strategy` — row added under the HOLODEX-411 entry: 6 unit cases +
+  driven-browser 11.3–11.11 verified 2026-09-20 (3 skins, a11y tree, 375px); 11.12–11.13 +
+  human rows open
 - [ ] security — n/a (no auth/access/infra)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-432] Kevin picks A / B / C from the inline cards (C recommended) → flip design to `[x]`
-2. [ ] [HOLODEX-432] frontend per handoff §2, then `/testing-strategy`, `/code-review high --fix`,
-   three-skin QA (handoff §11), mark PR ready
-3. [ ] [HOLODEX-432] on merge: CI moves 432 to Done (story-keyed branch); nothing to sweep by hand
+1. [ ] [HOLODEX-432] Kevin's human look (handoff §11.14–11.16) on the dev testbed → `gh pr ready`
+   (merge main first — the branch is 1 commit behind nothing yet, but check)
+2. [ ] [HOLODEX-432] on merge: CI moves 432 to Done (story-keyed branch); nothing to sweep by hand
+3. [ ] [HOLODEX-436] `/studios` (and likely `/people`) owner toolbar overflows at 375px —
+   pre-existing, found by §7's check; separate fix
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-20 · pick B → implement → test → review → QA
+- skills: code-review (high --fix: 2 findings fixed — `loading` before `src`, `decide()` gated on
+  `bare`), testing-strategy (row added by hand)
+- handoff: Kevin chose **B** over the recommended C, with "name announced once and only once".
+  Extracted `StudioLogoBox` + `studioLogo.ts` out of `StudioLinkCard` so the card and the new
+  `StudioListRow` share one rule; page `{#each}` → component. Regenerated the SVG (B across 3
+  skins, A/C rejected strip) and rewrote the handoff §1–§11 as built. Live QA on a :7802 backend
+  (this worktree's `data/`, `web-432` launch entry with `HOLODEX_API_PORT=7802`) against 1000×83 /
+  1000×378 / 1000×974 logos + icon-only + monogram: geometry, alt/title, a11y tree, 3 skins,
+  375px all green; `npm run check` clean, 385/385 tests. Found and filed HOLODEX-436 (toolbar
+  overflow at 375px, pre-existing). PR #370 stays Draft for Kevin's look.
 
 ### 2026-09-19 · design-handoff
 - skills: design-handoff

@@ -193,8 +193,10 @@ export interface Studio {
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
 	video_count?: number;
-	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
-	// page header), poster (no consumer yet). Each is independently owner-editable
+	// Self-hosted image roles (F51, ADR-079): logo (the role TMDB fills — drawn by
+	// StudioLogoBox on the /studios list rows and the Film/Media StudioLinkCard, with
+	// icon as the fallback when there is no logo; HOLODEX-397/432), poster (no consumer
+	// yet). Each is independently owner-editable
 	// (upload/replace/remove) and provider-sourced by default; present only when that
 	// role's slot is filled. Always populated on both list and detail reads.
 	icon_url?: string;
