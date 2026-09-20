@@ -23,7 +23,8 @@
 </script>
 
 {#if films.length}
-	<section class="films-shelf" style="--cols: {cols}" data-layout={activity.cardLayout}>
+	<!-- id="films": the F68 hover card's "Films" link lands here. -->
+	<section id="films" class="films-shelf scroll-mt-16" style="--cols: {cols}" data-layout={activity.cardLayout}>
 		<h2 class="text-xs uppercase tracking-wide text-muted">Films</h2>
 		<!-- The shelf scrolls horizontally, and a scroll container clips its children on
 		     every edge — without slack the 6% lift is cut off. `--lift-slack` (app.css) scales

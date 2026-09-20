@@ -80,6 +80,9 @@
 	{/if}
 	{@render hero()}
 	{#if detail}{@render detail()}{/if}
-	<VideoGrid videos={displayedVideos} empty={emptyMessage} />
+	<!-- id="videos": the F68 hover card's "Videos" link lands here. -->
+	<div id="videos" class="scroll-mt-16">
+		<VideoGrid videos={displayedVideos} empty={emptyMessage} />
+	</div>
 	{#if footer}{@render footer()}{/if}
 </section>

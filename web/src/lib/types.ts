@@ -1142,6 +1142,25 @@ export interface CompletenessSummary {
 	extras: number | null;
 }
 
+// PersonCard is GET /people/{id}/card (F68, HOLODEX-431): the hover card's payload.
+// Absent facts are absent keys — the card drops the segment, never renders "—".
+// `completeness` rides the owner gate exactly like the list field (F65.5).
+export interface PersonCard {
+	id: number;
+	ref: string;
+	name: string;
+	display_name?: string;
+	headshot_version?: number;
+	video_count: number;
+	film_count: number;
+	age?: number;
+	age_at_death?: number;
+	nationality?: string[];
+	aliases?: string[];
+	external_links?: ExternalLink[];
+	completeness?: CompletenessSummary;
+}
+
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
 // mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's
 // option list: canonical (the value sent as ?missing_facet=), a display label,

@@ -10,6 +10,7 @@
 	// `removeSide` exists: that pill owns the top-right corner, so Films docks remove
 	// top-left while People keeps the default right.
 	import type { Snippet } from 'svelte';
+	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
 
 	let {
 		href,
@@ -18,6 +19,7 @@
 		onRemove,
 		busy = false,
 		removeSide = 'right',
+		personId,
 		children
 	}: {
 		href: string;
@@ -26,15 +28,28 @@
 		onRemove?: () => void;
 		busy?: boolean;
 		removeSide?: 'left' | 'right';
+		/** F68: set by PeopleGrid so the tile's link carries the person hover card;
+		 * film tiles never set it. The remove badge stays outside the chip. */
+		personId?: number;
 		children?: Snippet;
 	} = $props();
 </script>
 
-<li class="curation-chip group relative w-20 shrink-0">
+{#snippet tileLink()}
 	<a {href} class="block space-y-1.5 text-ink" title={name}>
 		{@render poster()}
 		<span class="line-clamp-2 text-xs text-muted group-hover:text-accent">{name}</span>
 	</a>
+{/snippet}
+
+<li class="curation-chip group relative w-20 shrink-0">
+	{#if personId !== undefined}
+		<PersonLinkChip id={personId} {name} wrapClass="relative block">
+			{@render tileLink()}
+		</PersonLinkChip>
+	{:else}
+		{@render tileLink()}
+	{/if}
 	{@render children?.()}
 	{#if onRemove}
 		<button

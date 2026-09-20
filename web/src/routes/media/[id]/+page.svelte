@@ -2237,6 +2237,7 @@
 				title={related.person.name}
 				href={`/people/${related.person.id}`}
 				items={related.person.items}
+				personId={related.person.id}
 			/>
 		{/if}
 		{#if related?.tag}

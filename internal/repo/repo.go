@@ -1124,6 +1124,12 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 // track more than one core role's version (headshot, now also poster — F55 P0-6; banner
 // would extend here with zero new query shapes if it ever needs list-level tracking too).
 // 'extra' gallery rows are excluded — this only tracks the single-slot core roles.
+// PersonImageVersions is the exported single-slot role→version read for callers
+// that want one person's headshot/poster versions without a list row (F68 card).
+func (r *Repo) PersonImageVersions(ctx context.Context, ids []int64) (map[int64]map[string]int64, error) {
+	return r.personImageVersions(ctx, ids)
+}
+
 func (r *Repo) personImageVersions(ctx context.Context, ids []int64) (map[int64]map[string]int64, error) {
 	out := make(map[int64]map[string]int64, len(ids))
 	if len(ids) == 0 {

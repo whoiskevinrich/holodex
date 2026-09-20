@@ -537,6 +537,23 @@
 			animation: portrait-fade 0.18s ease-out both;
 		}
 	}
+	/* F68: the person hover card enters with a short fade + 2px rise; close is instant.
+	   Reduced motion gets an instant open. */
+	@media (prefers-reduced-motion: no-preference) {
+		.person-hover-card-motion {
+			animation: hover-card-in 0.12s ease-out both;
+		}
+	}
+	@keyframes hover-card-in {
+		from {
+			opacity: 0;
+			translate: 0 2px;
+		}
+		to {
+			opacity: 1;
+			translate: 0 0;
+		}
+	}
 	/* F65.8: the completeness ring while its refresh is in flight — a fixed quarter
 	   arc that spins. Under reduced motion the arc holds still and the ring dims, so
 	   "busy" still reads without movement. */

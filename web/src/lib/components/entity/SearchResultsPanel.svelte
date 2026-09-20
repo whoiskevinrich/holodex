@@ -10,6 +10,7 @@
 	import type { Snippet } from 'svelte';
 	import type { Film, Person, SearchResponse, Studio, Tag, Video } from '$lib/types';
 	import { SEARCH_TABS, type SearchTab } from '$lib/navSearch.svelte';
+	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
 	import { monogram } from '$lib/format';
 	import { partBadgeLabel } from '$lib/components/video/partBadge';
 
@@ -41,7 +42,9 @@
 	type GroupKey = 'people' | 'videos' | 'studios' | 'tags' | 'films';
 	// thumb: true renders a monogram poster chip before the label — films is the one
 	// group where a thumbnail matters (design handoff), the rest stay text-only rows.
-	type RowItem = { id: string; label: string; sub: string; href: string; thumb?: boolean };
+	// personId marks a people row so the page variant can wrap it in the F68 hover card
+	// (the dropdown never does — a floating card inside a floating panel is out of scope, RD6).
+	type RowItem = { id: string; label: string; sub: string; href: string; thumb?: boolean; personId?: number };
 	type Group = { key: GroupKey; label: string; rows: RowItem[]; total: number; hasMore: boolean };
 
 	const GROUP_LABELS: Record<GroupKey, string> = {
@@ -62,7 +65,7 @@
 	// Rows label with the display spelling when a name decision stands (F60 RD9) — it
 	// is what matched. The href still keys on id; nothing here sends `name` back.
 	function personRow(p: Person): RowItem {
-		return { id: `p${p.id}`, label: p.display_name ?? p.name, sub: `${p.video_count ?? 0}`, href: `/people/${p.id}` };
+		return { id: `p${p.id}`, label: p.display_name ?? p.name, sub: `${p.video_count ?? 0}`, href: `/people/${p.id}`, personId: p.id };
 	}
 	function studioRow(s: Studio): RowItem {
 		return { id: `s${s.id}`, label: s.display_name ?? s.name, sub: `${s.video_count ?? 0}`, href: `/studios/${s.id}` };
@@ -259,8 +262,7 @@
 		{:else}
 			<!-- Shared shell for a result row and a "View all" row — same roving-tabindex
 			     wiring, differing only in href/styling/content. -->
-			{#snippet resultRow(flatIndex: number, href: string, kind: 'row' | 'viewall', children: Snippet)}
-				<li role="presentation">
+			{#snippet rowLink(flatIndex: number, href: string, kind: 'row' | 'viewall', children: Snippet)}
 					<a
 						data-row-index={flatIndex}
 						{href}
@@ -277,6 +279,18 @@
 					>
 						{@render children()}
 					</a>
+			{/snippet}
+			{#snippet resultRow(flatIndex: number, href: string, kind: 'row' | 'viewall', children: Snippet, person?: { id: number; name: string })}
+				<li role="presentation">
+					{#if person && variant === 'page'}
+						<!-- F68 hover card on the /search page's people rows only (RD6). The row's
+						     own <a> — roving tabindex, option role, handlers — is untouched inside. -->
+						<PersonLinkChip id={person.id} name={person.name} wrapClass="relative block">
+							{@render rowLink(flatIndex, href, kind, children)}
+						</PersonLinkChip>
+					{:else}
+						{@render rowLink(flatIndex, href, kind, children)}
+					{/if}
 				</li>
 			{/snippet}
 			{#each groups as g, gi (g.key)}
@@ -301,7 +315,7 @@
 								</span>
 								{#if row.sub}<span class="shrink-0 text-xs text-muted">{row.sub}</span>{/if}
 							{/snippet}
-							{@render resultRow(flatIndex, row.href, 'row', rowBody)}
+							{@render resultRow(flatIndex, row.href, 'row', rowBody, row.personId !== undefined ? { id: row.personId, name: row.label } : undefined)}
 						{/each}
 						{#if g.hasMore}
 							{@const flatIndex = groupOffsets[gi] + g.rows.length}
