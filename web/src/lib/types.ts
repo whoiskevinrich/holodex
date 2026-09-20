@@ -561,7 +561,7 @@ export interface LibraryCounts {
 	tags: number;
 }
 
-// Entity refresh sweep (F66 RD5/RD11, ADR-103 D8): the `sweep` block on the
+// Entity refresh sweep (F67 RD5/RD11, ADR-103 D8): the `sweep` block on the
 // activity poll. `kind` is the entity type ('person' | 'studio'), never the route
 // plural. Counts are per pair; total/done are per entity. last_run outlives the run
 // until the next sweep starts or the process restarts.
@@ -683,6 +683,31 @@ export interface Capabilities {
 	// films_enabled gates the Films entity (F56, ADR-085) — routes, nav, video-list
 	// hiding, and the resolver-source injection are all suspended when false.
 	films_enabled: boolean;
+	// theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical for
+	// every viewer. The SPA applies it on arrival and keeps no preference of its own.
+	theme: ThemeCapability;
+}
+
+// The three skins built into app.css (ADR-021) plus the owner's custom palette id.
+export type ShippedTheme = 'cinematheque' | 'broadcast' | 'brutalist';
+export type ThemeId = ShippedTheme | 'custom';
+
+// ThemeCustom is the owner's palette from holodex.yaml `theme.custom` (F67 R9): a
+// base skin for fonts/radius/flourishes plus five hex primaries the SPA sets as inline
+// custom properties on <html> (ADR-102 D4). Null until an operator configures one.
+export interface ThemeCustom {
+	name: string;
+	base: ShippedTheme;
+	tokens: Record<'bg' | 'ink' | 'accent' | 'muted' | 'warn', string>;
+	// contrast is the server's boot-time WCAG check of the four load-bearing pairs
+	// (F67 R12), shown on the Appearance card (R15). Absent in a paint cache written
+	// by an older build, hence optional.
+	contrast?: { pair: string; ratio: number; pass: boolean }[];
+}
+
+export interface ThemeCapability {
+	active: ThemeId;
+	custom: ThemeCustom | null;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).
@@ -779,7 +804,7 @@ export interface EnrichQueueRow {
 // RefreshAllResult is one provider's outcome from POST .../enrich/refresh-all (RD8/P1-2):
 // a linked provider refreshes directly; an unlinked one resolves and either auto-applies a
 // single strong match or comes back needs_review — never silently dropped. rate_limited
-// (F66 RD8, ADR-103 D4) is a provider whose bucket is paused: the row failed fast with
+// (F67 RD8, ADR-103 D4) is a provider whose bucket is paused: the row failed fast with
 // retry_after seconds instead of waiting; the other providers' rows are unaffected.
 export interface RefreshAllResult {
 	provider: string;

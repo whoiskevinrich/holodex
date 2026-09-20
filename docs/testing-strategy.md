@@ -2614,3 +2614,51 @@ outlives its marker is the same failure one level up.
   reporting the remaining matrix as ~600 `error` rows. Confirmed 2026-09-14 on Node 24.19.0
   (libuv 1.52.1): the full matrix completed, 738 passed / 0 errored, exit 0 — the harness's
   first green full run.
+
+## 13. Instance skin and custom palette (F67, ADR-102)
+
+The skin became a server-held, library-owned setting with a derived custom palette
+([spec](specs/instance-skin.md), [handoff](design/instance-skin-handoff.md)). What is asserted
+where:
+
+**Unit — Go**
+- `internal/theme`: **`TestDeriveMatchesCinematheque` is the R11 gate** — Cinémathèque
+  re-expressed as its five primaries, pushed through the same oklab `color-mix()` rules as
+  `app.css`'s `[data-palette='custom']` block, must land within ΔE\*ab ≤ 2 of every hand-tuned
+  token (compared as painted 8-bit sRGB). It fails when either copy of the percentages drifts.
+  Also: contrast known values (white/black = 21, HOLODEX-324's warn pair ≈ 5.42), a
+  deliberately low `muted` is flagged, and `Parse` rejects a missing name, an unsupported base,
+  a missing colour, CSS text and `rgb()` — the hex-only rule that keeps owner strings out of CSS.
+- `internal/repo`: `settings` round-trip, upsert, empty key.
+- `internal/api`: default theme for owner and visitor; `PUT /admin/theme` visitor 401 / unknown
+  400 / `custom` without a palette 400 / empty 400, rejected writes leave capabilities untouched,
+  a set is what a visitor then receives; stored `custom` with no palette reports the default and
+  leaves the row; with a palette wired, `custom` is selectable and capabilities carries name,
+  base, five normalised tokens and four contrast pairs.
+
+**Unit — SPA (`theme.test.ts`)**
+- Server value applied to `<html>` (`data-theme`, `data-palette`, the five inline primaries) with
+  no preference key; switching back clears every inline property; the paint cache is applied
+  before capabilities and always overwritten by the server; a corrupt/blocked cache and a cached
+  palette with missing tokens are ignored; `select()` refuses `custom` locally when none is
+  configured, applies optimistically, and reverts on a rejected `PUT`.
+
+**Agent (live, per the handoff's numbered checklist)** — cards render in *their* tokens and
+flourishes (the `.skin-card` fence in `app.css` is what makes the page skin not bleed into a
+card; probe `::before`/`::after` `content` on a tile inside each card and on one outside);
+click → `PUT` → visitor reload; keyboard roving; forced 403 → revert + alert; phone two-up;
+no header picker. **The CSS ↔ Go cross-check for R11** is a browser probe: put a palette on
+`<html>` with `data-palette="custom"`, read the computed derived tokens, and compare to
+`internal/theme.Derive` — the Go test proves the rule, the probe proves the browser agrees.
+
+**Human** — 3.1–3.4 in the handoff; the load-bearing one is that a custom palette re-tints the
+whole page while keeping Cinémathèque's fonts and sprocket edges, and clicking back returns
+everything to stock.
+
+**Standing gaps**
+- The CSS ↔ Go cross-check is manual. Automating it needs a browser in CI (the §12 harness could
+  carry one derivation assertion against the stress fixture); not done — one palette, one base.
+- `base` other than Cinémathèque is refused by `Parse`, so nothing tests derivation on Broadcast
+  or Brutalist; widening `allowedBases` must add each skin's primaries + hand-tuned tokens to
+  the gate first.
+

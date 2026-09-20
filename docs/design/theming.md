@@ -5,8 +5,18 @@
 **Architecture**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)
 
 Holodex ships **three switchable skins**. The default is **Cinémathèque**. All three are
-dark; skin selection persists (localStorage `holodex-theme`) and is applied as
-`data-theme` on `<html>`.
+dark. The skin is **instance identity** ([ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)):
+the owner picks it on **Owner › Appearance**, it persists server-side and arrives with
+`/capabilities.theme`, and the SPA applies it as `data-theme` on `<html>` for every viewer —
+there is no per-browser preference (only a paint cache, `holodex-theme-cache`, that the server
+value always overwrites). A custom palette (`theme.custom` in `holodex.yaml`) rides a base
+skin's `data-theme` plus five inline custom properties on `<html>`, and `data-palette="custom"`
+switches on the derivation block in `app.css` that computes every pair-partner token
+(`surface`, `surface-2`, `rule`, `accent-ink`, `warn-ink`, `logo-plate`, `logo-plate-ink`) from
+them with oklab `color-mix()`. `internal/theme` mirrors that block in Go for the boot-time
+contrast WARN, and `TestDeriveMatchesCinematheque` gates both: Cinémathèque re-expressed as its
+five primaries must land within ΔE\*ab ≤ 2 of the hand-tuned block. **Change a percentage in one
+place, change it in the other** — the test is what notices when you forget.
 
 ## Design tokens (the contract)
 
@@ -65,7 +75,7 @@ falls to 2.4:1 (Broadcast) / 2.7:1 (Brutalist) / 2.9:1 (Cinémathèque) against 
 Instead the *affordance* is withdrawn — the border drops, or the accent demotes to neutral —
 so the label stays at full token contrast (4.7:1 or better in every skin).
 
-Do not add a `transition` on `color`/`border-color` to these: the skin picker swaps the
+Do not add a `transition` on `color`/`border-color` to these: an Appearance-tab pick swaps the
 underlying tokens at runtime, which makes the swap animate and can leave the control stuck
 on the previous skin's colour.
 
@@ -78,7 +88,10 @@ on the previous skin's colour.
 
 ## QA checklist (every UI change)
 
-Render and eyeball **all three skins** (switch via the header picker), not just the
-default — regressions frequently appear in only one skin. Confirm: fonts load (offline),
+Render and eyeball **all three skins** (switch on **Owner › Appearance**), plus the custom
+palette when one is configured, not just the default — regressions frequently appear in only
+one skin. The Appearance cards themselves render each skin's flourishes inside a `.skin-card`
+fence (`app.css`, the two-branch `.video-frame` selectors) — a new `.video-frame` flourish must
+keep both branches or it will bleed across cards. Confirm: fonts load (offline),
 the accent reads on `--accent` fills, no decorative-element collisions (badges vs.
 counters), and the grid/empty/loading/error states all themed.

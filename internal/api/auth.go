@@ -238,6 +238,9 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		// FilmsEnabled gates the Films entity (F56, ADR-085); the SPA renders no
 		// films routes/nav when false.
 		FilmsEnabled bool `json:"films_enabled"`
+		// Theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical
+		// for every viewer; the SPA applies it on arrival and never keeps a preference.
+		Theme ThemePayload `json:"theme"`
 	}{
 		Owner:                    h.auth.authorized(r),
 		AuthRequired:             h.auth.Required(),
@@ -245,5 +248,6 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		CardLayout:               h.cardLayout,
 		PersonGalleryMax:         h.repo.GalleryCapValue(),
 		FilmsEnabled:             h.filmsEnabled,
+		Theme:                    h.themePayload(r.Context()),
 	})
 }

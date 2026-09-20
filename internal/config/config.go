@@ -130,6 +130,12 @@ type Config struct {
 	// flag; it gates behavior, not schema.
 	FilmsEnabled bool `yaml:"films_enabled"`
 
+	// Theme holds the owner's custom palette (F67, ADR-102 D4). Which skin is *active*
+	// is not config — it is a library-owned setting the owner picks on Owner ›
+	// Appearance (ADR-102 D2); this block only declares the palette that selection may
+	// point at. YAML-only (a multi-value block; no env override), restart to apply.
+	Theme ThemeConfig `yaml:"theme"`
+
 	// DefaultSource governs the undecided per-field source of truth (F36, ADR-051).
 	// "file" (default) makes the file/baseline layer win when no per-field decision
 	// exists — a provider is a candidate, never an automatic winner (the F31
@@ -480,4 +486,24 @@ func envBool(key string, def bool) bool {
 		}
 	}
 	return def
+}
+
+// ThemeConfig is the `theme:` block of holodex.yaml (F67).
+type ThemeConfig struct {
+	// Custom is the owner-defined palette, or nil when none is declared. Validated by
+	// internal/theme.Parse at boot: a malformed block is logged and treated as absent —
+	// never a boot failure (spec R9, ADR-102 D5).
+	Custom *ThemeCustom `yaml:"custom"`
+}
+
+// ThemeCustom is one palette: a base skin for fonts/radius/flourishes plus five hex
+// primaries. Every other token is derived in CSS (ADR-102 D4).
+type ThemeCustom struct {
+	Name   string `yaml:"name"`
+	Base   string `yaml:"base"`
+	BG     string `yaml:"bg"`
+	Ink    string `yaml:"ink"`
+	Accent string `yaml:"accent"`
+	Muted  string `yaml:"muted"`
+	Warn   string `yaml:"warn"`
 }

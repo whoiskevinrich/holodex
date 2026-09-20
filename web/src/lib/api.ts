@@ -59,7 +59,9 @@ import type {
 	FieldPromotionRequest,
 	FieldPromotionView,
 	FieldTarget,
-	PromotionEntityType
+	PromotionEntityType,
+	ThemeCapability,
+	ThemeId
 } from './types';
 
 const BASE = '/api/v1';
@@ -640,7 +642,7 @@ export const api = {
 
 	activity: () => getAuthed<Activity>(`/admin/activity`),
 
-	// ?batch= scopes the list to one sweep's runs (F66 RD6): the summary row plus
+	// ?batch= scopes the list to one sweep's runs (F67 RD6): the summary row plus
 	// every per-entity run it produced — the audit trail behind the done line.
 	activityHistory: (days = 30, batch?: string) =>
 		getAuthed<{ runs: JobRun[] }>(
@@ -649,7 +651,7 @@ export const api = {
 				: `/admin/activity/history?days=${days}`
 		),
 
-	// Start one background refresh sweep over every person or studio (F66,
+	// Start one background refresh sweep over every person or studio (F67,
 	// ADR-103 D8). 202 + {started:false} means a sweep of either kind is already
 	// running — not an error. force ignores the 24 h staleness skip (RD3).
 	sweepEntities: async (kind: SweepKind, force = false): Promise<{ started: boolean }> => {
@@ -686,6 +688,13 @@ export const api = {
 	reloadConfig: async (): Promise<{ fields: number }> => {
 		const body = await sendAuthed<{ fields?: number }>('POST', `/admin/reload-config`);
 		return { fields: Number(body.fields ?? 0) };
+	},
+
+	// Instance skin (F67, ADR-102 D3). Owner-only; the value every viewer then gets
+	// in capabilities.theme. 400 for an unknown id or "custom" with no palette configured.
+	setTheme: async (theme: ThemeId): Promise<ThemeCapability> => {
+		const body = await sendAuthed<{ theme: ThemeCapability }>('PUT', `/admin/theme`, { theme });
+		return body.theme;
 	},
 
 	// Metadata source plugins — People enrichment (F22). All owner-gated.

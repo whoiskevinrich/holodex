@@ -160,6 +160,28 @@
 	--radius: 0px;
 }
 
+/* ---- Custom palette (F67, ADR-102 D4) — derived tokens ----
+   Active only where the SPA (or an Appearance card) sets data-palette="custom" next to
+   the base skin's data-theme and the five primaries (--bg --ink --accent --muted --warn)
+   as inline custom properties. Every pair-partner token is derived from them here, so a
+   palette cannot recreate the HOLODEX-324 class of contrast bug by hand. Inert without
+   the attribute: the three shipped blocks above render exactly as before.
+
+   MIRROR: internal/theme/theme.go Derive() replicates this block for the boot-time
+   contrast WARN, and TestDeriveMatchesCinematheque gates both against the hand-tuned
+   Cinémathèque values (ΔE*ab ≤ 2). Change a percentage here, change it there. */
+[data-palette='custom'] {
+	--surface: color-mix(in oklab, var(--bg), var(--ink) 4.5%);
+	--surface-2: color-mix(in oklab, var(--bg), var(--ink) 6%);
+	--rule: color-mix(in oklab, var(--bg), var(--ink) 15.5%);
+	/* Ink on a fill: the fill tinted toward the background, then deepened toward black —
+	   a near-black that keeps the fill's hue. */
+	--accent-ink: color-mix(in oklab, color-mix(in oklab, var(--accent), var(--bg) 84%), black 23%);
+	--warn-ink: color-mix(in oklab, color-mix(in oklab, var(--warn), var(--bg) 84%), black 23%);
+	--logo-plate: color-mix(in oklab, color-mix(in oklab, var(--ink), var(--bg) 3%), var(--accent) 7%);
+	--logo-plate-ink: color-mix(in oklab, var(--surface-2), var(--accent) 11%);
+}
+
 @layer base {
 	body {
 		background-color: var(--bg);
@@ -344,10 +366,18 @@
 		border: 1px solid var(--rule);
 		border-radius: var(--radius);
 	}
+	/* Skin flourishes on .video-frame come in two branches so a preview tile inside
+	   a `.skin-card` (the Appearance tab, F67) takes the *card's* skin, not the page's:
+	   the page-level rule is fenced with `:not(.skin-card *)`, and a `.skin-card[data-
+	   theme='X']` branch re-applies it inside a card of that skin. A plain descendant
+	   selector would match through <html data-theme> into every card. Tokens need no
+	   fence — nearest ancestor already wins for custom properties. */
 	/* Cinémathèque: letterbox bars. Suppressed in poster mode — fixed-height bars
 	   read as widescreen chrome and look wrong on portrait cards. */
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		content: '';
 		position: absolute;
 		left: 0;
@@ -356,14 +386,17 @@
 		background: #000;
 		z-index: 1;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
 		top: 0;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
 		bottom: 0;
 	}
 	/* Broadcast: scanline wash over each still. */
-	[data-theme='broadcast'] .video-frame::after {
+	[data-theme='broadcast'] .video-frame:not(.skin-card *)::after,
+	.skin-card[data-theme='broadcast'] .video-frame::after {
 		content: '';
 		position: absolute;
 		inset: 0;
@@ -675,7 +708,8 @@
 	.video-frame {
 		counter-increment: reel;
 	}
-	[data-theme='brutalist'] .video-frame::before {
+	[data-theme='brutalist'] .video-frame:not(.skin-card *)::before,
+	.skin-card[data-theme='brutalist'] .video-frame::before {
 		content: counter(reel, decimal-leading-zero);
 		position: absolute;
 		left: 0.45rem;

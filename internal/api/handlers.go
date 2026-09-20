@@ -79,7 +79,7 @@ type Handlers struct {
 	// than reached through extract.Orchestrator's composition.
 	extract      *extract.Orchestrator
 	extractBatch *extract.BatchRunner
-	// Entity refresh sweep (F66, ADR-103 D8). nil disables the trigger (503) and
+	// Entity refresh sweep (F67, ADR-103 D8). nil disables the trigger (503) and
 	// leaves the activity `sweep` block idle.
 	sweep    *enrich.SweepRunner
 	patterns *extract.PatternStore
@@ -138,6 +138,9 @@ type Handlers struct {
 	// cardLayout is the operator's preferred card aspect ratio ("wide" or "poster"),
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
+	// customTheme is the owner's configured palette (F67 S3); nil until config wires it.
+	// Read by themePayload for /capabilities and PUT /admin/theme.
+	customTheme *ThemeCustom
 
 	// filmsEnabled gates the Films entity (F56, ADR-085); default false. Surfaced
 	// via /capabilities so the SPA knows whether to render films routes/nav at all.
@@ -212,7 +215,7 @@ func (h *Handlers) SetExtraction(orch *extract.Orchestrator, batch *extract.Batc
 	}
 }
 
-// SetSweep wires the entity refresh sweep runner (F66, ADR-103 D8). Called once
+// SetSweep wires the entity refresh sweep runner (F67, ADR-103 D8). Called once
 // at startup before serving; nil-safe.
 func (h *Handlers) SetSweep(s *enrich.SweepRunner) { h.sweep = s }
 
@@ -405,9 +408,10 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/admin/activity/failures/dismiss", h.adminDismissJobFailures)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
+		r.Put("/admin/theme", h.adminSetTheme)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
 		r.Post("/admin/extract-all", h.adminExtractAll)
-		// Entity refresh sweep — one background pass per kind (F66, ADR-103 D8).
+		// Entity refresh sweep — one background pass per kind (F67, ADR-103 D8).
 		r.Post("/admin/enrich/sweep/{kind}", h.adminEnrichSweep)
 		// Metadata source plugins — People enrichment (F22, ADR-033).
 		h.mountEnrich(r)

@@ -35,7 +35,9 @@ The UI is built on semantic design tokens with three switchable skins (see
   the `.btn-*` classes already do this. Quick check:
   `rg 'text-muted[^"]*disabled:opacity' web/src --glob '*.svelte'` should be empty.
 - **QA all three skins.** When verifying any UI change, render and eyeball **Cinémathèque,
-  Broadcast, and Brutalist** (switch via the header picker), not just the default —
+  Broadcast, and Brutalist** (switch on **Owner › Appearance** — the skin is instance identity,
+  ADR-102, so the choice applies to every viewer; there is no header picker), plus the custom
+  palette when one is configured, not just the default —
   regressions routinely appear in only one skin (e.g. a badge/counter collision, an accent
   that doesn't read on its background). Confirm fonts load offline and the
   loading/empty/error/grid states are all themed.

@@ -19,7 +19,8 @@
 		{ href: '/owner/enrichment', label: 'Enrichment' },
 		{ href: '/owner/extraction', label: 'Extraction' },
 		{ href: '/owner/completeness', label: 'Completeness' },
-		{ href: '/owner/trash', label: 'Trash' }
+		{ href: '/owner/trash', label: 'Trash' },
+		{ href: '/owner/appearance', label: 'Appearance' }
 	];
 
 	// Owner gate + single auto-reveal (P0-6), consolidated here so the nested pages

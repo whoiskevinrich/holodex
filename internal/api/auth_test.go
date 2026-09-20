@@ -18,7 +18,17 @@ import (
 
 // authServer builds a server whose admin surface is gated by token (empty = open)
 // and bound as exposed/loopback, exercising the F21.7 gate (ADR-030).
+// authServer is authServerH without the Handlers, for the many tests that never
+// need to wire anything after construction.
 func authServer(t *testing.T, token string, exposed bool) (*httptest.Server, *repo.Repo) {
+	t.Helper()
+	srv, r, _ := authServerH(t, token, exposed)
+	return srv, r
+}
+
+// authServerH builds a gated test server on a temp DB and returns the Handlers too,
+// so a test can wire optional collaborators (e.g. SetCustomTheme) the way main.go does.
+func authServerH(t *testing.T, token string, exposed bool) (*httptest.Server, *repo.Repo, *api.Handlers) {
 	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
@@ -35,7 +45,7 @@ func authServer(t *testing.T, token string, exposed bool) (*httptest.Server, *re
 
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
-	return srv, r
+	return srv, r, h
 }
 
 // getTok issues GET url with an optional owner token, returning status + decoded body.

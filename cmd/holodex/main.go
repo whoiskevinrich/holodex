@@ -38,6 +38,7 @@ import (
 	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
+	"holodex/internal/theme"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
@@ -428,6 +429,22 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
+	// Custom palette (F67, ADR-102 D5): a malformed block is logged and treated as
+	// absent; a low-contrast one is applied with a WARN per failing pair.
+	if tc := cfg.Theme.Custom; tc != nil {
+		custom, err := theme.Parse(theme.Input(*tc)) // same fields, same order; a conversion, not a copy
+		if err != nil {
+			log.Warn("theme.custom ignored", "err", err)
+		} else {
+			for _, p := range theme.Contrast(custom) {
+				if !p.Pass {
+					log.Warn("theme.custom contrast below AA", "pair", p.Name, "ratio", p.Ratio, "min", theme.AAText)
+				}
+			}
+			handlers.SetCustomTheme(custom)
+			log.Info("custom palette configured", "name", custom.Name, "base", custom.Base)
+		}
+	}
 	handlers.SetFilmsEnabled(cfg.FilmsEnabled)
 	handlers.SetDefaultSource(cfg.DefaultSource)
 	handlers.SetProviderTrustOrder(cfg.ProviderTrustOrder)
