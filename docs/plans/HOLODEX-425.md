@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-425
-status: in-progress  # all gates green; awaiting human QA before ready-for-review
+status: in-review
 release_note: The skin is now the instance's identity — the owner picks it once on the new Appearance tab and every viewer sees it; an owner can also declare a custom palette (five colors on top of Cinémathèque) in holodex.yaml.
 ---
 
@@ -38,12 +38,12 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-425] **human QA** 3.1–3.4 from the handoff (Kevin's look on the real skins + a real
-   `theme.custom`), then mark PR #365 ready — that is the In Review transition
+1. [x] [HOLODEX-425] human QA 3.1–3.4 passed (Kevin, 2026-09-19); PR #365 marked ready, 425–428 swept
+   to In Review by hand (epic-keyed branch → CI fires nothing)
 2. [ ] [HOLODEX-429] luminance-switched ink partners (spec OQ3) — a mid-tone accent derives a dark ink
    that fails AA (the sample red lands at 3.91:1); follow-up, not a v1 blocker
-3. [ ] [HOLODEX-425] on ready-for-review sweep 426/427/428 to In Review by hand; on merge sweep
-   all four to Done by hand (epic-keyed branch → CI fires nothing)
+3. [ ] [HOLODEX-425] on merge sweep 425/426/427/428 to Done by hand (epic-keyed branch → CI fires
+   nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -60,3 +60,9 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
   mirrored in Go with the R11 gate green (all seven tokens ΔE ≤ 2, browser and Go agree to the hex
   live); docs + example + testing-strategy §13. Every gate is green; PR #365 stays Draft only for
   Kevin's human QA. Filed HOLODEX-429 (mid-tone accent → dark ink fails AA).
+
+### 2026-09-19 · human QA → ready for review
+- skills: —
+- handoff: 3.1–3.4 passed on the dev testbed with the sample palette (the one hiccup was my stopped
+  backend, not code). PR #365 marked **ready**; 425–428 In Review. Nothing open on the branch; on
+  merge sweep all four to Done by hand, then HOLODEX-429 is the next piece of F66.
