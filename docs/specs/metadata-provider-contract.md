@@ -1061,7 +1061,7 @@ tokens, no tracking parameters); it is shown to visitors as-is.
 ### 4.13 Rate limit declaration (`/describe.rate_limit`)
 
 > **Status: additive extension** (F66 — [entity-refresh-sweep.md](entity-refresh-sweep.md), HOLODEX-421;
-> ADR pending). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
+> [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md)). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
 > that omits it stays fully conformant at Holodex's default pace, and an older Holodex that doesn't parse it
 > is unaffected. **No protocol bump.**
 

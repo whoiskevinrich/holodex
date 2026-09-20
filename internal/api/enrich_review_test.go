@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,6 +40,17 @@ func (c *resolveCounter) Resolve(ctx context.Context, entityType string, hint en
 // resolve-call counter so tests can assert "Refresh never re-searches".
 func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Repo, pid, sid, vid int64, resolveCalls *int) {
 	t.Helper()
+	resolveCalls = new(int)
+	srv, r, pid, sid, vid = reviewServerWith(t, token, func(enrich.Source) enrich.ProviderClient {
+		return &resolveCounter{Fake: enrich.NewFake("fake"), n: resolveCalls}
+	})
+	return srv, r, pid, sid, vid, resolveCalls
+}
+
+// reviewServerWith is reviewServer over a caller-supplied provider-client factory —
+// for tests that need one shared fake they can reconfigure mid-test.
+func reviewServerWith(t *testing.T, token string, newClient func(enrich.Source) enrich.ProviderClient) (srv *httptest.Server, r *repo.Repo, pid, sid, vid int64) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -57,13 +69,11 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err != nil {
 		t.Fatalf("sources store: %v", err)
 	}
-	resolveCalls = new(int)
-	svc := enrich.NewServiceWithClient(store, r, log, func(enrich.Source) enrich.ProviderClient {
-		return &resolveCounter{Fake: enrich.NewFake("fake"), n: resolveCalls}
-	})
+	svc := enrich.NewServiceWithClient(store, r, log, newClient)
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetEnrichment(svc)
+	h.SetSweep(enrich.NewSweepRunner(svc, r, log))
 	h.SetAuth(api.NewAuth(token), false)
 	srv = httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
@@ -89,7 +99,56 @@ func reviewServer(t *testing.T, token string) (srv *httptest.Server, r *repo.Rep
 	if err != nil {
 		t.Fatalf("person id: %v", err)
 	}
-	return srv, r, pid, sid, vid, resolveCalls
+	return srv, r, pid, sid, vid
+}
+
+// A paused provider bucket (F66 RD8, ADR-103 D4): a single click fails fast with
+// 503 + Retry-After and an owner-readable line; refresh-all reports it per row so
+// the other providers' results still land; nothing waits.
+func TestEnrichRateLimitedFailsFast(t *testing.T) {
+	fake := enrich.NewFake("fake")
+	srv, _, pid, _, _ := reviewServerWith(t, "", func(enrich.Source) enrich.ProviderClient { return fake })
+	base := srv.URL + "/api/v1/people/" + itoa(pid)
+
+	fake.RateLimited = 42 * time.Second
+	// The first call reaches the fake, which answers 429 → the bucket pauses.
+	code, body := postTok(t, base+"/enrich/resolve", "", map[string]any{"provider": "fake", "query": "miyazaki"})
+	if code != http.StatusServiceUnavailable {
+		t.Fatalf("resolve on 429 = %d %v, want 503", code, body)
+	}
+	if body["error"] != "fake is rate-limiting — try again in 42 s" || body["retry_after"] != float64(42) {
+		t.Fatalf("503 body = %v", body)
+	}
+	// The pause holds without dialing: the fake would now succeed if reached.
+	fake.RateLimited = 0
+	fake.LastHint = enrich.Hint{Query: "sentinel"} // Resolve would overwrite this
+	req, _ := http.NewRequest(http.MethodPost, base+"/enrich/resolve", strings.NewReader(`{"provider":"fake","query":"miyazaki"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusServiceUnavailable || resp.Header.Get("Retry-After") == "" {
+		t.Fatalf("paused resolve = %d Retry-After=%q, want 503 with the header", resp.StatusCode, resp.Header.Get("Retry-After"))
+	}
+	if fake.LastHint.Query != "sentinel" {
+		t.Fatalf("a paused bucket must not dial the provider (resolve reached the fake with %q)", fake.LastHint.Query)
+	}
+
+	// Refresh-all: the paused provider is one row, not a 503 for the whole call.
+	code, body = postTok(t, base+"/enrich/refresh-all", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("refresh-all while paused = %d %v, want 200", code, body)
+	}
+	results, _ := body["results"].([]any)
+	if len(results) != 1 {
+		t.Fatalf("results = %v, want one row", results)
+	}
+	row, _ := results[0].(map[string]any)
+	if row["status"] != "rate_limited" || row["retry_after"] == nil || row["retry_after"].(float64) < 1 {
+		t.Fatalf("row = %v, want rate_limited with retry_after", row)
+	}
 }
 
 // The queue is a zero-cost DB read (RD2/P0-1): every seeded entity appears unreviewed,
@@ -402,5 +461,58 @@ func TestEnrichRefreshAll(t *testing.T) {
 	}
 	if results, _ := body["results"].([]any); len(results) != 0 {
 		t.Fatalf("dismissed provider must be left out of refresh-all: %v", results)
+	}
+}
+
+// The sweep trigger and its read-model (F66 P0-2/P0-3/P0-4, ADR-103 D8/D9): 202 with
+// started, the activity poll's `sweep` block, and ?batch= on history.
+func TestEnrichSweepEndpoint(t *testing.T) {
+	srv, _, _, _, _, _ := reviewServer(t, "s3cret")
+	base := srv.URL + "/api/v1/admin"
+
+	if code := sendTok(t, http.MethodPost, base+"/enrich/sweep/people", ""); code != http.StatusUnauthorized {
+		t.Fatalf("no-token sweep = %d, want 401", code)
+	}
+	if code, _ := postTok(t, base+"/enrich/sweep/films", "s3cret", nil); code != http.StatusNotFound {
+		t.Fatalf("unknown kind = %d, want 404", code)
+	}
+	code, body := postTok(t, base+"/enrich/sweep/people", "s3cret", map[string]any{"force": true})
+	if code != http.StatusAccepted || body["started"] != true {
+		t.Fatalf("sweep = %d %v, want 202 started:true", code, body)
+	}
+
+	var sweep map[string]any
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		_, act := getJSONTok(t, base+"/activity", "s3cret")
+		sweep, _ = act["sweep"].(map[string]any)
+		if sweep != nil && sweep["state"] == "idle" && sweep["last_run"] != nil {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	last, _ := sweep["last_run"].(map[string]any)
+	if last == nil || last["kind"] != "person" || last["total"] != float64(1) || last["linked"] != float64(1) {
+		t.Fatalf("sweep block after the run = %v", sweep)
+	}
+	batch, _ := last["batch_id"].(string)
+	if batch == "" {
+		t.Fatalf("last_run carries no batch_id: %v", last)
+	}
+
+	_, hist := getJSONTok(t, base+"/activity/history?batch="+batch, "s3cret")
+	runs, _ := hist["runs"].([]any)
+	if len(runs) < 2 {
+		t.Fatalf("history?batch= = %v, want the summary + the per-entity run", hist)
+	}
+	for _, r := range runs {
+		if run, _ := r.(map[string]any); run["batch_id"] != batch {
+			t.Errorf("run outside the batch: %v", run)
+		}
+	}
+	_, counts := getJSONTok(t, base+"/activity", "s3cret")
+	lib, _ := counts["library"].(map[string]any)
+	if lib["studios"] != float64(1) {
+		t.Fatalf("library.studios = %v, want 1", lib)
 	}
 }

@@ -557,7 +557,48 @@ export interface LibraryCounts {
 	videos_active: number;
 	videos_inactive: number;
 	people: number;
+	studios: number;
 	tags: number;
+}
+
+// Entity refresh sweep (F66 RD5/RD11, ADR-103 D8): the `sweep` block on the
+// activity poll. `kind` is the entity type ('person' | 'studio'), never the route
+// plural. Counts are per pair; total/done are per entity. last_run outlives the run
+// until the next sweep starts or the process restarts.
+export type SweepKind = 'person' | 'studio';
+
+export interface SweepCounts {
+	linked: number;
+	needs_review: number;
+	no_candidates: number;
+	failed: number;
+	skipped: number;
+	stale_skipped: number;
+}
+
+export interface SweepSkippedProvider {
+	provider: string;
+	reason: 'stopped responding' | 'rate-limited' | string;
+}
+
+export interface SweepSummary extends SweepCounts {
+	kind: SweepKind;
+	finished_at: string;
+	duration_ms: number;
+	batch_id: string;
+	total: number;
+	skipped_providers: SweepSkippedProvider[];
+	error?: string;
+}
+
+export interface SweepStatus extends SweepCounts {
+	state: 'idle' | 'running';
+	kind?: SweepKind;
+	started_at?: string;
+	batch_id?: string;
+	total: number;
+	done: number;
+	last_run: SweepSummary | null;
 }
 
 export interface ActivitySystem {
@@ -573,6 +614,7 @@ export interface Activity {
 	thumbnails: ThumbnailStats;
 	library: LibraryCounts;
 	system: ActivitySystem;
+	sweep: SweepStatus;
 }
 
 // JobRun is one row of the 30-day activity history (F21.3).
@@ -736,11 +778,14 @@ export interface EnrichQueueRow {
 
 // RefreshAllResult is one provider's outcome from POST .../enrich/refresh-all (RD8/P1-2):
 // a linked provider refreshes directly; an unlinked one resolves and either auto-applies a
-// single strong match or comes back needs_review — never silently dropped.
+// single strong match or comes back needs_review — never silently dropped. rate_limited
+// (F66 RD8, ADR-103 D4) is a provider whose bucket is paused: the row failed fast with
+// retry_after seconds instead of waiting; the other providers' rows are unaffected.
 export interface RefreshAllResult {
 	provider: string;
-	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates';
+	status: 'refreshed' | 'auto_applied' | 'needs_review' | 'no_candidates' | 'rate_limited';
 	enriched?: EnrichedField[];
+	retry_after?: number;
 }
 
 // Per-item metadata refresh outcome (F31, ADR-047). One entry per attempted

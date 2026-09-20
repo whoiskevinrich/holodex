@@ -244,7 +244,7 @@ func TestServiceRecordSearched(t *testing.T) {
 	svc, r := newSvc(t, NewFake("fake"))
 	ctx := context.Background()
 
-	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{}, nil)
+	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{}, nil, "")
 	if runs, _ := r.ListJobRuns(ctx, 10); len(runs) != 0 {
 		t.Fatalf("no searched ⇒ no entry, got %d", len(runs))
 	}
@@ -252,7 +252,7 @@ func TestServiceRecordSearched(t *testing.T) {
 	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{
 		Candidates: []Candidate{{ExternalID: "x:1"}},
 		Searched:   []string{"[Acme Pictures] Ada Lovelace (2023-08-01) 1080p.mp4", "Acme Pictures Ada Lovelace"},
-	}, nil)
+	}, nil, "")
 	runs, err := r.ListJobRuns(ctx, 10)
 	if err != nil || len(runs) != 1 {
 		t.Fatalf("runs = %v err=%v", runs, err)

@@ -55,6 +55,11 @@ type Source struct {
 	// one on purpose: the deny exists for an operator who doesn't want basenames
 	// leaving the box, not as a fleet posture. Read through FilenameAllowed.
 	SendFilename *bool `yaml:"send_filename"`
+	// RateLimit is the operator's override of the pace Holodex holds its calls to
+	// this provider at (ADR-103 D3, tier 1 — outranks the provider's own /describe
+	// declaration and the default, the same precedence as SearchPattern). Normalized
+	// at config-load time by parse(); a malformed value drops just this key (logged).
+	RateLimit *RateLimit `yaml:"rate_limit"`
 }
 
 // FilenameAllowed reports whether the operator permits hint.filename for this source
@@ -119,6 +124,25 @@ func validatedPattern(pattern, what string, log *slog.Logger) string {
 	return ""
 }
 
+// validatedRateLimit normalizes an operator rate_limit (clamped and logged, or
+// dropped when malformed) so the Source carries only a usable value.
+func validatedRateLimit(rl *RateLimit, what string, log *slog.Logger) *RateLimit {
+	if rl == nil {
+		return nil
+	}
+	out, clamped, ok := rl.Normalize()
+	if !ok {
+		if log != nil {
+			log.Warn("malformed rate_limit, ignoring", "field", what, "rate_limit", *rl)
+		}
+		return nil
+	}
+	if clamped && log != nil {
+		log.Warn("rate_limit out of range, clamped", "field", what, "declared", *rl, "applied", out)
+	}
+	return &out
+}
+
 func parse(data []byte, log *slog.Logger) (*Registry, error) {
 	var fc fileConfig
 	if err := yaml.Unmarshal(data, &fc); err != nil {
@@ -132,6 +156,7 @@ func parse(data []byte, log *slog.Logger) (*Registry, error) {
 			continue // skip malformed entries rather than failing the whole load
 		}
 		s.SearchPattern = validatedPattern(s.SearchPattern, s.Name+".search_pattern", log)
+		s.RateLimit = validatedRateLimit(s.RateLimit, s.Name+".rate_limit", log)
 		reg.sources = append(reg.sources, s)
 	}
 	return reg, nil
@@ -250,6 +275,13 @@ type Manifest struct {
 	// protocol version bump. Untrusted provider input; validated (ValidatePattern) and
 	// cached by the Service on every /describe, same posture as FieldHints/BrandIcon.
 	PreferredSearchPattern string `json:"preferred_search_pattern,omitempty"`
+	// RateLimit is the pace the provider asks Holodex to hold all its calls at
+	// (ADR-103 D3, tier 2; contract §4.13). Consulted only when the operator has set
+	// no rate_limit override for this provider. Additive/forward-compatible, same
+	// posture as PreferredSearchPattern. Untrusted provider input: normalized
+	// (clamped, or dropped when malformed) and cached by the Service on every
+	// /describe. A pointer so an absent key is distinguishable from a partial object.
+	RateLimit *RateLimit `json:"rate_limit,omitempty"`
 	// LinkTemplates lets a provider declare how a namespace-qualified external id
 	// becomes an outbound link (HOLODEX-266, ADR-083 D2): namespace -> entity kind ->
 	// URL template containing exactly one "{id}" placeholder, e.g. {"imdb": {"video":

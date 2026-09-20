@@ -16,6 +16,7 @@
 	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
 	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
+	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
@@ -209,6 +210,9 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle. -->
+	<SweepStatusLine kind="person" onfinished={reload} />
 
 	<DuplicatesBanner entityType="person" />
 

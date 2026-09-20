@@ -5,7 +5,7 @@
 **Issue**: [HOLODEX-421](https://whoiskevinrich.atlassian.net/browse/HOLODEX-421)
 **Depends on**: the enrichment review workflow and its auto-apply routing ([enrichment-review-workflow.md](enrichment-review-workflow.md), F47; [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) D1 — `enrich.SingleStrongMatch`), the metadata provider contract ([metadata-provider-contract.md](metadata-provider-contract.md)), metadata source plugins ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), the System Activity surface and job-run history ([ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md), F21; [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) — `batch_id`, `EntityType/EntityID`), the library-wide extraction pass as the background-job template ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md), F48.5b — `extract.BatchRunner.TriggerAll`), per-field source-of-truth decisions for revert ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), F36), and the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)).
 **Amends**: F47 — lifts its *Queue-wide bulk/background resolution* Non-Goal / P2-1 by supplying the provider rate-limit contract that Non-Goal was waiting on (§ Provider traffic). F47's per-row lazy model is unchanged; this spec adds the bulk path beside it.
-**Architecture**: *pending `/architecture`* — provider rate-limit contract + sweep job shape (see § Provider traffic and § Backend surface).
+**Architecture**: [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md) — pacing on `enrich.Service` keyed by provider (D1, `x/time/rate` D2, ADR-080 carriage D3), `429` as a typed pause the *caller* decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6), shared `Service.RefreshPair` (D7), `SweepRunner` + `sweep` activity block (D8), `batch_id` audit key (D9), TMDB `429` pass-through (D10).
 **Design handoff**: [entity-refresh-sweep-handoff.md](../design/entity-refresh-sweep-handoff.md) — Option D, seven states, three-skin QA checklist.
 
 ---
@@ -141,7 +141,10 @@ a change to F47/ADR-066, not to this spec.
   - **Interactive calls never wait on a paused bucket.** A single owner click (Enrich / Refresh /
     Re-match / per-entity Refresh all) that finds its provider's bucket paused fails **fast** with
     `503` + `Retry-After: <remaining seconds>`, which the existing inline status line renders as
-    `<provider> is rate-limiting — try again in 42 s`. Waiting on the normal bucket (≤ `burst / rps`,
+    `<provider> is rate-limiting — try again in 42 s`. The per-entity Refresh all is a fan-out, so
+    it reports the paused provider as its own result row (`status:"rate_limited"`, `retry_after`)
+    with the same line — the other providers' rows still land; the call itself is `200`. Waiting
+    on the normal bucket (≤ `burst / rps`,
     i.e. ≤ 2 s at the default) is fine; waiting on a `429` pause (up to 300 s) is not — the SPA
     request would sit or die at a proxy timeout with no feedback.
 - **RD9 — Per-provider circuit breaker (two trip conditions).** Within a sweep, one provider trips
@@ -342,8 +345,8 @@ Remaining — non-blocking, resolve during implementation:
 
 - **[engineering]** Whether the confirm's *due* count ships in P0 from data the list payload already
   carries, or waits for P1-2's preview endpoint and shows only `total` until then.
-- **[engineering]** Whether the bucket's clock is wall-time or a monotonic ticker — matters only for
-  tests; the ADR should pin it.
+- ~~**[engineering]** Whether the bucket's clock is wall-time or a monotonic ticker~~ — **resolved by
+  ADR-103 D5:** `time.Now()` monotonic, injected (`now`/`sleep`) so tests assert computed delays.
 - **[design, on evidence]** Whether *Skipped N (tmdb stopped responding)* should also surface on the
   status page's Recent-failures callout (HOLODEX-416) as one dismissible row per breaker trip. Not in
   P0; add if the first real trip is missed.

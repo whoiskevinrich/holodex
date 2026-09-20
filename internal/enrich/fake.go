@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"holodex/internal/model"
 )
@@ -36,6 +37,10 @@ type Fake struct {
 	// EnrichErr, when set, makes every Enrich fail with it — the unattended
 	// auto-apply failure path (F61 FR5: a failed apply must not log "applied:").
 	EnrichErr error
+	// RateLimited, when > 0, makes every Resolve and Enrich answer as a sidecar that
+	// sent 429 + Retry-After of that many seconds (ADR-103 D2) — the knob api-level
+	// tests turn to exercise the paused-bucket paths without a real transport.
+	RateLimited time.Duration
 }
 
 // FakePerson is one canned upstream record (used for people, studios, and video
@@ -138,6 +143,9 @@ func (f *Fake) Describe(_ context.Context) (Manifest, error) {
 func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (ResolveResult, error) {
 	f.Calls++
 	f.LastHint = hint
+	if f.RateLimited > 0 {
+		return ResolveResult{}, &errRateLimited{RetryAfter: f.RateLimited}
+	}
 	records := f.records(entityType)
 	// Embedded-id path: echo back any provided id as a strong match.
 	for _, id := range hint.ExternalIDs {
@@ -164,6 +172,9 @@ func (f *Fake) Resolve(_ context.Context, entityType string, hint Hint) (Resolve
 
 func (f *Fake) Enrich(_ context.Context, entityType, externalID string) (EnrichResult, error) {
 	f.Calls++
+	if f.RateLimited > 0 {
+		return EnrichResult{}, &errRateLimited{RetryAfter: f.RateLimited}
+	}
 	if f.EnrichErr != nil {
 		return EnrichResult{}, f.EnrichErr
 	}

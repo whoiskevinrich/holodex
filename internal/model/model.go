@@ -449,6 +449,7 @@ const (
 	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
 	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
 	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
+	JobKindEnrichSweep       = "enrich-sweep"        // owner-triggered refresh of every person/studio (F66, ADR-103)
 	JobStatusOK              = "success"
 	JobStatusErr             = "error"
 )

@@ -60,6 +60,15 @@
 #                 box, not a fleet posture. Only the basename is ever sent, never a
 #                 directory. A provider that doesn't opt in receives nothing either
 #                 way; this flag has no effect on hint.fields.
+#   rate_limit    (F66/ADR-103) the pace Holodex holds ALL its /resolve + /enrich
+#                 calls to this provider at — one token bucket per provider, shared
+#                 by every entity type, a single owner click and a whole-library
+#                 sweep alike. { requests_per_second: number, burst: integer }; a
+#                 missing key takes its default. Precedence: this override → the
+#                 provider's own /describe rate_limit → the default 2 req/s, burst 4.
+#                 Clamped to [0.1, 50] / [1, 100] with a logged warning; a malformed
+#                 value (negative) drops just this key. A 429 + Retry-After from the
+#                 sidecar pauses that provider's bucket regardless of the limit.
 
 sources:
   - name: tmdb
@@ -69,6 +78,7 @@ sources:
     enabled: false
     # search_pattern: "{studio?} {title?} {performers?} {year?}"
     # send_filename: false
+    # rate_limit: { requests_per_second: 10, burst: 20 }
 
 # default_search_pattern applies to any enabled, video-capable provider above that sets
 # neither its own search_pattern nor advertises a preferred_search_pattern via /describe

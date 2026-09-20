@@ -6,7 +6,13 @@
 	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
 
-	let { runs }: { runs: JobRun[] } = $props();
+	// batch (from ?batch= on the status route, F66 P0-7) scopes the list to one
+	// sweep's runs; the chip's x asks the page to clear the query param.
+	let {
+		runs,
+		batch = '',
+		onclearbatch
+	}: { runs: JobRun[]; batch?: string; onclearbatch?: () => void } = $props();
 
 	// The count columns only apply to scans; other kinds (enrich) show "—" and
 	// describe themselves in the detail row instead.
@@ -48,6 +54,21 @@
 		}
 	}
 </script>
+
+{#if batch}
+	<p class="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+		Showing one refresh sweep
+		<span class="inline-flex items-center gap-1 rounded-theme border border-rule px-2 py-0.5 text-ink">
+			batch {batch}
+			<button
+				type="button"
+				onclick={() => onclearbatch?.()}
+				aria-label="Clear batch filter"
+				class="text-muted hover:text-ink">&times;</button
+			>
+		</span>
+	</p>
+{/if}
 
 {#if runs.length === 0}
 	<p class="py-16 text-center text-sm text-muted">No jobs recorded yet.</p>

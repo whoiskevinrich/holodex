@@ -298,6 +298,9 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetEnrichment(enrichSvc)
+	sweep := enrich.NewSweepRunner(enrichSvc, repository, log)
+	sweep.SetBaseContext(ctx)
+	handlers.SetSweep(sweep)
 	// Per-item forced re-extract + re-enrich (F31, ADR-047). The scanner is the
 	// forced-extract seam (no change-detection); the repo resolves the target and
 	// persists the file layer; the enrich service re-pulls linked providers.
@@ -567,7 +570,7 @@ func backfillStudioLinks(ctx context.Context, r *repo.Repo, relink func(context.
 // backfillPersonLinks runs the one-time video→person link derivation cutover
 // (F40, ADR-072 P0-4). Unlike studio's video_studios (greenfield table),
 // migration 0037 CARRIES FORWARD the pre-existing raw-extraction video_people
-// rows (role=''), so a non-empty table does not mean the backfill already ran —
+// rows (role=”), so a non-empty table does not mean the backfill already ran —
 // this gates purely on the job-run marker, not PersonLinkCount. Loss-guarded
 // (ADR-072 RD9): logs loudly (never panics) if the post-backfill active link
 // count shrinks vs. pre-backfill, which would mean the derivation's source set

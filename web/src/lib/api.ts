@@ -44,6 +44,7 @@ import type {
 	SearchResponse,
 	Studio,
 	StudioDetailResponse,
+	SweepKind,
 	StudioImageRole,
 	FilmImageRole,
 	Tag,
@@ -200,7 +201,11 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 	});
 	checkRedirect(res);
 	if (!res.ok && res.status !== 204) {
-		throw new ApiError(res.status, path);
+		// The body's `error` is the owner-facing line when the server wrote one (a
+		// paused provider's "tmdb is rate-limiting — try again in 42 s", ADR-103 D4);
+		// uploadAuthed already does this, and the status still rides on the error.
+		const body = (await res.json().catch(() => ({}))) as { error?: string };
+		throw new ApiError(res.status, path, body.error);
 	}
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
@@ -635,8 +640,26 @@ export const api = {
 
 	activity: () => getAuthed<Activity>(`/admin/activity`),
 
-	activityHistory: (days = 30) =>
-		getAuthed<{ runs: JobRun[] }>(`/admin/activity/history?days=${days}`),
+	// ?batch= scopes the list to one sweep's runs (F66 RD6): the summary row plus
+	// every per-entity run it produced — the audit trail behind the done line.
+	activityHistory: (days = 30, batch?: string) =>
+		getAuthed<{ runs: JobRun[] }>(
+			batch
+				? `/admin/activity/history?batch=${encodeURIComponent(batch)}`
+				: `/admin/activity/history?days=${days}`
+		),
+
+	// Start one background refresh sweep over every person or studio (F66,
+	// ADR-103 D8). 202 + {started:false} means a sweep of either kind is already
+	// running — not an error. force ignores the 24 h staleness skip (RD3).
+	sweepEntities: async (kind: SweepKind, force = false): Promise<{ started: boolean }> => {
+		const body = await sendAuthed<{ started?: boolean }>(
+			'POST',
+			`/admin/enrich/sweep/${kind === 'person' ? 'people' : 'studios'}`,
+			{ force }
+		);
+		return { started: Boolean(body.started) };
+	},
 
 	// Per-kind digest of the same window (ADR-071): a fixed-size summary that
 	// answers "did anything fail" without loading every run.

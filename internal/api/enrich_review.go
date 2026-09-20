@@ -2,9 +2,11 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -121,8 +123,7 @@ func (h *Handlers) enrichRefresh(entityType string) http.HandlerFunc {
 		}
 		fields, err := h.enrich.Enrich(r.Context(), entityType, id, provider, externalID, h.auth.authorized(r))
 		if err != nil {
-			h.log.Warn("enrich refresh failed", "provider", provider, "entity_type", entityType, "err", err)
-			writeError(w, http.StatusBadGateway, "refresh failed")
+			h.providerError(w, "enrich refresh failed", provider, err, "refresh failed")
 			return
 		}
 		h.afterEnrichApply(r, entityType, id)
@@ -134,8 +135,12 @@ func (h *Handlers) enrichRefresh(entityType string) http.HandlerFunc {
 // (RD8/P1-2).
 type refreshAllResult struct {
 	Provider string                `json:"provider"`
-	Status   string                `json:"status"` // refreshed | auto_applied | needs_review | no_candidates
+	Status   string                `json:"status"` // refreshed | auto_applied | needs_review | no_candidates | rate_limited
 	Enriched []model.EnrichedField `json:"enriched,omitempty"`
+	// RetryAfter (seconds) accompanies rate_limited: the provider's bucket is paused
+	// (ADR-103 D4) and this row failed fast rather than waiting; the other providers'
+	// rows are unaffected, which is why the fan-out reports it per row, not as a 503.
+	RetryAfter int `json:"retry_after,omitempty"`
 }
 
 // enrichRefreshAll fans out over an entity's configured providers (RD8): a linked
@@ -164,9 +169,9 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			h.fail(w, "refresh-all match lookup", err)
 			return
 		}
-		linked := make(map[string]string, len(matches))
-		for _, m := range matches {
-			linked[m.Provider] = m.ExternalID
+		linked := make(map[string]*enrich.Match, len(matches))
+		for i := range matches {
+			linked[matches[i].Provider] = &matches[i]
 		}
 
 		var supported []enrich.SourceInfo
@@ -189,10 +194,9 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 			wg.Add(1)
 			go func(i int, name string) {
 				defer wg.Done()
-				externalID, isLinked := linked[name]
 				// Per-provider hint, built inside the goroutine (ADR-095 D8): each
 				// provider gets its own ADR-080 render and its own opted-in keys.
-				res, skip := h.refreshOneProvider(r, entityType, id, name, hintFor(name), externalID, isLinked)
+				res, skip := h.refreshOneProvider(r, entityType, id, name, hintFor(name), linked[name])
 				changed := !skip && (res.Status == "refreshed" || res.Status == "auto_applied")
 				outcomes[i] = outcome{res: res, skip: skip, changed: changed}
 			}(i, src.Name)
@@ -218,65 +222,28 @@ func (h *Handlers) enrichRefreshAll(entityType string) http.HandlerFunc {
 	}
 }
 
-// refreshOneProvider is refresh-all's per-provider step (RD8): a linked provider
-// (externalID/isLinked from the caller's one batched ProviderMatches lookup) refreshes
-// directly; an unlinked one resolves and auto-applies a single strong match or leaves
-// itself for the owner. skip=true means the provider is left out of the response
-// entirely (only for a dismissed, unlinked provider — RD4's block on re-resolving it).
-// Runs concurrently with its sibling providers (see enrichRefreshAll); it does not call
-// afterEnrichApply itself — the caller runs that once, after the whole fan-out settles.
-func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int64, provider string, hint enrich.Hint, externalID string, isLinked bool) (result refreshAllResult, skip bool) {
-	ctx := r.Context()
-	// noCandidates logs and reports the shared "this provider produced nothing usable"
-	// outcome — every failure path below except a dismissed-skip reduces to it.
-	noCandidates := func(msg string, err error) (refreshAllResult, bool) {
-		h.log.Warn(msg, "provider", provider, "err", err)
-		return refreshAllResult{Provider: provider, Status: "no_candidates"}, false
-	}
-
-	if isLinked {
-		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, externalID, h.auth.authorized(r))
-		if err != nil {
-			return noCandidates("refresh-all refresh failed", err)
-		}
-		return refreshAllResult{Provider: provider, Status: "refreshed", Enriched: fields}, false
-	}
-
-	dismissed, err := h.repo.EnrichmentDismissed(ctx, entityType, id, provider)
-	if err != nil {
-		h.log.Warn("refresh-all dismissal lookup failed", "provider", provider, "err", err)
+// refreshOneProvider renders one provider's RefreshPair outcome (F66 RD1: the step
+// itself lives in enrich.Service so the sweep runs the identical routing). skip=true
+// means the provider is left out of the response entirely (a dismissed, unlinked
+// provider — RD4's block on re-resolving it). A failed call is logged and reported
+// as no_candidates, the pre-existing rendering. A click always forces (ADR-103 D7).
+func (h *Handlers) refreshOneProvider(r *http.Request, entityType string, id int64, provider string, hint enrich.Hint, link *enrich.Match) (result refreshAllResult, skip bool) {
+	out := h.enrich.RefreshPair(r.Context(), entityType, id, provider, hint, link, enrich.RefreshOpts{
+		Force:            true,
+		BypassGalleryCap: h.auth.authorized(r),
+	})
+	switch out.Status {
+	case enrich.PairDismissed:
 		return refreshAllResult{}, true
-	}
-	if dismissed {
-		return refreshAllResult{}, true // RD4: never re-resolved until an explicit "Try again"
-	}
-
-	started := time.Now()
-	res, err := h.enrich.Resolve(ctx, provider, entityType, hint)
-	if err != nil {
-		return noCandidates("refresh-all resolve failed", err)
-	}
-	cands := res.Candidates
-	// The only trace an unattended resolve leaves of what was actually tried
-	// (ADR-095 D6) and of which record it bound (F61 FR5) — a no-op when the
-	// provider reported neither. `applied` is passed only once the apply has
-	// actually succeeded: a failed Enrich records the resolve without it (and
-	// its own "(failed)" entry), so the audit line never claims a binding that
-	// didn't happen.
-	if strong, ok := enrich.SingleStrongMatch(cands); ok {
-		fields, err := h.enrich.Enrich(ctx, entityType, id, provider, strong.ExternalID, h.auth.authorized(r))
-		if err != nil {
-			h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
-			return noCandidates("refresh-all auto-apply failed", err)
+	case enrich.PairFailed:
+		var paused *enrich.ErrProviderPaused
+		if errors.As(out.Err, &paused) {
+			return refreshAllResult{Provider: provider, Status: "rate_limited", RetryAfter: paused.RetryAfterSeconds()}, false
 		}
-		h.enrich.RecordSearched(started, provider, entityType, id, res, &strong)
-		return refreshAllResult{Provider: provider, Status: "auto_applied", Enriched: fields}, false
+		h.log.Warn("refresh-all provider step failed", "provider", provider, "err", out.Err)
+		return refreshAllResult{Provider: provider, Status: string(enrich.PairNoCandidates)}, false
 	}
-	h.enrich.RecordSearched(started, provider, entityType, id, res, nil)
-	if len(cands) == 0 {
-		return refreshAllResult{Provider: provider, Status: "no_candidates"}, false
-	}
-	return refreshAllResult{Provider: provider, Status: "needs_review"}, false
+	return refreshAllResult{Provider: provider, Status: string(out.Status), Enriched: out.Enriched}, false
 }
 
 // afterEnrichApply runs the same post-apply side effects the existing per-entity apply
@@ -291,6 +258,33 @@ func (h *Handlers) afterEnrichApply(r *http.Request, entityType string, id int64
 		h.relinkPeople(r.Context(), id)
 		h.materializeTags(r.Context(), id) // F50 P0-9, ADR-075 D4
 	}
+}
+
+// rateLimitedLine is the owner-facing sentence for a paused provider (F66 RD8): the
+// same words the refresh-all result row and the sweep's status line use.
+func rateLimitedLine(provider string, secs int) string {
+	return fmt.Sprintf("%s is rate-limiting — try again in %d s", provider, secs)
+}
+
+// providerError answers an interactive provider call's failure. A paused bucket
+// (ADR-103 D4) is 503 + Retry-After, the body naming the provider and the seconds so
+// the SPA's inline status line can say "tmdb is rate-limiting — try again in 42 s";
+// every other error stays the generic 502 the caller used, logged with the raw
+// error (which may carry a base_url — never echoed to the client).
+func (h *Handlers) providerError(w http.ResponseWriter, op, provider string, err error, msg string) {
+	var paused *enrich.ErrProviderPaused
+	if errors.As(err, &paused) {
+		secs := paused.RetryAfterSeconds()
+		w.Header().Set("Retry-After", strconv.Itoa(secs))
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
+			"error":       rateLimitedLine(provider, secs),
+			"provider":    provider,
+			"retry_after": secs,
+		})
+		return
+	}
+	h.log.Warn(op, "provider", provider, "err", err)
+	writeError(w, http.StatusBadGateway, msg)
 }
 
 // enrichDismissedCheck writes 409 and returns false when (entityType, id, provider)

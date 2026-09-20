@@ -123,17 +123,17 @@ func TestServiceRecordSearched_AppliedDetail(t *testing.T) {
 	noDetail := &Candidate{ExternalID: "x:1", Label: "Harbor Lights"}
 
 	// applied without detail and nothing searched ⇒ no entry (unchanged from today).
-	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*noDetail}}, noDetail)
+	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*noDetail}}, noDetail, "")
 	if runs, _ := r.ListJobRuns(ctx, 10); len(runs) != 0 {
 		t.Fatalf("applied without detail + no searched ⇒ no entry, got %d", len(runs))
 	}
 
 	// searched + applied without detail ⇒ exactly today's line.
-	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*noDetail}, Searched: searched}, noDetail)
+	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*noDetail}, Searched: searched}, noDetail, "")
 	// searched + applied with detail ⇒ the applied segment follows searched.
-	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*withDetail}, Searched: searched}, withDetail)
+	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*withDetail}, Searched: searched}, withDetail, "")
 	// no searched + applied with detail ⇒ written on detail alone.
-	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*withDetail}}, withDetail)
+	svc.RecordSearched(time.Now(), "acme", model.EnrichEntityVideo, 412, ResolveResult{Candidates: []Candidate{*withDetail}}, withDetail, "")
 
 	runs, err := r.ListJobRuns(ctx, 10)
 	if err != nil || len(runs) != 3 {
