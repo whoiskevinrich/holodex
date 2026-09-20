@@ -22,7 +22,8 @@ decision, matching ADR-101 D1.
 
 **2. Cropped tiles.** `SourceImageTiles` used a fixed `h-20 w-14` box with `object-cover`. Now
 `h-20 w-auto min-w-14 object-contain`: the image's own ratio, a 56 px floor so a broken URL keeps
-a clickable box, letterboxing only for a narrower-than-2:3 image.
+a clickable box, letterboxing only for a narrower-than-2:3 image. The collapsed `=` row's thumbnail got the same
+treatment on the owner's follow-up (`h-8 w-auto min-w-6 object-contain`).
 
 ## Gates — definition of done
 
@@ -46,5 +47,7 @@ a clickable box, letterboxing only for a narrower-than-2:3 image.
   showed every undecided provider row with `in_sync: true`, which the #364 `rowClass` clause
   turned into `matches`. Reproduced in the dialog (`Save 1 decision`), fixed, re-verified
   (`Write 1 field to file`, job landed, file carries the TMDB cover, witness `in_sync: true`).
+- Owner follow-up: the collapsed-row thumbnail (`WritebackFormDialog`) now matches the tiles;
+  live geometry on three skins.
 - handoff: both fixes shipped with tests and three-skin geometry checks; Draft PR open for the
   owner's look at the tiles.
