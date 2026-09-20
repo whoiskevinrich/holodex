@@ -47,8 +47,8 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
 4. [x] [HOLODEX-431] backend card endpoint + test
 5. [x] [HOLODEX-431] frontend chip + card + four consumers; three skins QA'd live
 6. [x] [HOLODEX-431] `/code-review high --fix` (4 fixed: ring press unmounted the ring → focus-loss close; per-chip abort killed a shared flight; no unmount cleanup; nested `group` hover leak), `/security-review` clean; PR #369 marked ready 2026-09-20 on Kevin's word — billed chips + 2.1–2.3 still owed a human look on the real library
-6b. [ ] file follow-ups: geometry-harness hover preparation for the card; alias "+N more" —
-   captured in `docs/backlog/INBOX.md` 2026-09-20 (Jira connectors down); run `/triage` to file them
+6b. [x] follow-ups filed: [HOLODEX-439] geometry-harness hover preparation for the card;
+   [HOLODEX-440] alias "+N more" (inbox capture removed once Atlassian came back)
 7. [ ] file follow-ups from the spec's Deferred list as HOLODEX issues: in-tile reveal for
    `PeopleGrid`, age-at-release, curation chips + header dropdown, Studio/Film cards
 
