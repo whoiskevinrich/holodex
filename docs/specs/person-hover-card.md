@@ -69,7 +69,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | RD7 | Curation chips **deferred**. | Editing surface; collides with `PopoverMenu`. |
 | RD8 | **Data = new `GET /people/{id}/card`**, fetched on hover-intent, cached for the session, aborted on leave. | `GET /people/{id}` ships up to 500 videos + a full resolve — not a hover fetch. The card endpoint runs a 3-field resolve subset (RD5) plus cheap counts. |
 | RD9 | **Hidden under `@media (pointer: coarse)`**; hover-intent delay 250 ms; leave grace 150 ms. | First hover-only affordance in the app — state the touch posture once, in CSS. |
-| RD10 | **No positioning library in v1.** Card is absolutely positioned beside the trigger and flips horizontally/vertically from one `getBoundingClientRect` measure. `@floating-ui/dom` only if the prototype proves ugly → then an ADR. | The app has no floating-ui / anchor positioning today; keep the dependency decision behind evidence. |
+| RD10 | **No positioning library in v1 — confirmed by the OQ1 prototype (2026-09-20).** Card is absolutely positioned inside a `relative` wrapper around the trigger; one `getBoundingClientRect` measure on open decides **vertical flip** (open above when `spaceBelow < cardHeight + 6`) and **horizontal clamp** (`left = -max(0, cardRight - (clientWidth - 16))`, never a binary end-align — a mid-row trigger in a narrow window fits neither edge). Re-measure on `resize`/`scroll` while open. No portal, no ADR. | Probed live on the real `RelatedShelf` heading: no ancestor clips (the `overflow-x-auto` scroller is the heading's *sibling*), below/above both hit-test as the card over the shelf's cards at `z-50`, and at 400 px the start-aligned card overflowed the page by 8 px until clamped. |
 | RD11 | `PersonLinkChip` lives in `web/src/lib/components/person/`; the card is `PersonHoverCard.svelte` beside it, mounted **only** by the chip. | Single entity → `person/` per the components `CLAUDE.md`. |
 | RD12 | **The ring is the card's only action.** `CompletenessRing` becomes a button under **F65.8 (HOLODEX-435)** — clicking it fires the single-entity refresh-all, sweep semantics; the card mounts it beside the name as a sibling of the header link and passes `entity={{kind:'person', id}}` + `onrefreshed` (re-fetch `/card`, bypassing the session cache). `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). F68 depends on HOLODEX-435 merging first. | Kevin 2026-09-20: the ring should act, not just indicate. Nothing else on the card writes. |
 
@@ -128,8 +128,9 @@ mounts `PersonHoverCard`.
 - [ ] Clicking the chip itself always navigates — the card never intercepts the primary link.
 
 **R3 — Positioning.** Card is rendered beside the chip (preferred: below-start), flips above
-when there is < card height below the viewport edge, and flips to end-aligned when it would
-overflow the right edge. One measure on open, re-measure on window resize/scroll while open.
+when there is < card height + 6 px below the viewport edge, and is **clamped** horizontally so
+its right edge never passes `clientWidth - 16` (a negative `left` offset from the start-aligned
+position; RD10). One measure on open, re-measure on window resize/scroll while open.
 - [ ] A chip at the bottom-right corner of the viewport shows a fully visible card.
 - [ ] The card never causes horizontal page overflow (HOLODEX-356 guard applies).
 
@@ -257,10 +258,15 @@ This is a single-owner instance; "adoption" is Kevin using it. Concrete checks i
 
 ## Open Questions
 
-- **OQ1 (engineering, non-blocking):** does a single `getBoundingClientRect` flip hold up inside
-  the `RelatedShelf` header (a flex row that may itself be clipped)? Prototype there first; if
-  it needs `position: fixed` + scroll listeners, that is the trigger for the floating-ui ADR
-  (RD10).
+- ~~**OQ1 (engineering):** does a single measure hold up inside the `RelatedShelf` header?~~ —
+  **resolved 2026-09-20 by a live probe** (a card-shaped element injected beside the real
+  heading link on `/media/190`, 1280 px and 400 px): nothing in the ancestor chain clips or
+  re-scopes stacking (`stage-band` has no overflow; the scroller is a sibling), below-start and
+  above both render fully and hit-test as the card, and the one surprise was horizontal — at
+  400 px the start-aligned card overflowed the page by 8 px and end-aligning would have
+  underflowed instead, so RD10 now specifies a **clamp** rather than a flip on that axis. No
+  portal, no floating-ui, no ADR. The `/search` page rows have an equally clean chain; the film
+  page's billed row will be checked when the chip lands there.
 - ~~**OQ2 (design):** dashed vs solid pill for the film-billed chips~~ — **resolved in the design
   handoff:** the chip is a transparent wrapper that keeps the consumer's classes. The dashed
   accent border encodes "billed but in no owned scene" (`films/[id]/+page.svelte:752-783`) and

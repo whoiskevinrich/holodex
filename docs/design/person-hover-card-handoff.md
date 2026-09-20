@@ -47,12 +47,19 @@ point; A's simplicity is recovered by keeping the card non-modal and single-open
   overflows (HOLODEX-356 guard). Height is content-driven — no min-height, no reserved space.
 - **Anchor:** below the trigger, start-aligned, **6 px gap** (`mt-1.5`). `position: absolute`
   inside the chip's `relative` wrapper — same recipe as every existing menu (`tags/+page.svelte:752`).
-- **Flip rules** (one `getBoundingClientRect` measure on open; re-measure on `resize`/`scroll`
-  while open): not enough room below → open **above** (`bottom-full mb-1.5`); right edge would
-  pass the viewport → **end-aligned** (`right-0` instead of `left-0`). Both can apply at once
-  (mockup, bottom-right panel). No transform-based positioning, no portal in v1 — the
-  `RelatedShelf` header is the prototype site for OQ1; if its overflow clipping eats the card,
-  that is the trigger for a portal + floating-ui ADR.
+- **Flip + clamp** (one `getBoundingClientRect` measure on open; re-measure on `resize`/`scroll`
+  while open): not enough room below (`spaceBelow < cardHeight + 6`) → open **above**
+  (`bottom-full mb-1.5`); right edge would pass `clientWidth − 16` → shift the card left by the
+  overshoot (`style="left: -{overshoot}px"`), which is a **clamp, not an end-align** — a trigger in
+  the middle of a narrow window fits neither edge, and the clamp is what keeps the page from
+  gaining horizontal scroll. Both can apply at once (mockup, bottom-right panel). No portal, no
+  transform positioning, no library. **OQ1 was settled by a live probe on the real
+  `RelatedShelf` heading (2026-09-20):** no ancestor clips — the `overflow-x-auto` scroller is
+  the heading's sibling, `.stage-band` has no overflow — so below-start and above both render
+  whole and hit-test as the card over the shelf's poster cards at `z-50`; at 400 px the
+  start-aligned card overflowed the page by 8 px until clamped. Note for the build: `bottom-full`,
+  `mb-1.5` are not in the bundle until a source file uses them (Tailwind JIT) — the probe tripped
+  on that, the component will not.
 - `z-50` (matches the header dropdown). Only one card is open app-wide.
 
 ## The card — anatomy & states

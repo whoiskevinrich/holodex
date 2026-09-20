@@ -23,20 +23,20 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
   + [mockup SVG](../design/person-hover-card-mockup.svg) rev 2: default skin only (ADR-102),
   owner vs visitor, loading/sparse/corner; OQ2 resolved = chip keeps the consumer's classes;
   owner row replaced by the F65 `CompletenessRing` + header-block-as-profile-link (RD12)
-- [ ] architecture `architecture` — only if RD10 falls (positioning needs `@floating-ui/dom`)
+- [x] architecture `architecture` — not needed: the OQ1 probe (2026-09-20) showed one measure +
+  a horizontal clamp does it inside `RelatedShelf`; RD10 stands, no floating-ui, no ADR
 - [ ] backend — `GET /people/{id}/card` (R5) + API test
 - [ ] frontend — `PersonLinkChip` + `PersonHoverCard` (R1–R4, R6, R7), three consumers wired
 - [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
   shape, geometry rung)
 - [ ] security `security-review` — required: `/card` gates `completeness` on `authorized` (RD12)
-- [ ] dependency — **HOLODEX-435** (F65.8 ring button) merged; rebase #369 on it before frontend
+- [x] dependency — **HOLODEX-435** (F65.8 ring button) merged as `7f8c067` (#373); #369 rebased 2026-09-20
 
 ## Up next — ordered (position = priority)
 
 1. [x] [HOLODEX-431] design handoff with SVG mockup (three skins) — OQ2 decided
-2. [ ] [HOLODEX-435] ship the ring button first (own branch/PR, F65.8) — F68 consumes it
-3. [ ] [HOLODEX-431] prototype the positioning flip inside `RelatedShelf` first (OQ1) before
-   writing the chip — this decides whether an ADR is needed
+2. [x] [HOLODEX-435] ring button shipped (PR #373 → `7f8c067`); #369 rebased on it
+3. [x] [HOLODEX-431] OQ1 probe done — flip vertically, clamp horizontally, no ADR (RD10/R3 amended)
 4. [ ] [HOLODEX-431] backend card endpoint + test
 5. [ ] [HOLODEX-431] frontend chip + card + consumers; QA all three skins; geometry rung
 6. [ ] [HOLODEX-431] testing-strategy section, /code-review, mark PR ready (→ In Review by CI)
@@ -70,3 +70,14 @@ public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainsto
   `PersonLinkChip` is a transparent wrapper (OQ2); `#videos`/`#films` anchors don't exist yet
   (build adds them); R7 amended to the app's `shadow-lg` panel convention. Next: prototype the
   flip inside `RelatedShelf` (OQ1) before writing the chip — it decides whether an ADR is needed.
+
+### 2026-09-20 · #373 merged → rebase → OQ1 prototype
+- skills: —
+- handoff: merged the ring story (#373, squash, `7f8c067`), removed its worktree, rebased this
+  branch onto main (force-with-lease; the tree now has the ring button). OQ1 prototyped as a live
+  DOM probe on `/media/190`'s real `RelatedShelf` heading (Vite for this worktree on :5177 —
+  :5173/:5174/:7800 are other sessions' — against their `backend-amv`): nothing clips, both
+  vertical placements hit-test cleanly over the shelf cards, and the horizontal rule turned out to
+  be a clamp, not an end-align (a 400 px window overflowed by 8 px start-aligned; end-aligned would
+  underflow). RD10 + R3 + handoff amended; no ADR. Next: backend `GET /people/{id}/card` + test,
+  then the chip + card (remember: `bottom-full`/`mb-1.5` only exist once a source file uses them).
