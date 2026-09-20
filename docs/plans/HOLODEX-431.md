@@ -1,0 +1,51 @@
+---
+# Flightplan worklog — one epic, one worklog, one definition of done.
+# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+key: HOLODEX-431
+status: in-progress
+release_note: Hovering a person's name on a film page, the search page or a "More with" shelf now shows a small card — headshot, age, how many titles and films you have with them, aliases — with links to their profile and provider pages.
+---
+
+# HOLODEX-431 · F68 Person hover card
+
+Text-only person links (film billed chips, `/search` rows, the "More with …" shelf title) get a
+floating hover card: headshot, name + flags, current age, title/film counts, aliases and a link
+row (Profile · Titles · Films · external ids · owner-only Enrich/Edit). Person gets its first
+shared link component, `PersonLinkChip`, which is the only mount point. Data comes from a new
+public `GET /people/{id}/card` (3-field resolve subset + cheap counts). Brainstormed 2026-09-16
+(model B over read-only A / enriched-chip C; text-only surfaces only). Spec:
+[`docs/specs/person-hover-card.md`](../specs/person-hover-card.md).
+
+## Gates — definition of done
+
+- [x] spec `write-spec` — `docs/specs/person-hover-card.md` (F68), RD1–RD11 locked
+- [ ] design `design-handoff` — `docs/design/person-hover-card-handoff.md` + committed SVG (three
+  skins, corner-flip, loading, no-headshot); settles OQ2 (dashed vs solid pill)
+- [ ] architecture `architecture` — only if RD10 falls (positioning needs `@floating-ui/dom`)
+- [ ] backend — `GET /people/{id}/card` (R5) + API test
+- [ ] frontend — `PersonLinkChip` + `PersonHoverCard` (R1–R4, R6, R7), three consumers wired
+- [ ] testing `testing-strategy` — section for R8 (timers/focus/single-open, corner flip, API
+  shape, geometry rung)
+- [ ] security `security-review` — n/a unless the endpoint grows an owner branch
+
+## Up next — ordered (position = priority)
+
+1. [ ] [HOLODEX-431] design handoff with SVG mockup (three skins) — decide OQ2
+2. [ ] [HOLODEX-431] prototype the positioning flip inside `RelatedShelf` first (OQ1) before
+   writing the chip — this decides whether an ADR is needed
+3. [ ] [HOLODEX-431] backend card endpoint + test
+4. [ ] [HOLODEX-431] frontend chip + card + consumers; QA all three skins; geometry rung
+5. [ ] [HOLODEX-431] testing-strategy section, /code-review, mark PR ready (→ In Review by CI)
+6. [ ] file follow-ups from the spec's Deferred list as HOLODEX issues: in-tile reveal for
+   `PeopleGrid`, age-at-release, curation chips + header dropdown, Studio/Film cards
+
+## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-19 · brainstorm → story → spec
+- skills: product-brainstorming, write-spec
+- handoff: brainstormed four options (A read-only card / B link row / C enriched chip / D in-tile
+  reveal); Kevin chose **B** on text-only surfaces with all four link groups, current age; spec
+  session settled `/search` page only (not the dropdown) and curation chips deferred. Filed
+  HOLODEX-431 (F68, reserved via `feature-claims --reserve`), renamed branch
+  `HOLODEX-431-person-hover-card`, In Progress fired; rebased onto main (36 commits). Spec
+  committed; Draft PR open. Next: design handoff — nothing else is unblocked without it.
