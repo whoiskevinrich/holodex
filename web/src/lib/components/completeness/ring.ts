@@ -36,3 +36,22 @@ export function ringReading({ required, extras }: CompletenessSummary): RingRead
 export function arc(pct: number): number {
 	return (pct / 100) * RING_CIRCUMFERENCE;
 }
+
+/** The busy arc while a refresh is in flight (F65.8): a fixed quarter lap that
+ * `app.css` spins — a fraction that cannot be mistaken for a score. */
+export const RING_BUSY_ARC = RING_CIRCUMFERENCE / 4;
+
+/** The button's accessible name (F65.8): what pressing it does, then the reading,
+ * so a screen-reader owner hears "Refresh enrichment — Completeness: …" once. */
+export function ringButtonLabel(reading: RingReading, busy: boolean): string {
+	return busy ? `Refreshing enrichment — ${reading.label}` : `Refresh enrichment — ${reading.label}`;
+}
+
+/** Which bands the ring should draw after a refresh: the fresh read when it
+ * landed, else whatever the list gave us — a failed re-read never blanks a ring. */
+export function bandsAfterRefresh(
+	fromList: CompletenessSummary,
+	fresh: CompletenessSummary | null
+): CompletenessSummary {
+	return fresh ?? fromList;
+}

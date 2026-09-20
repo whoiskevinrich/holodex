@@ -235,3 +235,34 @@ func TestCompletenessFacets_FromStore(t *testing.T) {
 		t.Errorf("optional facet nationality offered by the chip: %v", got)
 	}
 }
+
+// F65.8 (HOLODEX-435): the ring button re-reads its own bands after firing
+// refresh-all. The endpoint drains like a list read (the first owner touch
+// here lands the seeded dirty rows), is owner-only, and 404s for an id the
+// store does not know.
+func TestEntityCompletenessSummary(t *testing.T) {
+	srv, r := completenessBrowseServerWithRepo(t, "secret")
+	ctx := context.Background()
+
+	// A visitor list read never drains, so it is a safe way to learn the ids.
+	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "")
+	items := itemsByTitle(t, body, "title")
+	idOf := func(title string) string { return itoa(int64(items[title]["id"].(float64))) }
+	if dirty, _ := r.DirtyCompleteness(ctx); len(dirty["video"]) != 3 {
+		t.Fatalf("dirty before = %v, want the 3 seeded videos", dirty)
+	}
+
+	code, got := getJSONTok(t, srv.URL+"/api/v1/media/"+idOf("Bare")+"/completeness", "secret")
+	if code != http.StatusOK || completenessOf(t, map[string]any{"completeness": got}) != "25/null" {
+		t.Errorf("owner Bare: code %d body %v, want 200 25/null", code, got)
+	}
+	if dirty, _ := r.DirtyCompleteness(ctx); len(dirty["video"]) != 0 {
+		t.Errorf("dirty after the summary read = %v, want empty (the read drains)", dirty)
+	}
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/"+idOf("Full")+"/completeness", ""); code == http.StatusOK {
+		t.Errorf("visitor summary read: want an owner-gate refusal, got 200")
+	}
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/999999/completeness", "secret"); code != http.StatusNotFound {
+		t.Errorf("unknown id: want 404, got %d", code)
+	}
+}

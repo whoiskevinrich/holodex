@@ -66,18 +66,21 @@ Three files in `web/src/lib/components/entity/`, one page edit:
 | `studioLogo.ts` (new) | Pure rule: `isWordmark(w, h)` = `h > 0 && w >= 2h`; `showName(bare, wordmark)` = `!bare \|\| wordmark === false`; `imageAlt(name, bare, wordmark)` = `showName ? '' : name`. `Wordmark = boolean \| null` (null = logo not loaded yet). Unit-tested (`studioLogo.test.ts`). |
 | `StudioLogoBox.svelte` (new, extracted from `StudioLinkCard`) | The image box: `logo_url` → `icon_url` → monogram; `h-12 max-w-48 min-w-12`, `object-contain p-1`; plate classes only when not a logo; dashed when no image. Binds `wordmark` **out** (`bind:wordmark`), decided `onload` / for an already-`complete` cached image / `false` on error. `alt` from `imageAlt()`. `eager` prop → `loading="eager"` or `"lazy"`. |
 | `StudioLinkCard.svelte` | Mounts `StudioLogoBox` with `bind:wordmark`; keeps its `showName`, `title`, name + `videoCount` caption. Behaviour unchanged. |
-| `StudioListRow.svelte` (new) | The `/studios` row `<a>` (same classes as before), `StudioLogoBox` + `<span class="min-w-0 flex-1 truncate">{name if showName}</span>` + owner ring + count. `title={name}` when the name is hidden. A component only because the wordmark decision is per-row state, which an `{#each}` body cannot hold. |
+| `StudioListRow.svelte` (new) | The `/studios` row: a positioned wrapper with the row's border classes, a stretched `<a>` (`after:absolute after:inset-0`) holding `StudioLogoBox` + `<span class="min-w-0 flex-1 truncate">{name if showName}</span>`, then the owner ring (a `<button>` since F65.8, `z-[1]` above the stretch) and the count as siblings. `title={name}` on the `<a>` when the name is hidden. A component only because the wordmark decision is per-row state, which an `{#each}` body cannot hold. |
 | `routes/studios/+page.svelte` | `{#each}` body → `<StudioListRow studio={s} eager={i < 6} />`; `monogram` / `CompletenessRing` imports dropped. |
 
 ```svelte
-<!-- StudioListRow.svelte -->
-<a href={`/studios/${studio.id}`} class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
-   title={showName ? undefined : studio.name}>
-	<StudioLogoBox {studio} {eager} bind:wordmark />
-	<span class="min-w-0 flex-1 truncate">{#if showName}{studio.name}{/if}</span>
-	{#if studio.completeness}<CompletenessRing … size="row" />{/if}
+<!-- StudioListRow.svelte (row shape per F65.8, merged 2026-09-20: the ring is a <button>,
+     so it sits beside a stretched <a> rather than inside it) -->
+<div class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent">
+	<a href={`/studios/${studio.id}`} class="flex min-w-0 flex-1 items-center gap-3 after:absolute after:inset-0 after:content-['']"
+	   title={showName ? undefined : studio.name}>
+		<StudioLogoBox {studio} {eager} bind:wordmark />
+		<span class="min-w-0 flex-1 truncate">{#if showName}{studio.name}{/if}</span>
+	</a>
+	{#if studio.completeness}<span class="relative z-[1] inline-flex"><CompletenessRing … entity={{ kind: 'studio', id }} /></span>{/if}
 	<span class="text-xs text-muted">{studio.video_count}</span>
-</a>
+</div>
 ```
 
 Notes:

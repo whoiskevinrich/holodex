@@ -5,6 +5,7 @@ import type {
 	Activity,
 	Capabilities,
 	Category,
+	CompletenessSummary,
 	EnrichCandidate,
 	EnrichedField,
 	EnrichEntityKind,
@@ -1013,6 +1014,12 @@ export const api = {
 			'POST',
 			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/refresh-all`
 		),
+
+	// The ring badge's own bands for one entity (F65.8): read by CompletenessRing
+	// right after its refresh-all so it can redraw without the list re-fetching.
+	// Owner-gated like the list field; drains the store first, as a list read does.
+	entityCompleteness: (kind: EnrichEntityKind, id: number) =>
+		getAuthed<CompletenessSummary>(`/${ENRICH_ENTITY_BASE[kind]}/${id}/completeness`),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace

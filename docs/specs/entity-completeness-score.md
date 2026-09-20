@@ -3,7 +3,9 @@
 **Status**: Draft
 **Phase**: 4 (Curation tooling)
 **Issue**: [HOLODEX-260](https://whoiskevinrich.atlassian.net/browse/HOLODEX-260) (F55, shipped) · [HOLODEX-412](https://whoiskevinrich.atlassian.net/browse/HOLODEX-412) (F65 amendment)
-**Amended**: 2026-09-18 — **F65 Completeness score v2** rewrites § Scoring model, § Facet tables, the sort, the storage direction, and adds the card ring badge. Requirements added by F65 are numbered `F65.n`; F55 rows whose behavior changed carry a **v2** note. The v1 formula is recorded in [ADR-081](../architecture/ADR-081-entity-completeness-score.md) D3 and is not repeated here.
+**Amended**: 2026-09-20 — **F65.8** ([HOLODEX-435](https://whoiskevinrich.atlassian.net/browse/HOLODEX-435)):
+the ring badge becomes a **button** that fires the single-entity enrichment refresh (sweep semantics,
+ADR-103 D7); see F65.8 and RD9. Amended 2026-09-18 — **F65 Completeness score v2** rewrites § Scoring model, § Facet tables, the sort, the storage direction, and adds the card ring badge. Requirements added by F65 are numbered `F65.n`; F55 rows whose behavior changed carry a **v2** note. The v1 formula is recorded in [ADR-081](../architecture/ADR-081-entity-completeness-score.md) D3 and is not repeated here.
 **Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
 **Realizes**: F55 (new). Builds on the extraction-queue UX precedent ([HOLODEX-199](https://whoiskevinrich.atlassian.net/browse/HOLODEX-199)) — its deliberate deferral of bulk-apply directly informs this feature's queue design (§ Scope).
 **Architecture**: [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, and the `imdb_id` → `external_provider_id` rename), [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id), and [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) (F65 — supersedes ADR-081 D3 + D4: required-band score, separate extras, a materialized store with trigger-fed invalidation, and the owner-only list field the ring badge rides).
@@ -42,7 +44,8 @@ candidate sitting in cache, so "quick wins" are visually distinct from "needs re
   nice-to-have facets produce a separate `extras` number that is never blended in.
 - **A ring badge on every entity card in owner mode (F65)** — required fills the ring; extras draw as a
   second lap over it only once required is full. Rides an owner-only `completeness` object on every list
-  item; no per-card fetch, no new endpoint. Visitors never see it.
+  item; no per-card fetch, no new endpoint. Visitors never see it. **F65.8:** the ring is also the
+  owner's one-click "refresh this entity" — it fires the same per-entity step the F66 sweep runs.
 - **A separate actionability metric** — the % of an entity's *missing* facets that already have a cached,
   unapplied enrichment candidate. Actionability never affects the completeness score; it exists purely to
   triage the remediation queue (see below).
@@ -311,6 +314,7 @@ too.
 | F65.5 | **Owner-only `completeness` on list items.** Every video / person / studio list response carries `completeness: { required, extras }` per item when the requester passes the owner gate, on every sort — not only the Completeness sort — and the field is absent for a visitor (same redaction seam as file metadata). Values come from the materialized store ([ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D3), so the default-sort list page pays no per-request library resolve. | `GET /media` as owner: every item has `completeness`; as visitor: no item does. A grid of 50 cards issues no request beyond the list call. |
 | F65.6 | **Materialized store with trigger-fed invalidation.** The score is persisted per entity and invalidated by SQL triggers on every table `Complete` reads from, drained on the next owner read; boot, mapping reload, and promotion/claim writes mark every entity dirty. The detail page computes live and rewrites a stale row. A test enumerates the input tables and asserts each write leaves a dirty row. | Curating a poster from the media page, then loading `/` as owner, shows the updated ring without a restart. Adding a scored input table without its trigger fails the enumerating test. |
 | F65.7 | **Composite sort and facet counts read the store.** The Completeness sort is a SQL `ORDER BY` with normal `LIMIT`/`OFFSET` paging; `GET /completeness/facets` counts come from the stored missing-facet rows. The remediation queue keeps its live resolve (it needs actionability). | Page 2 of the Completeness sort is a `LIMIT 50 OFFSET 50` query, not a full-library resolve; the chip's "Missing poster · 9" equals the number of stored `poster_url` missing rows. |
+| F65.8 | **The ring is a button that fires a single-entity refresh.** `CompletenessRing` renders a `<button type="button">` (never `role="img"`) whenever it is mounted; clicking it calls the existing owner-gated `POST /{people\|studios\|media\|films}/{id}/enrich/refresh-all` — the same `RefreshPair` fan-out over every provider that supports the kind, `Force: true`, that the F66 sweep runs per entity (ADR-103 D7). **Sweep semantics:** fire-and-forget; a `needs_review` result is not surfaced (no picker — the entity page is where review happens); `rate_limited` / errors return the ring to idle with no toast. While the request is in flight the ring is `aria-busy`, disabled, and draws a spinning quarter arc; when it resolves the mount site re-fetches the item (or its list) and the ring redraws to the stored score, which the F65.6 dirty-drain refreshed on that owner read. **Never nested in a link:** at every mount the ring is a sibling of the card/row `<a>` (or checkbox `<label>`), so a click neither navigates nor toggles selection. Props: `required`, `extras`, `size`, plus `entity: { kind, id }` and `onrefreshed()`. Still owner-only by payload. | Owner clicks the ring on Video B (poster missing, a provider has one): the request fires, the ring spins, the grid re-fetches, Video B's ring is now full. Click on a person row in select mode: the checkbox does not toggle. A visitor sees no ring. Tab reaches the ring after the card link. |
 
 ### Nice-to-have (P1)
 
@@ -467,6 +471,14 @@ other owner-tooling features measure adoption.
   a store invalidated by SQL triggers and drained lazily on owner reads. The *mechanism* (triggers +
   dirty set, not Go write-time hooks) is ADR-099 D4's call, made after inventorying ~30 write sites with
   no choke point — the owner chose "materialize", ADR-099 chose how.
+- **RD9 (2026-09-20, HOLODEX-435) — The ring acts.** Decided while designing the F68 person hover
+  card, where the ring is the owner's only affordance: a static indicator next to a "go to the profile
+  and press Refresh" path was one click too many. "Same as the sweep, for one entity" was chosen over a
+  page-style refresh (picker on `needs_review`, inline errors) because a card is not a page — the sweep
+  already defines what an unattended per-entity refresh does, and `refresh-all` is literally that code.
+  Hoisting the ring out of every `<a>` was the cost accepted (the scene-badge precedent in
+  `video/CLAUDE.md`); making the ring a button *only* in the hover card was rejected as two contracts
+  for one component.
 
 ---
 
