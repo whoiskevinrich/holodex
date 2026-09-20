@@ -87,6 +87,14 @@ describe('theme (F66 instance skin)', () => {
 		expect(JSON.parse(localStorage.getItem('holodex-theme-cache')!).active).toBe('broadcast');
 	});
 
+	it('init falls back to the default for a cached skin id it does not know', () => {
+		localStorage.setItem('holodex-theme-cache', JSON.stringify({ active: 'neon', custom: null }));
+		const t = new ThemeState();
+		t.init();
+		expect(root.dataset.theme).toBe('cinematheque');
+		expect(t.active).toBe('cinematheque');
+	});
+
 	it('init tolerates a corrupt or blocked cache', () => {
 		localStorage.setItem('holodex-theme-cache', '{not json');
 		const t = new ThemeState();

@@ -421,7 +421,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// Custom palette (F66, ADR-102 D5): a malformed block is logged and treated as
 	// absent; a low-contrast one is applied with a WARN per failing pair.
 	if tc := cfg.Theme.Custom; tc != nil {
-		custom, err := theme.Parse(theme.Input{Name: tc.Name, Base: tc.Base, BG: tc.BG, Ink: tc.Ink, Accent: tc.Accent, Muted: tc.Muted, Warn: tc.Warn})
+		custom, err := theme.Parse(theme.Input(*tc)) // same fields, same order; a conversion, not a copy
 		if err != nil {
 			log.Warn("theme.custom ignored", "err", err)
 		} else {

@@ -31,8 +31,6 @@ function isShipped(v: unknown): v is ShippedTheme {
 	return typeof v === 'string' && (THEMES as readonly string[]).includes(v);
 }
 
-// baseOf resolves the data-theme to put on <html>: the shipped skin itself, or the
-// custom palette's base (the flourishes and fonts it inherits, ADR-102 D4).
 // isCustom guards a cached palette before it reaches <html>: a missing token would
 // otherwise land as the literal string "undefined" and break every color until
 // /capabilities arrives.
@@ -47,6 +45,8 @@ function isCustom(v: unknown): v is ThemeCustom {
 	);
 }
 
+// baseOf resolves the data-theme to put on <html>: the shipped skin itself, or the
+// custom palette's base (the flourishes and fonts it inherits, ADR-102 D4).
 function baseOf(t: ThemeCapability): ShippedTheme {
 	if (t.active === 'custom' && t.custom && isShipped(t.custom.base)) return t.custom.base;
 	return isShipped(t.active) ? t.active : DEFAULT;

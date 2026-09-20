@@ -59,7 +59,15 @@
 		error = '';
 		if (id === theme.active) return;
 		if (!(await theme.select(id))) {
-			error = 'Couldn’t save the skin — the previous one is still active. Try again.';
+			error =
+				'Couldn’t save the skin — the previous one is still active. If you were signed out, sign in again on Status; otherwise the server may be unreachable.';
+			return;
+		}
+		// Keep the capabilities snapshot in step with what the server just accepted, so
+		// the layout's caps effect (and any stale in-flight refreshCaps) cannot re-apply
+		// the previous skin over the owner's choice.
+		if (activity.caps) {
+			activity.caps = { ...activity.caps, theme: { active: theme.active, custom: theme.custom } };
 		}
 	}
 
@@ -149,17 +157,17 @@
 				{/if}
 			</button>
 		{/each}
+	</div>
 
-		{#if !theme.custom}
-			<!-- The tab's only authoring affordance, on purpose (ADR-102 D2): the palette
-			     is declared in config, not here. -->
-			<div class="rounded-theme border border-dashed border-rule p-3 text-sm text-muted">
-				No custom palette. Define <code class="text-ink">theme.custom</code> in
-				<code class="text-ink">holodex.yaml</code> and restart — see
-				<a href={DOCS_URL} target="_blank" rel="noopener" class="text-accent hover:underline"
-					>Configuration › Appearance</a
-				>.
+	{#if !theme.custom}
+		<!-- The tab's only authoring affordance, on purpose (ADR-102 D2): the palette is
+		     declared in config, not here. Outside the radiogroup — it is not an option. -->
+		<div class="rounded-theme border border-dashed border-rule p-3 text-sm text-muted">
+			No custom palette. Define <code class="text-ink">theme.custom</code> in
+			<code class="text-ink">holodex.yaml</code> and restart — see
+			<a href={DOCS_URL} target="_blank" rel="noopener" class="text-accent hover:underline"
+				>Configuration › Appearance</a
+			>.
 			</div>
 		{/if}
-	</div>
 </div>
