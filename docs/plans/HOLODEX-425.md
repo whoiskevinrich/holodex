@@ -24,7 +24,7 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 - [x] design `design-handoff` — [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
   [mockup SVG](../design/instance-skin-mockup.svg); option B (miniature browse preview) chosen;
   active = accent border + outlined chip, never solid fill
-- [x] backend — S1: migration 0048 `settings`, `repo.GetSetting/PutSetting`, `PUT /admin/theme`,
+- [x] backend — S1: migration 0050 `settings`, `repo.GetSetting/PutSetting`, `PUT /admin/theme`,
   `/capabilities.theme`; S3: `internal/theme` (Parse / Derive / Contrast + the R11 gate
   `TestDeriveMatchesCinematheque`), `config.Theme`, boot wiring with contrast WARNs
 - [x] frontend — S1: `theme.svelte.ts` server-applied + paint cache, preference removed, header picker
@@ -60,6 +60,13 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
   mirrored in Go with the R11 gate green (all seven tokens ΔE ≤ 2, browser and Go agree to the hex
   live); docs + example + testing-strategy §13. Every gate is green; PR #365 stays Draft only for
   Kevin's human QA. Filed HOLODEX-429 (mid-tone accent → dark ink fails AA).
+
+### 2026-09-19 · merge main — F66→F67, migration 0048→0050
+- skills: —
+- handoff: main had claimed both **F66** (entity-refresh sweep, ADR-103) and migration **0048**
+  (job-run dismissals) while this branch was open; renumbered to F67 / 0050 (the new
+  `scripts/feature-claims.mjs` rule in CLAUDE.md exists for exactly this). ADR-102 was still free.
+  Jira summaries + PR title updated to F67.
 
 ### 2026-09-19 · human QA → ready for review
 - skills: —

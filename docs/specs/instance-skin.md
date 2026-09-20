@@ -277,13 +277,13 @@ not reload it (RD5) — the docs say so.
 ## Data model
 
 ```sql
--- NNNN_settings.up.sql
+-- 0050_settings.up.sql
 CREATE TABLE settings (
   key        TEXT PRIMARY KEY,
   value      TEXT NOT NULL,
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
--- NNNN_settings.down.sql
+-- 0050_settings.down.sql
 DROP TABLE settings;
 ```
 
