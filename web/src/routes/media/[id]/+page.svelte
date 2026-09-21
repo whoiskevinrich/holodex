@@ -1266,13 +1266,12 @@
 	});
 </script>
 
-{#if loading}
-	<p class="py-16 text-center text-sm text-muted">Loading…</p>
-{:else if error || !video}
-	<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">
-		{error || 'Not found.'}
-	</p>
-{:else}
+<!-- The <video> below is rendered outside every {#if} on this page (F69 P0-9, ADR-104 D4):
+     this route's component is reused across /media/A -> /media/B, so keeping the element
+     out of the loading gate makes it the SAME node across items — a `src` swap, never a
+     teardown — which is what lets a Picture-in-Picture window survive next-up. The gated
+     regions (rest of the subject column, the rail, the post-stage sections, the dialogs)
+     each carry their own {#if} instead. -->
 	<article class="space-y-6">
 		<!-- Three zones, two widths (HOLODEX-363, design handoff §2). The stage and the
 		     bottom audit group each sit in their own max-w-stage wrapper; the More-with band
@@ -1284,35 +1283,42 @@
 		     detail page so the two cannot drift. -->
 		<div class="stage-grid">
 			<div class="space-y-6">
+				<!-- Hidden (never unmounted) while there is nothing to play: a fresh entry that
+				     is still loading, or an error / not-found — today's look for those states.
+				     During /media/A -> /media/B the box stays up showing A until B's src lands. -->
 				<div
 					class="group relative overflow-hidden rounded-theme border border-rule bg-black"
+					class:hidden={!video || !!error}
 					id="field-poster_url-upload"
 				>
+					<!-- svelte-ignore a11y_media_has_caption -->
+					<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
+					     it shows a sharp cover instead of a black box until play — the small
+					     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
+					<video
+						src={video ? api.streamURL(video.id) : undefined}
+						poster={video?.poster_url
+							? api.thumbnailReload(video.poster_url, thumbVersion)
+							: undefined}
+						controls
+						preload="metadata"
+						class="aspect-video w-full bg-black"
+						onplay={() => setPlaying(true)}
+						onpause={() => setPlaying(false)}
+						onended={() => setPlaying(false)}
+						onerror={() => (playFailed = true)}
+					></video>
 					{#if playFailed}
-						<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
+						<!-- Codec failure is an overlay over the element, not a replacement for it. -->
+						<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface text-center">
 							<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
-							<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
-								Download / open file
-							</a>
+							{#if video}
+								<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
+									Download / open file
+								</a>
+							{/if}
 						</div>
 					{:else}
-						<!-- svelte-ignore a11y_media_has_caption -->
-						<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
-						     it shows a sharp cover instead of a black box until play — the small
-						     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
-						<video
-							src={api.streamURL(video.id)}
-							poster={video.poster_url
-								? api.thumbnailReload(video.poster_url, thumbVersion)
-								: undefined}
-							controls
-							preload="metadata"
-							class="aspect-video w-full bg-black"
-							onplay={() => setPlaying(true)}
-							onpause={() => setPlaying(false)}
-							onended={() => setPlaying(false)}
-							onerror={() => (playFailed = true)}
-						></video>
 						{#if isOwner}
 							<input
 								bind:this={posterInput}
@@ -1339,7 +1345,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" />
 								</svg>
 							</button>
-							{#if video.poster_uploaded}
+							{#if video?.poster_uploaded}
 								<button
 									onclick={removePoster}
 									disabled={posterUploading}
@@ -1373,6 +1379,13 @@
 						</button>
 					{/if}
 				</div>
+				{#if loading}
+					<p class="py-16 text-center text-sm text-muted">Loading…</p>
+				{:else if error || !video}
+					<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">
+						{error || 'Not found.'}
+					</p>
+				{:else}
 				{#if posterError}
 					<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
 				{/if}
@@ -1500,8 +1513,10 @@
 						{/if}
 					</div>
 				{/if}
+				{/if}
 			</div>
 
+			{#if !loading && !error && video}
 			<div class="space-y-6">
 				<!-- Overview: the rail's first block (HOLODEX-363; column contract in
 				     routes/CLAUDE.md). The synopsis is a resolved field; owner and visitor share
@@ -2224,9 +2239,11 @@
 					<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 				{/if}
 			</div>
+			{/if}
 		</div>
 		</div>
 
+		{#if !loading && !error && video}
 		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when its
 		     block is null or empty, so an item with no siblings shows no rail. A sibling of
 		     the capped wrappers, not a child — see the article comment. Leaving the subject
@@ -2328,8 +2345,10 @@
 		{/if}
 		</div>
 		{/if}
+		{/if}
 	</article>
 
+{#if !loading && !error && video}
 	{#if extractPreviewOpen}
 		<ExtractionPreviewDialog
 			items={extractPreviewItems}
