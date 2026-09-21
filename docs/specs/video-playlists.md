@@ -35,9 +35,9 @@ stories proposed under *Timeline / routing* (S1 store + API · S2 pages + produc
 fact**: never written to a file, freely named, ordered, private. The two coexist; nothing migrates.
 Hotkeys (F62) — next/previous-in-playlist keys are a P1 here, wired into F62's map, not a new one.
 
-**ADR**: ADR-104 *(to claim via `node scripts/adr-claims.mjs`)* — D1 container, not entity · D2 playlist
-= membership + sort · D3 snapshot-only producers · D4 persistent player element · D5 visibility as a
-playlist property.
+**ADR**: [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md) — D1 container,
+not entity · D2 playlist = membership + sort · D3 snapshot-only producers, server-side through the
+extracted clause builder · D4 persistent player element · D5 visibility as a read gate.
 **Design**: `video-playlists-handoff.md` + mockup SVG *(pending `/design-handoff`)* — playlist page,
 the two producer affordances, the next-up surface.
 
@@ -78,7 +78,7 @@ on each tile, which is exactly the friction a media library exists to remove.
   continuity and privacy; shipping the column without the UI keeps the model honest at no UX cost.
 - **Tile context menus / multi-select "add".** Only the detail page adds. *Why*: the browse page
   already has a producer (*Save as playlist*); a second one there is surface without a second job.
-- **Cover image.** An `entityimage` kind is reserved by ADR-104, not shipped. *Why*: "curate a shelf"
+- **Cover image.** An `entityimage` kind is reserved by ADR-104 D1, not shipped. *Why*: "curate a shelf"
   wants a face eventually; nothing in v1 needs it.
 - **Live / refreshable playlists.** *Save as playlist* is a snapshot; no `frozen_query` column, no
   *Refresh* button. *Why*: "hand someone a set" needs the set to stay put; the column is one nullable
