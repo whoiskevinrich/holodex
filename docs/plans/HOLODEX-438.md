@@ -21,31 +21,41 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 - [x] spec `write-spec` — `docs/specs/video-playlists.md` (F69), RD1–RD9 locked; OQ1 resolved (hide
   the visitor nav item via `/capabilities.public_playlists`)
 - [x] architecture `architecture` — [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md)
-  D1–D5; index row landed; D3 adds the uncapped `ListVideoIDs` via an extracted clause builder
-- [/] design `design-handoff` — `docs/design/video-playlists-handoff.md` + mockup SVG: `/playlists`,
-  `/playlists/[id]`, *Save as playlist* placement (OQ3), *Add to playlist* picker, next-up surface
-- [ ] backend — S1: migration (number claimed at implement time, 0051 on main 2026-09-20), repo,
-  `/playlists*` handlers, `KindPlaylist` ref, `/capabilities.public_playlists`
+  D1–D5; index row landed; D3 adds the uncapped `ListVideoIDs` over the existing `build()`/`orderBy()`
+- [x] design `design-handoff` — `docs/design/video-playlists-handoff.md` + mockup SVG: `/playlists`,
+  `/playlists/[id]`, *Save as playlist* placement (OQ3 → A), *Add to playlist* picker, next-up surface;
+  approved 2026-09-20
+- [x] backend — S1 (HOLODEX-441): migration `0051_playlists`, `repo/playlists.go`, `/playlists*`
+  handlers, `KindPlaylist` ref, `/capabilities.public_playlists`, `playlists` on the media detail;
+  handler + snapshot-parity tests
 - [ ] frontend — S2: pages + producers, three skins; S3: persistent-element refactor of
   `/media/[id]` (behaviour-neutral commit first, element-identity test), playlist context, Media
   Session next/prev
 - [ ] testing `testing-strategy` — handler tests incl. visitor-private = 404, order parity with
   browse, element identity across next-up, three-skin matrix, manual PiP + Safari rows
-- [ ] security `security-review` — new owner-gated writes; visibility as a read gate; `from_query`
-  goes through the existing browse parser, never SQL text
+- [/] security `security-review` — **S1 signed off 2026-09-20** (no findings): every mutation inside
+  `requireOwner`; reads visibility-filtered at the repo (`ListPlaylists`/`GetPlaylist`/
+  `PlaylistsForVideo`), visitor + private = the unknown-id 404; `from_query` → `url.ParseQuery` →
+  `videoFilterFromQuery` → bound args only, ORDER BY from the `orderBy()` whitelist; items pass the
+  browse visitor redaction. Re-run at epic level once S2/S3 land.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-441] S1 store + API — start with the `ListVideoIDs` clause-builder extraction (own commit)
-2. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
+1. [ ] [HOLODEX-443] S3 persistent `<video>` on `/media/[id]` — behaviour-neutral lift above the
+   loading gate first (own commit + element-identity test), then `?playlist=` context, next-up
+   strip, Media Session next/prev
+2. [ ] [HOLODEX-442] S2 `/playlists`, `/playlists/[id]`, *Save as playlist* (A), *Add to playlist*
+   picker, nav item gated on `public_playlists` — three skins
+3. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review` once S2/S3 land
+4. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
-3. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
+5. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
    fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-20 · brainstorm → epic → spike → spec
-- skills: product-brainstorming, write-spec, architecture, design-handoff
+- skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
 - handoff: brainstorm converged (container not entity; playlist = membership + sort; snapshot
   producers; not-a-tag guarantees), epic HOLODEX-438 filed with gates-as-checkboxes, branch renamed
   `HOLODEX-438-video-playlists`, In Progress fired. **Spike** (throwaway, reverted): the media page
@@ -58,3 +68,14 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   `ListVideos` caps at `maxListLimit` → snapshot needs an uncapped `ListVideoIDs` off an extracted
   clause builder). Draft PR #375 open. Stories **HOLODEX-441/442/443** (S1/S2/S3) filed under the epic. **Design
   handoff** written + mockup SVG committed; Kevin approved all panels, OQ3 → A. Next: S1.
+
+### 2026-09-20 · S1 store + API (HOLODEX-441)
+- skills: code-review (high --fix), security-review
+- handoff: **S1 shipped** — migration 0051 (`playlists`, `playlist_videos` PK `(playlist_id, video_id)`,
+  cascade both ways), `repo/playlists.go` (visibility + trash seam in one place, chunked snapshot
+  insert in the create tx), `api/playlists.go` (`GET /playlists[/{id}]` visibility-filtered;
+  owner-gated POST/PATCH/DELETE + `PUT|DELETE …/videos/{videoId}`), `playlist:<id>` ref,
+  `/capabilities.public_playlists`, `playlists` on `GET /media/{id}`. `ListVideoIDs` needed **no**
+  builder extraction — `build()`/`orderBy()` were already factored (ADR-104/spec corrected). Code
+  review's one finding (ValidSort ↔ orderBy drift) closed with a pinning test; security review
+  clean. HOLODEX-441 stays In Progress until the epic PR merges (hand sweep). Next: S3.

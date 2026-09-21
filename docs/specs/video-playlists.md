@@ -186,17 +186,19 @@ DELETE CASCADE, position INTEGER NOT NULL, PRIMARY KEY (playlist_id, video_id))`
 | Method | Path | Gate | Behaviour |
 |---|---|---|---|
 | `GET` | `/playlists` | any | Owner: all. Visitor: `visibility=public` only. Each row: `ref, id, name, sort, visibility, item_count, updated_at`. |
-| `GET` | `/playlists/{id}` | any | Same shape + `items` in the playlist's order (see P0-4). Visitor + private → **404**. |
-| `POST` | `/playlists` | owner | Body `{name, sort?, visibility?, from_query?}`. `from_query` = a browse filter query string → RD3 snapshot; absent → empty playlist. 201 with the playlist + `item_count`. |
-| `PATCH` | `/playlists/{id}` | owner | Any of `name, sort, visibility`. |
+| `GET` | `/playlists/{id}` | any | `{playlist, items, total, seed?}` — `items` in the playlist's order (see P0-4); `seed` echoed for a `random` sort. Visitor + private → **404**. |
+| `POST` | `/playlists` | owner | Body `{name, sort?, visibility?, from_query?}`. `from_query` = a browse filter query string → RD3 snapshot; absent → empty playlist. 201 `{playlist}` with `item_count`. |
+| `PATCH` | `/playlists/{id}` | owner | Any of `name, sort, visibility`; 200 `{playlist}`. |
 | `DELETE` | `/playlists/{id}` | owner | 204. |
-| `PUT` | `/playlists/{id}/videos/{videoId}` | owner | Append at `max(position)+1`; idempotent (RD9). Returns the membership. |
+| `PUT` | `/playlists/{id}/videos/{videoId}` | owner | Append at `max(position)+1`; idempotent (RD9). 200 `{playlist}` (count current). |
 | `DELETE` | `/playlists/{id}/videos/{videoId}` | owner | Remove; 204; 404 if not a member. |
 | `GET` | `/capabilities` | any | *(existing)* gains `public_playlists: int` — count of `visibility=public` playlists. |
+| `GET` | `/media/{id}` | any | *(existing)* gains `playlists: Playlist[]` — the video's memberships, visibility-filtered (the rail's PLAYLISTS row, P0-7). |
 - [ ] `name` is required, trimmed, non-empty, ≤ 200 chars; duplicates **allowed** (a playlist is not an identity).
 - [ ] Unknown `sort` / `visibility` → 400 naming the field; no write.
 - [ ] `from_query` containing an owner-only sort (`completeness_*`) is fine — the caller is the owner by construction; a visitor never reaches this handler.
-- [ ] `from_query` strips `limit`, `offset`, `seed`; a `random` filter sort snapshots in the **seeded order of that request** and stores `sort='manual'` so the shuffle the owner saw is what the playlist is.
+- [ ] `from_query` ignores `limit`/`offset`; a `random` filter sort snapshots in the **seeded order of that request** (its `seed`, or a fresh one) and stores `sort='manual'` so the shuffle the owner saw is what the playlist is. An explicit body `sort` wins over the filter's.
+- [ ] `sort` is validated against `repo.ValidSort` + `manual` here; browse itself stays permissive (an unknown key, including `manual`, falls to `added_desc` as today).
 - [ ] Every mutation runs under the repo's single writer (`writeMu`), one transaction per request — the snapshot insert is one `INSERT … SELECT`, not N statements.
 
 **P0-4 — Ordered read.** `GET /playlists/{id}` returns `items` as the same tile payload the browse list

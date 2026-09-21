@@ -380,6 +380,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/tags/{id}", h.getTag)
 	// Tag Categories (HOLODEX-240, ADR-078) — public reads; mutations gated below.
 	h.mountCategories(r)
+	h.mountPlaylists(r) // visibility-filtered reads (F69, ADR-104 D5)
 	r.Get("/search", h.search)
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
@@ -469,6 +470,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountVideoTags(r)
 		// Tag Categories — CRUD + member-tag assign/unassign (HOLODEX-240, ADR-078).
 		h.mountCategoryMutations(r)
+		h.mountPlaylistMutations(r)
 		// Per-item forced re-extract + re-enrich (F31, ADR-047).
 		r.Post("/media/{id}/refresh", h.refreshMedia)
 		// Filename extraction — on-demand single-video trigger (F48.5a, ADR-067).
@@ -884,8 +886,18 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	redactWritebackStatusForVisitor(&wbStatus, authorized)
 
+	// Playlists this video belongs to (F69 spec P0-7, the rail's PLAYLISTS row):
+	// visibility-filtered like every playlist read (ADR-104 D5) — a visitor sees the
+	// public ones only. Non-nil so it marshals `[]`, never null (HOLODEX-275).
+	playlists, plErr := h.repo.PlaylistsForVideo(r.Context(), id, !authorized)
+	if plErr != nil {
+		h.log.Warn("playlists for media detail", "id", id, "err", plErr)
+		playlists = []model.Playlist{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"video":            v,
+		"playlists":        playlists,
 		"metadata":         extra,
 		"fields":           fields,
 		"resolved":         resolved,

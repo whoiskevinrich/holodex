@@ -475,6 +475,46 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 	return out, nil
 }
 
+// ListVideoIDs returns the ids of every active video matching filter in filter's
+// order, ignoring Limit/Offset — the set reader a playlist snapshot needs (F69,
+// ADR-104 D3): ListVideos is a page reader capped at maxListLimit, and
+// ListAllVideos scans and hydrates full rows. Same build()/orderBy() as both, so
+// the snapshot's membership and order can never disagree with browse's.
+func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error) {
+	where, args := f.build()
+	orderClause, orderArgs := f.orderBy()
+	qArgs := make([]any, 0, len(args)+len(orderArgs))
+	qArgs = append(qArgs, args...)
+	qArgs = append(qArgs, orderArgs...)
+	rows, err := r.db.QueryContext(ctx, `SELECT v.id FROM videos v `+where+` ORDER BY `+orderClause, qArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("list video ids: %w", err)
+	}
+	defer rows.Close()
+	ids := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// ValidSort reports whether s is a browse sort key orderBy handles explicitly.
+// The browse handler itself is permissive (an unknown key falls to added_desc);
+// this is for callers that persist a sort and must not store a key that would
+// silently degrade later — playlists (F69).
+func ValidSort(s string) bool {
+	switch s {
+	case "added_desc", "added_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
+		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc:
+		return true
+	}
+	return false
+}
+
 // build assembles the shared WHERE clause + args for list and count queries.
 func (f VideoFilter) build() (string, []any) {
 	var clauses []string

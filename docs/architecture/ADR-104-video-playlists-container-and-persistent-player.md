@@ -40,10 +40,11 @@ the current code shape the decisions:
    set of videos is ordered, server-validated, and includes ADR-045's seeded `random`. A playlist
    needs exactly this plus one value the browse page cannot have: an owner-authored order.
 3. **The browse filter is already parsed server-side.** `videoFilterFromQuery(url.Values)` turns the
-   F4.7 query string into a `repo.VideoFilter`; `ListVideos` applies the visibility seam
-   (`v.active = 1 AND v.deleted_at IS NULL`, ADR-037), the film-hiding posture and `orderBy()`. But it
-   **caps at `maxListLimit`** — it is a page reader, not a set reader. A snapshot needs the same
-   clauses and order with no cap.
+   F4.7 query string into a `repo.VideoFilter`; the WHERE and ORDER BY are already factored as
+   `VideoFilter.build()` / `orderBy()` (the visibility seam `v.active = 1 AND v.deleted_at IS NULL`,
+   ADR-037, lives in `build()`). But the two readers over them are the wrong shape for a snapshot:
+   `ListVideos` **caps at `maxListLimit`** (a page reader) and `ListAllVideos` hydrates full rows and
+   associations (the F65 scorer's scan). A snapshot needs ids only, uncapped, in order.
 4. **The media page destroys its `<video>` on every item change.** SvelteKit reuses the
    `/media/[id]` component across ids, but the page-wide `{#if loading}` gate (~L1291) wraps the
    player, and the load effect flips `loading = true` per item. The 2026-09-20 spike verified it by
@@ -70,17 +71,19 @@ comment say "container, not entity" so a future reader does not reach for the sp
 **D2 — Playlist = membership + a sort.** `playlist_videos` is a **set** — `PRIMARY KEY (playlist_id,
 video_id)` — with a `position`. `playlists.sort` is any `MEDIA_SORTS` value or **`manual`**, validated at
 the API against the same list the browse handler validates against (one source of truth; `manual` is
-appended for playlists only and rejected by browse). Read order = `orderBy()` for the stored sort
+appended for playlists only; browse stays permissive and treats it like any unknown key — the
+`added_desc` default — so nothing can be persisted through it). Read order = `orderBy()` for the stored sort
 applied to the membership join; `manual` → `position ASC`; `random` → ADR-045's shuffle under a seed
 the client carries. **A snapshot playlist and a curated playlist are the same row shape** — the
 producer is not stored. Reorder is therefore a future `UPDATE position`, never a schema change.
 
 **D3 — Producers are snapshot-only and the snapshot is server-side, through the browse clause
 builder.** `POST /playlists` with `from_query` parses it with `videoFilterFromQuery` (unchanged),
-strips `limit`/`offset`/`seed`, sets `HideFullFilmVideos` as browse does, and calls a new
-**id-only, uncapped** repo read — `ListVideoIDs(ctx, VideoFilter) ([]int64, error)` — built from the
-**same** WHERE/ORDER builder `ListVideos` uses, extracted so the two cannot drift. The insert is one
-`INSERT INTO playlist_videos … SELECT` (or one multi-row insert) under `writeMu`, `position` = rank.
+drops `limit`/`offset`, sets `HideFullFilmVideos` as browse does, and calls a new
+**id-only, uncapped** repo read — `ListVideoIDs(ctx, VideoFilter) ([]int64, error)` — a third reader
+over the existing `VideoFilter.build()` / `orderBy()` beside `ListVideos` and `ListAllVideos`, so
+membership and order cannot drift from browse. The insert is one chunked multi-row
+`INSERT OR IGNORE` in the create transaction under `writeMu`, `position` = rank.
 `sort` is set to the filter's sort — **except `random`, which stores `manual`** with the seeded order
 of that request, because "save this shuffle" means the one on screen. **No `frozen_query` column.** The
 membership is the whole record; a *Refresh from filter* would be one nullable column and a button
@@ -117,14 +120,14 @@ gating is untouched and still applies to every tile a playlist renders.
 - **The spine stays the spine.** Nothing in `internal/resolver`, `internal/enrich`, the alias tables
   or the completeness trigger set is touched. The ADR-090 review queues never see a playlist. This is
   the property the index row exists to protect.
-- **`ListVideos` gets a sibling, not a flag.** Extracting the clause builder is a behaviour-neutral
-  refactor of the central read seam (Context 3); it ships as its own commit with the existing
-  list/count tests green before any playlist code lands on top.
+- **`ListVideos` gets a sibling, not a flag.** `ListVideoIDs` is a third reader over the already
+  factored `build()`/`orderBy()` (Context 3); no refactor of the central read seam was needed.
 - **The media page's player refactor is behaviour-neutral and precedes the feature.** Lifting the
   element above the loading gate (D4) changes nothing a user sees today, so it lands as its own
   commit with an element-identity test — the same discipline as the clause-builder extraction.
-- **A new sort value exists that browse must reject.** `manual` is meaningful only where a
-  `position` exists; the validator is shared and the browse handler filters it, tested.
+- **A new sort value exists that browse never persists.** `manual` is meaningful only where a
+  `position` exists; `repo.ValidSort` names the browse keys and the playlist API is the only
+  validator that accepts `manual` on top — browse itself validates nothing and defaults, as today.
 - **Autoplay policy is a per-browser fact this ADR cannot decide.** D4 gives every browser its most
   favourable case (same document, same element the user clicked play on). Chrome/Firefox are expected
   to pass on sticky activation; Safari is unverified (spec OQ2). If a browser refuses, the fallback is
@@ -155,13 +158,13 @@ gating is untouched and still applies to every tile a playlist renders.
 
 1. [ ] Claimed: `ADR-104` via `adr-claims.mjs --reserve video-playlists`; index row in
    `docs/architecture/README.md`; `internal/model/ref.go` comment "container, not entity" (D1)
-2. [ ] Extract the `ListVideos` WHERE/ORDER builder; `ListVideoIDs(ctx, VideoFilter)` uncapped,
-   ordered; existing list/count tests green — own commit (D3)
-3. [ ] Migration `NNNN_playlists` (number claimed at implementation; 0051 next on main 2026-09-20),
-   repo CRUD + membership under `writeMu`, `KindPlaylist`, `/playlists*` handlers, shared sort
-   validator with `manual` rejected by browse, `/capabilities.public_playlists` (D1, D2, D5)
-4. [ ] `POST /playlists` `from_query` → `videoFilterFromQuery` → `ListVideoIDs` → one insert;
-   `random` → `manual` (D3)
+2. [x] `ListVideoIDs(ctx, VideoFilter)` uncapped, ordered, over the existing `build()`/`orderBy()`;
+   `repo.ValidSort` (D3) — the builder was already factored, no extraction commit was needed
+3. [x] Migration `0051_playlists`, repo CRUD + membership under `writeMu`, `KindPlaylist`,
+   `/playlists*` handlers, `/capabilities.public_playlists`, `playlists` on the media detail
+   (D1, D2, D5) — HOLODEX-441
+4. [x] `POST /playlists` `from_query` → `videoFilterFromQuery` → `ListVideoIDs` → one insert;
+   `random` → `manual` (D3) — HOLODEX-441
 5. [ ] `/media/[id]`: lift `<video>` above `{#if loading}`; codec-failure + poster as overlays;
    element-identity test — own behaviour-neutral commit (D4)
 6. [ ] Playlist context store keyed `(id, seed)`, next-up surface, `ended` → in-memory play flag →
