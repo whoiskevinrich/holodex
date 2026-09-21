@@ -28,9 +28,10 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 - [x] backend — S1 (HOLODEX-441): migration `0051_playlists`, `repo/playlists.go`, `/playlists*`
   handlers, `KindPlaylist` ref, `/capabilities.public_playlists`, `playlists` on the media detail;
   handler + snapshot-parity tests
-- [ ] frontend — S2: pages + producers, three skins; S3: persistent-element refactor of
-  `/media/[id]` (behaviour-neutral commit first, element-identity test), playlist context, Media
-  Session next/prev
+- [/] frontend — **S3 DONE** (HOLODEX-443): persistent `<video>` on `/media/[id]` (f1491ae, own
+  behaviour-neutral commit + `playerElement.test.ts`), `?playlist=` context, `NextUpStrip`, `ended` →
+  next with an in-memory intent, Media Session next/prev, `n`/`p` hotkeys; three skins + 375px
+  checked. **S2 open** (HOLODEX-442): pages + producers, three skins
 - [ ] testing `testing-strategy` — handler tests incl. visitor-private = 404, order parity with
   browse, element identity across next-up, three-skin matrix, manual PiP + Safari rows
 - [/] security `security-review` — **S1 signed off 2026-09-20** (no findings): every mutation inside
@@ -41,15 +42,12 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-443] S3 persistent `<video>` on `/media/[id]` — behaviour-neutral lift above the
-   loading gate first (own commit + element-identity test), then `?playlist=` context, next-up
-   strip, Media Session next/prev
-2. [ ] [HOLODEX-442] S2 `/playlists`, `/playlists/[id]`, *Save as playlist* (A), *Add to playlist*
+1. [ ] [HOLODEX-442] S2 `/playlists`, `/playlists/[id]`, *Save as playlist* (A), *Add to playlist*
    picker, nav item gated on `public_playlists` — three skins
-3. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review` once S2/S3 land
-4. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
+2. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review` once S2 lands
+3. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
-5. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
+4. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
    fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -79,3 +77,19 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   builder extraction — `build()`/`orderBy()` were already factored (ADR-104/spec corrected). Code
   review's one finding (ValidSort ↔ orderBy drift) closed with a pinning test; security review
   clean. HOLODEX-441 stays In Progress until the epic PR merges (hand sweep). Next: S3.
+
+### 2026-09-20 · S3 next-up (HOLODEX-443)
+- skills: code-review (high --fix)
+- handoff: **S3 shipped in two commits.** (1) f1491ae behaviour-neutral: the `<video>` renders
+  outside every `{#if}` on `/media/[id]` — the three gated regions carry their own gates, codec
+  failure is an overlay, the box is `hidden` (never unmounted) for fresh-load / not-found;
+  `playerElement.test.ts` pins depth-zero (old structure measures 2); live: same node across
+  134 → 130. (2) `$lib/playlistContext` (param parse, neighbours, hrefs, per-(id, seed) cache,
+  play intent keyed on the target id), `NextUpStrip`, page wiring (`ended` → next + intent, `play()`
+  once when `video.id === route id`, Media Session), `n`/`p` via F62's `use:hotkey`. Live-verified:
+  `ended` hand-off on the same element with `src` swapped and playing; reload never autoplays;
+  last item stops; stale link → *Play from start*; unknown/private → param inert; three skins;
+  375px no overflow. Code review found two real bugs, both fixed and re-verified: the echoed
+  random seed was dropped from hrefs (Prev reshuffled) and a playlist switch showed the old
+  context while the new one loaded (the fix first looped an effect on its own write — `untrack`).
+  In-app browser is autoplay-permissive: PiP-survives and Safari rows stay manual. Next: S2.

@@ -41,6 +41,7 @@ import type {
 	RefreshAllResult,
 	RefreshReport,
 	RelatedResponse,
+	PlaylistResponse,
 	SearchResponse,
 	Studio,
 	StudioDetailResponse,
@@ -284,6 +285,12 @@ export const api = {
 	// "More with …" related shelves for a media item (ADR-031).
 	related: (id: number, fetchFn?: typeof fetch) =>
 		get<RelatedResponse>(`/media/${id}/related`, fetchFn),
+
+	// A playlist with its items in the playlist's order (F69). Visibility-filtered
+	// server-side: a visitor asking for a private playlist gets the same 404 as an
+	// unknown id. `seed` parameterizes a 'random' sort (ADR-045).
+	getPlaylist: (id: number, seed?: number) =>
+		get<PlaylistResponse>(`/playlists/${id}${seed != null ? `?seed=${seed}` : ''}`),
 
 	streamURL: (id: number) => `${BASE}/media/${id}/stream`,
 

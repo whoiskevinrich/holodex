@@ -524,6 +524,26 @@ export interface RelatedResponse {
 	tag: RelatedShelf | null;
 }
 
+// Video playlists (F69, ADR-104): a container of videos with a sort — not an entity.
+// `sort` is any browse sort key or 'manual' (the stored position order).
+export interface Playlist {
+	id: number;
+	ref: string; // playlist:<id>
+	name: string;
+	sort: string;
+	visibility: 'private' | 'public';
+	item_count: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface PlaylistResponse {
+	playlist: Playlist;
+	items: Video[]; // in the playlist's order; trashed videos already dropped
+	total: number;
+	seed?: number; // echoed for a 'random' sort so one play-through walks one shuffle
+}
+
 // System Activity — "under the hood" read-model (F21, ADR-028).
 export interface ScanSummary {
 	trigger: string;
@@ -683,6 +703,9 @@ export interface Capabilities {
 	// films_enabled gates the Films entity (F56, ADR-085) — routes, nav, video-list
 	// hiding, and the resolver-source injection are all suspended when false.
 	films_enabled: boolean;
+	// public_playlists is the count of visibility=public playlists (F69 OQ1): a visitor's
+	// Playlists nav item hides when it is 0. Owner-only counts are never in here.
+	public_playlists: number;
 	// theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical for
 	// every viewer. The SPA applies it on arrival and keeps no preference of its own.
 	theme: ThemeCapability;
