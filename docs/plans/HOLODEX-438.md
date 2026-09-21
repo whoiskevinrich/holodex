@@ -22,7 +22,7 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   the visitor nav item via `/capabilities.public_playlists`)
 - [x] architecture `architecture` — [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md)
   D1–D5; index row landed; D3 adds the uncapped `ListVideoIDs` via an extracted clause builder
-- [ ] design `design-handoff` — `docs/design/video-playlists-handoff.md` + mockup SVG: `/playlists`,
+- [/] design `design-handoff` — `docs/design/video-playlists-handoff.md` + mockup SVG: `/playlists`,
   `/playlists/[id]`, *Save as playlist* placement (OQ3), *Add to playlist* picker, next-up surface
 - [ ] backend — S1: migration (number claimed at implement time, 0051 on main 2026-09-20), repo,
   `/playlists*` handlers, `KindPlaylist` ref, `/capabilities.public_playlists`
@@ -36,7 +36,7 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-438] file stories S1/S2/S3 under the epic (parent field), then `/design-handoff`
+1. [ ] [HOLODEX-441] S1 store + API — start with the `ListVideoIDs` clause-builder extraction (own commit)
 2. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
 3. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
@@ -45,7 +45,7 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-20 · brainstorm → epic → spike → spec
-- skills: product-brainstorming, write-spec, architecture
+- skills: product-brainstorming, write-spec, architecture, design-handoff
 - handoff: brainstorm converged (container not entity; playlist = membership + sort; snapshot
   producers; not-a-tag guarantees), epic HOLODEX-438 filed with gates-as-checkboxes, branch renamed
   `HOLODEX-438-video-playlists`, In Progress fired. **Spike** (throwaway, reverted): the media page
@@ -56,4 +56,5 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   snapshot keeps the seen order as `manual`; private → 404; deep links never autoplay; trash hides
   and restore returns; duplicate names allowed). **ADR-104** written (D1–D5, index row; D3 found
   `ListVideos` caps at `maxListLimit` → snapshot needs an uncapped `ListVideoIDs` off an extracted
-  clause builder). Draft PR #375 open. Next: file S1/S2/S3, then `/design-handoff`.
+  clause builder). Draft PR #375 open. Stories **HOLODEX-441/442/443** (S1/S2/S3) filed under the epic. **Design
+  handoff** written + mockup SVG committed; Kevin approved all panels, OQ3 → A. Next: S1.

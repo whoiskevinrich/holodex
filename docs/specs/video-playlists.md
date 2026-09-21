@@ -38,8 +38,8 @@ Hotkeys (F62) — next/previous-in-playlist keys are a P1 here, wired into F62's
 **ADR**: [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md) — D1 container,
 not entity · D2 playlist = membership + sort · D3 snapshot-only producers, server-side through the
 extracted clause builder · D4 persistent player element · D5 visibility as a read gate.
-**Design**: `video-playlists-handoff.md` + mockup SVG *(pending `/design-handoff`)* — playlist page,
-the two producer affordances, the next-up surface.
+**Design**: [video-playlists-handoff.md](../design/video-playlists-handoff.md) +
+[mockup](../design/video-playlists-mockup.svg) — approved 2026-09-20; OQ3 → option A (toolbar).
 
 **Spike (2026-09-20, HOLODEX-438 comment)**: the media page currently **destroys and recreates its
 `<video>` on every item change** (the page-wide `{#if loading}` gate wraps the player). PiP is bound to
@@ -370,8 +370,9 @@ funnel metrics.
 2. **[engineering, non-blocking, manual]** Safari: does an unmuted `play()` after a `src` swap on the
    element the user originally clicked succeed? Recipe in the HOLODEX-438 spike comment. If it fails,
    P1-3's toggle becomes the Safari fallback (surface *Next* as a button), not a redesign.
-3. **[design, non-blocking]** Where *Save as playlist* lives on the browse page relative to the sort
-   dropdown and the responsive tiers (F-responsive-page-width) — the handoff's call.
+3. ~~**[design]** Where *Save as playlist* lives on the browse page?~~ **Resolved 2026-09-20 (design
+   handoff, option A):** in the toolbar group beside *Clear filters*, expanding in place into the
+   tag-add inline form.
 4. **[engineering, blocking for S1]** Migration number — claim at implementation (`0051` on main as of
    this writing; verify against in-flight branches, cf. the 0048→0050 renumbering on F67).
 
