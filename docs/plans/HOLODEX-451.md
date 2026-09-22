@@ -74,7 +74,7 @@ recognisable one.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-22 · brainstormed the gap, ruled out the hover card, shipped the probe
-- skills: product-brainstorming
+- skills: product-brainstorming, implement
 - Kevin asked whether the new person hover card would fix the undecidable rows. Argued it
   would not — wrong shape of affordance for a comparison task — and put five treatments up as
   an inline mockup; he picked expand-to-compare on the strength of profile images. He then
