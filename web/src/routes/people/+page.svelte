@@ -21,6 +21,7 @@
 	import { listScroll } from '$lib/listScroll.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
+	import { readEntityFilters, writeEntityFilters, type CompletenessDir } from '$lib/filterPreference';
 	import { seededShuffle } from '$lib/shuffle';
 	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
@@ -50,8 +51,16 @@
 	// Completeness sort (F55.5) — owner-only, a separate control/state from `sort`
 	// (see CompletenessSortToggle) since PeopleTagSort is shared with the
 	// (out-of-scope) Tags page. Declared here (ahead of `sorted` below) so it's
-	// initialized before that derived's first read.
-	let completenessDir = $state<'' | 'asc' | 'desc'>('');
+	// initialized before that derived's first read. Restored, together with the
+	// missing-facet selection below, from the page's sticky filter key (SP5) — a
+	// sibling of holodex:sort:people with the same validated-read/fallback shape.
+	const savedFilters = readEntityFilters('people');
+	let completenessDir = $state<CompletenessDir>(savedFilters.completeness);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	// The direction the page is actually showing: a restored value in a non-owner
+	// state (Admin mode off) must not suppress the shuffle or hide the A–Z bar while
+	// the toggle that could clear it isn't rendered — the request already drops it.
+	const completeness = $derived(isOwner ? completenessDir : '');
 
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2,
 	// ADR-045) — stable across re-renders, reshuffled only on reroll/new session (kept
@@ -59,9 +68,9 @@
 	// re-shuffle). The A–Z jump-nav stays tied to sort==='name' with no active filter,
 	// where `displayed` equals `people` (NS3: filterByName over the already-fetched
 	// list, no new fetch).
-	// completenessDir overrides the client-side random shuffle — the server has already
+	// completeness overrides the client-side random shuffle — the server has already
 	// ordered `people` by score in that case.
-	const sorted = $derived(!completenessDir && sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
+	const sorted = $derived(!completeness && sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 	const displayed = $derived(filterByName(sorted, q));
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
@@ -71,7 +80,6 @@
 	let selectedIds = $state<number[]>([]);
 	let choosing = $state(false); // the "Keep which name?" dialog is open
 
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
 	// Missing-facet filter (F55.6) — owner-only, AND semantics across selections.
@@ -79,10 +87,14 @@
 	// facet list can legitimately come back empty ([] length 0), and re-assigning a
 	// fresh empty array on every response is itself a $state write, so gating on
 	// `.length === 0` would refire the fetch forever and hammer the server.
-	let missingFacetIDs = $state<string[]>([]);
+	let missingFacetIDs = $state<string[]>(savedFilters.missing_facet);
 	const missingFacet = createMissingFacetOptions('person');
 	$effect(() => {
 		missingFacet.ensureFetched(isOwner);
+	});
+	// Persist the filter pair per page (SP5).
+	$effect(() => {
+		writeEntityFilters('people', { completeness: completenessDir, missing_facet: missingFacetIDs });
 	});
 	function effectiveSort(): PeopleTagSort | 'completeness_asc' | 'completeness_desc' {
 		return completenessDir ? (`completeness_${completenessDir}` as const) : sort;
@@ -192,7 +204,7 @@
 					</button>
 				{/if}
 			{/if}
-			{#if !completenessDir && sort === 'random'}
+			{#if !completeness && sort === 'random'}
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
 			<SortToggle bind:sort />
@@ -231,7 +243,7 @@
 	{:else if activeView === 'poster'}
 		<PersonPosterGrid people={displayed} />
 	{:else}
-		{#if !completenessDir && sort === 'name' && !q.trim()}
+		{#if !completeness && sort === 'name' && !q.trim()}
 			<nav
 				aria-label="Jump to letter"
 				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"

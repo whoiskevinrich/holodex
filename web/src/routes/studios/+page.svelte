@@ -18,6 +18,7 @@
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
+	import { readEntityFilters, writeEntityFilters, type CompletenessDir } from '$lib/filterPreference';
 
 	// Studio index (F38, ADR-053) — the People/Tags list pattern, minus the merge-selection
 	// mode (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the
@@ -40,28 +41,37 @@
 	// Completeness sort (F55.5) — owner-only, a separate control/state from `sort`
 	// (see CompletenessSortToggle) since PeopleTagSort is shared with the
 	// (out-of-scope) Tags page. Declared here (ahead of `sorted` below) so it's
-	// initialized before that derived's first read.
-	let completenessDir = $state<'' | 'asc' | 'desc'>('');
+	// initialized before that derived's first read. Restored, together with the
+	// missing-facet selection below, from the page's sticky filter key (SP5).
+	const savedFilters = readEntityFilters('studios');
+	let completenessDir = $state<CompletenessDir>(savedFilters.completeness);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	// The direction the page is actually showing: a restored value in a non-owner
+	// state (Admin mode off) must not suppress the shuffle or hide the A–Z bar while
+	// the toggle that could clear it isn't rendered — the request already drops it.
+	const completeness = $derived(isOwner ? completenessDir : '');
 
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2) —
 	// a separate $derived from `displayed` so a keystroke's filter pass doesn't also
 	// re-shuffle. NS3: filterByName over the already-fetched list, no new fetch.
-	// completenessDir overrides the client-side random shuffle — the server has already
+	// completeness overrides the client-side random shuffle — the server has already
 	// ordered `studios` by score in that case.
-	const sorted = $derived(!completenessDir && sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
+	const sorted = $derived(!completeness && sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
 	const displayed = $derived(filterByName(sorted, q));
-
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
 	// Missing-facet filter (F55.6) — owner-only, AND semantics across selections.
 	// `missingFacetFetched` is a plain (non-reactive) guard, not `$state` — the facet
 	// list can legitimately come back empty ([] length 0), and re-assigning a fresh
 	// empty array on every response is itself a $state write, so gating on
 	// `.length === 0` would refire the fetch forever and hammer the server.
-	let missingFacetIDs = $state<string[]>([]);
+	let missingFacetIDs = $state<string[]>(savedFilters.missing_facet);
 	const missingFacet = createMissingFacetOptions('studio');
 	$effect(() => {
 		missingFacet.ensureFetched(isOwner);
+	});
+	// Persist the filter pair per page (SP5).
+	$effect(() => {
+		writeEntityFilters('studios', { completeness: completenessDir, missing_facet: missingFacetIDs });
 	});
 	function effectiveSort(): PeopleTagSort | 'completeness_asc' | 'completeness_desc' {
 		return completenessDir ? (`completeness_${completenessDir}` as const) : sort;
@@ -118,7 +128,7 @@
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
 		<div class="flex flex-wrap items-center gap-2">
-			{#if !completenessDir && sort === 'random'}
+			{#if !completeness && sort === 'random'}
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
 			<SortToggle bind:sort />
@@ -147,7 +157,7 @@
 	{:else if displayed.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No studios match “{q.trim()}”.</p>
 	{:else}
-		{#if !completenessDir && sort === 'name' && !q.trim()}
+		{#if !completeness && sort === 'name' && !q.trim()}
 			<nav
 				aria-label="Jump to letter"
 				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"

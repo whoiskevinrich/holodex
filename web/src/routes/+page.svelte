@@ -15,6 +15,7 @@
 	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { readFilters, writeFilters, validateString } from '$lib/filterPreference';
 	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
@@ -23,7 +24,15 @@
 
 	// Initialize filter state from the URL once, so shared links reproduce it
 	// (F4.7). SPA-only (ssr=false), so `location` is always available here.
-	const initParams = new URLSearchParams(location.search);
+	// SP5 precedence: any query string at all (shared/deep link, or our own synced
+	// URL on a reload) wins outright; a pristine `/` restores the filter set this
+	// browser last showed, saved as the same shareable query string so it goes
+	// through exactly the paramsToFilters validation a link would. `restored` makes
+	// the first-load effect below sync the URL to match, since on this path the URL
+	// doesn't already reflect the initial filters.
+	const savedQs = location.search ? '' : (readFilters('media', validateString) ?? '');
+	const restored = savedQs !== '';
+	const initParams = new URLSearchParams(restored ? savedQs : location.search);
 	const init = paramsToFilters(initParams);
 	// Seeds the shared nav box (not local state, NS4 — there's no page-owned text
 	// input anymore) so a "View all N in Videos" deep link (NS1) pre-fills it.
@@ -132,6 +141,16 @@
 	// The shareable param set (no paging) doubles as the "any filter active?" check.
 	const activeParams = $derived(filtersToParams(currentFilters(), false));
 	const hasFilters = $derived(activeParams.toString() !== '');
+
+	// Remember the filter set for the next pristine visit (SP5). The search text stays
+	// out (the nav box owns it, NS4) and so does the sort (it has its own SP1 key) —
+	// everything else is the shareable string as-is.
+	$effect(() => {
+		const p = new URLSearchParams(activeParams);
+		p.delete('q');
+		p.delete('sort');
+		writeFilters('media', p.toString());
+	});
 
 	// Save as playlist (F69 P0-8, design handoff §4 placement A): the whole result set
 	// for the current filters + sort becomes a playlist, snapshotted server-side from
@@ -242,8 +261,14 @@
 		if (firstLoad) {
 			firstLoad = false;
 			// On mount the URL already reflects the initial filters, so don't touch
-			// history here. Try the browse cache first (QW4): if we're returning to the
-			// grid with the same filters, seed synchronously and skip the page-0 fetch.
+			// history here — unless the filters came from the sticky key (SP5), where the
+			// URL is still a bare `/` and needs to catch up so a reload or copied link
+			// reproduces what's on screen. Deferred a macrotask: on a hard load this
+			// effect runs during the router's own async initialize(), before it flags
+			// itself started, and replaceState throws until it has. Then try the browse
+			// cache (QW4): if we're returning to the grid with the same filters, seed
+			// synchronously and skip the page-0 fetch.
+			if (restored && qs) setTimeout(() => replaceState(`/?${qs}`, {}), 0);
 			const cached = browseCache.take(qs);
 			if (cached) {
 				videos = cached.videos;
@@ -415,10 +440,7 @@
 			onfacets={(facets) =>
 				(mapped = {
 					...mapped,
-					...mappedFromParams(
-						new URLSearchParams(location.search),
-						facets.map((f) => f.canonical)
-					)
+					...mappedFromParams(initParams, facets.map((f) => f.canonical))
 				})}
 		/>
 

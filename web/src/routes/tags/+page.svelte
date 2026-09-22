@@ -19,6 +19,7 @@
 	import { dismissable } from '$lib/actions/dismissable';
 	import { PopoverMenu } from '$lib/actions/popoverMenu.svelte';
 	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { readFilters, writeFilters, validateOneOf } from '$lib/filterPreference';
 	import { seededShuffle } from '$lib/shuffle';
 
 	let tags = $state<Tag[]>([]);
@@ -29,8 +30,15 @@
 	// Unified type filter (HOLODEX-240) + search (now driven by the shared nav box,
 	// NS2/NS3/HOLODEX-249) — filters client-side against the already-loaded, unpaged
 	// tag+category lists (personal-library scale, no dedicated search endpoint — same
-	// posture EntityPicker/FacetFilter already take).
-	let typeFilter = $state<'all' | 'tags' | 'categories'>('all');
+	// posture EntityPicker/FacetFilter already take). The type filter is sticky per
+	// page (SP5), a sibling of holodex:sort:tags.
+	const TYPE_FILTERS = ['all', 'tags', 'categories'] as const;
+	let typeFilter = $state<(typeof TYPE_FILTERS)[number]>(
+		readFilters('tags', validateOneOf(TYPE_FILTERS)) ?? 'all'
+	);
+	$effect(() => {
+		writeFilters('tags', typeFilter);
+	});
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (Tags) — otherwise it's previewing another
 	// type via the overlay panel.

@@ -265,6 +265,69 @@ three skins.
       **Cinémathèque, Broadcast, and Brutalist**.
 - [ ] Random option and re-roll are keyboard-operable and screen-reader-labeled.
 
+#### SP5 — Per-page sticky filters (client-only) — added 2026-09-21, HOLODEX-25
+
+SP1 remembers each page's **sort**; the **filters** beside it still reset on every mount
+(reload, or ← Back from a detail page), so an owner mid-curation re-picks the same
+"Missing: birthdate" and "Completeness ↓" on every return. SP5 extends the SP1 contract to
+the filter controls of every index page, with the same storage posture.
+
+- **Storage.** One namespaced key per page — `holodex:filters:media`,
+  `holodex:filters:people`, `holodex:filters:studios`, `holodex:filters:tags` — each
+  holding a JSON value, written on every change. Same SSR-safe guard and never-throws
+  read/write as SP1 (`filterPreference.ts`, a sibling of `sortPreference.svelte.ts`).
+- **What is remembered, per page.**
+  - **Media:** the shareable filter query string (`filtersToParams(…, paging=false)`) —
+    resolution, duration/year ranges, person/tag/studio/category ids, mapped-field
+    facets (F20.5), missing-facet (F55.6) — **minus `q`** (the nav search box owns it, NS4)
+    and **minus `sort`** (SP1 already has its own key). Storing the query string rather
+    than a second schema means the restore goes through exactly the `paramsToFilters`
+    validation a shared link does.
+  - **People, Studios:** the owner-only completeness sort direction
+    (`CompletenessSortToggle`: `''|'asc'|'desc'`) and the missing-facet selection
+    (`FacetFilter`: canonical keys).
+  - **Tags:** the type filter (`all|tags|categories`).
+  - **Films:** no filter controls exist — its sort is already covered by SP1.
+- **Validation & fallback.** Every read is validated against the page's current shape
+  (an enumerated value, a typed object, or the query-string parser); a missing, malformed,
+  or rejected value falls back to the page's default (filters off) without throwing.
+  Removing a filter in future is forward-safe — a stale key just falls back.
+- **Media precedence (URL wins).** Any query string at all — a shared/deep link, or the
+  page's own synced URL on a reload — wins outright and the saved filters are ignored.
+  Only a pristine `/` restores the saved set, and when it does the page immediately syncs
+  the URL to match (`replaceState`), so a reload or copied link reproduces what's on
+  screen. The URL stays the single source of truth for sharing; the key is only the
+  default for a bare visit.
+- **Owner-only filters are stored regardless of who is browsing.** Each page already
+  strips completeness/missing-facet from the request for a non-owner, so a stale key in a
+  non-owner browser is inert, and an owner whose capabilities resolve late self-heals into
+  the restored filter once they do (the same posture as SP1's URL/localStorage-restored
+  completeness sort).
+- **Knock-on fix.** The People/Studios scroll-restore snapshot (`listScroll`) is keyed on
+  the effective sort + missing-facet set; because those reset on remount, ← Back never
+  matched while a filter was active and the scroll position was silently discarded. With
+  the filters restored, the key matches and the restore works again.
+
+**Acceptance criteria — SP5**
+- [ ] Given I set People to "Completeness ↓" + Missing: birthdate, when I open a person
+      and press ← Back, then the list reopens with both still applied (and the scroll
+      position restored).
+- [ ] Given I reload `/people`, `/studios`, or `/tags`, then each restores its last filter
+      (completeness direction + missing facets; the type filter).
+- [ ] Given I filtered Media to resolution=4K and a tag, when I navigate away via the nav
+      and back to Videos, then the grid reopens with the same filters and the URL reads
+      `/?resolution=4K&tag=N`.
+- [ ] Given a Media deep link with any query string, when I open it, then only the URL's
+      filters apply (a saved set is ignored); a bare `/` restores the saved set.
+- [ ] Given I "Clear all" on Media, when I return to `/`, then no filters are restored
+      (an empty set is persisted as such).
+- [ ] Given a garbage value in any `holodex:filters:*` key, when I load that page, then
+      it falls back to filters-off and renders normally.
+- [ ] The search text (`q`) is never restored from the filter key — the nav box's own
+      state governs it.
+- [ ] No filter preference appears in any network request beyond the same list request the
+      filters already drive (client-only storage).
+
 ### Nice-to-Have (P1)
 - **Re-roll keyboard shortcut** (e.g. press `r` while a Random-sorted list is focused) for
   fast reshuffling. *(Fast follow; the button covers the core need.)*
