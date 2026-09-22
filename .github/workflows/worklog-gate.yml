@@ -1,0 +1,35 @@
+# Flightplan · worklog gate (ADR-007 §4) — the required status check that holds a PR to its epic's
+# definition of done when the merge comes from the GitHub button or the desktop app's PR pane,
+# where the session-side PreToolUse guard never fires.
+#
+# Install: copy this file to .github/workflows/worklog-gate.yml and worklog-gate.mjs to
+# scripts/worklog-gate.mjs in the consuming repo, then make the check required once:
+#
+#   gh api -X PUT repos/{owner}/{repo}/branches/main/protection/required_status_checks \
+#     -f strict=false -f 'contexts[]=worklog gate'
+#
+# (or add "worklog gate" under Settings → Branches → the main rule → required status checks.)
+#
+# Drafts are skipped in `if:` — a draft cannot be merged, so there is nothing to hold. Un-keyed
+# branches pass inside the script: they are untracked by design. The unpushed-work check has no
+# server-side form; that stays with the session guard and the Stop hook's counts.
+
+name: worklog gate
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
+
+jobs:
+  gate:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the staleness check diffs from the sign-off commit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: worklog gate
+        run: node scripts/worklog-gate.mjs
