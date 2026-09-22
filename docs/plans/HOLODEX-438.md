@@ -52,8 +52,9 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-438] Kevin's look on the real library (handoff QA 1–8 as the script) → merge main
-   → `gh pr ready` (fires In Review for 438 only) — all seven gates are green as of 2026-09-21
+1. [ ] [HOLODEX-438] Kevin's look on the real library (handoff QA 1–8 as the script) — PR #375 is
+   **ready for review** (main merged 2026-09-21, 46b17e1); 438 + 441/442/443 moved to In Review by
+   hand (epic-keyed branch → jira-sync fires nothing)
 2. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
 3. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
@@ -65,9 +66,10 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 - skills: code-review, testing-strategy, security-review
 - handoff: S2 shipped (190ca4d, `/playlists`, `/playlists/[id]`, picker, Save as playlist); testing
   gate closed with §14 in the strategy doc; epic-level security review after S2/S3 — no findings,
-  guards cited in the gate line. **All gates green.** Left: Kevin's look on the real library
-  (handoff QA 1–8), then merge main and `gh pr ready`; 441/442/443 + the epic are swept to Done by
-  hand on merge.
+  guards cited in the gate line. **All gates green.** Main merged (one conflict, the video
+  component CLAUDE.md table — union of main's F68/F65.8 rows and ours), Go + svelte-check + vitest
+  green, PR #375 marked ready, 438/441/442/443 → In Review by hand. Left: Kevin's look on the real
+  library (handoff QA 1–8); on merge sweep the four to Done by hand.
 
 ### 2026-09-20 · brainstorm → epic → spike → spec
 - skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
