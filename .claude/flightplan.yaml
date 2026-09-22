@@ -11,6 +11,14 @@ tracker:
     # The SessionStart hook drives it via scripts/jira-transition.mjs (soft-fails without JIRA_* env).
     # In Review / Done / Released are fired by CI (see .github/workflows + scripts/), not by Flightplan.
     in_progress: { via: rest, script: scripts/jira-transition.mjs }
+    # ready_to_build: { via: rest, script: … }   # optional — the "Ready to Build" status exists in
+    #                                             # this project, but the label below is what ships.
+
+  labels:
+    # Designed and waiting on the owner (Flightplan ADR-007 §5). /handoff adds it when every
+    # design-phase gate is settled and the design sign-off is outstanding; /implement removes it.
+    #   project = HOLODEX AND labels = fp:ready-to-build AND status != Done
+    ready_to_build: fp:ready-to-build
 
 worklog:
   dir: docs/plans               # where <KEY>.md worklogs live (this repo's existing convention)
@@ -23,11 +31,22 @@ worklog:
 gates:
   - { id: spec,         skill: write-spec,        artifact: 'docs/specs/**' }
   - { id: architecture, skill: architecture,      artifact: 'docs/architecture/ADR-*' }
-  - { id: design,       skill: design-handoff,    artifact: 'docs/design/**' }
-  - { id: backend }
-  - { id: frontend }
+  - { id: design,       skill: design-handoff,    artifact: 'docs/design/**', approve: true }
+  - { id: backend,                                artifact: '{cmd,internal,providers}/**' }
+  - { id: frontend,                               artifact: 'web/src/**' }
   - { id: testing,      skill: testing-strategy }
   - { id: security,     skill: security-review }
+
+# The design → build boundary (Flightplan ADR-007). An epic is in its design phase until spec,
+# architecture and design are settled AND the owner has signed off on the design handoff — recorded
+# under `approved:` in the worklog, pinned to a commit. Until then a keyed branch can be pushed but
+# cannot open a PR, and cannot edit a backend/frontend artifact; "implement HOLODEX-nnn" is the
+# crossing, and it puts the mockup in front of the owner and asks. A later change to the mockup is
+# re-confirmed with the diff, never a return to design. Say "approved" in a session and /handoff
+# records it; nothing infers a yes from silence or from the gate being [x].
+phases:
+  design: [spec, architecture, design]
+  build:  [backend, frontend, testing, security]
 
 capture:
   inbox: docs/backlog/INBOX.md  # offline, append-only idea capture (batch 2); /triage drains it
