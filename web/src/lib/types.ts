@@ -453,6 +453,9 @@ export interface MediaDetailResponse {
 	// rather than entity_external_ids (video has no identity rows). Read-only,
 	// visitor-visible; null when the field has no value.
 	external_links?: ExternalLink[] | null;
+	// playlists this video belongs to (F69 P0-7), visibility-filtered like /playlists:
+	// a visitor sees the public ones only. Always present (empty array when none).
+	playlists: Playlist[];
 }
 
 export interface VideoWritebackStatus {

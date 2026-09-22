@@ -23,6 +23,7 @@
 	import { expandedField } from '$lib/expandedField.svelte';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '$lib/components/video/NextUpStrip.svelte';
+	import PlaylistPicker from '$lib/components/video/PlaylistPicker.svelte';
 	import {
 		loadPlaylist,
 		neighbours,
@@ -31,7 +32,7 @@
 		setPlayIntent,
 		takePlayIntent
 	} from '$lib/playlistContext';
-	import type { PlaylistResponse } from '$lib/types';
+	import type { Playlist, PlaylistResponse } from '$lib/types';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
@@ -89,6 +90,10 @@
 	// number or "Full film") + owner-only detach; asserted links, so no relink/prune ever
 	// touches these regardless of films_enabled state (ADR-085).
 	let films = $state<FilmAttachment[]>([]);
+	// Playlists this video is in (F69 P0-7), visibility-filtered by the server; the
+	// picker is per-video transient UI and closes on navigation like the tag form.
+	let playlists = $state<Playlist[]>([]);
+	let pickerOpen = $state(false);
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
@@ -574,6 +579,7 @@
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
 		films = res.films ?? [];
+		playlists = res.playlists ?? [];
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 		writebackStatus = res.writeback_status ?? { pending: false, failed: false };
@@ -1127,6 +1133,7 @@
 		writebackOpen = false;
 		writebackAction = null;
 		writebackActionError = '';
+		pickerOpen = false;
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -1717,6 +1724,43 @@
 						{/if}
 						{#if tagError}
 							<p class="text-sm text-warn">{tagError}</p>
+						{/if}
+					</section>
+				{/if}
+
+				<!-- Playlists (F69 P0-7, design handoff §3): content for everyone (a visitor
+				     sees the public memberships), the picker for the owner. Chips are plain
+				     links — removal is the picker's or the playlist page's job. The row wraps
+				     trigger + panel so use:dismissable counts both as inside. -->
+				{#if isOwner || playlists.length}
+					<section
+						id="field-playlists"
+						class="space-y-1.5"
+						use:dismissable={{ enabled: pickerOpen, inside: '#field-playlists', onclose: () => (pickerOpen = false) }}
+					>
+						<h2 class="text-xs uppercase tracking-wide text-muted">Playlists</h2>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each playlists as p (p.id)}
+								<a
+									href={`/playlists/${p.id}`}
+									class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent focus-visible:text-accent"
+								>
+									{p.name}
+								</a>
+							{/each}
+							{#if isOwner}
+								<button
+									type="button"
+									onclick={() => (pickerOpen = !pickerOpen)}
+									aria-expanded={pickerOpen}
+									class="btn-quiet px-3 py-1.5 text-sm"
+								>
+									+ Add to playlist
+								</button>
+							{/if}
+						</div>
+						{#if isOwner && pickerOpen}
+							<PlaylistPicker videoId={id} members={playlists} onchange={(m) => (playlists = m)} />
 						{/if}
 					</section>
 				{/if}

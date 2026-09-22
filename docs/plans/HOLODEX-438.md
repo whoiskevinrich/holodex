@@ -28,10 +28,12 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 - [x] backend — S1 (HOLODEX-441): migration `0051_playlists`, `repo/playlists.go`, `/playlists*`
   handlers, `KindPlaylist` ref, `/capabilities.public_playlists`, `playlists` on the media detail;
   handler + snapshot-parity tests
-- [/] frontend — **S3 DONE** (HOLODEX-443): persistent `<video>` on `/media/[id]` (f1491ae, own
+- [x] frontend — **S3** (HOLODEX-443): persistent `<video>` on `/media/[id]` (f1491ae, own
   behaviour-neutral commit + `playerElement.test.ts`), `?playlist=` context, `NextUpStrip`, `ended` →
-  next with an in-memory intent, Media Session next/prev, `n`/`p` hotkeys; three skins + 375px
-  checked. **S2 open** (HOLODEX-442): pages + producers, three skins
+  next with an in-memory intent, Media Session next/prev, `n`/`p` hotkeys. **S2** (HOLODEX-442):
+  `/playlists` + nav item, `/playlists/[id]` (rename, sort incl. `manual`, visibility, Play all,
+  per-tile remove, delete), PLAYLISTS rail row + picker, *Save as playlist* (A). Three skins + 375px
+  on every surface
 - [ ] testing `testing-strategy` — handler tests incl. visitor-private = 404, order parity with
   browse, element identity across next-up, three-skin matrix, manual PiP + Safari rows
 - [/] security `security-review` — **S1 signed off 2026-09-20** (no findings): every mutation inside
@@ -42,15 +44,17 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-442] S2 `/playlists`, `/playlists/[id]`, *Save as playlist* (A), *Add to playlist*
-   picker, nav item gated on `public_playlists` — three skins
-2. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review` once S2 lands
-3. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
+1. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review`, then Kevin's look on
+   the real library → merge main → `gh pr ready` (fires In Review for 438 only)
+2. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
-4. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
+3. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
    fires nothing)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-21 · session
+- skills: code-review
 
 ### 2026-09-20 · brainstorm → epic → spike → spec
 - skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
@@ -93,3 +97,22 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   random seed was dropped from hrefs (Prev reshuffled) and a playlist switch showed the old
   context while the new one loaded (the fix first looped an effect on its own write — `untrack`).
   In-app browser is autoplay-permissive: PiP-survives and Safari rows stay manual. Next: S2.
+
+### 2026-09-21 · S2 pages + producers (HOLODEX-442)
+- skills: code-review (high --fix)
+- handoff: **S2 shipped.** Nav item (`activity.isOwner || caps.public_playlists > 0`), `/playlists`
+  (the /people shell: row cards, glyph, owner-only visibility chip, in-place New form, empty owner
+  lands on the form), `/playlists/[id]` (NameEditControl rename, `SortDropdown` gains a generic
+  `extra` list for `manual` — no fork, visibility radiogroup, solid Play all with intent, `VideoGrid`
+  gains `onRemove`, Delete → ConfirmDialog → `/playlists`), PLAYLISTS rail row + `PlaylistPicker`
+  (toggle rows, create-and-add, parent `use:dismissable`), browse *Save as playlist* beside Clear
+  filters (shareable string + the random seed). `forgetPlaylist` invalidates the next-up cache after
+  every writer. Live-verified as owner and with Owner view off; three skins by computed-style
+  contrast (≥ 4.67:1, that floor is `text-muted` itself); 375px no overflow on all four surfaces.
+  Code review: two real bugs fixed — a random playlist's grid and Play all used different seeds
+  (page now holds the server-echoed seed), and **a minted UnixNano seed exceeds 2^53 so a JSON
+  consumer rounds it** (a Linux server's ns seeds would reshuffle on the first hop) →
+  `parseSeedOrRandom` mints ≤ 2^53-1, pinned by an API test. Also dropped my `<svelte:head>`
+  titles (no other route sets one; they leaked onto the next page). This session's backend runs
+  on :7810 (`backend-amv-438`, another chat holds :7800). Kevin: keep audio off — every playback
+  script mutes first. Next: testing-strategy + epic security-review, then Kevin's look.

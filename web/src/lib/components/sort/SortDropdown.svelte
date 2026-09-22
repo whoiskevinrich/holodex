@@ -1,13 +1,22 @@
-<script lang="ts">
+<script lang="ts" generics="T extends string = SortOrder">
 	import type { SortOrder } from '$lib/types';
 	import { MEDIA_SORTS } from '$lib/filters';
 
 	// owner gates the ownerOnly entries (F55.5 Completeness sorts) — the server
 	// 401s a non-owner request using them, so they must not even render as options.
-	let { sort = $bindable(), owner = false }: { sort: SortOrder; owner?: boolean } = $props();
+	// extra prepends page-specific entries (the playlist page's `manual`, F69) so
+	// one dropdown reads one MEDIA_SORTS source instead of being forked per page.
+	let {
+		sort = $bindable(),
+		owner = false,
+		extra = []
+	}: { sort: T; owner?: boolean; extra?: { value: T; label: string }[] } = $props();
 
 	// Options + order come from the single source of truth in filters.ts (F12.1).
-	const OPTIONS = $derived(MEDIA_SORTS.filter((o) => owner || !o.ownerOnly));
+	const OPTIONS = $derived([
+		...extra,
+		...(MEDIA_SORTS.filter((o) => owner || !o.ownerOnly) as { value: T; label: string }[])
+	]);
 </script>
 
 <div>

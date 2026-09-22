@@ -264,4 +264,22 @@ func TestPlaylistSnapshot(t *testing.T) {
 	if code != http.StatusCreated || body["playlist"].(map[string]any)["sort"] != "title_desc" {
 		t.Errorf("explicit sort = %d %v, want title_desc", code, body)
 	}
+
+	// A 'random' playlist read without a seed gets one minted and echoed; the SPA
+	// carries it back as a JSON number, so it must survive a float64 round trip
+	// (≤ 2^53) and reproduce the same order when sent back.
+	code, body = postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "shuffled", "sort": "random", "from_query": ""})
+	if code != http.StatusCreated {
+		t.Fatalf("random playlist create = %d %v", code, body)
+	}
+	rid := itoa(int64(body["playlist"].(map[string]any)["id"].(float64)))
+	_, first := getJSONTok(t, base+"/playlists/"+rid, "s3cret")
+	seed, ok := first["seed"].(float64)
+	if !ok || seed <= 0 || seed > 1<<53-1 {
+		t.Fatalf("echoed seed = %v, want a positive JSON-safe integer", first["seed"])
+	}
+	_, again := getJSONTok(t, base+"/playlists/"+rid+"?seed="+itoa(int64(seed)), "s3cret")
+	if !sameOrder(itemIDs(again["items"]), itemIDs(first["items"])) || again["seed"].(float64) != seed {
+		t.Errorf("seed %v round trip: %v then %v", seed, itemIDs(first["items"]), itemIDs(again["items"]))
+	}
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
@@ -132,6 +132,45 @@
 	// The shareable param set (no paging) doubles as the "any filter active?" check.
 	const activeParams = $derived(filtersToParams(currentFilters(), false));
 	const hasFilters = $derived(activeParams.toString() !== '');
+
+	// Save as playlist (F69 P0-8, design handoff §4 placement A): the whole result set
+	// for the current filters + sort becomes a playlist, snapshotted server-side from
+	// the same shareable string. No filter = the whole library in this sort. A random
+	// sort sends its seed too, so the playlist is the shuffle on screen (spec P0-3).
+	let saveOpen = $state(false);
+	let saveName = $state('');
+	let saveInput = $state<HTMLInputElement | null>(null);
+	let saveBusy = $state(false);
+	let saveError = $state('');
+	async function openSave() {
+		saveName = '';
+		saveError = '';
+		saveOpen = true;
+		await tick();
+		saveInput?.focus();
+	}
+	function closeSave() {
+		saveOpen = false;
+		saveName = '';
+		saveError = '';
+	}
+	async function submitSave(e: SubmitEvent) {
+		e.preventDefault();
+		const name = saveName.trim();
+		if (!name || saveBusy) return;
+		saveBusy = true;
+		saveError = '';
+		const q = new URLSearchParams(activeParams);
+		if (sort === 'random') q.set('seed', String(shuffleSeed.value));
+		try {
+			const res = await api.createPlaylist({ name, from_query: q.toString() });
+			await goto(`/playlists/${res.playlist.id}`);
+		} catch (err) {
+			saveError = toMessage(err);
+		} finally {
+			saveBusy = false;
+		}
+	}
 
 	let debounce: ReturnType<typeof setTimeout>;
 	// loadPage(true) replaces the grid (filter change); loadPage(false) appends the
@@ -394,6 +433,29 @@
 			<button onclick={clearAll} class="rounded-theme border border-rule px-3 py-2 text-sm text-muted hover:text-ink">
 				Clear filters
 			</button>
+		{/if}
+
+		{#if isOwner}
+			{#if saveOpen}
+				<form onsubmit={submitSave} class="flex flex-wrap items-center gap-2">
+					<input
+						bind:this={saveInput}
+						bind:value={saveName}
+						type="text"
+						placeholder="Playlist name"
+						aria-label="Playlist name"
+						maxlength="200"
+						class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+					/>
+					<button type="submit" disabled={saveBusy} class="btn-accent px-3 py-2 text-sm">Save</button>
+					<button type="button" onclick={closeSave} disabled={saveBusy} class="btn-quiet px-3 py-2 text-sm">Cancel</button>
+					{#if saveError}
+						<p class="basis-full text-sm text-warn">{saveError}</p>
+					{/if}
+				</form>
+			{:else}
+				<button type="button" onclick={openSave} class="btn-quiet px-3 py-2 text-sm">Save as playlist</button>
+			{/if}
 		{/if}
 	</div>
 

@@ -79,3 +79,9 @@ export function loadPlaylist(p: PlaylistParam): Promise<PlaylistResponse | null>
 	}
 	return pending;
 }
+
+/** Drop a playlist's cached orders after a membership or sort edit, so the next
+ *  context load (a Play all right after a removal) reads the current one. */
+export function forgetPlaylist(id: number) {
+	for (const key of [...cache.keys()]) if (key.startsWith(`${id}:`)) cache.delete(key);
+}

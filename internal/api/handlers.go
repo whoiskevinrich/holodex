@@ -1431,12 +1431,21 @@ func atoiDefault(s string, def int) int {
 // is still internally consistent, but the client always sends one so pages tile).
 // The value is only ever passed to holo_shuffle() as a bound parameter — never
 // interpolated into SQL.
+//
+// A minted seed stays below 2^53: GET /playlists/{id} echoes it as a JSON number
+// (F69) and the SPA carries it back in every next-up href, and a JSON consumer
+// parses numbers as float64 — a full UnixNano would round on the way back and
+// holo_shuffle would walk a different order on the first hop.
 func parseSeedOrRandom(s string) int64 {
 	if n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64); err == nil {
 		return n
 	}
-	return time.Now().UnixNano()
+	return time.Now().UnixNano() & maxJSONSafeInt
 }
+
+// maxJSONSafeInt is 2^53-1, the largest integer a float64 (hence any JSON number
+// consumer) represents exactly.
+const maxJSONSafeInt = 1<<53 - 1
 
 // enrichmentFromRows converts repo enrichment rows to the resolver.Enrichment map
 // (provider → field → values). Returns nil when rows is empty so callers on hot
