@@ -2662,3 +2662,80 @@ everything to stock.
   or Brutalist; widening `allowedBases` must add each skin's primaries + hand-tuned tokens to
   the gate first.
 
+## 14. Video playlists (F69, ADR-104)
+
+A playlist is a **container, not an entity** — no baseline, no enrichment, no decisions — with
+membership + a sort, two producers (*Add to playlist* and *Save as playlist* = a server-side
+snapshot of the browse filter), and a next-up strip riding a `<video>` that outlives the item
+([spec](specs/video-playlists.md), [handoff](design/video-playlists-handoff.md)). The two
+invariants the tests exist to hold: **a private playlist is indistinguishable from a missing
+one to a visitor**, and **a snapshot equals the browse list it was taken from**. What is
+asserted where:
+
+**Unit — Go**
+- `internal/repo`: `TestValidSortMatchesOrderBy` — every `sort` value the API accepts has an
+  `ORDER BY` clause, and vice-versa, so a new browse sort cannot silently fall through to the
+  default on a playlist read. Ordering itself is proved through the handlers (below) rather than
+  a second repo fixture.
+- `internal/api` (`TestPlaylistEndpoints`, one server, one walk): no token → create 401 while a
+  visitor's empty list is 200 `[]`; a blank name and an unknown `sort` / `visibility` → 400; create defaults to `added_desc` + `private` and carries a `playlist:…` ref; the ref
+  handle is accepted where an id is and a wrong-kind ref is 400; **visitor + private → 404,
+  byte-for-byte the unknown-id 404**, owner → 200; add is idempotent (`item_count` stays 1),
+  unknown video 404, remove of a non-member 404, visitor add/PATCH/DELETE 401; `added_desc`
+  is newest-first and `manual` is insertion order; items carry the browse tile shape (ref +
+  title); the media detail's `playlists` is visibility-filtered (owner sees 1, visitor 0 for a
+  private list, P0-7); **trash seam** — a trashed member vanishes from `items` and
+  `item_count` and returns on restore, without touching membership; flipping to public makes
+  it appear in the visitor list, open for a visitor, and count in `capabilities.public_playlists`
+  (0 → 1); delete → 204, subsequent GET 404, membership cascades, **the videos are untouched**.
+- `internal/api` (`TestPlaylistSnapshot`, ADR-104 D3): for each browse sort, a `from_query`
+  create has the browse `total` as `item_count` and the browse order as `items`; the client's
+  paging is ignored (whole result, not one page); no filter = the whole browse-visible library;
+  an explicit body `sort` wins over the filter's; `random` snapshots as `manual` in the order the
+  seed produced on screen; a `random` playlist read without a seed gets one minted and echoed,
+  and the echoed seed — which the SPA carries back as a JSON number — is ≤ 2^53 and reproduces
+  the same order when sent back.
+
+**Unit — SPA**
+- `playlistContext.test.ts` (pure, the `?playlist=` contract): `parsePlaylistParam` reads the
+  id and an optional seed and is `null` outside a context or on a malformed id/seed;
+  `playlistHref` keeps the context and includes the seed only when present; `neighbours` walks
+  both directions, has no previous on the first item and no next on the last, and reports a
+  non-member (stale link, removed item) as index −1 with no neighbours; the **play intent** is
+  consumed once and only by the video it names, is cleared by any other outcome so a stale
+  intent never fires later, and is empty on a fresh load — **a reload or shared link never
+  autoplays**.
+- `routes/media/[id]/playerElement.test.ts` (source-shape assertion, ADR-104 D4): the page
+  renders exactly one `<video>`, and it sits outside every `{#if}` / `{#each}` / `{#key}` block.
+  This is the static half of the element-identity guarantee — cheap, runs in `npm run test`,
+  and fails the moment someone wraps the player in a loading gate again (the f1491ae refactor
+  is what it protects).
+
+**Agent (live, handoff QA 1–8)** — `[smoke]` 1–4: `/playlists` rows + chips for owner, rows
+only for a visitor with ≥ 1 public playlist (and the nav item hidden at 0 — `capabilities`
+drives it); `/playlists/[id]` visitor + private → the standard not-found page; *Play all* lands
+on `/media/{first}?playlist=…` with the strip at `1 of N`; reload that URL → strip present,
+**no autoplay**. `[agent]` 5–8: three skins × panels 1, 2, 3, 5 (chip / segment / strip
+contrast, the hover `×`, the solid current tile); the picker with 40 playlists scrolls with
+*New playlist* pinned; a long name truncates in the row card, picker row and strip; and the
+dynamic half of element identity — `document.querySelector('video')` is the same object
+before and after `Next ›` (mute it first, per the browser-test rule).
+
+**Human (handoff QA 9–11)** — PiP opened on item *n* still open and showing *n+1* after
+`ended` (Chrome); ⏮ ⏭ in the PiP window and OS media keys driving them (Media Session
+handlers); Safari's unmuted `play()` after the hand-off (spec OQ2 — the one browser policy
+a test cannot settle).
+
+**Standing gaps**
+- The Svelte surfaces (`PlaylistPicker`, `NextUpStrip`, `/playlists`, `/playlists/[id]`,
+  *Save as playlist*) have no component tests — the same posture as the rest of §5. The
+  `?playlist=` contract and the snapshot/order logic they render are what carry the
+  assertions; the pages are covered by the live checklist.
+- `api.ts`'s playlist calls are not in `api.test.ts`'s `redirect:'manual'` case; they use the
+  shared authed helper, so the existing test is the guard, but a per-call assertion would catch
+  a future bespoke `fetch`.
+- Element identity across `Next ›` is asserted statically (source shape) and live (agent probe)
+  but not in CI — the §12 harness has no route-transition step. Same standing gap as §12.5.
+- `PlaylistsForVideo` and `CountPublicPlaylists` are proved only through the handler walk; a
+  direct repo test would isolate a visibility-filter regression from a handler one.
+

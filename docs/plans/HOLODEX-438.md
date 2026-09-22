@@ -34,18 +34,26 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
   `/playlists` + nav item, `/playlists/[id]` (rename, sort incl. `manual`, visibility, Play all,
   per-tile remove, delete), PLAYLISTS rail row + picker, *Save as playlist* (A). Three skins + 375px
   on every surface
-- [ ] testing `testing-strategy` — handler tests incl. visitor-private = 404, order parity with
-  browse, element identity across next-up, three-skin matrix, manual PiP + Safari rows
-- [/] security `security-review` — **S1 signed off 2026-09-20** (no findings): every mutation inside
-  `requireOwner`; reads visibility-filtered at the repo (`ListPlaylists`/`GetPlaylist`/
-  `PlaylistsForVideo`), visitor + private = the unknown-id 404; `from_query` → `url.ParseQuery` →
-  `videoFilterFromQuery` → bound args only, ORDER BY from the `orderBy()` whitelist; items pass the
-  browse visitor redaction. Re-run at epic level once S2/S3 land.
+- [x] testing `testing-strategy` — `docs/testing-strategy.md` §14 (2026-09-21): what each of
+  `TestPlaylistEndpoints` / `TestPlaylistSnapshot` / `TestValidSortMatchesOrderBy` /
+  `playlistContext.test.ts` / `playerElement.test.ts` holds, the agent + human rows mapped to
+  handoff QA 1–11, four standing gaps (no component tests, `api.ts` playlist calls not in the
+  redirect test, element identity not in CI, `PlaylistsForVideo` proved only via handlers)
+- [x] security `security-review` — **S1 signed off 2026-09-20**, **epic-level re-run 2026-09-21 after
+  S2/S3: no findings.** Verified: mutations mounted under `requireOwner` (`handlers.go:396–473`);
+  `publicOnly = !authorized(r)` never a client param; `from_query` and `PlaylistVideos` both sit on
+  the `active = 1 AND deleted_at IS NULL` seam so a trashed video cannot surface through a playlist;
+  `redactFileMetadataForVisitors` on playlist items; `PlaylistsForVideo` + `CountPublicPlaylists`
+  visibility-filtered; SPA builds every href/`goto` from numeric ids (`parsePlaylistParam` coerces
+  `?playlist=`/`?seed=` through `Number.isInteger`), no `{@html}`; Media Session carries `title`
+  only; all six `api.ts` calls ride the `redirect:'manual'` helpers; 0051 cascades into
+  `playlist_videos` only. Informational: a public playlist sorted by `completeness_*` leaks relative
+  owner-only rank order to visitors — owner's explicit choice, scores stay gated.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-438] `testing-strategy` rows + epic-level `security-review`, then Kevin's look on
-   the real library → merge main → `gh pr ready` (fires In Review for 438 only)
+1. [ ] [HOLODEX-438] Kevin's look on the real library (handoff QA 1–8 as the script) → merge main
+   → `gh pr ready` (fires In Review for 438 only) — all seven gates are green as of 2026-09-21
 2. [ ] [HOLODEX-438] manual Safari check of unmuted `play()` after `src` swap (spec OQ2) — recipe in
    the epic's spike comment; only P1-3's toggle changes if it fails
 3. [ ] [HOLODEX-438] on merge sweep the epic + S1/S2/S3 to Done by hand (epic-keyed branch → CI
@@ -54,7 +62,12 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-21 · session
-- skills: code-review
+- skills: code-review, testing-strategy, security-review
+- handoff: S2 shipped (190ca4d, `/playlists`, `/playlists/[id]`, picker, Save as playlist); testing
+  gate closed with §14 in the strategy doc; epic-level security review after S2/S3 — no findings,
+  guards cited in the gate line. **All gates green.** Left: Kevin's look on the real library
+  (handoff QA 1–8), then merge main and `gh pr ready`; 441/442/443 + the epic are swept to Done by
+  hand on merge.
 
 ### 2026-09-20 · brainstorm → epic → spike → spec
 - skills: product-brainstorming, write-spec, architecture, design-handoff, code-review, security-review
