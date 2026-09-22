@@ -32,6 +32,25 @@ export function isImageRow(field: ResolvedField): boolean {
 	return isCockpitRow(field) && field.display === 'image_url';
 }
 
+// CHIP_VALUE_MAX_CHARS: the longest candidate a CurationChip shows whole. The chip's value span
+// is `max-w-[14rem] truncate` at text-xs; 32 characters is what fits in the widest skin font
+// (Broadcast's mono), so a value past it is guaranteed clipped somewhere.
+export const CHIP_VALUE_MAX_CHARS = 32;
+
+// stacksCandidates: the writeback dialog renders this cockpit row as stacked full-width radio
+// rows (SourceRadioList) instead of a chip row. Always for `long_text`; otherwise whenever any
+// candidate is long enough for a chip to truncate it (HOLODEX-434) — a clipped value cannot be
+// compared against its neighbours, and comparing them is the whole point of the row. The Custom
+// chip counts too: its value is the STANDING manual literal (sourceChips), which the chip row
+// renders as a value chip with the same clip; a literal typed in the dialog lives in the staged
+// pick, not in chips, so the layout never flips under the owner mid-edit. Image rows never
+// stack (tiles).
+export function stacksCandidates(field: ResolvedField, chips: SourceChip[]): boolean {
+	if (!isCockpitRow(field) || isImageRow(field)) return false;
+	if (field.display === 'long_text') return true;
+	return chips.some((c) => c.value.trim().length > CHIP_VALUE_MAX_CHARS);
+}
+
 // stagedValue is the value the staged pick would write — the chip's value, or the trimmed
 // Custom literal. An unknown/null key writes nothing.
 export function stagedValue(chips: SourceChip[], staged: StagedPick): string {
@@ -56,9 +75,17 @@ export function rowClass(field: ResolvedField, value: string): RowClass {
 	// still the resolved winner: for an image row the file candidate never carries the
 	// embedded cover art's URL, so only the write ledger can say the file has it (ADR-101) —
 	// and that verdict must hold even when the allowlist degraded the row's display to text,
-	// so it is keyed on `in_sync`, not on isImageRow. For a text row the clause is redundant
-	// (in_sync true already means decided == file candidate). Re-pointing differs again.
-	if (field.in_sync === true && value.trim() === (field.values[0] ?? '').trim()) {
+	// so it is keyed on `in_sync`, not on isImageRow. Only a STANDING decision is witnessed:
+	// the resolver reports `in_sync: true` for every undecided field by construction (nothing
+	// decided, nothing to lag), which says nothing about the file — an undecided provider
+	// poster that reads as "matches" here would save a decision and never write
+	// (HOLODEX-433). For a decided text row the clause is redundant (in_sync true already
+	// means decided == file candidate). Re-pointing differs again.
+	if (
+		field.decision?.standing === true &&
+		field.in_sync === true &&
+		value.trim() === (field.values[0] ?? '').trim()
+	) {
 		return 'matches';
 	}
 	return 'write';
@@ -86,18 +113,6 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 	}
 	return false;
 }
-
-// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
-// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
-// reaches the file: a field with a `write_target` for this container. The dialog therefore
-// has two destinations per row — the file (willWrite) and the system alone
-// (savesDecisionOnly) — and its gutter names which one Write will touch.
-
-// The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
-// entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it
-// reaches the file: a field with a `write_target` for this container. The dialog therefore
-// has two destinations per row — the file (willWrite) and the system alone
-// (savesDecisionOnly) — and its gutter names which one Write will touch.
 
 // The golden record (owner's term, 2026-09-19) is Holodex's own source of truth for the
 // entity — baseline + enrichment shadow + decisions, resolved. Only the MAPPED subset of it

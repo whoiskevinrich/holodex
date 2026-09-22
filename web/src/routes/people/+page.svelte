@@ -167,7 +167,7 @@
 <section class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<h1 class="skin-title text-2xl font-semibold text-ink">People</h1>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			{#if isOwner}
 				{#if selecting}
 					<button
@@ -252,15 +252,27 @@
 			</nav>
 		{/if}
 		<!-- Shared row body for both modes — the only difference between select mode and
-		     nav mode is the wrapper (checkbox label vs link), so the avatar/name/count live
-		     here once. -->
+		     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
+		     once. The trailing ring + count sit OUTSIDE the wrapper (rowTrail): since F65.8
+		     the ring is a <button>, which may neither nest in the link nor toggle the
+		     checkbox, so the wrapper is a stretched link/label (its ::after covers the
+		     row) and the ring rides above the stretch as a sibling. -->
 		{#snippet personRow(p: Person, i: number)}
 			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
 			<span class="flex-1 truncate">{p.name}</span>
+		{/snippet}
+		{#snippet rowTrail(p: Person)}
 			{#if p.completeness}
 				<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count, so names
 				     don't move between visitor and owner mode. -->
-				<CompletenessRing required={p.completeness.required} extras={p.completeness.extras} size="row" />
+				<span class="relative z-[1] inline-flex">
+					<CompletenessRing
+						required={p.completeness.required}
+						extras={p.completeness.extras}
+						size="row"
+						entity={{ kind: 'person', id: p.id }}
+					/>
+				</span>
 			{/if}
 			<span class="text-xs text-muted">{p.video_count}</span>
 		{/snippet}
@@ -273,28 +285,36 @@
 					class="scroll-mt-16"
 				>
 					{#if selecting}
-						<label
-							class="flex cursor-pointer items-center gap-3 rounded-theme border bg-surface px-4 py-2.5 text-ink {selectedIds.includes(
+						<div
+							class="relative flex items-center gap-3 rounded-theme border bg-surface px-4 py-2.5 text-ink {selectedIds.includes(
 								p.id
 							)
 								? 'border-accent'
 								: 'border-rule hover:border-accent'}"
 						>
-							<input
-								type="checkbox"
-								class="accent-accent"
-								checked={selectedIds.includes(p.id)}
-								onchange={() => toggle(p.id)}
-							/>
-							{@render personRow(p, i)}
-						</label>
+							<label class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 after:absolute after:inset-0 after:content-['']">
+								<input
+									type="checkbox"
+									class="accent-accent"
+									checked={selectedIds.includes(p.id)}
+									onchange={() => toggle(p.id)}
+								/>
+								{@render personRow(p, i)}
+							</label>
+							{@render rowTrail(p)}
+						</div>
 					{:else}
-						<a
-							href={`/people/${p.id}`}
-							class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
+						<div
+							class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent"
 						>
-							{@render personRow(p, i)}
-						</a>
+							<a
+								href={`/people/${p.id}`}
+								class="flex min-w-0 flex-1 items-center gap-3 after:absolute after:inset-0 after:content-['']"
+							>
+								{@render personRow(p, i)}
+							</a>
+							{@render rowTrail(p)}
+						</div>
 					{/if}
 				</li>
 			{/each}

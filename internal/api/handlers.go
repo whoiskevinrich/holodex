@@ -371,6 +371,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/providers/{name}/icon", h.serveProviderIcon)
 	r.Get("/people", h.listPeople)
 	r.Get("/people/{id}", h.getPerson)
+	// F68 (HOLODEX-431): the hover card's payload — public read; `completeness`
+	// rides an inline owner branch, as the list field does.
+	r.Get("/people/{id}/card", h.getPersonCard)
 	// Person images (F25, ADR-038) — public reads: a filled role serves the on-disk
 	// JPEG, an empty role the themed placeholder SVG. Mutations are gated below.
 	r.Get("/people/{id}/image/{role}", h.servePersonImageByRole)

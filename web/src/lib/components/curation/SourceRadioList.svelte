@@ -1,9 +1,10 @@
 <script lang="ts">
-	// Stacked full-width candidate rows for a `long_text` replace field (HOLODEX-400). Lifted
-	// out of SourceEditModal's body so the writeback dialog can embed the same chooser per row:
-	// one native radio row per SourceChip plus an inline Custom textarea. Paragraph-length
-	// values need their own line each — a chip row truncates the very text being compared
-	// (HOLODEX-303). Selecting a row STAGES (binds `stagedKey` / `stagedCustomValue`); the
+	// Stacked full-width candidate rows for a `long_text` replace field (HOLODEX-400) — and,
+	// in the writeback dialog, for any field whose candidate a chip would truncate
+	// (HOLODEX-434, `stacksCandidates`). Lifted out of SourceEditModal's body so the writeback
+	// dialog can embed the same chooser per row: one native radio row per SourceChip plus an
+	// inline Custom textarea. Long values need their own line each — a chip row truncates the
+	// very text being compared (HOLODEX-303). Selecting a row STAGES (binds `stagedKey` / `stagedCustomValue`); the
 	// embedding component owns Confirm/Save. Tokens only; QA 3 skins.
 	import type { SourceChip } from '$lib/f36';
 	import type { ResolvedField } from '$lib/types';
@@ -79,7 +80,7 @@
 						stagedCustomValue = e.currentTarget.value;
 						onstage?.();
 					}}
-					rows="5"
+					rows={field.display === 'long_text' ? 5 : 2}
 					placeholder={`Write a custom ${field.label.toLowerCase()}…`}
 					class="mt-1 ml-6 block w-[calc(100%-1.5rem)] resize-none rounded-theme border border-rule bg-bg px-2 py-1 text-sm text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed"
 				></textarea>

@@ -99,24 +99,24 @@
 
 <div class={isFrame ? 'inline-block' : 'flex items-center gap-4 rounded-theme border border-rule bg-surface p-3'}>
 	<span
-		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {dashedEmptyPoster
-			? 'border border-dashed border-rule'
-			: 'bg-logo-plate'} {frameClass}"
+		class="relative flex shrink-0 items-center justify-center overflow-hidden rounded-theme {url
+			? ''
+			: dashedEmptyPoster
+				? 'border border-dashed border-rule'
+				: 'bg-logo-plate'} {frameClass}"
 	>
 		{#if url}
-			<!-- The padding is what shows as a "frame": `object-contain` letterboxes the image
-			     against `bg-logo-plate`, so the inset reads as a light border. The row variant
-			     keeps `p-1` (a small thumbnail needs the breathing room); the hero frame drops to
-			     `p-0.5`, where the same 4px was visually heavy against a 160px poster. -->
+			<!-- No plate under an image (HOLODEX-437): a contained image sits bare and wears the
+			     `.logo-halo` so a dark mark still reads on the dark skins; the `p-1` is transparent
+			     room for the halo inside this `overflow-hidden` box, not a visible border. A
+			     `cover` image fills the box edge-to-edge — no inset, no halo. The plate survives
+			     only under the monogram / empty state below. -->
 			<img
 				src={url}
 				alt={`${entityName} ${label.toLowerCase()}`}
-				class="h-full w-full {fit === 'cover' ? 'object-cover' : 'object-contain'} {fit ===
-				'cover'
-					? ''
-					: isFrame
-						? 'p-0.5'
-						: 'p-1'} {uploading ? 'opacity-60' : ''}"
+				class="h-full w-full {fit === 'cover' ? 'object-cover' : 'logo-halo object-contain p-1'} {uploading
+					? 'opacity-60'
+					: ''}"
 			/>
 		{:else if isPoster && isOwner}
 			<button

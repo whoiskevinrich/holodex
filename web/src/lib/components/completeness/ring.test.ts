@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arc, ringReading, RING_CIRCUMFERENCE } from './ring';
+import { arc, bandsAfterRefresh, ringButtonLabel, ringReading, RING_BUSY_ARC, RING_CIRCUMFERENCE } from './ring';
 
 // The ring's reading follows the spec's § Worked examples and the design
 // handoff's state table (docs/design/completeness-ring-badge-handoff.md): the
@@ -46,5 +46,27 @@ describe('arc', () => {
 		expect(arc(100)).toBe(RING_CIRCUMFERENCE);
 		expect(arc(75)).toBe(33);
 		expect(arc(1)).toBeGreaterThan(0);
+	});
+});
+
+// F65.8 (HOLODEX-435): the ring is a button. Its name says what a press does,
+// its busy arc is a fixed quarter (never a score), and a failed re-read after
+// the refresh leaves the list's bands in place rather than blanking the ring.
+describe('ring button (F65.8)', () => {
+	it('names the action before the reading, and says so while busy', () => {
+		const r = ringReading({ required: 75, extras: 100 });
+		expect(ringButtonLabel(r, false)).toBe('Refresh enrichment — Completeness: required 75%, extras 100%');
+		expect(ringButtonLabel(r, true)).toBe('Refreshing enrichment — Completeness: required 75%, extras 100%');
+	});
+
+	it('spins a quarter lap that no score maps to', () => {
+		expect(RING_BUSY_ARC).toBe(RING_CIRCUMFERENCE / 4);
+		expect(arc(25)).toBe(RING_BUSY_ARC); // same length as 25 % — the animation, not the length, marks it busy
+	});
+
+	it('keeps the list bands when the re-read fails, takes the fresh ones when it lands', () => {
+		const list = { required: 75, extras: 100 };
+		expect(bandsAfterRefresh(list, null)).toBe(list);
+		expect(bandsAfterRefresh(list, { required: 100, extras: 100 })).toEqual({ required: 100, extras: 100 });
 	});
 });

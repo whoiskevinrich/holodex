@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 400" width="720" height="400">
+<title>Image plate, HOLODEX-437: current plate vs option B (bare image + halo) on the three plate sites, Cinémathèque</title>
+<defs><filter id="halo" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="0.5" flood-color="#e9e0d0"/><feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#e9e0d0"/><feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#e9e0d0"/></filter></defs>
+<rect x="0" y="0" width="720" height="200" fill="#0c0a09"/>
+<text x="20" y="20" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">Current — plate + p-1 (4px) inset (+ 1px rule on the 48px icon); the box competes with the mark</text>
+<rect x="20" y="34" width="230" height="70" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="36" y="45" width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622"/>
+<rect x="41" y="50" width="38" height="38" fill="#2a2018" stroke="#e9e0d0" stroke-width="2.7142857142857144" />
+<text x="96" y="74" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Six Point Harness</text>
+<text x="20" y="122" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">list row / link card · 48px</text>
+<rect x="270" y="34" width="210" height="70" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="282" y="37" width="64" height="64" rx="2" fill="#e9e0d0"/>
+<text x="314" y="75" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="28" letter-spacing="2" fill="#2a2018" >SLM</text>
+<text x="356" y="64" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#f3ece1">Logo</text>
+<text x="356" y="80" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">Replace · Remove</text>
+<text x="270" y="122" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">studio detail slot · 64px</text>
+<rect x="500" y="14" width="96" height="144" rx="2" fill="#e9e0d0"/>
+<g ><rect x="502" y="16" width="92" height="140" fill="#2a2320"/><rect x="515.8" y="74.8" width="64.39999999999999" height="8.4" fill="#e8a33d"/></g>
+<text x="500" y="174" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">film poster hero · 2:3</text>
+<rect x="620" y="45" width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-dasharray="3 2"/>
+<text x="644" y="74" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" font-weight="500" fill="#2a2018">OL</text>
+<text x="612" y="122" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">monogram (both)</text>
+<rect x="0" y="200" width="720" height="200" fill="#0c0a09"/>
+<text x="20" y="220" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#9b9082">B (chosen) — no plate under an image: bare + .logo-halo; the plate survives only under the monogram</text>
+<rect x="20" y="234" width="230" height="70" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="41" y="250" width="38" height="38" fill="#2a2018" stroke="#e9e0d0" stroke-width="2.7142857142857144" filter="url(#halo)"/>
+<text x="96" y="274" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="14" fill="#f3ece1">Six Point Harness</text>
+<text x="20" y="322" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">list row / link card · 48px</text>
+<rect x="270" y="234" width="210" height="70" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="314" y="275" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="28" letter-spacing="2" fill="#2a2018" filter="url(#halo)">SLM</text>
+<text x="356" y="264" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="12" fill="#f3ece1">Logo</text>
+<text x="356" y="280" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">Replace · Remove</text>
+<text x="270" y="322" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">studio detail slot · 64px</text>
+<g filter="url(#halo)"><rect x="502" y="216" width="92" height="140" fill="#2a2320"/><rect x="515.8" y="274.8" width="64.39999999999999" height="8.4" fill="#e8a33d"/></g>
+<text x="500" y="374" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">film poster hero · 2:3</text>
+<rect x="620" y="245" width="48" height="48" rx="2" fill="#e9e0d0" stroke="#2a2622" stroke-dasharray="3 2"/>
+<text x="644" y="274" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-size="14" font-weight="500" fill="#2a2018">OL</text>
+<text x="612" y="322" font-family="Archivo, Helvetica, Arial, sans-serif" font-size="11" fill="#9b9082">monogram (both)</text>
+</svg>

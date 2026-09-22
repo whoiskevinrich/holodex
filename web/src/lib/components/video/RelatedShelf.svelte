@@ -2,11 +2,13 @@
 	import type { Video } from '$lib/types';
 	import VideoCard from './VideoCard.svelte';
 	import { activity } from '$lib/activity.svelte';
+	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
 
 	// One "More with <name>" shelf (QW3). Rendered only when it has items — the parent
 	// passes an empty array for an entity with no siblings, and we self-omit so there's
 	// never an empty rail.
-	let { title, href, items }: { title: string; href: string; items: Video[] } = $props();
+	// personId: the person shelf's title gets the F68 hover card; the tag shelf passes none.
+	let { title, href, items, personId }: { title: string; href: string; items: Video[]; personId?: number } = $props();
 </script>
 
 {#if items.length > 0}
@@ -18,7 +20,14 @@
 	     this OUTSIDE its max-w-stage wrapper — inside, max-width: 100% is the cap. -->
 	<section class="stage-band space-y-2">
 		<h2 class="skin-title text-sm font-semibold uppercase tracking-wide text-muted">
-			More with <a {href} class="text-ink hover:text-accent">{title}</a>
+			More with
+			{#if personId !== undefined}
+				<PersonLinkChip id={personId} name={title}>
+					<a {href} class="text-ink hover:text-accent">{title}</a>
+				</PersonLinkChip>
+			{:else}
+				<a {href} class="text-ink hover:text-accent">{title}</a>
+			{/if}
 		</h2>
 		<!-- .video-grid resets the Brutalist `reel` counter (app.css) so the catalog
 		     numbering restarts at 01 per shelf instead of continuing from the page.

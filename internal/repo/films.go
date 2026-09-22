@@ -477,6 +477,22 @@ func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID
 	return films, nil
 }
 
+// CountFilmsForPerson counts the films a person appears in — the same
+// film_videos ⋈ video_people membership ListFilmsForEntity lists (so the F68
+// card's "N films" agrees with the profile's Films row), without the film rows
+// or their image batch.
+func (r *Repo) CountFilmsForPerson(ctx context.Context, personID int64) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM films f WHERE EXISTS (
+			SELECT 1 FROM film_videos fv JOIN video_people vp ON vp.video_id = fv.video_id
+			WHERE fv.film_id = f.id AND vp.person_id = ?)`, personID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count films for person: %w", err)
+	}
+	return n, nil
+}
+
 // GetFilm returns a film by id with its active-video count, or ErrNotFound.
 func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
 	row := r.db.QueryRowContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id = ?`, id)

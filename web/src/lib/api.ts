@@ -5,6 +5,8 @@ import type {
 	Activity,
 	Capabilities,
 	Category,
+	CompletenessSummary,
+	PersonCard,
 	EnrichCandidate,
 	EnrichedField,
 	EnrichEntityKind,
@@ -1043,6 +1045,19 @@ export const api = {
 			'POST',
 			`/${ENRICH_ENTITY_BASE[kind]}/${id}/enrich/refresh-all`
 		),
+
+	// The hover card's payload (F68, HOLODEX-431). Fetched on hover-intent with an
+	// AbortSignal so leaving the trigger before the request lands cancels it; the
+	// session cache lives in personCard.svelte.ts, not here. Same-origin, so the
+	// owner's session cookie rides along and the payload gains `completeness`.
+	personCard: (id: number, signal?: AbortSignal) =>
+		get<PersonCard>(`/people/${id}/card`, fetch, { signal, credentials: CREDS }),
+
+	// The ring badge's own bands for one entity (F65.8): read by CompletenessRing
+	// right after its refresh-all so it can redraw without the list re-fetching.
+	// Owner-gated like the list field; drains the store first, as a list read does.
+	entityCompleteness: (kind: EnrichEntityKind, id: number) =>
+		getAuthed<CompletenessSummary>(`/${ENRICH_ENTITY_BASE[kind]}/${id}/completeness`),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace

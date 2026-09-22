@@ -143,6 +143,8 @@ reads `not read back`** (`baselinePlaceholder`; stacked rows: `Not read back fro
 instead of `—`. No warning line. A decided such row leads the dialog on every open until the
 mapping gains a read-back source; the server WARNs which key to add at startup.
 
+> **Superseded in part by [HOLODEX-434](writeback-dialog-always-open-handoff.md)** (2026-09-19): the `change` toggle, the undecided disclosure and `max-w-xl` are gone — every chooser is always open and the dialog is `max-w-3xl`. The row classes and the M → W promotion below still hold.
+
 **M → W promotion.** The `=` tier is the collapsed state, not a dead end (owner's call, 2026-09-18:
 "expandable on demand"). A quiet `change` toggle (`.btn-quiet`, `text-xs`, `aria-expanded`,
 `aria-controls` → the chooser) sits at the row's trailing edge. Expanding shows the same chooser

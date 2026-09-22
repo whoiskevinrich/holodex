@@ -4,12 +4,12 @@
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
-	import { toMessage, monogram, filterByName } from '$lib/format';
+	import { toMessage, filterByName } from '$lib/format';
 	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Studio } from '$lib/types';
 	import SortToggle from '$lib/components/sort/SortToggle.svelte';
 	import SortReroll from '$lib/components/sort/SortReroll.svelte';
 	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
+	import StudioListRow from '$lib/components/entity/StudioListRow.svelte';
 	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
@@ -19,9 +19,10 @@
 	import { seededShuffle } from '$lib/shuffle';
 	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
-	// Studio index (F38, ADR-053) — the People/Tags list pattern, minus avatars and the
-	// merge-selection mode (studios have no headshot and no v1 identity ops). Same sort +
-	// A–Z jump-nav + scroll-restore behavior.
+	// Studio index (F38, ADR-053) — the People/Tags list pattern, minus the merge-selection
+	// mode (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the
+	// StudioLinkCard logo box in front of the name). Same sort + A–Z jump-nav + scroll-restore
+	// behavior.
 	let studios = $state<Studio[]>([]);
 	let sort = $state<PeopleTagSort>(readSort('studios', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
@@ -116,7 +117,7 @@
 <section class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			{#if !completenessDir && sort === 'random'}
 				<SortReroll onreroll={() => shuffleSeed.reroll()} />
 			{/if}
@@ -174,36 +175,7 @@
 						: undefined}
 					class="scroll-mt-16"
 				>
-					<a
-						href={`/studios/${s.id}`}
-						class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent"
-					>
-						<!-- Leading icon well (HOLODEX-126, generalized to the icon role by F51/
-						     ADR-079): a consistent ~40×26 plate keeps rows aligned whether or not
-						     the studio has an icon. Enriched/uploaded → real icon; otherwise a
-						     monogram (decorative — the name is adjacent). -->
-						<span
-							class="flex h-[26px] w-10 shrink-0 items-center justify-center overflow-hidden rounded-theme bg-logo-plate"
-						>
-							{#if s.icon_url}
-								<img
-									src={s.icon_url}
-									alt={`${s.name} icon`}
-									class="h-full w-full object-contain p-0.5"
-								/>
-							{:else}
-								<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
-									>{monogram(s.name)}</span
-								>
-							{/if}
-						</span>
-						<span class="flex-1 truncate">{s.name}</span>
-						{#if s.completeness}
-							<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count. -->
-							<CompletenessRing required={s.completeness.required} extras={s.completeness.extras} size="row" />
-						{/if}
-						<span class="text-xs text-muted">{s.video_count}</span>
-					</a>
+					<StudioListRow studio={s} eager={i < 6} />
 				</li>
 			{/each}
 		</ul>

@@ -82,6 +82,7 @@
 				<PosterTile
 					href={`/people/${p.id}`}
 					name={p.name}
+					personId={p.id}
 					onRemove={editable ? () => onRemove?.(p) : undefined}
 					busy={busyKey === personKey(p)}
 				>

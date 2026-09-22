@@ -47,6 +47,7 @@
 	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
 	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
 	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
+	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
 	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
@@ -770,11 +771,15 @@
 								<div class="flex flex-wrap items-center gap-2">
 									{#each billedAbsent as c (c.name)}
 										{#if c.person_id}
-											<a
-												href={`/people/${c.person_id}`}
-												class="rounded-full border border-dashed border-accent px-2.5 py-0.5 text-sm text-accent hover:border-solid"
-												title="In your library, but not in this film's scenes">{c.name}</a
-											>
+											<!-- F68: the hover card rides the chip; the dashed pill itself is untouched —
+											     dashed encodes "in no scene you own" and must survive the wrapper. -->
+											<PersonLinkChip id={c.person_id} name={c.name}>
+												<a
+													href={`/people/${c.person_id}`}
+													class="rounded-full border border-dashed border-accent px-2.5 py-0.5 text-sm text-accent hover:border-solid"
+													title="In your library, but not in this film's scenes">{c.name}</a
+												>
+											</PersonLinkChip>
 										{:else}
 											<span
 												class="rounded-full border border-dashed border-rule px-2.5 py-0.5 text-sm text-muted"

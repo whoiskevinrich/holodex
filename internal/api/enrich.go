@@ -202,6 +202,8 @@ func (h *Handlers) mountEnrich(r chi.Router) {
 		r.Delete(et.path+"/{id}/enrich/{provider}/dismiss", h.enrichUndismiss(et.entityType))
 		r.Post(et.path+"/{id}/enrich/{provider}/refresh", h.enrichRefresh(et.entityType))
 		r.Post(et.path+"/{id}/enrich/refresh-all", h.enrichRefreshAll(et.entityType))
+		// F65.8: the ring button re-reads its own bands after refresh-all.
+		r.Get(et.path+"/{id}/completeness", h.entityCompletenessSummary(et.entityType))
 	}
 }
 

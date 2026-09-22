@@ -193,8 +193,10 @@ export interface Studio {
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
 	video_count?: number;
-	// Self-hosted image roles (F51, ADR-079): icon (studios list well), logo (detail
-	// page header), poster (no consumer yet). Each is independently owner-editable
+	// Self-hosted image roles (F51, ADR-079): logo (the role TMDB fills — drawn by
+	// StudioLogoBox on the /studios list rows and the Film/Media StudioLinkCard, with
+	// icon as the fallback when there is no logo; HOLODEX-397/432), poster (no consumer
+	// yet). Each is independently owner-editable
 	// (upload/replace/remove) and provider-sourced by default; present only when that
 	// role's slot is filled. Always populated on both list and detail reads.
 	icon_url?: string;
@@ -1164,6 +1166,25 @@ export interface Completeness {
 export interface CompletenessSummary {
 	required: number | null;
 	extras: number | null;
+}
+
+// PersonCard is GET /people/{id}/card (F68, HOLODEX-431): the hover card's payload.
+// Absent facts are absent keys — the card drops the segment, never renders "—".
+// `completeness` rides the owner gate exactly like the list field (F65.5).
+export interface PersonCard {
+	id: number;
+	ref: string;
+	name: string;
+	display_name?: string;
+	headshot_version?: number;
+	video_count: number;
+	film_count: number;
+	age?: number;
+	age_at_death?: number;
+	nationality?: string[];
+	aliases?: string[];
+	external_links?: ExternalLink[];
+	completeness?: CompletenessSummary;
 }
 
 // FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —

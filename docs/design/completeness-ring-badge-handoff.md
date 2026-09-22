@@ -7,6 +7,14 @@
 
 ![Completeness ring badge: video-card states, row-list states, ring geometry](completeness-ring-badge-mockup.svg)
 
+> **Amended 2026-09-20 — F65.8 ([HOLODEX-435](https://whoiskevinrich.atlassian.net/browse/HOLODEX-435)):
+> the ring is a `<button>` that fires the single-entity refresh (sweep semantics). Every "not
+> interactive / inside the `<a>` / no motion / not focusable" statement below is superseded by
+> [§ F65.8 — the ring as a button](#f658--the-ring-as-a-button) at the end; the geometry, colours and
+> mount positions stand.
+
+![F65.8 — ring button states and the hoisted mounts](completeness-ring-refresh-mockup.svg)
+
 ## Decision
 
 A **ring meter** — `required` fills the ring; once `required` is 100, `extras` is drawn as a **second
@@ -79,7 +87,7 @@ the row surface.
 | Ring chip | `<span class="rounded-theme bg-black/70 px-1 py-[3px]">` around `<CompletenessRing size="card" …/>` → 22 × 20 px, the same height as the duration pill (`text-xs` + `py-0.5` = 20 px) so the bottom edge stays level |
 | Part badge | Unchanged classes minus the positioning (`part-badge rounded-theme bg-black/70 px-1.5 py-0.5 text-xs text-ink`). For a visitor (no ring) it renders at exactly the same pixel position as today — the wrapper's inset equals its old inset |
 | Other corners | Untouched: resolution bucket top-left, scene number top-right (film scenes, HOLODEX-326), duration bottom-right |
-| Inside the `<a>` | Yes — like duration and part, the ring is not interactive; clicking it navigates like the rest of the card |
+| Inside the `<a>` | ~~Yes~~ **No, since F65.8** — the bottom-left group lives in a `.video-frame-overlay` sibling of the `<a>` that mirrors the frame's box (see § F65.8); the part badge still falls through to the link |
 
 Card density: at the 8-column maximum (HOLODEX-331) a poster is ~130 px wide; a 22 px chip plus a
 4 px gap plus a ~34 px part badge leaves ≥ 40 px before the duration pill. No wrapping rule is needed.
@@ -91,7 +99,7 @@ Card density: at the 8-column maximum (HOLODEX-331) a poster is ~130 px wide; a 
 | Position | Between the name (`flex-1 truncate`) and the count (`text-xs text-muted`); the row's existing `gap-3` spaces it |
 | Ring | `<CompletenessRing size="row" …/>` when `p.completeness` / `s.completeness`; nothing otherwise — the count stays where it is for visitors |
 | Chip | None — the ring sits directly on `bg-surface`; the `muted` track reads against it |
-| Select mode (people) | The snippet is shared by the checkbox-label and the link wrappers, so the ring appears in both — no special case |
+| Select mode (people) | ~~Shared snippet~~ **F65.8:** the ring + count are a `rowTrail` snippet rendered *outside* the label/link wrapper, which is stretched (`after:absolute after:inset-0`) so the row still toggles/navigates everywhere except on the ring |
 
 ### People Poster View (`person/PersonPosterCard.svelte`)
 
@@ -120,15 +128,17 @@ line: the card renders the ring iff the item has the field.
 | Ring | `required` 100, `extras` 1 … 100 | Full accent ring with an ink arc of `extras` % drawn over it, from twelve o'clock |
 | Ring | `required` `null` (studio) | `extras` drives the accent arc; ink is never drawn |
 | Ring | item has no `completeness` (visitor, or non-list payload) | Component not mounted; no placeholder, no reserved space |
-| Ring | hover / focus / click | None — not interactive, no cursor change, no tooltip beyond the `aria-label` (the breakdown lives on the detail page) |
+| Ring | hover / focus / click | ~~None~~ **F65.8:** `cursor-pointer`, `title="Refresh enrichment"`, accent focus ring; click fires the refresh (§ F65.8) |
 | Card | owner mode toggled | Ring appears/disappears with the next list fetch; no animation |
 
-No loading state: the ring is part of the list payload, so it lands with the card.
+No loading state on mount: the ring is part of the list payload, so it lands with the card. (The
+*busy* state after a click is F65.8's, § below.)
 
 ## Motion
 
-None. The arcs are static `stroke-dasharray` values; no transition on mount or on value change (a list
-re-fetch replaces the card). `prefers-reduced-motion` has nothing to disable.
+None on mount or on value change — the arcs are static `stroke-dasharray` values. **F65.8 adds one
+motion:** the busy quarter-arc spins (`ring-busy-spin`, 0.9 s linear) under
+`prefers-reduced-motion: no-preference`; under `reduce` it holds still and the ring dims to 60 %.
 
 ## Content
 
@@ -158,7 +168,7 @@ re-fetch replaces the card). `prefers-reduced-motion` has nothing to disable.
 
 - The chip is `role="img"` with the label above; the `<svg>` is `aria-hidden`. Inside the card's `<a>`
   the label is read as part of the link's content, one utterance per card, alongside the duration.
-- Not focusable, not in the tab order — nothing to do with a keyboard here.
+- ~~Not focusable~~ **F65.8:** a `<button>` in the tab order directly after its card/row link; see § F65.8.
 - Colour is not the only channel: fill *fraction* carries the value, and the overfill is a second lap of
   a different luminance, not a hue swap. On Broadcast (cyan accent) and Brutalist (lime) the accent/ink
   contrast is lower than on Cinémathèque's gold — QA 3.2 checks it still reads.
@@ -192,3 +202,58 @@ visitor (log out or private window).
 - 3.3 `[human]` Brutalist (radius 0): the ring chip is square-cornered like the duration pill beside it; Cinémathèque: the chip's corners match the duration pill's. The ring itself is round on every skin — it is a meter, not a chip.
 - 3.4 `[human]` `/people` as owner: the rings sit visually on the same baseline as the counts and don't make the rows taller; toggle select mode — the rings are still there inside the checkbox rows.
 - 3.5 `[human]` `/people` as owner, Poster View: every card's count line carries the ring before the count; the person with no photo shows an empty muted ring under their placeholder portrait.
+
+## F65.8 — the ring as a button
+
+**Ticket** HOLODEX-435 · **Spec** F65.8 + RD9 · **Date** 2026-09-20. Decided while designing the F68
+person hover card, where the ring is the owner's only affordance: an indicator beside a "go to the
+profile and press Refresh" path was one click too many. So the ring *acts*: pressing it runs the same
+per-entity step the F66 sweep runs (`POST …/{id}/enrich/refresh-all`, every provider that supports the
+kind, `Force`) with **sweep semantics** — fire and forget, no picker on `needs_review`, no toast on
+`rate_limited` — then re-reads its own bands (`GET …/{id}/completeness`, new, owner-gated, drains the
+store) and redraws. No list re-fetch, no callback plumbing through the grids.
+
+### States
+
+| State | Looks | Says |
+|---|---|---|
+| Idle | as before; `cursor-pointer`; accent focus ring (`focus-visible:ring-1 ring-accent`) | `aria-label="Refresh enrichment — Completeness: required 75%, extras 100%"`, `title="Refresh enrichment"` |
+| Busy | muted track + a **fixed quarter arc** in accent (`RING_BUSY_ARC` = ¼ lap) spinning 0.9 s/rev; `disabled`, `cursor-progress` | `aria-busy="true"`, label becomes "Refreshing enrichment — …" |
+| Done | redraws to the bands the re-read returned (list props are overridden until the next list fetch replaces them) | label updates; nothing else — no toast, no flash |
+| Failed / rate-limited / needs review | returns to idle with the bands it had (`bandsAfterRefresh`: a failed re-read never blanks a ring) | nothing — the next press is the retry; the entity page carries the detail |
+| Reduced motion | quarter arc held still, ring at 60 % opacity | same |
+
+The quarter arc is deliberately a fraction no score is likely to sit at *and* the only arc that ever
+moves — motion, not length, marks it busy.
+
+### Hoisting — one rule, four mounts
+
+A `<button>` may not nest in an `<a>` (or toggle a `<label>`), so every mount lifts the ring out of
+its link. Two idioms, both already in the app's vocabulary:
+
+| Mount | Before | Now |
+|---|---|---|
+| `VideoCard` | ring chip + part badge inside the poster `<a>` | the bottom-left group sits in a **`.video-frame-overlay`** — a `pointer-events-none` sibling of the `<a>` whose `aspect-ratio` mirrors `.video-frame` (16:9, or 2:3 under `[data-layout='poster']`), so the group lands where it always did; only the ring chip is `pointer-events-auto`, the part badge falls through to the link. The scene-badge precedent (`video/CLAUDE.md`). |
+| `PersonPosterCard` | `<a class="poster-card">` wrapping frame, name, ring, count | `<div class="poster-card relative">` wraps a **stretched** `<a>` (unpositioned, `after:absolute after:inset-0`) holding frame + name, then a sibling count line with the ring at `relative z-[1]` above the stretch. Hover-lift keys off the wrapper; focus-lift off `:has(a:focus-visible)`. |
+| `/people` rows (both modes) | ring + count inside the row's `<a>` / checkbox `<label>` | the row is a `relative flex` div carrying the border; the `<a>` / `<label>` is stretched and holds avatar + name (`personRow`); the **`rowTrail`** snippet renders ring (`relative z-[1]`) + count as siblings. In select mode the ring cannot toggle the checkbox; the count still can (it falls through to the stretched label). |
+| `/studios` rows | ring + count inside the row's `<a>` | same as the people nav row |
+
+Measured live 2026-09-20 (films testbed, 1280 px): the video overlay box equals the frame box to the
+pixel in both layouts (16:9 `208×117`, poster `292×438`), the chip keeps its 6 px inset and its 20 px
+baseline with the duration pill, `document.querySelectorAll('a button.completeness-ring').length === 0`
+on every surface, a click on the count hit-tests to the `<a>`, a click on the ring to the button, and
+the checkbox stays unchecked after a ring click in select mode.
+
+### Accessibility
+
+- `<button type="button">` with the action-first label above; `aria-busy` while running; `disabled`
+  while busy so a double-press cannot double-fire. The `<svg>` stays `aria-hidden`.
+- Tab order: card/row link → ring → next card/row. No roving tabindex; these are independent controls.
+- The stretched-link idiom keeps the row's *visible* focus on the link's own box (avatar + name), and
+  the row border turns accent on `has-[a:focus-visible]` so the whole row still reads as focused.
+
+### Not in scope
+
+A batch id / `enrich-sweep` JobRun for a single press (per-provider `enrich` runs are still recorded
+and appear in System Activity), a confirm step, a toast, any picker — all deliberately absent so the
+ring keeps the sweep's "unattended" contract.

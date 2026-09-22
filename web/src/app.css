@@ -415,6 +415,17 @@
 	.video-grid[data-layout='poster'] .video-frame {
 		aspect-ratio: 2 / 3;
 	}
+	/* F65.8: the bottom-left badge group is hoisted out of the card's <a> (the ring is a
+	   button, and a button may not nest in a link — the scene-badge precedent). This
+	   overlay is a sibling of the <a> that mirrors .video-frame's box exactly, so the
+	   group lands where it always did; only the ring button takes pointer events, every
+	   other badge falls through to the link beneath. */
+	.video-frame-overlay {
+		aspect-ratio: 16 / 9;
+	}
+	.video-grid[data-layout='poster'] .video-frame-overlay {
+		aspect-ratio: 2 / 3;
+	}
 
 	/* ---- Stage-aligned grid (HOLODEX-331 §9.6) ----
 	   Opt-in via VideoGrid's `stageAligned` prop, used by the film page's Scenes list.
@@ -526,6 +537,45 @@
 			animation: portrait-fade 0.18s ease-out both;
 		}
 	}
+	/* F68: the person hover card enters with a short fade + 2px rise; close is instant.
+	   Reduced motion gets an instant open. */
+	@media (prefers-reduced-motion: no-preference) {
+		.person-hover-card-motion {
+			animation: hover-card-in 0.12s ease-out both;
+		}
+	}
+	@keyframes hover-card-in {
+		from {
+			opacity: 0;
+			translate: 0 2px;
+		}
+		to {
+			opacity: 1;
+			translate: 0 0;
+		}
+	}
+	/* F65.8: the completeness ring while its refresh is in flight — a fixed quarter
+	   arc that spins. Under reduced motion the arc holds still and the ring dims, so
+	   "busy" still reads without movement. */
+	@media (prefers-reduced-motion: no-preference) {
+		.completeness-ring .ring-busy {
+			animation: ring-busy-spin 0.9s linear infinite;
+			transform-origin: 10px 10px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.completeness-ring[aria-busy='true'] {
+			opacity: 0.6;
+		}
+	}
+	@keyframes ring-busy-spin {
+		from {
+			transform: rotate(-90deg);
+		}
+		to {
+			transform: rotate(270deg);
+		}
+	}
 	@keyframes portrait-fade {
 		from {
 			opacity: 0;
@@ -598,6 +648,21 @@
 		transform: none;
 	}
 
+	/* ---- Logo halo: a light glow behind a brand mark ----
+	   Studio logos and icons are arbitrary PNGs, often a dark mark on a transparent ground
+	   drawn for a light page; on the dark skins a bare logo (HOLODEX-411 dropped the plate)
+	   can vanish into the row. A drop-shadow in the plate colour follows the mark's own
+	   silhouette — a thin light outline plus a soft glow — so it reads without putting a box
+	   behind it (owner ask, HOLODEX-432; strength picked from a six-step live comparison —
+	   1+3 was the weakest at which a dark wordmark fully resolved, 1+3+6 the owner's pick,
+	   2+8 read as a blurry aura). On the icon plate the halo is plate-on-plate and
+	   simply disappears, so the one image element carries it in both roles. Token-driven:
+	   `--logo-plate` is light in every shipped skin and derived for the custom palette. */
+	.logo-halo {
+		filter: drop-shadow(0 0 1px var(--logo-plate)) drop-shadow(0 0 3px var(--logo-plate))
+			drop-shadow(0 0 6px var(--logo-plate));
+	}
+
 	/* ---- Entity Films row shelf (HOLODEX-384) ----
 	   The Films row under a person/studio/tag's video grid sizes its poster tiles against
 	   the grid above it, not against a fixed width: `--cols` is set inline from the same
@@ -635,11 +700,11 @@
 	   in this app; every existing transition/animation lives in app.css gated by the raw
 	   prefers-reduced-motion query, e.g. reel-rise/portrait-fade/thumb-shimmer below). */
 	.poster-card:hover .poster-card-frame,
-	.poster-card:focus-visible .poster-card-frame {
+	.poster-card:has(a:focus-visible) .poster-card-frame {
 		box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.35);
 	}
 	.poster-card:hover,
-	.poster-card:focus-visible {
+	.poster-card:has(a:focus-visible) {
 		z-index: 1; /* the lifted card overlaps neighbors, not the reverse */
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -647,7 +712,7 @@
 			transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 		}
 		.poster-card:hover .poster-card-frame,
-		.poster-card:focus-visible .poster-card-frame {
+		.poster-card:has(a:focus-visible) .poster-card-frame {
 			transform: scale(1.045);
 		}
 	}
