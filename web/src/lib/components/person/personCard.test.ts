@@ -22,6 +22,12 @@ describe('placeCard', () => {
 		expect(placeCard(rect(120, 30), 288, 126, 1280, 30 + 17 + 40).above).toBe(false);
 	});
 
+	it('stays below when neither side fits even though above has more room (HOLODEX-444)', () => {
+		// 100px above, 40px below, card 126: above would sit at a negative y that nothing can
+		// scroll to; below at least extends the page.
+		expect(placeCard(rect(120, 100), 288, 126, 1280, 100 + 17 + 40).above).toBe(false);
+	});
+
 	it('clamps by the overshoot at a narrow viewport — the probe case: 8px past a 400px page', () => {
 		// trigger at x=120, card 288 wide → right edge 408; gutter 16 → allowed 384 → shift −24.
 		const p = placeCard(rect(120, 468), 288, 126, 400, 700);

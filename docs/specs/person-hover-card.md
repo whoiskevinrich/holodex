@@ -70,7 +70,7 @@ Locked during the 2026-09-16 brainstorm and the 2026-09-19 spec session.
 | RD7 | Curation chips **deferred**. | Editing surface; collides with `PopoverMenu`. |
 | RD8 | **Data = new `GET /people/{id}/card`**, fetched on hover-intent, cached for the session, aborted on leave. | `GET /people/{id}` ships up to 500 videos + a full resolve — not a hover fetch. The card endpoint runs a 3-field resolve subset (RD5) plus cheap counts. |
 | RD9 | **Hidden under `@media (pointer: coarse)`**; hover-intent delay 250 ms; leave grace 150 ms. | First hover-only affordance in the app — state the touch posture once, in CSS. |
-| RD10 | **No positioning library in v1 — confirmed by the OQ1 prototype (2026-09-20).** Card is absolutely positioned inside a `relative` wrapper around the trigger; one `getBoundingClientRect` measure on open decides **vertical flip** (open above when `spaceBelow < cardHeight + 6`) and **horizontal clamp** (`left = -max(0, cardRight - (clientWidth - 16))`, never a binary end-align — a mid-row trigger in a narrow window fits neither edge). Re-measure on `resize`/`scroll` while open. No portal, no ADR. | Probed live on the real `RelatedShelf` heading: no ancestor clips (the `overflow-x-auto` scroller is the heading's *sibling*), below/above both hit-test as the card over the shelf's cards at `z-50`, and at 400 px the start-aligned card overflowed the page by 8 px until clamped. |
+| RD10 | **No positioning library in v1 — confirmed by the OQ1 prototype (2026-09-20).** Card is absolutely positioned inside a `relative` wrapper around the trigger; one `getBoundingClientRect` measure on open decides **vertical flip** (open above when `spaceBelow < cardHeight + 6` and `spaceAbove >= cardHeight + 6`; neither → stay below, HOLODEX-444) and **horizontal clamp** (`left = -max(0, cardRight - (clientWidth - 16))`, never a binary end-align — a mid-row trigger in a narrow window fits neither edge). Re-measure on `resize`/`scroll` while open. No portal, no ADR. | Probed live on the real `RelatedShelf` heading: no ancestor clips (the `overflow-x-auto` scroller is the heading's *sibling*), below/above both hit-test as the card over the shelf's cards at `z-50`, and at 400 px the start-aligned card overflowed the page by 8 px until clamped. |
 | RD11 | `PersonLinkChip` lives in `web/src/lib/components/person/`; the card is `PersonHoverCard.svelte` beside it, mounted **only** by the chip. | Single entity → `person/` per the components `CLAUDE.md`. |
 | RD12 | **The ring is the card's only action.** `CompletenessRing` becomes a button under **F65.8 (HOLODEX-435)** — clicking it fires the single-entity refresh-all, sweep semantics; the card mounts it beside the name as a sibling of the header link and passes `entity={{kind:'person', id}}` + `onrefreshed` (re-fetch `/card`, bypassing the session cache). `completeness` is returned by `/card` **only to the owner**, mirroring the list reads (ADR-099). F68 depends on HOLODEX-435 merging first. | Kevin 2026-09-20: the ring should act, not just indicate. Nothing else on the card writes. |
 
@@ -131,7 +131,9 @@ mounts `PersonHoverCard`.
 - [ ] Clicking the chip itself always navigates — the card never intercepts the primary link.
 
 **R3 — Positioning.** Card is rendered beside the chip (preferred: below-start), flips above
-when there is < card height + 6 px below the viewport edge, and is **clamped** horizontally so
+when there is < card height + 6 px below the viewport edge **and** ≥ that much above — when it
+fits on neither side it stays below (HOLODEX-444: above the viewport is a negative `y` nothing
+can scroll to; below at least extends the page) — and is **clamped** horizontally so
 its right edge never passes `clientWidth - 16` (a negative `left` offset from the start-aligned
 position; RD10). One measure on open, re-measure on window resize/scroll while open.
 - [ ] A chip at the bottom-right corner of the viewport shows a fully visible card.
