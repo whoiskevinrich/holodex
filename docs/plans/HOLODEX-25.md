@@ -27,8 +27,7 @@ page** (Media, People, Studios, Tags; Films has no filter controls). Spec'd as *
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Owner-mode live check: sign in as owner, set Completeness ↓ + a Missing facet on /people, open a person, ← Back → both restored and scroll position kept
-2. [ ] [—] Merge; HOLODEX-25 → Done via CI (branch-keyed)
+1. [ ] [—] Post-merge spot check (owner mode): set Completeness ↓ + a Missing facet on /people, open a person, ← Back → both restored and scroll position kept. **Deliberately skipped pre-merge** — the owner chose to merge without it (2026-09-22); the non-owner paths are verified and the owner path shares the same module, so the risk is the two owner-only controls' restore, not the mechanism.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -44,3 +43,11 @@ page** (Media, People, Studios, Tags; Films has no filter controls). Spec'd as *
   `/` with a saved set now loads and syncs the URL, ← Back from a video still hits the cache.
 - handoff: code + spec + tests done; owner-mode live check outstanding (couldn't sign in from
   the agent session); PR to open.
+
+### 2026-09-22 · marked ready and merged
+- Owner chose to merge without the owner-mode live check; recorded as a post-merge spot
+  check in `Up next` rather than dropped. All CI green on the draft (backend, frontend,
+  check, scripts, secrets, theming, CodeQL, adr-numbers).
+- handoff: shipped. Only follow-up is the owner-mode spot check on `/people`; if the two
+  owner-only controls don't restore, look at `readEntityFilters('people')` and the
+  owner-gated `completeness` derived — the mechanism itself is covered by unit tests.
