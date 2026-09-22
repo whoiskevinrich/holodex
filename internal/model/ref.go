@@ -5,8 +5,8 @@ import (
 	"strconv"
 )
 
-// Kind names one of the five entity kinds that carry a reference handle
-// (F60 RD1, ADR-096 D1). The string is the `kind` half of `kind:id`.
+// Kind names one of the kinds that carry a reference handle (F60 RD1, ADR-096
+// D1). The string is the `kind` half of `kind:id`.
 type Kind string
 
 const (
@@ -15,6 +15,9 @@ const (
 	KindTag    Kind = "tag"
 	KindFilm   Kind = "film"
 	KindVideo  Kind = "video"
+	// KindPlaylist is a container, not an entity (F69, ADR-104 D1): it borrows
+	// the reference handle and nothing else from the identity spine.
+	KindPlaylist Kind = "playlist"
 )
 
 // Ref formats the reference handle `kind:id` (`film:42`). The server is the only
@@ -71,4 +74,13 @@ func (f Film) MarshalJSON() ([]byte, error) {
 		alias
 		Ref string `json:"ref"`
 	}{alias(f), Ref(KindFilm, f.ID)})
+}
+
+// MarshalJSON adds `ref` to the encoded Playlist.
+func (p Playlist) MarshalJSON() ([]byte, error) {
+	type alias Playlist
+	return json.Marshal(struct {
+		alias
+		Ref string `json:"ref"`
+	}{alias(p), Ref(KindPlaylist, p.ID)})
 }

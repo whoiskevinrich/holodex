@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 900" width="720" height="900" role="img" aria-labelledby="t d">
+  <title id="t">Video playlists (F69): the /playlists list, the playlist page, the detail rail's Playlists row with the Add-to-playlist picker, two placements for Save as playlist on the browse page, and the next-up strip under the player in its three states</title>
+  <desc id="d">Five panels drawn in Cinémathèque tokens. 1: the Playlists list page with a new nav item, a New playlist action, three row cards showing name, visibility chip and count, and the visitor empty state. 2: a playlist page with the name and rename pencil, count and sort, a Private/Public segmented toggle, a solid Play all primary action, video tiles with an owner-only remove control on hover, and a quiet Delete playlist at the bottom. 3: the video detail rail gains a PLAYLISTS row that mirrors the TAGS row — member playlists as chips and a + Add to playlist button — and the picker it opens: a list with member checkmarks and a New playlist row that expands into a name input with Create and add. 4: option A places Save as playlist in the browse toolbar beside Clear filters and expands into an inline name form; option B places it as a link in the result-count line. 5: the next-up strip under the player in three states — playing from a playlist with previous, the next item's thumbnail and title, and next; last item with Play from start; current item not in the playlist — plus Chrome's Picture-in-Picture window showing the previous and next buttons that the Media Session handlers provide.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .cap { font-size: 11px; fill: #5f5e5a; }
+    .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+    .serif { font-family: Georgia, "Times New Roman", serif; }
+    .ink { fill: #f3ece1; } .muted { fill: #9b9082; } .accent { fill: #e8a33d; } .aink { fill: #1a1206; }
+    .s10 { font-size: 10px; } .s11 { font-size: 11px; } .s12 { font-size: 12px; } .s9 { font-size: 9px; }
+    .lab { font-size: 9px; letter-spacing: 1px; fill: #9b9082; }
+  </style>
+
+  <!-- ===================== Panel 1: /playlists ===================== -->
+  <text x="8" y="14" class="ttl">1 · /playlists — list page + nav item (owner view; visitor sees public rows only, nav item hidden when there are none)</text>
+  <rect x="8" y="22" width="704" height="168" rx="3" fill="#0c0a09"/>
+  <!-- header strip -->
+  <text x="22" y="42" class="serif ink" font-size="14">Holodex</text>
+  <text x="330" y="42" class="s11 muted">Media</text>
+  <text x="372" y="42" class="s11 muted">People</text>
+  <text x="418" y="42" class="s11 muted">Studios</text>
+  <text x="466" y="42" class="s11 muted">Tags</text>
+  <text x="500" y="42" class="s11 ink">Playlists</text>
+  <rect x="500" y="46" width="46" height="1.5" fill="#e8a33d"/>
+  <rect x="590" y="30" width="58" height="18" rx="9" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="619" y="42" text-anchor="middle" class="s10 accent">Owner</text>
+  <rect x="656" y="30" width="46" height="18" rx="9" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="679" y="42" text-anchor="middle" class="s10 muted">Owner view</text>
+  <line x1="8" y1="54" x2="712" y2="54" stroke="#2a2622" stroke-width="1"/>
+  <!-- title row -->
+  <text x="22" y="80" class="serif ink" font-size="20">Playlists</text>
+  <text x="108" y="80" class="s11 muted">3 playlists</text>
+  <rect x="598" y="64" width="102" height="24" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="649" y="80" text-anchor="middle" class="s11 accent">+ New playlist</text>
+  <!-- three row cards (grid-cols-3, same idiom as /people) -->
+  <g>
+    <rect x="22" y="100" width="216" height="40" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+    <rect x="32" y="110" width="20" height="20" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+    <rect x="36" y="106" width="20" height="20" rx="2" fill="#15110e" stroke="#9b9082" stroke-width="1"/>
+    <text x="66" y="124" class="s12 ink">Saturday shorts</text>
+    <rect x="160" y="112" width="44" height="16" rx="8" fill="none" stroke="#9b9082" stroke-width="1"/>
+    <text x="182" y="123" text-anchor="middle" class="s9 muted">Private</text>
+    <text x="226" y="124" text-anchor="end" class="s10 muted">12</text>
+  </g>
+  <g>
+    <rect x="252" y="100" width="216" height="40" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+    <rect x="262" y="110" width="20" height="20" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+    <rect x="266" y="106" width="20" height="20" rx="2" fill="#15110e" stroke="#9b9082" stroke-width="1"/>
+    <text x="296" y="124" class="s12 ink">Late night</text>
+    <rect x="392" y="112" width="42" height="16" rx="8" fill="none" stroke="#e8a33d" stroke-width="1"/>
+    <text x="413" y="123" text-anchor="middle" class="s9 accent">Public</text>
+    <text x="456" y="124" text-anchor="end" class="s10 muted">31</text>
+  </g>
+  <g>
+    <rect x="482" y="100" width="216" height="40" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+    <rect x="492" y="110" width="20" height="20" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+    <rect x="496" y="106" width="20" height="20" rx="2" fill="#15110e" stroke="#9b9082" stroke-width="1"/>
+    <text x="526" y="124" class="s12 ink">Every 2000s AMV that uses Linki…</text>
+    <rect x="636" y="112" width="44" height="16" rx="8" fill="none" stroke="#9b9082" stroke-width="1"/>
+    <text x="658" y="123" text-anchor="middle" class="s9 muted">Private</text>
+    <text x="690" y="124" text-anchor="end" class="s10 muted">0</text>
+  </g>
+  <!-- inline New playlist form + visitor empty state, side by side -->
+  <text x="22" y="160" class="s9 muted">+ New playlist opens the inline form (same idiom as + Add tag on the video page):</text>
+  <rect x="22" y="166" width="180" height="18" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="30" y="178" class="s10 muted">Playlist name</text>
+  <rect x="208" y="166" width="46" height="18" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="231" y="178" text-anchor="middle" class="s10 accent">Create</text>
+  <text x="264" y="178" class="s10 muted">Cancel</text>
+  <line x1="420" y1="152" x2="420" y2="186" stroke="#2a2622" stroke-width="1"/>
+  <text x="436" y="160" class="s9 muted">Visitor, nothing public — direct visit to /playlists (nav item is hidden):</text>
+  <text x="560" y="180" text-anchor="middle" class="s11 muted">No playlists shared yet.</text>
+
+  <!-- ===================== Panel 2: /playlists/[id] ===================== -->
+  <text x="8" y="212" class="ttl">2 · /playlists/[id] — Play all is the page's one solid action; sort, visibility, rename, remove, delete are owner-only</text>
+  <rect x="8" y="220" width="704" height="200" rx="3" fill="#0c0a09"/>
+  <text x="22" y="250" class="serif ink" font-size="20">Saturday shorts</text>
+  <text x="176" y="248" class="s11 muted">✎</text>
+  <text x="22" y="268" class="s11 muted">12 videos · Manual order</text>
+  <!-- controls right -->
+  <rect x="412" y="234" width="112" height="24" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="422" y="250" class="s10 ink">Manual order</text>
+  <text x="512" y="250" class="s10 muted">▾</text>
+  <rect x="532" y="234" width="92" height="24" rx="3" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <rect x="532" y="234" width="46" height="24" rx="3" fill="#15110e" stroke="#e8a33d" stroke-width="1"/>
+  <text x="555" y="250" text-anchor="middle" class="s10 ink">Private</text>
+  <text x="601" y="250" text-anchor="middle" class="s10 muted">Public</text>
+  <rect x="632" y="234" width="68" height="24" rx="3" fill="#e8a33d"/>
+  <text x="666" y="250" text-anchor="middle" class="s11 aink" font-weight="600">▶ Play all</text>
+  <!-- tiles (.video-grid of VideoCard) -->
+  <g>
+    <rect x="22" y="282" width="160" height="90" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+    <rect x="22" y="282" width="160" height="90" rx="2" fill="none" stroke="#e8a33d" stroke-width="1"/>
+    <circle cx="168" cy="296" r="8" fill="#0c0a09" fill-opacity="0.7"/>
+    <text x="168" y="299.5" text-anchor="middle" class="s10 muted">×</text>
+    <text x="22" y="386" class="s10 ink">Momiji ロッソもみじ</text>
+    <text x="22" y="398" class="s9 muted">0:37 · 720p</text>
+    <text x="102" y="412" text-anchor="middle" class="s9 muted">hover: owner-only Remove (×)</text>
+  </g>
+  <g>
+    <rect x="194" y="282" width="160" height="90" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+    <text x="194" y="386" class="s10 ink">Takoyaki Wars</text>
+    <text x="194" y="398" class="s9 muted">3:12 · 480p</text>
+  </g>
+  <g>
+    <rect x="366" y="282" width="160" height="90" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+    <text x="366" y="386" class="s10 ink">I Can Haz Marzipan</text>
+    <text x="366" y="398" class="s9 muted">2:48 · 480p</text>
+  </g>
+  <g>
+    <rect x="538" y="282" width="160" height="90" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+    <text x="538" y="386" class="s10 ink">Tenchi Log</text>
+    <text x="538" y="398" class="s9 muted">1:59 · 480p</text>
+  </g>
+  <text x="600" y="412" class="s10 muted">Delete playlist</text>
+  <text x="690" y="412" text-anchor="end" class="s9 muted">→ ConfirmDialog</text>
+
+  <!-- ===================== Panel 3: detail rail PLAYLISTS row + picker ===================== -->
+  <text x="8" y="442" class="ttl">3 · /media/[id] rail — a PLAYLISTS row mirrors the TAGS row; + Add to playlist opens the picker</text>
+  <rect x="8" y="450" width="704" height="120" rx="3" fill="#0c0a09"/>
+  <!-- rail excerpt -->
+  <text x="22" y="470" class="lab">TAGS</text>
+  <rect x="22" y="476" width="46" height="16" rx="8" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="45" y="487" text-anchor="middle" class="s9 ink">amv</text>
+  <rect x="74" y="476" width="52" height="16" rx="8" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="100" y="487" text-anchor="middle" class="s9 ink">comedy</text>
+  <text x="134" y="487" class="s10 muted">+ Add tag</text>
+  <text x="22" y="514" class="lab">PLAYLISTS</text>
+  <rect x="22" y="520" width="92" height="16" rx="8" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="68" y="531" text-anchor="middle" class="s9 ink">Saturday shorts</text>
+  <rect x="120" y="520" width="64" height="16" rx="8" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="152" y="531" text-anchor="middle" class="s9 ink">Late night</text>
+  <text x="192" y="531" class="s10 muted">+ Add to playlist</text>
+  <text x="22" y="556" class="s9 muted">chips link to /playlists/[id]; a visitor sees only public-playlist chips and no + button</text>
+  <!-- picker -->
+  <rect x="400" y="458" width="200" height="104" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="410" y="474" class="s10 accent">✓</text>
+  <text x="424" y="474" class="s10 ink">Saturday shorts</text>
+  <text x="590" y="474" text-anchor="end" class="s9 muted">12</text>
+  <text x="410" y="490" class="s10 accent">✓</text>
+  <text x="424" y="490" class="s10 ink">Late night</text>
+  <text x="590" y="490" text-anchor="end" class="s9 muted">31</text>
+  <text x="424" y="506" class="s10 ink">Rainy day</text>
+  <text x="590" y="506" text-anchor="end" class="s9 muted">4</text>
+  <line x1="408" y1="514" x2="592" y2="514" stroke="#2a2622" stroke-width="1"/>
+  <text x="410" y="530" class="s10 accent">+ New playlist…</text>
+  <rect x="410" y="538" width="98" height="18" rx="3" fill="#0c0a09" stroke="#2a2622" stroke-width="1"/>
+  <text x="416" y="550" class="s9 muted">Name</text>
+  <rect x="514" y="538" width="76" height="18" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="552" y="550" text-anchor="middle" class="s9 accent">Create &amp; add</text>
+  <text x="616" y="474" class="s9 muted">✓ = member; click toggles</text>
+  <text x="616" y="488" class="s9 muted">(add is idempotent, remove</text>
+  <text x="616" y="500" class="s9 muted">from here is the same PUT/</text>
+  <text x="616" y="512" class="s9 muted">DELETE the page uses)</text>
+  <text x="616" y="536" class="s9 muted">New playlist… expands in</text>
+  <text x="616" y="548" class="s9 muted">place: two requests, one</text>
+  <text x="616" y="560" class="s9 muted">interaction</text>
+
+  <!-- ===================== Panel 4: Save as playlist placement (OQ3) ===================== -->
+  <text x="8" y="592" class="ttl">4 · Browse page — Save as playlist placement (spec OQ3): A in the toolbar (chosen 2026-09-20) · B in the count line (rejected)</text>
+  <rect x="8" y="600" width="348" height="90" rx="3" fill="#0c0a09"/>
+  <text x="18" y="614" class="s9 accent">A</text>
+  <rect x="30" y="620" width="150" height="22" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="38" y="635" class="s10 ink">Date added — newest</text>
+  <text x="170" y="635" class="s10 muted">▾</text>
+  <rect x="186" y="620" width="70" height="22" rx="3" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="221" y="635" text-anchor="middle" class="s10 muted">Clear filters</text>
+  <text x="264" y="635" class="s10 muted">Save as playlist</text>
+  <text x="30" y="660" class="s9 muted">→ expands in place:</text>
+  <rect x="120" y="650" width="120" height="18" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="126" y="662" class="s9 muted">Playlist name</text>
+  <rect x="246" y="650" width="40" height="18" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="266" y="662" text-anchor="middle" class="s9 accent">Save</text>
+  <text x="294" y="662" class="s9 muted">Cancel</text>
+  <text x="30" y="682" class="s9 muted">Sits with the other result-set controls; the same btn-quiet → inline-form idiom as + Add tag.</text>
+  <rect x="364" y="600" width="348" height="90" rx="3" fill="#0c0a09"/>
+  <text x="374" y="614" class="s9 accent">B</text>
+  <text x="386" y="640" class="s10 muted">48 videos</text>
+  <text x="440" y="640" class="s10 muted">·</text>
+  <text x="450" y="640" class="s10 accent">Save as playlist</text>
+  <text x="386" y="662" class="s9 muted">In the count line under the toolbar. Reads as a</text>
+  <text x="386" y="674" class="s9 muted">footnote; easy to miss, and the count line scrolls</text>
+  <text x="386" y="686" class="s9 muted">away with the grid at narrow widths.</text>
+
+  <!-- ===================== Panel 5: next-up strip ===================== -->
+  <text x="8" y="712" class="ttl">5 · /media/[id]?playlist=… — next-up strip under the player, three states; PiP gets Prev/Next from Media Session</text>
+  <rect x="8" y="720" width="704" height="172" rx="3" fill="#0c0a09"/>
+  <!-- player stub -->
+  <rect x="22" y="730" width="440" height="20" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="242" y="744" text-anchor="middle" class="s9 muted">player (same &lt;video&gt; element across items)</text>
+  <!-- state 1 -->
+  <rect x="22" y="756" width="440" height="34" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="32" y="770" class="s9 muted">PLAYING FROM</text>
+  <text x="32" y="782" class="s10 accent">Saturday shorts</text>
+  <text x="118" y="782" class="s10 muted">· 3 of 12</text>
+  <rect x="200" y="762" width="30" height="22" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+  <text x="236" y="770" class="s9 muted">NEXT</text>
+  <text x="236" y="782" class="s10 ink">Takoyaki Wars · 3:12</text>
+  <rect x="352" y="762" width="48" height="22" rx="3" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="376" y="777" text-anchor="middle" class="s9 muted">‹ Prev</text>
+  <rect x="406" y="762" width="48" height="22" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="430" y="777" text-anchor="middle" class="s9 accent">Next ›</text>
+  <!-- state 2 -->
+  <rect x="22" y="796" width="440" height="34" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="32" y="810" class="s9 muted">LAST IN</text>
+  <text x="32" y="822" class="s10 accent">Saturday shorts</text>
+  <text x="118" y="822" class="s10 muted">· 12 of 12 — playback stops here</text>
+  <rect x="352" y="802" width="48" height="22" rx="3" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="376" y="817" text-anchor="middle" class="s9 muted">‹ Prev</text>
+  <rect x="406" y="802" width="48" height="22" rx="3" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="430" y="817" text-anchor="middle" class="s9 muted">↺ Start</text>
+  <!-- state 3 -->
+  <rect x="22" y="836" width="440" height="34" rx="3" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="32" y="850" class="s9 muted">NOT IN</text>
+  <text x="32" y="862" class="s10 accent">Saturday shorts</text>
+  <text x="118" y="862" class="s10 muted">· this video was removed, or the link is stale</text>
+  <rect x="380" y="842" width="74" height="22" rx="3" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="417" y="857" text-anchor="middle" class="s9 accent">Play from start</text>
+  <text x="22" y="884" class="s9 muted">Reload or a shared link never autoplays; only the previous item's ended → next hand-off does.</text>
+  <!-- PiP window -->
+  <text x="484" y="742" class="s9 muted">Chrome Picture-in-Picture window</text>
+  <rect x="484" y="748" width="212" height="120" rx="4" fill="#181310" stroke="#9b9082" stroke-width="1"/>
+  <rect x="540" y="796" width="24" height="24" rx="12" fill="#0c0a09" fill-opacity="0.7" stroke="#9b9082" stroke-width="1"/>
+  <text x="552" y="812" text-anchor="middle" class="s10 ink">⏮</text>
+  <rect x="578" y="792" width="32" height="32" rx="16" fill="#0c0a09" fill-opacity="0.7" stroke="#9b9082" stroke-width="1"/>
+  <text x="594" y="813" text-anchor="middle" class="s12 ink">⏸</text>
+  <rect x="624" y="796" width="24" height="24" rx="12" fill="#0c0a09" fill-opacity="0.7" stroke="#9b9082" stroke-width="1"/>
+  <text x="636" y="812" text-anchor="middle" class="s10 ink">⏭</text>
+  <text x="590" y="884" text-anchor="middle" class="s9 muted">⏮ ⏭ appear because nexttrack / previoustrack handlers are set</text>
+</svg>

@@ -22,6 +22,17 @@
 	import { isReplaceField, outOfSyncCount } from '$lib/f36';
 	import { expandedField } from '$lib/expandedField.svelte';
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
+	import NextUpStrip from '$lib/components/video/NextUpStrip.svelte';
+	import PlaylistPicker from '$lib/components/video/PlaylistPicker.svelte';
+	import {
+		loadPlaylist,
+		neighbours,
+		parsePlaylistParam,
+		playlistHref,
+		setPlayIntent,
+		takePlayIntent
+	} from '$lib/playlistContext';
+	import type { Playlist, PlaylistResponse } from '$lib/types';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
@@ -79,6 +90,10 @@
 	// number or "Full film") + owner-only detach; asserted links, so no relink/prune ever
 	// touches these regardless of films_enabled state (ADR-085).
 	let films = $state<FilmAttachment[]>([]);
+	// Playlists this video is in (F69 P0-7), visibility-filtered by the server; the
+	// picker is per-video transient UI and closes on navigation like the tag form.
+	let playlists = $state<Playlist[]>([]);
+	let pickerOpen = $state(false);
 	let completeness = $state<Completeness | null>(null); // F55.13, owner-gated
 	let related = $state<RelatedResponse | null>(null);
 	let loading = $state(true);
@@ -564,6 +579,7 @@
 		enriched = res.enriched ?? [];
 		studios = res.studios ?? [];
 		films = res.films ?? [];
+		playlists = res.playlists ?? [];
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 		writebackStatus = res.writeback_status ?? { pending: false, failed: false };
@@ -1012,6 +1028,83 @@
 	// param changes, so a play state from the previous item would otherwise linger.
 	$effect(() => () => setPlaying(false));
 
+	// Playlist playback context (F69 P0-9, ADR-104 D4). `?playlist=` puts the page in a
+	// context: the playlist's order (fetched once per playlist + seed), the next-up strip
+	// under the player, `ended` → the next item, and Media Session next/previous (what
+	// gives a PiP window its ⏮ ⏭). Without the param none of this runs — behaviour is
+	// exactly today's. A 404 (unknown id, or a visitor on a private playlist) leaves
+	// `playlistCtx` null and the param inert: the video still plays, no error.
+	let videoEl = $state<HTMLVideoElement | null>(null);
+	let playlistCtx = $state<PlaylistResponse | null>(null);
+	const playlistParam = $derived(parsePlaylistParam($page.url));
+	$effect(() => {
+		const p = playlistParam;
+		// A context for another playlist is dropped at once, so a switch from
+		// ?playlist=1 to ?playlist=2 never shows 1's strip or walks 1's order under 2's
+		// param while 2 loads. A hop WITHIN the playlist keeps it mounted — no flicker.
+		// untrack: this effect keys on the param only; reading the context it writes
+		// would re-run it on its own assignment, forever.
+		const held = untrack(() => playlistCtx);
+		if (!p || (held && held.playlist.id !== p.id)) playlistCtx = null;
+		if (!p) return;
+		let cancelled = false;
+		loadPlaylist(p).then((res) => {
+			// cached per (id, seed): a hop within the same playlist resolves at once
+			if (!cancelled) playlistCtx = res;
+		});
+		return () => (cancelled = true);
+	});
+	const playlistIDs = $derived(playlistCtx?.items.map((v) => v.id) ?? []);
+	// The param every navigation out of this context carries. A 'random' playlist opened
+	// without a seed gets one minted server-side and echoed; it goes into the hrefs so
+	// the whole play-through walks that one shuffle (ADR-045) — Previous included.
+	const contextParam = $derived(
+		playlistParam && playlistCtx?.seed != null && playlistParam.seed == null
+			? { ...playlistParam, seed: playlistCtx.seed }
+			: playlistParam
+	);
+	// The one place the context navigates on its own: `ended` with a next item. A
+	// gesture (the strip's links, a media key) sets the same intent; the last item just
+	// stops, and the strip says so.
+	function onEnded() {
+		setPlaying(false);
+		const p = contextParam;
+		if (!p || !playlistCtx || !video) return;
+		const { next } = neighbours(playlistIDs, video.id);
+		if (next == null) return;
+		setPlayIntent(next);
+		void goto(playlistHref(next, p));
+	}
+	// Play-on-load: once the item the intent names is the one that has loaded — checked
+	// against the route id, never the element — play it, once. `src` is already swapped
+	// by then (template effects flush before this runs), so the spike's stale-element
+	// AbortError cannot happen. Any other id consumes and drops the intent (spec RD6).
+	$effect(() => {
+		if (loading || !video || video.id !== id || !videoEl) return;
+		if (takePlayIntent(video.id)) void videoEl.play().catch(() => {});
+	});
+	// Media Session while in a context: title metadata plus next/previous handlers,
+	// bound to the neighbours of the current item; cleared when the context ends.
+	$effect(() => {
+		const p = contextParam;
+		const v = video;
+		if (!p || !playlistCtx || !v || loading || !('mediaSession' in navigator)) return;
+		const ms = navigator.mediaSession;
+		const { prev, next } = neighbours(playlistIDs, v.id);
+		const jump = (target: number) => () => {
+			setPlayIntent(target);
+			void goto(playlistHref(target, p));
+		};
+		ms.metadata = new MediaMetadata({ title: v.title });
+		ms.setActionHandler('nexttrack', next == null ? null : jump(next));
+		ms.setActionHandler('previoustrack', prev == null ? null : jump(prev));
+		return () => {
+			ms.setActionHandler('nexttrack', null);
+			ms.setActionHandler('previoustrack', null);
+			ms.metadata = null;
+		};
+	});
+
 	$effect(() => {
 		const current = id;
 		let cancelled = false; // ignore a stale response if id changes before it resolves
@@ -1040,6 +1133,7 @@
 		writebackOpen = false;
 		writebackAction = null;
 		writebackActionError = '';
+		pickerOpen = false;
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -1266,13 +1360,12 @@
 	});
 </script>
 
-{#if loading}
-	<p class="py-16 text-center text-sm text-muted">Loading…</p>
-{:else if error || !video}
-	<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">
-		{error || 'Not found.'}
-	</p>
-{:else}
+<!-- The <video> below is rendered outside every {#if} on this page (F69 P0-9, ADR-104 D4):
+     this route's component is reused across /media/A -> /media/B, so keeping the element
+     out of the loading gate makes it the SAME node across items — a `src` swap, never a
+     teardown — which is what lets a Picture-in-Picture window survive next-up. The gated
+     regions (rest of the subject column, the rail, the post-stage sections, the dialogs)
+     each carry their own {#if} instead. -->
 	<article class="space-y-6">
 		<!-- Three zones, two widths (HOLODEX-363, design handoff §2). The stage and the
 		     bottom audit group each sit in their own max-w-stage wrapper; the More-with band
@@ -1284,35 +1377,43 @@
 		     detail page so the two cannot drift. -->
 		<div class="stage-grid">
 			<div class="space-y-6">
+				<!-- Hidden (never unmounted) while there is nothing to play: a fresh entry that
+				     is still loading, or an error / not-found — today's look for those states.
+				     During /media/A -> /media/B the box stays up showing A until B's src lands. -->
 				<div
 					class="group relative overflow-hidden rounded-theme border border-rule bg-black"
+					class:hidden={!video || !!error}
 					id="field-poster_url-upload"
 				>
+					<!-- svelte-ignore a11y_media_has_caption -->
+					<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
+					     it shows a sharp cover instead of a black box until play — the small
+					     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
+					<video
+						bind:this={videoEl}
+						src={video ? api.streamURL(video.id) : undefined}
+						poster={video?.poster_url
+							? api.thumbnailReload(video.poster_url, thumbVersion)
+							: undefined}
+						controls
+						preload="metadata"
+						class="aspect-video w-full bg-black"
+						onplay={() => setPlaying(true)}
+						onpause={() => setPlaying(false)}
+						onended={onEnded}
+						onerror={() => (playFailed = true)}
+					></video>
 					{#if playFailed}
-						<div class="flex aspect-video flex-col items-center justify-center gap-3 bg-surface text-center">
+						<!-- Codec failure is an overlay over the element, not a replacement for it. -->
+						<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface text-center">
 							<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
-							<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
-								Download / open file
-							</a>
+							{#if video}
+								<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
+									Download / open file
+								</a>
+							{/if}
 						</div>
 					{:else}
-						<!-- svelte-ignore a11y_media_has_caption -->
-						<!-- The larger poster tier (F53/HOLODEX-253) is the player's poster, so
-						     it shows a sharp cover instead of a black box until play — the small
-						     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
-						<video
-							src={api.streamURL(video.id)}
-							poster={video.poster_url
-								? api.thumbnailReload(video.poster_url, thumbVersion)
-								: undefined}
-							controls
-							preload="metadata"
-							class="aspect-video w-full bg-black"
-							onplay={() => setPlaying(true)}
-							onpause={() => setPlaying(false)}
-							onended={() => setPlaying(false)}
-							onerror={() => (playFailed = true)}
-						></video>
 						{#if isOwner}
 							<input
 								bind:this={posterInput}
@@ -1339,7 +1440,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L7 9m5-5l5 5M5 20h14" />
 								</svg>
 							</button>
-							{#if video.poster_uploaded}
+							{#if video?.poster_uploaded}
 								<button
 									onclick={removePoster}
 									disabled={posterUploading}
@@ -1373,6 +1474,19 @@
 						</button>
 					{/if}
 				</div>
+				<!-- Next-up strip (F69, handoff §5): a sibling of the player box, never a
+				     wrapper. Stays mounted across a hop within the playlist (video is still
+				     the previous item until the next one lands); gone on an error. -->
+				{#if contextParam && playlistCtx && video && !error}
+					<NextUpStrip playlist={playlistCtx.playlist} items={playlistCtx.items} param={contextParam} videoId={video.id} />
+				{/if}
+				{#if loading}
+					<p class="py-16 text-center text-sm text-muted">Loading…</p>
+				{:else if error || !video}
+					<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">
+						{error || 'Not found.'}
+					</p>
+				{:else}
 				{#if posterError}
 					<p class="text-xs text-warn" aria-live="polite">{posterError}</p>
 				{/if}
@@ -1500,8 +1614,10 @@
 						{/if}
 					</div>
 				{/if}
+				{/if}
 			</div>
 
+			{#if !loading && !error && video}
 			<div class="space-y-6">
 				<!-- Overview: the rail's first block (HOLODEX-363; column contract in
 				     routes/CLAUDE.md). The synopsis is a resolved field; owner and visitor share
@@ -1608,6 +1724,43 @@
 						{/if}
 						{#if tagError}
 							<p class="text-sm text-warn">{tagError}</p>
+						{/if}
+					</section>
+				{/if}
+
+				<!-- Playlists (F69 P0-7, design handoff §3): content for everyone (a visitor
+				     sees the public memberships), the picker for the owner. Chips are plain
+				     links — removal is the picker's or the playlist page's job. The row wraps
+				     trigger + panel so use:dismissable counts both as inside. -->
+				{#if isOwner || playlists.length}
+					<section
+						id="field-playlists"
+						class="space-y-1.5"
+						use:dismissable={{ enabled: pickerOpen, inside: '#field-playlists', onclose: () => (pickerOpen = false) }}
+					>
+						<h2 class="text-xs uppercase tracking-wide text-muted">Playlists</h2>
+						<div class="flex flex-wrap items-center gap-2">
+							{#each playlists as p (p.id)}
+								<a
+									href={`/playlists/${p.id}`}
+									class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink hover:text-accent focus-visible:text-accent"
+								>
+									{p.name}
+								</a>
+							{/each}
+							{#if isOwner}
+								<button
+									type="button"
+									onclick={() => (pickerOpen = !pickerOpen)}
+									aria-expanded={pickerOpen}
+									class="btn-quiet px-3 py-1.5 text-sm"
+								>
+									+ Add to playlist
+								</button>
+							{/if}
+						</div>
+						{#if isOwner && pickerOpen}
+							<PlaylistPicker videoId={id} members={playlists} onchange={(m) => (playlists = m)} />
 						{/if}
 					</section>
 				{/if}
@@ -2224,9 +2377,11 @@
 					<CompletenessPanel {completeness} videoId={id} onchanged={reloadDetail} />
 				{/if}
 			</div>
+			{/if}
 		</div>
 		</div>
 
+		{#if !loading && !error && video}
 		<!-- "More with …" shelves (QW3): person first, then tag. Each self-omits when its
 		     block is null or empty, so an item with no siblings shows no rail. A sibling of
 		     the capped wrappers, not a child — see the article comment. Leaving the subject
@@ -2329,8 +2484,10 @@
 		{/if}
 		</div>
 		{/if}
+		{/if}
 	</article>
 
+{#if !loading && !error && video}
 	{#if extractPreviewOpen}
 		<ExtractionPreviewDialog
 			items={extractPreviewItems}

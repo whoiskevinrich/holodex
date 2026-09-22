@@ -43,6 +43,8 @@ import type {
 	RefreshAllResult,
 	RefreshReport,
 	RelatedResponse,
+	Playlist,
+	PlaylistResponse,
 	SearchResponse,
 	Studio,
 	StudioDetailResponse,
@@ -286,6 +288,34 @@ export const api = {
 	// "More with …" related shelves for a media item (ADR-031).
 	related: (id: number, fetchFn?: typeof fetch) =>
 		get<RelatedResponse>(`/media/${id}/related`, fetchFn),
+
+	// A playlist with its items in the playlist's order (F69). Visibility-filtered
+	// server-side: a visitor asking for a private playlist gets the same 404 as an
+	// unknown id. `seed` parameterizes a 'random' sort (ADR-045).
+	getPlaylist: (id: number, seed?: number) =>
+		get<PlaylistResponse>(`/playlists/${id}${seed != null ? `?seed=${seed}` : ''}`),
+
+	// Every playlist the viewer may see, updated_at DESC (owner: all; visitor: public).
+	listPlaylists: () => get<{ items: Playlist[] }>(`/playlists`),
+
+	// Owner writes (F69 P0-3/P0-7/P0-8). `from_query` is the F4.7 shareable filter
+	// string: the server snapshots that whole browse result as the membership.
+	createPlaylist: (body: {
+		name: string;
+		sort?: string;
+		visibility?: Playlist['visibility'];
+		from_query?: string;
+	}) => sendAuthed<{ playlist: Playlist }>('POST', `/playlists`, body),
+	updatePlaylist: (
+		id: number,
+		patch: { name?: string; sort?: string; visibility?: Playlist['visibility'] }
+	) => sendAuthed<{ playlist: Playlist }>('PATCH', `/playlists/${id}`, patch),
+	deletePlaylist: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/playlists/${id}`),
+	// Membership: PUT is idempotent (adding a member again is a no-op, spec RD9).
+	addPlaylistVideo: (id: number, videoId: number) =>
+		sendAuthed<{ playlist: Playlist }>('PUT', `/playlists/${id}/videos/${videoId}`),
+	removePlaylistVideo: (id: number, videoId: number) =>
+		sendAuthed<Record<string, never>>('DELETE', `/playlists/${id}/videos/${videoId}`),
 
 	streamURL: (id: number) => `${BASE}/media/${id}/stream`,
 

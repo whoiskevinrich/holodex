@@ -282,6 +282,31 @@ type Category struct {
 	Tags   []Tag   `json:"tags,omitempty"`
 }
 
+// Playlist is a container of videos with a sort (F69, ADR-104 D1/D2) — a
+// first-class page, not an entity: no baseline, no aliases, no external ids, no
+// per-field decisions, no completeness. Membership lives in playlist_videos as a
+// set with a position; Sort is any browse sort key or PlaylistSortManual, which
+// alone reads position. Visibility is a read gate (ADR-104 D5): a visitor only
+// ever sees PlaylistPublic rows. ItemCount counts un-trashed members.
+type Playlist struct {
+	ID         int64  `json:"id"`
+	Name       string `json:"name"`
+	Sort       string `json:"sort"`
+	Visibility string `json:"visibility"`
+	ItemCount  int    `json:"item_count"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
+// Playlist sort/visibility vocabulary (ADR-104 D2/D5). The browse sort keys are
+// validated by repo.ValidSort; PlaylistSortManual is meaningful only where a
+// position exists, so browse never accepts it.
+const (
+	PlaylistSortManual = "manual"
+	PlaylistPrivate    = "private"
+	PlaylistPublic     = "public"
+)
+
 // Studio image roles (F51, ADR-079). All three are "core" single-slot roles — unlike
 // Person (ADR-038) a studio has no gallery/extra role, so every role is single-slot by
 // construction (studio_images' unique index is a plain composite, not partial).

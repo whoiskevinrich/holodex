@@ -63,6 +63,8 @@ var collectionKinds = map[string]model.Kind{
 	"studios": model.KindStudio,
 	"tags":    model.KindTag,
 	"films":   model.KindFilm,
+	// A container, not an entity (ADR-104 D1) — it carries the handle only.
+	"playlists": model.KindPlaylist,
 }
 
 // paramKinds covers the routes that nest a second entity id under a different

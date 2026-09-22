@@ -325,6 +325,11 @@
 		<a href="/people" class="hover:text-ink">People</a>
 		<a href="/studios" class="hover:text-ink">Studios</a>
 		<a href="/tags" class="hover:text-ink">Tags</a>
+		<!-- Playlists (F69 OQ1): the owner always; a visitor only once a playlist is
+		     public — a visitor with nothing to see gets no dead nav item. -->
+		{#if activity.isOwner || (activity.caps?.public_playlists ?? 0) > 0}
+			<a href="/playlists" class="hover:text-ink">Playlists</a>
+		{/if}
 		{#if activity.caps?.films_enabled}
 			<a href="/films" class="hover:text-ink">Films</a>
 		{/if}

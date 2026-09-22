@@ -10,12 +10,18 @@
 		empty = 'No videos.',
 		sceneNumbers,
 		onEditScene,
+		onRemove,
 		stageAligned = false
 	}: {
 		videos: Video[];
 		empty?: string;
 		sceneNumbers?: (video: Video) => number | null | undefined;
 		onEditScene?: (video: Video) => void;
+		/** Owner-only per-tile remove (the playlist page, F69 P0-6): an `×` in the tile's
+		 *  top-right corner — the poster-upload button's treatment — as a sibling of the
+		 *  card, never inside its link. Top-right is free here because the scene badge that
+		 *  owns it is Films-only and film videos are out of a playlist's scope. */
+		onRemove?: (video: Video) => void;
 		/** Hold the stage width until there are enough cards to outgrow it, then grow and
 		 *  centre (HOLODEX-331 §9.6). Only meaningful for a grid that spans the full page
 		 *  width outside the stage cap — today just the film page's Scenes list. Off
@@ -62,7 +68,24 @@
 		data-layout={activity.cardLayout}
 	>
 		{#each videos as video (video.id)}
-			<VideoCard {video} sceneNumber={sceneNumbers?.(video)} {onEditScene} />
+			{#if onRemove}
+				<div class="group relative">
+					<VideoCard {video} sceneNumber={sceneNumbers?.(video)} {onEditScene} />
+					<button
+						type="button"
+						onclick={() => onRemove(video)}
+						title="Remove from playlist"
+						aria-label="Remove from playlist"
+						class="absolute right-2 top-2 z-10 rounded-full bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+					>
+						<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+			{:else}
+				<VideoCard {video} sceneNumber={sceneNumbers?.(video)} {onEditScene} />
+			{/if}
 		{/each}
 	</div>
 {/snippet}
