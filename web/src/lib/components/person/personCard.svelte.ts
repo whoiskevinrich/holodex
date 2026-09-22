@@ -85,8 +85,10 @@ export interface Placement {
 }
 
 /** One measure decides placement (RD10, OQ1 probe): flip above when the card would
- * not fit below, clamp horizontally rather than end-align. `cardW`/`cardH` are
- * the card's rendered size; `trigger` is the chip's rect. */
+ * not fit below AND fits above, clamp horizontally rather than end-align. When it
+ * fits on neither side it stays below (HOLODEX-444): above the viewport is a
+ * negative y nothing can scroll to, below at least extends the page. `cardW`/`cardH`
+ * are the card's rendered size; `trigger` is the chip's rect. */
 export function placeCard(
 	trigger: DOMRect,
 	cardW: number,
@@ -94,8 +96,8 @@ export function placeCard(
 	viewportW: number,
 	viewportH: number
 ): Placement {
-	const spaceBelow = viewportH - trigger.bottom;
-	const above = spaceBelow < cardH + CARD_GAP_PX && trigger.top > spaceBelow;
+	const need = cardH + CARD_GAP_PX;
+	const above = viewportH - trigger.bottom < need && trigger.top >= need;
 	const right = trigger.left + cardW;
 	const shiftX = -Math.max(0, right - (viewportW - VIEWPORT_GUTTER_PX));
 	return { above, shiftX: Math.max(shiftX, -(trigger.left - VIEWPORT_GUTTER_PX)) || 0 };

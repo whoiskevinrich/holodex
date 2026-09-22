@@ -49,8 +49,9 @@ point; A's simplicity is recovered by keeping the card non-modal and single-open
 - **Anchor:** below the trigger, start-aligned, **6 px gap** (`mt-1.5`). `position: absolute`
   inside the chip's `relative` wrapper — same recipe as every existing menu (`tags/+page.svelte:752`).
 - **Flip + clamp** (one `getBoundingClientRect` measure on open; re-measure on `resize`/`scroll`
-  while open): not enough room below (`spaceBelow < cardHeight + 6`) → open **above**
-  (`bottom-full mb-1.5`); right edge would pass `clientWidth − 16` → shift the card left by the
+  while open): not enough room below (`spaceBelow < cardHeight + 6`) and enough above → open
+  **above** (`bottom-full mb-1.5`); room on neither side → stay below, the page scrolls
+  (HOLODEX-444 — above would be a negative `y` nothing can reach); right edge would pass `clientWidth − 16` → shift the card left by the
   overshoot (`style="left: -{overshoot}px"`), which is a **clamp, not an end-align** — a trigger in
   the middle of a narrow window fits neither edge, and the clamp is what keeps the page from
   gaining horizontal scroll. Both can apply at once (mockup, bottom-right panel). No portal, no
