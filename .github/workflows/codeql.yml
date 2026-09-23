@@ -51,6 +51,9 @@ jobs:
         with:
           languages: ${{ matrix.language }}   # input is `languages` (plural); `language` is silently ignored
           build-mode: ${{ matrix.build-mode }}
+          # Excludes test files from analysis (HOLODEX-449). Passed for both matrix legs; it is a
+          # no-op for Go, whose build-mode: manual analysis ignores paths-ignore by design.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Build Go
         if: matrix.language == 'go'

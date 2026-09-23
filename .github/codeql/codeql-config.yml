@@ -1,0 +1,39 @@
+# CodeQL analysis config (HOLODEX-449). Referenced by .github/workflows/codeql.yml's init step.
+#
+# Why this exists: test files are not attack surface, and CodeQL's taint queries cannot tell a
+# sanitizer from a test that happens to munge strings. Alert #83 flagged
+# `.replace(/<!--[\s\S]*?-->/g, '')` in web/src/routes/media/[id]/playerElement.test.ts — comment
+# stripping applied to a .svelte file read off disk inside a vitest structural assertion. No
+# untrusted input, nothing rendered as HTML. That was the second alert of this shape; excluding
+# the class is cheaper than dismissing them one at a time forever.
+#
+# IMPORTANT — this only affects JavaScript/TypeScript. GitHub's docs are explicit that
+# `paths`/`paths-ignore` apply to interpreted languages (and compiled languages analysed WITHOUT
+# building); they are NOT supported for Go, which this repo builds with `build-mode: manual`.
+# So `*_test.go` is still analysed, and deliberately so — there is no Go equivalent below and
+# adding one would be a comment that quietly does nothing.
+#
+# Deliberately NOT excluded: `scripts/**` itself. Those Node scripts run in CI with repo write
+# access (jira-transition, release-candidate-comment, worklog-gate, …) and are worth analysing —
+# only their `*.test.mjs` siblings are skipped.
+#
+# Not a secrets gate: gitleaks runs separately over full history (ADR-094 D4), so excluding test
+# files here does not reduce credential coverage. That is the one objection worth pre-empting.
+
+name: Holodex CodeQL config
+
+paths-ignore:
+  # vitest suites (33 files today, all under web/)
+  - '**/*.test.ts'
+  # node:test suites for the CI scripts (14 files today, under scripts/)
+  - '**/*.test.mjs'
+
+# No `paths:` allowlist — the default is "everything not ignored", which is what we want. Adding
+# one would silently drop any new top-level directory from analysis.
+#
+# No `queries:` — the default query suite stays. This change is about *what* is scanned, never
+# about which rules run.
+#
+# No `**/*.spec.*` entry: the repo uses `.test.` exclusively (zero `.spec.` files), and a pattern
+# matching nothing is config that looks load-bearing but isn't. Add one alongside the first
+# `.spec.` file if that convention ever arrives.
