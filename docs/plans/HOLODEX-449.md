@@ -42,12 +42,15 @@ not attack surface; excluding the class beats dismissing them one at a time fore
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-449] Kevin's review of the PR
-2. [ ] [HOLODEX-449] after merge, confirm on the next scheduled CodeQL run (Mondays 05:23 UTC, or
-   the next push to main) that the JS/TS analysis still reports a non-trivial `results_count`
-   context — i.e. it analysed something. `gh api repos/whoiskevinrich/holodex/code-scanning/analyses`
-3. [ ] [HOLODEX-449] on merge, sweep to Done **by hand** (CI transitions only the branch's issue)
-4. [ ] [HOLODEX-446] epic close-out once 448 + 449 are merged; 450 (trixie) remains blocked on 448
+1. [ ] [HOLODEX-449] Kevin's review of PR #380
+2. [ ] [HOLODEX-449] on merge, sweep to Done **by hand** (CI transitions only the branch's issue)
+3. [ ] [HOLODEX-446] epic close-out once 448 + 449 are merged; 450 (trixie) remains blocked on 448
+
+> **Post-merge verification is already done, on the PR's own CodeQL run** (job 107038580604) —
+> it did not need to wait for main. The log shows `Using configuration file input from workflow`,
+> the `paths-ignore:` block echoed, and then: **222 files extracted, 59 of them from `web/src`,
+> and 0 matching `*.test.ts` / `*.test.mjs`.** Both halves proved on real infrastructure rather
+> than assumed: the exclusion bites, and the app code is still scanned.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -68,3 +71,13 @@ not attack surface; excluding the class beats dismissing them one at a time fore
   Security tab in a way indistinguishable from "no vulnerabilities". Mutation-checked twice:
   adding `**/*.ts` fails two assertions, unwiring `config-file:` from the workflow fails the
   wiring one. Full scripts suite 139/139. Left: Kevin's review.
+
+### 2026-09-22 · verified on a real CodeQL run
+- skills: —
+- handoff: PR #380 opened **ready** (all gates green, so no Draft stage). CI fully green, and the
+  `analyze (javascript-typescript, none)` leg passing is itself proof the config is valid — an
+  unparseable `config-file` fails the init step. Went further than that and read the extraction
+  log: **222 files extracted, 59 from `web/src`, 0 matching the ignored patterns.** That closes
+  the ticket's step 3 ("paths-ignore must not silently narrow the scan to nothing") with evidence
+  instead of an assumption, and it did not need to wait for main. Left: Kevin's review, then a
+  hand-sweep to Done on merge.
