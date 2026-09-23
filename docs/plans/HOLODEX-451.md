@@ -3,6 +3,10 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-451
 status: in-progress
+approved:
+  design:
+    on: 2026-09-23
+    at: b340a94
 release_note: A flagged duplicate pair in the owner's Duplicates queue can now be opened side by side — both headshots, counts, aliases and provider links at once — so you can tell one person from two without leaving the page.
 ---
 
@@ -78,7 +82,7 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 - [x] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`. The design's four deltas applied and approved by Kevin 2026-09-22 (no `+N`, Merge takes `btn-ghost` not `btn-quiet`, no fade, F68 `Videos`/`Films` anchors); OQ2/OQ4 struck through as closed. **OQ3 re-answered 2026-09-23** — the match-kind label moves into the panel on a person pair; two P0-1 criteria and RD10 updated with it
 - [~] architecture `architecture` — n/a (Kevin, 2026-09-22): no endpoint, no migration, no cross-cutting decision; OQ1 closed without forcing one
-- [x] design `design-handoff` — `docs/design/duplicates-pair-evidence-handoff.md` + committed `duplicates-pair-evidence-mockup.svg` (5 panels, Cinémathèque + a Brutalist radius-0 panel). **Amended 2026-09-23**: panel 1 redrawn at real type sizes as single-line 40px rows, panel 2's well opens with the label. Sign-off still happens at `/implement` — not yet given
+- [x] design `design-handoff` — `docs/design/duplicates-pair-evidence-handoff.md` + committed `duplicates-pair-evidence-mockup.svg` (5 panels, Cinémathèque + a Brutalist radius-0 panel). **Amended 2026-09-23**: panel 1 redrawn at real type sizes as single-line 40px rows, panel 2's well opens with the label. **Signed off by Kevin 2026-09-23 at `b340a94`** (`approved.design` in the frontmatter)
 - [~] backend — n/a for P0: the panel composes `GET /people/{id}/card` (F68) + `GET /people/{id}/images` (F26), both existing. P0 touches no Go code
 - [ ] frontend — disclosure in `DuplicatePairRow` + new `DuplicateComparePanel.svelte`; verdict emphasis swap
 - [ ] testing `testing-strategy`
@@ -87,14 +91,13 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` — every design-phase gate is now green; records the sign-off, rebases, pushes and opens the draft PR
-2. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`. **Three things the OQ3 reversal added:** drop `flex-wrap` from `DuplicatePairRow.svelte:77` (keep it on `:73`), gate the match-kind label at `:84–92` on `entity_type !== 'person'`, and export `matchKindLabel` so the panel reuses the strings rather than forking them
-3. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
-4. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
+1. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`. **Three things the OQ3 reversal added:** drop `flex-wrap` from `DuplicatePairRow.svelte:77` (keep it on `:73`), gate the match-kind label at `:84–92` on `entity_type !== 'person'`, and export `matchKindLabel` so the panel reuses the strings rather than forking them
+2. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
+3. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-23 · the sign-off was refused, and the mockup was the reason
+### 2026-09-23 · the sign-off was refused, the mockup was the reason, and the redraw carried it
 - skills: implement, design-critique, design-handoff
 - `/implement` put the design package up for sign-off. **Kevin pushed back** — "the collapsed
   queue has overlapping text" — so nothing was recorded: no `approved:`, no rebase, no PR.
@@ -118,10 +121,14 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   own tag row.
 - Verified by measurement, not eyeball: 0 text collisions and 0 clipped captions across all 82
   text elements, SVG parses clean.
-- handoff: **the design gate is still `[x]` but unsigned — the sign-off was refused and has not
-  been re-asked.** Everything is committed. Next is `/implement` again: it will re-put the
-  amended package up for sign-off, and only on a yes does it rebase, push and open the draft PR.
-  Nothing else should start before that yes.
+- Re-asked with the redraw rendered inline — rows back to one 40px line (widest run ends at
+  x=489, the pill starts at x=540), the weak-signal label opening the panel's well, tag rows
+  keeping their own. **Kevin approved.** `approved.design` recorded at `b340a94`, the rebase
+  onto `0dfea65` (`1.16.1`) was clean, and the draft PR is open.
+- handoff: **Crossed into build — design signed off at `b340a94`; draft PR open.** Start at
+  `Up next` 1: build the frontend from the handoff's build checklist, and settle whether
+  `CardLease.release()` evicts or refcounts before writing P0-5. Nothing in the design is open
+  any more; the next gates are frontend, testing and security.
 
 ### 2026-09-22 · brainstormed the gap, ruled out the hover card, shipped the probe
 - skills: product-brainstorming, implement, write-spec, design-handoff
