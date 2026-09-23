@@ -49,8 +49,10 @@ ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
 1. [ ] [HOLODEX-448] Kevin's review of PR #379 (marked ready 2026-09-22; all gates green)
 2. [ ] [HOLODEX-448] on merge, sweep 448 to Done **by hand** and unblock
    [HOLODEX-450](https://whoiskevinrich.atlassian.net/browse/HOLODEX-450) (bookworm → trixie)
-3. [ ] [HOLODEX-446] consider closing testing-strategy §15.1's first gap — no CI test covers the
-   container (nonroot, health transition, outbound TLS are all manual). Not filed yet
+3. [ ] [HOLODEX-454] testing-strategy §15.1's first gap — no CI test covers the container
+   (nonroot, health transition, outbound TLS are all manual). **Filed 2026-09-22**, linked to
+   HOLODEX-450: worth landing before the trixie base swap so that merges against a net rather
+   than a checklist
 
 > **Decided 2026-09-22 (Kevin): keep `debug-nonroot`.** The busybox shell stays. Don't re-propose
 > plain `nonroot` — it was weighed against this variant and declined. If it is ever revisited, the
