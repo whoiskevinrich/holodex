@@ -121,8 +121,8 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Sweep HOLODEX-451 by hand if CI does not move it — the branch key is the epic's, and
-   `jira-sync` skips Epics
+1. [ ] [—] Nothing to sweep by hand: HOLODEX-451 is a Jira **Story**, not an Epic, so
+   `jira-sync` fires `In Review` on ready and `Done` on merge for it. Verify it landed
 2. [ ] [—] HOLODEX-456 (the `sm:flex-nowrap` row-height boundary has no CI home until the stress
    fixture seeds a deterministic long-name person pair) — §16.1's standing gap, not this epic's
 3. [ ] [—] HOLODEX-452 / HOLODEX-453 — the shared-external-id detector, and whether alias-only
@@ -159,10 +159,10 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   `mergeStateStatus` was already `CLEAN`, so the `gh pr ready` jira-sync event is safe.
 - **Kevin's prod-skin eyeball pass was waived by his own instruction** ("mark ready for review and
   merge it when the checks pass"), not skipped silently. It was `Up next` 3 and is now dropped.
-- handoff: **every gate is green and #382 is ready for review.** Nothing is blocked. On merge,
-  check whether CI moved HOLODEX-451 — the branch key is the *epic's*, and `jira-sync` skips
-  Epics, so it likely needs a hand sweep to Done. The three spun-out follow-ups (452, 453, 456)
-  are the only work this epic leaves behind.
+- handoff: **every gate is green and #382 is ready for review.** Nothing is blocked. HOLODEX-451
+  is a Jira **Story** despite being this repo's flightplan "epic", so `jira-sync` transitions it
+  itself — no hand sweep, unlike the epic-keyed branches. The three spun-out follow-ups (452, 453,
+  456) are the only work this epic leaves behind.
 
 ### 2026-09-23 · the testing gate — the hand-QA findings pinned, and one of them provably can't be
 - skills: testing-strategy, code-review
