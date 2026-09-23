@@ -41,16 +41,38 @@ people can never share a `provider:id` there by construction. A shared external 
 observable via `entity_enrichment.external_id`, which is not globally unique. Any auto-merge
 rule depends on that being non-zero in practice — currently unverified.
 
-## Open question blocking the design
+## Probe results — live library, 2026-09-22 (1591 people, 1000 enriched)
 
-**How many queued person pairs have a headshot on both sides?** Both sides → a symmetric
-compare panel. Mostly one side only → the empty frame is itself the primary signal (the thin,
-imageless, un-enriched half is the junk record) and the panel must be designed around
-asymmetry, which is a materially different layout. `scripts/detect_person_duplicate_evidence.sql`
-answers it; Kevin runs it on the host.
+`scripts/detect_person_duplicate_evidence.sql`, run on the host. Both blocking questions closed:
 
-Also open: one image per side, or a short strip — the provider headshot is not always the
-recognisable one.
+- **Symmetric panel.** 29 of 31 pairs have a headshot on **both** sides, 2 have one side. The
+  asymmetric layout is not needed.
+- **A strip, not one image.** Most people carry 40–50 images, so a short strip per side is
+  clearly affordable and more discriminating than a single provider headshot.
+
+What the numbers changed:
+
+- **The queue is 100% weakest-signal.** All 31 pairs are `provider-alias` / `alias` — no
+  whitespace, no punctuation. The F43 fuzzy set has been worked through.
+- **Keep separate is the dominant verdict**: 185 person pairs already dismissed against 31 open.
+  The current row styles `Merge` as the accent primary and `Keep separate` as a ghost — **the UI
+  is optimized backwards and the verdict buttons should swap emphasis.**
+- **The auto-merge rule is dead.** `same_xid` is 0 across all 31 pairs; nothing shares an
+  external id. The panel is evidence-for-a-human, never a verdict engine.
+- **`diff_xid` is 2 for nearly every pair** — both providers hold different ids for the two
+  sides. Under the pre-correction ranking this would have stamped a confident "different people"
+  on essentially the whole queue from a signal that means nothing. The negative-evidence rule
+  above is load-bearing, not pedantry.
+- Facts lean "different people": `birthdate` same-provider differs on 25 pairs, matches on 1;
+  `nationality` 18 differ / 11 exact / 6 one-contains-other (the Nepal case is real and
+  measurable); 3 pairs co-appear in a video.
+- **Link row must not lean on `_source_url`** — only 86 of 1591 people have it. `website` covers
+  688; provider link templates carry the rest.
+
+Spun out: **HOLODEX-452** (detect duplicates by shared provider external id — the probe found 6
+such collisions in `entity_enrichment`, none of them ever queued, which the name-based detector
+structurally cannot see) and **HOLODEX-453** (should alias-only provider-alias pairs be flagged
+at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Gates — definition of done
 
@@ -65,11 +87,12 @@ recognisable one.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [Kevin] Run `scripts/detect_person_duplicate_evidence.sql` on the host, paste the output
-2. [ ] [—] Decide symmetric vs asymmetric panel from section 1 of the probe, then `/write-spec`
-3. [ ] [—] `/design-handoff` with a committed SVG mockup once the panel shape is settled
-4. [ ] [—] Decide one image per side vs a short strip
-5. [ ] [—] Mark the PR ready only once every gate above is green
+1. [ ] [—] `/write-spec` — symmetric two-column panel, image strip per side, swapped verdict emphasis
+2. [ ] [—] Decide whether `architecture` is `[~]` n/a (likely: widen `/owner/duplicates` rather than a new endpoint)
+3. [ ] [—] `/design-handoff` with a committed SVG mockup next to the handoff doc
+4. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
+5. [ ] [—] Build backend + frontend, then testing and security
+6. [ ] [—] Mark the PR ready only once every gate is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,6 +109,9 @@ recognisable one.
 - Probe written, anonymized in the same shape as `detect_entity_collisions.sql`, and verified
   against a seeded fixture covering canonical/mixed/alias matches, both/one/neither headshots,
   same vs different external ids, and both cross-provider fact-disagreement shapes.
-- handoff: probe is on the branch and waiting on Kevin's host run; section 1 (headshot coverage
-  per pair) decides whether the compare panel is symmetric or asymmetric, and the spec is
-  blocked until that number exists.
+- Kevin ran the probe on the host. Both blocking questions closed (symmetric panel, image strip)
+  and the queue turned out to be 100% weakest-signal with keep-separate as the dominant verdict.
+  Spun out HOLODEX-452 and HOLODEX-453; he chose panel-first.
+- handoff: nothing is blocked any more — start at `/write-spec` for the symmetric two-column
+  panel with an image strip per side and the verdict emphasis swapped, then `/design-handoff`,
+  then `/implement` to cross and open the draft PR.
