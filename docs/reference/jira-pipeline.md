@@ -54,13 +54,17 @@ To Do → In Progress → In Review → Done → Released
 | **Done** | Merged to `main` (code complete) | **CI** — `jira-sync.yml` on `pull_request` merged |
 | **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `prod` deploy (batch) |
 
-**A Draft PR is not "In Review"** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)).
-Holodex opens the PR early — as soon as the first **pre-implementation gate artifact** (an
-ADR, a spec, a design handoff) lands — so the artifact gets a reviewable diff, CI, and a
-dev-panel link. That PR stays **Draft** while the remaining gates are worked, and the
-ticket correctly stays `In Progress` the whole time. Marking it ready for review is what
-fires `In Review`. One PR matures: **Draft → ready → merge**; since a Draft PR can't be
-merged, `Done` can never fire early and no label or trailer is needed to protect it.
+**A Draft PR is not "In Review"** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)
+§2, still live). The PR opens at the **design → build crossing** — `/implement`, once the
+pre-implementation gates (spec, architecture, design) are settled and signed off — not when
+the first artifact lands ([ADR-106](../architecture/ADR-106-push-early-pr-at-implementation.md)
+supersedes ADR-069 §1). During the design phase the branch is **pushed with no PR**, so the
+dev panel is populated by branch and commits alone and a parked epic is found by the
+`fp:ready-to-build` label instead. From the crossing on, the PR stays **Draft** while the
+build gates are worked and the ticket correctly stays `In Progress` the whole time. Marking
+it ready for review is what fires `In Review`. One PR matures: **Draft → ready → merge**;
+since a Draft PR can't be merged, `Done` can never fire early and no label or trailer is
+needed to protect it.
 
 `Done ≠ Released`: a merge to `main` is code-complete, but the artifact ships only when
 `release.yml` builds the `v*` image and records the **`prod` GitHub Deployment** (ADR-034,
@@ -132,15 +136,17 @@ Design notes:
 - **A docs-only merge never fires Done** (HOLODEX-173/220, 2026-07-28) — `jira-sync.yml`'s
   "Check changed paths" step sets `docs_only=true` when a merged PR touched nothing outside
   `docs/**`, and `syncOne` skips the Done transition for it. This guards a convention break
-  that already happened twice: the intended shape is one Draft PR per epic that accumulates
-  every gate artifact and only merges once implementation is done (see *Draft PR* above,
-  ADR-069) — but a standalone gate-artifact PR (spec/ADR/design-handoff/worklog) opened
-  **non-draft** merges independently and fires Done on its own, with no implementation behind
-  it. That Done then rides the batch sync straight to Released on the next deploy. The
+  that already happened twice: the intended shape is **one PR per epic, opened at the crossing**,
+  that carries every gate artifact and only merges once implementation is done (see *Draft PR*
+  above, ADR-069/106) — but a standalone gate-artifact PR (spec/ADR/design-handoff/worklog)
+  opened **non-draft** merges independently and fires Done on its own, with no implementation
+  behind it. That Done then rides the batch sync straight to Released on the next deploy. The
   guardrail only covers the *Done* half; it does not stop a non-draft gate-artifact PR from
-  firing an early `In Review` — the process fix (keep gate artifacts inside the epic's one
-  Draft PR) is still what actually prevents this. Symptom if this regresses: an issue is
-  `Released` in Jira with only a spec/design/worklog PR merged and no feature code.
+  firing an early `In Review` — the process fix (no PR at all during the design phase, then
+  one PR that carries the gate artifacts) is still what actually prevents this, and since
+  ADR-106 a `PreToolUse` guard refuses `gh pr create` while a design gate is open. Symptom if
+  this regresses: an issue is `Released` in Jira with only a spec/design/worklog PR merged and
+  no feature code.
 - **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
   so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a
   privileged context; the key is matched by an anchored `\bHOLODEX-\d+\b` regex; the token is

@@ -36,9 +36,12 @@ flowchart TB
   ISSUE --> EPIC["Shape the epic<br/>1 epic = 1 worklog = 1 DoD"]
   EPIC --> SESSION["Start a work session<br/>branch carries HOLODEX-key → In Progress"]
   SESSION --> GATES["Work the gates<br/>spec · arch · backend · frontend · test · security"]
-  GATES --> DRAFT["First gate artifact lands<br/>→ open a <b>Draft</b> PR (no transition)"]
-  DRAFT --> HANDOFF["End session: update worklog<br/>(gates, Up next, handoff note)"]
-  HANDOFF -->|more gates left| SESSION
+  GATES --> PUSH["Each artifact lands → <b>push</b><br/>(no PR while a design gate is open)"]
+  PUSH --> HANDOFF["End session: update worklog<br/>(gates, Up next, handoff note)"]
+  HANDOFF -->|design gates still open| SESSION
+  HANDOFF -->|design done, awaiting sign-off| PARK["Parked: fp:ready-to-build label"]
+  PARK --> IMPL["Crossing: /implement<br/>sign-off → merge main → open the <b>Draft</b> PR"]
+  IMPL --> SESSION
   HANDOFF -->|all gates green| PR["Mark ready for review<br/>+ Release-Note: trailer"]
   PR --> CI["CI fires In Review → Done on merge"]
   CI --> REL["git-cliff → release note<br/>status → Released"]
@@ -47,8 +50,8 @@ flowchart TB
   classDef jira fill:#e6f1fb,stroke:#185fa5,color:#042c53;
   classDef gate fill:#faeeda,stroke:#ba7517,color:#412402;
   class INBOX,HANDOFF,UPNEXT file;
-  class ISSUE,EPIC,CI,REL jira;
-  class SESSION,GATES,DRAFT,PR gate;
+  class ISSUE,EPIC,PARK,CI,REL jira;
+  class SESSION,GATES,PUSH,IMPL,PR gate;
 ```
 
 ---
@@ -75,7 +78,7 @@ next hop.* Read it off by what you're holding:
 | **Idea** | `INBOX.md`, or the issue it became | Still in `INBOX.md`? Triage it first (Stage 1) — it has no status yet. Once it's an issue/epic, read that row below. |
 | **Task / Story** | the issue's status + its **parent epic's worklog** | remaining ladder hops + anything it's blocked on (worklog `depends-on` or a `⟂ blocked on #n` in Up next). A lone task rides the ladder; it inherits its epic's gates rather than carrying its own. |
 | **Epic** | its worklog `docs/plans/HOLODEX-<key>.md` | unchecked gates (`[ ]` / `[/]` / `[~]`) + the ordered **Up next** queue + any child issues not yet `Done`. This is the richest answer — the worklog exists for exactly this question. |
-| **PR** | PR checks + the **pre-commit checklist** (Stage 4) + Jira | still Draft? → the remaining gates (it's tracking work, not review). Then: mark ready (fires `In Review`) → review approval → CI green → merge (fires `Done`) → release (fires `Released`). If the PR closes an epic, also a `release_note` set. |
+| **PR** | PR checks + the **pre-commit checklist** (Stage 4) + Jira | **No PR yet?** → the epic is still in its design phase: the open design gates, then `/implement`. Still Draft? → the remaining build gates (it's tracking work, not review). Then: mark ready (fires `In Review`) → review approval → CI green → merge (fires `Done`) → release (fires `Released`). If the PR closes an epic, also a `release_note` set. |
 
 Two things to internalize:
 - **Merged ≠ in prod.** Finishing a PR gets you to `Done`; a release tag is what moves it to `Released`.
@@ -178,22 +181,33 @@ required artifact and the skill that produces it:
 | testing | `/testing-strategy` | updated `docs/testing-strategy.md` + tests |
 | security | `/security-review` | sign-off (required for auth/access/infra) |
 
-### Open the Draft PR as soon as the first gate artifact lands
+### The design phase pushes; `/implement` opens the PR
 
-The first gates are **pre-implementation** — an ADR or a spec wants review *before* the code
-exists, while changing the design is still cheap. So the moment the first gate artifact lands
-on the branch, push it and open a **Draft PR** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)):
+The first gates — spec, architecture, design — are **pre-implementation**, and they run with
+**no PR on the branch** ([ADR-106](../architecture/ADR-106-push-early-pr-at-implementation.md),
+which supersedes [ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) §1):
 
-- **Draft is the normal state of in-flight work.** It's the epic's one PR, and it accumulates
-  the remaining gates over the following sessions. Don't open a separate "ADR PR" to merge
-  ahead of the implementation.
-- **A Draft PR fires no Jira transition** — the ticket stays `In Progress`, which is the truth.
-  The design is in review; the *work* isn't. `In Review` fires when you **mark it ready for
-  review** (Stage 6), so that column stays a real queue instead of a bucket.
-- **You still get everything a PR is for**: a reviewable diff and comment thread on the ADR,
-  CI on every push, and the branch/commits/PR wired into the Jira dev panel.
-- **`Done` can't fire early**, because GitHub won't merge a Draft. That's why this needs no
-  label, trailer, or convention to police — the state does the enforcing.
+- **Push every artifact as it lands, but don't open a PR.** The push is what keeps a parked epic
+  visible and backed up — another worktree, another machine, and a cold session all find it on
+  `origin`. A `PreToolUse` guard refuses `gh pr create` while a design gate is open, so the PR
+  isn't a judgement call.
+- **A designed-and-waiting epic is surfaced by a label**, not by sitting in the PR list:
+  `project = HOLODEX AND labels = fp:ready-to-build AND status != Done`. `/handoff` applies it
+  when the design gates are settled and the sign-off is outstanding; `/implement` removes it.
+- **`/implement` is the crossing.** It confirms the design gates are settled, puts the design
+  handoff in front of you and records the yes in the worklog's `approved:` (pinned to a commit),
+  merges fresh `main` in — never rebases a branch that's already on `origin` — pushes, and opens
+  the PR as a **Draft**, because the build gates are still open. Say "implement HOLODEX-nnn" too
+  early and it *is* the checkpoint: it stops and names what's missing.
+- **What you give up, and what you get.** No reviewable diff or comment thread on the ADR while
+  it's the only thing on the branch, and **no CI** either — `ci.yml` runs on `pull_request` and on
+  push to `main`, never on a branch push. In exchange, implementation cannot start on a design
+  you haven't seen, which the old rule never guaranteed.
+- **From the crossing on, ADR-069 still holds.** Draft is the normal state of in-flight work and
+  it's the epic's one PR — don't open a separate "ADR PR" to merge ahead of the implementation.
+  **A Draft PR fires no Jira transition**, so the ticket stays `In Progress`; `In Review` fires
+  when you **mark it ready for review** (Stage 6). And **`Done` can't fire early**, because
+  GitHub won't merge a Draft — the state does the enforcing, with no label or trailer to police.
 
 The **worklog** tracks your position through them. Its anatomy:
 
@@ -264,7 +278,7 @@ Token habits that compound (take these from the context-limits research, made no
 ## Stage 6 — Merge
 
 - **Mark the Draft PR ready for review** once the worklog's gates are green. This — not opening
-  the PR — is what fires `In Review`. Keep the **subject a clean Conventional Commit**
+  the PR at the crossing — is what fires `In Review`. Keep the **subject a clean Conventional Commit**
   (release-please and git-cliff parse it) — the issue key stays in the *branch name*, never the
   subject.
 - Put the user-facing sentence in a **`Release-Note:` git trailer** on the squash-merge commit (promoted
@@ -286,8 +300,9 @@ Token habits that compound (take these from the context-limits research, made no
 
 **The five-minute version:** capture ideas to `INBOX.md` → triage in bulk into Jira or an epic's Up
 next → make each epic `1 epic = 1 worklog = 1 DoD` → branch names carry the key → work the gates,
-keeping the worklog's gates + ordered Up next honest → **Draft PR as soon as the first gate artifact
-lands** → end sessions at gate boundaries with a handoff note → mark ready for review when the gates
+keeping the worklog's gates + ordered Up next honest → **design phase pushes with no PR; `/implement`
+signs off the design and opens the Draft PR** → end sessions at gate boundaries with a handoff note
+→ mark ready for review when the gates
 are green, clean Conventional-Commit subject with a `Release-Note:` trailer → CI and git-cliff do the rest.
 
 **Today vs. when the flightplan plugin ships** (design: [`../plans/flightplan-plugin.md`](../plans/flightplan-plugin.md)):

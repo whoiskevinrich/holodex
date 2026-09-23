@@ -86,13 +86,19 @@ On the Jira side, the same gates surface as the `needs-spec` / `needs-adr` / `ne
 `needs-security-review` labels (see "Task tracking") — apply one when the change enters the
 matching row, clear it when the artifact lands.
 
-**Pre-implementation gates ship as a Draft PR.** The spec / ADR / design rows above produce
-artifacts that want review *before* the code exists. As soon as the first of them lands, push
-and open a **Draft** PR (`gh pr create --draft`) — the epic's one PR, which then accumulates the
-remaining gates. A Draft PR fires **no** Jira transition, so the ticket correctly stays
-`In Progress`; **`In Review` fires when you mark it ready for review**, which you do only once
-the gates are green. Don't split a gate artifact into its own PR merged ahead of the
-implementation. See [ADR-069](../docs/architecture/ADR-069-draft-prs-for-pre-implementation-gates.md).
+**The design phase pushes; it does not open a PR.** The spec / ADR / design rows above are
+*pre-implementation* gates. Push each artifact as it lands — a parked epic must be on `origin`,
+visible from every worktree and machine — but **do not open a PR while any design gate is open.**
+A `PreToolUse` guard refuses `gh pr create` there, so the branch would be refused anyway. The
+crossing is **`/implement`**: it confirms the design gates are settled, puts each sign-off artifact
+(here the design handoff) in front of the owner and records the yes, merges fresh `main` in, pushes,
+and opens the PR — Draft, because the build gates are still open. Until then a designed-and-waiting
+epic is surfaced by the **`fp:ready-to-build`** Jira label, not by appearing in the PR list. Still
+true: a Draft PR fires **no** Jira transition, and **`In Review` fires when you mark it ready for
+review**. Don't split a gate artifact into its own PR merged ahead of the implementation.
+See [ADR-106](../docs/architecture/ADR-106-push-early-pr-at-implementation.md) (which supersedes
+[ADR-069](../docs/architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) §1 — §1's
+"open a Draft PR at the first artifact" is dead; its `In Review` half is live).
 
 ## Pre-commit checklist (every commit)
 
@@ -125,10 +131,12 @@ file (also ADR-021 and `docs/design/theming.md`).
    ADR-092 — so this is a manual step until it lands.)
 3. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 4. Scan the working tree for secrets / PII (see "Secrets & publishing").
-5. **Draft unless the gates are green.** Open with `gh pr create --draft` whenever work
-   remains (see "Pre-implementation gates ship as a Draft PR" above); drop `--draft` — or mark
-   an existing Draft ready — only when every gate in the routing table is satisfied. Marking
-   ready is the act that moves the ticket to `In Review`.
+5. **No PR during design; Draft unless the gates are green.** While any design-phase gate
+   (spec / architecture / design) is open, **push only** — `/implement` is what opens the PR
+   (see "The design phase pushes; it does not open a PR" above). Once it exists, open with
+   `gh pr create --draft` whenever work remains; drop `--draft` — or mark an existing Draft
+   ready — only when every gate in the routing table is satisfied. Marking ready is the act
+   that moves the ticket to `In Review`.
 
 ## Task tracking (Jira)
 
