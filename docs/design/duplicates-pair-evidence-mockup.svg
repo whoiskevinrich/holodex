@@ -1,81 +1,82 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1010" width="720" height="1010" role="img" aria-labelledby="t d">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1052" width="720" height="1052" role="img" aria-labelledby="t d">
   <title id="t">Duplicates pair evidence (F70): the collapsed person row with the verdict emphasis swapped, the expanded two-column compare panel, its loading, sparse and error states, and the narrow stacked layout</title>
-  <desc id="d">Five panels drawn in Cinematheque tokens. 1: the People group of the Duplicates queue — a person row gains a chevron disclosure on the left and its verdicts swap so Keep separate is the outlined accent pill and Merge the bordered neutral; a Tags row below renders no disclosure and is unchanged. 2: an expanded person row. The panel is a recessed well under the row holding two identical bordered cards, each carrying a strip of five 44 pixel square image frames, the display name with nationality flags, a meta line of age, video count and film count, an aliases line, and a link row of Videos, Films and provider badges. A divider under the two cards carries the same two verdicts. 3: three states — loading, where both cards show empty frames and the names already known from the pair row; a sparse side with one image, no aliases and one provider; and a failed side showing an inline error while the verdicts stay usable. 4: the same panel below the stacking breakpoint — the cards stack, first side above second, each keeping its own border as the separator. 5: the same expanded panel in the Brutalist skin, where the theme radius is zero, so no corner is rounded except the verdict pill.</desc>
+  <desc id="d">Five panels drawn in Cinematheque tokens. 1: the People group of the Duplicates queue — a person row gains a chevron disclosure on the left, gives up its weak-signal match-kind label to the panel so the row stays one 40px line, and its verdicts swap so Keep separate is the outlined accent pill and Merge the bordered neutral; a Tags row below renders no disclosure and keeps its own match-kind label, having no panel to move it into. 2: an expanded person row. The panel is a recessed well under the row opening with the match-kind label the row gave up, then holding two identical bordered cards, each carrying a strip of five 44 pixel square image frames, the display name with nationality flags, a meta line of age, video count and film count, an aliases line, and a link row of Videos, Films and provider badges. A divider under the two cards carries the same two verdicts. 3: three states — loading, where both cards show empty frames and the names already known from the pair row; a sparse side with one image, no aliases and one provider; and a failed side showing an inline error while the verdicts stay usable. 4: the same panel below the stacking breakpoint — the cards stack, first side above second, each keeping its own border as the separator. 5: the same expanded panel in the Brutalist skin, where the theme radius is zero, so no corner is rounded except the verdict pill.</desc>
   <style>
     text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .cap { font-size: 11px; fill: #5f5e5a; }
     .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
     .serif { font-family: Georgia, "Times New Roman", serif; }
     .ink { fill: #f3ece1; } .muted { fill: #9b9082; } .accent { fill: #e8a33d; } .warn { fill: #e2603f; }
-    .s9 { font-size: 9px; } .s10 { font-size: 10px; } .s11 { font-size: 11px; } .s12 { font-size: 12px; }
+    .s9 { font-size: 9px; } .s10 { font-size: 10px; } .s11 { font-size: 11px; } .s12 { font-size: 12px; } .s14 { font-size: 14px; }
     .lab { font-size: 9px; letter-spacing: 1px; fill: #9b9082; }
     .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
   </style>
 
   <!-- ============ Panel 1: collapsed rows ============ -->
-  <text x="8" y="14" class="ttl">1 · collapsed queue — person rows gain a disclosure; every row's verdicts swap emphasis (Keep separate = outlined accent, Merge = bordered neutral)</text>
-  <rect x="8" y="22" width="704" height="146" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
-  <text x="20" y="42" class="lab">PEOPLE · 31</text>
+  <text x="8" y="14" class="ttl">1 · collapsed queue — single-line 40px rows; the weak-signal label has moved into the panel</text>
+  <rect x="8" y="22" width="704" height="172" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="40" class="lab">PEOPLE · 31</text>
 
-  <line x1="8" y1="50" x2="712" y2="50" stroke="#2a2622" stroke-width="1"/>
-  <rect x="18" y="58" width="22" height="22" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
-  <path d="M24 67l5 5 5-5" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="50" y="73" class="s11 ink">Maya Rodriguez</text>
-  <text x="140" y="73" class="s10 muted">27 videos</text>
-  <text x="198" y="73" class="s11 muted">↔</text>
-  <text x="216" y="73" class="s11 ink">Maya Rodrigues</text>
-  <text x="308" y="73" class="s10 muted">4 videos</text>
-  <text x="358" y="73" class="s10 muted">· provider-alias</text>
-  <text x="438" y="73" class="s10 warn">· alias match only — weak signal</text>
-  <rect x="552" y="59" width="88" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
-  <text x="596" y="73" text-anchor="middle" class="s10 accent">Keep separate</text>
-  <rect x="648" y="59" width="48" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
-  <text x="672" y="73" text-anchor="middle" class="s10 muted">Merge</text>
+  <line x1="8" y1="46" x2="712" y2="46" stroke="#2a2622" stroke-width="1"/>
+  <rect x="20" y="52" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M28 63l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="71" class="s14 ink">Maya Rodriguez</text>
+  <text x="163.9" y="71" class="s12 muted">27 videos</text>
+  <text x="222.2" y="71" class="s14 muted">↔</text>
+  <text x="242.3" y="71" class="s14 ink">Maya Rodrigues</text>
+  <text x="349.8" y="71" class="s12 muted">4 videos</text>
+  <text x="401.7" y="71" class="s12 muted">· provider-alias</text>
+  <rect x="540" y="56" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="70" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="56" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="70" text-anchor="middle" class="s12 muted">Merge</text>
 
-  <line x1="8" y1="90" x2="712" y2="90" stroke="#2a2622" stroke-width="1"/>
-  <rect x="18" y="98" width="22" height="22" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
-  <path d="M24 107l5 5 5-5" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="50" y="113" class="s11 ink">Theodore Brannigan</text>
-  <text x="158" y="113" class="s10 muted">1 video</text>
-  <text x="206" y="113" class="s11 muted">↔</text>
-  <text x="224" y="113" class="s11 ink">Ted Brannigan</text>
-  <text x="308" y="113" class="s10 muted">12 videos</text>
-  <text x="362" y="113" class="s10 muted">· provider-alias</text>
-  <text x="442" y="113" class="s10 warn">· alias match only — weak signal</text>
-  <rect x="552" y="99" width="88" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
-  <text x="596" y="113" text-anchor="middle" class="s10 accent">Keep separate</text>
-  <rect x="648" y="99" width="48" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
-  <text x="672" y="113" text-anchor="middle" class="s10 muted">Merge</text>
+  <line x1="8" y1="86" x2="712" y2="86" stroke="#2a2622" stroke-width="1"/>
+  <rect x="20" y="92" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M28 103l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="111" class="s14 ink">Theodore Brannigan</text>
+  <text x="189.8" y="111" class="s12 muted">1 video</text>
+  <text x="236.6" y="111" class="s14 muted">↔</text>
+  <text x="256.7" y="111" class="s14 ink">Ted Brannigan</text>
+  <text x="352.6" y="111" class="s12 muted">12 videos</text>
+  <text x="410.9" y="111" class="s12 muted">· provider-alias</text>
+  <rect x="540" y="96" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="110" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="96" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="110" text-anchor="middle" class="s12 muted">Merge</text>
 
-  <text x="20" y="140" class="lab">TAGS · 212</text>
-  <line x1="8" y1="146" x2="712" y2="146" stroke="#2a2622" stroke-width="1"/>
-  <text x="20" y="161" class="s11 ink">film noir</text>
-  <text x="80" y="161" class="s11 muted">↔</text>
-  <text x="98" y="161" class="s11 ink">Film Noir</text>
-  <text x="162" y="161" class="s10 muted">· capitalisation</text>
-  <rect x="552" y="151" width="88" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
-  <text x="596" y="165" text-anchor="middle" class="s10 accent">Keep separate</text>
-  <rect x="648" y="151" width="48" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
-  <text x="672" y="165" text-anchor="middle" class="s10 muted">Merge</text>
-  <text x="8" y="184" class="cap">Person rows indent by the 22px disclosure; a tag row renders no disclosure and keeps today's left edge. Only the verdict styling changes for non-person rows.</text>
+  <line x1="8" y1="126" x2="712" y2="126" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="144" class="lab">TAGS · 212</text>
+  <line x1="8" y1="150" x2="712" y2="150" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="175" class="s14 ink">film noir</text>
+  <text x="79.5" y="175" class="s14 muted">↔</text>
+  <text x="99.6" y="175" class="s14 ink">Film Noir</text>
+  <text x="164.1" y="175" class="s12 muted">· capitalisation</text>
+  <rect x="540" y="160" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="174" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="160" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="174" text-anchor="middle" class="s12 muted">Merge</text>
+  <text x="8" y="210" class="cap">One 40px line per row: the widest ends at x=489, the pill starts at x=540. A tag row keeps its own label — it has no panel.</text>
 
   <!-- ============ Panel 2: expanded ============ -->
-  <text x="8" y="212" class="ttl">2 · expanded — a recessed well under the row holds two identical cards; each card is the F68 hover card's anatomy laid flat, with an image strip where its 48px headshot was</text>
-  <rect x="8" y="220" width="704" height="286" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <g transform="translate(0,26)">
+  <text x="8" y="212" class="ttl">2 · expanded — the well opens with the label the row gave up, then two cards, each the F68 card laid flat</text>
+  <rect x="8" y="220" width="704" height="302" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
   <line x1="8" y1="220" x2="712" y2="220" stroke="#2a2622" stroke-width="1"/>
-  <rect x="18" y="230" width="22" height="22" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
-  <path d="M34 248l-5-5-5 5" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="50" y="245" class="s11 ink">Maya Rodriguez</text>
-  <text x="140" y="245" class="s10 muted">27 videos</text>
-  <text x="198" y="245" class="s11 muted">↔</text>
-  <text x="216" y="245" class="s11 ink">Maya Rodrigues</text>
-  <text x="308" y="245" class="s10 muted">4 videos</text>
-  <text x="358" y="245" class="s10 muted">· provider-alias</text>
-  <text x="438" y="245" class="s10 warn">· alias match only — weak signal</text>
+  <rect x="20" y="231" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M40 249l-6-6-6 6" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="250" class="s14 ink">Maya Rodriguez</text>
+  <text x="163.9" y="250" class="s12 muted">27 videos</text>
+  <text x="222.2" y="250" class="s14 muted">↔</text>
+  <text x="242.3" y="250" class="s14 ink">Maya Rodrigues</text>
+  <text x="349.8" y="250" class="s12 muted">4 videos</text>
+  <text x="401.7" y="250" class="s12 muted">· provider-alias</text>
 
-  <rect x="8" y="258" width="704" height="248" fill="#181310"/>
-  <line x1="8" y1="258" x2="712" y2="258" stroke="#2a2622" stroke-width="1"/>
+  <rect x="8" y="265" width="704" height="257" fill="#181310"/>
+  <line x1="8" y1="265" x2="712" y2="265" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="282" class="s12 warn">alias match only — weak signal</text>
 
+  <g transform="translate(0,16)">
   <!-- left card -->
   <rect x="20" y="270" width="332" height="164" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
   <g>
@@ -121,10 +122,13 @@
   <rect x="648" y="466" width="48" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
   <text x="672" y="480" text-anchor="middle" class="s10 muted">Merge</text>
   <text x="8" y="524" class="cap">Verdicts only under the divider — no summary line, no conflict chip, no "these look different". The panel reports; the owner decides (RD3/RD4).</text>
-  <text x="8" y="538" class="cap">Strip = 5 frames of 44px at gap-1: headshot first, then gallery images in sort_order. No +N — the strip is a sample, and Videos/Films reach the profile.</text>
+  <text x="8" y="538" class="cap">Strip = 5 frames of 44px at gap-1: headshot first, then gallery in sort_order. No +N — Videos/Films reach the profile.</text>
 
+  </g>
+
+  <g transform="translate(0,16)">
   <!-- ============ Panel 3: states ============ -->
-  <text x="8" y="568" class="ttl">3 · states — loading keeps the names the pair row already knows · a sparse side drops segments rather than showing dashes · a failed side is inline and local</text>
+  <text x="8" y="568" class="ttl">3 · states — loading keeps the row's names · sparse drops segments · a failure stays inline and local</text>
   <rect x="8" y="576" width="704" height="162" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
 
   <text x="20" y="594" class="lab">LOADING</text>
@@ -158,7 +162,7 @@
   <text x="494" y="720" class="s9 muted">the failure is not cached</text>
 
   <!-- ============ Panel 4: stacked ============ -->
-  <text x="8" y="766" class="ttl">4 · below the stacking breakpoint — field-grid drops to one column; each card's own border is the separator, so nothing depends on a left-vs-top rule</text>
+  <text x="8" y="766" class="ttl">4 · stacked — field-grid drops to one column</text>
   <rect x="8" y="774" width="344" height="222" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
   <rect x="18" y="784" width="22" height="22" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="2 2"/>
   <path d="M34 802l-5-5-5 5" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -207,4 +211,6 @@
   <text x="594" y="981" text-anchor="middle" class="s9 mono" fill="#d6ff3f">Keep separate</text>
   <rect x="640" y="968" width="44" height="18" fill="none" stroke="#333333"/>
   <text x="662" y="981" text-anchor="middle" class="s9 mono" fill="#8a8a8a">Merge</text>
+  </g>
+  </g>
 </svg>
