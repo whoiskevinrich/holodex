@@ -299,7 +299,7 @@ Greps that must stay empty for this change:
       covers `/people/{id}/card` and `/people/{id}/images` reached from this page),
       `/code-review high --fix`
 
-## Spec deltas this handoff introduces
+## Spec deltas this handoff introduced — **applied 2026-09-22 (approved by the owner)**
 
 | Spec | Was | Now |
 |---|---|---|
@@ -308,4 +308,5 @@ Greps that must stay empty for this change:
 | P0-6 | "when the row fades out" | "when the row is removed" — there is no fade and never was |
 | UI | reuses `PersonImageFrame`, `NationalityFlags`, `ProviderLinkBadge` | …and the `Videos` / `Films` profile anchors from F68 |
 
-Apply these to `docs/specs/duplicates-pair-evidence.md` when the design is signed off.
+All four are now in `docs/specs/duplicates-pair-evidence.md`, along with OQ2/OQ3/OQ4 struck
+through as closed and RD7/RD12 reworded. The spec and this handoff no longer disagree.

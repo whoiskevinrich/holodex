@@ -76,7 +76,7 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Gates — definition of done
 
-- [/] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`. Four deltas from the design still to apply (handoff's last table): no `+N`, Merge takes `btn-ghost` not `btn-quiet`, no fade, F68 `Videos`/`Films` anchors
+- [x] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`. The design's four deltas applied and approved by Kevin 2026-09-22 (no `+N`, Merge takes `btn-ghost` not `btn-quiet`, no fade, F68 `Videos`/`Films` anchors); OQ2/OQ3/OQ4 struck through as closed
 - [~] architecture `architecture` — n/a (Kevin, 2026-09-22): no endpoint, no migration, no cross-cutting decision; OQ1 closed without forcing one
 - [x] design `design-handoff` — `docs/design/duplicates-pair-evidence-handoff.md` + committed `duplicates-pair-evidence-mockup.svg` (5 panels, Cinémathèque + a Brutalist radius-0 panel). OQ2/OQ3/OQ4 all closed; sign-off happens at `/implement`
 - [~] backend — n/a for P0: the panel composes `GET /people/{id}/card` (F68) + `GET /people/{id}/images` (F26), both existing. P0 touches no Go code
@@ -87,11 +87,10 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
-2. [ ] [—] Apply the handoff's four spec deltas to `docs/specs/duplicates-pair-evidence.md`, then flip the spec gate to `[x]`
-3. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`
-4. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
-5. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
+1. [ ] [—] `/implement` — every design-phase gate is now green; records the sign-off, rebases, pushes and opens the draft PR
+2. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`
+3. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
+4. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -138,6 +137,9 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   header comment claim a fade), **`app.css` names these two buttons by name** in the
   `.btn-ghost`/`.btn-accent` doc comments so the swap makes them wrong, and **`api.videos({personId})`
   does not exist** — the P1-0 co-appearance call would be `api.listMedia({ person: [id] })`.
-- handoff: design gate closed, artifacts committed. Next is `/implement` — put the mockup in
-  front of Kevin, record the sign-off, open the draft PR; then apply the four spec deltas listed
-  at the end of the handoff before building.
+- Kevin approved the four spec deltas the same session; they are applied, OQ2/OQ3/OQ4 are struck
+  through as closed, and RD7/RD12 reworded. The spec and the handoff no longer disagree.
+- handoff: **every design-phase gate is green** (spec `[x]`, architecture `[~]` n/a, design
+  `[x]`). Next is `/implement` — record the sign-off, rebase, push, open the draft PR. Then
+  build straight from the handoff's build checklist; the first unknown to settle in code is
+  whether `CardLease.release()` evicts or refcounts, because P0-5 depends on it.

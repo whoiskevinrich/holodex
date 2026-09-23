@@ -58,12 +58,12 @@ Locked during the 2026-09-22 brainstorm and confirmed against the live probe.
 | RD4 | **Facts are only comparable inside a provider namespace, and the panel never adjudicates.** No conflict chip, no "mismatch" styling. | Cross-provider disagreement describes the providers: `Nepal` vs `Federal Democratic Republic of Nepal` is a country-name update, `1990-01-01` vs `1990-03-17` a fidelity difference. Measured: nationality 18 differ / 11 exact / 6 one-contains-other. |
 | RD5 | **Symmetric layout.** Both columns identical; a side with no image shows the themed placeholder `PersonImageFrame` already returns. | 29 of 31 pairs have a headshot on both sides. Designing around asymmetry would optimise for 2 pairs. |
 | RD6 | **An image strip per side, not a single headshot**, headshot first, capped at 5 visible. | Most people carry 40–50 images; the provider headshot is not always the recognisable one. |
-| RD7 | **Verdict emphasis swaps**, in the collapsed row and the panel: **Keep separate** takes `btn-accent`, **Merge** becomes the quiet action that then asks which name survives. | 185 dismissals against 31 open. The common action currently wears the ghost styling. Merge stays two-step — it is irreversible. |
+| RD7 | **Verdict emphasis swaps**, in the collapsed row and the panel: **Keep separate** takes `.btn-row .btn-pill .btn-accent`, **Merge** takes the `.btn-ghost px-2` that Keep separate vacates — a literal swap of the two existing classes. **Not `.btn-quiet`**, which `app.css:300–306` documents as *"a UI-only toggle with no side effect (Cancel, Undo)"*; Merge is the least reversible action on the page and stays bordered and equally hit-targetable. Design, 2026-09-22. | 185 dismissals against 31 open. The common action currently wears the ghost styling. Merge stays two-step — it is irreversible. **`app.css:281–292` and `:313–324` name these two buttons by name in their doc comments; the swap makes them wrong and they must be updated in the same commit**, or the role vocabulary drifts for `ExtractionQueueRow` and `EnrichQueueRow`, which share the classes. |
 | RD8 | **Zero new endpoints.** The panel fetches `GET /people/{id}/card` (F68) and `GET /people/{id}/images` (F26) per side, on expand, cached for the session. | Both already exist and are already owner-safe on this surface. `GET /people/{id}` is not an option — it ships up to 500 videos. This is why `architecture` is `[~]` n/a for this epic. |
 | RD9 | **Attributed provider facts are P1, not P0.** | `PersonCard` returns the *resolved* nationality and age, not per-provider values; attribution needs enrichment rows the card does not carry. P0 ships without it rather than growing a new read. |
 | RD10 | **Person only.** Studio/tag/film rows keep today's behaviour, with no disclosure rendered. | Person is the only entity with images, aliases and provider facts rich enough to justify a panel. Tags dominate the queue by count but have a single field. |
 | RD11 | **The link row leans on provider link templates and `website`, not `_source_url`.** | `_source_url` exists for 86 of 1591 people; `website` for 688. A row keyed on `_source_url` would be empty on most pairs. |
-| RD12 | **One panel open at a time**, and resolving a pair collapses it as the row fades out. | A second open panel doubles the fetch and halves the width; the queue is a sequence, not a dashboard. |
+| RD12 | **One panel open at a time**, and resolving a pair removes the row (and its panel with it). | A second open panel doubles the fetch and halves the width; the queue is a sequence, not a dashboard. |
 
 ## User Stories
 
@@ -101,19 +101,25 @@ badges.
 - [ ] Given a field the card omits, when expanded, then the segment is dropped — no `—`, no "unknown" (the F68 rule)
 - [ ] At the mobile breakpoint the two columns stack, first side above second, with an explicit visual separator
 
-**P0-3 · Image strip.** Headshot first, then gallery images in `sort_order`, capped at 5 visible
-with a `+N` affordance that links to the person's gallery.
+**P0-3 · Image strip.** Headshot first, then gallery images in `sort_order`, capped at **5 frames
+at 44 px (`w-11`), `gap-1`**. **There is no `+N`** — the strip is a sample, not an index (OQ2).
 
-- [ ] Given a person with more than 5 images, when expanded, then 5 render and a `+N` count is shown
-- [ ] Given a person with 1 image, when expanded, then 1 renders and no `+N` appears
+- [ ] Given a person with more than 5 images, when expanded, then exactly 5 render and nothing indicates there are more
+- [ ] Given a person with 1 image, when expanded, then 1 renders and the remaining slots are not reserved
+- [ ] Given a person with no images, when expanded, then exactly one placeholder frame renders — not five empty wells
+- [ ] Slot 1 is `role="headshot"`; slots 2–5 are `gallery` filtered to `img.role !== 'headshot'`, in `sort_order`
 - [ ] Images route through `PersonImageFrame` so the skin-aware, cache-busted URL and placeholder behaviour are unchanged
 
 **P0-4 · Verdict emphasis swap.** In the collapsed row and the panel footer, **Keep separate**
-carries the accent pill and **Merge** the quiet styling. Merge still opens the survivor picker.
+carries the accent pill and **Merge** the bordered-neutral `.btn-ghost` styling (RD7 — not
+`.btn-quiet`). Merge still opens the survivor picker.
 
 - [ ] Given any pair row of any entity type, when it renders, then Keep separate is the accent action
+- [ ] Given any pair row, when it renders, then Merge is bordered — never borderless
 - [ ] Given Merge is pressed, when the survivor buttons appear, then both names are shown in full and Cancel returns to the verdicts
+- [ ] Given Merge is pressed while the panel is open, when the survivor buttons appear, then the panel stays open — the survivor choice is exactly when the evidence is wanted on screen
 - [ ] Merge remains two-step; no single click can merge
+- [ ] The `.btn-ghost` / `.btn-accent` doc comments in `app.css` are updated in the same commit
 
 **P0-5 · Per-pair fetch on expand.** Both sides load via `api.personCard` and
 `api.personImages` when the panel first opens, cached for the session; a collapsed row issues no
@@ -128,7 +134,7 @@ request.
 panel, and focus returns to the disclosure.
 
 - [ ] Given a panel is open, when Escape is pressed, then it collapses and focus lands on its disclosure
-- [ ] Given a pair is resolved, when the row fades out, then focus moves to the next row's disclosure
+- [ ] Given a pair is resolved, when the row is removed, then focus moves to the next row's disclosure — or to the group heading when it was the last row in the group. **There is no fade**: `routes/owner/duplicates/+page.svelte:47–49` is an unanimated `pairs.filter()` and always has been, so focus would otherwise fall to `<body>`. The stale "the row fades out" comment at `DuplicatePairRow.svelte:7` is corrected in the same commit.
 - [ ] Opening a second panel collapses the first (RD12)
 
 **P0-7 · Three-skin QA.** Tokens only; no hardcoded colour, radius or shadow.
@@ -179,8 +185,18 @@ have needed one, and OQ1 resolved by demoting it (P1-0) rather than adding a rea
 
 `DuplicatePairRow` gains a disclosure and a panel; the panel itself is a new
 `DuplicateComparePanel.svelte` in `web/src/lib/components/duplicates/`, per that folder's
-`CLAUDE.md`. Reused verbatim: `PersonImageFrame`, `NationalityFlags`, `ProviderLinkBadge`.
-`.btn-row` / `.btn-pill` shapes are unchanged — only which verdict carries `btn-accent` moves.
+`CLAUDE.md` (whose table gains a row for it in the same commit). Reused verbatim:
+`PersonImageFrame`, `NationalityFlags`, `ProviderLinkBadge` — and **F68's `#videos` / `#films`
+profile anchors**, which the link row keeps. With `+N` gone (P0-3) and the pair-row names still
+`<span>`s until P2-1, those two links are the panel's only in-app path to a profile; they cost
+nothing, since F68 already added the ids. `.btn-row` / `.btn-pill` shapes are unchanged — only
+which verdict carries `btn-accent` moves.
+
+**Each column is the F68 hover card's anatomy laid flat** — same fields in the same order, the
+same absent-is-absent rule, with the image strip where its single 48 px headshot was. That is
+the concrete form of RD2: the hover card was never the wrong content, only the wrong container.
+Full layout, states, tokens and accessibility in
+[`duplicates-pair-evidence-handoff.md`](../design/duplicates-pair-evidence-handoff.md).
 
 ## Success Metrics
 
@@ -197,16 +213,18 @@ have needed one, and OQ1 resolved by demoting it (P1-0) rather than adding a rea
 | # | Question | Who | Blocking |
 |---|---|---|---|
 | ~~OQ1~~ | ~~Can co-appearance be derived without a new read?~~ **Resolved 2026-09-22:** yes, via two `api.videos({ personId })` calls intersected client-side — but that is two paged list fetches per expand for a marker that fires on 3 of 31 pairs. Demoted to **P1-0** rather than either adding an endpoint or paying that cost. `architecture` stays `[~]` n/a. | — | Closed |
-| OQ2 | Does the `+N` affordance open `PersonGalleryModal` in place, or navigate to the profile gallery? In place is nicer but mounts a modal inside an expanded row. | design | No |
-| OQ3 | Should the collapsed row keep the `via alias` / `alias match only — weak signal` labels once the panel exists, or does the panel make them redundant noise on a queue where every pair is alias-only? | design | No |
-| OQ4 | Is 5 the right strip cap? Picked as "enough to recognise a face without the row becoming a gallery", not measured. | design | No |
+| ~~OQ2~~ | ~~Does the `+N` affordance open `PersonGalleryModal` in place, or navigate?~~ **Resolved 2026-09-22 (Kevin): neither — there is no `+N`.** Five frames are the whole strip: it is a sample, not an index, and if five faces don't settle it the panel has failed anyway. Also removes a second dismissable layer competing with Escape inside an expanded row. The profile stays reachable via the link row's `Videos` / `Films`. | — | Closed |
+| ~~OQ3~~ | ~~Keep the `via alias` / `alias match only — weak signal` labels once the panel exists?~~ **Resolved 2026-09-22 (Kevin): keep both, in the collapsed row only**; the expanded header drops the match-kind label. They explain why the *detector* flagged a pair whose names look nothing alike — the panel explains the *people*. 100 % of today's queue is alias-only, but [HOLODEX-453](https://whoiskevinrich.atlassian.net/browse/HOLODEX-453) may change what gets flagged, and then the label carries signal again. | — | Closed |
+| ~~OQ4~~ | ~~Is 5 the right strip cap?~~ **Resolved 2026-09-22 (Kevin): 5 frames at 44 px (`w-11`), `gap-1`** — now measured, not guessed: `5 × 44 + 4 × 4 = 236 px` inside a 296 px column (`field-grid`'s 320 px minimum less `p-3` both sides). 4 × 52 px wastes 43 px of column; 6 × 40 px drops each face below the 44–48 px the F68 card already proved recognisable. | — | Closed |
 
 ## Timeline / routing
 
-No hard deadline. Routing per `CLAUDE.md`: spec (this document) → `/design-handoff` with a
-committed SVG mockup in `docs/design/` → `/implement` for the design sign-off and the draft PR →
-build → `/testing-strategy` → `/security-review` (owner-gated surface, re-confirm the existing
-gate covers the reused reads) → `/code-review high --fix`.
+No hard deadline. Routing per `CLAUDE.md`: spec (this document) → **`/design-handoff` — done
+2026-09-22**, [`duplicates-pair-evidence-handoff.md`](../design/duplicates-pair-evidence-handoff.md)
++ `duplicates-pair-evidence-mockup.svg`, closing OQ2/OQ3/OQ4; its four deltas are applied above
+and approved → `/implement` for the design sign-off and the draft PR → build →
+`/testing-strategy` → `/security-review` (owner-gated surface, re-confirm the existing gate
+covers the reused reads) → `/code-review high --fix`.
 
 `architecture` is `[~]` n/a: the panel adds no endpoint, no migration and no cross-cutting
 decision, and OQ1 closed without forcing one. The **backend gate is `[~]` n/a for P0 as well** —
