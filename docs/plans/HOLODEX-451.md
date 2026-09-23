@@ -97,7 +97,22 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   verdict, so a per-side failure *cannot* disable one). All five rules mutation-checked. The
   `sm:flex-nowrap` row-height boundary has **no CI home** — the stress fixture seeds no
   deterministic duplicate pair — filed as **HOLODEX-456** and recorded as §16.1's first gap
-- [ ] security `security-review` — owner-gated surface; re-confirm the existing gate covers the new fields
+- [x] security `security-review` — run 2026-09-23, **zero HIGH/MEDIUM findings**. The gate
+  question was posed wrong and the answer is worth keeping: `/people/{id}/card` and
+  `/people/{id}/images` are **not** owner-gated — both register above the `requireOwner` group in
+  `handlers.go` as public person reads (the F68 posture). The owner-only field on that payload is
+  `PersonCard.Completeness`, `omitempty` behind an inline owner branch in `person_card.go`, and
+  **the panel never renders it**. Everything the panel does render is already public via
+  `PersonHoverCard`. So: *the endpoints are public by design; the one owner-only field is branched
+  server-side and the panel doesn't use it* — not "the gate covers them". Also cleared: no
+  `{@html}`/`innerHTML`/interpolated `style`; the new `href`s are `/people/${ref.id}#videos|#films`
+  with a typed number so no scheme is reachable, and provider links still pass `ProviderLinkBadge`'s
+  `isHttpUrl` gate; `PersonImageFrame`'s new `imageId` routes through `personGalleryImageURL`
+  (numeric params) and `servePersonImageByID` verifies the image belongs to that person, so no
+  IDOR or traversal; `personImages.ts`'s cache is per-session, numeric-keyed, public payloads only;
+  and `detect_person_duplicate_evidence.sql`'s anonymization claim **holds on a full read** — the
+  per-pair section projects an opaque `row_number()` ordinal and enrichment values appear only
+  inside `CASE` comparisons, never in an output column
 - [x] `code-review high --fix` — run on the frontend diff 2026-09-23. One finding applied: a
   failed side rendered the five-slot loading strip, claiming images it would never fill. Two
   logged and deliberately skipped — the image cache has no invalidation hook (mirrors
@@ -106,13 +121,48 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/security-review` — owner-gated surface; re-confirm the existing gate covers
-   `/people/{id}/card` and `/people/{id}/images` reached from this page
-2. [ ] [—] `gh pr ready` on #382 once security is green (`/code-review high --fix` was re-run
-   over the testing gate's own code this session, closing the old item 3)
-3. [ ] [—] Kevin's eyeball pass on the built panel in a prod skin before ready-for-review
+1. [ ] [—] Sweep HOLODEX-451 by hand if CI does not move it — the branch key is the epic's, and
+   `jira-sync` skips Epics
+2. [ ] [—] HOLODEX-456 (the `sm:flex-nowrap` row-height boundary has no CI home until the stress
+   fixture seeds a deterministic long-name person pair) — §16.1's standing gap, not this epic's
+3. [ ] [—] HOLODEX-452 / HOLODEX-453 — the shared-external-id detector, and whether alias-only
+   provider-alias pairs should be flagged at all. Both spun out of the probe, both still To Do
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-23 · security cleared the last gate, and the gate's own question was wrong
+- skills: security-review
+- **Zero HIGH/MEDIUM findings.** The change adds no endpoint, no migration, no new sink and no
+  new privilege boundary — it composes two reads that already existed.
+- **The gate line asked "re-confirm the owner gate covers the new fields", and it doesn't —
+  because there is no owner gate on those endpoints.** `/people/{id}/card` and
+  `/people/{id}/images` both register *above* the `requireOwner` group in `handlers.go` as public
+  person reads; that is the F68 posture, stated in the route comment. The owner-only field on the
+  card payload is `Completeness`, `omitempty` behind an inline owner branch — which is the
+  per-field gating the repo rule mandates — and the panel never renders it. Every field the panel
+  *does* render is already public via `PersonHoverCard` on person lists and cast tiles, so the
+  panel exposes nothing a visitor couldn't already fetch. The accurate sign-off sentence is in the
+  gate line; it is not "the gate covers them", and the distinction matters the next time someone
+  adds a field to that payload.
+- Ruled out by reading rather than asserted: no `{@html}`/`innerHTML`/interpolated `style`
+  anywhere in the diff; the panel's only new `href`s interpolate a typed numeric `ref.id`, so no
+  scheme is reachable, and provider links still go through `ProviderLinkBadge`'s unchanged
+  `isHttpUrl` gate (a hostile `javascript:` URL degrades to a `<span>`); `PersonImageFrame`'s new
+  `imageId` builds through `personGalleryImageURL`'s numeric params and
+  `servePersonImageByID` 404s an image that doesn't belong to that person, so the new by-id path
+  is neither an IDOR nor a traversal.
+- **The probe's anonymization claim was verified end to end, not taken on trust** — section 6
+  projects an opaque `row_number()` ordinal, and section 4b's `a.value` / `substr(a.value,1,4)`
+  appear *only* inside `CASE` comparisons while the projected columns stay counts and buckets. No
+  name, id, external-id value, date or nationality string reaches the output.
+- Merged `origin/main` (ADR-106 / HOLODEX-455) in before marking ready — clean, and
+  `mergeStateStatus` was already `CLEAN`, so the `gh pr ready` jira-sync event is safe.
+- **Kevin's prod-skin eyeball pass was waived by his own instruction** ("mark ready for review and
+  merge it when the checks pass"), not skipped silently. It was `Up next` 3 and is now dropped.
+- handoff: **every gate is green and #382 is ready for review.** Nothing is blocked. On merge,
+  check whether CI moved HOLODEX-451 — the branch key is the *epic's*, and `jira-sync` skips
+  Epics, so it likely needs a hand sweep to Done. The three spun-out follow-ups (452, 453, 456)
+  are the only work this epic leaves behind.
 
 ### 2026-09-23 · the testing gate — the hand-QA findings pinned, and one of them provably can't be
 - skills: testing-strategy, code-review
