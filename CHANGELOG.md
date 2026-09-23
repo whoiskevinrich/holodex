@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/whoiskevinrich/holodex/compare/v1.16.0...v1.16.1) (2026-09-23)
+
+
+### ⚙️ CI / Build
+
+* **provider-tmdb:** run the sidecar on a distroless base and probe health from the binary ([#379](https://github.com/whoiskevinrich/holodex/issues/379)) ([4178681](https://github.com/whoiskevinrich/holodex/commit/4178681fc7d8a4e5702df36fd7ca67d63adc0bf2))
+
 ## [1.16.0](https://github.com/whoiskevinrich/holodex/compare/v1.15.0...v1.16.0) (2026-09-22)
 
 
