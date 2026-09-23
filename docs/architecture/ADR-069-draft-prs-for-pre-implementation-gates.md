@@ -1,6 +1,6 @@
 # ADR-069: Draft PRs carry pre-implementation gates; `In Review` fires on ready-for-review
 
-**Status:** Proposed
+**Status:** Proposed — **§1 superseded**, §2–§3 stand (see the supersession note below)
 **Date:** 2026-07-22
 **Deciders:** Project owner
 
@@ -10,6 +10,21 @@ else in ADR-058 (the REST mechanism, the idempotent/soft-fail contract, `In Prog
 agent-only, `Done` on merge, `Released` as a batch) stands unchanged.
 **Relates to:** [ADR-064](ADR-064-flightplan-plugin.md) (the gate/worklog model this makes
 visible on the board) · `docs/reference/workflow-idea-to-merge.md` (Stage 4/6).
+
+**§1 superseded (2026-09-23):** [ADR-106](ADR-106-push-early-pr-at-implementation.md) — **the
+timing rule below is dead.** A keyed branch is pushed during its design phase and carries **no PR**;
+the PR opens at the design → build crossing (`/implement`), and a parked epic is surfaced by the
+`fp:ready-to-build` Jira label rather than by appearing in the draft-PR list. The decision was taken
+upstream in **Flightplan** ADR-007 `pr-lifecycle-gates` (Accepted 2026-09-20) — not Holodex's ADR-007
+— whose `PreToolUse` guard *refuses* `gh pr create` while a design-phase gate is open, and whose
+Context names the failure §1 caused: docs-only draft PRs standing in as parked epics. ADR-106 §3
+records what is lost (a reviewable diff and comment thread on the artifact) and what replaces it
+(the owner's sign-off at the crossing, recorded in the worklog's `approved:`).
+**§2 and §3 are untouched and live.** `In Review` firing on *ready for review* rather than on
+`pull_request: opened` is what CI implements today and is a dependency of Flightplan ADR-007 ("a
+Draft PR fires no transition"), and §3 still describes the PR — the draft state is not retired, only
+its start date moved. Read §1 below as history: the problem it names is real, and ADR-106 states the
+trade it reverses.
 
 ---
 
