@@ -107,7 +107,7 @@ silently dropped**. The memo is the witness to the no-op, not a rival identity s
 
 The drop itself stays deferred, for the reason 0046 recorded: video re-enrich has no spine row and
 still needs the memo. Closing it is a separate change with its own migration and a re-homed video
-memo — filed as a follow-up, not folded in here, because doing both at once would couple a
+memo — filed as **HOLODEX-457**, not folded in here, because doing both at once would couple a
 detector the owner wants now to a migration touching every enriched entity.
 
 **Consequence to state plainly:** until that drop lands, this ADR makes the drift *observable*
@@ -197,7 +197,7 @@ the moment it ships.
 **What it costs.** The memo column survives a little longer in a role ADR-096 wanted retired, and
 this ADR is the thing that makes that survival defensible — which is a risk, because "temporarily
 justified" is how a rejected option comes back. Decision 2 is written to bound it: the memo is
-never read as identity, and the drop is a filed follow-up, not a vague intention.
+never read as identity, and the drop is HOLODEX-457, not a vague intention.
 
 **Failure mode if the reading rules are wrong.** A stale narrow-field memo would queue a pair that
 is genuinely two entities. The cost is one keep-separate click and a durable dismissal — the same
@@ -216,7 +216,7 @@ cost the name-based queue already imposes 185 times over — so the rules fail s
   routes person → panel, every other kind → row, so studio and film get the chip in the row for
   free.
 - The activity surface gains one job kind.
-- A follow-up ticket carries ADR-096 D2's deferred drop of `entity_enrichment.external_id`,
+- **HOLODEX-457** carries ADR-096 D2's deferred drop of `entity_enrichment.external_id`,
   including re-homing the video re-enrich memo.
 
 ## Action Items
@@ -227,4 +227,6 @@ cost the name-based queue already imposes 185 times over — so the rules fail s
 2. Spec F71 (`docs/specs/duplicates-shared-external-id.md`) with acceptance criteria per decision.
 3. Named tests for the two exclusions (video, tag) and for the write-time guard replacing the
    no-op.
-4. File the ADR-096 D2 drop follow-up before this merges, so the deferral has an owner.
+4. ~~File the ADR-096 D2 drop follow-up so the deferral has an owner.~~ **Done — HOLODEX-457**,
+   filed 2026-09-23 and blocked on this ticket's host probe (its §7 sizes how many identity writes
+   the memo is currently the only record of).

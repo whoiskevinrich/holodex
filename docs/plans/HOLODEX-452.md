@@ -29,8 +29,8 @@ coverage, not a re-cut.
   filed proposed the self-join; it makes the memo an identity store (ADR-096 D2's rejected option
   C), cannot say which side the spine already believes, and **measurably produces a false
   positive** the disagreement suppresses — verified on a fixture, see below.
-- **The memo column is a witness, not a second source of truth**, and its drop stays deferred as a
-  follow-up. ADR-107 D2. Do not fold ADR-096 D2's migration into this ticket.
+- **The memo column is a witness, not a second source of truth**, and its drop stays deferred to
+  **HOLODEX-457**. ADR-107 D2. Do not fold ADR-096 D2's migration into this ticket.
 - **Person, studio and film. Video and tag excluded by construction, as named tests.** ADR-107 D5.
   Video has no spine row and two files of one movie legitimately share a provider id — queueing
   those would be wrong, not merely noisy.
@@ -65,7 +65,7 @@ coverage, not a re-cut.
 ## Probe verification — fixture, 2026-09-23
 
 `scripts/detect_shared_external_id.sql` was run against a database built by applying **all 50 up
-migrations** to an empty file, then seeded with the six cases in its header. Results as designed:
+migrations** to an empty file, then seeded with the seven cases in its header. Results as designed:
 
 | case | expected | got |
 |---|---|---|
@@ -103,8 +103,8 @@ stale re-enrich. That is RD1's measured justification, not a theoretical one.
    questions: the studio/film numbers (OQ1), how many memos have no spine row at all (OQ2 — if
    large, a repair pass is a P0 not a P1), and whether any memo breaks the `<ns>:<id>` grammar
    (OQ3 — a bare id would make the detector silently blind for that provider).
-2. File the ADR-096 D2 follow-up (drop `entity_enrichment.external_id`, re-home the video
-   re-enrich memo) — ADR-107 action item 4 says before this merges, so the deferral has an owner.
+2. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
+   re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
 3. `/implement` to cross into build — it puts the design handoff in front of Kevin and records the
    sign-off, then opens the Draft PR.
 4. On merge: 452 is a **Task**, not an Epic, so CI fires its Jira transitions itself — no hand

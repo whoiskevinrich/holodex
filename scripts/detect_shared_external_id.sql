@@ -18,14 +18,23 @@
 --   3. person / studio / film only — video has no spine row at all and two files of one movie
 --                                 legitimately share an id; tag is not enrichable.
 --   4. entity_keep_separate is honored — a dismissed pair is never a finding.
+--
+-- Verified 2026-09-23 against a database built by applying all 50 up migrations to an empty
+-- file and seeded with seven cases: a memo that agrees with the spine (no finding); a memo the
+-- spine gives to somebody else (finding); a stale narrow re-enrich whose OLD memo points at
+-- another owner (no finding — rule 2); a `filename` memo of '' (no finding — rule 1); a
+-- kept-separate pair (found, but excluded from `genuinely_new`); two videos sharing tmdb:841
+-- (never a finding — rule 3, and §5b counts what the naive query would have taken); and one
+-- pair colliding on TWO providers (counted once, in both columns of §1).
 
 .mode box
 .headers on
 
 -- ── The newest memo per (entity, provider), which is what "the memo says" means ─────────
--- max(fetched_at) picks the pass; the correlated max(external_id) inside that pass is a
--- tiebreak that only fires if one pass somehow wrote two ids, which UpsertEnrichment's
--- single stamped argument (internal/repo/enrichment.go:46) should make impossible.
+-- The correlated subquery takes the newest non-empty memo; ORDER BY external_id is only a
+-- determinism tiebreak for rows sharing a fetched_at, which UpsertEnrichment's single stamped
+-- argument (internal/repo/enrichment.go:46) should already make impossible within one pass.
+-- max(e.fetched_at) is carried alongside so a reader can see which pass was chosen.
 CREATE TEMP VIEW memo AS
 SELECT e.entity_type, e.entity_id, e.provider,
        (SELECT f.external_id FROM entity_enrichment f

@@ -53,7 +53,7 @@ records.
 | Not doing | Why |
 |---|---|
 | Auto-merging on a shared id | ADR-107 D3 — irreversible (ADR-061), providers carry their own duplicates, and the colliding data came from an owner's mis-click in the enrich UI |
-| Dropping `entity_enrichment.external_id` | ADR-107 D2 — that is ADR-096 D2's deferred action item; it needs its own migration and a re-homed video memo. Filed as a follow-up |
+| Dropping `entity_enrichment.external_id` | ADR-107 D2 — that is ADR-096 D2's deferred action item; it needs its own migration and a re-homed video memo. Filed as **HOLODEX-457** |
 | Adding `UNIQUE` to the memo column | Converts a silent no-op into a failed enrich, the opposite of ADR-088's queue-don't-fail posture, and cannot express the legitimate video case |
 | A compare panel for studio / film | F70 RD10 scoped it to person deliberately |
 | Queueing videos | Two files of one movie legitimately share a provider id. Excluded by construction, with a named test |
@@ -101,10 +101,11 @@ newest `fetched_at` per `(entity_type, entity_id, provider)`, ties broken toward
 `entity_type IN ('person','studio','film')`;
 and `entity_keep_separate` excluded.
 
-*Acceptance*: given the fixture in `scripts/detect_shared_external_id.sql`'s header — an agreeing
-memo, a disagreeing memo, a stale narrow re-enrich, a `filename` empty memo, a kept-separate pair,
-and two videos sharing an id — exactly the disagreeing person pair and the disagreeing studio pair
-are findings, and the kept-separate pair is a finding that the queue write suppresses.
+*Acceptance*: given the seven-case fixture in `scripts/detect_shared_external_id.sql`'s header —
+an agreeing memo, a disagreeing memo, a stale narrow re-enrich, a `filename` empty memo, a
+kept-separate pair, two videos sharing an id, and one pair colliding on two providers — exactly
+the disagreeing person pairs and the disagreeing studio pair are findings; the kept-separate pair
+is a finding the queue write suppresses; and the two-provider pair yields one queue row, not two.
 
 **P0-2 — the queue row.** A finding inserts `identity_review_queue (entity_type, id_lo, id_hi,
 variation = 'shared-external-id')` with `INSERT OR IGNORE`, so both producers and repeated runs are
@@ -159,8 +160,8 @@ accident of insertion order.
 
 ### Future Considerations (P2)
 
-- ADR-096 D2's deferred drop of `entity_enrichment.external_id`, with the video re-enrich memo
-  re-homed. Until it lands, this feature makes the drift observable rather than impossible
+- **HOLODEX-457** — ADR-096 D2's deferred drop of `entity_enrichment.external_id`, with the video
+  re-enrich memo re-homed. Until it lands, this feature makes the drift observable rather than impossible
   (ADR-107 D2).
 - A provider-side duplicate is the mirror case: one entity of ours matching two provider records.
   Nothing detects it and nothing here does either.
