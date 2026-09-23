@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 320" width="720" height="320" role="img" aria-labelledby="t d">
+  <title id="t">Shared provider external id in the Duplicates queue (F71): the strongest signal names its asserter in an accent chip and sorts above the name-based rows</title>
+  <desc id="d">Two panels drawn in Cinematheque tokens. Panel 1 is the People group of /owner/duplicates. Its first row is a shared-external-id pair: two people whose canonical names cannot be identical (the nameKey unique index forbids it) and which the name-based detector therefore cannot see, carrying an amber accent chip reading "tmdb says one person" where the other rows print a muted variation slug. It sorts above the provider-alias and punctuation rows below it. The verdicts are F70's: Keep separate is the outlined accent pill, Merge is the ghost text button. Panel 2 is the Studios group, where the same chip renders in the row rather than in a compare panel, because only person pairs have one.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .ink { fill: #f3ece1; } .muted { fill: #9b9082; } .accent { fill: #e8a33d; }
+    .s11 { font-size: 11px; } .s12 { font-size: 12px; } .s14 { font-size: 14px; }
+    .lab { font-size: 9px; letter-spacing: 1px; fill: #9b9082; }
+    .cap { font-size: 11px; fill: #9b9082; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+  </style>
+
+  <rect x="0" y="0" width="720" height="320" fill="#15110e"/>
+
+  <text x="8" y="22" class="lab">PEOPLE — /owner/duplicates?type=person</text>
+  <rect x="8" y="30" width="704" height="132" rx="6" fill="#181310" stroke="#2a2622"/>
+
+  <g>
+    <text x="22" y="59" class="s12 muted">&#8250;</text>
+    <text x="40" y="59" class="s14 ink">Anna Karina</text>
+    <text x="122" y="59" class="s12 muted">31 videos</text>
+    <text x="176" y="59" class="s14 muted">&#8596;</text>
+    <text x="192" y="59" class="s14 ink">Karina, Anna</text>
+    <text x="277" y="59" class="s12 muted">4 videos</text>
+    <rect x="332" y="44" width="128" height="20" rx="4" fill="#2e2314" stroke="#5a4526"/>
+    <text x="342" y="58" class="s11 accent">tmdb says one person</text>
+    <rect x="520" y="41" width="104" height="26" rx="4" fill="none" stroke="#e8a33d"/>
+    <text x="537" y="58" class="s12 accent">Keep separate</text>
+    <text x="650" y="58" class="s12 muted">Merge</text>
+  </g>
+  <line x1="8" y1="74" x2="712" y2="74" stroke="#2a2622"/>
+
+  <g>
+    <text x="22" y="103" class="s12 muted">&#8250;</text>
+    <text x="40" y="103" class="s14 ink">Jean-Luc Godard</text>
+    <text x="150" y="103" class="s12 muted">12 videos</text>
+    <text x="206" y="103" class="s14 muted">&#8596;</text>
+    <text x="222" y="103" class="s14 ink">J-L Godard</text>
+    <text x="294" y="103" class="s12 muted">2 videos</text>
+    <text x="348" y="103" class="s12 muted">&#183; provider-alias</text>
+    <rect x="520" y="85" width="104" height="26" rx="4" fill="none" stroke="#e8a33d"/>
+    <text x="537" y="102" class="s12 accent">Keep separate</text>
+    <text x="650" y="102" class="s12 muted">Merge</text>
+  </g>
+  <line x1="8" y1="118" x2="712" y2="118" stroke="#2a2622"/>
+
+  <g>
+    <text x="22" y="147" class="s12 muted">&#8250;</text>
+    <text x="40" y="147" class="s14 ink">Agn&#232;s Varda</text>
+    <text x="124" y="147" class="s12 muted">7 videos</text>
+    <text x="174" y="147" class="s14 muted">&#8596;</text>
+    <text x="194" y="147" class="s14 ink">Agnes Varda</text>
+    <text x="276" y="147" class="s12 muted">1 video</text>
+    <text x="324" y="147" class="s12 muted">&#183; punctuation</text>
+    <rect x="520" y="129" width="104" height="26" rx="4" fill="none" stroke="#e8a33d"/>
+    <text x="537" y="146" class="s12 accent">Keep separate</text>
+    <text x="650" y="146" class="s12 muted">Merge</text>
+  </g>
+
+  <text x="8" y="196" class="lab">STUDIOS — same chip, in the row: a studio pair has no compare panel to move it into</text>
+  <rect x="8" y="204" width="704" height="44" rx="6" fill="#181310" stroke="#2a2622"/>
+  <g>
+    <text x="40" y="233" class="s14 ink">Gaumont</text>
+    <text x="104" y="233" class="s12 muted">58 videos</text>
+    <text x="160" y="233" class="s14 muted">&#8596;</text>
+    <text x="180" y="233" class="s14 ink">Gaumont S.A.</text>
+    <text x="269" y="233" class="s12 muted">3 videos</text>
+    <rect x="326" y="218" width="124" height="20" rx="4" fill="#2e2314" stroke="#5a4526"/>
+    <text x="336" y="232" class="s11 accent">tmdb says one studio</text>
+    <rect x="520" y="215" width="104" height="26" rx="4" fill="none" stroke="#e8a33d"/>
+    <text x="537" y="232" class="s12 accent">Keep separate</text>
+    <text x="650" y="232" class="s12 muted">Merge</text>
+  </g>
+
+  <text x="8" y="276" class="cap">The chip replaces the variation slug only for this variation. It names the asserter because</text>
+  <text x="8" y="292" class="cap">the queue's existing emphasis vocabulary is inverted here: warn-coloured text already means</text>
+  <text x="8" y="308" class="cap">a weak signal, and this is the strongest one in the list.</text>
+</svg>
