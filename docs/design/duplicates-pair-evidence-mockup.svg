@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1052" width="720" height="1052" role="img" aria-labelledby="t d">
+  <title id="t">Duplicates pair evidence (F70): the collapsed person row with the verdict emphasis swapped, the expanded two-column compare panel, its loading, sparse and error states, and the narrow stacked layout</title>
+  <desc id="d">Five panels drawn in Cinematheque tokens. 1: the People group of the Duplicates queue — a person row gains a chevron disclosure on the left, gives up its weak-signal match-kind label to the panel so the row stays one 40px line, and its verdicts swap so Keep separate is the outlined accent pill and Merge the bordered neutral; a Tags row below renders no disclosure and keeps its own match-kind label, having no panel to move it into. 2: an expanded person row. The panel is a recessed well under the row opening with the match-kind label the row gave up, then holding two identical bordered cards, each carrying a strip of five 44 pixel square image frames, the display name with nationality flags, a meta line of age, video count and film count, an aliases line, and a link row of Videos, Films and provider badges. A divider under the two cards carries the same two verdicts. 3: three states — loading, where both cards show empty frames and the names already known from the pair row; a sparse side with one image, no aliases and one provider; and a failed side showing an inline error while the verdicts stay usable. 4: the same panel below the stacking breakpoint — the cards stack, first side above second, each keeping its own border as the separator. 5: the same expanded panel in the Brutalist skin, where the theme radius is zero, so no corner is rounded except the verdict pill.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .cap { font-size: 11px; fill: #5f5e5a; }
+    .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+    .serif { font-family: Georgia, "Times New Roman", serif; }
+    .ink { fill: #f3ece1; } .muted { fill: #9b9082; } .accent { fill: #e8a33d; } .warn { fill: #e2603f; }
+    .s9 { font-size: 9px; } .s10 { font-size: 10px; } .s11 { font-size: 11px; } .s12 { font-size: 12px; } .s14 { font-size: 14px; }
+    .lab { font-size: 9px; letter-spacing: 1px; fill: #9b9082; }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+  </style>
+
+  <!-- ============ Panel 1: collapsed rows ============ -->
+  <text x="8" y="14" class="ttl">1 · collapsed queue — single-line 40px rows; the weak-signal label has moved into the panel</text>
+  <rect x="8" y="22" width="704" height="172" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="40" class="lab">PEOPLE · 31</text>
+
+  <line x1="8" y1="46" x2="712" y2="46" stroke="#2a2622" stroke-width="1"/>
+  <rect x="20" y="52" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M28 63l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="71" class="s14 ink">Maya Rodriguez</text>
+  <text x="163.9" y="71" class="s12 muted">27 videos</text>
+  <text x="222.2" y="71" class="s14 muted">↔</text>
+  <text x="242.3" y="71" class="s14 ink">Maya Rodrigues</text>
+  <text x="349.8" y="71" class="s12 muted">4 videos</text>
+  <text x="401.7" y="71" class="s12 muted">· provider-alias</text>
+  <rect x="540" y="56" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="70" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="56" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="70" text-anchor="middle" class="s12 muted">Merge</text>
+
+  <line x1="8" y1="86" x2="712" y2="86" stroke="#2a2622" stroke-width="1"/>
+  <rect x="20" y="92" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M28 103l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="111" class="s14 ink">Theodore Brannigan</text>
+  <text x="189.8" y="111" class="s12 muted">1 video</text>
+  <text x="236.6" y="111" class="s14 muted">↔</text>
+  <text x="256.7" y="111" class="s14 ink">Ted Brannigan</text>
+  <text x="352.6" y="111" class="s12 muted">12 videos</text>
+  <text x="410.9" y="111" class="s12 muted">· provider-alias</text>
+  <rect x="540" y="96" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="110" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="96" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="110" text-anchor="middle" class="s12 muted">Merge</text>
+
+  <line x1="8" y1="126" x2="712" y2="126" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="144" class="lab">TAGS · 212</text>
+  <line x1="8" y1="150" x2="712" y2="150" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="175" class="s14 ink">film noir</text>
+  <text x="79.5" y="175" class="s14 muted">↔</text>
+  <text x="99.6" y="175" class="s14 ink">Film Noir</text>
+  <text x="164.1" y="175" class="s12 muted">· capitalisation</text>
+  <rect x="540" y="160" width="100" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="590" y="174" text-anchor="middle" class="s12 accent">Keep separate</text>
+  <rect x="648" y="160" width="52" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="674" y="174" text-anchor="middle" class="s12 muted">Merge</text>
+  <text x="8" y="210" class="cap">One 40px line per row: the widest ends at x=489, the pill starts at x=540. A tag row keeps its own label — it has no panel.</text>
+
+  <!-- ============ Panel 2: expanded ============ -->
+  <g transform="translate(0,26)">
+  <text x="8" y="212" class="ttl">2 · expanded — the well opens with the label the row gave up, then two cards, each the F68 card laid flat</text>
+  <rect x="8" y="220" width="704" height="302" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <line x1="8" y1="220" x2="712" y2="220" stroke="#2a2622" stroke-width="1"/>
+  <rect x="20" y="231" width="28" height="28" rx="2" fill="none" stroke="#2a2622" stroke-width="1" stroke-dasharray="2 2"/>
+  <path d="M40 249l-6-6-6 6" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="250" class="s14 ink">Maya Rodriguez</text>
+  <text x="163.9" y="250" class="s12 muted">27 videos</text>
+  <text x="222.2" y="250" class="s14 muted">↔</text>
+  <text x="242.3" y="250" class="s14 ink">Maya Rodrigues</text>
+  <text x="349.8" y="250" class="s12 muted">4 videos</text>
+  <text x="401.7" y="250" class="s12 muted">· provider-alias</text>
+
+  <rect x="8" y="265" width="704" height="257" fill="#181310"/>
+  <line x1="8" y1="265" x2="712" y2="265" stroke="#2a2622" stroke-width="1"/>
+  <text x="20" y="282" class="s12 warn">alias match only — weak signal</text>
+
+  <g transform="translate(0,16)">
+  <!-- left card -->
+  <rect x="20" y="270" width="332" height="164" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <g>
+    <rect x="32" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="54" cy="299" r="8" fill="#4a4139"/><path d="M38 326c0-9 7-14 16-14s16 5 16 14z" fill="#4a4139"/>
+    <rect x="80" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="102" cy="300" r="7" fill="#3d362f"/><path d="M88 326c0-8 6-13 14-13s14 5 14 13z" fill="#3d362f"/>
+    <rect x="128" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="150" cy="298" r="9" fill="#453d35"/><path d="M133 326c0-10 8-15 17-15s17 5 17 15z" fill="#453d35"/>
+    <rect x="176" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="198" cy="301" r="7" fill="#3a332c"/><path d="M185 326c0-7 6-12 13-12s13 5 13 12z" fill="#3a332c"/>
+    <rect x="224" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="246" cy="299" r="8" fill="#494039"/><path d="M230 326c0-9 7-14 16-14s16 5 16 14z" fill="#494039"/>
+  </g>
+  <text x="32" y="348" class="serif ink" font-size="13" font-weight="600">Maya Rodriguez</text>
+  <rect x="128" y="338" width="16" height="12" rx="1" fill="#2a7d4f" stroke="#2a2622"/>
+  <text x="32" y="364" class="s10 muted">41 · 27 videos · 3 films</text>
+  <text x="32" y="379" class="s10 muted" font-style="italic">also credited as M. Rodrigues, Maya R.</text>
+  <line x1="32" y1="390" x2="340" y2="390" stroke="#2a2622" stroke-width="1"/>
+  <text x="32" y="405" class="s10 accent">Videos</text>
+  <text x="70" y="405" class="s10 accent">Films</text>
+  <rect x="104" y="395" width="58" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="133" y="406" text-anchor="middle" class="s9 muted">◉ TMDB</text>
+  <rect x="168" y="395" width="54" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="195" y="406" text-anchor="middle" class="s9 muted">◉ IMDb</text>
+  <rect x="228" y="395" width="58" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="257" y="406" text-anchor="middle" class="s9 muted">◉ Website</text>
+
+  <!-- right card -->
+  <rect x="368" y="270" width="332" height="164" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <g>
+    <rect x="380" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="402" cy="298" r="9" fill="#5a4f44"/><path d="M385 326c0-10 8-15 17-15s17 5 17 15z" fill="#5a4f44"/>
+    <rect x="428" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="450" cy="300" r="7" fill="#4f4539"/><path d="M436 326c0-8 6-13 14-13s14 5 14 13z" fill="#4f4539"/>
+    <rect x="476" y="282" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="498" cy="299" r="8" fill="#554a3e"/><path d="M482 326c0-9 7-14 16-14s16 5 16 14z" fill="#554a3e"/>
+  </g>
+  <text x="380" y="348" class="serif ink" font-size="13" font-weight="600">Maya Rodrigues</text>
+  <rect x="480" y="338" width="16" height="12" rx="1" fill="#2d6a4f" stroke="#2a2622"/>
+  <text x="380" y="364" class="s10 muted">4 videos</text>
+  <line x1="380" y1="390" x2="688" y2="390" stroke="#2a2622" stroke-width="1"/>
+  <text x="380" y="405" class="s10 accent">Videos</text>
+  <rect x="420" y="395" width="58" height="15" rx="7.5" fill="none" stroke="#2a2622"/>
+  <text x="449" y="406" text-anchor="middle" class="s9 muted">◉ TMDB</text>
+
+  <!-- footer verdicts -->
+  <line x1="20" y1="452" x2="700" y2="452" stroke="#2a2622" stroke-width="1"/>
+  <rect x="552" y="466" width="88" height="20" rx="10" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="596" y="480" text-anchor="middle" class="s10 accent">Keep separate</text>
+  <rect x="648" y="466" width="48" height="20" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="672" y="480" text-anchor="middle" class="s10 muted">Merge</text>
+  <text x="8" y="524" class="cap">Verdicts only under the divider — no summary line, no conflict chip, no "these look different". The panel reports; the owner decides (RD3/RD4).</text>
+  <text x="8" y="538" class="cap">Strip = 5 frames of 44px at gap-1: headshot first, then gallery in sort_order. No +N — Videos/Films reach the profile.</text>
+
+  </g>
+
+  <g transform="translate(0,16)">
+  <!-- ============ Panel 3: states ============ -->
+  <text x="8" y="568" class="ttl">3 · states — loading keeps the row's names · sparse drops segments · a failure stays inline and local</text>
+  <rect x="8" y="576" width="704" height="162" rx="2" fill="#181310" stroke="#2a2622" stroke-width="1"/>
+
+  <text x="20" y="594" class="lab">LOADING</text>
+  <rect x="20" y="600" width="216" height="128" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="30" y="610" width="34" height="34" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="68" y="610" width="34" height="34" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="106" y="610" width="34" height="34" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="144" y="610" width="34" height="34" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="182" y="610" width="34" height="34" rx="2" fill="#181310" stroke="#2a2622"/>
+  <text x="30" y="664" class="serif ink" font-size="12" font-weight="600">Maya Rodriguez</text>
+  <text x="30" y="700" class="s9 muted">no spinner, no skeleton bars —</text>
+  <text x="30" y="713" class="s9 muted">the name is already in `pair.a`</text>
+
+  <text x="252" y="594" class="lab">SPARSE</text>
+  <rect x="252" y="600" width="216" height="128" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="262" y="610" width="44" height="44" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="284" cy="627" r="8" fill="#4a4139"/><path d="M268 654c0-9 7-14 16-14s16 5 16 14z" fill="#4a4139"/>
+  <text x="262" y="676" class="serif ink" font-size="12" font-weight="600">Ted Brannigan</text>
+  <text x="262" y="692" class="s10 muted">12 videos</text>
+  <line x1="262" y1="700" x2="456" y2="700" stroke="#2a2622" stroke-width="1"/>
+  <text x="262" y="715" class="s10 accent">Videos</text>
+  <text x="304" y="715" class="s9 muted">no age, no flag, no aliases, no films</text>
+
+  <text x="484" y="594" class="lab">FETCH FAILED</text>
+  <rect x="484" y="600" width="216" height="128" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="494" y="624" class="serif ink" font-size="12" font-weight="600">Maya Rodrigues</text>
+  <text x="494" y="646" class="s10 warn">Couldn't load this side.</text>
+  <rect x="494" y="656" width="52" height="18" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="520" y="668" text-anchor="middle" class="s9 muted">Retry</text>
+  <text x="494" y="694" class="s9 muted">the other card still renders;</text>
+  <text x="494" y="707" class="s9 muted">both verdicts stay enabled;</text>
+  <text x="494" y="720" class="s9 muted">the failure is not cached</text>
+
+  <!-- ============ Panel 4: stacked ============ -->
+  <text x="8" y="766" class="ttl">4 · stacked — field-grid drops to one column</text>
+  <rect x="8" y="774" width="344" height="222" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <rect x="18" y="784" width="22" height="22" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="2 2"/>
+  <path d="M34 802l-5-5-5 5" fill="none" stroke="#e8a33d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="50" y="799" class="s10 ink">Maya Rodriguez ↔ Maya Rodrigues</text>
+  <rect x="8" y="812" width="344" height="184" fill="#181310"/>
+  <line x1="8" y1="812" x2="352" y2="812" stroke="#2a2622"/>
+  <rect x="20" y="822" width="320" height="72" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="30" y="830" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="45" cy="841" r="6" fill="#4a4139"/><path d="M34 860c0-6 5-10 11-10s11 4 11 10z" fill="#4a4139"/>
+  <rect x="64" y="830" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="98" y="830" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="132" y="830" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="166" y="830" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <text x="30" y="878" class="serif ink" font-size="12" font-weight="600">Maya Rodriguez</text>
+  <text x="30" y="890" class="s9 muted">41 · 27 videos · 3 films</text>
+  <rect x="20" y="902" width="320" height="58" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="30" y="910" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/><circle cx="45" cy="921" r="6" fill="#5a4f44"/><path d="M34 940c0-6 5-10 11-10s11 4 11 10z" fill="#5a4f44"/>
+  <rect x="64" y="910" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="98" y="910" width="30" height="30" rx="2" fill="#181310" stroke="#2a2622"/>
+  <text x="30" y="956" class="serif ink" font-size="12" font-weight="600">Maya Rodrigues</text>
+  <rect x="196" y="968" width="76" height="18" rx="9" fill="none" stroke="#e8a33d"/>
+  <text x="234" y="981" text-anchor="middle" class="s9 accent">Keep separate</text>
+  <rect x="280" y="968" width="44" height="18" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="302" y="981" text-anchor="middle" class="s9 muted">Merge</text>
+
+  <!-- ============ Panel 5: brutalist ============ -->
+  <text x="368" y="766" class="ttl">5 · Brutalist — --radius is 0</text>
+  <rect x="368" y="774" width="344" height="222" fill="#0e0e0e" stroke="#333333" stroke-width="1"/>
+  <rect x="378" y="784" width="22" height="22" fill="none" stroke="#333333"/>
+  <path d="M394 802l-5-5-5 5" fill="none" stroke="#d6ff3f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="410" y="799" class="s10 mono" fill="#fafafa">Maya Rodriguez ↔ Maya Rodrigues</text>
+  <rect x="368" y="812" width="344" height="184" fill="#111111"/>
+  <line x1="368" y1="812" x2="712" y2="812" stroke="#333333"/>
+  <rect x="380" y="822" width="158" height="140" fill="#0e0e0e" stroke="#333333"/>
+  <rect x="388" y="830" width="30" height="30" fill="#111111" stroke="#333333"/><circle cx="403" cy="841" r="6" fill="#4a4a4a"/><path d="M392 860c0-6 5-10 11-10s11 4 11 10z" fill="#4a4a4a"/>
+  <rect x="422" y="830" width="30" height="30" fill="#111111" stroke="#333333"/>
+  <rect x="456" y="830" width="30" height="30" fill="#111111" stroke="#333333"/>
+  <rect x="490" y="830" width="30" height="30" fill="#111111" stroke="#333333"/>
+  <text x="388" y="882" class="mono" font-size="12" font-weight="600" fill="#fafafa">Maya Rodriguez</text>
+  <text x="388" y="896" class="s9 mono" fill="#8a8a8a">41 · 27 videos · 3 films</text>
+  <rect x="542" y="822" width="158" height="140" fill="#0e0e0e" stroke="#333333"/>
+  <rect x="550" y="830" width="30" height="30" fill="#111111" stroke="#333333"/><circle cx="565" cy="841" r="6" fill="#4a4a4a"/><path d="M554 860c0-6 5-10 11-10s11 4 11 10z" fill="#4a4a4a"/>
+  <rect x="584" y="830" width="30" height="30" fill="#111111" stroke="#333333"/>
+  <text x="550" y="882" class="mono" font-size="12" font-weight="600" fill="#fafafa">Maya Rodrigues</text>
+  <text x="550" y="896" class="s9 mono" fill="#8a8a8a">4 videos</text>
+  <rect x="556" y="968" width="76" height="18" rx="9" fill="none" stroke="#d6ff3f"/>
+  <text x="594" y="981" text-anchor="middle" class="s9 mono" fill="#d6ff3f">Keep separate</text>
+  <rect x="640" y="968" width="44" height="18" fill="none" stroke="#333333"/>
+  <text x="662" y="981" text-anchor="middle" class="s9 mono" fill="#8a8a8a">Merge</text>
+  </g>
+  </g>
+</svg>

@@ -12,6 +12,7 @@
 	let {
 		personId,
 		role,
+		imageId,
 		name,
 		frameClass,
 		version,
@@ -20,6 +21,10 @@
 	}: {
 		personId: number;
 		role: PersonImageRole;
+		// One specific gallery image instead of the role's current pick (F70's compare
+		// strip). `role` still types the slot for the caller; the by-id URL replaces the
+		// by-role one. Everything else — skin, cache-bust, placeholder, error — is shared.
+		imageId?: number;
 		name: string;
 		frameClass: string;
 		version?: number;
@@ -30,7 +35,11 @@
 	} = $props();
 
 	// The URL re-derives when the skin flips so the placeholder re-themes live.
-	const src = $derived(api.personImageURL(personId, role, { version, skin: theme.current }));
+	const src = $derived(
+		imageId === undefined
+			? api.personImageURL(personId, role, { version, skin: theme.current })
+			: api.personGalleryImageURL(personId, imageId, { version, skin: theme.current })
+	);
 	const altText = $derived(alt ?? name);
 
 	let loaded = $state(false);

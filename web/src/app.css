@@ -276,8 +276,10 @@
 	   site's own utilities). Utilities still win over these rules because
 	   Tailwind orders the utilities layer after components. */
 
-	/* Bordered neutral — an immediate, row-clearing resolve (Dismiss, Revert, Keep
-	   separate). Disabled drops the border rather than the label. */
+	/* Bordered neutral — an immediate, row-clearing resolve (Dismiss, Revert), and the
+	   consequential-but-not-affirmative one (the Duplicates queue's Merge, F70 P0-4:
+	   still bordered and still two-step, because it is irreversible — which is exactly
+	   why it is NOT `.btn-quiet` below). Disabled drops the border rather than the label. */
 	.btn-ghost {
 		border: 1px solid var(--rule);
 		border-radius: var(--radius);
@@ -305,7 +307,10 @@
 		text-decoration: underline;
 	}
 
-	/* Outlined accent — the affirmative action in a row (Stage, Review, Merge).
+	/* Outlined accent — the affirmative action in a row (Stage, Review), i.e. the one
+	   the surface's own evidence usually points at. On the Duplicates queue that is
+	   Keep separate, not Merge (F70 P0-4): keep-separate outnumbers merge 185:31 there,
+	   so accenting Merge optimized the page backwards.
 	   Disabled demotes to the neutral border + muted label. `in oklab` matches how
 	   Tailwind v4 itself mixes `bg-accent/10` (used on the same accent token
 	   elsewhere, e.g. ExtractionQueueRow's staged chips) — `in srgb` would compute
