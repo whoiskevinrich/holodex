@@ -1,28 +1,3 @@
-<script module lang="ts">
-	import { api } from '$lib/api';
-	import type { PersonImageSet } from '$lib/types';
-
-	// The strip's half of the session cache. `loadPersonCard` already gives
-	// `/people/{id}/card` one request per person per session (F68), but
-	// `api.getPersonImages` has no cache of its own — without this, reopening a panel
-	// re-fetched the image set every time and P0-5 held for only half the payload.
-	// Same contract as the card cache: shared across every panel, and a REJECTED
-	// promise is evicted so the next open retries rather than replaying the failure.
-	const imageCache = new Map<number, Promise<PersonImageSet>>();
-
-	function loadPersonImages(id: number): Promise<PersonImageSet> {
-		let p = imageCache.get(id);
-		if (!p) {
-			p = api.getPersonImages(id).catch((err) => {
-				if (imageCache.get(id) === p) imageCache.delete(id);
-				throw err;
-			});
-			imageCache.set(id, p);
-		}
-		return p;
-	}
-</script>
-
 <script lang="ts">
 	// The F70 compare panel (HOLODEX-451, docs/design/duplicates-pair-evidence-handoff.md):
 	// a flagged PERSON pair expanded in place into two columns of evidence, so the owner
@@ -42,6 +17,11 @@
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import { videoCount, refLabel, sortExternalLinks } from '$lib/format';
 	import { loadPersonCard, type CardLease } from '$lib/components/person/personCard.svelte';
+	import {
+		loadPersonImages,
+		stripGallery,
+		STRIP_GALLERY_SLOTS
+	} from '$lib/components/person/personImages';
 	import PersonImageFrame from '$lib/components/person/PersonImageFrame.svelte';
 	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
 	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
@@ -65,9 +45,11 @@
 
 	// The strip is a SAMPLE, not an index (OQ2): five frames, no `+N`. Slot 1 is always
 	// the headshot role — the backend serves a themed placeholder when there is none, so
-	// a person with no images gets exactly one frame, never five empty wells.
-	const GALLERY_SLOTS = 4;
-	const LOADING_SLOTS = [0, 1, 2, 3, 4];
+	// a person with no images gets exactly one frame, never five empty wells. The slice
+	// rule itself is `stripGallery` (pinned in `personImages.test.ts`), and the skeleton
+	// below is derived from the SAME cap rather than repeating the 5 — the loading state
+	// must reserve exactly what the loaded state will fill, or the column jumps.
+	const LOADING_SLOTS = Array.from({ length: STRIP_GALLERY_SLOTS + 1 }, (_, i) => i);
 
 	interface Side {
 		card: PersonCard | null;
@@ -107,11 +89,7 @@
 			// has no strip and the images alone have no name.
 			const [card, images] = await Promise.all([lease.promise, loadPersonImages(ref.id)]);
 			side.card = card;
-			// The headshot is slot 1 already; `role` is the only thing that tells the two
-			// apart, since the ids aren't otherwise comparable.
-			side.gallery = images.gallery
-				.filter((img) => img.role !== 'headshot')
-				.slice(0, GALLERY_SLOTS);
+			side.gallery = stripGallery(images);
 		} catch {
 			// Not cached (the card cache drops failed flights), so Retry re-requests.
 			side.failed = true;

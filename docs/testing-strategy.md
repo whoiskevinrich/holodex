@@ -2786,3 +2786,132 @@ runtime base moves:
 - **Multi-arch is asserted by inspection, not execution.** The base publishes amd64 + arm64 and
   CI builds both, but the arm64 image is never run — the nonroot uid and CA bundle are verified
   on amd64 only.
+
+
+## 16. Duplicates pair evidence — the compare panel (F70, HOLODEX-451)
+
+A flagged **person** pair in `/owner/duplicates` expands in place into a two-column evidence
+panel ([spec](specs/duplicates-pair-evidence.md),
+[handoff](design/duplicates-pair-evidence-handoff.md)). No new endpoint, no migration, no Go
+code: the panel composes `GET /people/{id}/card` (F68) and `GET /people/{id}/images` (F26). So
+everything worth asserting is in the SPA, and **the two invariants the tests exist to hold are
+both about what the panel is forbidden to do**: it never adjudicates (RD3/RD4 — it reports who
+said what and stops), and it never owns a verdict (P0-4/P0-5 — the footer repeats the *row's*
+snippet, so a failure inside the panel cannot disable the action the owner came for).
+
+The build session's hand QA found three defects the design could not have — two of them only at
+a specific viewport, one only in the network log. Those three are the reason this section exists,
+and each is now pinned somewhere that runs without a browser. What is asserted where:
+
+**Unit — SPA (pure, `npm run test`)**
+
+- `components/duplicates/queue.test.ts` — the queue's own rules, extracted from the page and the
+  row so they are testable at all:
+  - **id agreement.** The `{#each}` key, `aria-controls`, the disclosure's `id` and all three
+    focus landing spots derive from one `pairKey`. Three files needed the same string and each
+    spelled it itself; a fourth spelling points `aria-controls` at a panel that never renders and
+    makes every rung of the focus ladder miss.
+  - **`showsComparePanel` is person-only** (RD10), and `labelPlacement` is gated on *that*, not
+    on "a panel happens to exist". This is the OQ3 trap written down: moving the match-kind label
+    into the panel without the type gate silently deletes it from studio/tag/film rows, which
+    have no panel to move it to — and a studio pair then shows two unalike names with nothing
+    explaining why the detector fired. Asserted in both directions, for every kind.
+  - **`focusLandingIds` — the three-rung ladder** (P0-6). The row is removed by an unanimated
+    `pairs.filter()`, so focus lands on `<body>` unless it is moved. The third rung is the one
+    hand QA found: **a group heading dies with its own group**, so the last pair in a group has
+    no heading to land on and needs the queue container, which always survives and is what holds
+    "No possible duplicates." A non-person group is never offered a disclosure, because those
+    rows have none.
+- `components/person/personImages.test.ts` — **P0-5, asserted against requests rather than
+  against the client.** `fetch` is stubbed, not `api`, because the criterion is *"reopening
+  issues no second request"*: mocking `api.getPersonImages` would pin a call count and miss a
+  bespoke `fetch` added later. One request per person per session, one shared flight when both
+  panels ask at once, separate entries for the two sides of a pair, and **a failure is not
+  cached** so a failed side's Retry re-requests. The module exists because the hand QA's network
+  log showed `/images` re-fetched on every reopen while `/card` was fetched once — F68's cache
+  covered only half the payload, and the design's build checklist could not have caught it.
+  `stripGallery` covers P0-3: the headshot excluded (slot 1 already serves it), capped at four,
+  in the order the API returned, and **empty for a person with one image or none** — the strip
+  reserves nothing, because five empty wells claim five images the person may not have.
+- `components/duplicates/verdictOwnership.test.ts` — a **source-shape** assertion, the same
+  vehicle `routes/media/[id]/playerElement.test.ts` uses for element identity and for the same
+  reason: the guarantee is structural and this repo has no component-test harness (§5). The
+  panel renders `{@render verdicts()}` and carries no `Keep separate` / `Merge` control and no
+  `mergeEntities` / `dismissDuplicate` call of its own; the row defines the snippet exactly once
+  and hands that same one to the panel, inside the `{#if open}` gate. That single fact is what
+  makes three criteria true and *unbreakable* rather than merely currently-true — the collapsed
+  row and the open panel cannot disagree about `busy` or about which verdict carries the accent;
+  a per-side fetch failure cannot disable a verdict, because the verdicts are not the panel's to
+  disable; and Merge stays two-step, since `choosing` is the row's state. The same file pins the
+  **emphasis swap** (RD7): Keep separate takes `btn-row btn-pill btn-accent`, Merge takes
+  `btn-row btn-ghost px-2`, and Merge is never `.btn-quiet` — `app.css` documents that class as
+  "a UI-only toggle with no side effect", and Merge is the least reversible action on the page.
+
+Every rule above was **mutation-checked** (2026-09-23) — a rule that cannot fail is not pinned.
+Each of these breaks the suite: `labelPlacement` ignoring entity type; `focusLandingIds` dropping
+the queue rung; `stripGallery` keeping the headshot; `loadPersonImages` dropping its cache; the
+panel inlining its own Keep-separate button; the emphasis swap reverted so Merge takes the accent
+back; and Merge demoted to `.btn-quiet`.
+
+A note on the source-shape file, because that style of test earns its keep only if it stays
+narrow: it asserts **structure**, never markup. The verdict-class assertions match whole
+`<button>…</button>` elements rather than scanning a tag's attributes, both because an inline
+arrow handler contains `=>` (a `[^>]*` attribute scan stops inside the attribute) and because a
+formatter reordering `class` and `onclick` changes nothing the owner can see. A test that goes
+red on a non-regression gets weakened rather than fixed, and then the real assertion is gone.
+
+**Agent / human (live, three skins)** — the browser-only half, re-run against a seeded two-pair
+fixture (one `alias` pair, one `mixed`; six images on one side to prove the cap, a bare side for
+the placeholder path):
+
+1. `[agent]` **The `sm:flex-nowrap` boundary.** At ≥ 640 px a person row is a single ~40 px line
+   with both verdicts on it and long names truncating; below 640 px the block wraps to a taller,
+   readable row instead of crushing both names to ellipses. Measured at 375 / 660 / 866 px. This
+   is the defect the mockup laundered past sign-off, and the one **no unit test can see** — see
+   the gap below.
+2. `[agent]` Two columns of equal width, stacked at 375 px with each border intact and no
+   horizontal page scroll; frames exactly 44 × 44.
+3. `[agent]` A forced per-side failure shows one broken column with its own Retry while **all six
+   verdict buttons stay enabled**, and Retry recovers. (The static assertion above proves the
+   panel *cannot* disable them; this proves the failure path renders.)
+4. `[agent]` Escape collapses the open panel and returns focus to its own disclosure; opening a
+   second disclosure collapses the first (RD12).
+5. `[agent]` Resolving a row lands focus on the next row's disclosure, then the group heading,
+   then `#dup-queue` — the third case reachable only by resolving the last pair in a group.
+6. `[human]` Three skins: radius 0 in Broadcast/Brutalist, the scanline landing on ten 44 px
+   frames in Broadcast only, `--surface-2` reading as a recess in each.
+
+### 16.1 Standing gaps
+
+- **The row-height invariant has no CI home, and it is the one the epic was re-designed around.**
+  It is exactly §12.2's "observed on the fixture and measurable as a number", and the geometry
+  harness already runs as owner (ADR-030), so `/owner/duplicates?type=person` is reachable. What
+  blocks it is the **fixture**: `stressseed` seeds no deliberate near-miss person pair, and the
+  pairs `FlagNearMiss` happens to file from the name palette are incidental and unaddressed by
+  the manifest — an assertion written against them would pass vacuously on a reseed that stopped
+  producing one. Filed as
+  **[HOLODEX-456](https://whoiskevinrich.atlassian.net/browse/HOLODEX-456)**: seed a
+  deterministic pair (a long-name rung, since the
+  invariant is about truncation), then add a `urls:`-addressed assertion bounding the row's height
+  at the two wider viewports. Until it lands, checklist item 1 above is the only guard, and it is
+  manual.
+- **The panel's own components have no component tests** — `DuplicateComparePanel` and
+  `DuplicatePairRow` are covered by extracted logic, a source-shape assertion and the live
+  checklist, never by rendering. Same posture as the rest of §5; the source-shape file is the
+  compensating control and is deliberately narrow, because that style of test goes brittle the
+  moment it starts asserting markup rather than structure.
+- **"Each column is the F68 hover card laid flat" is a claim no test holds.** The panel
+  re-implements `PersonHoverCard`'s meta rule (age XOR `†age_at_death`, the count always, films
+  only when > 0) rather than importing it, so the two can drift — a fix to the card's
+  absent-is-absent handling would not reach the panel. The honest fix is to extract that rule the
+  way `personImages.ts` was extracted; it was left alone here because the epic's scope is the
+  panel, not a refactor of F68.
+- **P1-0 co-appearance, P1-1 attributed provider facts and P1-2 nationality normalization are
+  unbuilt**, so RD4's "never adjudicate" is currently held by there being nothing to adjudicate
+  *with*. When P1-1 lands it needs its own assertion that a cross-provider disagreement renders
+  as two attributed rows and never as a conflict chip — the probe's `Nepal` /
+  `Federal Democratic Republic of Nepal` case is the fixture for it.
+- **The image cache has no invalidation hook.** `personImages.ts` mirrors `loadPersonCard`'s
+  contract but without an `invalidate*` counterpart, because this page never mutates images. A
+  surface that *does* — the gallery editor — would show a stale set if it adopted the module.
+  Logged and accepted during `/code-review high` rather than solved speculatively.

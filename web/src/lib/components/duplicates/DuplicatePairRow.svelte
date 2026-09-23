@@ -18,6 +18,7 @@
 	import { videoCount, toMessage, refLabel } from '$lib/format';
 	import type { DuplicatePair } from '$lib/types';
 	import DuplicateComparePanel from './DuplicateComparePanel.svelte';
+	import { disclosureId, labelPlacement, matchKindLabel, panelId, showsComparePanel } from './queue';
 
 	let {
 		pair,
@@ -76,22 +77,13 @@
 	const GHOST = 'btn-row btn-ghost px-2';
 	const TOGGLE = 'btn-row btn-quiet';
 
-	// matchKindLabel explains WHY the pair was flagged — the two canonical names shown
-	// above can look nothing alike when the match came through an alias, which read as
-	// unexplained/wrong before this label existed. 'canonical' needs no badge (that's
-	// the two names visibly matching, self-evident).
-	const matchKindLabel: Record<string, string> = {
-		mixed: 'via alias',
-		alias: 'alias match only — weak signal'
-	};
-	const label = $derived(matchKindLabel[pair.match_kind] ?? '');
-	const weak = $derived(pair.match_kind === 'alias');
-
-	// The panel is person-only (RD10): a studio/tag/film pair has no evidence worth two
-	// columns, and a control that cannot change what you see is one the reader learns to
-	// distrust (ExpandableText's rule).
-	const comparable = $derived(pair.entity_type === 'person');
-	const panelId = $derived(`dup-panel-${pair.entity_type}-${pair.a.id}-${pair.b.id}`);
+	// Why the pair was flagged, and where that explanation renders — both in `queue.ts`,
+	// where they are unit-tested (`queue.test.ts`). The panel is person-only (RD10): a
+	// studio/tag/film pair has no evidence worth two columns, and a control that cannot
+	// change what you see is one the reader learns to distrust (ExpandableText's rule).
+	const match = $derived(matchKindLabel(pair.match_kind));
+	const labelInRow = $derived(labelPlacement(pair) === 'row');
+	const comparable = $derived(showsComparePanel(pair.entity_type));
 	const open = $derived(comparable && expanded);
 
 	// Escape collapses the open panel and returns focus to its disclosure. Bound at the
@@ -133,10 +125,10 @@
 		<button
 			type="button"
 			bind:this={disclosure}
-			id={`dup-disclosure-${pair.entity_type}-${pair.a.id}-${pair.b.id}`}
+			id={disclosureId(pair)}
 			onclick={() => onexpand?.(!open)}
 			aria-expanded={open}
-			aria-controls={panelId}
+			aria-controls={panelId(pair)}
 			aria-label={open
 				? `Hide evidence for ${refLabel(pair.a)} and ${refLabel(pair.b)}`
 				: `Compare ${refLabel(pair.a)} and ${refLabel(pair.b)}`}
@@ -176,9 +168,9 @@
 		<span class="truncate text-ink">{refLabel(pair.b)}</span>
 		<span class="shrink-0 text-xs text-muted">{videoCount(pair.b.video_count ?? 0)}</span>
 		<span class="shrink-0 text-xs text-muted">· {pair.variation}</span>
-		{#if label && !comparable}
-			<span class="shrink-0 text-xs" class:text-warn={weak} class:text-muted={!weak}>
-				· {label}
+		{#if labelInRow}
+			<span class="shrink-0 text-xs" class:text-warn={match.weak} class:text-muted={!match.weak}>
+				· {match.text}
 			</span>
 		{/if}
 	</div>
@@ -193,5 +185,11 @@
 </div>
 
 {#if open}
-	<DuplicateComparePanel {pair} {panelId} matchLabel={label} matchWeak={weak} {verdicts} />
+	<DuplicateComparePanel
+		{pair}
+		panelId={panelId(pair)}
+		matchLabel={match.text}
+		matchWeak={match.weak}
+		{verdicts}
+	/>
 {/if}

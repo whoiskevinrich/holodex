@@ -88,7 +88,15 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   `DuplicatePairRow`, single-open/Escape/focus-after-resolve in `+page.svelte`, `imageId` on
   `PersonImageFrame`, the two `app.css` doc comments, the `duplicates/CLAUDE.md` row. Built and
   QA'd against a seeded two-pair fixture 2026-09-23; `npm run check` 0 errors, 415 tests pass
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy` — `docs/testing-strategy.md` **§16 + §16.1**, and 32 new tests
+  across three files. The three hand-QA findings are all pinned except the one that is genuinely
+  browser-only: `queue.test.ts` (id agreement, the person-only panel gate, the OQ3 label
+  placement in both directions, the three-rung focus ladder), `personImages.test.ts` (P0-5
+  asserted against **requests** via a stubbed `fetch`, plus `stripGallery` for P0-3),
+  `verdictOwnership.test.ts` (source-shape, à la `playerElement.test.ts`: the panel owns no
+  verdict, so a per-side failure *cannot* disable one). All five rules mutation-checked. The
+  `sm:flex-nowrap` row-height boundary has **no CI home** — the stress fixture seeds no
+  deterministic duplicate pair — filed as **HOLODEX-456** and recorded as §16.1's first gap
 - [ ] security `security-review` — owner-gated surface; re-confirm the existing gate covers the new fields
 - [x] `code-review high --fix` — run on the frontend diff 2026-09-23. One finding applied: a
   failed side rendered the five-slot loading strip, claiming images it would never fill. Two
@@ -98,18 +106,58 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/testing-strategy` — update `docs/testing-strategy.md` and write the tests. The
-   behaviours QA'd by hand this session that want pinning: the `sm:flex-nowrap` boundary (one
-   line at ≥640px, wrapped below), the session cache issuing zero requests on reopen, the
-   per-side failure leaving both verdicts enabled, and the three-step focus landing after a
-   resolve. `personCard.test.ts` is the nearest model
-2. [ ] [—] `/security-review` — owner-gated surface; re-confirm the existing gate covers
+1. [ ] [—] `/security-review` — owner-gated surface; re-confirm the existing gate covers
    `/people/{id}/card` and `/people/{id}/images` reached from this page
-3. [ ] [—] Re-run `/code-review high --fix` over whatever the testing gate adds, then
-   `gh pr ready` on #382 once every gate is green
-4. [ ] [—] Kevin's eyeball pass on the built panel in a prod skin before ready-for-review
+2. [ ] [—] `gh pr ready` on #382 once security is green (`/code-review high --fix` was re-run
+   over the testing gate's own code this session, closing the old item 3)
+3. [ ] [—] Kevin's eyeball pass on the built panel in a prod skin before ready-for-review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-23 · the testing gate — the hand-QA findings pinned, and one of them provably can't be
+- skills: testing-strategy, code-review
+- **The gate's real work was making the behaviours testable at all.** All four things the last
+  session asked to pin lived inside `.svelte` components, and this repo has **no component-test
+  harness** — `@testing-library/svelte` is named in §5's Phase-1 table but is not installed, and
+  §14 already records "no component tests" as the standing posture. So the choice was extract or
+  don't test. Two small modules came out, both of which remove real duplication rather than
+  existing only for the tests:
+  - `duplicates/queue.ts` — the page, the row and the panel each spelled the same per-pair id
+    strings themselves. Now one `pairKey`, plus `showsComparePanel`, `matchKindLabel`,
+    `labelPlacement` and `focusLandingIds`.
+  - `person/personImages.ts` — the image cache lifted out of the panel's `<script module>`,
+    sibling to `personCard.svelte.ts` and the same contract, plus `stripGallery`.
+- **`labelPlacement` is the OQ3 trap turned into an assertion.** The last design session found by
+  hand that moving the label into the panel without gating on entity type would delete it from
+  studio/tag/film rows. That is now asserted in both directions for all four kinds, and the
+  mutation that ignores entity type fails the suite.
+- **P0-5 is asserted against requests, not against the client.** `fetch` is stubbed rather than
+  `api`, because the criterion is "reopening issues no second request" — mocking
+  `api.getPersonImages` would pin a call count and miss a bespoke `fetch` added later.
+- **The per-side-failure criterion is held structurally rather than behaviourally.**
+  `verdictOwnership.test.ts` (source-shape, the `playerElement.test.ts` vehicle) asserts the panel
+  renders `{@render verdicts()}` and owns no verdict control or resolve call at all. That makes
+  "a failure can't disable a verdict" *unbreakable* rather than merely currently-true — the
+  verdicts are not the panel's to disable — and it pins RD7's emphasis swap in the same file.
+- **The `sm:flex-nowrap` row-height boundary has no CI home, and I did not pretend otherwise.**
+  The geometry harness could reach `/owner/duplicates?type=person` (it runs as owner, ADR-030),
+  but `stressseed` seeds **no deterministic near-miss person pair** — the ones `FlagNearMiss`
+  happens to file from the name palette are incidental and unaddressed by the manifest, so an
+  assertion against them would pass *vacuously* on a reseed, which is the exact failure mode
+  §12.2 warns about. Filed **HOLODEX-456** (seed a long-name pair, then add a `urls:` assertion
+  with a `requires` gate) rather than writing a test that could not fail. It is §16.1's first gap.
+- 32 new tests; `npm run test` 447 pass, `npm run check` 0 errors. **Seven mutations verified to
+  break the suite** — the gate would otherwise be a claim rather than a guard.
+- `/code-review high --fix` on the gate's own code found two, both applied: the loading skeleton's
+  slot count was left hardcoded at 5 while the real cap moved to `personImages.ts`, so the two
+  could drift and the column would jump when images land (now derived from
+  `STRIP_GALLERY_SLOTS + 1`); and the emphasis-swap assertions matched attribute *order*, which an
+  inline arrow's `=>` already broke — they now match whole `<button>` elements.
+- handoff: **testing is closed; only security remains.** Start at `Up next` 1 — re-confirm the
+  owner gate covers `/people/{id}/card` and `/people/{id}/images` as reached from this page. No
+  behaviour changed this session: the id strings are byte-identical, the label gate is the same
+  predicate, and no CSS moved, so the build session's three-skin QA still stands. `gh pr ready` on
+  #382 after security, and Kevin's prod-skin look is still open.
 
 ### 2026-09-23 · the frontend is built, and QA found three things the design could not have
 - skills: (none — straight build from the handoff's checklist), code-review
