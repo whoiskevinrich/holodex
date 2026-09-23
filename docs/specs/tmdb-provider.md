@@ -728,8 +728,10 @@ services:
       retries: 3
 ```
 
-> The probe is the sidecar's own binary, not `wget`: the image is distroless (ADR-105) and
-> ships no shell utilities.
+> The probe is the sidecar's own binary, not `wget`. A `wget` probe still happens to work — the
+> image is distroless (ADR-105) but the `debug` variant ships busybox, which provides `wget` on
+> `PATH` — it just stops working the moment the base drops to plain `nonroot`. The binary's own
+> `-healthcheck` depends on nothing outside the binary. `curl` and `apt` are not present.
 
 **(b) Allowlist it in Holodex** by adding one entry to `metadata-sources.yaml` (the
 `base_url` is the **SSRF allowlist** — Holodex only ever dials this host):

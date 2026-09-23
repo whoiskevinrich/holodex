@@ -80,6 +80,11 @@ unprivileged uid on a network-listening process.
 
 Port 9100 is above 1024, so binding needs no capability as uid 65532.
 
+Note that busybox puts a `wget` applet on `PATH`, so the old probe would not visibly break on
+*this* variant. That is precisely why D1 is not optional: the binary's own probe depends on
+nothing outside the binary, so dropping to plain `nonroot` later is a one-line base change rather
+than a silent container-health regression discovered in production.
+
 **Why not Alpine.** ~15 packages versus 4, a shell either way, and no gcr.io dependency — but it
 reintroduces a package manager and an apt/apk layer to keep current, which is the thing being
 removed. The gcr.io registry dependency is accepted: it is a build-time dependency only, and the

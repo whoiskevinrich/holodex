@@ -92,10 +92,19 @@ Set up local Holodex pointing at the provider sidecar:
 
 ## 4. Provider image (Docker)
 
+The runtime is **distroless** (`gcr.io/distroless/static-debian12:debug-nonroot`, ADR-105) — no
+`apt`, no coreutils, no `curl`. The `debug` variant does ship busybox at `/busybox` (on `PATH`),
+which provides a `wget` applet; plain `nonroot` would not. **Re-run every row in this section
+whenever the runtime base changes**; none of it is covered by CI (testing-strategy §15.1).
+
 **4.1** [smoke] `docker build -f Dockerfile.provider-tmdb -t holodex-provider-tmdb:qa .` succeeds (multi-stage build)  
 **4.2** [smoke] `docker run --rm -e TMDB_API_TOKEN=<token> -p 9200:9100 holodex-provider-tmdb:qa` starts; `GET /healthz` returns 200  
-**4.3** [smoke] HEALTHCHECK in the image passes: `docker inspect` shows `(healthy)` after 30s  
-**4.4** [smoke] `docker run --rm holodex-provider-tmdb:qa` (no token set) exits with a non-zero status and a useful error message
+**4.3** [smoke] HEALTHCHECK in the image passes: `docker inspect --format '{{.State.Health.Status}}' <c>` shows `healthy` after 30s — the end-to-end proof that the image's `-healthcheck` invocation works, not just the flag  
+**4.4** [smoke] `docker run --rm holodex-provider-tmdb:qa` (no token set) exits with a non-zero status and a useful error message  
+**4.5** [smoke] The probe needs no credential: `docker exec <c> /usr/local/bin/holodex-provider-tmdb -healthcheck` exits 0 even though the health path runs before credential validation (ADR-105 D1)  
+**4.6** [smoke] Runs unprivileged: `docker exec <c> /busybox/id` reports `uid=65532(nonroot)`  
+**4.7** [agent] **Live outbound TLS.** Start the container with a deliberately invalid token and `POST /resolve` `{"entity_type":"film","hint":{"query":"Alien"}}`. The log must show an *application-layer* rejection — `TMDB /3/search/movie returned 401`. An `x509` error here means the base's CA bundle is missing or stale (ADR-105's stated risk); a `/healthz` 200 will not catch it  
+**4.8** [agent] Still distroless: `docker exec <c> /busybox/sh -c "command -v curl; command -v apt"` finds nothing. (`wget` **is** expected — busybox provides it on the `debug` variant. It is not what the HEALTHCHECK uses, so dropping to plain `nonroot` needs no Dockerfile change.)
 
 ---
 

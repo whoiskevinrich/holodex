@@ -1,6 +1,9 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -65,4 +68,83 @@ func TestCredentialKindsAreMutuallyExclusive(t *testing.T) {
 	if apiKeyShape.MatchString(jwt("header", "payload", "signature")) {
 		t.Error("a read access token matched the api key shape; a swapped credential would not be caught")
 	}
+}
+
+// resolvePort is the one place the server's bind port and the container health probe agree
+// (ADR-105 D1). If the two ever disagreed the probe would poll a port nothing listens on and
+// report a healthy sidecar as unhealthy forever, so the precedence is pinned rather than
+// re-derived at each call site.
+func TestResolvePort(t *testing.T) {
+	tests := []struct {
+		name string
+		flag string
+		env  string
+		want string
+	}{
+		{"flag wins over env", "9200", "9300", "9200"},
+		{"flag wins with no env", "9200", "", "9200"},
+		{"env when no flag", "", "9300", "9300"},
+		{"default when neither", "", "", "9100"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("PORT", tt.env)
+			if got := resolvePort(tt.flag); got != tt.want {
+				t.Errorf("resolvePort(%q) with PORT=%q = %q, want %q", tt.flag, tt.env, got, tt.want)
+			}
+		})
+	}
+}
+
+// The probe is the container's only health signal now that wget is gone with the Debian base
+// (ADR-105 D2), so both directions matter: a false 0 keeps a dead sidecar in rotation, and a
+// false 1 restart-loops a healthy one.
+func TestRunHealthcheck(t *testing.T) {
+	t.Run("200 is healthy", func(t *testing.T) {
+		var gotPath string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotPath = r.URL.Path
+		}))
+		defer srv.Close()
+		if got := runHealthcheck(portOf(t, srv.URL)); got != 0 {
+			t.Errorf("runHealthcheck on a 200 = %d, want 0", got)
+		}
+		// It must probe /healthz specifically — any 200-returning path would otherwise pass.
+		if gotPath != "/healthz" {
+			t.Errorf("probed %q, want /healthz", gotPath)
+		}
+	})
+
+	// A sidecar that boots but cannot serve (bad credential, wedged handler) answers non-200.
+	// Treating that as healthy is the failure this pins.
+	t.Run("non-200 is unhealthy", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "nope", http.StatusServiceUnavailable)
+		}))
+		defer srv.Close()
+		if got := runHealthcheck(portOf(t, srv.URL)); got != 1 {
+			t.Errorf("runHealthcheck on a 503 = %d, want 1", got)
+		}
+	})
+
+	t.Run("nothing listening is unhealthy", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		port := portOf(t, srv.URL)
+		srv.Close() // frees the port; the dial must now fail rather than hang or pass
+		if got := runHealthcheck(port); got != 1 {
+			t.Errorf("runHealthcheck with no listener = %d, want 1", got)
+		}
+	})
+}
+
+// portOf extracts the port from an httptest server's URL. The probe always dials 127.0.0.1
+// (it runs inside the container), which is the interface httptest binds, so passing the port
+// alone is enough to point it at the test server.
+func portOf(t *testing.T, rawURL string) string {
+	t.Helper()
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		t.Fatalf("parsing test server URL %q: %v", rawURL, err)
+	}
+	return u.Port()
 }
