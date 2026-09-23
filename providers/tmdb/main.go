@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"time"
 )
 
 func main() {
@@ -23,7 +24,15 @@ func main() {
 	// --host 127.0.0.1 → loopback-only (avoids Windows Firewall UAC prompt in dev).
 	hostFlag := flag.String("host", "", "bind address; empty = all interfaces, 127.0.0.1 = loopback-only")
 	portFlag := flag.String("port", "", "HTTP port (overrides PORT env var; default 9100)")
+	healthcheck := flag.Bool("healthcheck", false, "probe /healthz and exit 0/1 (Docker HEALTHCHECK)")
 	flag.Parse()
+
+	// Before the credential checks on purpose (ADR-105 D1): a health probe must not need
+	// TMDB_API_TOKEN, and must not inherit the os.Exit(1) a missing one triggers for the
+	// server path — that would report every container unhealthy instead of unconfigured.
+	if *healthcheck {
+		os.Exit(runHealthcheck(resolvePort(*portFlag)))
+	}
 
 	token := os.Getenv("TMDB_API_TOKEN")
 	apiKey := os.Getenv("TMDB_API_KEY")
@@ -76,13 +85,7 @@ func main() {
 	if host == "" {
 		host = os.Getenv("HOST")
 	}
-	port := *portFlag
-	if port == "" {
-		port = os.Getenv("PORT")
-	}
-	if port == "" {
-		port = "9100"
-	}
+	port := resolvePort(*portFlag)
 
 	client := newTMDBClient(token, apiKey, language)
 	h := newHandler(client, log)
@@ -101,6 +104,35 @@ func main() {
 		log.Error("server exited", "err", err)
 		os.Exit(1)
 	}
+}
+
+// resolvePort applies the sidecar's port precedence: the -port flag, then PORT, then 9100.
+// Shared by the server and the health probe so the two can never disagree about where the
+// sidecar listens.
+func resolvePort(flagValue string) string {
+	if flagValue != "" {
+		return flagValue
+	}
+	if p := os.Getenv("PORT"); p != "" {
+		return p
+	}
+	return "9100"
+}
+
+// runHealthcheck probes the sidecar's own /healthz and returns a process exit code, so the
+// image needs no wget (ADR-105 D1). It always dials loopback: it runs inside the container,
+// which makes the server's HOST bind address irrelevant. Mirrors cmd/holodex's probe.
+func runHealthcheck(port string) int {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/healthz")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return 0
+	}
+	return 1
 }
 
 // credentialKind classifies a TMDB credential by shape alone. TMDB's dashboard shows the v3

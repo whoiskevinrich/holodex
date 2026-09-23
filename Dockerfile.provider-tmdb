@@ -13,13 +13,16 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath -o /out/holodex-provider-tmdb ./providers/tmdb
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      wget \
-    && rm -rf /var/lib/apt/lists/*
+# Runtime: distroless (ADR-105 D2). The binary is CGO_ENABLED=0 static, so the only thing it
+# ever needed from userspace is a CA bundle for outbound TLS to TMDB — which this base ships.
+# `debug` keeps a busybox shell for `docker exec` (no security boundary here: anyone who can
+# exec already holds the Docker socket); `-nonroot` runs as uid 65532. Port 9100 is > 1024, so
+# binding needs no capability. The same base ships to edge and latest — under ADR-070 a release
+# retags this exact digest, so they cannot differ (ADR-105 D3).
+FROM gcr.io/distroless/static-debian12:debug-nonroot
 COPY --from=build /out/holodex-provider-tmdb /usr/local/bin/holodex-provider-tmdb
 EXPOSE 9100
+# Absolute paths, not a bare name: there is no shell here to fall back on if PATH ever shifts.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-    CMD wget -qO- http://127.0.0.1:9100/healthz > /dev/null || exit 1
-ENTRYPOINT ["holodex-provider-tmdb"]
+    CMD ["/usr/local/bin/holodex-provider-tmdb", "-healthcheck"]
+ENTRYPOINT ["/usr/local/bin/holodex-provider-tmdb"]

@@ -719,12 +719,17 @@ services:
       TMDB_API_TOKEN: ${TMDB_API_TOKEN}   # operator's own token, from .env / secret
       PORT: "9100"
     # internal only — no host port needs to be published; Holodex reaches it by service name
+    # The image already declares an equivalent HEALTHCHECK, so this block is optional —
+    # spell it out only to override the interval/retries.
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/healthz"]
+      test: ["CMD", "/usr/local/bin/holodex-provider-tmdb", "-healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
 ```
+
+> The probe is the sidecar's own binary, not `wget`: the image is distroless (ADR-105) and
+> ships no shell utilities.
 
 **(b) Allowlist it in Holodex** by adding one entry to `metadata-sources.yaml` (the
 `base_url` is the **SSRF allowlist** — Holodex only ever dials this host):

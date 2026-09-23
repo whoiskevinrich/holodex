@@ -1336,11 +1336,17 @@ services:
       PORT: "9100"
     # internal only — no host port needs to be published; Holodex reaches it by service name
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9100/healthz"]
+      test: ["CMD", "/usr/local/bin/holodex-acme", "-healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
 ```
+
+> **Probe with something the image actually contains.** A `wget`/`curl` probe assumes a
+> userspace the image may not have — a minimal or distroless base ships no shell utilities, so
+> that test fails forever while the service is healthy. Prefer a flag on the provider's own
+> binary that dials `127.0.0.1:$PORT/healthz` and exits 0/1 (the in-repo TMDB sidecar does this;
+> ADR-105 D1), or omit the block entirely and inherit the image's own `HEALTHCHECK`.
 
 **(b) Allowlist it in Holodex** by adding one entry to `metadata-sources.yaml` (the
 `base_url` is the **SSRF allowlist** — Holodex only ever dials this host):
