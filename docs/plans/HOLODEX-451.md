@@ -124,8 +124,12 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 - Re-asked with the redraw rendered inline — rows back to one 40px line (widest run ends at
   x=489, the pill starts at x=540), the weak-signal label opening the panel's well, tag rows
   keeping their own. **Kevin approved.** `approved.design` recorded at `b340a94`, the rebase
-  onto `0dfea65` (`1.16.1`) was clean, and the draft PR is open.
-- handoff: **Crossed into build — design signed off at `b340a94`; draft PR open.** Start at
+  onto `0dfea65` (`1.16.1`) was clean, and **draft PR #382** is open. The branch had been pushed
+  before the rebase, so the push needed a `--force-with-lease` — asked for and granted; the
+  remote tip `ed1bc14` was patch-identical to the rebased `5e361c7`, so nothing was lost.
+  Jira needed no transition (already `In Progress`) and carried no `fp:ready-to-build` label,
+  but its description was stale on the sign-off and the OQ3 reversal and has been brought current.
+- handoff: **Crossed into build — design signed off at `b340a94`; draft PR #382 open.** Start at
   `Up next` 1: build the frontend from the handoff's build checklist, and settle whether
   `CardLease.release()` evicts or refcounts before writing P0-5. Nothing in the design is open
   any more; the next gates are frontend, testing and security.
