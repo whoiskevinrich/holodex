@@ -90,7 +90,11 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
   QA'd against a seeded two-pair fixture 2026-09-23; `npm run check` 0 errors, 415 tests pass
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — owner-gated surface; re-confirm the existing gate covers the new fields
-- [ ] `code-review high --fix`
+- [x] `code-review high --fix` — run on the frontend diff 2026-09-23. One finding applied: a
+  failed side rendered the five-slot loading strip, claiming images it would never fill. Two
+  logged and deliberately skipped — the image cache has no invalidation hook (mirrors
+  `loadPersonCard`'s own contract; this page never mutates images) and the Escape listener is
+  per-row rather than per-page. **Re-run it after the testing gate adds code**
 
 ## Up next — ordered (position = priority)
 
@@ -101,7 +105,8 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
    resolve. `personCard.test.ts` is the nearest model
 2. [ ] [—] `/security-review` — owner-gated surface; re-confirm the existing gate covers
    `/people/{id}/card` and `/people/{id}/images` reached from this page
-3. [ ] [—] `/code-review high --fix`, then `gh pr ready` on #382 once every gate is green
+3. [ ] [—] Re-run `/code-review high --fix` over whatever the testing gate adds, then
+   `gh pr ready` on #382 once every gate is green
 4. [ ] [—] Kevin's eyeball pass on the built panel in a prod skin before ready-for-review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -149,10 +154,15 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 - Both theming greps are clean for the changed files; `npm run check` 0 errors, 415 tests pass.
   (Prettier is not in this repo's tooling — no config, no devDependency — so there is no format
   gate to run.)
-- handoff: **the frontend gate is closed; the remaining gates are testing, security and
-  `/code-review high --fix`.** Start at `Up next` 1. Nothing is blocked. The three QA findings
-  above are the behaviours most worth pinning in tests, because none of them were visible from
-  the design and two only appeared at a specific viewport.
+- `/code-review high --fix` found one more: the strip's loading branch is keyed on `card === null`,
+  which is also true after a failure, so a broken column rendered five empty wells it would never
+  fill — the same overstatement P0-3 rules out for a person with no images. A failed side now
+  holds one frame. Two findings logged and skipped (see the gate line).
+- handoff: **the frontend and code-review gates are closed; testing and security remain.** Start
+  at `Up next` 1. Nothing is blocked. The three QA findings above are the behaviours most worth
+  pinning in tests, because none of them were visible from the design and two only appeared at a
+  specific viewport. Committed as `0cf025d` and pushed to draft PR #382, whose description now
+  carries the same gate posture and the QA write-up.
 
 ### 2026-09-23 · the sign-off was refused, the mockup was the reason, and the redraw carried it
 - skills: implement, design-critique, design-handoff
