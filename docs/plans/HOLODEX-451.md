@@ -76,9 +76,9 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Gates — definition of done
 
-- [/] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`
+- [/] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`. Four deltas from the design still to apply (handoff's last table): no `+N`, Merge takes `btn-ghost` not `btn-quiet`, no fade, F68 `Videos`/`Films` anchors
 - [~] architecture `architecture` — n/a (Kevin, 2026-09-22): no endpoint, no migration, no cross-cutting decision; OQ1 closed without forcing one
-- [ ] design `design-handoff` — committed SVG mockup next to the handoff doc
+- [x] design `design-handoff` — `docs/design/duplicates-pair-evidence-handoff.md` + committed `duplicates-pair-evidence-mockup.svg` (5 panels, Cinémathèque + a Brutalist radius-0 panel). OQ2/OQ3/OQ4 all closed; sign-off happens at `/implement`
 - [~] backend — n/a for P0: the panel composes `GET /people/{id}/card` (F68) + `GET /people/{id}/images` (F26), both existing. P0 touches no Go code
 - [ ] frontend — disclosure in `DuplicatePairRow` + new `DuplicateComparePanel.svelte`; verdict emphasis swap
 - [ ] testing `testing-strategy`
@@ -87,15 +87,16 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/design-handoff` with a committed SVG mockup next to the handoff doc — answers OQ2 (`+N` in place vs navigate), OQ3 (keep the weak-signal labels?) and OQ4 (strip cap of 5)
-2. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
-3. [ ] [—] Build the frontend (P0 is frontend-only), then testing and security
-4. [ ] [—] Mark the PR ready only once every gate is green
+1. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
+2. [ ] [—] Apply the handoff's four spec deltas to `docs/specs/duplicates-pair-evidence.md`, then flip the spec gate to `[x]`
+3. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`
+4. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
+5. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-22 · brainstormed the gap, ruled out the hover card, shipped the probe
-- skills: product-brainstorming, implement, write-spec
+- skills: product-brainstorming, implement, write-spec, design-handoff
 - Kevin asked whether the new person hover card would fix the undecidable rows. Argued it
   would not — wrong shape of affordance for a comparison task — and put five treatments up as
   an inline mockup; he picked expand-to-compare on the strength of profile images. He then
@@ -113,3 +114,30 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 - handoff: nothing is blocked any more — start at `/write-spec` for the symmetric two-column
   panel with an image strip per side and the verdict emphasis swapped, then `/design-handoff`,
   then `/implement` to cross and open the draft PR.
+
+### 2026-09-22 · design handoff — the column is the F68 card laid flat
+- skills: design-handoff
+- **The organising idea:** each column is `PersonHoverCard`'s anatomy, same fields in the same
+  order with the same absent-is-absent rule, with a strip of five 44 px frames where its single
+  48 px headshot was. That makes RD2 concrete — the hover card was never the wrong *content*,
+  only the wrong *container*. Everything else in the panel falls out of reusing it.
+- All three open questions closed by Kevin against an inline mockup: **OQ2 — there is no `+N`
+  at all** (he rejected both the modal and the navigate; the strip is a sample, not an index),
+  **OQ3 keep both match-kind labels** in the collapsed row only, **OQ4 five frames at 44 px**
+  (`5 × 44 + 4 × 4 = 236` inside a 296 px column — measured, not guessed).
+- Four design calls the spec didn't make: Merge takes **`.btn-ghost`, not `.btn-quiet`** (that
+  class is documented as "no side effect" and Merge is irreversible); the link row **keeps F68's
+  `Videos`/`Films` anchors**, which is what stops the panel being a navigational dead end now
+  that `+N` is gone and the names are still `<span>`s; **each column is its own bordered card
+  with no divider between them**, because `--surface-2` is ~2 % off `--surface` in Cinémathèque
+  and the stacked layout would otherwise need a border-orientation flip `field-grid` can't
+  signal; and **no summary line in the footer** — a first draft had one and it was exactly the
+  cross-side adjudication RD3/RD4 forbid.
+- Three things the exploration turned up that the spec had wrong or missing: **the row never
+  fades** (`+page.svelte:47–49` is an unanimated filter; both the spec and the component's own
+  header comment claim a fade), **`app.css` names these two buttons by name** in the
+  `.btn-ghost`/`.btn-accent` doc comments so the swap makes them wrong, and **`api.videos({personId})`
+  does not exist** — the P1-0 co-appearance call would be `api.listMedia({ person: [id] })`.
+- handoff: design gate closed, artifacts committed. Next is `/implement` — put the mockup in
+  front of Kevin, record the sign-off, open the draft PR; then apply the four spec deltas listed
+  at the end of the handoff before building.
