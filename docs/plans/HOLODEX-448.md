@@ -29,7 +29,7 @@ ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
 - [x] backend — `-healthcheck` flag on `providers/tmdb/main.go` handled before credential validation,
   `resolvePort` shared by server and probe, `Dockerfile.provider-tmdb` runtime stage rebased.
   Verified locally (see session log).
-- [ ] frontend — n/a, no `web/**` change.
+- [~] frontend — **not applicable.** No `web/**` change; the sidecar has no UI.
 - [x] testing `testing-strategy` — `docs/testing-strategy.md` §15 + `TestResolvePort` /
   `TestRunHealthcheck` in `providers/tmdb/main_test.go` (mutation-checked), and
   `qa-tmdb-provider.md` §4 rewritten for the distroless runtime (4.5–4.8 added, all executed
@@ -46,16 +46,16 @@ ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [HOLODEX-448] **Kevin's call on `debug-nonroot` vs plain `nonroot`** — every other gate is
-   green, so this is what holds the PR at Draft. The busybox shell is the only reversible part of
-   D2; note it also supplies `wget`, so plain `nonroot` is the variant where D1's binary probe
-   stops being belt-and-braces and starts being load-bearing
-2. [ ] [HOLODEX-448] mark PR #379 ready once (1) lands, then hand-sweep 448 → In Review
-   (jira-sync fires on ready, but confirm — see the epic-keyed-branch caveat)
-3. [ ] [HOLODEX-448] on merge, sweep 448 to Done **by hand** and unblock
+1. [ ] [HOLODEX-448] Kevin's review of PR #379 (marked ready 2026-09-22; all gates green)
+2. [ ] [HOLODEX-448] on merge, sweep 448 to Done **by hand** and unblock
    [HOLODEX-450](https://whoiskevinrich.atlassian.net/browse/HOLODEX-450) (bookworm → trixie)
-4. [ ] [HOLODEX-446] consider closing testing-strategy §15.1's first gap — no CI test covers the
+3. [ ] [HOLODEX-446] consider closing testing-strategy §15.1's first gap — no CI test covers the
    container (nonroot, health transition, outbound TLS are all manual). Not filed yet
+
+> **Decided 2026-09-22 (Kevin): keep `debug-nonroot`.** The busybox shell stays. Don't re-propose
+> plain `nonroot` — it was weighed against this variant and declined. If it is ever revisited, the
+> thing that changes is that busybox's `wget` applet goes with it, which is what makes ADR-105 D1's
+> binary probe load-bearing rather than belt-and-braces.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -103,3 +103,12 @@ ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
   claim was corrected in both spec docs, the QA row that asserted "no shell utilities", and
   ADR-105 D2 (which now records why D1 is not optional). `curl` and `apt` are genuinely absent.
   Left: Kevin's look at `debug-nonroot` vs `nonroot` — the only thing holding the PR at Draft.
+
+### 2026-09-22 · marked ready
+- skills: —
+- handoff: **Kevin chose `debug-nonroot`** (recorded as a decision above — do not re-propose plain
+  `nonroot`). `frontend` flipped `[ ]` → `[~]`: the worklog gate treats `[ ]` and `[/]` as *open*
+  and only `[x]`/`[~]` pass, so an n/a gate left unticked would have failed the required check the
+  moment the PR left Draft. Branch was already level with main (`a610a33`), so no merge and no
+  risk of dropping the jira-sync ready event. PR #379 marked ready for review; all gates green,
+  CI green. Left: Kevin's review, then on merge sweep 448 → Done by hand and unblock HOLODEX-450.
