@@ -2742,3 +2742,47 @@ a test cannot settle).
 - `PlaylistsForVideo` and `CountPublicPlaylists` are proved only through the handler walk; a
   direct repo test would isolate a visibility-filter regression from a handler one.
 
+
+## 15. Provider sidecar container (HOLODEX-448, ADR-105)
+
+The TMDB sidecar ships on `gcr.io/distroless/static-debian12:debug-nonroot` and its Docker
+HEALTHCHECK is the binary's own `-healthcheck` flag rather than `wget`. Two things can now
+silently break that nothing else would catch: **a probe that disagrees with the server about the
+port** (the container reports unhealthy while serving correctly, and an operator's
+`depends_on: service_healthy` blocks Holodex from starting), and **a runtime base with no usable
+CA bundle** (every TMDB call fails `x509` at runtime, not at build). What is asserted where:
+
+**Unit — Go (`providers/tmdb/main_test.go`)**
+- `TestResolvePort` — the flag → `PORT` → `9100` precedence, all four combinations. This is the
+  one place the server bind and the probe agree (ADR-105 D1); re-deriving it at either call site
+  is what the test exists to prevent.
+- `TestRunHealthcheck` — both directions, because both are failures: a 200 exits 0, a 503 exits 1
+  (a sidecar that boots but cannot serve must not stay in rotation), and no listener exits 1
+  rather than hanging. It also asserts the probe requests **`/healthz` specifically** — any
+  200-returning path would otherwise pass. Mutation-checked: forcing `runHealthcheck` to always
+  return 0 fails the 503 case.
+
+**Container — manual, per base-image change (`docs/specs/qa-tmdb-provider.md` §4)**
+These cannot run in unit tests; they are the reason §4 exists and must be re-run whenever the
+runtime base moves:
+- uid is `65532(nonroot)`, not root.
+- `docker inspect … .State.Health.Status` reaches `healthy` on its own — the end-to-end proof
+  that the image's HEALTHCHECK invocation, not just the flag, works.
+- **A live outbound TLS call to TMDB succeeds.** The bar is an *application-layer* rejection:
+  with a deliberately invalid token the log must read `TMDB /3/search/movie returned 401`. An
+  `x509` error in that slot means the CA bundle is missing or stale — ADR-105's stated risk, and
+  the one failure a `/healthz` 200 would happily hide.
+
+### 15.1 Standing gaps
+
+- **No CI test covers the container at all.** Everything in the §4 list is manual. Trivy runs in
+  `provider-tmdb.yml`, but nothing asserts nonroot, health transition, or outbound TLS — a base
+  swap that broke any of them would reach `edge` and be caught only by a human running §4.
+- **The CA bundle is proved by one call to one host.** A bundle missing an intermediate that only
+  some TMDB image CDN presents would pass the `/resolve` check and fail on asset download.
+- **The probe's port precedence is unit-tested, but the HEALTHCHECK cannot see a `-port` passed
+  as a container argument** — it falls back to `PORT`, then 9100. Reviewed and accepted (not
+  fixable from a build-time `CMD`); there is no test because there is no behaviour to pin.
+- **Multi-arch is asserted by inspection, not execution.** The base publishes amd64 + arm64 and
+  CI builds both, but the arm64 image is never run — the nonroot uid and CA bundle are verified
+  on amd64 only.
