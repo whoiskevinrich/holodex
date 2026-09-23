@@ -84,18 +84,75 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 - [~] architecture `architecture` — n/a (Kevin, 2026-09-22): no endpoint, no migration, no cross-cutting decision; OQ1 closed without forcing one
 - [x] design `design-handoff` — `docs/design/duplicates-pair-evidence-handoff.md` + committed `duplicates-pair-evidence-mockup.svg` (5 panels, Cinémathèque + a Brutalist radius-0 panel). **Amended 2026-09-23**: panel 1 redrawn at real type sizes as single-line 40px rows, panel 2's well opens with the label. **Signed off by Kevin 2026-09-23 at `b340a94`** (`approved.design` in the frontmatter)
 - [~] backend — n/a for P0: the panel composes `GET /people/{id}/card` (F68) + `GET /people/{id}/images` (F26), both existing. P0 touches no Go code
-- [ ] frontend — disclosure in `DuplicatePairRow` + new `DuplicateComparePanel.svelte`; verdict emphasis swap
+- [x] frontend — `DuplicateComparePanel.svelte` (new), disclosure + verdict swap + label gate in
+  `DuplicatePairRow`, single-open/Escape/focus-after-resolve in `+page.svelte`, `imageId` on
+  `PersonImageFrame`, the two `app.css` doc comments, the `duplicates/CLAUDE.md` row. Built and
+  QA'd against a seeded two-pair fixture 2026-09-23; `npm run check` 0 errors, 415 tests pass
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — owner-gated surface; re-confirm the existing gate covers the new fields
 - [ ] `code-review high --fix`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Build the frontend (P0 is frontend-only) — the handoff's build checklist is the task list; note it also touches `+page.svelte` (first keyboard handling on that page) and the `.btn-ghost`/`.btn-accent` doc comments in `app.css`. **Three things the OQ3 reversal added:** drop `flex-wrap` from `DuplicatePairRow.svelte:77` (keep it on `:73`), gate the match-kind label at `:84–92` on `entity_type !== 'person'`, and export `matchKindLabel` so the panel reuses the strings rather than forking them
-2. [ ] [—] Settle the `CardLease` question in code: does `release()` evict or refcount? P0-5 ("reopening issues no second request") depends on the answer
-3. [ ] [—] Then testing and security; mark the PR ready only once every gate is green
+1. [ ] [—] `/testing-strategy` — update `docs/testing-strategy.md` and write the tests. The
+   behaviours QA'd by hand this session that want pinning: the `sm:flex-nowrap` boundary (one
+   line at ≥640px, wrapped below), the session cache issuing zero requests on reopen, the
+   per-side failure leaving both verdicts enabled, and the three-step focus landing after a
+   resolve. `personCard.test.ts` is the nearest model
+2. [ ] [—] `/security-review` — owner-gated surface; re-confirm the existing gate covers
+   `/people/{id}/card` and `/people/{id}/images` reached from this page
+3. [ ] [—] `/code-review high --fix`, then `gh pr ready` on #382 once every gate is green
+4. [ ] [—] Kevin's eyeball pass on the built panel in a prod skin before ready-for-review
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-23 · the frontend is built, and QA found three things the design could not have
+- skills: (none — straight build from the handoff's checklist), code-review
+- Built the whole P0 surface: `DuplicateComparePanel.svelte`, the disclosure + verdict swap +
+  label gate in `DuplicatePairRow`, single-open/Escape/focus-after-resolve in `+page.svelte`,
+  the two `app.css` doc comments, the `duplicates/CLAUDE.md` row.
+- **The `CardLease` question is answered: `release()` REFCOUNTS.** It decrements `waiters` and
+  aborts only while `controller` is still non-null — which it is only until the request settles.
+  A settled entry stays in the cache. So the panel holds its leases for its own lifetime and
+  releases on teardown: collapsing mid-flight cancels correctly, collapsing after the data
+  landed keeps the cache warm. That is recorded in the component's header comment.
+- **The design's build checklist was not sufficient for P0-5, and the browser is what caught it.**
+  `loadPersonCard` caches, but `api.getPersonImages` has no cache of its own — the network log
+  showed `/people/{id}/images` re-fetched on *every* reopen while `/card` was fetched once.
+  P0-5 held for half the payload. Added a matching module-level image cache in the panel's
+  `<script module>`, same contract (shared across panels, a rejected promise evicted so a retry
+  re-requests). Re-measured: zero requests of either kind on reopen.
+- **Dropping `flex-wrap` outright broke the phone row, and the handoff's escape hatch never
+  fired.** With `min-w-0` the inner block shrank to nothing instead of letting the ROOT wrap, so
+  at 375px both names collapsed to ellipses and the `shrink-0` meta spans overflowed their own
+  box and painted *under* the Keep-separate pill. Two changes fix it without touching the
+  signed-off desktop behaviour: `min-w-64` gives the block a floor so the root's `flex-wrap`
+  actually fires, and the inner block is `flex-wrap sm:flex-nowrap` — nowrap from 640px up (the
+  one-line truncating scan row P0-1 asks for), wrapping below it, where the meta spans together
+  outweigh the row. Measured after: 49px single-line rows with no overlap at 660px and 866px;
+  at 375px names render at full width in a taller row.
+- **Focus after resolving the last row in a group fell to `<body>`.** The group heading the
+  handoff names as the fallback is removed along with its own group when the group empties, so
+  there was nothing to land on. Added a third landing spot — the queue container, which always
+  survives and is what holds "No possible duplicates."
+- One shared component needed a prop the handoff assumed already existed: `PersonImageFrame`
+  serves by ROLE only, and the strip's slots 2–5 are gallery images by id. Added an optional
+  `imageId` so the strip still routes through it (P0-3) rather than hand-rolling a second frame.
+- QA'd against a seeded two-pair fixture (one `alias` pair → `text-warn`, one `mixed` →
+  `text-muted`; 6 images on one side to prove the 5-frame cap, a bare side for the placeholder
+  path). All three skins: radius 0 in Broadcast/Brutalist, the scanline lands on ten 44px frames
+  in Broadcast only, `--surface-2` well reads as a recess in each. Verified by measurement:
+  frames exactly 44×44, columns equal-width, stacked at 375px with each border intact and no
+  horizontal page scroll, Escape returns focus to its own disclosure, a second disclosure
+  collapses the first, a forced per-side failure shows one broken column with Retry while all
+  six verdict buttons stay enabled, and Retry recovers.
+- Both theming greps are clean for the changed files; `npm run check` 0 errors, 415 tests pass.
+  (Prettier is not in this repo's tooling — no config, no devDependency — so there is no format
+  gate to run.)
+- handoff: **the frontend gate is closed; the remaining gates are testing, security and
+  `/code-review high --fix`.** Start at `Up next` 1. Nothing is blocked. The three QA findings
+  above are the behaviours most worth pinning in tests, because none of them were visible from
+  the design and two only appeared at a specific viewport.
 
 ### 2026-09-23 · the sign-off was refused, the mockup was the reason, and the redraw carried it
 - skills: implement, design-critique, design-handoff
