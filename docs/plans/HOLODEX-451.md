@@ -76,28 +76,26 @@ at all). Scope call 2026-09-22: **panel first, detector follow-up.**
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` — blocked on the probe numbers (symmetric vs asymmetric panel)
-- [ ] architecture `architecture` — only if the panel needs a new endpoint rather than widening `/owner/duplicates`
+- [/] spec `write-spec` — F70, `docs/specs/duplicates-pair-evidence.md`
+- [~] architecture `architecture` — n/a (Kevin, 2026-09-22): no endpoint, no migration, no cross-cutting decision; OQ1 closed without forcing one
 - [ ] design `design-handoff` — committed SVG mockup next to the handoff doc
-- [ ] backend — evidence fields on the duplicates read
-- [ ] frontend — expand-to-compare panel in `DuplicatePairRow`
+- [~] backend — n/a for P0: the panel composes `GET /people/{id}/card` (F68) + `GET /people/{id}/images` (F26), both existing. P0 touches no Go code
+- [ ] frontend — disclosure in `DuplicatePairRow` + new `DuplicateComparePanel.svelte`; verdict emphasis swap
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — owner-gated surface; re-confirm the existing gate covers the new fields
 - [ ] `code-review high --fix`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/write-spec` — symmetric two-column panel, image strip per side, swapped verdict emphasis
-2. [ ] [—] Decide whether `architecture` is `[~]` n/a (likely: widen `/owner/duplicates` rather than a new endpoint)
-3. [ ] [—] `/design-handoff` with a committed SVG mockup next to the handoff doc
-4. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
-5. [ ] [—] Build backend + frontend, then testing and security
-6. [ ] [—] Mark the PR ready only once every gate is green
+1. [ ] [—] `/design-handoff` with a committed SVG mockup next to the handoff doc — answers OQ2 (`+N` in place vs navigate), OQ3 (keep the weak-signal labels?) and OQ4 (strip cap of 5)
+2. [ ] [—] `/implement` — puts the mockup in front of Kevin, records the sign-off, opens the draft PR
+3. [ ] [—] Build the frontend (P0 is frontend-only), then testing and security
+4. [ ] [—] Mark the PR ready only once every gate is green
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-22 · brainstormed the gap, ruled out the hover card, shipped the probe
-- skills: product-brainstorming, implement
+- skills: product-brainstorming, implement, write-spec
 - Kevin asked whether the new person hover card would fix the undecidable rows. Argued it
   would not — wrong shape of affordance for a comparison task — and put five treatments up as
   an inline mockup; he picked expand-to-compare on the strength of profile images. He then
