@@ -176,18 +176,29 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-23 — design phase, complete
-- skills: code-review
+### 2026-09-24 — crossed into build
+- skills: implement
 
-Renamed the branch from `claude/holodex-452-db79fe` to
-`HOLODEX-452-duplicates-shared-external-id` and fired **In Progress**. Reserved **F71** and
-checked **ADR-107** free. Traced the write paths, found the silent no-op and the ADR-096 D2
-collision, and reframed the ticket: it is not "add a name-free detector", it is "a dropped
-identity write has never been visible". Kevin answered four decisions (queue not merge;
-memo ⋈ spine; person+studio+film; asserter chip). Shipped ADR-107, spec F71, the design handoff
-plus a browser-measured SVG mockup, and `scripts/detect_shared_external_id.sql` — verified against
-a database built from all 50 migrations with a six-case fixture, including the false positive the
-ticket's original query would have produced.
+Reconstructed the branch state first: the previous entry's handoff was written as bold
+`**Handoff:**` rather than `- handoff:`, so the SessionStart detector read it as missing — and it
+was stale anyway, naming three things (probe §6, §8, OQ4) that `4e207fd`, `51c1145` and `260484e`
+had since closed. All three design gates settled, branch already on `origin`, `main` an ancestor
+(no merge needed). Put the design handoff and its committed SVG in front of Kevin; **approved**,
+recorded under `approved.design` pinned to `260484e`. Draft PR opened; the build gates are the
+ones still out.
+
+The PR guard then caught a second drift worth recording: **this session log had been written
+oldest-first**, but `parseWorklog` reads entries top-down and treats the *first* `###` as the
+newest (`flightplan/lib/worklog.mjs:337`) — so appending at the bottom hides a handoff from the
+guard and the SessionStart banner no matter how well it is written. Every other worklog in
+`docs/plans/` is newest-first. Reordered. **Prepend, never append.**
+
+- handoff: Design is signed off and the crossing is done — start building at `Up next` item 1,
+  P0-9 backfill first (the spine is historically sparse, so switching the P0-3 write-time guard on
+  ahead of it would surface almost nothing from 1700+ existing memos). Carry the guard's three
+  recorded traps into the code: `RowsAffected() == 0` is not the signal, the guard goes on
+  `Repo.AttachExternalID` and never the shared `attachExternalID`, and the check plus the queue
+  write stay in one `writeMu` critical section.
 
 ### 2026-09-23 (later) — host probe, and the detector was wrong
 
@@ -201,20 +212,15 @@ the new §8) and Kevin's answer to OQ4 stand between this and `/implement`. §8 
 still move work: if the attach almost never lands, a repair pass becomes P0 and HOLODEX-457 gets
 blocked behind it.
 
-### 2026-09-24 — crossed into build
-- skills: implement
+### 2026-09-23 — design phase, complete
+- skills: code-review
 
-Reconstructed the branch state first: the previous entry's handoff was written as bold
-`**Handoff:**` rather than `- handoff:`, so the SessionStart detector read it as missing — and it
-was stale anyway, naming three things (probe §6, §8, OQ4) that `4e207fd`, `51c1145` and `260484e`
-had since closed. All three design gates settled, branch already on `origin`, `main` an ancestor
-(no merge needed). Put the design handoff and its committed SVG in front of Kevin; **approved**,
-recorded under `approved.design` pinned to `260484e`. Draft PR opened; the build gates are the
-ones still out.
-
-- handoff: Design is signed off and the crossing is done — start building at `Up next` item 1,
-  P0-9 backfill first (the spine is historically sparse, so switching the P0-3 write-time guard on
-  ahead of it would surface almost nothing from 1700+ existing memos). Carry the guard's three
-  recorded traps into the code: `RowsAffected() == 0` is not the signal, the guard goes on
-  `Repo.AttachExternalID` and never the shared `attachExternalID`, and the check plus the queue
-  write stay in one `writeMu` critical section.
+Renamed the branch from `claude/holodex-452-db79fe` to
+`HOLODEX-452-duplicates-shared-external-id` and fired **In Progress**. Reserved **F71** and
+checked **ADR-107** free. Traced the write paths, found the silent no-op and the ADR-096 D2
+collision, and reframed the ticket: it is not "add a name-free detector", it is "a dropped
+identity write has never been visible". Kevin answered four decisions (queue not merge;
+memo ⋈ spine; person+studio+film; asserter chip). Shipped ADR-107, spec F71, the design handoff
+plus a browser-measured SVG mockup, and `scripts/detect_shared_external_id.sql` — verified against
+a database built from all 50 migrations with a six-case fixture, including the false positive the
+ticket's original query would have produced.
