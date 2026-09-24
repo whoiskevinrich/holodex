@@ -163,6 +163,23 @@ kept-separate pair, two videos sharing an id, and one pair colliding on two prov
 the disagreeing person pairs and the disagreeing studio pair are findings; the kept-separate pair
 is a finding the queue write suppresses; and the two-provider pair yields one queue row, not two.
 
+**Done** — `sharedExternalIDPairsSQL` in `internal/repo/shared_external_id.go`, a port of migration
+0052's steps 1–3 rather than of the probe script, because only 0052's version carries the
+tie-break-toward-agreement rule and the entity-exists guard. `claimant` is `MATERIALIZED` because it
+is self-joined. Two of the three rules that could silently pass are **mutation-checked**: dropping
+the spine half of the claimant union loses 3 of the 6 fixture pairs (it degenerates to a memo
+self-join), and dropping the `DO UPDATE … WHERE` makes an unchanged second sweep report 6 instead
+of 0.
+
+**The video/tag exclusion is enforced twice, independently** — by the explicit
+`entity_type IN (…)` on the memo scan and by the per-kind entity-exists guard, which enumerates
+exactly those three kinds and so drops a video or tag row for having no branch to match. Mutation
+testing showed either clause alone still excludes both kinds; removing **both** leaks exactly the
+video pair and the tag pair. Recorded in the code comment so neither is deleted as redundant: the
+`IN` list states the rule and keeps the correlated subquery off the video memos (the bulk of
+`entity_enrichment`), while the exists guard is what makes the exclusion structural. The same
+redundancy exists in migration 0052, by construction — it is the same query.
+
 **P0-2 — the queue row.** A finding writes `identity_review_queue (entity_type, id_lo, id_hi,
 variation = 'shared-external-id')` as an **upsert** —
 `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'`, RD8 — so
@@ -173,6 +190,10 @@ pair are readable from the entities themselves.
 *Acceptance*: running the sweep twice changes nothing on the second pass; a pair pre-queued as
 `punctuation` comes out as `shared-external-id`; a pair already `shared-external-id` is never
 demoted by a later `SeedIdentityReviewQueue` run.
+
+**Done** — `queueSharedExternalIDPair` in `internal/repo/shared_external_id.go`, the one writer both
+producers call. It returns rows written (1 for a new or upgraded pair, 0 when the row already said
+this) so the sweep can report an honest count.
 
 **P0-3 — the write-time guard.** `Repo.AttachExternalID` (`internal/repo/identity.go:274`) stops
 being a bare `INSERT OR IGNORE`. Under the `writeMu` it already takes, it reads the current owner;
@@ -225,8 +246,31 @@ boot (RD5).
 *Acceptance*: a boot on a library carrying a historical collision queues it and records one job
 run; the next boot records a run that inserted 0.
 
+**Done** — `Repo.SweepSharedExternalIDs` + `sweepSharedExternalIDs` in `cmd/holodex/main.go`, beside
+`seedIdentityReviewQueue`, ungated per RD5, recorded as `model.JobKindSharedIDSweep`
+(`"shared-id-sweep"`) with a bare count for detail. Best-effort: a failure is logged and never
+blocks startup. It reuses `queueSharedExternalIDPair` per pair rather than re-deriving a bulk write,
+so keep-separate and RD8's upgrade behave identically to the write-time guard by construction. Pairs
+are read into memory before any write — the set is tiny (17 on the live library) and it keeps a read
+cursor off a second pooled connection while writing.
+
+**Reporting 0 on an unchanged pass needed one addition:** RD8's upsert counts an update as an
+affected row, so a row already carrying `shared-external-id` would be re-reported on every boot. The
+`DO UPDATE` therefore carries its own
+`WHERE identity_review_queue.variation <> 'shared-external-id'`. Migration 0052 does not need it (on
+a first run no row can already hold the value) and is deliberately left alone.
+
+**The sweep queues; it never folds.** Repairing the spine was P0-9's job, and assigning a contested
+id to one claimant would be an adjudication (ADR-107 D3) — asserted by a test that the sweep leaves
+`entity_external_ids` untouched.
+
 **P0-5 — the exclusions are tests.** A video pair sharing a provider id produces no finding. A tag
 produces no finding. Both are named tests referencing ADR-107 D5, not comments.
+
+**Done** — at both producers. `TestSweepSharedExternalIDs` seeds a video pair and a tag pair sharing
+an id and asserts neither is queued; `TestAttachExternalIDGuardKindScope` asserts the guard queues
+studio and film but not tag, and that a contested tag id keeps its old silent-ignore behaviour.
+Video cannot reach the guard at all — `enrich.identityEntityType` stops it a layer up.
 
 **P0-6 — the row renders the chip.** `variation = 'shared-external-id'` renders an accent chip
 naming the provider (`tmdb says one person`) in place of the variation slug, in the row, for every
@@ -327,7 +371,9 @@ accident of insertion order.
 ## Data model
 
 **No schema change.** `identity_review_queue` gains a fourth `variation` value in an existing
-`TEXT` column; `detail` (0045) stays empty for it. One new `job_runs` kind constant.
+`TEXT` column; `detail` (0045) stays empty for it. One new `job_runs` kind constant —
+`model.JobKindSharedIDSweep` = `"shared-id-sweep"`. Nothing else registers a job kind: there is no
+allowlist and no frontend label map, so the kind string renders as-is on the activity surface.
 
 One **data-only migration**, `0052_backfill_entity_external_ids` — P0-9. It adds no table and no
 column; it writes rows into `entity_external_ids` and `identity_review_queue`. (This section read

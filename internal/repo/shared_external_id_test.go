@@ -203,3 +203,134 @@ func TestScanPathAttachStillSilent(t *testing.T) {
 		t.Errorf("people = %d, want 1 — the credit resolved, it did not create", n)
 	}
 }
+
+// TestSweepSharedExternalIDs is the every-boot reconciliation — spec F71 P0-1/P0-4/P0-5,
+// ADR-107 D1/D5/D6. Migration 0052 drains the historical backlog once; this keeps it
+// drained as enrichment keeps adding memos.
+//
+// The fixture seeds entity_enrichment with raw SQL rather than through UpsertEnrichment on
+// purpose: the stale-narrow-re-enrich case needs two DIFFERENT fetched_at values for one
+// (entity, provider), and two UpsertEnrichment calls in the same test would be free to land
+// on the same timestamp, turning a rule this asserts into a coin flip.
+func TestSweepSharedExternalIDs(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES
+		(1,'Ada Lovelace'),(2,'Grace Hopper'),(3,'Alan Turing'),(4,'Alonzo Church'),
+		(5,'Barbara Liskov'),(6,'Leslie Lamport'),(7,'Edsger Dijkstra'),(8,'Tony Hoare'),
+		(9,'Ken Thompson'),(10,'Dennis Ritchie')`)
+	mustExec(t, db, `INSERT INTO studios (id, name) VALUES
+		(100,'Spine Pictures'),(101,'Memo Pictures'),(102,'Other Memo Pictures')`)
+	mustExec(t, db, `INSERT INTO films (id, name, year) VALUES (200,'Film Alpha',2001),(201,'Film Beta',2002)`)
+	mustExec(t, db, `INSERT INTO tags (id, name) VALUES (300,'noir'),(301,'neo-noir')`)
+	mustExec(t, db, `INSERT INTO videos (id, file_path, indexed_at, file_mtime) VALUES
+		(1,'/m/a.mkv','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z'),
+		(2,'/m/b.mkv','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')`)
+
+	// The spine as it stands: two ids recorded.
+	mustExec(t, db, `INSERT INTO entity_external_ids (entity_type, entity_id, external_id) VALUES
+		('person',   3, 'prov1:p3'),
+		('person',   6, 'prov1:p6'),
+		('studio', 100, 'prov1:s1')`)
+
+	mustExec(t, db, `INSERT INTO entity_enrichment
+		(entity_type, entity_id, provider, field_key, value, external_id, fetched_at) VALUES
+		-- memo-to-memo, NO spine owner on either side: invisible to a spine-anchored join.
+		('person',  1, 'prov1', 'bio',    'x', 'prov1:p7',  '2026-03-01T00:00:00Z'),
+		('person',  2, 'prov1', 'bio',    'x', 'prov1:p7',  '2026-03-01T00:00:00Z'),
+		-- memo disagrees with the spine, which gives prov1:p3 to person 3.
+		('person',  4, 'prov1', 'bio',    'x', 'prov1:p3',  '2026-03-01T00:00:00Z'),
+		-- stale narrow re-enrich: the OLD memo names person 6's id, the NEWEST a free one.
+		('person',  5, 'prov1', 'bio',    'x', 'prov1:p6',  '2026-01-01T00:00:00Z'),
+		('person',  5, 'prov1', 'height', 'x', 'prov1:p5',  '2026-02-01T00:00:00Z'),
+		-- the filename-extract population memoizes '' by design (rule 1).
+		('person',  7, 'filename', 'bio', 'x', '',          '2026-03-01T00:00:00Z'),
+		-- a shape identityShaped rejects.
+		('person',  8, 'prov1', 'bio',    'x', 'nocolon',   '2026-03-01T00:00:00Z'),
+		-- contested, but the owner already dismissed the pair (rule 4).
+		('person',  9, 'prov1', 'bio',    'x', 'prov1:p9',  '2026-03-01T00:00:00Z'),
+		('person', 10, 'prov1', 'bio',    'x', 'prov1:p9',  '2026-03-01T00:00:00Z'),
+		-- THREE claimants on one studio id: spine owner 100 plus two memo holders.
+		('studio', 101, 'prov1', 'bio',   'x', 'prov1:s1',  '2026-03-01T00:00:00Z'),
+		('studio', 102, 'prov1', 'bio',   'x', 'prov1:s1',  '2026-03-01T00:00:00Z'),
+		-- film is in scope (ADR-107 D5).
+		('film',   200, 'prov1', 'bio',   'x', 'prov1:f1',  '2026-03-01T00:00:00Z'),
+		('film',   201, 'prov1', 'bio',   'x', 'prov1:f1',  '2026-03-01T00:00:00Z'),
+		-- VIDEO IS EXCLUDED BY CONSTRUCTION (P0-5): two files of one movie sharing a
+		-- provider id is correct, not a duplicate. On the live library this alone would
+		-- have produced 23 wrong findings — more than there are right ones.
+		('video',    1, 'prov1', 'bio',   'x', 'prov1:v1',  '2026-03-01T00:00:00Z'),
+		('video',    2, 'prov1', 'bio',   'x', 'prov1:v1',  '2026-03-01T00:00:00Z'),
+		-- TAG IS EXCLUDED (P0-5): it is not enrichable, so a contested tag id is not the
+		-- owner-mis-pick this feature reports.
+		('tag',    300, 'prov1', 'bio',   'x', 'prov1:t1',  '2026-03-01T00:00:00Z'),
+		('tag',    301, 'prov1', 'bio',   'x', 'prov1:t1',  '2026-03-01T00:00:00Z')`)
+
+	mustExec(t, db, `INSERT INTO entity_keep_separate (entity_type, id_lo, id_hi) VALUES ('person',9,10)`)
+	// Already queued by the NAME detector as the weaker variation — RD8 upgrades it.
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+		VALUES ('person',1,2,'punctuation')`)
+
+	written, err := r.SweepSharedExternalIDs(ctx)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if written != 6 {
+		t.Errorf("sweep wrote %d rows, want 6 (5 new pairs + 1 upgraded)", written)
+	}
+
+	pairs := readReviewQueue(t, db)
+	for _, want := range []reviewPair{
+		{model.EnrichEntityPerson, 1, 2, "shared-external-id"},     // memo-to-memo, upgraded
+		{model.EnrichEntityPerson, 3, 4, "shared-external-id"},     // memo vs spine
+		{model.EnrichEntityStudio, 100, 101, "shared-external-id"}, // the clique: all three
+		{model.EnrichEntityStudio, 100, 102, "shared-external-id"}, // pairs, including the
+		{model.EnrichEntityStudio, 101, 102, "shared-external-id"}, // memo-to-memo one
+		{model.EnrichEntityFilm, 200, 201, "shared-external-id"},
+	} {
+		if !hasPair(pairs, want) {
+			t.Errorf("pair %+v not queued", want)
+		}
+	}
+	if len(pairs) != 6 {
+		t.Errorf("queue rows = %d, want exactly 6: %+v", len(pairs), pairs)
+	}
+
+	// The exclusions, as assertions rather than comments.
+	for _, none := range []struct {
+		what   string
+		et     string
+		lo, hi int64
+	}{
+		{"two files of one movie sharing a provider id", model.EnrichEntityVideo, 1, 2},
+		{"two tags sharing a provider id", model.EntityTag, 300, 301},
+		{"the stale narrow re-enrich", model.EnrichEntityPerson, 5, 6},
+		{"a pair the owner keeps separate", model.EnrichEntityPerson, 9, 10},
+	} {
+		for _, p := range pairs {
+			if p.entityType == none.et && p.idLo == none.lo && p.idHi == none.hi {
+				t.Errorf("%s was queued as %q", none.what, p.variation)
+			}
+		}
+	}
+
+	// The sweep QUEUES; it never folds. Repairing the spine was migration 0052's job, and
+	// assigning a contested id to one claimant would be an adjudication (ADR-107 D3).
+	if n := rowCount(t, db, "entity_external_ids"); n != 3 {
+		t.Errorf("spine rows = %d, want the 3 seeded — the sweep must not write identity", n)
+	}
+
+	// Idempotent: an unchanged library writes nothing on the next boot, so the activity
+	// row reads 0 rather than re-reporting every pair forever.
+	written, err = r.SweepSharedExternalIDs(ctx)
+	if err != nil {
+		t.Fatalf("second sweep: %v", err)
+	}
+	if written != 0 {
+		t.Errorf("second sweep wrote %d rows, want 0", written)
+	}
+	if n := len(readReviewQueue(t, db)); n != 6 {
+		t.Errorf("queue rows after the second sweep = %d, want 6", n)
+	}
+}

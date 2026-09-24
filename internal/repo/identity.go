@@ -321,53 +321,10 @@ func (r *Repo) AttachExternalID(ctx context.Context, entityType string, entityID
 	case owner == entityID:
 		return nil // inserted just now, or this entity already held it — the common case
 	}
-	return queueSharedExternalIDPair(ctx, r.db, entityType, owner, entityID)
-}
-
-// sharedExternalIDKind reports whether a contested provider id on this kind is a
-// reviewable duplicate (ADR-107 D5). Person, studio and film share the one enrich path
-// and the one spine table. Video has no spine row and two files of one movie
-// legitimately carry the same provider id; tag is not enrichable.
-func sharedExternalIDKind(entityType string) bool {
-	switch entityType {
-	case model.EnrichEntityPerson, model.EnrichEntityStudio, model.EnrichEntityFilm:
-		return true
-	}
-	return false
-}
-
-// queueSharedExternalIDPair records two entities of one kind that both claim a provider
-// external id, for the owner to merge or dismiss (F71 P0-2). Shared by both producers:
-// AttachExternalID's write-time guard above and the boot sweep.
-//
-// Ordered id_lo/id_hi so the same pair reached from either direction is one row, and gated
-// on entity_keep_separate so a pair the owner has already dismissed is never re-proposed
-// (F43 RD5 / ADR-061's durable no — and a refresh sweep would otherwise nag on every run).
-//
-// The upsert UPGRADES a weaker variation rather than leaving it (spec RD8). A pair can be
-// both a shared-id finding and a name near-miss — 1 of the 15 found on the live library was
-// — and under a plain INSERT OR IGNORE that pair would keep a label the queue renders as
-// *weak* and sort in the fuzzy band, which is the opposite of what this evidence means. It
-// is a one-way ratchet: SeedIdentityReviewQueue and queueProviderAliasPair both write with
-// INSERT OR IGNORE, so nothing can demote a row back. `detail` stays unset (0045): unlike
-// provider-alias, both sides of this pair are readable from the entities themselves.
-func queueSharedExternalIDPair(ctx context.Context, ex execer, entityType string, a, b int64) error {
-	lo, hi := orderPair(a, b)
-	// The WHERE clause is also what lets the upsert parse after a SELECT — without one,
-	// SQLite can read the ON CONFLICT as a join constraint.
-	_, err := ex.ExecContext(ctx, `
-		INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
-		SELECT ?, ?, ?, 'shared-external-id'
-		WHERE NOT EXISTS (
-			SELECT 1 FROM entity_keep_separate ks
-			 WHERE ks.entity_type = ? AND ks.id_lo = ? AND ks.id_hi = ?)
-		ON CONFLICT (entity_type, id_lo, id_hi)
-		  DO UPDATE SET variation = 'shared-external-id'`,
-		entityType, lo, hi, entityType, lo, hi)
-	if err != nil {
-		return fmt.Errorf("queue shared-external-id pair (%s): %w", entityType, err)
-	}
-	return nil
+	// The queue write, the kind predicate and the boot sweep that shares them live in
+	// shared_external_id.go.
+	_, err := queueSharedExternalIDPair(ctx, r.db, entityType, owner, entityID)
+	return err
 }
 
 // ExactEntityMatch reports whether name resolves to an existing Person/Studio

@@ -153,10 +153,12 @@ OQ2 repair pass makes the number stop being small.
       sizes (no row collisions, gaps match the component's `gap-x-2`). **Chip vs. raw slug chosen
       by Kevin 2026-09-23; sign-off on the artifact itself is still outstanding** — `/implement`
       records it
-- [ ] backend — **done: P0-9** (migration `0052_backfill_entity_external_ids`), **P0-3** (the
-      write-time guard + `queueSharedExternalIDPair`, the shared queue writer P0-2 specifies),
-      **P0-7** (both stale comments). Open: **P0-1 / P0-4** (detector + boot sweep, which reuse the
-      writer), **P0-5**'s detector-side exclusions, **P0-8** the sort tiebreak
+- [ ] backend — **P0-9** (migration `0052_backfill_entity_external_ids`), **P0-3** (the write-time
+      guard), **P0-2** (`queueSharedExternalIDPair`, the one writer both producers call), **P0-7**
+      (both stale comments), **P0-1 + P0-4** (`sharedExternalIDPairsSQL` +
+      `Repo.SweepSharedExternalIDs`, wired ungated in `cmd/holodex/main.go` as
+      `shared-id-sweep`), **P0-5** (video and tag excluded, asserted at both producers).
+      **P0-8** — the sort tiebreak — is the one backend item left
 - [ ] frontend — P0-6 (one chip keyed on `variation`; three-skin QA in the handoff)
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
@@ -164,15 +166,12 @@ OQ2 repair pass makes the number stop being small.
 ## Up next — ordered (position = priority)
 
 1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
-2. ~~P0-3, the write-time guard.~~ **Done 2026-09-24**, with P0-2's shared writer and P0-7.
-   All three traps held. **Next: P0-1 + P0-4 — the detector and the boot sweep.** They reuse
-   `queueSharedExternalIDPair` as-is (RD8 upsert, keep-separate gate, ordered pair). The detector's
-   claimant-set SQL already exists twice — in `scripts/detect_shared_external_id.sql` §1 and in
-   migration 0052 steps 1–3 — so the Go version is a port, not a new derivation; take 0052's, which
-   is the one with the tie-break-toward-agreement rule and the entity-exists guard. Wire the sweep
-   beside `seedIdentityReviewQueue` in `cmd/holodex/main.go` with its own `job_runs` kind, ungated
-   (RD5). Then P0-8 (a one-line `ORDER BY` tiebreak in `ListReviewPairs` — non-fuzzy rows already
-   sort at `-1`, so `shared-external-id` just needs `-2`) and P0-6 (the chip).
+2. ~~P0-3 the guard; P0-1 + P0-4 the detector and boot sweep.~~ **All done 2026-09-24**, with
+   P0-2's shared writer, P0-5's exclusions and P0-7. **Next, and the backend is then closed:
+   P0-8** — a one-line `ORDER BY` tiebreak in `ListReviewPairs` (`internal/repo/review_queue.go`).
+   Non-fuzzy variations already pass through untouched and sort at `-1`, so `shared-external-id`
+   only needs `-2` ahead of `provider-alias`/`same-title`. Then **P0-6**, the chip (frontend), and
+   the testing + security gates.
 3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
    spec **RD8**, which amends P0-2. The write is
    `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
@@ -194,7 +193,44 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-24 (latest) — P0-3, the write-time guard
+### 2026-09-24 (latest) — P0-1 + P0-4, the every-boot sweep
+- skills: code-review
+
+The detector is `sharedExternalIDPairsSQL` in the new `internal/repo/shared_external_id.go` (which
+also took the two F71 helpers out of `identity.go`, keeping that file about the spine resolve).
+`Repo.SweepSharedExternalIDs` reads the pairs, then writes each through
+`queueSharedExternalIDPair` — reusing the writer rather than re-deriving a bulk upsert, so
+keep-separate and RD8's upgrade behave identically to the write-time guard by construction. Wired in
+`cmd/holodex/main.go` beside `seedIdentityReviewQueue`, **ungated** (RD5), as `shared-id-sweep`.
+Nothing else had to be registered — job kinds have no allowlist and no frontend label map.
+
+**One thing the sweep needed that the migration did not:** RD8's upsert counts an UPDATE as an
+affected row, so a pair already carrying `shared-external-id` would be re-reported on every boot and
+the activity row would never read 0. The `DO UPDATE` now carries its own
+`WHERE identity_review_queue.variation <> 'shared-external-id'`. 0052 doesn't need it — on a first
+run no row can already hold the value — so that migration is deliberately untouched.
+
+**Mutation testing found something worth recording.** Two rules are load-bearing and proven so:
+dropping the spine half of the claimant union loses 3 of the 6 fixture pairs (it degenerates to the
+memo self-join ADR-107 D1 rejected), and dropping the upsert's `WHERE` makes a second sweep report 6
+instead of 0. But the third — **the video/tag exclusion — is enforced twice, and neither clause alone
+is detectable.** Removing the explicit `entity_type IN (…)` still excludes both kinds, because the
+per-kind entity-exists guard enumerates exactly person/studio/film and a video row has no branch to
+match; removing the guard alone is likewise covered by the `IN` list. Only removing **both** leaks
+the video pair and the tag pair. Both stay, and the code comment now says which does what — the `IN`
+list states the rule and keeps the correlated subquery off the video memos (the bulk of
+`entity_enrichment`), the exists guard makes the exclusion structural. Same redundancy in 0052, by
+construction.
+
+- handoff: the backend is one line from done — **P0-8**, the sort tiebreak in `ListReviewPairs`
+  (`internal/repo/review_queue.go`): non-fuzzy variations already pass through and sort at `-1`, so
+  `shared-external-id` needs `-2` to land ahead of `provider-alias`/`same-title`. After that it is
+  **P0-6** (the chip, frontend, three-skin QA per the design handoff) and then the testing and
+  security gates — at which point the Draft PR can be marked ready. Note when writing P0-6 that the
+  chip keys on `variation`, a sibling of `MATCH_KIND_LABEL` rather than an entry in it, because that
+  map is keyed on the derived `match_kind` (which is `''` for every non-fuzzy row).
+
+### 2026-09-24 (earlier) — P0-3, the write-time guard
 - skills: code-review
 
 `Repo.AttachExternalID` stops being a silent `INSERT OR IGNORE`. Under the `writeMu` it already
