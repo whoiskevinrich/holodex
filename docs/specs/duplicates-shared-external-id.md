@@ -93,7 +93,7 @@ records.
 | Adding `UNIQUE` to the memo column | Converts a silent no-op into a failed enrich, the opposite of ADR-088's queue-don't-fail posture, and cannot express the legitimate video case |
 | A compare panel for studio / film | F70 RD10 scoped it to person deliberately |
 | Queueing videos | Two files of one movie legitimately share a provider id. Excluded by construction, with a named test |
-| Backfilling the missing spine rows | Repairing `entity_external_ids` is a merge decision, not a sweep's to make. The probe sizes it (§7); it does not act on it |
+| ~~Backfilling the missing spine rows~~ | **No longer a non-goal.** Written when the gap was assumed small; the host probe measured 511 of 1000 enriched people with no spine row and promoted it to **P0-9**. The reasoning that survives is narrower and still binding: repairing a **contested** id is a merge decision, so the backfill folds only the uncontested ones |
 
 ## Resolved Decisions
 
@@ -208,19 +208,46 @@ hold a memo whose id the spine has never recorded, because no migration ever fol
 (OQ2). A detector that pairs claimants cannot see a duplicate whose *other* side was never written
 down, so this is coverage, not tidy-up.
 
-A migration folds `entity_enrichment.external_id` into `entity_external_ids` for
-`entity_type != 'video'` where `identityShaped` holds, taking the newest memo per
+Migration **`0052_backfill_entity_external_ids`** (data only, no schema change) folds
+`entity_enrichment.external_id` into `entity_external_ids` for `entity_type IN
+('person','studio','film')` where `identityShaped` holds, taking the newest memo per
 `(entity, provider)` (P0-1's rule 2). **An id that two entities claim goes to the review queue as
 `shared-external-id` rather than being dropped** — the backfill is the single largest producer of
 P0-2 rows, and an `INSERT OR IGNORE` here would silently discard exactly the signal this feature
-exists to surface.
+exists to surface. It is also the one moment that evidence is made durable: the queue row outlives
+HOLODEX-457's drop of the memo column, which is what the boot sweep reads.
 
 **Ordering is load-bearing: P0-9 lands before P0-3.** The gap is overwhelmingly historical, so a
 write-time guard switched on first would find almost nothing. It must also land before
 **HOLODEX-457**, which would delete the only record those ids have.
 
+Four rules the implementation settled, each a named case in
+`internal/db/external_ids_backfill_test.go`:
+
+1. **A contested id is left UNOWNED.** The spine PK gives an id exactly one owner per kind, so
+   writing a row for one of two claimants decides which entity the provider record names — and
+   id-first resolve (`resolveOrCreateByName` step 1) would then route every future credit carrying
+   that id to whichever side the migration picked. That is an adjudication, and ADR-107 D3 forbids
+   it: the colliding data came from an owner's mis-click, so the newest memo is not evidence of the
+   right answer. The pair is queued instead and the owner's merge assigns the id. This is the
+   named rule the acceptance criterion's second clause allows.
+2. **The entity-exists guard is explicit.** `entity_external_ids` is polymorphic and carries no FK,
+   so a memo whose entity was deleted before its enrichment rows were swept would become an orphan
+   spine row. Checked per kind against `people` / `studios` / `films`.
+3. **The shape test matches `identityShaped`, cut at the first colon** — `<ns>:<id>` with both
+   halves present. A slug id whose own half contains a colon (`<ns>:performer:Some_Name`, which one
+   live provider mints) passes, as it does in Go.
+4. **The down migration is asymmetric, on 0044's precedent.** It deletes the
+   `shared-external-id` queue rows — that variation did not exist before 0052, so all of them are
+   this feature's — and **leaves the folded spine rows**: once written they are indistinguishable
+   from the rows `attachExternalID` produces on the scan path (same shape, same meaning, no
+   provenance column), so reconstructing which came from the memo would have to guess, and guessing
+   wrong deletes an identity the owner asserted. Re-applying is a no-op on them.
+
 *Acceptance*: after the pass, §8b's `with_any_spine_row` equals `enriched_entities` for person and
-film, or every remaining gap is explained by a named, tested rule.
+film, or every remaining gap is explained by a named, tested rule (rules 1–3 above are those
+rules). Down-then-up leaves the spine byte-identical and restores exactly the queue rows the down
+removed — no duplicate spine row, and no pair whose existing variation was overwritten.
 
 **P0-8 — the sort tiebreak.** `shared-external-id` sorts above `provider-alias` and `same-title`,
 which today share the non-fuzzy `-1` slot with no tiebreak
@@ -257,8 +284,12 @@ accident of insertion order.
 
 ## Data model
 
-No migration. `identity_review_queue` gains a fourth `variation` value in an existing `TEXT`
-column; `detail` (0045) stays empty for it. One new `job_runs` kind constant.
+**No schema change.** `identity_review_queue` gains a fourth `variation` value in an existing
+`TEXT` column; `detail` (0045) stays empty for it. One new `job_runs` kind constant.
+
+One **data-only migration**, `0052_backfill_entity_external_ids` — P0-9. It adds no table and no
+column; it writes rows into `entity_external_ids` and `identity_review_queue`. (This section read
+"No migration" until P1-1 was promoted to P0-9 on the host measurement.)
 
 ## API
 
@@ -274,10 +305,14 @@ QA list are in the [design handoff](../design/duplicates-shared-external-id-hand
 
 ## Success Metrics
 
-- The 6 measured person collisions are queued and decidable; the number of undetected collisions
-  stops growing.
-- The set is disjoint from the name-based queue (probe §3 returns 0) — this is new coverage, not
-  a re-cut of what is already there.
+- The 10 measured person collisions and 7 studio ones are queued and decidable; the number of
+  undetected collisions stops growing.
+- The set is **near**-disjoint from the name-based queue — probe §3 returned **1**, not 0, so this
+  is new coverage rather than a re-cut, but one pair is both a shared-id finding and a punctuation
+  near-miss. That pair keeps its existing weaker `variation`, because every producer writes with
+  `INSERT OR IGNORE` (P0-2), so it renders the near-miss label and sorts in the fuzzy band. Open:
+  whether a shared-id finding should *upgrade* an existing row's variation — one decision for all
+  three producers, not per-producer.
 - No false positive from a stale narrow re-enrich (probe §4a > 0 with §1 unaffected by it).
 
 ## Open Questions

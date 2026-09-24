@@ -153,31 +153,80 @@ OQ2 repair pass makes the number stop being small.
       sizes (no row collisions, gaps match the component's `gap-x-2`). **Chip vs. raw slug chosen
       by Kevin 2026-09-23; sign-off on the artifact itself is still outstanding** — `/implement`
       records it
-- [ ] backend — P0-1 … P0-5, P0-7, P0-8
+- [ ] backend — **P0-9 done** (migration `0052_backfill_entity_external_ids` + its named-case test);
+      P0-1 … P0-5, P0-7, P0-8 open
 - [ ] frontend — P0-6 (one chip keyed on `variation`; three-skin QA in the handoff)
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. **Build in P0 order, which the data now fixes: P0-9 backfill → P0-3 guard → the rest.**
-   The guard has three traps recorded in the spec — `RowsAffected() == 0` is *not* the signal
-   (benign re-enrich idempotence would flood the queue), the guard belongs on
+1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
+2. **P0-3, the write-time guard.** Three traps recorded in the spec — `RowsAffected() == 0` is
+   *not* the signal (benign re-enrich idempotence would flood the queue), the guard belongs on
    `Repo.AttachExternalID` and never on the shared `attachExternalID`, and the check plus queue
    write must stay inside the one `writeMu` critical section (no `AttachExternalIDLocked` exists).
-2. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
+   Then P0-1/P0-2/P0-4 (detector + sweep), P0-7, P0-8, P0-6.
+3. **Decide the variation-upgrade question — once, for all three producers.** A pair that is both
+   a shared-id finding and a name near-miss keeps its *weaker* variation, because P0-2 specifies
+   `INSERT OR IGNORE` and the migration honors that. The host probe's §3 found exactly 1 such pair
+   out of 15. Consequence: that pair renders the near-miss label and sorts in the fuzzy band, which
+   is the precise failure P0-8 exists to prevent. The alternative is a one-line
+   `ON CONFLICT … DO UPDATE SET variation = 'shared-external-id'` — a one-way ratchet, since the
+   name detector's own `INSERT OR IGNORE` can never demote it. **Do not implement it in one
+   producer only**; recorded in the spec's Success Metrics.
+4. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
    (`kept_separate = 1`) — spec P1-2.
-3. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
+5. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
    re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
-4. ~~`/implement` to cross into build.~~ Done 2026-09-24 — Kevin signed off on the design handoff
+   **Still blocked, but the block is now partial:** 0052 has made the spine the record for every
+   *uncontested* id, so 457 would no longer destroy those. A **contested** id is deliberately left
+   unowned (spec P0-9 rule 1), and for those the queue row — not the memo — is the surviving
+   evidence. 457 must not run before the contested pairs are worked.
+6. ~~`/implement` to cross into build.~~ Done 2026-09-24 — Kevin signed off on the design handoff
    at `260484e`; Draft PR open.
-5. On merge: 452 is a **Task**, not an Epic, so CI fires its Jira transitions itself — no hand
+7. On merge: 452 is a **Task**, not an Epic, so CI fires its Jira transitions itself — no hand
    sweep needed (same as 451).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-09-24 (later) — P0-9, the spine backfill
+- skills: code-review
+
+Shipped **migration `0052`** (0052 was free — checked every local and remote branch, and `main` is
+at 0051). Data-only: no table, no column, just rows into `entity_external_ids` and
+`identity_review_queue`. Being a migration is what buys the ordering the ADR calls load-bearing —
+migrations run before the enrich service exists, so P0-9 cannot race P0-3's guard or P0-4's sweep.
+
+**The decision this session actually made: a contested id is left UNOWNED.** The spine PK gives an
+id one owner per kind, so folding one of two claimants would decide which entity the provider record
+names — and id-first resolve would then route every future credit that way. That is adjudication,
+which ADR-107 D3 forbids; the pair is queued instead and the owner's merge assigns the id. Three
+supporting rules landed with it (explicit entity-exists guard, since `entity_external_ids` has no FK;
+`identityShaped` cut at the first colon so a slug id with a colon in its own half passes; an
+asymmetric down on 0044's precedent — review rows deleted, folded spine rows left, because they are
+indistinguishable from what `attachExternalID` writes).
+
+`internal/db/external_ids_backfill_test.go` names all fourteen fixture cases — the probe's seven
+plus the three-claimant clique, the memo-only contest, the three unshaped id shapes, and the orphan
+memo. **Mutation-checked the one rule that could have silently passed:** inverting the
+fetched_at-tie preference (agree-with-spine `DESC` → `ASC`) makes the test fail on exactly the pair
+it should, so rule 2's tiebreak is genuinely exercised rather than incidentally satisfied.
+
+Three stale spec statements fixed in the same commit, all contradicting P0-9: Data model said "No
+migration"; Non-Goals still listed the backfill as out of scope; Success Metrics claimed probe §3
+returns 0 when the host measured 1.
+
+- handoff: P0-9 is done and pushed; next is **P0-3, the write-time guard**, carrying its three
+  recorded traps (`RowsAffected() == 0` is not the signal; guard `Repo.AttachExternalID` never the
+  shared `attachExternalID`; check + queue write in one `writeMu` critical section). Before writing
+  P0-2's queue helper, get Kevin's answer on **`Up next` item 3** — whether a shared-id finding
+  should *upgrade* an existing weaker `variation` — because it has to be one answer for all three
+  producers, and the migration currently honors P0-2's literal `INSERT OR IGNORE`, which leaves 1
+  host pair rendering the near-miss label in the fuzzy sort band.
+
 ### 2026-09-24 — crossed into build
-- skills: implement
+- skills: implement, code-review
 
 Reconstructed the branch state first: the previous entry's handoff was written as bold
 `**Handoff:**` rather than `- handoff:`, so the SessionStart detector read it as missing — and it
