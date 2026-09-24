@@ -4,6 +4,9 @@
 key: HOLODEX-452
 status: in-progress
 approved:
+  design:
+    on: 2026-09-24
+    at: 260484e
 release_note: A provider that says two of your people are the same record now shows up in the Duplicates queue, ranked above the name-guesses and labelled with who said it — and a mis-picked entity in the enrich screen queues the pair instead of silently dropping the identity write.
 ---
 
@@ -166,8 +169,8 @@ OQ2 repair pass makes the number stop being small.
    (`kept_separate = 1`) — spec P1-2.
 3. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
    re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
-4. `/implement` to cross into build — it puts the design handoff in front of Kevin and records the
-   sign-off, then opens the Draft PR.
+4. ~~`/implement` to cross into build.~~ Done 2026-09-24 — Kevin signed off on the design handoff
+   at `260484e`; Draft PR open.
 5. On merge: 452 is a **Task**, not an Epic, so CI fires its Jira transitions itself — no hand
    sweep needed (same as 451).
 
@@ -197,3 +200,21 @@ the memo⇔memo pair of a three-claimant id. D1 now pairs the whole claimant set
 the new §8) and Kevin's answer to OQ4 stand between this and `/implement`. §8 is the one that can
 still move work: if the attach almost never lands, a repair pass becomes P0 and HOLODEX-457 gets
 blocked behind it.
+
+### 2026-09-24 — crossed into build
+- skills: implement
+
+Reconstructed the branch state first: the previous entry's handoff was written as bold
+`**Handoff:**` rather than `- handoff:`, so the SessionStart detector read it as missing — and it
+was stale anyway, naming three things (probe §6, §8, OQ4) that `4e207fd`, `51c1145` and `260484e`
+had since closed. All three design gates settled, branch already on `origin`, `main` an ancestor
+(no merge needed). Put the design handoff and its committed SVG in front of Kevin; **approved**,
+recorded under `approved.design` pinned to `260484e`. Draft PR opened; the build gates are the
+ones still out.
+
+- handoff: Design is signed off and the crossing is done — start building at `Up next` item 1,
+  P0-9 backfill first (the spine is historically sparse, so switching the P0-3 write-time guard on
+  ahead of it would surface almost nothing from 1700+ existing memos). Carry the guard's three
+  recorded traps into the code: `RowsAffected() == 0` is not the signal, the guard goes on
+  `Repo.AttachExternalID` and never the shared `attachExternalID`, and the check plus the queue
+  write stay in one `writeMu` critical section.
