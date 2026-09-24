@@ -38,15 +38,37 @@ Measured on the live library **2026-09-23** (`scripts/detect_shared_external_id.
 **17 pairs, 12 new, and exactly one already in the name-based queue** — so this is near-disjoint
 new coverage. **Two of those pairs are visible only because P0-1 pairs the whole claimant set**:
 they have no spine owner on either side and were found memo-to-memo, which is not an edge case but
-a direct consequence of how sparse the spine turns out to be (below). Meanwhile all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the
+a direct consequence of how sparse the spine turns out to be (below).
+
+Meanwhile all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the
 current detector produces. The owner is working a queue of near-certain false positives while the
 near-certain true positives are invisible.
 
-Two numbers from the same run set the shape of the work. Excluding `video` suppressed **23** ids
-shared by multiple files — more wrong findings than there are right ones, which is why that
-exclusion is a named test rather than a comment. And **1219 person memo/provider pairs carry an id
-with no `entity_external_ids` row at all** (plus 28 for film): the same dropped write, in its
-larger and quieter form.
+Excluding `video` suppressed **23** ids shared by multiple files — more wrong findings than there
+are right ones, which is why that exclusion is a named test rather than a comment.
+
+And the identity spine is **far sparser than the memo layer**:
+
+| kind | provider | memos | id also in `entity_external_ids` |
+|---|---|---|---|
+| studio | provider-3 | 436 | **436 — 100%** |
+| person | provider-3 | 960 | 491 — 51% |
+| person | provider-1 | 851 | **101 — 12%** |
+| film | provider-3 | 45 | 17 — 38% |
+
+Only **489 of 1000** enriched people hold any spine row at all. This is a **separate problem from
+the silent no-op below, and a historical one** — not the same write being dropped at scale. The
+enrich-path attach did not exist until `28e2540` (F60, **2026-09-15**), eight days before the
+probe. Studio's 100% comes from a *different writer*: `ReconcileVideoStudios` →
+`resolveOrCreateByName` → `attachExternalID`, fed by the `_studio_external_ids` sidecar since
+`746a5ac` (ADR-054, **2026-07-02**), which re-derives on every relink — and a studio with no video
+link is pruned, so every surviving studio has been through it. Person has the same mirror
+(`ReconcileVideoPeople`'s `extIDByName`) but its contract is explicitly optional, and an id-less
+person is orphan-stamped rather than pruned, so it persists indefinitely. Film's 38% is the same
+cutoff: it had no identity table before 0046, which backfilled nothing for it.
+
+**No migration has ever read `entity_enrichment.external_id` into the spine** — 0018, 0038 and 0046
+each declined. That is P0-9, and it has to run before everything else.
 
 The cost of not fixing it compounds: the collisions are produced by a **silent no-op**
 (`internal/repo/identity.go:258`, see ADR-107 Context), so their number only grows, and every one
@@ -136,15 +158,32 @@ from the entities themselves.
 
 *Acceptance*: running the sweep twice inserts on the first pass and reports 0 on the second.
 
-**P0-3 — the write-time guard.** `Repo.AttachExternalID` stops being a bare `INSERT OR IGNORE`.
-Under `writeMu` it reads the current owner; if the id belongs to a different entity of the same
-kind it queues the pair and returns without error. The enrich must still succeed — the value is
-written, only the identity claim is contested.
+**P0-3 — the write-time guard.** `Repo.AttachExternalID` (`internal/repo/identity.go:274`) stops
+being a bare `INSERT OR IGNORE`. Under the `writeMu` it already takes, it reads the current owner;
+if the id belongs to a different entity of the same kind it queues the pair and returns without
+error. The enrich must still succeed — the value is written, only the identity claim is contested.
+
+Three constraints, each of which the obvious implementation gets wrong:
+
+1. **`RowsAffected() == 0` is not the signal.** `attachExternalID` returns `nil` for three
+   different outcomes — inserted, *already owned by this same entity*, and owned by another. The
+   middle one is the common case on every re-enrich and refresh sweep, so queueing on
+   `RowsAffected() == 0` alone would flood the queue. The guard must follow up with
+   `externalIDSelect` and queue only when the owner is a **different** entity.
+2. **Guard `Repo.AttachExternalID` only — never the shared `attachExternalID`
+   (`internal/repo/identity.go:258`).** The `resolveOrCreateByName` call sites (`:183`, `:221`)
+   legitimately depend on silent-ignore and run inside the caller's scan transaction; a queue
+   insert there would fire on every relink.
+3. **The check and the queue write must stay in one critical section.** `Repo.AttachExternalID`
+   takes `r.writeMu` itself and uses `r.db` rather than a tx, so a check-then-queue that leaves and
+   re-enters races. There is no `AttachExternalIDLocked` variant today — contrast
+   `ReconcileVideoPeopleLocked`.
 
 *Acceptance*: enriching person B against an id person A already owns queues `(A, B)` as
-`shared-external-id`, returns 200, and B's enrichment values are written. The private scan-path
-`attachExternalID` is unchanged in behaviour because id-first resolve means the owner is already
-the entity — asserted by a test, not assumed.
+`shared-external-id`, returns 200, and B's enrichment values are written. **Re-enriching person A
+against the id A already owns queues nothing** — the anti-flood case, and a named test. The
+private scan-path `attachExternalID` is unchanged in behaviour because id-first resolve means the
+owner is already the entity — asserted by a test, not assumed.
 
 **P0-4 — the boot sweep.** Wired beside `seedIdentityReviewQueue` in `cmd/holodex/main.go`,
 recorded as its own `job_runs` kind so it appears on the activity surface (ADR-028), and run every
@@ -164,12 +203,21 @@ kind. Every other variation is untouched. Tokens only; QA in all three skins.
 ever records a genuinely new (id, entity) pair") and `AttachExternalID`'s doc comment are both
 false once P0-3 lands and must be corrected in the same change.
 
-**P0-9 — the spine repair pass.** Promoted from P1 by §8: 511 of 1000 enriched people, and 28 of
-45 films, hold a memo whose id the spine has never recorded. A detector that only pairs claimants
-cannot see a duplicate whose *other* side was never written down, so this is not a tidy-up — it is
-coverage. Shape depends on OQ2's root cause: a backfill if the attach simply never fired, a fix
-plus backfill if it fired and was dropped. **It must land before HOLODEX-457**, which would delete
-the only record those ids have.
+**P0-9 — the spine backfill, and it runs FIRST.** 511 of 1000 enriched people and 28 of 45 films
+hold a memo whose id the spine has never recorded, because no migration ever folded the memo in
+(OQ2). A detector that pairs claimants cannot see a duplicate whose *other* side was never written
+down, so this is coverage, not tidy-up.
+
+A migration folds `entity_enrichment.external_id` into `entity_external_ids` for
+`entity_type != 'video'` where `identityShaped` holds, taking the newest memo per
+`(entity, provider)` (P0-1's rule 2). **An id that two entities claim goes to the review queue as
+`shared-external-id` rather than being dropped** — the backfill is the single largest producer of
+P0-2 rows, and an `INSERT OR IGNORE` here would silently discard exactly the signal this feature
+exists to surface.
+
+**Ordering is load-bearing: P0-9 lands before P0-3.** The gap is overwhelmingly historical, so a
+write-time guard switched on first would find almost nothing. It must also land before
+**HOLODEX-457**, which would delete the only record those ids have.
 
 *Acceptance*: after the pass, §8b's `with_any_spine_row` equals `enriched_entities` for person and
 film, or every remaining gap is explained by a named, tested rule.
@@ -186,6 +234,11 @@ accident of insertion order.
   existing PK. It is §6 of the probe already; promoting it to a repo method and onto the F70 panel
   closes HOLODEX-451's P1-0, which was demoted only because the frontend path cost two paged calls
   per pair.
+- **P1-3 — align `identityShaped` with `sanitizePeople`.** The enrich attach's `identityShaped`
+  (`internal/enrich/service.go:928`) accepts an id containing whitespace, which `sanitizePeople`
+  (`:750`) rejects on the sidecar path for a documented security reason. The attach applies the
+  weaker check, so P0-3 could report a contested id the sidecar path would have refused outright.
+  Align the two, or the queue inherits the discrepancy.
 - **P1-2 — reconcile the 4 dismissed-but-now-evidenced pairs, once.** No code and no UI: at N = 4
   the tool is the probe itself, whose §2 already lists them with `kept_separate = 1`. Work them by
   hand, and either merge or leave the dismissal standing. Building a surface for four rows would be
@@ -234,16 +287,14 @@ Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and
 - ~~**OQ1 — real numbers for studio and film?**~~ **Closed: studio 6 pairs (all new), film 0.**
   Film has only 48 rows and 28 memos with no spine row, so its zero is "not yet exercised", not
   "not affected" — it runs the same code path and stays in scope.
-- **OQ2 — half answered, and it is the bigger story.** 1219 person + 28 film memos carry an id with
-  no spine row; only 489 of 1000 enriched people hold one. **It is not a string mismatch** — §8c
-  settles that: the same provider is 100% for studio and 51% for person, so the two stores agree on
-  the format and something about the *person* path differs. Two consequences already follow:
-  **HOLODEX-457 is blocked** (the memo is currently the only record of ~500 person ids and several
-  hundred more for film), and **P1-1 is promoted to P0-9** below. What is still open is the root
-  cause, and it is not obviously a bug: an attach that only fires when the owner adopts a match
-  would produce exactly this shape, in which case 51% is a usage number rather than a defect. That
-  distinction decides whether the repair pass is a backfill or a bug fix, so it is being traced
-  before P0-3 is written.
+- ~~**OQ2 — why is the spine so much sparser than the memo?**~~ **Closed: it is historical.** The
+  enrich attach is 8 days old (`28e2540`, 2026-09-15); studio's scan-time feeder is 2.5 months old
+  (`746a5ac`, 2026-07-02) and self-healing. Not a string mismatch, not a confidence gate, and not
+  `identityShaped` — which accepts a slug id like `<provider>:performer:Taylor_Luna` cleanly. So
+  **P0-9 is a backfill, not a bug fix**, and it must run *before* P0-3's guard, which would
+  otherwise surface almost nothing from 1700+ stale memos. Provider-1's 12% is consistent with a
+  person-only provider that never emits video `people[]` credits and so never had the scan-time
+  writer at all. **HOLODEX-457 stays blocked** behind P0-9.
 - ~~**OQ3 — memo consistent per (entity, provider)?**~~ **Closed, clean.** Zero groups with more
   than one distinct memo id, zero mixing empty with non-empty, zero breaking `<ns>:<id>`. The
   newest-`fetched_at` rule stays as belt-and-braces (ADR-107 D6).

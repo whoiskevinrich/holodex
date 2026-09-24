@@ -154,13 +154,39 @@ Because a `shared-external-id` row is the strongest signal in the queue and the 
 (`tmdb says one person`) rather than printing the raw variation slug. See the F71 spec and
 `docs/design/duplicates-shared-external-id-mockup.svg`.
 
+### 3b. The sparse spine is a separate, historical problem — and it is sequenced first
+
+The host run surfaced something the ticket never suspected: only **489 of 1000** enriched people
+hold any `entity_external_ids` row (studio 100%, film 38%). That is **not** this ADR's silent
+no-op at scale, and conflating the two would produce the wrong fix.
+
+The enrich-path attach did not exist until `28e2540` (F60, 2026-09-15). Studio's 100% comes from a
+different writer entirely — `ReconcileVideoStudios` → `resolveOrCreateByName` → `attachExternalID`,
+fed by the `_studio_external_ids` sidecar since `746a5ac` (ADR-054, 2026-07-02) and re-derived on
+every relink, with prune-on-empty guaranteeing every surviving studio has been through it. Person
+has the same mirror but its contract is optional, and an id-less person is orphan-stamped rather
+than pruned. No migration has ever folded the memo into the spine: 0018, 0038 and 0046 each
+declined.
+
+So the backlog is a **backfill**, not a bug fix, and it **runs before the write-time guard** — the
+gap is overwhelmingly historical, so switching the guard on first would surface almost nothing.
+The backfill is also this feature's single largest producer of queue rows, and it must route a
+contested id to the queue rather than `INSERT OR IGNORE`-ing it away. Spec P0-9.
+
 ### 4. Two producers: close the source, then drain the backlog
 
 **Write-time (the source).** `Repo.AttachExternalID` stops being a silent `INSERT OR IGNORE`.
 Under `writeMu` it reads the current owner first; if the id belongs to a different entity of the
-same kind it queues the pair instead of discarding the write. The private scan-path
-`attachExternalID` can share the implementation — after id-first resolve the owner *is* the
-entity, so the collision branch simply never fires there. This converts a data-losing no-op into a
+same kind it queues the pair instead of discarding the write.
+
+**It does not share the implementation with the private `attachExternalID`,** which an earlier
+draft of this ADR assumed it could. Two reasons, both load-bearing: the `resolveOrCreateByName`
+call sites legitimately depend on silent-ignore and run inside the caller's scan transaction, so a
+queue insert there would fire on every relink; and `INSERT OR IGNORE` collapses three outcomes into
+one `nil` — inserted, **already owned by this same entity**, and owned by another. The middle case
+is the common one on every re-enrich and refresh sweep, so a guard keyed on `RowsAffected() == 0`
+alone would flood the queue. Only a follow-up owner lookup, inside the same critical section,
+distinguishes benign idempotence from a real conflict. This converts a data-losing no-op into a
 review row, which is the same posture ADR-088 took for an alias another entity already holds:
 **queue it, never fail the enrich and never merge silently.**
 
@@ -247,9 +273,9 @@ cost the name-based queue already imposes 185 times over — so the rules fail s
 
 ## Action Items
 
-1. `scripts/detect_shared_external_id.sql` — a host-runnable probe measuring the disagreement for
-   all three kinds, plus the OQ3 consistency check. **Must run on the host before implementation**:
-   the local `data/holodex.db` is a 72-person dev database that has not run migration 0046.
+1. ~~`scripts/detect_shared_external_id.sql` — a host-runnable probe.~~ **Done, run twice on the
+   host 2026-09-23.** It found the three-claimant studio id that corrected decision 1, and the
+   sparse spine that produced decision 3b.
 2. Spec F71 (`docs/specs/duplicates-shared-external-id.md`) with acceptance criteria per decision.
 3. Named tests for the two exclusions (video, tag) and for the write-time guard replacing the
    no-op.

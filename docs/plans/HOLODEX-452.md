@@ -104,12 +104,18 @@ stale re-enrich. That is RD1's measured justification, not a theoretical one.
 | person | provider-1 | 851 | **101 — 12%** |
 | film | provider-3 | 45 | 17 — 38% |
 
-Only **489 of 1000** enriched people hold any spine row. **Not a string mismatch** — the same
-provider is 100% for studio and 51% for person, so the stores agree on the format and the *person*
-path differs. Consequences already locked: **HOLODEX-457 is blocked** (the memo is the only record
-of ~500 person ids), and the repair pass is **promoted from P1 to P0-9**. Root cause is being
-traced — an attach that only fires when the owner adopts a match would produce this exact shape, in
-which case 51% is a usage number, not a defect, and the repair is a backfill rather than a bug fix.
+Only **489 of 1000** enriched people hold any spine row. **Root cause: historical, not a defect.**
+The enrich-path attach landed `28e2540` (F60, **2026-09-15**) — 8 days before the probe. Studio's
+100% is a *different writer*: `ReconcileVideoStudios` → `resolveOrCreateByName` →
+`attachExternalID`, fed by the `_studio_external_ids` sidecar since `746a5ac` (ADR-054,
+**2026-07-02**), re-derived on every relink, with prune-on-empty guaranteeing coverage. Person's
+mirror is optional and an id-less person is orphan-stamped, not pruned. **No migration ever folded
+the memo into the spine** (0018, 0038, 0046 each declined). Not `identityShaped` either — it
+accepts slug ids cleanly.
+
+Consequences: **HOLODEX-457 blocked** (commented there); the repair pass is **P0-9, a backfill, and
+it runs BEFORE the write-time guard** — switching the guard on first would surface almost nothing
+from 1700+ historical memos.
 
 ### The anonymization rule leaked, and the host run caught it
 
@@ -151,9 +157,11 @@ OQ2 repair pass makes the number stop being small.
 
 ## Up next — ordered (position = priority)
 
-1. **Settle OQ2's root cause** — why the person path lands a spine row ~51% of the time (12% for
-   provider-1) while studio is 100% on the same provider. It decides whether P0-9's repair pass is
-   a backfill or a bug fix, and it may change P0-3's write-time guard.
+1. **Build in P0 order, which the data now fixes: P0-9 backfill → P0-3 guard → the rest.**
+   The guard has three traps recorded in the spec — `RowsAffected() == 0` is *not* the signal
+   (benign re-enrich idempotence would flood the queue), the guard belongs on
+   `Repo.AttachExternalID` and never on the shared `attachExternalID`, and the check plus queue
+   write must stay inside the one `writeMu` critical section (no `AttachExternalIDLocked` exists).
 2. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
    (`kept_separate = 1`) — spec P1-2.
 3. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
