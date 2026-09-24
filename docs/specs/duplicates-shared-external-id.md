@@ -26,17 +26,19 @@ And the two rarely look alike: ADR-061's `UNIQUE` nameKey index means two entiti
 share a canonical name, so a split identity always wears two different names. The name detector
 reaches such a pair only if those names happen to differ by punctuation or whitespace.
 
-Measured on the live library **2026-09-23** (`scripts/detect_shared_external_id.sql`; 1577 people,
+Measured on the live library **2026-09-23** (`scripts/detect_shared_external_id.sql`; 1578 people,
 556 studios, 48 films, 1000 enriched, 33 queued, 185 keep-separate):
 
 | | pairs | not already queued or dismissed |
 |---|---|---|
-| person | 9 | 4 |
-| studio | 6 | 6 |
+| person | 10 | 5 |
+| studio | 7 | 7 |
 | film | 0 | 0 |
 
-**15 pairs, 10 new, and exactly one already in the name-based queue** — so this is near-disjoint
-new coverage. Meanwhile all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the
+**17 pairs, 12 new, and exactly one already in the name-based queue** — so this is near-disjoint
+new coverage. **Two of those pairs are visible only because P0-1 pairs the whole claimant set**:
+they have no spine owner on either side and were found memo-to-memo, which is not an edge case but
+a direct consequence of how sparse the spine turns out to be (below). Meanwhile all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the
 current detector produces. The owner is working a queue of near-certain false positives while the
 near-certain true positives are invisible.
 
@@ -162,6 +164,16 @@ kind. Every other variation is untouched. Tokens only; QA in all three skins.
 ever records a genuinely new (id, entity) pair") and `AttachExternalID`'s doc comment are both
 false once P0-3 lands and must be corrected in the same change.
 
+**P0-9 — the spine repair pass.** Promoted from P1 by §8: 511 of 1000 enriched people, and 28 of
+45 films, hold a memo whose id the spine has never recorded. A detector that only pairs claimants
+cannot see a duplicate whose *other* side was never written down, so this is not a tidy-up — it is
+coverage. Shape depends on OQ2's root cause: a backfill if the attach simply never fired, a fix
+plus backfill if it fired and was dropped. **It must land before HOLODEX-457**, which would delete
+the only record those ids have.
+
+*Acceptance*: after the pass, §8b's `with_any_spine_row` equals `enriched_entities` for person and
+film, or every remaining gap is explained by a named, tested rule.
+
 **P0-8 — the sort tiebreak.** `shared-external-id` sorts above `provider-alias` and `same-title`,
 which today share the non-fuzzy `-1` slot with no tiebreak
 (`internal/repo/review_queue.go:193`). The strongest signal must not sort below the weakest by
@@ -180,9 +192,7 @@ accident of insertion order.
   over-building — but this stops being true if the OQ2 repair pass lands and the number grows, at
   which point RD7's rejected option (reason-aware dismissals) is the one to reopen. Recorded here
   so the four are not silently re-suppressed on every sweep with nobody remembering why.
-- **P1-1 — size the orphaned memos.** Probe §7 counts memos whose id has *no* spine row at all —
-  the other half of the same silent failure. Not a duplicate pair, but it says whether a repair
-  pass is needed.
+- ~~**P1-1 — size the orphaned memos.**~~ Promoted to **P0-9** on the measurement.
 
 ### Future Considerations (P2)
 
@@ -224,24 +234,25 @@ Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and
 - ~~**OQ1 — real numbers for studio and film?**~~ **Closed: studio 6 pairs (all new), film 0.**
   Film has only 48 rows and 28 memos with no spine row, so its zero is "not yet exercised", not
   "not affected" — it runs the same code path and stays in scope.
-- **OQ2 — memos with no spine row: 1219 person, 28 film.** Against 1000 enriched people that is
-  close to *every* enriched person, which is too large to read as ordinary loss and needs one more
-  query to interpret before P1-1 is sized (see below). Either the enrich path almost never lands
-  an identity row — in which case a repair pass is a P0 and **HOLODEX-457 must not drop the column
-  that is currently the only record of those ids** — or the two stores disagree on the id string
-  for some providers, in which case the detector is blind for them and P0-1 needs normalizing.
-  The 15 findings prove exact-string matching works for at least two providers, so the second
-  explanation cannot be the whole story.
+- **OQ2 — half answered, and it is the bigger story.** 1219 person + 28 film memos carry an id with
+  no spine row; only 489 of 1000 enriched people hold one. **It is not a string mismatch** — §8c
+  settles that: the same provider is 100% for studio and 51% for person, so the two stores agree on
+  the format and something about the *person* path differs. Two consequences already follow:
+  **HOLODEX-457 is blocked** (the memo is currently the only record of ~500 person ids and several
+  hundred more for film), and **P1-1 is promoted to P0-9** below. What is still open is the root
+  cause, and it is not obviously a bug: an attach that only fires when the owner adopts a match
+  would produce exactly this shape, in which case 51% is a usage number rather than a defect. That
+  distinction decides whether the repair pass is a backfill or a bug fix, so it is being traced
+  before P0-3 is written.
 - ~~**OQ3 — memo consistent per (entity, provider)?**~~ **Closed, clean.** Zero groups with more
   than one distinct memo id, zero mixing empty with non-empty, zero breaking `<ns>:<id>`. The
   newest-`fetched_at` rule stays as belt-and-braces (ADR-107 D6).
 - ~~**OQ4 — does a stronger signal re-open a dismissed pair?**~~ **Closed 2026-09-23: no — the
   queue never re-proposes, and the 4 already-dismissed findings are reconciled once, by hand, from
   the probe's own output.** RD7 and P1-2.
-- **OQ5 (new) — §6 returned 5 rows for 9 person pairs.** The co-appearance query should emit one
-  row per pair. Either the pasted output was trimmed or something drops rows; re-run §6 alone
-  before P1-0 is built on it. (Of the 5 shown, 3 pairs share a video — which is real supporting
-  evidence, if the query is sound.)
+- ~~**OQ5 — §6 returned 5 rows for 9 person pairs.**~~ **Closed: the query is sound**, the earlier
+  paste was trimmed. The re-run returns one row per pair, 10 for 10, and **3 of the 10 person pairs
+  share a video** — real supporting evidence, and P1-0 can ride it.
 
 ## Timeline / routing
 

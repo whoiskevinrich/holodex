@@ -81,17 +81,42 @@ migrations** to an empty file, then seeded with the seven cases in its header. R
 **The self-join comparison (§5) found 2 colliding ids where §1 found 2 pairs** — the extra is the
 stale re-enrich. That is RD1's measured justification, not a theoretical one.
 
-## Host probe results — 2026-09-23
+## Host probe results — 2026-09-23 (second run, after the claimant-set fix)
 
 | § | result |
 |---|---|
-| 1 | person **9** pairs (4 new) · studio **6** (6 new) · film **0** |
-| 2b | one studio id claimed by **three** studios — see the detector fix below |
-| 3 | **1** finding already queued, so near-disjoint, not disjoint |
-| 4a/4b/4c | **all empty** — the memo is perfectly consistent per (entity, provider) and always `<ns>:<id>`. OQ3 closed clean; the newest-`fetched_at` rule is belt-and-braces |
+| 1 | person **10** pairs (5 new) · studio **7** (7 new) · film **0** |
+| 2 | **2 pairs have no spine owner on either side** — found memo-to-memo, invisible to the join this ticket was originally specced with |
+| 2b | one studio id claimed by **three** studios |
+| 3 | **1** finding already queued — near-disjoint, not disjoint |
+| 4a/4b/4c | **all empty** — the memo is perfectly consistent per (entity, provider) and always `<ns>:<id>`. OQ3 closed clean |
+| 5 | self-join would find 6 person / 5 studio colliding ids against 10 / 7 real pairs |
 | 5b | **23** video ids shared by multiple files — excluding video suppressed more wrong findings than there are right ones |
-| 6 | 3 of 5 person pairs share a video — **but only 5 rows came back for 9 pairs; re-run §6** (spec OQ5) |
-| 7 | **1219 person + 28 film** memos with no spine row at all. Against 1000 enriched people that is nearly all of them — §8 was added to disambiguate |
+| 6 | **10 rows for 10 pairs** — the earlier 5-of-9 was a trimmed paste, not a bug (OQ5 closed). 3 pairs share a video |
+| 7 + 8 | **the spine is sparse, and that is the bigger story** — see below |
+
+### §8 — the spine is far sparser than the memo layer
+
+| kind | provider | memos | id also in `entity_external_ids` |
+|---|---|---|---|
+| studio | provider-3 | 436 | **436 — 100%** |
+| person | provider-3 | 960 | 491 — 51% |
+| person | provider-1 | 851 | **101 — 12%** |
+| film | provider-3 | 45 | 17 — 38% |
+
+Only **489 of 1000** enriched people hold any spine row. **Not a string mismatch** — the same
+provider is 100% for studio and 51% for person, so the stores agree on the format and the *person*
+path differs. Consequences already locked: **HOLODEX-457 is blocked** (the memo is the only record
+of ~500 person ids), and the repair pass is **promoted from P1 to P0-9**. Root cause is being
+traced — an attach that only fires when the owner adopts a match would produce this exact shape, in
+which case 51% is a usage number, not a defect, and the repair is a backfill rather than a bug fix.
+
+### The anonymization rule leaked, and the host run caught it
+
+§2 printed `provider-1:…lor_Luna`. That provider mints **human-readable slug ids**, not UUIDs, so
+the `substr(external_id, -8)` the rule prescribed exposed a fragment of a performer's name. No
+truncation of an id is safe, because nothing constrains a provider's format. Labels are now an
+opaque per-run ordinal (`provider-N:xid-M`); `scripts/CLAUDE.md` corrected with the reason.
 
 **Detector bug the data caught.** §2 showed `…:studio:9e231db3…` claimed by studios 39, 489 and
 spine-owner 126. A memo⇔spine join emits (39,126) and (489,126) and **silently drops (39,489)** —
@@ -126,10 +151,9 @@ OQ2 repair pass makes the number stop being small.
 
 ## Up next — ordered (position = priority)
 
-1. **Re-run the probe's §6 and new §8 on the host.** §8 decides whether 1219 spine-less memos mean
-   the attach almost never lands (repair pass becomes P0, and HOLODEX-457 must not drop the column
-   that is those ids' only record) or the two stores write some provider's id differently (P0-1
-   needs normalizing). §6 returned 5 rows for 9 pairs and has to be sound before P1-0 rides it.
+1. **Settle OQ2's root cause** — why the person path lands a spine row ~51% of the time (12% for
+   provider-1) while studio is 100% on the same provider. It decides whether P0-9's repair pass is
+   a backfill or a bug fix, and it may change P0-3's write-time guard.
 2. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
    (`kept_separate = 1`) — spec P1-2.
 3. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,

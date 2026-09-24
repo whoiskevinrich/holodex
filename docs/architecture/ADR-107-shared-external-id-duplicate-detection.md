@@ -239,7 +239,11 @@ cost the name-based queue already imposes 185 times over — so the rules fail s
   free.
 - The activity surface gains one job kind.
 - **HOLODEX-457** carries ADR-096 D2's deferred drop of `entity_enrichment.external_id`,
-  including re-homing the video re-enrich memo.
+  including re-homing the video re-enrich memo. **It is now blocked**, and the measurement is why:
+  only 489 of 1000 enriched people hold a spine row, so for roughly 500 people — and 28 of 45
+  films — the memo is the *only* record their provider id exists. Dropping the column before the
+  repair pass (spec P0-9) would destroy that, which inverts D2's intent: D2 wanted one copy of the
+  truth, not zero.
 
 ## Action Items
 
