@@ -22,17 +22,29 @@ are all name-driven. Nothing can see two entities carrying the **same provider e
 which is the strongest positive evidence available — the provider has already asserted they are
 one record.
 
-Worse, the two can never look alike enough for the name detector to catch them by accident:
-ADR-061's `UNIQUE` nameKey index means two people **cannot** share a canonical name, so a genuine
-split identity necessarily wears two different names. The name detector and this one are looking
-at disjoint populations by construction.
+And the two rarely look alike: ADR-061's `UNIQUE` nameKey index means two entities **cannot**
+share a canonical name, so a split identity always wears two different names. The name detector
+reaches such a pair only if those names happen to differ by punctuation or whitespace.
 
-Measured on the live library 2026-09-22 (1591 people, 1000 enriched): **6 external ids are claimed
-by more than one person**, none of them queued, and `same_xid = 0` across all 31 pairs currently in
-the queue. Meanwhile all 31 queued pairs are `provider-alias` / `alias` — the weakest kind the
-current detector produces — and 185 person pairs have already been dismissed keep-separate. The
-owner is working a queue of near-certain false positives while the near-certain true positives are
-invisible.
+Measured on the live library **2026-09-23** (`scripts/detect_shared_external_id.sql`; 1577 people,
+556 studios, 48 films, 1000 enriched, 33 queued, 185 keep-separate):
+
+| | pairs | not already queued or dismissed |
+|---|---|---|
+| person | 9 | 4 |
+| studio | 6 | 6 |
+| film | 0 | 0 |
+
+**15 pairs, 10 new, and exactly one already in the name-based queue** — so this is near-disjoint
+new coverage. Meanwhile all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the
+current detector produces. The owner is working a queue of near-certain false positives while the
+near-certain true positives are invisible.
+
+Two numbers from the same run set the shape of the work. Excluding `video` suppressed **23** ids
+shared by multiple files — more wrong findings than there are right ones, which is why that
+exclusion is a named test rather than a comment. And **1219 person memo/provider pairs carry an id
+with no `entity_external_ids` row at all** (plus 28 for film): the same dropped write, in its
+larger and quieter form.
 
 The cost of not fixing it compounds: the collisions are produced by a **silent no-op**
 (`internal/repo/identity.go:258`, see ADR-107 Context), so their number only grows, and every one
@@ -92,9 +104,11 @@ records.
 
 ### Must-Have (P0)
 
-**P0-1 — the detector query.** A pair is a finding when an entity's newest memo for a provider
-carries an `external_id` that `entity_external_ids` assigns to a different entity of the same
-kind. The four reading rules of ADR-107 D6 are mandatory:
+**P0-1 — the detector query.** For each `(entity_type, external_id)`, the claimant set is the
+entity `entity_external_ids` assigns the id to **union** every entity whose newest memo carries it;
+two or more claimants yields one finding per pair (ADR-107 D1). A memo⇔spine join is **not**
+sufficient — the host run found one studio id with three claimants, whose memo⇔memo pair such a
+join drops. The four reading rules of ADR-107 D6 are mandatory:
 `external_id <> ''` (excludes the whole `filename` extract population);
 newest `fetched_at` per `(entity_type, entity_id, provider)`, ties broken toward the memo that
 *agrees* with the spine so a tie yields no finding;
@@ -193,18 +207,33 @@ QA list are in the [design handoff](../design/duplicates-shared-external-id-hand
 
 ## Open Questions
 
-- **OQ1 — what are the real numbers for studio and film?** Unknown. The local
-  `data/holodex.db` is a 72-person dev database that has not run migration 0046, so
-  `scripts/detect_shared_external_id.sql` must be run **on the host** before implementation. If
-  either is zero the code still ships (the hole is structural), but the probe output belongs in
-  this spec.
-- **OQ2 — how many memos have no spine row at all?** Probe §7. If it is large, the silent no-op has
-  been dropping identity writes far more often than the 6 collisions suggest, and a repair pass
-  becomes a P0 rather than a P1.
-- **OQ3 — does any memo violate the `<ns>:<id>` grammar?** Nothing enforces it at the
-  `entity_enrichment` write (`internal/enrich/service.go` passes the provider's string through);
-  only `identityShaped()` checks it downstream. Probe §4c. A bare id would silently never match the
-  spine, making the detector blind for that provider.
+Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and got bigger.
+
+- ~~**OQ1 — real numbers for studio and film?**~~ **Closed: studio 6 pairs (all new), film 0.**
+  Film has only 48 rows and 28 memos with no spine row, so its zero is "not yet exercised", not
+  "not affected" — it runs the same code path and stays in scope.
+- **OQ2 — memos with no spine row: 1219 person, 28 film.** Against 1000 enriched people that is
+  close to *every* enriched person, which is too large to read as ordinary loss and needs one more
+  query to interpret before P1-1 is sized (see below). Either the enrich path almost never lands
+  an identity row — in which case a repair pass is a P0 and **HOLODEX-457 must not drop the column
+  that is currently the only record of those ids** — or the two stores disagree on the id string
+  for some providers, in which case the detector is blind for them and P0-1 needs normalizing.
+  The 15 findings prove exact-string matching works for at least two providers, so the second
+  explanation cannot be the whole story.
+- ~~**OQ3 — memo consistent per (entity, provider)?**~~ **Closed, clean.** Zero groups with more
+  than one distinct memo id, zero mixing empty with non-empty, zero breaking `<ns>:<id>`. The
+  newest-`fetched_at` rule stays as belt-and-braces (ADR-107 D6).
+- **OQ4 (new) — does a stronger signal re-open a dismissed pair?** **4 of the 9 person findings
+  are already `entity_keep_separate`.** Those dismissals were made against `provider-alias` /
+  `alias` evidence — the weakest the queue produces — and `entity_keep_separate` records the
+  *pair*, not the reason, so RD7 currently suppresses the strongest evidence in the system on the
+  strength of a verdict reached without it. Options: honour the dismissal as-is (RD7 today);
+  re-queue a dismissed pair when a *new, stronger* variation appears; or surface the 4 once,
+  out-of-queue, as a one-time reconciliation. **Owner's call — blocks nothing else.**
+- **OQ5 (new) — §6 returned 5 rows for 9 person pairs.** The co-appearance query should emit one
+  row per pair. Either the pasted output was trimmed or something drops rows; re-run §6 alone
+  before P1-0 is built on it. (Of the 5 shown, 3 pairs share a video — which is real supporting
+  evidence, if the query is sound.)
 
 ## Timeline / routing
 

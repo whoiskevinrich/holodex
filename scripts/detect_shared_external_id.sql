@@ -48,18 +48,32 @@ WHERE e.external_id <> ''
   AND e.entity_type IN ('person', 'studio', 'film')
 GROUP BY e.entity_type, e.entity_id, e.provider;
 
--- ── The finding: the memo names an id the spine gives to somebody else ──────────────────
+-- ── Everyone who claims an id: the spine's one owner, plus every memo holder ───────
+-- NOT just "memo disagrees with the spine". The host run found ONE studio id claimed by three
+-- studios (two memo holders against one spine owner): a memo⇔spine join emits the two pairs
+-- that touch the owner and silently drops the memo⇔memo pair between the other two. Pairing
+-- over the whole claimant set is the only shape that closes a clique. DISTINCT because an
+-- entity that both owns the spine row and memoizes the id is one claimant, not two.
+CREATE TEMP VIEW claimant AS
+SELECT DISTINCT entity_type, external_id, entity_id FROM (
+    SELECT entity_type, external_id, entity_id FROM entity_external_ids
+     WHERE entity_type IN ('person', 'studio', 'film')
+    UNION ALL
+    SELECT entity_type, external_id, entity_id FROM memo
+);
+
 CREATE TEMP VIEW disagreement AS
-SELECT m.entity_type,
-       min(m.entity_id, x.entity_id) AS id_lo,
-       max(m.entity_id, x.entity_id) AS id_hi,
-       m.provider, m.external_id,
-       m.entity_id AS memo_holder,
-       x.entity_id AS spine_owner
-FROM memo m
-JOIN entity_external_ids x
-  ON x.entity_type = m.entity_type AND x.external_id = m.external_id
-WHERE x.entity_id <> m.entity_id;
+SELECT a.entity_type, a.entity_id AS id_lo, b.entity_id AS id_hi, a.external_id,
+       EXISTS (SELECT 1 FROM entity_external_ids x
+                WHERE x.entity_type = a.entity_type AND x.external_id = a.external_id
+                  AND x.entity_id = a.entity_id)                 AS lo_owns_spine,
+       EXISTS (SELECT 1 FROM entity_external_ids x
+                WHERE x.entity_type = b.entity_type AND x.external_id = b.external_id
+                  AND x.entity_id = b.entity_id)                 AS hi_owns_spine
+FROM claimant a
+JOIN claimant b ON a.entity_type = b.entity_type
+               AND a.external_id = b.external_id
+               AND a.entity_id < b.entity_id;
 
 SELECT '=== 0. scale ===' AS "";
 SELECT (SELECT count(*) FROM people)                                   AS people,
@@ -86,26 +100,31 @@ FROM (SELECT DISTINCT d.entity_type, d.id_lo, d.id_hi,
 GROUP BY p.entity_type;
 
 SELECT '=== 2. every finding, named ===' AS "";
-SELECT d.entity_type, d.provider, d.external_id,
-       d.memo_holder, d.spine_owner,
+SELECT d.entity_type, d.external_id, d.id_lo, d.id_hi,
        CASE d.entity_type
-            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.memo_holder)
-            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.memo_holder)
-            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.memo_holder) END
-                                                                       AS memo_holder_name,
+            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.id_lo)
+            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.id_lo)
+            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.id_lo) END  AS lo_name,
        CASE d.entity_type
-            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.spine_owner)
-            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.spine_owner)
-            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.spine_owner) END
-                                                                       AS spine_owner_name,
+            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.id_hi)
+            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.id_hi)
+            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.id_hi) END  AS hi_name,
+       CASE WHEN d.lo_owns_spine THEN d.id_lo
+            WHEN d.hi_owns_spine THEN d.id_hi END                AS spine_owner,
        EXISTS (SELECT 1 FROM identity_review_queue q
                 WHERE q.entity_type = d.entity_type AND q.id_lo = d.id_lo AND q.id_hi = d.id_hi)
-                                                                       AS already_queued,
+                                                                 AS already_queued,
        EXISTS (SELECT 1 FROM entity_keep_separate k
                 WHERE k.entity_type = d.entity_type AND k.id_lo = d.id_lo AND k.id_hi = d.id_hi)
-                                                                       AS kept_separate
+                                                                 AS kept_separate
 FROM disagreement d
-ORDER BY d.entity_type, d.provider, d.external_id;
+ORDER BY d.entity_type, d.external_id, d.id_lo;
+
+SELECT '--- 2b. ids claimed by MORE than two entities (a clique, not a pair) ---' AS "";
+SELECT entity_type, external_id, count(*) AS claimants
+FROM claimant
+GROUP BY entity_type, external_id
+HAVING count(*) > 2;
 
 SELECT '=== 3. is the new set DISJOINT from the name-based queue? (expect overlap 0) ===' AS "";
 SELECT count(*) AS findings_already_in_queue
@@ -169,3 +188,27 @@ FROM memo m
 WHERE NOT EXISTS (SELECT 1 FROM entity_external_ids x
                    WHERE x.entity_type = m.entity_type AND x.external_id = m.external_id)
 GROUP BY m.entity_type;
+
+SELECT '=== 8. OQ2 disambiguation — is the spine sparse, or do the stores disagree on the string? ===' AS "";
+-- §7 returned 1219 person memos with no spine row against 1000 enriched people, which is close to
+-- every enriched person. Two very different explanations, and 8c separates them: if the misses
+-- cluster in one provider, the two stores write that provider's id differently and the detector is
+-- blind for it; if they are spread evenly, AttachExternalID is simply not landing.
+SELECT entity_type, count(*) AS spine_rows, count(DISTINCT entity_id) AS entities
+FROM entity_external_ids GROUP BY entity_type;
+
+SELECT '--- 8b. enriched entities holding at least one spine row ---' AS "";
+SELECT m.entity_type,
+       count(DISTINCT m.entity_id) AS enriched_entities,
+       count(DISTINCT CASE WHEN EXISTS (SELECT 1 FROM entity_external_ids x
+                                         WHERE x.entity_type = m.entity_type
+                                           AND x.entity_id = m.entity_id)
+                           THEN m.entity_id END) AS with_any_spine_row
+FROM memo m GROUP BY m.entity_type;
+
+SELECT '--- 8c. per provider: memos, and how many of those ids the spine knows ---' AS "";
+SELECT m.entity_type, m.provider, count(*) AS memos,
+       sum(EXISTS (SELECT 1 FROM entity_external_ids x
+                    WHERE x.entity_type = m.entity_type AND x.external_id = m.external_id))
+                                                        AS id_known_to_spine
+FROM memo m GROUP BY m.entity_type, m.provider;

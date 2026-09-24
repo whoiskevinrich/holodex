@@ -1,4 +1,4 @@
-# ADR-107: A shared provider external id is detected as the memo disagreeing with the identity spine
+# ADR-107: A shared provider external id is detected by pairing every claimant of that id — spine and memo alike
 
 **Status:** Proposed (extends ADR-061 D5 and ADR-088's queue-don't-fail posture; **amends the
 timing, not the substance, of ADR-096 D2's "drop the memo column"**; relates ADR-028/033/051;
@@ -17,12 +17,24 @@ entities whose keys collide; the three incremental producers — `FlagNearMiss`
 provider external id**, which is the strongest positive evidence available: the provider has
 already asserted the two are one record.
 
-Measured on the live library 2026-09-22 (1591 people, 1000 enriched, 31 queued person pairs,
-`scripts/detect_person_duplicate_evidence.sql`): **6 external ids are claimed by more than one
-person**, none of them queued, and `same_xid = 0` across all 31 pairs currently in the queue. The
-detector finds a **disjoint and much higher-confidence set** than the name-based one — which
-matters, because all 31 queued pairs are `provider-alias` / `alias`, the weakest kind the current
-detector produces, and 185 person pairs have already been dismissed keep-separate.
+Measured on the live library, `scripts/detect_shared_external_id.sql`, **2026-09-23** (1577
+people, 556 studios, 48 films, 1000 enriched, 33 queued pairs, 185 keep-separate):
+
+| | pairs | not already queued or dismissed |
+|---|---|---|
+| person | 9 | 4 |
+| studio | 6 | 6 |
+| film | 0 | 0 |
+
+**15 pairs, 10 of them new.** The set is *almost* disjoint from the name-based queue — exactly one
+finding is already queued — and that one exception is instructive: a shared-id pair **can** also be
+a fuzzy name near-miss. What is true by construction is narrower and still decisive: ADR-061's
+`UNIQUE` nameKey index means two entities can never share a canonical *name*, so a shared-id pair is
+never a trivial catch; the name detector reaches it only if the two names happen to differ by
+punctuation or whitespace, which 14 of 15 did not.
+
+It matters because all 33 queued pairs are `provider-alias` / `alias`, the weakest kind the current
+detector produces.
 
 ### The hole is a silent no-op on the enrich path, not a missing query
 
@@ -82,21 +94,28 @@ the memo column **is**, or it entrenches the thing D2 condemned.
 
 ## Decision
 
-### 1. The signal is the memo disagreeing with the spine, not a memo self-join
+### 1. Pair every claimant of an id — the spine's owner and every memo holder
 
-A pair is queued when an entity's newest memo for a provider carries an `external_id` that
-`entity_external_ids` assigns to a **different entity of the same kind**. One `LEFT JOIN` against
-a `PRIMARY KEY`, no self-join, no grouping.
+For each `(entity_type, external_id)`, the claimant set is the one entity `entity_external_ids`
+assigns the id to, **union** every entity whose newest memo for a provider carries it. Two or more
+claimants means one pair per combination.
 
-This is the whole of the ticket's evidence, because the spine's PK guarantees a colliding id has
-exactly one owner: if A and B both memoize `tmdb:287`, one of them owns the spine row and the
-other is the no-op victim. Reading the disagreement names the survivor and the victim, which a
-memo self-join does not.
+The obvious formulation — *queue when a memo disagrees with the spine* — is **wrong, and the host
+run proved it.** One studio id is claimed by three studios: two memo holders against one spine
+owner. A memo⇔spine join emits the two pairs that touch the owner and silently drops the
+memo⇔memo pair between the other two, leaving a duplicate the owner can never reach. Pairing over
+the claimant set is the only shape that closes a clique, and it costs one `UNION` over a
+`PRIMARY KEY` and an index.
 
-**Rejected: the memo self-join** (`GROUP BY external_id HAVING count(DISTINCT entity_id) > 1`,
-the ticket as filed, and what the probe measures). It works, but it makes the memo column a
-*source of truth about identity* — precisely ADR-096 D2's rejected option C — and it cannot tell
-which side the spine already believes.
+Reading the spine into the claimant set is what distinguishes this from the memo self-join, and
+both halves earn their place empirically: the host run found **3 person ids where only one entity
+has a memo and the spine assigns the id to an entity with none** — invisible to a self-join — and
+**one id with two memo holders** — invisible to a memo⇔spine join.
+
+**Rejected: the memo self-join alone** (`GROUP BY external_id HAVING count(DISTINCT entity_id) > 1`,
+the ticket as filed). Beyond missing those 3, it makes the memo column a *source of truth about
+identity* — precisely ADR-096 D2's rejected option C — and it cannot say which claimant the spine
+already believes, which is the one fact a reviewer needs.
 
 ### 2. The memo column is a witness, not a second source of truth — and its drop stays deferred
 
@@ -165,7 +184,10 @@ enrichable. Both exclusions are named tests, not comments.
 1. `external_id <> ''` — excludes the whole `filename` extract population.
 2. Newest `fetched_at` per `(entity_type, entity_id, provider)` — a narrower re-enrich leaves
    older rows behind; a tie is broken toward the memo that **agrees** with the spine, so a tie
-   yields no finding.
+   yields no finding. **Measured 2026-09-23: zero groups on the host carry more than one distinct
+   memo id, zero mix empty with non-empty, and zero break the `<ns>:<id>` grammar** — so this rule
+   is belt-and-braces today, not load-bearing. Keep it: `UpsertEnrichment` is per-key and never
+   deletes, so the case it guards remains reachable.
 3. `entity_type IN ('person','studio','film')`.
 4. Skip pairs in `entity_keep_separate`.
 
