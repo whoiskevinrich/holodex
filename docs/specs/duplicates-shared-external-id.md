@@ -88,8 +88,14 @@ records.
   reconciliation whose input keeps changing, so it runs every boot.
 - **RD6 — the row names its asserter in an accent chip**, not the raw variation slug: the queue's
   `text-warn` already means *weak*, and this is the strongest signal in the list. Design handoff.
-- **RD7 — `entity_keep_separate` is honored identically.** A dismissed pair is never re-proposed,
-  by either producer.
+- **RD7 — `entity_keep_separate` is honored identically, and the backlog it hides is reconciled
+  once by hand.** A dismissed pair is never re-proposed by either producer — ADR-061's durable-no
+  invariant is untouched. But 4 of the 9 person findings are pairs dismissed against
+  `provider-alias` / `alias` evidence *before this signal existed*, and `entity_keep_separate`
+  records the pair, not the reason. Owner's decision 2026-09-23: **surface those once,
+  out-of-queue, as a one-time reconciliation** — see P1-2. Rejected: making keep-separate
+  reason-aware, which would change an ADR-061 invariant and need a migration to record which
+  variation each dismissal answered; revisit only if the number stops being small.
 
 ## User Stories
 
@@ -168,6 +174,12 @@ accident of insertion order.
   existing PK. It is §6 of the probe already; promoting it to a repo method and onto the F70 panel
   closes HOLODEX-451's P1-0, which was demoted only because the frontend path cost two paged calls
   per pair.
+- **P1-2 — reconcile the 4 dismissed-but-now-evidenced pairs, once.** No code and no UI: at N = 4
+  the tool is the probe itself, whose §2 already lists them with `kept_separate = 1`. Work them by
+  hand, and either merge or leave the dismissal standing. Building a surface for four rows would be
+  over-building — but this stops being true if the OQ2 repair pass lands and the number grows, at
+  which point RD7's rejected option (reason-aware dismissals) is the one to reopen. Recorded here
+  so the four are not silently re-suppressed on every sweep with nobody remembering why.
 - **P1-1 — size the orphaned memos.** Probe §7 counts memos whose id has *no* spine row at all —
   the other half of the same silent failure. Not a duplicate pair, but it says whether a repair
   pass is needed.
@@ -223,13 +235,9 @@ Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and
 - ~~**OQ3 — memo consistent per (entity, provider)?**~~ **Closed, clean.** Zero groups with more
   than one distinct memo id, zero mixing empty with non-empty, zero breaking `<ns>:<id>`. The
   newest-`fetched_at` rule stays as belt-and-braces (ADR-107 D6).
-- **OQ4 (new) — does a stronger signal re-open a dismissed pair?** **4 of the 9 person findings
-  are already `entity_keep_separate`.** Those dismissals were made against `provider-alias` /
-  `alias` evidence — the weakest the queue produces — and `entity_keep_separate` records the
-  *pair*, not the reason, so RD7 currently suppresses the strongest evidence in the system on the
-  strength of a verdict reached without it. Options: honour the dismissal as-is (RD7 today);
-  re-queue a dismissed pair when a *new, stronger* variation appears; or surface the 4 once,
-  out-of-queue, as a one-time reconciliation. **Owner's call — blocks nothing else.**
+- ~~**OQ4 — does a stronger signal re-open a dismissed pair?**~~ **Closed 2026-09-23: no — the
+  queue never re-proposes, and the 4 already-dismissed findings are reconciled once, by hand, from
+  the probe's own output.** RD7 and P1-2.
 - **OQ5 (new) — §6 returned 5 rows for 9 person pairs.** The co-appearance query should emit one
   row per pair. Either the pasted output was trimmed or something drops rows; re-run §6 alone
   before P1-0 is built on it. (Of the 5 shown, 3 pairs share a video — which is real supporting

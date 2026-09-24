@@ -101,7 +101,11 @@ no memo (invisible to a self-join) and 1 id has two memo holders (invisible to a
 join). Verified on a new three-claimant fixture — the clique closes.
 
 **4 of the 9 person findings are already `entity_keep_separate`** — dismissed against the weakest
-evidence the queue produces, before this signal existed. Spec OQ4, awaiting Kevin.
+evidence the queue produces, before this signal existed. **Kevin's call 2026-09-23: surface those
+once, out-of-queue, as a one-time reconciliation** — and at N = 4 the tool is the probe's own §2
+output, worked by hand. No code, no UI; ADR-061's durable-no invariant stays intact and the queue
+still never re-proposes. Reason-aware dismissals were considered and rejected — reopen only if the
+OQ2 repair pass makes the number stop being small.
 
 ## Gates — definition of done
 
@@ -126,7 +130,8 @@ evidence the queue produces, before this signal existed. Spec OQ4, awaiting Kevi
    the attach almost never lands (repair pass becomes P0, and HOLODEX-457 must not drop the column
    that is those ids' only record) or the two stores write some provider's id differently (P0-1
    needs normalizing). §6 returned 5 rows for 9 pairs and has to be sound before P1-0 rides it.
-2. **Answer spec OQ4** — does the strongest signal re-open a pair dismissed on the weakest?
+2. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
+   (`kept_separate = 1`) — spec P1-2.
 3. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
    re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
 4. `/implement` to cross into build — it puts the design handoff in front of Kevin and records the
