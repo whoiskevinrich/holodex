@@ -186,10 +186,19 @@ Three constraints, each of which the obvious implementation gets wrong:
    middle one is the common case on every re-enrich and refresh sweep, so queueing on
    `RowsAffected() == 0` alone would flood the queue. The guard must follow up with
    `externalIDSelect` and queue only when the owner is a **different** entity.
-2. **Guard `Repo.AttachExternalID` only — never the shared `attachExternalID`
-   (`internal/repo/identity.go:258`).** The `resolveOrCreateByName` call sites (`:183`, `:221`)
-   legitimately depend on silent-ignore and run inside the caller's scan transaction; a queue
-   insert there would fire on every relink.
+2. **Guard `Repo.AttachExternalID` only — never the shared `attachExternalID`.** The
+   `resolveOrCreateByName` call sites legitimately depend on silent-ignore and run inside the
+   caller's scan transaction, where a review row would be written under a transaction that may
+   roll back. **Correction found while implementing:** ADR-107 D4 also gives "a queue insert
+   there would fire on every relink" as a reason, and that half does not hold —
+   `resolveOrCreateByName`'s step 1 looks the id up and **returns the owner before ever reaching
+   the private writer** (`internal/repo/identity.go:166`), so a contested id cannot arrive there
+   at all and a guard placed there would be dead code on the scan path rather than a flood. The
+   constraint stands; the transactional reason is the one that carries it. Recorded in the
+   `attachExternalID` doc comment so nobody "simplifies" the guard back down into the shared
+   writer. It also means **no test can distinguish a guard placed there by its queue output** —
+   what `TestScanPathAttachStillSilent` asserts is that the relink path still resolves id-first
+   and still writes no review row.
 3. **The check and the queue write must stay in one critical section.** `Repo.AttachExternalID`
    takes `r.writeMu` itself and uses `r.db` rather than a tx, so a check-then-queue that leaves and
    re-enters races. There is no `AttachExternalIDLocked` variant today — contrast
@@ -200,6 +209,14 @@ Three constraints, each of which the obvious implementation gets wrong:
 against the id A already owns queues nothing** — the anti-flood case, and a named test. The
 private scan-path `attachExternalID` is unchanged in behaviour because id-first resolve means the
 owner is already the entity — asserted by a test, not assumed.
+
+**Done** — `internal/repo/shared_external_id_test.go`, four named tests: the contest (pair queued,
+call returns nil, the spine keeps its owner, no second spine row), the anti-flood re-attach, the
+kind scope (studio and film queued, **tag not**, per ADR-107 D5), keep-separate honored, RD8's
+upgrade of a pre-queued `punctuation` pair, and the scan path unchanged. The anti-flood case is
+**mutation-checked**: dropping the owner-equality branch makes even a *free* attach queue a
+self-pair, so the branch is load-bearing rather than incidentally satisfied. The shared writer is
+`queueSharedExternalIDPair`, which P0-4's sweep reuses.
 
 **P0-4 — the boot sweep.** Wired beside `seedIdentityReviewQueue` in `cmd/holodex/main.go`,
 recorded as its own `job_runs` kind so it appears on the activity surface (ADR-028), and run every
@@ -215,9 +232,15 @@ produces no finding. Both are named tests referencing ADR-107 D5, not comments.
 naming the provider (`tmdb says one person`) in place of the variation slug, in the row, for every
 kind. Every other variation is untouched. Tokens only; QA in all three skins.
 
-**P0-7 — the stale rationale is rewritten.** `internal/repo/identity.go:253`'s comment ("this only
+**P0-7 — the stale rationale is rewritten.** `internal/repo/identity.go`'s comment ("this only
 ever records a genuinely new (id, entity) pair") and `AttachExternalID`'s doc comment are both
 false once P0-3 lands and must be corrected in the same change.
+
+**Done**, in the same commit as P0-3. `attachExternalID`'s comment now says *why* its silence is
+correct in that one place (step 1's early return, plus the caller's transaction) rather than
+asserting something untrue about what it records; `AttachExternalID`'s doc comment states the
+queue-on-conflict behaviour, that it still returns nil so the enrich succeeds, and why the owner is
+re-read instead of the guard keying on `RowsAffected`.
 
 **P0-9 — the spine backfill, and it runs FIRST.** 511 of 1000 enriched people and 28 of 45 films
 hold a memo whose id the spine has never recorded, because no migration ever folded the memo in

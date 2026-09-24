@@ -153,8 +153,10 @@ OQ2 repair pass makes the number stop being small.
       sizes (no row collisions, gaps match the component's `gap-x-2`). **Chip vs. raw slug chosen
       by Kevin 2026-09-23; sign-off on the artifact itself is still outstanding** — `/implement`
       records it
-- [ ] backend — **P0-9 done** (migration `0052_backfill_entity_external_ids` + its named-case test);
-      P0-1 … P0-5, P0-7, P0-8 open
+- [ ] backend — **done: P0-9** (migration `0052_backfill_entity_external_ids`), **P0-3** (the
+      write-time guard + `queueSharedExternalIDPair`, the shared queue writer P0-2 specifies),
+      **P0-7** (both stale comments). Open: **P0-1 / P0-4** (detector + boot sweep, which reuse the
+      writer), **P0-5**'s detector-side exclusions, **P0-8** the sort tiebreak
 - [ ] frontend — P0-6 (one chip keyed on `variation`; three-skin QA in the handoff)
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
@@ -162,11 +164,15 @@ OQ2 repair pass makes the number stop being small.
 ## Up next — ordered (position = priority)
 
 1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
-2. **P0-3, the write-time guard.** Three traps recorded in the spec — `RowsAffected() == 0` is
-   *not* the signal (benign re-enrich idempotence would flood the queue), the guard belongs on
-   `Repo.AttachExternalID` and never on the shared `attachExternalID`, and the check plus queue
-   write must stay inside the one `writeMu` critical section (no `AttachExternalIDLocked` exists).
-   Then P0-1/P0-2/P0-4 (detector + sweep), P0-7, P0-8, P0-6.
+2. ~~P0-3, the write-time guard.~~ **Done 2026-09-24**, with P0-2's shared writer and P0-7.
+   All three traps held. **Next: P0-1 + P0-4 — the detector and the boot sweep.** They reuse
+   `queueSharedExternalIDPair` as-is (RD8 upsert, keep-separate gate, ordered pair). The detector's
+   claimant-set SQL already exists twice — in `scripts/detect_shared_external_id.sql` §1 and in
+   migration 0052 steps 1–3 — so the Go version is a port, not a new derivation; take 0052's, which
+   is the one with the tie-break-toward-agreement rule and the entity-exists guard. Wire the sweep
+   beside `seedIdentityReviewQueue` in `cmd/holodex/main.go` with its own `job_runs` kind, ungated
+   (RD5). Then P0-8 (a one-line `ORDER BY` tiebreak in `ListReviewPairs` — non-fuzzy rows already
+   sort at `-1`, so `shared-external-id` just needs `-2`) and P0-6 (the chip).
 3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
    spec **RD8**, which amends P0-2. The write is
    `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
@@ -187,6 +193,40 @@ OQ2 repair pass makes the number stop being small.
    sweep needed (same as 451).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-09-24 (latest) — P0-3, the write-time guard
+- skills: code-review
+
+`Repo.AttachExternalID` stops being a silent `INSERT OR IGNORE`. Under the `writeMu` it already
+holds it re-reads the owner and, when the id belongs to a different entity of the same kind, queues
+the pair and returns **nil** — the enrich must still succeed, because the field values are already
+stored and only the identity claim is contested. Shipped with `queueSharedExternalIDPair`, the
+shared writer P0-2 describes (RD8 upsert, keep-separate gate, ordered pair), which P0-4's sweep will
+reuse unchanged. P0-7's two stale comments rewritten in the same commit.
+
+All three recorded traps held, and the **anti-flood one is mutation-checked**: drop the
+`owner == entityID` branch and even a *free* attach queues a self-pair, because `INSERT OR IGNORE`
+returns nil for inserted / already-mine / owned-by-another alike. That is the branch, not the
+`RowsAffected` question, that keeps a refresh sweep from flooding the queue.
+
+**One correction to a stated rationale.** ADR-107 D4 justifies keeping the guard off the private
+`attachExternalID` partly with "a queue insert there would fire on every relink". That half does not
+hold: `resolveOrCreateByName` step 1 looks the id up and **returns the owner before ever reaching
+the private writer** (`identity.go:166`), so a contested id cannot arrive there — a guard placed
+there would be dead code on the scan path, not a flood. The constraint stands on the transactional
+reason (a review row written inside a scan transaction that may roll back). Recorded in the code
+comment and spec P0-3 so nobody "simplifies" the guard back down. Consequence for testing: **no
+test can distinguish a guard placed there by its queue output**, so
+`TestScanPathAttachStillSilent` asserts the weaker true thing — the relink path still resolves
+id-first and still queues nothing — and says so.
+
+- handoff: the guard is in and pushed, so new collisions stop accumulating. **Next: P0-1 + P0-4**,
+  the detector and the ungated boot sweep — port the claimant-set query from migration 0052 steps
+  1–3 (it carries the tie-break-toward-agreement rule and the entity-exists guard that the probe
+  script's version does not), call `queueSharedExternalIDPair` for each pair, and wire it beside
+  `seedIdentityReviewQueue` in `cmd/holodex/main.go` with its own `job_runs` kind. P0-5's two
+  exclusions are named tests on the detector; video/tag are already asserted at the guard.
+  After that P0-8 is one line and P0-6 is the chip.
 
 ### 2026-09-24 (later) — P0-9, the spine backfill
 - skills: code-review
