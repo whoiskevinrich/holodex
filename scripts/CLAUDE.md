@@ -42,11 +42,16 @@ probes that measure the live library.
 |---|---|
 | `detect_shared_external_id.sql` | **The maintained duplicate detector** (HOLODEX-452, ADR-107 D1): entities that share a provider external id, found by pairing the whole claimant set — the spine's owner union every memo holder. |
 | `detect_person_duplicate_evidence.sql` | What evidence exists to *decide* the person pairs already in `identity_review_queue` (sized the F70 compare panel). Its own external-id cross-check counts colliding memos only and misses the spine side — use the detector above for that. |
-| `detect_entity_collisions.sql` | Name collisions: case/whitespace (Tier A, migration blockers) and punctuation/spacing near-misses (Tier B). |
+| `detect_entity_collisions.sql` | Name collisions across all four spine kinds: case/whitespace (Tier A, migration blockers), punctuation/spacing near-misses (Tier B), and film's same-title-different-year pairs. |
 
 All three conform to the rules above as of 2026-09-23.
 
-**Known gap:** `detect_entity_collisions.sql` omits `film`, which joined the identity spine later
-(migration 0047) and which the live detector already folds in. Films key on `(nameKey, year)`
-rather than `nameKey` alone (ADR-096 D3), so it is not a one-line `UNION` — left out deliberately
-rather than done wrong.
+**Film keys on `(nameKey, year)`, and the probe carries that through.** `ux_films_namekey`
+(migration 0047, ADR-096 D3) makes two films sharing a title across different years legal, so
+grouping film by name alone would report every remake as a hard collision. Tier A and Tier B group
+on a `ykey` that is the year for film and the constant `''` for every other kind — which is what
+keeps the other three kinds' numbers identical. Two things that shape cannot express get their own
+section: a **NULL year is distinct from every other NULL** under a SQLite unique index, so two
+untitled-year films with the same name coexist legally and are a real duplicate the index cannot
+stop; and `queueFilmSameTitle` queues same-title pairs under **any** year as the non-fuzzy
+`same-title` variation, which a `(name, year)` grouping is blind to by design.
