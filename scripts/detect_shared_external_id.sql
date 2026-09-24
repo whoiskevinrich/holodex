@@ -19,6 +19,11 @@
 --                                 legitimately share an id; tag is not enrichable.
 --   4. entity_keep_separate is honored — a dismissed pair is never a finding.
 --
+-- OUTPUT IS ANONYMIZED (scripts/CLAUDE.md): no entity names, no provider names, no full provider
+-- ids. Pairs are internal ids — /people/1679 opens the record — providers are stable `provider-N`
+-- aliases, and an external id shows only its last 8 characters, which is enough to group rows that
+-- share one. Every result here is safe to paste into a session, an issue or a PR as-is.
+--
 -- Verified 2026-09-23 against a database built by applying all 50 up migrations to an empty
 -- file and seeded with seven cases: a memo that agrees with the spine (no finding); a memo the
 -- spine gives to somebody else (finding); a stale narrow re-enrich whose OLD memo points at
@@ -48,6 +53,11 @@ WHERE e.external_id <> ''
   AND e.entity_type IN ('person', 'studio', 'film')
 GROUP BY e.entity_type, e.entity_id, e.provider;
 
+-- ── Stable generic provider aliases, so "which provider?" is answerable without naming one ──
+CREATE TEMP VIEW provider_alias AS
+SELECT provider, 'provider-' || dense_rank() OVER (ORDER BY provider) AS alias
+FROM (SELECT DISTINCT provider FROM entity_enrichment);
+
 -- ── Everyone who claims an id: the spine's one owner, plus every memo holder ───────
 -- NOT just "memo disagrees with the spine". The host run found ONE studio id claimed by three
 -- studios (two memo holders against one spine owner): a memo⇔spine join emits the two pairs
@@ -75,6 +85,18 @@ JOIN claimant b ON a.entity_type = b.entity_type
                AND a.external_id = b.external_id
                AND a.entity_id < b.entity_id;
 
+-- ── One publishable label per external id: aliased provider + the tail of the NATIVE id ──────
+-- The namespace is stripped BEFORE taking the tail: substr(x, -8) alone still spells the provider
+-- out for a short id like `tmdb:287`, which is the exact leak scripts/CLAUDE.md exists to stop.
+-- COALESCE covers an id with no ':' at all (§4c counts those).
+CREATE TEMP VIEW xid_label AS
+SELECT x.external_id,
+       coalesce(pa.alias, 'provider-?') || ':…' ||
+       substr(substr(x.external_id, instr(x.external_id, ':') + 1), -8) AS label
+FROM (SELECT DISTINCT external_id FROM claimant) x
+LEFT JOIN provider_alias pa
+       ON pa.provider = substr(x.external_id, 1, instr(x.external_id, ':') - 1);
+
 SELECT '=== 0. scale ===' AS "";
 SELECT (SELECT count(*) FROM people)                                   AS people,
        (SELECT count(*) FROM studios)                                  AS studios,
@@ -99,16 +121,10 @@ FROM (SELECT DISTINCT d.entity_type, d.id_lo, d.id_hi,
         FROM disagreement d) p
 GROUP BY p.entity_type;
 
-SELECT '=== 2. every finding, named ===' AS "";
-SELECT d.entity_type, d.external_id, d.id_lo, d.id_hi,
-       CASE d.entity_type
-            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.id_lo)
-            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.id_lo)
-            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.id_lo) END  AS lo_name,
-       CASE d.entity_type
-            WHEN 'person' THEN (SELECT name FROM people  WHERE id = d.id_hi)
-            WHEN 'studio' THEN (SELECT name FROM studios WHERE id = d.id_hi)
-            WHEN 'film'   THEN (SELECT name FROM films   WHERE id = d.id_hi) END  AS hi_name,
+SELECT '=== 2. every finding (ids only — look names up in the app) ===' AS "";
+SELECT d.entity_type,
+       (SELECT label FROM xid_label l WHERE l.external_id = d.external_id) AS xid,
+       d.id_lo, d.id_hi,
        CASE WHEN d.lo_owns_spine THEN d.id_lo
             WHEN d.hi_owns_spine THEN d.id_hi END                AS spine_owner,
        EXISTS (SELECT 1 FROM identity_review_queue q
@@ -121,9 +137,11 @@ FROM disagreement d
 ORDER BY d.entity_type, d.external_id, d.id_lo;
 
 SELECT '--- 2b. ids claimed by MORE than two entities (a clique, not a pair) ---' AS "";
-SELECT entity_type, external_id, count(*) AS claimants
-FROM claimant
-GROUP BY entity_type, external_id
+SELECT c.entity_type,
+       (SELECT label FROM xid_label l WHERE l.external_id = c.external_id) AS xid,
+       count(*) AS claimants
+FROM claimant c
+GROUP BY c.entity_type, c.external_id
 HAVING count(*) > 2;
 
 SELECT '=== 3. is the new set DISJOINT from the name-based queue? (expect overlap 0) ===' AS "";
@@ -151,10 +169,10 @@ FROM (SELECT entity_type, entity_id, provider
 GROUP BY entity_type;
 
 SELECT '4c. memos NOT of the form <ns>:<id> — nothing enforces the grammar at the write' AS check_;
-SELECT entity_type, provider, count(*) AS rows_
-FROM entity_enrichment
-WHERE external_id <> '' AND instr(external_id, ':') = 0
-GROUP BY entity_type, provider;
+SELECT e.entity_type, pa.alias AS provider, count(*) AS rows_
+FROM entity_enrichment e JOIN provider_alias pa ON pa.provider = e.provider
+WHERE e.external_id <> '' AND instr(e.external_id, ':') = 0
+GROUP BY e.entity_type, pa.alias;
 
 SELECT '=== 5. the memo self-join the ticket proposed — for comparison with §1 ===' AS "";
 SELECT entity_type, count(*) AS colliding_ids
@@ -207,8 +225,9 @@ SELECT m.entity_type,
 FROM memo m GROUP BY m.entity_type;
 
 SELECT '--- 8c. per provider: memos, and how many of those ids the spine knows ---' AS "";
-SELECT m.entity_type, m.provider, count(*) AS memos,
+SELECT m.entity_type, pa.alias AS provider, count(*) AS memos,
        sum(EXISTS (SELECT 1 FROM entity_external_ids x
                     WHERE x.entity_type = m.entity_type AND x.external_id = m.external_id))
                                                         AS id_known_to_spine
-FROM memo m GROUP BY m.entity_type, m.provider;
+FROM memo m JOIN provider_alias pa ON pa.provider = m.provider
+GROUP BY m.entity_type, pa.alias;
