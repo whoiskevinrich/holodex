@@ -121,6 +121,18 @@ records.
   reason-aware, which would change an ADR-061 invariant and need a migration to record which
   variation each dismissal answered; revisit only if the number stops being small.
 
+- **RD8 — a shared-id finding UPGRADES an existing weaker `variation`, in every producer.**
+  Owner's decision 2026-09-24. A pair can be both a shared-id finding and a name near-miss (1 of the
+  host's 15 was); under a plain `INSERT OR IGNORE` it would keep a label that means *weak* and sort
+  in the fuzzy band, which is the exact failure P0-8 exists to prevent. So the queue write is
+  `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
+  **one-way ratchet**, because `SeedIdentityReviewQueue` writes with `INSERT OR IGNORE` and can
+  never demote a row back. Accepted cost: the queue stores one variation per pair, so "the names
+  also nearly match" stops being recorded for that pair. **All three producers must agree** — the
+  migration (P0-9), the boot sweep (P0-4) and the write-time guard (P0-3). This amends P0-2's
+  "`INSERT OR IGNORE`", which was written before the collision with the name detector was measured;
+  idempotence is unaffected, since the upsert is a no-op on a row already carrying the value.
+
 ## User Stories
 
 - As the owner, when a provider tells me two of my people are one record, I see that pair **above**
@@ -151,12 +163,16 @@ kept-separate pair, two videos sharing an id, and one pair colliding on two prov
 the disagreeing person pairs and the disagreeing studio pair are findings; the kept-separate pair
 is a finding the queue write suppresses; and the two-provider pair yields one queue row, not two.
 
-**P0-2 — the queue row.** A finding inserts `identity_review_queue (entity_type, id_lo, id_hi,
-variation = 'shared-external-id')` with `INSERT OR IGNORE`, so both producers and repeated runs are
-idempotent. `detail` is left empty: unlike `provider-alias`, both sides of this pair are readable
-from the entities themselves.
+**P0-2 — the queue row.** A finding writes `identity_review_queue (entity_type, id_lo, id_hi,
+variation = 'shared-external-id')` as an **upsert** —
+`ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'`, RD8 — so
+repeated runs are idempotent *and* a pair the name detector already queued is upgraded rather than
+left wearing the weaker label. `detail` is left empty: unlike `provider-alias`, both sides of this
+pair are readable from the entities themselves.
 
-*Acceptance*: running the sweep twice inserts on the first pass and reports 0 on the second.
+*Acceptance*: running the sweep twice changes nothing on the second pass; a pair pre-queued as
+`punctuation` comes out as `shared-external-id`; a pair already `shared-external-id` is never
+demoted by a later `SeedIdentityReviewQueue` run.
 
 **P0-3 — the write-time guard.** `Repo.AttachExternalID` (`internal/repo/identity.go:274`) stops
 being a bare `INSERT OR IGNORE`. Under the `writeMu` it already takes, it reads the current owner;
@@ -242,7 +258,10 @@ Four rules the implementation settled, each a named case in
    this feature's — and **leaves the folded spine rows**: once written they are indistinguishable
    from the rows `attachExternalID` produces on the scan path (same shape, same meaning, no
    provenance column), so reconstructing which came from the memo would have to guess, and guessing
-   wrong deletes an identity the owner asserted. Re-applying is a no-op on them.
+   wrong deletes an identity the owner asserted. Re-applying is a no-op on them. A pair RD8
+   **upgraded** loses its row entirely on the way down rather than being restored to a variation
+   nothing recorded — which self-heals, because `SeedIdentityReviewQueue` is ungated and re-derives
+   that pair from the names it was found by.
 
 *Acceptance*: after the pass, §8b's `with_any_spine_row` equals `enriched_entities` for person and
 film, or every remaining gap is explained by a named, tested rule (rules 1–3 above are those
@@ -308,11 +327,8 @@ QA list are in the [design handoff](../design/duplicates-shared-external-id-hand
 - The 10 measured person collisions and 7 studio ones are queued and decidable; the number of
   undetected collisions stops growing.
 - The set is **near**-disjoint from the name-based queue — probe §3 returned **1**, not 0, so this
-  is new coverage rather than a re-cut, but one pair is both a shared-id finding and a punctuation
-  near-miss. That pair keeps its existing weaker `variation`, because every producer writes with
-  `INSERT OR IGNORE` (P0-2), so it renders the near-miss label and sorts in the fuzzy band. Open:
-  whether a shared-id finding should *upgrade* an existing row's variation — one decision for all
-  three producers, not per-producer.
+  is new coverage rather than a re-cut, and that one pair is both a shared-id finding and a
+  punctuation near-miss. It renders the chip, not the near-miss label — see RD8.
 - No false positive from a stale narrow re-enrich (probe §4a > 0 with §1 unaffected by it).
 
 ## Open Questions

@@ -118,12 +118,24 @@ WHERE NOT EXISTS (SELECT 1 FROM _contested c
 -- which the boot sweep reads.
 --
 -- Pairs over the whole claimant set (every pair of a 3-claimant id, not just the two that
--- touch the spine owner). OR IGNORE on the (entity_type, id_lo, id_hi) PK keeps the pass
--- idempotent and leaves a pair the name-based detector already queued under its existing
--- variation. `detail` stays '' (spec P0-2): unlike provider-alias, both sides of this pair
--- are readable from the entities themselves.
-INSERT OR IGNORE INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
-SELECT a.entity_type, a.entity_id, b.entity_id, 'shared-external-id'
+-- touch the spine owner). `detail` stays '' (spec P0-2): unlike provider-alias, both sides
+-- of this pair are readable from the entities themselves.
+--
+-- The upsert UPGRADES a weaker variation rather than leaving it (owner's decision
+-- 2026-09-24). A pair can be both a shared-id finding and a punctuation near-miss -- 1 of
+-- the host's 15 was -- and under a plain INSERT OR IGNORE that pair would keep the label
+-- meaning WEAK and sort in the fuzzy band, which is the exact failure P0-8 exists to
+-- prevent. It is a one-way ratchet: SeedIdentityReviewQueue writes with INSERT OR IGNORE,
+-- so the name detector can never demote a row back. The cost is that "the names also nearly
+-- match" stops being recorded, the queue storing one variation per pair.
+--
+-- SELECT DISTINCT because a pair colliding on TWO providers appears twice in the join (the
+-- probe's fixture has one): collapsing it means the upsert applies once, rather than relying
+-- on how SQLite handles the same target row conflicting twice in one statement. The WHERE
+-- clause is what makes the upsert parse at all after a SELECT -- without it SQLite can read
+-- the ON as a join constraint.
+INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
+SELECT DISTINCT a.entity_type, a.entity_id, b.entity_id, 'shared-external-id'
 FROM _claimant a
 JOIN _claimant b ON a.entity_type = b.entity_type
                 AND a.external_id = b.external_id
@@ -131,7 +143,8 @@ JOIN _claimant b ON a.entity_type = b.entity_type
 WHERE NOT EXISTS (SELECT 1 FROM entity_keep_separate ks     -- rule 4
                    WHERE ks.entity_type = a.entity_type
                      AND ks.id_lo = a.entity_id
-                     AND ks.id_hi = b.entity_id);
+                     AND ks.id_hi = b.entity_id)
+ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id';
 
 DROP TABLE _contested;
 DROP TABLE _claimant;

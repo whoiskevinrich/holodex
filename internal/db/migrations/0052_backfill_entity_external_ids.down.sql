@@ -5,8 +5,12 @@
 --
 -- The 'shared-external-id' review rows are: that variation did not exist before 0052, so
 -- every one of them belongs to F71 and deleting them returns identity_review_queue to a
--- state 0051 could have produced. A pair the name-based detector had already queued under
--- its own variation is untouched, because 0052's INSERT OR IGNORE never overwrote it.
+-- state 0051 could have produced.
+--
+-- A pair 0052 UPGRADED from a weaker variation loses its row entirely here rather than being
+-- restored -- the prior value is not recorded anywhere, and guessing 'punctuation' would
+-- invent one. This self-heals: SeedIdentityReviewQueue runs every boot, is not gated, and
+-- re-derives that pair from the names it was found by in the first place.
 --
 -- The folded entity_external_ids rows are NOT. Once written they are indistinguishable from
 -- the rows attachExternalID would have produced on the scan path -- same shape, same

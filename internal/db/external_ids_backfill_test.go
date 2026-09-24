@@ -43,7 +43,8 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 		(1,'Aiden Alpha'),(2,'Bella Bravo'),(3,'Cara Charlie'),(4,'Dana Delta'),
 		(5,'Evan Echo'),(6,'Fiona Foxtrot'),(7,'Gina Golf'),(8,'Hank Hotel'),
 		(9,'Iris India'),(10,'Jack Juliet'),(11,'Kara Kilo'),(12,'Liam Lima'),
-		(13,'Mira Mike'),(14,'Nate November'),(15,'Owen Oscar'),(16,'Pia Papa')`)
+		(13,'Mira Mike'),(14,'Nate November'),(15,'Owen Oscar'),(16,'Pia Papa'),
+		(17,'Quinn Quebec'),(18,'Rosa Romeo')`)
 	mustExec(t, db, `INSERT INTO studios (id, name) VALUES
 		(100,'Spine Pictures'),(101,'Memo Pictures'),(102,'Other Memo Pictures')`)
 	mustExec(t, db, `INSERT INTO films (id, name, year) VALUES (200,'Film Alpha',2001)`)
@@ -109,7 +110,13 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 		('video',    1, 'prov1', 'bio',      'x', 'prov1:v1',  '2026-03-01T00:00:00Z'),
 		('video',    2, 'prov1', 'bio',      'x', 'prov1:v1',  '2026-03-01T00:00:00Z'),
 		-- 14. tag is excluded: it is not enrichable (P0-5).
-		('tag',    300, 'prov1', 'bio',      'x', 'prov1:t1',  '2026-03-01T00:00:00Z')`)
+		('tag',    300, 'prov1', 'bio',      'x', 'prov1:t1',  '2026-03-01T00:00:00Z'),
+		-- 15. ONE pair colliding on TWO providers → exactly one queue row, not two (the queue
+		--     PK stores a pair once), and the case SELECT DISTINCT collapses before the upsert.
+		('person', 17, 'prov1', 'bio',       'x', 'prov1:p17', '2026-03-01T00:00:00Z'),
+		('person', 18, 'prov1', 'bio',       'x', 'prov1:p17', '2026-03-01T00:00:00Z'),
+		('person', 17, 'prov2', 'bio',       'x', 'prov2:q17', '2026-03-01T00:00:00Z'),
+		('person', 18, 'prov2', 'bio',       'x', 'prov2:q17', '2026-03-01T00:00:00Z')`)
 
 	mustExec(t, db, `INSERT INTO entity_keep_separate (entity_type, id_lo, id_hi) VALUES ('person', 9, 10)`)
 	// A pair the NAME-based detector already queued, which is also a shared-id finding --
@@ -188,6 +195,8 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	}
 	want := []string{
 		"person:3-4",     // memo disagrees with the spine
+		"person:7-8",     // memo-to-memo, and an UPGRADE over the name detector's row
+		"person:17-18",   // one pair, two providers → one row
 		"studio:100-101", // the three-claimant clique: all three pairs, including the
 		"studio:100-102", // memo-to-memo one a spine-anchored join would drop
 		"studio:101-102",
@@ -200,10 +209,11 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	if len(pairs) != len(want) {
 		t.Errorf("shared-external-id pairs = %v, want exactly %v", pairs, want)
 	}
-	// The memo-only contest (7,8) IS a finding, but it was already queued by the name
-	// detector, so its variation stands (spec P0-2's INSERT OR IGNORE).
-	if got := variationOf(t, db, "person", 7, 8); got != "punctuation" {
-		t.Errorf("pair (7,8) variation = %q, want the pre-existing punctuation", got)
+	// (7,8) was already queued by the NAME detector as the weaker 'punctuation'. The strong
+	// signal upgrades it (owner's decision 2026-09-24) rather than sorting in the fuzzy band
+	// behind a label that means "weak" — the failure P0-8 exists to prevent.
+	if got := variationOf(t, db, "person", 7, 8); got != "shared-external-id" {
+		t.Errorf("pair (7,8) variation = %q, want the upgrade to shared-external-id", got)
 	}
 	// Kept-separate is never re-proposed (ADR-061), and the tie broke toward agreement.
 	for _, none := range []struct {
@@ -233,8 +243,10 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE variation='shared-external-id'`); n != 0 {
 		t.Errorf("shared-external-id rows after down = %d, want 0", n)
 	}
-	if got := variationOf(t, db, "person", 7, 8); got != "punctuation" {
-		t.Errorf("name-detector pair after down = %q, want punctuation (untouched)", got)
+	// An upgraded pair loses its row rather than being restored to a variation nothing
+	// recorded; SeedIdentityReviewQueue re-derives it from the names on the next boot.
+	if got := variationOf(t, db, "person", 7, 8); got != "" {
+		t.Errorf("upgraded pair after down = %q, want it gone (the prior variation is unrecorded)", got)
 	}
 
 	// ── Re-applying is a no-op on the fold and re-queues the same pairs ─────────────
@@ -244,7 +256,7 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	if n := count(t, db, `SELECT COUNT(*) FROM entity_external_ids`); n != 9 {
 		t.Errorf("spine rows after re-apply = %d, want 9 (INSERT OR IGNORE)", n)
 	}
-	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE variation='shared-external-id'`); n != 4 {
-		t.Errorf("shared-external-id rows after re-apply = %d, want 4", n)
+	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE variation='shared-external-id'`); n != 6 {
+		t.Errorf("shared-external-id rows after re-apply = %d, want 6", n)
 	}
 }

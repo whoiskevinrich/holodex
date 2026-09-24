@@ -167,14 +167,12 @@ OQ2 repair pass makes the number stop being small.
    `Repo.AttachExternalID` and never on the shared `attachExternalID`, and the check plus queue
    write must stay inside the one `writeMu` critical section (no `AttachExternalIDLocked` exists).
    Then P0-1/P0-2/P0-4 (detector + sweep), P0-7, P0-8, P0-6.
-3. **Decide the variation-upgrade question — once, for all three producers.** A pair that is both
-   a shared-id finding and a name near-miss keeps its *weaker* variation, because P0-2 specifies
-   `INSERT OR IGNORE` and the migration honors that. The host probe's §3 found exactly 1 such pair
-   out of 15. Consequence: that pair renders the near-miss label and sorts in the fuzzy band, which
-   is the precise failure P0-8 exists to prevent. The alternative is a one-line
-   `ON CONFLICT … DO UPDATE SET variation = 'shared-external-id'` — a one-way ratchet, since the
-   name detector's own `INSERT OR IGNORE` can never demote it. **Do not implement it in one
-   producer only**; recorded in the spec's Success Metrics.
+3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
+   spec **RD8**, which amends P0-2. The write is
+   `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
+   one-way ratchet, since `SeedIdentityReviewQueue`'s own `INSERT OR IGNORE` can never demote it.
+   Shipped in 0052. **P0-3's guard and P0-4's sweep must use the same upsert** — a producer left on
+   `INSERT OR IGNORE` reintroduces the weak label for exactly the pairs this decision was about.
 4. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
    (`kept_separate = 1`) — spec P1-2.
 5. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
@@ -217,13 +215,17 @@ Three stale spec statements fixed in the same commit, all contradicting P0-9: Da
 migration"; Non-Goals still listed the backfill as out of scope; Success Metrics claimed probe §3
 returns 0 when the host measured 1.
 
+Kevin then answered the one question the migration surfaced: a shared-id finding **upgrades** an
+existing weaker `variation` rather than leaving it. Spec **RD8**, amending P0-2; 0052 writes the
+upsert. One caution the mutation check produced: `SELECT DISTINCT` before the upsert is there to
+collapse a pair colliding on two providers, **not** because SQLite refuses a double-touch — removing
+DISTINCT still passes, so don't document it as load-bearing for that reason.
+
 - handoff: P0-9 is done and pushed; next is **P0-3, the write-time guard**, carrying its three
   recorded traps (`RowsAffected() == 0` is not the signal; guard `Repo.AttachExternalID` never the
-  shared `attachExternalID`; check + queue write in one `writeMu` critical section). Before writing
-  P0-2's queue helper, get Kevin's answer on **`Up next` item 3** — whether a shared-id finding
-  should *upgrade* an existing weaker `variation` — because it has to be one answer for all three
-  producers, and the migration currently honors P0-2's literal `INSERT OR IGNORE`, which leaves 1
-  host pair rendering the near-miss label in the fuzzy sort band.
+  shared `attachExternalID`; check + queue write in one `writeMu` critical section). Both it and
+  P0-4's sweep must write the **RD8 upsert**, not `INSERT OR IGNORE` — a producer left on the old
+  write reintroduces the weak label for exactly the pairs RD8 was decided about.
 
 ### 2026-09-24 — crossed into build
 - skills: implement, code-review
