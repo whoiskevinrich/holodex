@@ -36,7 +36,17 @@ probes that measure the live library.
 - **A probe is read-only.** Headers document `sqlite3 -readonly`, and temp views are fine under it
   (they live in the temp database). Never write to the library from `scripts/`.
 
-## Known gaps
+## The probes
 
-- `detect_person_duplicate_evidence.sql` and `detect_entity_collisions.sql` predate this rule and
-  still emit names. Bring one into line when you next touch it — don't bulk-rewrite them.
+| File | Covers |
+|---|---|
+| `detect_shared_external_id.sql` | **The maintained duplicate detector** (HOLODEX-452, ADR-107 D1): entities that share a provider external id, found by pairing the whole claimant set — the spine's owner union every memo holder. |
+| `detect_person_duplicate_evidence.sql` | What evidence exists to *decide* the person pairs already in `identity_review_queue` (sized the F70 compare panel). Its own external-id cross-check counts colliding memos only and misses the spine side — use the detector above for that. |
+| `detect_entity_collisions.sql` | Name collisions: case/whitespace (Tier A, migration blockers) and punctuation/spacing near-misses (Tier B). |
+
+All three conform to the rules above as of 2026-09-23.
+
+**Known gap:** `detect_entity_collisions.sql` omits `film`, which joined the identity spine later
+(migration 0047) and which the live detector already folds in. Films key on `(nameKey, year)`
+rather than `nameKey` alone (ADR-096 D3), so it is not a one-line `UNION` — left out deliberately
+rather than done wrong.

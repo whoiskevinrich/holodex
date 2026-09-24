@@ -1,13 +1,20 @@
 -- ============================================================================
 -- Entity collision probe  —  READ-ONLY, ANONYMIZED OUTPUT.
 -- Emits counts / classifications / key-lengths only: no names, ids, keys, or
--- external-id values. Output is safe to paste/share.
+-- external-id values, and no provider names. Output is safe to paste/share
+-- as-is (scripts/CLAUDE.md).
 --
 --   sqlite3 -readonly /path/to/holodex.db ".read detect_entity_collisions.sql"
 --
 -- Covers case/whitespace collisions (Tier A, migration blockers) and
 -- punctuation/spacing near-misses (Tier B, review-queue candidates) across
 -- People (canonical ∪ alias), Studios, and Tags.
+--
+-- KNOWN GAP: film is missing. It joined the ADR-061 identity spine later
+-- (migration 0047) and the live detector already folds it in
+-- (seedReviewQueueSQL), so this probe under-reports by one entity kind.
+-- Films key on (nameKey, year), not nameKey alone (ADR-096 D3), so adding it
+-- is not a one-line UNION — left out deliberately rather than done wrong.
 -- ============================================================================
 
 .mode box
@@ -95,9 +102,13 @@ ORDER BY entity, distinct_forms DESC;
 -- ── STUDIO refinement (anonymized): name collision vs external-id evidence ──
 -- distinct_external_id_sets > 1 ⇒ probably different real companies (keep apart).
 SELECT '=== STUDIO refinement: name collisions vs external-id evidence ===' AS "";
+-- studio_external_ids was folded into the polymorphic entity_external_ids and
+-- DROPPED by migration 0046 (ADR-096 D2), so this section errored on any
+-- current database until it was repointed.
 WITH s AS (
   SELECT s.id, lower(trim(s.name)) AS hkey,
-         (SELECT group_concat(external_id) FROM studio_external_ids se WHERE se.studio_id = s.id) AS ext
+         (SELECT group_concat(se.external_id) FROM entity_external_ids se
+           WHERE se.entity_type = 'studio' AND se.entity_id = s.id) AS ext
   FROM studios s
 )
 SELECT

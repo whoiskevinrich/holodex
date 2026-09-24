@@ -8,13 +8,25 @@
 -- compare panel (headshots first), not to pick a winner.
 --
 -- Emits counts, buckets and classifications only. NO names, NO entity ids, NO
--- external-id values, NO dates, NO nationality strings. Field keys and provider
--- names ARE emitted — they are schema vocabulary, not library content. Output
--- is safe to paste back.
+-- external-id values, NO dates, NO nationality strings. Pairs are opaque
+-- `pair_no` ordinals.
+--
+-- Providers appear as stable `provider-N` aliases (scripts/CLAUDE.md). An
+-- earlier version of this header argued a provider name is "schema vocabulary,
+-- not library content" and printed it — that reasoning does not survive the
+-- standing rule that this library's providers are never named, and every
+-- provider column below was redacted by hand before the output could be shared.
+-- Field keys stay in the clear: they are canonical mapping names (ADR-013),
+-- fixed by the repo rather than by what the library happens to contain.
 -- ============================================================================
 
 .mode box
 .headers on
+
+-- Stable generic provider aliases, so "which provider?" stays answerable.
+CREATE TEMP VIEW provider_alias AS
+SELECT provider, 'provider-' || dense_rank() OVER (ORDER BY provider) AS alias
+FROM (SELECT DISTINCT provider FROM entity_enrichment);
 
 -- Loose key: lowercase, trim, strip spacing + punctuation. Same fold as the
 -- S4/S5 detector and the older collision probe, so classifications agree.
@@ -142,8 +154,14 @@ FROM pc GROUP BY 1 ORDER BY pairs DESC;
 -- NOTE entity_external_ids has PRIMARY KEY (entity_type, external_id), so two
 -- people can never share one there BY CONSTRUCTION. The only place a shared id
 -- could show up is entity_enrichment.external_id, which is not globally unique.
+--
+-- That observation became HOLODEX-452. The cross-check below counts colliding
+-- MEMOS; it does NOT find the case where the memo holder and the spine's owner
+-- are different entities and only one of them has a memo. Use
+-- scripts/detect_shared_external_id.sql for that — it pairs the whole claimant
+-- set and is the maintained detector (ADR-107 D1).
 SELECT '=== 3. EXTERNAL-ID RELATIONSHIP (per shared provider) ===' AS "";
-SELECT a.provider,
+SELECT pa.alias AS provider,
   sum(CASE WHEN a.xid IS NOT NULL AND a.xid = b.xid THEN 1 ELSE 0 END) AS same_id,
   sum(CASE WHEN a.xid IS NOT NULL AND b.xid IS NOT NULL AND a.xid <> b.xid THEN 1 ELSE 0 END) AS different_ids,
   sum(CASE WHEN a.xid IS NULL OR b.xid IS NULL THEN 1 ELSE 0 END) AS id_missing_a_side,
@@ -151,7 +169,8 @@ SELECT a.provider,
 FROM qmatch q
 JOIN pprov a ON a.eid = q.lo
 JOIN pprov b ON b.eid = q.hi AND b.provider = a.provider
-GROUP BY a.provider;
+JOIN provider_alias pa ON pa.provider = a.provider
+GROUP BY pa.alias;
 
 SELECT '--- cross-check: any external_id claimed by >1 person anywhere? ---' AS "";
 SELECT 'entity_external_ids (PK forbids this — expect 0)' AS source,
