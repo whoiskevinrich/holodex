@@ -85,15 +85,18 @@ JOIN claimant b ON a.entity_type = b.entity_type
                AND a.external_id = b.external_id
                AND a.entity_id < b.entity_id;
 
--- ── One publishable label per external id: aliased provider + the tail of the NATIVE id ──────
--- The namespace is stripped BEFORE taking the tail: substr(x, -8) alone still spells the provider
--- out for a short id like `tmdb:287`, which is the exact leak scripts/CLAUDE.md exists to stop.
--- COALESCE covers an id with no ':' at all (§4c counts those).
+-- ── One publishable label per external id: aliased provider + an OPAQUE ordinal ─────────────
+-- NOT a truncation of the id. The host run on 2026-09-23 proved why: one provider mints
+-- human-readable slugs rather than UUIDs, so `substr(external_id, -8)` printed a fragment of a
+-- performer's NAME straight into the output. An id's own bytes are never safe to show, however
+-- much is trimmed, because nothing constrains a provider to opaque ids. The ordinal is dense over
+-- the findings only, so it stays small and readable; it is per-run and means nothing outside this
+-- output, which is the point. Two rows sharing a label share an id — that is all it has to say.
 CREATE TEMP VIEW xid_label AS
 SELECT x.external_id,
-       coalesce(pa.alias, 'provider-?') || ':…' ||
-       substr(substr(x.external_id, instr(x.external_id, ':') + 1), -8) AS label
-FROM (SELECT DISTINCT external_id FROM claimant) x
+       coalesce(pa.alias, 'provider-?') || ':xid-' ||
+       dense_rank() OVER (ORDER BY x.external_id) AS label
+FROM (SELECT DISTINCT external_id FROM disagreement) x
 LEFT JOIN provider_alias pa
        ON pa.provider = substr(x.external_id, 1, instr(x.external_id, ':') - 1);
 

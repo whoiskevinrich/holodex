@@ -16,12 +16,20 @@ probes that measure the live library.
   |---|---|---|
   | An entity's `name` — person, studio, film, tag | its internal `id` | An id is already the handle: `/people/1679` opens the record. A name is the whole disclosure. |
   | A provider's name | a stable generic alias — `provider-1`, `provider-2` | Upholds the standing "name providers generically" rule, and an alias still answers *"do the misses cluster in one provider?"* |
-  | A provider-native id (`…:performer:<uuid>`) | a short suffix, `substr(x, -8)` | Enough to group rows that share an id; not resolvable back to a person. |
+  | A provider-native id | an **opaque per-run ordinal** — `xid-7`, via `dense_rank()` | Two rows sharing a label share an id, which is all the output needs to say. |
   | Any `value` out of `entity_enrichment`, filenames, paths | a count, a length, or a boolean | Bios, titles and paths are free text — they identify by content. |
 
   Counts, booleans, aggregates and internal integer ids are fine in the clear. If a query cannot
   answer its question without a name, the question is wrong for a probe: narrow it to ids and look
   the names up in the app.
+
+- **Never publish an external id's own bytes — not even a truncation.** This rule was learned the
+  expensive way: the first version of the table above said to print `substr(external_id, -8)`,
+  reasoning that the tail of a UUID identifies nobody. It shipped, and the very next host run
+  printed `provider-1:…lor_Luna` — because **that provider mints human-readable slugs, not UUIDs**,
+  and the tail was a fragment of a performer's name. Nothing constrains a provider's id format, so
+  no amount of trimming is safe. Replace the id with an ordinal that carries only the one fact the
+  output needs: *these two rows mean the same id*.
 
 - **Anonymize by default, with no flag to forget.** Don't ship a probe whose safe output depends on
   the reader remembering to redact a section, or on passing a `--safe` switch. One output, always
