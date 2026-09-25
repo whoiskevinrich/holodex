@@ -2915,3 +2915,224 @@ the placeholder path):
   contract but without an `invalidate*` counterpart, because this page never mutates images. A
   surface that *does* — the gallery editor — would show a stale set if it adopted the module.
   Logged and accepted during `/code-review high` rather than solved speculatively.
+
+## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
+
+Two entities of one kind carrying the same provider external id is the strongest positive
+merge evidence the system has, and until F71 nothing could see it
+([spec](specs/duplicates-shared-external-id.md),
+[ADR-107](architecture/ADR-107-shared-external-id-duplicate-detection.md)). Unlike §16 this is
+almost entirely **backend**: a data-only migration, a write-time guard, an every-boot sweep,
+one sort branch, and a chip whose logic is four lines.
+
+What the tests exist to hold is one rule, stated three ways:
+
+> **It queues; it never adjudicates.** A contested id is left **unowned** in the spine, the
+> pair is recorded instead, and the owner assigns the id by merging (ADR-107 D3). The colliding
+> data was produced by an owner picking the wrong entity in the enrich UI, so the provider's
+> assertion is evidence of a *conflict*, never of which side is right.
+
+Everything below is either that rule or a way of not losing a finding on the way to it. The
+detection SQL exists **twice** — as migration 0052 and as `sharedExternalIDPairsSQL` in
+`internal/repo/shared_external_id.go` — because a migration runs before any Go service exists
+and the sweep runs on every boot afterwards. Two copies means two test files asserting the same
+seven reading rules against near-identical fixtures, deliberately: a rule fixed in one copy and
+not the other is exactly the drift this pair of tests is here to catch.
+
+**Integration — the backfill migration (`internal/db/external_ids_backfill_test.go`)**
+
+`TestMigration0052BackfillsSpineFromMemo`, one test over a **16-case** fixture, built on
+`openAt`'s migrate-to-N-1 / seed / migrate-up pattern (§4's `TestMigration0022FoldsCaseDuplicates`
+lineage — assert on transformed **data**, not schema shape). The cases are the probe's seven
+(`scripts/detect_shared_external_id.sql`) plus the nine a backfill adds on top of a detector.
+The load-bearing assertions, in the order they matter:
+
+- **A contested id gets no spine row.** Not "the loser is dropped" and not "the newest memo
+  wins" — *nobody* owns it. The spine PK gives an id exactly one owner per kind, so writing a
+  row for one of two claimants decides which entity the provider record names, and id-first
+  resolve (`resolveOrCreateByName` step 1) then routes every future credit carrying that id to
+  whichever side a migration picked. Asserted for a memo-vs-spine contest, a memo-to-memo one
+  with no spine owner at all, and a kept-separate pair.
+- **The claimant set is the spine's owner ∪ every memo holder**, and pairs are taken across the
+  whole set. The fixture's three-claimant studio id is the host run's real case: a join anchored
+  on the spine owner emits the two pairs touching it and **silently drops the third**, a
+  duplicate the owner could never reach. The test names all three pairs, so the missing one fails.
+- **Nothing the rules exclude becomes a spine row**, as ten named negative cases rather than as
+  a count: three unshaped ids, the empty filename memo, an orphan memo whose entity is gone
+  (`entity_external_ids` is polymorphic and carries no FK, so only the migration's own
+  exists-guard prevents that row), video, tag, and the stale memo that must not be folded onto
+  the wrong person.
+- **`detail` names the asserting provider**, including for a pair colliding on **two** providers,
+  where `min()` picks one deterministically rather than letting row order decide who gets cited.
+- **RD8's upgrade**, on a pair the name detector had already queued as `punctuation` — 1 of the
+  15 host findings was exactly that.
+- **`down` leaves the fold and removes the review rows**, which is asymmetric on 0044's
+  precedent and documented in the migration rather than silently lossy: a folded spine row is
+  indistinguishable from one `attachExternalID` wrote. An upgraded pair loses its row rather
+  than being restored to a variation nothing recorded — `SeedIdentityReviewQueue` re-derives it
+  from the names on the next boot. Re-applying is then a no-op on the spine and re-queues the
+  same pairs.
+
+**Integration — the guard, the sweep and the rank (`internal/repo/shared_external_id_test.go`)**
+
+Seven tests over the same fixture shape, which is what makes them comparable to the migration's:
+
+- `TestAttachExternalIDQueuesContestedID` — the headline path. The owner picks the wrong person
+  in the enrich UI; the pair reaches the queue, the spine **keeps its existing owner**, and the
+  call does not fail. It also covers the anti-flood case ADR-107 names as the one an obvious
+  implementation gets wrong: **re-attaching an id this entity already owns queues nothing.**
+  `INSERT OR IGNORE` returns nil for inserted, already-mine and owned-by-another alike, so a
+  guard keyed on `RowsAffected() == 0` would queue on every re-enrich and every refresh sweep.
+  The guard re-reads the owner instead, and that is the assertion.
+- `TestAttachExternalIDGuardHonorsKeepSeparateAndUpgrades` — the two ways an existing row changes
+  the outcome: ADR-061's durable no, and RD8's upgrade.
+- `TestAttachExternalIDGuardKindScope` — ADR-107 D5 as a test rather than a comment: studio and
+  film run the identical path and are in scope, **tag is not** (not enrichable), and video never
+  reaches the method at all.
+- `TestScanPathAttachStillSilent` — the relink path is unchanged: a credit carrying an id another
+  person owns resolves to *that* person and writes no review row. Its doc comment is careful
+  about what it does **not** prove, which matters more than what it does — see the gaps below.
+- `TestSweepSharedExternalIDs` — the every-boot reconciliation, over a **20-row** memo fixture:
+  the six pairs it must find (including the three-claimant clique and one upgrade), the four it
+  must not (two files of one movie, two tags, the stale narrow re-enrich, a kept-separate pair),
+  `detail` on every row, **the spine untouched** (the sweep queues, it never folds — repairing
+  identity was 0052's job), and a second pass writing **0**. That last number is the whole
+  reason `queueSharedExternalIDPair`'s `DO UPDATE` carries its own `WHERE`: an upsert counts an
+  UPDATE as affected, so without it every boot re-reports every pair forever and the activity
+  row never reads 0. The fixture seeds `entity_enrichment` with raw SQL rather than through
+  `UpsertEnrichment` because the stale-re-enrich case needs two **different** `fetched_at`
+  values for one (entity, provider), and two `UpsertEnrichment` calls in one test are free to
+  land on the same timestamp — which would turn an asserted rule into a coin flip.
+- `TestSharedExternalIDSortsAboveEveryOtherVariation` — P0-8. The pair carrying the shared id is
+  given the names that sort alphabetically **last**, so the assertion cannot pass by accident of
+  `ListReviewPairs`' name tiebreak.
+- `TestListReviewPairsDetailScopedToSharedID` — added at the security gate. `detail` is one column
+  shared by variations that mean different things: a provider namespace here, a **skipped person
+  name** on a `provider-alias` row. The payload projects it for this variation and `''` for the
+  rest, so the new field cannot quietly widen what the queue response carries; see §17.3.
+
+**Unit — SPA (`web/src/lib/components/duplicates/queue.test.ts`)**
+
+The chip is four lines of logic and it lives in `queue.ts` as a pure function for the reason §5
+gives: this repo has **no component-test harness** (`@testing-library/svelte` is not installed),
+so a rule written inside a `.svelte` file is a rule no test can reach. Four cases: it cites the
+provider and the entity noun for all three in-scope kinds; it stays generic rather than inventing
+a name when `detail` is empty, whitespace, or **absent from the payload entirely** — the field is
+new to this response, and `pair.detail.trim()` on an older payload would throw inside the
+`{#each}` and take the whole queue render down with it; it is `null` for every other variation,
+so no existing row changes; and it does **not** read `match_kind`, which for a non-fuzzy variation
+is `''` — which is precisely why the chip cannot be an entry in `MATCH_KIND_LABEL` and has to be
+a sibling of it.
+
+### 17.1 The mutation pass — 2026-09-24
+
+Every rule above was mutation-checked; a rule that cannot fail is not pinned. Each of these
+breaks the suite:
+
+| Broken rule | Test that goes red |
+|---|---|
+| The `fetched_at` tie no longer breaks toward the spine | migration |
+| The per-kind entity-exists guard removed | migration |
+| `entity_keep_separate` ignored at the queue write | migration |
+| The fold no longer skips contested ids | migration |
+| The claimant set reduced to the spine's owners | migration |
+| RD8's upgrade downgraded to `DO NOTHING` | migration |
+| The non-empty test removed from **inside** the winner subquery | migration + sweep |
+| The guard's owner re-read removed (`RowsAffected()` semantics) | guard |
+| `tag` added to `sharedExternalIDKind` | kind scope |
+| The shared writer's keep-separate gate defeated | sweep |
+| The `DO UPDATE`'s own `WHERE` removed | sweep |
+| `min(substr(…))` no longer carries the provider into `detail` | sweep |
+| The `-2` sort branch keyed on a variation nothing writes | sort |
+| `detail` projected raw instead of scoped to its variation | payload scoping |
+| The chip's variation gate, its `?? ''`, or its asserter wording | chip |
+
+**Two clauses survive every mutation, and both are worth understanding before anyone deletes
+them as redundant.**
+
+- **Rule 1's outer clause** (`e.external_id <> ''` on the memo scan) fails nothing, because the
+  shape test already rejects an empty id — `instr('', ':')` is 0. What *is* load-bearing is the
+  same test **inside** the winner subquery, and it guards a **false negative** rather than a
+  false positive: a group whose newest memo carries no id but whose older one names a real one
+  must resolve to the real id, or the group is discarded by the shape test and a genuine
+  contested pair goes missing. No fixture covered that until this pass; case 16 of the migration
+  test and the person-11/12 pair in the sweep test were added for it, and both copies of the SQL
+  now fail when the clause goes. The outer clause stays as a performance filter — it keeps the
+  correlated subquery off the video and filename memos, which are the bulk of
+  `entity_enrichment` — and as the statement of the rule.
+- **Rule 3's `IN ('person','studio','film')` list** likewise fails nothing on its own, because
+  the per-kind exists-guard enumerates the same three kinds and so drops a video or tag row for
+  having no branch to match. Removing **both** leaks exactly the video pair and the tag pair the
+  tests name. Keep both: the `IN` list is where the rule is written down, the exists-guard is
+  what makes the exclusion structural.
+
+`SELECT DISTINCT` in the claimant CTE is a third of these — it survives, and the comment on it
+says so rather than claiming SQLite would refuse the upsert without it, which was the plausible
+and wrong rationale written first.
+
+### 17.2 Standing gaps
+
+- **No test can distinguish where the guard is placed.** ADR-107 D4 puts it on the public
+  `Repo.AttachExternalID` and not on the private `attachExternalID` the scan path uses, and the
+  ADR's stated reason — a queue write there "would fire on every relink" — **does not hold**:
+  `resolveOrCreateByName` returns the id's owner in step 1, so a contested id never reaches that
+  writer, making a guard there dead code rather than noisy code. The correction is recorded in
+  the code and in spec P0-3. It also means `TestScanPathAttachStillSilent` proves the relink path
+  still resolves and still queues nothing, and **not** that the placement is right; no assertion
+  on queue output can tell the two placements apart.
+- **The chip's appearance is held by manual QA alone.** `sharedIdChip` returns a string and the
+  outlined-accent treatment lives in `DuplicatePairRow.svelte` — no component harness (§5), and
+  the §12 geometry harness has no assertion on this row. That the chip is *outlined* rather than
+  solid `bg-accent` is a real rule (`app.css` reserves the solid fill for a page's one primary
+  action), and nothing enforces it. The 2026-09-24 pass measured it live instead: a different
+  accent resolved per skin at 8.84 / 11.62 / 16.88 contrast, and row height unchanged from a
+  slug row at 700 px and 1280 px. **Screenshots time out against this preview**, so that is
+  computed-style and geometry evidence, not a visual check.
+- **The boot wiring has no test.** `sweepSharedExternalIDs` in `cmd/holodex/main.go` — ungated
+  (RD5), best-effort, recording a `shared-id-sweep` job run with a bare count — is exercised by
+  nothing but a live boot, same as every other bootstrap step in that file. It was verified once
+  by hand: on one boot migration 0052 queued the fixture pair with `detail = 'tmdb'` and the
+  sweep then recorded its own run reporting 0, which is the designed handoff between the two
+  producers. The `job_runs` row itself is unasserted.
+- **The sweep's cost at library scale is unmeasured.** It is ungated on purpose, so it runs on
+  every boot over the whole memo layer (1700+ rows on the host, and the video memos are the bulk
+  of the table). The fixtures are a couple of dozen rows each. `claimant AS MATERIALIZED` is in the SQL
+  because the CTE is self-joined, but no test or benchmark bounds the runtime; if a future
+  library makes boot visibly slower, this is the query and RD5 is the decision to revisit.
+- **P1-2 has no code and therefore no test.** Four person pairs on the host were dismissed
+  against the weakest signal the queue produces, *before* this signal existed; ADR-061 forbids
+  re-proposing them, and the agreed tool at N = 4 is the probe's own §2 output worked by hand.
+  Nothing automated will ever surface those four.
+- **The two copies of the detection SQL are kept in step by review, not by a test.** Their
+  fixtures are deliberately parallel and both are in the mutation table above, which is what
+  turns a divergence into a red test — but only for the rules already listed. A new reading rule
+  added to one copy and not the other passes both suites.
+
+### 17.3 The payload contract, and the one thing the security gate changed
+
+`GET /owner/duplicates` gains exactly one field and no endpoint. Three facts hold it together,
+and each has an assertion:
+
+- **The surface is owner-gated, and that was checked rather than assumed.** `mountDuplicates`
+  registers inside `handlers.go`'s `requireOwner` group, and `duplicates_test.go` already asserts
+  a tokenless list is **401** — the new field rides an existing, pinned gate. (§16's lesson was
+  the opposite case: there the gate question was posed wrong because those endpoints are public
+  by design. Here it really is a gate.)
+- **`detail` carries a provider *namespace*, never the external id.** Both producers derive it by
+  cutting at the first colon — `min(substr(external_id, 1, instr(external_id, ':') - 1))` in the
+  SQL, `strings.Cut` in `providerOf` — so a provider-internal id string cannot reach the client.
+  The migration test asserts the value is the namespace, including for a pair colliding on two
+  providers.
+- **The field is scoped to the variation that asked for it.** This is the change the security
+  pass made: `detail` is one column serving different meanings, and on a `provider-alias` row it
+  holds a **skipped person name** whose only correct reader returns it to the *denied* side of
+  the pair alone. Selecting the raw column would have shipped that name to a second consumer
+  with none of that logic. The `SELECT` now projects it for `shared-external-id` and `''`
+  otherwise, pinned by `TestListReviewPairsDetailScopedToSharedID` and mutation-checked.
+
+Nothing else in the change is a new sink: no endpoint, no new parameter, no `{@html}`, no
+interpolated `style`, no `href` built from provider data — the chip is escaped text
+interpolation. The new SQL is static with bound parameters throughout; the one `fmt.Sprintf` in
+`ListReviewPairs` interpolates `fuzzyVariations`, a package-level literal, and never user data.
+The boot sweep's `job_runs` row and both log lines carry a **count only** — no names, no provider
+ids — and no error string on the new paths includes an external id or an entity name.

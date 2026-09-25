@@ -20,7 +20,11 @@
 -- ADR-107 D6's four reading rules apply, the same four scripts/detect_shared_external_id.sql
 -- probed with:
 --   1. external_id <> '' -- the whole `filename` extract population memoizes '' by design
---      (internal/extract/store.go).
+--      (internal/extract/store.go). Mutation-checked, and the result is not what the rule as
+--      written suggests: the clause on the OUTER scan is a performance filter only, because
+--      step 2's shape test already rejects '' (instr('', ':') is 0). The clause that is
+--      load-bearing is the one INSIDE the winner subquery, and it prevents a FALSE NEGATIVE
+--      rather than a false positive -- see step 1.
 --   2. newest fetched_at per (entity_type, entity_id, provider) -- a re-enrich that wrote a
 --      NARROWER field set leaves older rows untouched, so only the newest memo counts. Ties
 --      break toward the memo that AGREES with the spine, so a tie yields no finding.
@@ -34,6 +38,12 @@
 -- older memo -- the newest assertion is the one the owner made, shaped or not.
 -- OQ3 measured zero groups on the host carrying more than one distinct memo id, so this is
 -- belt-and-braces; it stays because UpsertEnrichment is per-key and never deletes.
+--
+-- The subquery's own external_id <> '' is the load-bearing half of rule 1. A group whose
+-- NEWEST memo carries no id (a re-enrich the provider answered without one) but whose older
+-- one names a real id must resolve to the real id: without this clause the empty string wins
+-- the group, step 2's shape test then discards the group entirely, and a genuine contested
+-- pair goes MISSING. Pinned by case 16 of the migration test.
 CREATE TEMP TABLE _memo_winner AS
 SELECT e.entity_type, e.entity_id, e.provider,
        (SELECT f.external_id

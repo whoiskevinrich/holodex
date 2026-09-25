@@ -418,9 +418,16 @@ column; it writes rows into `entity_external_ids` and `identity_review_queue`. (
 
 **One added field**, superseding this section's original "None": `GET /owner/duplicates` now returns
 `detail` alongside `variation`. The chip cites the asserting provider, and the row had no way to know
-it — `ReviewPair` did not carry `detail` and `ListReviewPairs` did not select it, so the 0045 column
-had no reader at all. Owner's decision 2026-09-24, taken over a generic chip that needed no
-plumbing. The dismiss path is unchanged, and no endpoint is added.
+it — `ReviewPair` did not carry `detail` and `ListReviewPairs` did not select it, so the **queue's**
+payload could not see the 0045 column at all. Owner's decision 2026-09-24, taken over a generic chip
+that needed no plumbing. The dismiss path is unchanged, and no endpoint is added.
+
+The column itself is not new to the API: `SkippedAliasesForEntity` already reads it for the Aliases
+panel's collision line, behind `skippedAliases`' per-field `authorized` gate (corrected 2026-09-24 at
+the security gate — an earlier note in this epic said the column had **no** reader anywhere, which was
+wrong; what had no reader was the *review-queue row*). Two consequences worth stating: `detail` now
+ships for **every** variation, not only this one — on a `provider-alias` row it carries the dropped
+alias name — and both surfaces that read it are owner-gated, so the posture is unchanged.
 
 ## UI
 
@@ -474,5 +481,5 @@ Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and
 | design | [handoff](../design/duplicates-shared-external-id-handoff.md) + committed mockup |
 | backend | P0-1 … P0-5, P0-7, P0-8 |
 | frontend | P0-6 |
-| testing | `docs/testing-strategy.md` — the exclusions (P0-5), the write-time guard (P0-3), sweep idempotence (P0-2) |
-| security | owner-gated surface, no new endpoint; expected to be a short pass |
+| testing | **Done** — `docs/testing-strategy.md` **§17–17.3**: 8 Go tests + 4 SPA cases, 22 mutations run and 20 caught, the 2 survivors documented as survivors. The pass also pinned a rule nothing covered — rule 1 *inside* the winner subquery guards a **false negative** |
+| security | **Done 2026-09-24** — no endpoint, no parameter, no new boundary; the owner gate verified (not assumed) and already pinned at 401 by `duplicates_test.go`; `detail` carries a provider **namespace**, never an external id. One finding fixed: `detail` is now projected **only** for this variation, because on a `provider-alias` row the same column holds a skipped person name whose correct reader is side-specific (§17.3) |

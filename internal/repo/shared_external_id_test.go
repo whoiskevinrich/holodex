@@ -240,7 +240,7 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 	mustExec(t, db, `INSERT INTO people (id, name) VALUES
 		(1,'Ada Lovelace'),(2,'Grace Hopper'),(3,'Alan Turing'),(4,'Alonzo Church'),
 		(5,'Barbara Liskov'),(6,'Leslie Lamport'),(7,'Edsger Dijkstra'),(8,'Tony Hoare'),
-		(9,'Ken Thompson'),(10,'Dennis Ritchie')`)
+		(9,'Ken Thompson'),(10,'Dennis Ritchie'),(11,'Robin Milner'),(12,'Niklaus Wirth')`)
 	mustExec(t, db, `INSERT INTO studios (id, name) VALUES
 		(100,'Spine Pictures'),(101,'Memo Pictures'),(102,'Other Memo Pictures')`)
 	mustExec(t, db, `INSERT INTO films (id, name, year) VALUES (200,'Film Alpha',2001),(201,'Film Beta',2002)`)
@@ -267,6 +267,14 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 		('person',  5, 'prov1', 'height', 'x', 'prov1:p5',  '2026-02-01T00:00:00Z'),
 		-- the filename-extract population memoizes '' by design (rule 1).
 		('person',  7, 'filename', 'bio', 'x', '',          '2026-03-01T00:00:00Z'),
+		-- rule 1 INSIDE a group: person 11's NEWEST memo for this provider carries no id at
+		-- all, an older one names prov1:p11, and person 12 claims the same id. The newest
+		-- NON-EMPTY memo is the winner, so the pair is still found. Without the non-empty
+		-- test in the winner subquery the empty memo wins, the shape test discards it, and
+		-- the pair goes MISSING -- a false negative no other case in this fixture produces.
+		('person', 11, 'prov1', 'bio',    'x', '',          '2026-04-01T00:00:00Z'),
+		('person', 11, 'prov1', 'height', 'x', 'prov1:p11', '2026-03-01T00:00:00Z'),
+		('person', 12, 'prov1', 'bio',    'x', 'prov1:p11', '2026-03-01T00:00:00Z'),
 		-- a shape identityShaped rejects.
 		('person',  8, 'prov1', 'bio',    'x', 'nocolon',   '2026-03-01T00:00:00Z'),
 		-- contested, but the owner already dismissed the pair (rule 4).
@@ -297,8 +305,8 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sweep: %v", err)
 	}
-	if written != 6 {
-		t.Errorf("sweep wrote %d rows, want 6 (5 new pairs + 1 upgraded)", written)
+	if written != 7 {
+		t.Errorf("sweep wrote %d rows, want 7 (6 new pairs + 1 upgraded)", written)
 	}
 
 	pairs := readReviewQueue(t, db)
@@ -309,13 +317,14 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 		{model.EnrichEntityStudio, 100, 102, "shared-external-id"}, // pairs, including the
 		{model.EnrichEntityStudio, 101, 102, "shared-external-id"}, // memo-to-memo one
 		{model.EnrichEntityFilm, 200, 201, "shared-external-id"},
+		{model.EnrichEntityPerson, 11, 12, "shared-external-id"}, // newest memo has no id
 	} {
 		if !hasPair(pairs, want) {
 			t.Errorf("pair %+v not queued", want)
 		}
 	}
-	if len(pairs) != 6 {
-		t.Errorf("queue rows = %d, want exactly 6: %+v", len(pairs), pairs)
+	if len(pairs) != 7 {
+		t.Errorf("queue rows = %d, want exactly 7: %+v", len(pairs), pairs)
 	}
 
 	// The exclusions, as assertions rather than comments.
@@ -367,8 +376,8 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 	if written != 0 {
 		t.Errorf("second sweep wrote %d rows, want 0", written)
 	}
-	if n := len(readReviewQueue(t, db)); n != 6 {
-		t.Errorf("queue rows after the second sweep = %d, want 6", n)
+	if n := len(readReviewQueue(t, db)); n != 7 {
+		t.Errorf("queue rows after the second sweep = %d, want 7", n)
 	}
 }
 
@@ -408,5 +417,39 @@ func TestSharedExternalIDSortsAboveEveryOtherVariation(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("sort order = %v, want %v", got, want)
 		}
+	}
+}
+
+// TestListReviewPairsDetailScopedToSharedID pins the minimal-disclosure scoping the
+// security gate asked for (2026-09-24). `detail` is shared by variations that mean
+// different things: for 'shared-external-id' it is a provider namespace the row's chip
+// cites, but for 'provider-alias' it is a SKIPPED PERSON NAME whose only correct reader is
+// SkippedAliasesForEntity — which returns it to the denied side of the pair only, because
+// on the holding side the same name asserts the opposite of the truth. So the queue payload
+// projects the column for the one variation that asked for it and '' for the rest. Widening
+// that CASE means deciding what the new consumer is allowed to conclude from the value.
+func TestListReviewPairsDetailScopedToSharedID(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES
+		(1,'Ada Lovelace'),(2,'Grace Hopper'),(3,'Alan Turing'),(4,'Alonzo Church')`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail) VALUES
+		('person',1,2,'shared-external-id','prov1'),
+		('person',3,4,'provider-alias','Some Skipped Name')`)
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list review pairs: %v", err)
+	}
+	seen := map[string]string{}
+	for _, p := range pairs {
+		seen[p.Variation] = p.Detail
+	}
+	if got := seen["shared-external-id"]; got != "prov1" {
+		t.Errorf("shared-external-id detail = %q, want the asserting provider", got)
+	}
+	if got := seen["provider-alias"]; got != "" {
+		t.Errorf("provider-alias detail = %q, want it withheld from this payload", got)
 	}
 }

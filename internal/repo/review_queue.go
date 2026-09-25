@@ -41,8 +41,16 @@ type ReviewPair struct {
 	MatchKind  string          `json:"match_kind"`
 	// Detail is the per-variation fact the pair cannot be read off the entities
 	// (migration 0045). For 'shared-external-id' it is the asserting provider's
-	// namespace, which the row's chip cites (F71 P0-6); '' for every other variation
-	// today, including 'provider-alias', whose own detail has no reader.
+	// namespace, which the row's chip cites (F71 P0-6).
+	//
+	// Projected as '' for every other variation, deliberately and not because the column
+	// is empty there: a 'provider-alias' row stores the SKIPPED NAME, and that value has
+	// a reader of its own — SkippedAliasesForEntity, which returns it only to the side
+	// that was DENIED the name, because on the side that holds it the panel's sentence
+	// asserts the opposite of the truth. Shipping the raw column here would hand a second
+	// consumer a name whose correct reading depends on logic that lives over there. Scope
+	// the field to the variation that asked for it; widen the CASE if another one ever
+	// needs its own detail. Asserted by TestListReviewPairsDetailScopedToSharedID.
 	Detail string `json:"detail"`
 }
 
@@ -183,7 +191,8 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 		q := fmt.Sprintf(`
 			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation,
 			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END,
-			       q.detail, %[9]s, %[10]s
+			       CASE WHEN q.variation = 'shared-external-id' THEN q.detail ELSE '' END,
+			       %[9]s, %[10]s
 			FROM identity_review_queue q
 			JOIN %[1]s la ON la.id = q.id_lo
 			JOIN %[1]s lb ON lb.id = q.id_hi

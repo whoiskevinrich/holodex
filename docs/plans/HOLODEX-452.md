@@ -162,24 +162,40 @@ OQ2 repair pass makes the number stop being small.
 - [x] frontend — **P0-6** — `sharedIdChip` in `queue.ts` + the chip branch in `DuplicatePairRow`.
       Three-skin QA passed on the live preview by computed style and geometry (screenshots time out
       against this preview); **Kevin's eyeball on the prod skin is the one open QA item**
-- [ ] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] testing `testing-strategy` — `docs/testing-strategy.md` **§17 / §17.1 / §17.2 / §17.3**, over
+      8 Go tests and 4 new SPA cases in three files. **22 mutations run; 20 are caught**, and the
+      two survivors are documented rather than hidden: rule 1's *outer* clause and rule 3's `IN`
+      list both fail nothing on their own, because the shape test and the per-kind exists-guard
+      already cover them — neither may be deleted as redundant, and the reason is now in both
+      copies of the SQL. The pass also found a **genuinely unpinned rule**: rule 1's clause
+      *inside* the winner subquery guards a **false negative** (a group whose newest memo carries
+      no id but whose older one names a real one), which no fixture exercised. Added as case 16 of
+      the migration fixture and the person-11/12 pair in the sweep fixture; both copies of the SQL
+      now fail when it goes
+- [x] security `security-review` — run 2026-09-24. **No new endpoint, no new parameter, no new
+      privilege boundary**, and the owner gate was *checked* rather than assumed: `mountDuplicates`
+      registers inside `handlers.go`'s `requireOwner` group (line 465, group opened at 399) and
+      `duplicates_test.go` already pins a tokenless list at **401**, so the new field rides an
+      existing, tested gate. `detail` carries a provider **namespace** only — both producers cut at
+      the first colon, so a provider-internal id cannot reach the client. The sweep's `job_runs`
+      row and both log lines carry a bare count, and no error string on the new paths includes an
+      external id or an entity name. **One finding, fixed:** `ListReviewPairs` selected `q.detail`
+      raw, and that column means different things per variation — on a `provider-alias` row it is a
+      **skipped person name** whose only correct reader (`SkippedAliasesForEntity`) deliberately
+      returns it to the *denied* side of the pair alone. The `SELECT` now projects it for
+      `shared-external-id` and `''` otherwise (`TestListReviewPairsDetailScopedToSharedID`,
+      mutation-checked). **And a correction:** this epic recorded that 0045's `detail` column "had
+      no reader anywhere" — wrong; it has one, and it is owner-gated per-field. What had no reader
+      was the review-queue *row*. Fixed in the spec, this worklog and the session log below
 
 ## Up next — ordered (position = priority)
 
 1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
-2. ~~P0-3, P0-1 + P0-4, P0-8, P0-6.~~ **All done 2026-09-24. Every P0 is in.** What is left is
-   **the testing and security gates**, then `gh pr ready`.
-   - `/testing-strategy`: `docs/testing-strategy.md` has no F71 section yet. The tests exist
-     (`internal/db/external_ids_backfill_test.go`, `internal/repo/shared_external_id_test.go`,
-     `web/src/lib/components/duplicates/queue.test.ts`); the gate is writing them up, including
-     **§5's no-component-harness rule** — which is why the chip's logic is a pure function in
-     `queue.ts` rather than assertions against rendered markup.
-   - `/security-review`: expected short. No new endpoint; `GET /owner/duplicates` gains one field,
-     `detail`, which carries a **provider name** (already shown throughout the UI) and never the
-     external id itself. The one thing to actually check: the queue is owner-gated, and `detail` is
-     returned on the same owner-gated payload as everything else in the row.
-   - **Kevin's eyeball on the chip** in the prod skin is the open QA item (handoff QA 3).
+2. ~~P0-3, P0-1 + P0-4, P0-8, P0-6.~~ **All done 2026-09-24. Every P0 is in.**
+   ~~Then the testing and security gates.~~ **Both closed 2026-09-24 — every gate is green.**
+   **The only thing left before `gh pr ready` is Kevin's eyeball on the chip in the prod skin**
+   (handoff QA 3). The preview is still running with the fixture pair (people 901/902 in
+   `data/holodex.db`); merge fresh `main` in before marking ready, or the `jira-sync` event drops.
 3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
    spec **RD8**, which amends P0-2. The write is
    `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
@@ -201,7 +217,56 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-24 (latest) — P0-8 the sort rank, P0-6 the chip. Every P0 is in.
+### 2026-09-24 (latest) — the testing and security gates. Every gate is green.
+- skills: testing-strategy, security-review
+
+**Testing.** `docs/testing-strategy.md` §17 + §17.1–17.3. The write-up's organizing idea is that the
+detection SQL exists **twice** — migration 0052 and `sharedExternalIDPairsSQL` — so the two test
+files assert the same reading rules against deliberately parallel fixtures, and a rule fixed in one
+copy and not the other is the drift they exist to catch.
+
+**The mutation pass earned its keep three times.** 22 mutations, 20 caught. The two survivors are
+now documented as survivors instead of being claimed as coverage: **rule 1's outer clause** and
+**rule 3's `IN` list** each fail nothing alone, because the shape test and the per-kind exists-guard
+already exclude what they exclude. Neither may be deleted as redundant and both copies of the SQL
+now say why. More usefully, the pass found **a rule nothing pinned**: rule 1's clause *inside* the
+winner subquery guards a **false negative** — a group whose newest memo carries no id but whose
+older one names a real one — and every fixture case until now was about false *positives*. Added as
+case 16 of the migration fixture and the person-11/12 pair in the sweep fixture; both copies fail
+without it.
+
+**Security.** No endpoint, no parameter, no new privilege boundary. The owner gate was checked
+rather than assumed (§16's lesson, inverted): `mountDuplicates` is inside the `requireOwner` group
+and `duplicates_test.go` already pins a tokenless list at 401, so the new field rides a tested gate.
+`detail` carries a provider **namespace** only — both producers cut at the first colon — and the
+sweep's job row and log lines carry a bare count.
+
+**One finding, fixed.** `ListReviewPairs` selected `q.detail` raw, and that column means different
+things per variation: on a `provider-alias` row it holds a **skipped person name** whose only
+correct reader returns it to the *denied* side of the pair alone, because on the holding side the
+same name asserts the opposite of the truth. Shipping it raw handed a second consumer a value whose
+correct reading lives elsewhere. Now `CASE WHEN q.variation = 'shared-external-id' THEN q.detail
+ELSE '' END`, pinned and mutation-checked.
+
+**And a correction worth keeping.** This epic recorded that 0045's `detail` column "had no reader
+anywhere". That is **wrong** — `SkippedAliasesForEntity` reads it for the Aliases panel, behind
+`skippedAliases`' per-field `authorized` gate. What had no reader was the review-queue *row*, which
+is still the fact that forced the plumbing. Fixed in the spec's API section, in the P0-6 session
+entry below, and in memory.
+
+**Process note for the next mutation pass:** the mutation script restores with
+`git checkout -- <file>`, which silently discarded three uncommitted comment edits made in the same
+turn. Stage before mutating — the standing rule exists for exactly this and I skipped it.
+
+- handoff: **every gate is green.** The one thing left before `gh pr ready` is **Kevin's eyeball on
+  the chip in the prod skin** (handoff QA 3) — the preview is still running with the fixture pair
+  (people 901/902 in `data/holodex.db`). Merge fresh `main` in first, or `gh pr ready` drops the
+  jira-sync event. After merge, 452 is a **Task** so CI fires its own transitions; the two things
+  that outlive this epic are **P1-2** (the 4 dismissed-but-now-evidenced person pairs, hand work
+  from the probe's §2 — no code will ever surface them) and **HOLODEX-457**, which must not run
+  before those contested pairs are worked.
+
+### 2026-09-24 — P0-8 the sort rank, P0-6 the chip. Every P0 is in.
 - skills: code-review
 
 P0-8 was one `-2` branch in `ListReviewPairs`' `ORDER BY`, and nothing else: a variation outside
@@ -210,8 +275,10 @@ correctly all along — only their rank *among* the other non-fuzzy variations w
 
 **P0-6 surfaced the one real gap in the design.** The approved mockup's chip reads `tmdb says one
 person`, but the row had no way to know the provider: `ReviewPair` did not carry `detail`,
-`ListReviewPairs` did not select it, and the 0045 column **had no reader anywhere** — the
-"detail read" `provider_aliases.go` mentions does not exist. So the approved design needed plumbing
+`ListReviewPairs` did not select it, so the **queue row** could not see the 0045 column.
+(Corrected at the security gate 2026-09-24: this entry originally said the column had no reader
+*anywhere*, which is wrong — `SkippedAliasesForEntity` reads it for the Aliases panel. What had no
+reader was the review-queue row.) So the approved design needed plumbing
 the spec had ruled out ("API: None", "`detail` stays empty"). Put both options to Kevin with the two
 rows drawn; **he chose naming the provider.** `detail` now carries the asserting namespace at all
 three producers (0052 included — edited in place, since it is unmerged and has never run outside

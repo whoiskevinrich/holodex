@@ -59,7 +59,7 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 		(5,'Evan Echo'),(6,'Fiona Foxtrot'),(7,'Gina Golf'),(8,'Hank Hotel'),
 		(9,'Iris India'),(10,'Jack Juliet'),(11,'Kara Kilo'),(12,'Liam Lima'),
 		(13,'Mira Mike'),(14,'Nate November'),(15,'Owen Oscar'),(16,'Pia Papa'),
-		(17,'Quinn Quebec'),(18,'Rosa Romeo')`)
+		(17,'Quinn Quebec'),(18,'Rosa Romeo'),(19,'Sara Sierra'),(20,'Theo Tango')`)
 	mustExec(t, db, `INSERT INTO studios (id, name) VALUES
 		(100,'Spine Pictures'),(101,'Memo Pictures'),(102,'Other Memo Pictures')`)
 	mustExec(t, db, `INSERT INTO films (id, name, year) VALUES (200,'Film Alpha',2001)`)
@@ -131,7 +131,17 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 		('person', 17, 'prov1', 'bio',       'x', 'prov1:p17', '2026-03-01T00:00:00Z'),
 		('person', 18, 'prov1', 'bio',       'x', 'prov1:p17', '2026-03-01T00:00:00Z'),
 		('person', 17, 'prov2', 'bio',       'x', 'prov2:q17', '2026-03-01T00:00:00Z'),
-		('person', 18, 'prov2', 'bio',       'x', 'prov2:q17', '2026-03-01T00:00:00Z')`)
+		('person', 18, 'prov2', 'bio',       'x', 'prov2:q17', '2026-03-01T00:00:00Z'),
+		-- 16. rule 1 INSIDE the group, not just across groups: person 19's NEWEST memo for
+		--     this provider carries no id at all (a re-enrich the provider answered without
+		--     one) while an older row names prov1:p19, which person 20 also claims. Rule 2
+		--     picks the newest of the NON-EMPTY memos, so the pair is still found. Drop the
+		--     non-empty test from inside the winner subquery and the empty memo wins the
+		--     group, the shape test then discards it, and this pair goes MISSING -- a false
+		--     negative, which is the failure mode no other case here can produce.
+		('person', 19, 'prov1', 'bio',       'x', '',          '2026-04-01T00:00:00Z'),
+		('person', 19, 'prov1', 'height',    'x', 'prov1:p19', '2026-03-01T00:00:00Z'),
+		('person', 20, 'prov1', 'bio',       'x', 'prov1:p19', '2026-03-01T00:00:00Z')`)
 
 	mustExec(t, db, `INSERT INTO entity_keep_separate (entity_type, id_lo, id_hi) VALUES ('person', 9, 10)`)
 	// A pair the NAME-based detector already queued, which is also a shared-id finding --
@@ -212,6 +222,7 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 		"person:3-4",     // memo disagrees with the spine
 		"person:7-8",     // memo-to-memo, and an UPGRADE over the name detector's row
 		"person:17-18",   // one pair, two providers → one row
+		"person:19-20",   // the newest memo carries no id; the newest NON-EMPTY one does
 		"studio:100-101", // the three-claimant clique: all three pairs, including the
 		"studio:100-102", // memo-to-memo one a spine-anchored join would drop
 		"studio:101-102",
@@ -289,7 +300,7 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	if n := count(t, db, `SELECT COUNT(*) FROM entity_external_ids`); n != 9 {
 		t.Errorf("spine rows after re-apply = %d, want 9 (INSERT OR IGNORE)", n)
 	}
-	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE variation='shared-external-id'`); n != 6 {
-		t.Errorf("shared-external-id rows after re-apply = %d, want 6", n)
+	if n := count(t, db, `SELECT COUNT(*) FROM identity_review_queue WHERE variation='shared-external-id'`); n != 7 {
+		t.Errorf("shared-external-id rows after re-apply = %d, want 7", n)
 	}
 }

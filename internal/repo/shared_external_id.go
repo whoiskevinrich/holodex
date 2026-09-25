@@ -74,8 +74,8 @@ func providerOf(externalID string) string {
 // is a one-way ratchet: SeedIdentityReviewQueue and queueProviderAliasPair both write with
 // INSERT OR IGNORE, so nothing can demote a row back. The DO UPDATE's own WHERE keeps a row
 // that already carries the value from counting as written, which is what lets the sweep
-// report 0 on an unchanged pass. `detail` stays unset (0045): unlike provider-alias, both
-// sides of this pair are readable from the entities themselves.
+// report 0 on an unchanged pass — and because it compares `detail` too, a row whose provider
+// is missing or stale self-heals on the next pass.
 func queueSharedExternalIDPair(ctx context.Context, ex execer, entityType string, a, b int64, provider string) (int64, error) {
 	lo, hi := orderPair(a, b)
 	// The WHERE clause is also what lets the upsert parse after a SELECT — without one,
@@ -116,7 +116,13 @@ func queueSharedExternalIDPair(ctx context.Context, ex execer, entityType string
 //
 // ADR-107 D6's reading rules, in order:
 //  1. a non-empty external_id — the whole filename-extract population memoizes the empty
-//     string by design (internal/extract/store.go).
+//     string by design (internal/extract/store.go). Enforced twice, and only the INNER one
+//     is load-bearing: on the outer scan it is a performance filter, since the shape test
+//     below already rejects an empty id. Inside the winner subquery it prevents a FALSE
+//     NEGATIVE — a group whose newest memo carries no id but whose older one names a real
+//     one must resolve to the real id, or the shape test discards the group and a genuine
+//     contested pair goes missing. Both mutation-checked; the inner clause fails the sweep
+//     test, the outer one fails nothing.
 //  2. newest fetched_at per (entity_type, entity_id, provider) — a re-enrich that wrote a
 //     NARROWER field set leaves older rows behind, so only the newest memo counts. Ties
 //     break toward the memo that AGREES with the spine, so a tie yields no finding.
