@@ -22,6 +22,11 @@
 --     non-zero, the provider has conflated two performers and the dismissal was RIGHT.
 --   * `providers` = 2 is the strongest POSITIVE: two independent providers minting the same
 --     id for both sides is not one provider's bookkeeping error.
+--   * `dissenting` > 0 is the quiet negative, and it is why `providers` alone is not enough:
+--     a provider that holds an id for BOTH sides and keeps them APART has an opinion, and it
+--     is the opposite one. `providers = 1, dissenting = 1` means the library's two providers
+--     disagree with each other about this pair — a much weaker case than
+--     `providers = 1, dissenting = 0`, where no second provider has a view at all.
 --   * `spine_side` says which id the identity spine already believes owns the provider id.
 --     After a merge the survivor inherits it (`UPDATE OR IGNORE entity_external_ids`), so
 --     merging INTO the spine side is the cheaper direction — it is not evidence, only cost.
@@ -46,12 +51,21 @@
 --   sqlite3 -readonly /path/to/holodex.db < scripts/review_kept_separate_shared_id_pairs.sql
 --
 -- VERIFIED 2026-09-25 against a throwaway database built by applying all 51 up migrations to
--- an empty file, seeded with five cases: a kept-separate pair sharing one provider id and
+-- an empty file, seeded with seven cases: a kept-separate pair sharing one provider id and
 -- NO video (the plain case); a kept-separate pair that CO-APPEARS in one video (must show
 -- shared_videos = 1, the dismissal-was-right shape); a kept-separate pair sharing ids from
--- TWO providers (providers = 2); a kept-separate pair with no spine row on either side
--- (spine_side must be empty, not an arbitrary id); and a shared-id pair that is NOT
--- kept-separate (must not appear at all — this probe's whole population is the intersection).
+-- TWO providers (providers = 2, dissenting = 0); a kept-separate pair with no spine row on
+-- either side (spine_side must be empty, not an arbitrary id); a shared-id pair that is NOT
+-- kept-separate (must not appear at all — this probe's whole population is the intersection);
+-- a pair whose id_lo owns a spine row for an UNRELATED provider id (spine_side must stay
+-- empty); and a pair one provider asserts while a second provider that knows both sides keeps
+-- them apart (dissenting = 1). The output is also asserted to contain no name and no id bytes.
+--
+-- The last two cases exist because the FIRST version of this file was wrong on both counts,
+-- and the live run is what exposed it: `spine_side` was not correlated on the shared id, so it
+-- reported whichever side owned any id at all, and there was no `dissenting` column, so a pair
+-- two providers actively disagreed about looked identical to one no second provider had an
+-- opinion on.
 
 .mode box
 .headers on
@@ -91,16 +105,26 @@ SELECT DISTINCT external_id, entity_id, provider FROM (
 -- ── The population: shared-id pairs the owner has ALREADY dismissed ──────────────────────
 -- The intersection is the point. A pair with no keep-separate row is the queue's job and is
 -- already there; a kept-separate pair with no shared id is not this reconciliation's business.
-CREATE TEMP VIEW pair AS
-SELECT a.entity_id AS id_lo, b.entity_id AS id_hi,
-       count(DISTINCT a.provider)    AS providers,
-       count(DISTINCT a.external_id) AS ids
+--
+-- `shared` keeps one row per (pair, external_id) rather than aggregating immediately, because
+-- WHICH id is contested is needed further down: a person can hold a spine row for a provider
+-- id that has nothing to do with this pair, and asking "does either side own a spine row?"
+-- without naming the shared id answers a different question. That was a real bug in the first
+-- version of this file (2026-09-25) — it reported the wrong side on the live library.
+CREATE TEMP VIEW shared AS
+SELECT a.entity_id AS id_lo, b.entity_id AS id_hi, a.external_id, a.provider
   FROM claimant a
   JOIN claimant b ON a.external_id = b.external_id AND a.entity_id < b.entity_id
  WHERE EXISTS (SELECT 1 FROM entity_keep_separate ks
                 WHERE ks.entity_type = 'person'
-                  AND ks.id_lo = a.entity_id AND ks.id_hi = b.entity_id)
- GROUP BY a.entity_id, b.entity_id;
+                  AND ks.id_lo = a.entity_id AND ks.id_hi = b.entity_id);
+
+CREATE TEMP VIEW pair AS
+SELECT id_lo, id_hi,
+       count(DISTINCT provider)    AS providers,
+       count(DISTINCT external_id) AS ids
+  FROM shared
+ GROUP BY id_lo, id_hi;
 
 -- ── 1. Scale, so the numbers below have a denominator ────────────────────────────────────
 SELECT (SELECT count(*) FROM pair)                                    AS pairs_to_work,
@@ -114,14 +138,29 @@ SELECT (SELECT count(*) FROM pair)                                    AS pairs_t
 SELECT p.id_lo,
        p.id_hi,
        p.providers,
-       -- Which side the spine already gives the id to, or blank when neither holds one (the
+       -- Which side the spine gives THE CONTESTED id to, or blank when neither holds it (the
        -- memo-to-memo case, which is invisible to a spine-anchored join and is why ADR-107
-       -- D1 pairs the whole claimant set).
-       coalesce((SELECT CASE WHEN x.entity_id = p.id_lo THEN p.id_lo ELSE p.id_hi END
+       -- D1 pairs the whole claimant set). Correlated on the shared external_id — a side may
+       -- own an unrelated provider id, and that is not this pair's spine owner. group_concat
+       -- because a pair contested on two ids can in principle have a different owner per id.
+       coalesce((SELECT group_concat(DISTINCT x.entity_id)
                    FROM entity_external_ids x
+                   JOIN shared s ON s.external_id = x.external_id
                   WHERE x.entity_type = 'person'
-                    AND x.entity_id IN (p.id_lo, p.id_hi)
-                  LIMIT 1), '')                                       AS spine_side,
+                    AND s.id_lo = p.id_lo AND s.id_hi = p.id_hi
+                    AND x.entity_id IN (p.id_lo, p.id_hi)), '')       AS spine_side,
+       -- Providers that hold an id for BOTH sides and give them DIFFERENT ones: a provider
+       -- actively DISSENTING from the claim. Added 2026-09-25 after the live run, where two
+       -- pairs turned out to be asserted by one provider while a second one that knew both
+       -- sides had them apart — which reads very differently from one provider asserting
+       -- while no other has an opinion. Derived as (providers holding both sides) minus the
+       -- providers that agree, so a provider holding two ids for a side, one of which
+       -- matches, counts as agreeing rather than dissenting.
+       (SELECT count(DISTINCT ca.provider) FROM claimant ca
+         WHERE ca.entity_id = p.id_lo
+           AND EXISTS (SELECT 1 FROM claimant cb
+                        WHERE cb.provider = ca.provider AND cb.entity_id = p.id_hi)
+       ) - p.providers                                                AS dissenting,
        -- THE decisive column. Two credits on one file are two people in that scene.
        (SELECT count(*) FROM video_people va
           JOIN video_people vb ON vb.video_id = va.video_id

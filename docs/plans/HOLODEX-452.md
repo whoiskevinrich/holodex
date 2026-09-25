@@ -207,18 +207,26 @@ OQ2 repair pass makes the number stop being small.
    throwaway migrated DB. **The four decisions are Kevin's and are not made yet**, because they
    need the live library, which this machine cannot reach:
 
-   | pair | asserted by | spine side |
-   |---|---|---|
-   | **167 ↔ 862** | **two providers** | 862 |
-   | 333 ↔ 911 | one | 333 |
-   | 836 ↔ 1429 | one | 1429 |
-   | 858 ↔ 1280 | one | 1280 |
+   **Probe run on the host 2026-09-25. Evidence and recommendation per pair; no decision is
+   recorded yet.** (`co` = shared videos, `vids`/`als`/`flds` = per side.)
 
-   Run the probe on the host, then merge in the app or leave the dismissal standing — record the
-   outcome per pair here. `shared_videos > 0` on any row means the provider conflated two
-   performers and the dismissal was right. Nothing has to be cleared first: a keep-separate marker
-   does **not** block a merge (`IsKeptSeparate` has no production caller), and the merge repoints
-   the spine id to the survivor and drops the queue row by itself.
+   | pair | asserts | dissent | co | vids | als | flds | read |
+   |---|---|---|---|---|---|---|---|
+   | **167 ↔ 862** | **2** | 0 | 0 | 4 / 2 | 13 / 0 | 17 / 17 | **Merge, canonical 167.** Two independent providers agree, none dissents, no co-appearance over 6 videos, both fully enriched — a real split identity |
+   | 858 ↔ 1280 | 1 | 0 | 0 | 1 / 1 | 6 / 0 | 4 / 4 | **Merge, canonical 858.** No dissent is possible (one provider knows either side); two thin records, least consequential either way |
+   | 333 ↔ 911 | 1 | **1?** | 0 | 5 / 2 | 9 / 4 | 19 / 17 | **Hold.** Both sides carry 2 providers, only 1 asserts → a second provider probably has them apart. Re-run for the `dissenting` column and look before merging |
+   | 836 ↔ 1429 | 1 | 0 | **1** | 2 / 1 | 2 / 0 | 19 / **0** | **Look at the shared video.** Counts cannot settle it: either two performers on one file (dismissal right) or one file's credit list naming one performer twice — and 1429, with 0 fields and its only video being the shared one, has the artifact shape |
+
+   Nothing has to be cleared first: a keep-separate marker does **not** block a merge
+   (`IsKeptSeparate` has no production caller), the merge repoints the spine id to the survivor and
+   drops any queue row touching the loser, and **the loser's name is preserved as an alias of the
+   survivor** (`name → alias` step), so no spelling is lost and old filenames still route.
+
+   **Two probe bugs the live run exposed, both fixed 2026-09-25.** `spine_side` was not correlated
+   on the *shared* external id, so it reported whichever side owned any id at all — it printed 836
+   for 836↔1429 where the true owner is **1429**. And there was no `dissenting` column, so a pair
+   two providers actively disagree about looked identical to one no second provider has a view on.
+   Both now have a fixture case; the other columns were unaffected.
 5. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
    re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
    **Still blocked, but the block is now partial:** 0052 has made the spine the record for every
