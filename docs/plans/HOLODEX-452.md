@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-452
-status: in-progress
+status: in-review
 approved:
   design:
     on: 2026-09-24
@@ -193,9 +193,9 @@ OQ2 repair pass makes the number stop being small.
 1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
 2. ~~P0-3, P0-1 + P0-4, P0-8, P0-6.~~ **All done 2026-09-24. Every P0 is in.**
    ~~Then the testing and security gates.~~ **Both closed 2026-09-24 — every gate is green.**
-   **The only thing left before `gh pr ready` is Kevin's eyeball on the chip in the prod skin**
-   (handoff QA 3). The preview is still running with the fixture pair (people 901/902 in
-   `data/holodex.db`); merge fresh `main` in before marking ready, or the `jira-sync` event drops.
+   ~~Then Kevin's eyeball, then `gh pr ready`.~~ **PR #385 marked ready 2026-09-25 at Kevin's
+   call** — no merge was needed, `origin/main` was already an ancestor (GitHub: MERGEABLE / CLEAN).
+   **Now watch that `jira-sync` actually fired `In Review`**; 452 is a Task, so CI owns it.
 3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
    spec **RD8**, which amends P0-2. The write is
    `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
@@ -217,7 +217,31 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-24 (latest) — the testing and security gates. Every gate is green.
+### 2026-09-25 (latest) — marked ready for review. No merge was needed.
+
+**`origin/main` was already an ancestor of the branch** — 0 behind, 18 ahead, and GitHub reports
+MERGEABLE / CLEAN — so there was nothing to merge and no merge commit was made. The usual
+merge-main-first rule exists because `gh pr ready` on a *conflicting* PR drops the `jira-sync`
+event; that risk was absent here, and it was checked rather than assumed.
+
+One trap worth recording for the next session in this worktree: the **local `main` ref is 52 commits
+behind `origin/main`**, so `git diff main...HEAD` overstates this branch enormously (it showed 117
+changed files under `web/` alone). Compare against `origin/main`, or against the epic's first commit
+(`c36e354~1..HEAD`) for the code-only view. The PR's real scope is **24 files over 18 commits.**
+
+Marked ready at Kevin's call, which closes the last open item — the prod-skin look at the chip
+(handoff QA 3). That was the one thing no assertion could stand in for, so it is closed by his
+judgement and not by evidence in this repo.
+
+- handoff: **PR #385 is ready for review and every gate is green.** Nothing is queued for the
+  next session on this epic except watching CI: 452 is a Jira **Task**, so `jira-sync` fires
+  `In Review` on the ready flip and `Done` on merge by itself — **verify both landed** rather than
+  sweeping by hand. Two things outlive the epic: **P1-2**, the 4 dismissed-but-now-evidenced person
+  pairs, which are hand work from the probe's §2 and which no code will ever surface, and
+  **HOLODEX-457**, which must not run before those pairs are worked. The live QA testbed
+  (fixture people 901/902 in this worktree's `data/holodex.db`) can be torn down whenever.
+
+### 2026-09-24 — the testing and security gates. Every gate is green.
 - skills: testing-strategy, security-review
 
 **Testing.** `docs/testing-strategy.md` §17 + §17.1–17.3. The write-up's organizing idea is that the
