@@ -323,7 +323,7 @@ func (r *Repo) AttachExternalID(ctx context.Context, entityType string, entityID
 	}
 	// The queue write, the kind predicate and the boot sweep that shares them live in
 	// shared_external_id.go.
-	_, err := queueSharedExternalIDPair(ctx, r.db, entityType, owner, entityID)
+	_, err := queueSharedExternalIDPair(ctx, r.db, entityType, owner, entityID, providerOf(externalID))
 	return err
 }
 

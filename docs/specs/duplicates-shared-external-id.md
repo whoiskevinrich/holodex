@@ -184,8 +184,12 @@ redundancy exists in migration 0052, by construction — it is the same query.
 variation = 'shared-external-id')` as an **upsert** —
 `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'`, RD8 — so
 repeated runs are idempotent *and* a pair the name detector already queued is upgraded rather than
-left wearing the weaker label. `detail` is left empty: unlike `provider-alias`, both sides of this
-pair are readable from the entities themselves.
+left wearing the weaker label. **`detail` carries the asserting provider's namespace** —
+superseding this criterion's original "left empty", because P0-6's chip cites who made the claim
+and that is the one fact the row cannot read off the two entities. Not the external id itself: it is
+provider-internal, the owner cannot act on it, and the compare panel already renders it as a
+provider-link badge. A pair colliding on two providers gets one of them deterministically (`min()`
+over the namespace) rather than whichever row the join emitted first.
 
 *Acceptance*: running the sweep twice changes nothing on the second pass; a pair pre-queued as
 `punctuation` comes out as `shared-external-id`; a pair already `shared-external-id` is never
@@ -276,6 +280,30 @@ Video cannot reach the guard at all — `enrich.identityEntityType` stops it a l
 naming the provider (`tmdb says one person`) in place of the variation slug, in the row, for every
 kind. Every other variation is untouched. Tokens only; QA in all three skins.
 
+**Done.** `sharedIdChip` in `queue.ts` + the chip branch in `DuplicatePairRow`. Treatment is
+**outlined** accent — `rounded-full border border-accent bg-accent/10 text-accent`, the same one
+`ExtractionQueueRow`'s staged chips use — not the solid `bg-accent` the handoff's `--bg-accent`
+wording implied: `app.css` reserves solid accent for a page's one primary action. A row whose
+`detail` is empty reads `a provider says one person` rather than inventing a name.
+
+*QA, on the live preview with a seeded contested pair.* **Screenshots are unavailable against this
+preview** (they time out), so the verification is computed-style and geometry, and a human eyeball is
+still wanted:
+
+1. `[agent]` **Contrast, three skins — pass.** The chip resolves a *different* accent per skin, which
+   is the real proof it is token-driven rather than hardcoded: Cinémathèque `rgb(232,163,61)`,
+   Broadcast `rgb(54,224,208)`, Brutalist `rgb(214,255,63)`. Text-on-chip contrast, composited over
+   the translucent `bg-accent/10` fill: **8.84 / 11.62 / 16.88** — all above AA and AAA.
+2. `[agent]` **Row height unchanged at ≥ 640px — pass.** With two 39–42-character names, the chip row
+   and a `punctuation` row both measure **49.0px** at 700px and at 1280px, with no truncation of the
+   chip and no horizontal page overflow. On a phone (375px, where the row is designed to wrap) the
+   chip costs **6px** over the slug — its 21.6px box against the slug's 16px line, isolated by
+   swapping the chip for the slug in place; not an extra line.
+3. `[agent]` **Sort order — pass, end to end.** The `shared-external-id` row renders above both
+   `punctuation` rows even though its names sort last alphabetically, so it is the P0-8 rank doing it
+   and not the name tiebreak.
+4. `[human]` Does the chip read as *stronger* than the muted rows around it, not as an error?
+
 **P0-7 — the stale rationale is rewritten.** `internal/repo/identity.go`'s comment ("this only
 ever records a genuinely new (id, entity) pair") and `AttachExternalID`'s doc comment are both
 false once P0-3 lands and must be corrected in the same change.
@@ -340,6 +368,12 @@ which today share the non-fuzzy `-1` slot with no tiebreak
 (`internal/repo/review_queue.go:193`). The strongest signal must not sort below the weakest by
 accident of insertion order.
 
+**Done** — one `-2` branch ahead of the `-1` in `ListReviewPairs`' `ORDER BY`. Nothing else was
+needed: a variation outside `fuzzyVariations` already passes the live-revalidation join untouched, so
+these rows were listed correctly from the start and only their rank among the other non-fuzzy
+variations was undefined. Mutation-checked (the test's shared-id pair carries the names that sort
+LAST, so it cannot pass on the name tiebreak) and confirmed on the live preview.
+
 ### Nice-to-Have (P1)
 
 - **P1-0 — the co-appearance read.** `SELECT count(*) FROM video_people a JOIN video_people b ON
@@ -371,7 +405,8 @@ accident of insertion order.
 ## Data model
 
 **No schema change.** `identity_review_queue` gains a fourth `variation` value in an existing
-`TEXT` column; `detail` (0045) stays empty for it. One new `job_runs` kind constant —
+`TEXT` column, and `detail` (0045) carries the asserting provider's namespace for it — the first
+variation whose detail has a reader. One new `job_runs` kind constant —
 `model.JobKindSharedIDSweep` = `"shared-id-sweep"`. Nothing else registers a job kind: there is no
 allowlist and no frontend label map, so the kind string renders as-is on the activity surface.
 
@@ -381,15 +416,20 @@ column; it writes rows into `entity_external_ids` and `identity_review_queue`. (
 
 ## API
 
-None. `GET /owner/duplicates` already returns `variation` verbatim, and the dismiss path is
-unchanged.
+**One added field**, superseding this section's original "None": `GET /owner/duplicates` now returns
+`detail` alongside `variation`. The chip cites the asserting provider, and the row had no way to know
+it — `ReviewPair` did not carry `detail` and `ListReviewPairs` did not select it, so the 0045 column
+had no reader at all. Owner's decision 2026-09-24, taken over a generic chip that needed no
+plumbing. The dismiss path is unchanged, and no endpoint is added.
 
 ## UI
 
-One chip, keyed on `variation`, in `DuplicatePairRow`'s existing variation span — a sibling of
-`MATCH_KIND_LABEL`, not an entry in it, because that map is keyed on the derived `match_kind`.
-`web/src/lib/types.ts`'s `variation` gains the value. Full rationale, placement and the three-skin
-QA list are in the [design handoff](../design/duplicates-shared-external-id-handoff.md).
+One chip, keyed on `variation`, in `DuplicatePairRow`'s existing variation span — `sharedIdChip` in
+`queue.ts`, a sibling of `MATCH_KIND_LABEL` and not an entry in it, because that map is keyed on the
+derived `match_kind`, which `ListReviewPairs` leaves `''` for every non-fuzzy row (so anything driven
+off that map would render nothing here). `web/src/lib/types.ts`'s `DuplicatePair` gains `detail` and
+documents the new `variation` value. Full rationale, placement and the three-skin QA list are in the
+[design handoff](../design/duplicates-shared-external-id-handoff.md).
 
 ## Success Metrics
 

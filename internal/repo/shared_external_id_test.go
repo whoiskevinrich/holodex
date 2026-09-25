@@ -29,6 +29,22 @@ func spineOwner(t *testing.T, db *sql.DB, entityType, externalID string) int64 {
 	return id
 }
 
+// pairDetail returns the detail recorded for a review pair — for shared-external-id rows,
+// the asserting provider's namespace, which the row's chip cites (P0-6).
+func pairDetail(t *testing.T, db *sql.DB, entityType string, lo, hi int64) string {
+	t.Helper()
+	var d string
+	err := db.QueryRow(`SELECT detail FROM identity_review_queue
+		WHERE entity_type = ? AND id_lo = ? AND id_hi = ?`, entityType, lo, hi).Scan(&d)
+	if err == sql.ErrNoRows {
+		return ""
+	}
+	if err != nil {
+		t.Fatalf("detail of %s (%d,%d): %v", entityType, lo, hi, err)
+	}
+	return d
+}
+
 func mustAttach(t *testing.T, r *repo.Repo, entityType string, entityID int64, externalID string) {
 	t.Helper()
 	// The enrich must still succeed: the provider's field values are already stored, and
@@ -86,6 +102,11 @@ func TestAttachExternalIDQueuesContestedID(t *testing.T) {
 	}
 	if n := rowCount(t, db, "entity_external_ids"); n != 1 {
 		t.Errorf("spine rows = %d, want 1 — a contested claim must not fork the id", n)
+	}
+	// detail names the asserting provider, which the row's chip cites (P0-6) and the pair
+	// cannot be read off the two entities.
+	if got := pairDetail(t, db, model.EnrichEntityPerson, 1, 2); got != "prov1" {
+		t.Errorf("detail = %q, want the asserting provider %q", got, "prov1")
 	}
 
 	// 4. Idempotent: the same contest again leaves one row.
@@ -315,6 +336,22 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 		}
 	}
 
+	// Every row names its asserting provider, including the one whose weaker variation was
+	// upgraded over an empty detail.
+	for _, want := range []struct {
+		et     string
+		lo, hi int64
+	}{
+		{model.EnrichEntityPerson, 1, 2},
+		{model.EnrichEntityPerson, 3, 4},
+		{model.EnrichEntityStudio, 100, 101},
+		{model.EnrichEntityFilm, 200, 201},
+	} {
+		if got := pairDetail(t, db, want.et, want.lo, want.hi); got != "prov1" {
+			t.Errorf("%s (%d,%d) detail = %q, want %q", want.et, want.lo, want.hi, got, "prov1")
+		}
+	}
+
 	// The sweep QUEUES; it never folds. Repairing the spine was migration 0052's job, and
 	// assigning a contested id to one claimant would be an adjudication (ADR-107 D3).
 	if n := rowCount(t, db, "entity_external_ids"); n != 3 {
@@ -332,5 +369,44 @@ func TestSweepSharedExternalIDs(t *testing.T) {
 	}
 	if n := len(readReviewQueue(t, db)); n != 6 {
 		t.Errorf("queue rows after the second sweep = %d, want 6", n)
+	}
+}
+
+// TestSharedExternalIDSortsAboveEveryOtherVariation is spec P0-8. Before F71 every
+// non-fuzzy variation shared ListReviewPairs' -1 sort slot with no tiebreak, so the
+// strongest signal the queue can carry and the weakest resolvable conflict were ordered by
+// nothing but insertion order. The name that sorts alphabetically LAST carries the shared-id
+// pair here, so the assertion cannot pass by accident of the name tiebreak.
+func TestSharedExternalIDSortsAboveEveryOtherVariation(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES
+		(1,'Aaron Alias'),(2,'Aaron Aliass'),
+		(3,'Mary Jane'),(4,'MaryJane'),
+		(5,'Zoe Zulu'),(6,'Zane Zulu')`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation) VALUES
+		('person',1,2,'provider-alias'),
+		('person',3,4,'internal-whitespace'),
+		('person',5,6,'shared-external-id')`)
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list review pairs: %v", err)
+	}
+	var got []string
+	for _, p := range pairs {
+		if p.EntityType == model.EnrichEntityPerson {
+			got = append(got, p.Variation)
+		}
+	}
+	want := []string{"shared-external-id", "provider-alias", "internal-whitespace"}
+	if len(got) != len(want) {
+		t.Fatalf("person pairs = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("sort order = %v, want %v", got, want)
+		}
 	}
 }

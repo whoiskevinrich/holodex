@@ -22,6 +22,21 @@ func variationOf(t *testing.T, db *sql.DB, entityType string, lo, hi int) string
 	return v
 }
 
+// detailOf returns the detail recorded for a review pair, or "" when the pair is not queued.
+func detailOf(t *testing.T, db *sql.DB, entityType string, lo, hi int) string {
+	t.Helper()
+	var d string
+	err := db.QueryRow(`SELECT detail FROM identity_review_queue
+		WHERE entity_type = ? AND id_lo = ? AND id_hi = ?`, entityType, lo, hi).Scan(&d)
+	if err == sql.ErrNoRows {
+		return ""
+	}
+	if err != nil {
+		t.Fatalf("detail of %s (%d,%d): %v", entityType, lo, hi, err)
+	}
+	return d
+}
+
 // TestMigration0052BackfillsSpineFromMemo exercises spec F71 P0-9 / ADR-107 §3b: the
 // one-time fold of entity_enrichment.external_id into entity_external_ids.
 //
@@ -214,6 +229,24 @@ func TestMigration0052BackfillsSpineFromMemo(t *testing.T) {
 	// behind a label that means "weak" — the failure P0-8 exists to prevent.
 	if got := variationOf(t, db, "person", 7, 8); got != "shared-external-id" {
 		t.Errorf("pair (7,8) variation = %q, want the upgrade to shared-external-id", got)
+	}
+
+	// detail names the ASSERTING PROVIDER, which is what the row's chip cites (P0-6) and the
+	// one fact the pair cannot be read off the two entities. A pair colliding on TWO
+	// providers gets one of them deterministically — min(), so 'prov1' not 'prov2'.
+	for _, want := range []struct {
+		et       string
+		lo, hi   int
+		provider string
+	}{
+		{"person", 3, 4, "prov1"},
+		{"person", 7, 8, "prov1"},   // carried in by the upgrade, over an empty detail
+		{"person", 17, 18, "prov1"}, // collides on prov1 AND prov2
+		{"studio", 100, 101, "prov1"},
+	} {
+		if got := detailOf(t, db, want.et, want.lo, want.hi); got != want.provider {
+			t.Errorf("%s (%d,%d) detail = %q, want %q", want.et, want.lo, want.hi, got, want.provider)
+		}
 	}
 	// Kept-separate is never re-proposed (ADR-061), and the tie broke toward agreement.
 	for _, none := range []struct {

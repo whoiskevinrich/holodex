@@ -39,6 +39,11 @@ type ReviewPair struct {
 	B          model.EntityRef `json:"b"`
 	Variation  string          `json:"variation"`
 	MatchKind  string          `json:"match_kind"`
+	// Detail is the per-variation fact the pair cannot be read off the entities
+	// (migration 0045). For 'shared-external-id' it is the asserting provider's
+	// namespace, which the row's chip cites (F71 P0-6); '' for every other variation
+	// today, including 'provider-alias', whose own detail has no reader.
+	Detail string `json:"detail"`
 }
 
 // entityNamesUnion returns the (eid, kind, nm) subquery over one entity type's full
@@ -162,6 +167,12 @@ var fuzzyVariations = []string{"internal-whitespace", "punctuation"}
 // resolvable conflict rather than a fuzziness tier, sorts first of all) so the weak
 // alias-alias matches sink to the bottom of each group instead of mixing in
 // indistinguishably with real duplicates.
+//
+// 'shared-external-id' (F71, ADR-107) sorts above even those: a provider has asserted the
+// two entities are ONE record, which is the strongest positive evidence this queue can
+// carry. Before F71 every non-fuzzy variation shared the -1 slot with no tiebreak, so the
+// strongest signal and the weakest resolvable conflict were ordered by nothing but
+// insertion order (spec P0-8).
 func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 	fuzzyList := "'" + strings.Join(fuzzyVariations, "','") + "'"
 	var out []ReviewPair
@@ -172,7 +183,7 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 		q := fmt.Sprintf(`
 			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation,
 			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END,
-			       %[9]s, %[10]s
+			       q.detail, %[9]s, %[10]s
 			FROM identity_review_queue q
 			JOIN %[1]s la ON la.id = q.id_lo
 			JOIN %[1]s lb ON lb.id = q.id_hi
@@ -190,7 +201,8 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
 			WHERE q.entity_type = ?
 			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)
-			ORDER BY CASE WHEN q.variation NOT IN (%[8]s) THEN -1
+			ORDER BY CASE WHEN q.variation = 'shared-external-id' THEN -2
+			              WHEN q.variation NOT IN (%[8]s) THEN -1
 			              WHEN m.match_kind = 'canonical' THEN 0
 			              WHEN m.match_kind = 'mixed' THEN 1
 			              ELSE 2 END,
@@ -205,7 +217,7 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 		for rows.Next() {
 			p := ReviewPair{EntityType: et}
 			var yearA, yearB sql.NullInt64
-			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind, &yearA, &yearB); err != nil {
+			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind, &p.Detail, &yearA, &yearB); err != nil {
 				rows.Close()
 				return nil, err
 			}

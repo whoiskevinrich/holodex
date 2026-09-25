@@ -18,7 +18,14 @@
 	import { videoCount, toMessage, refLabel } from '$lib/format';
 	import type { DuplicatePair } from '$lib/types';
 	import DuplicateComparePanel from './DuplicateComparePanel.svelte';
-	import { disclosureId, labelPlacement, matchKindLabel, panelId, showsComparePanel } from './queue';
+	import {
+		disclosureId,
+		labelPlacement,
+		matchKindLabel,
+		panelId,
+		sharedIdChip,
+		showsComparePanel
+	} from './queue';
 
 	let {
 		pair,
@@ -83,6 +90,7 @@
 	// change what you see is one the reader learns to distrust (ExpandableText's rule).
 	const match = $derived(matchKindLabel(pair.match_kind));
 	const labelInRow = $derived(labelPlacement(pair) === 'row');
+	const chip = $derived(sharedIdChip(pair));
 	const comparable = $derived(showsComparePanel(pair.entity_type));
 	const open = $derived(comparable && expanded);
 
@@ -167,7 +175,23 @@
 		<span aria-hidden="true" class="shrink-0 text-muted">↔</span>
 		<span class="truncate text-ink">{refLabel(pair.b)}</span>
 		<span class="shrink-0 text-xs text-muted">{videoCount(pair.b.video_count ?? 0)}</span>
-		<span class="shrink-0 text-xs text-muted">· {pair.variation}</span>
+		<!-- The strongest signal the queue carries names its asserter instead of printing the
+		     variation slug (F71 P0-6). Accent, not `text-warn`: on this surface warn already
+		     means *weak*, which is the opposite of what a provider asserting one record means.
+		     It REPLACES the slug rather than joining it, so the row keeps its one 40px line at
+		     every width — which is why this stays in the row for a person too, unlike the
+		     match-kind label. Outlined accent, not solid `bg-accent`: that is reserved for a
+		     page's one primary action (app.css), and this is the same treatment
+		     ExtractionQueueRow's staged chips use. -->
+		{#if chip}
+			<span
+				class="shrink-0 rounded-full border border-accent bg-accent/10 px-2 py-0.5 text-xs text-accent"
+			>
+				{chip.text}
+			</span>
+		{:else}
+			<span class="shrink-0 text-xs text-muted">· {pair.variation}</span>
+		{/if}
 		{#if labelInRow}
 			<span class="shrink-0 text-xs" class:text-warn={match.weak} class:text-muted={!match.weak}>
 				· {match.text}

@@ -9,6 +9,7 @@ import {
 	pairKey,
 	panelId,
 	QUEUE_ID,
+	sharedIdChip,
 	showsComparePanel
 } from './queue';
 
@@ -22,7 +23,18 @@ const pair = (
 	a: { id: aId, name: `a${aId}` },
 	b: { id: bId, name: `b${bId}` },
 	variation: 'provider-alias',
-	match_kind
+	match_kind,
+	detail: ''
+});
+
+/** A shared-external-id pair as the server sends one: `detail` names the asserting
+ *  provider and `match_kind` is '' (ListReviewPairs leaves it empty for every non-fuzzy
+ *  variation), which is exactly why the chip cannot live in the MATCH_KIND_LABEL map. */
+const sharedIdPair = (entity_type: EntityKind, provider = 'tmdb'): DuplicatePair => ({
+	...pair(entity_type, 1, 2),
+	variation: 'shared-external-id',
+	match_kind: '' as DuplicatePair['match_kind'],
+	detail: provider
 });
 
 // The disclosure, the panel and the `{#each}` key are produced by three different
@@ -122,5 +134,36 @@ describe('focusLandingIds', () => {
 		const t1 = pair('tag', 1, 2);
 		const t2 = pair('tag', 3, 4);
 		expect(focusLandingIds(t1, [t1, t2])).toEqual([groupId('tag'), QUEUE_ID]);
+	});
+});
+
+// F71 P0-6. The chip is the only place the queue names WHO asserted a pair, and it is the
+// only row label keyed on `variation` rather than the derived `match_kind` — a
+// shared-external-id row's match_kind is '', so anything driven off that map renders nothing.
+describe('shared-external-id chip', () => {
+	it('cites the asserting provider and the entity kind, never a verdict', () => {
+		expect(sharedIdChip(sharedIdPair('person'))?.text).toBe('tmdb says one person');
+		expect(sharedIdChip(sharedIdPair('studio'))?.text).toBe('tmdb says one studio');
+		expect(sharedIdChip(sharedIdPair('film'))?.text).toBe('tmdb says one film');
+	});
+
+	it('stays generic rather than inventing a name when the provider is missing', () => {
+		expect(sharedIdChip(sharedIdPair('person', ''))?.text).toBe('a provider says one person');
+		expect(sharedIdChip(sharedIdPair('person', '   '))?.text).toBe('a provider says one person');
+		// `detail` is new to this response; a payload without it must render, not throw.
+		const noField = { ...sharedIdPair('person'), detail: undefined as unknown as string };
+		expect(sharedIdChip(noField)?.text).toBe('a provider says one person');
+	});
+
+	it('is null for every other variation, so no other row changes', () => {
+		for (const variation of ['punctuation', 'internal-whitespace', 'provider-alias', 'same-title']) {
+			expect(sharedIdChip({ ...pair('person', 1, 2), variation })).toBeNull();
+		}
+	});
+
+	it('does not depend on match_kind — the map keyed on that one cannot carry it', () => {
+		const p = sharedIdPair('person');
+		expect(matchKindLabel(p.match_kind).text).toBe('');
+		expect(sharedIdChip(p)).not.toBeNull();
 	});
 });

@@ -118,8 +118,11 @@ WHERE NOT EXISTS (SELECT 1 FROM _contested c
 -- which the boot sweep reads.
 --
 -- Pairs over the whole claimant set (every pair of a 3-claimant id, not just the two that
--- touch the spine owner). `detail` stays '' (spec P0-2): unlike provider-alias, both sides
--- of this pair are readable from the entities themselves.
+-- touch the spine owner). `detail` (0045) carries the ASSERTING PROVIDER's namespace — the
+-- one fact the row cannot read off the two entities, and what the queue row's chip cites
+-- ("tmdb says one person", F71 P0-6). Not the external id itself: that is provider-internal
+-- and the owner cannot act on it. min() picks one namespace deterministically for a pair
+-- that collides on two providers.
 --
 -- The upsert UPGRADES a weaker variation rather than leaving it (owner's decision
 -- 2026-09-24). A pair can be both a shared-id finding and a punctuation near-miss -- 1 of
@@ -129,13 +132,14 @@ WHERE NOT EXISTS (SELECT 1 FROM _contested c
 -- so the name detector can never demote a row back. The cost is that "the names also nearly
 -- match" stops being recorded, the queue storing one variation per pair.
 --
--- SELECT DISTINCT because a pair colliding on TWO providers appears twice in the join (the
--- probe's fixture has one): collapsing it means the upsert applies once, rather than relying
--- on how SQLite handles the same target row conflicting twice in one statement. The WHERE
--- clause is what makes the upsert parse at all after a SELECT -- without it SQLite can read
--- the ON as a join constraint.
-INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation)
-SELECT DISTINCT a.entity_type, a.entity_id, b.entity_id, 'shared-external-id'
+-- GROUP BY, not SELECT DISTINCT: a pair colliding on TWO providers appears twice in the join
+-- (the probe's fixture has one) and the queue stores a pair once, so min() picks one
+-- namespace deterministically rather than letting row order decide which provider is cited.
+-- The WHERE clause is what makes the upsert parse at all after a SELECT -- without it SQLite
+-- can read the ON as a join constraint.
+INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
+SELECT a.entity_type, a.entity_id, b.entity_id, 'shared-external-id',
+       min(substr(a.external_id, 1, instr(a.external_id, ':') - 1))
 FROM _claimant a
 JOIN _claimant b ON a.entity_type = b.entity_type
                 AND a.external_id = b.external_id
@@ -144,7 +148,9 @@ WHERE NOT EXISTS (SELECT 1 FROM entity_keep_separate ks     -- rule 4
                    WHERE ks.entity_type = a.entity_type
                      AND ks.id_lo = a.entity_id
                      AND ks.id_hi = b.entity_id)
-ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id';
+GROUP BY a.entity_type, a.entity_id, b.entity_id
+ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE
+   SET variation = 'shared-external-id', detail = excluded.detail;
 
 DROP TABLE _contested;
 DROP TABLE _claimant;

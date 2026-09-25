@@ -153,25 +153,33 @@ OQ2 repair pass makes the number stop being small.
       sizes (no row collisions, gaps match the component's `gap-x-2`). **Chip vs. raw slug chosen
       by Kevin 2026-09-23; sign-off on the artifact itself is still outstanding** — `/implement`
       records it
-- [ ] backend — **P0-9** (migration `0052_backfill_entity_external_ids`), **P0-3** (the write-time
+- [x] backend — **P0-9** (migration `0052_backfill_entity_external_ids`), **P0-3** (the write-time
       guard), **P0-2** (`queueSharedExternalIDPair`, the one writer both producers call), **P0-7**
       (both stale comments), **P0-1 + P0-4** (`sharedExternalIDPairsSQL` +
       `Repo.SweepSharedExternalIDs`, wired ungated in `cmd/holodex/main.go` as
-      `shared-id-sweep`), **P0-5** (video and tag excluded, asserted at both producers).
-      **P0-8** — the sort tiebreak — is the one backend item left
-- [ ] frontend — P0-6 (one chip keyed on `variation`; three-skin QA in the handoff)
+      `shared-id-sweep`), **P0-5** (video and tag excluded, asserted at both producers),
+      **P0-8** (the `-2` sort branch). Plus the `detail` read path the chip needed
+- [x] frontend — **P0-6** — `sharedIdChip` in `queue.ts` + the chip branch in `DuplicatePairRow`.
+      Three-skin QA passed on the live preview by computed style and geometry (screenshots time out
+      against this preview); **Kevin's eyeball on the prod skin is the one open QA item**
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
 1. ~~P0-9 backfill.~~ **Done 2026-09-24** — migration `0052_backfill_entity_external_ids`.
-2. ~~P0-3 the guard; P0-1 + P0-4 the detector and boot sweep.~~ **All done 2026-09-24**, with
-   P0-2's shared writer, P0-5's exclusions and P0-7. **Next, and the backend is then closed:
-   P0-8** — a one-line `ORDER BY` tiebreak in `ListReviewPairs` (`internal/repo/review_queue.go`).
-   Non-fuzzy variations already pass through untouched and sort at `-1`, so `shared-external-id`
-   only needs `-2` ahead of `provider-alias`/`same-title`. Then **P0-6**, the chip (frontend), and
-   the testing + security gates.
+2. ~~P0-3, P0-1 + P0-4, P0-8, P0-6.~~ **All done 2026-09-24. Every P0 is in.** What is left is
+   **the testing and security gates**, then `gh pr ready`.
+   - `/testing-strategy`: `docs/testing-strategy.md` has no F71 section yet. The tests exist
+     (`internal/db/external_ids_backfill_test.go`, `internal/repo/shared_external_id_test.go`,
+     `web/src/lib/components/duplicates/queue.test.ts`); the gate is writing them up, including
+     **§5's no-component-harness rule** — which is why the chip's logic is a pure function in
+     `queue.ts` rather than assertions against rendered markup.
+   - `/security-review`: expected short. No new endpoint; `GET /owner/duplicates` gains one field,
+     `detail`, which carries a **provider name** (already shown throughout the UI) and never the
+     external id itself. The one thing to actually check: the queue is owner-gated, and `detail` is
+     returned on the same owner-gated payload as everything else in the row.
+   - **Kevin's eyeball on the chip** in the prod skin is the open QA item (handoff QA 3).
 3. ~~Decide the variation-upgrade question.~~ **Kevin decided 2026-09-24: upgrade.** Recorded as
    spec **RD8**, which amends P0-2. The write is
    `ON CONFLICT (entity_type, id_lo, id_hi) DO UPDATE SET variation = 'shared-external-id'` — a
@@ -193,7 +201,47 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-24 (latest) — P0-1 + P0-4, the every-boot sweep
+### 2026-09-24 (latest) — P0-8 the sort rank, P0-6 the chip. Every P0 is in.
+- skills: code-review
+
+P0-8 was one `-2` branch in `ListReviewPairs`' `ORDER BY`, and nothing else: a variation outside
+`fuzzyVariations` already passes the live-revalidation join untouched, so these rows were listed
+correctly all along — only their rank *among* the other non-fuzzy variations was undefined.
+
+**P0-6 surfaced the one real gap in the design.** The approved mockup's chip reads `tmdb says one
+person`, but the row had no way to know the provider: `ReviewPair` did not carry `detail`,
+`ListReviewPairs` did not select it, and the 0045 column **had no reader anywhere** — the
+"detail read" `provider_aliases.go` mentions does not exist. So the approved design needed plumbing
+the spec had ruled out ("API: None", "`detail` stays empty"). Put both options to Kevin with the two
+rows drawn; **he chose naming the provider.** `detail` now carries the asserting namespace at all
+three producers (0052 included — edited in place, since it is unmerged and has never run outside
+tests), and `ListReviewPairs` → the API → `DuplicatePair` carry it through. A pair colliding on two
+providers cites one deterministically via `min()`.
+
+**One handoff detail corrected in implementation:** its `--bg-accent` wording would mean solid
+`bg-accent`, which `app.css` reserves for a page's one primary action. The chip uses the **outlined**
+treatment `ExtractionQueueRow`'s staged chips already use — `rounded-full border border-accent
+bg-accent/10 text-accent`.
+
+QA ran against the live preview with a seeded contested pair, which also verified the backend
+end-to-end: **migration 0052 queued the pair with `detail = 'tmdb'` on the boot, the sweep then
+recorded its own job run reporting 0** (nothing new — exactly the designed handoff between them), and
+the row renders **above** both `punctuation` rows despite its names sorting last alphabetically.
+Three-skin contrast 8.84 / 11.62 / 16.88 with a *different* accent resolved per skin (the real proof
+it is token-driven); row height 49.0px identical to a slug row at 700px and 1280px with 39–42-char
+names. **Screenshots time out against this preview**, so that is computed-style and geometry
+evidence, not a visual check.
+
+- handoff: every P0 criterion is implemented and pushed. Two gates left and neither is code:
+  **`/testing-strategy`** (write up the three new test files, including §5's no-component-harness
+  rule — which is *why* the chip's logic is a pure function in `queue.ts`) and
+  **`/security-review`** (short: no new endpoint; `GET /owner/duplicates` gains `detail`, carrying a
+  provider *name*, never the external id, on an already owner-gated payload). Then
+  **Kevin's eyeball on the chip in the prod skin** (handoff QA 3) and `gh pr ready`. The preview is
+  left running with the fixture pair in `data/holodex.db` (people 901/902) so it can be looked at
+  directly; the pre-fixture DB backup is in this session's scratchpad.
+
+### 2026-09-24 (earlier) — P0-1 + P0-4, the every-boot sweep
 - skills: code-review
 
 The detector is `sharedExternalIDPairsSQL` in the new `internal/repo/shared_external_id.go` (which
