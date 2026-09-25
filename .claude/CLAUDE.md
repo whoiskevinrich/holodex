@@ -75,6 +75,14 @@ While making a change, route it through the right skill based on what it touches
 | **Anything significant** (any of the above, or a multi-file behavior change) | `/testing-strategy` | updated `docs/testing-strategy.md` + tests aligned to the spec/architecture/design |
 | **Authentication, access, or infrastructure** | `/security-review` | a security sign-off before merge |
 
+**This table is the skill-producing subset, not the gate list.** The authoritative set of gates is
+`.claude/flightplan.yaml`, and it has **seven**: the five above plus **`backend`** and **`frontend`**,
+which have no producing skill but are still gates with artifact globs (`{cmd,internal,providers}/**`
+and `web/src/**`). That file also declares which gates belong to the design phase and which to build,
+and the `approve: true` flag on `design`. So a worklog's `Gates — definition of done` checklist has
+seven rows, `gates n/7` in the session banner counts against that file, and if this table and the YAML
+ever disagree the YAML wins. Don't add or rename a gate here alone.
+
 **`/design-handoff` must persist any rendered mockup as a committed asset** (SVG preferred —
 self-contained, renders inline on GitHub, no CDN/font dependency) in `docs/design/` next to the
 handoff doc, referenced from it with an image embed. A mockup that only exists as a chat/session
@@ -126,17 +134,40 @@ file (also ADR-021 and `docs/design/theming.md`).
    any gate this push closed to `[x]`, append a session-log entry (skills run + a one-line
    handoff sentence), and update `Up next`/`release_note` if they changed. Stage the worklog
    file alongside the code/PR changes so it ships in the same commit — don't leave it for a
-   follow-up commit or wait for the user to notice it's stale. (`/flightplan:handoff`, the skill
-   meant to automate this judgment call, is not yet built — it lives in the Flightplan plugin repo,
-   ADR-092 — so this is a manual step until it lands.)
+   follow-up commit or wait for the user to notice it's stale.
+
+   **Run `/handoff` rather than doing this by hand.** The skill exists, is installed at user scope,
+   and this repo meets its precondition (`.claude/flightplan.yaml`). It makes exactly the judgment
+   calls listed above — ticks gates, records deliberate skips, reorders `Up next`, authors
+   `release_note`, writes the one handoff sentence, and manages the `fp:ready-to-build` label — and
+   it keeps the session log **append-only**, archiving over-cap entries to `docs/plans/archive/`
+   instead of editing or deleting them. Hand-editing the worklog is how it drifts from the code:
+   every field above is one a session can forget, and the banner you read at start-of-work is
+   derived from them. *(This file used to say the skill was "not yet built" — it is. Corrected
+   2026-09-25; don't reinstate that claim without checking `~/.claude/skills/`.)*
 3. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 4. Scan the working tree for secrets / PII (see "Secrets & publishing").
 5. **No PR during design; Draft unless the gates are green.** While any design-phase gate
    (spec / architecture / design) is open, **push only** — `/implement` is what opens the PR
    (see "The design phase pushes; it does not open a PR" above). Once it exists, open with
    `gh pr create --draft` whenever work remains; drop `--draft` — or mark an existing Draft
-   ready — only when every gate in the routing table is satisfied. Marking ready is the act
+   ready — only when every gate in `.claude/flightplan.yaml` is satisfied. Marking ready is the act
    that moves the ticket to `In Review`.
+6. **Before marking ready, make sure `main` is in — but check whether it actually needs to be.**
+   `gh pr ready` on a **conflicting** PR silently drops the `jira-sync` event, so the ticket never
+   reaches `In Review`. That is the only reason for this step, which makes the test simple:
+   `git fetch origin` and compare. If `origin/main` is already an ancestor of the branch there is
+   **nothing to merge** — say so and move on; don't manufacture an empty merge commit. Otherwise
+   `git merge origin/main` (never rebase — the branch is already on `origin` and a rebase would need
+   a force-push), and **stop and report on conflict** rather than resolving silently.
+   - **Always compare against `origin/main`, never the local `main` ref.** A worktree's local `main`
+     goes stale fast — during HOLODEX-452 it was 52 commits behind, and `git diff main...HEAD`
+     reported 117 changed files under `web/` for a branch whose real scope was 24. For a branch's
+     true extent use `git diff origin/main...HEAD` after a fetch, or diff from the epic's first
+     commit.
+   - **This repo is squash-only.** `gh pr merge --merge` is refused; squash and pass a clean
+     Conventional `--subject`, because that subject is what `release-please` and `git-cliff` parse
+     into the changelog.
 
 ## Task tracking (Jira)
 
@@ -157,7 +188,13 @@ file is archived (frozen, read-only) — **do not read or write it**; use Jira.
   `needs-adr`, `needs-design`, or `needs-security-review` so the lockstep gate is visible on
   the board; clear the label when the artifact lands.
 - When you note a **TODO** or **defer** an item (a stub, a "later", a "Phase 2", a known
-  gap), capture it as a HOLODEX issue so it isn't lost in a code comment.
+  gap), capture it as a HOLODEX issue so it isn't lost in a code comment. **Creating it is half the
+  job — link it in the same breath**, or it leaves the epic's orbit entirely: the GitHub-for-Jira
+  panel only associates work through a branch name carrying the key, and a spun-out issue has no
+  branch, so the issue link is its *only* trace. Two different mechanisms, don't conflate them: a
+  **child** of an epic takes the `parent` field (team-managed — there is no Epic Link), while a
+  **sibling** spun out of the work in flight takes a `Relates` issue link to the issue it was found
+  from. Then name it in that epic's worklog so the epic records what it shed.
 
 ### Branch ↔ Jira linkage (load-bearing)
 
