@@ -475,6 +475,7 @@ const (
 	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
 	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
 	JobKindEnrichSweep       = "enrich-sweep"        // owner-triggered refresh of every person/studio (F66, ADR-103)
+	JobKindSharedIDSweep     = "shared-id-sweep"     // every-boot shared-provider-id duplicate reconciliation (F71, ADR-107)
 	JobStatusOK              = "success"
 	JobStatusErr             = "error"
 )

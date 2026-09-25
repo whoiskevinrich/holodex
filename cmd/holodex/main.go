@@ -293,6 +293,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// variants) for the owner to confirm — never merging any. Needs only the repo, so it
 	// runs here with the other startup backfills, after migrations have landed the spine.
 	seedIdentityReviewQueue(ctx, repository, log)
+	sweepSharedExternalIDs(ctx, repository, log)
 	promoteEnrichmentAliases(ctx, repository, log)
 
 	health := api.NewHealth()
@@ -689,6 +690,48 @@ func seedIdentityReviewQueue(ctx context.Context, r *repo.Repo, log *slog.Logger
 	}
 	if err == nil {
 		log.Info("identity review-queue seed complete", "queued", queued)
+	}
+}
+
+// sweepSharedExternalIDs reconciles duplicates the name-based queue structurally cannot
+// see: two entities of one kind carrying the same provider external id (F71, ADR-107).
+// That is the strongest positive merge evidence available — the provider has already said
+// they are one record — and ADR-061's unique nameKey index means such a pair always wears
+// two different names, so no name detector can reach it.
+//
+// Runs beside seedIdentityReviewQueue but is deliberately NOT gated on a prior successful
+// run (spec RD5): that gate belongs to the F43 seed because it was a one-time historical
+// normalization, whereas this is a cheap idempotent reconciliation whose input keeps
+// changing — every enrich can add a memo. Migration 0052 drained the historical backlog
+// once; this keeps it drained. Recorded as its own job run (ADR-028) with a bare count for
+// detail — no names, no provider ids. Best-effort: a failure is logged and never blocks
+// startup, and the next boot simply tries again.
+func sweepSharedExternalIDs(ctx context.Context, r *repo.Repo, log *slog.Logger) {
+	started := time.Now()
+	queued, err := r.SweepSharedExternalIDs(ctx)
+	finished := time.Now()
+	status := model.JobStatusOK
+	var errs int
+	detail := fmt.Sprintf("shared provider-id sweep: queued %d contested pairs", queued)
+	if err != nil {
+		status, errs, detail = model.JobStatusErr, 1, "shared provider-id sweep: failed"
+		log.Warn("shared provider-id sweep failed", "err", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindSharedIDSweep,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Added:      int(queued),
+		Errors:     errs,
+		Detail:     detail,
+	}); err != nil {
+		log.Warn("shared provider-id sweep: record job run failed", "err", err)
+	}
+	if err == nil {
+		log.Info("shared provider-id sweep complete", "queued", queued)
 	}
 }
 

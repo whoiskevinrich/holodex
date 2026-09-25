@@ -1,0 +1,22 @@
+-- 0052 down: removes the review rows, leaves the folded spine rows.
+--
+-- There is no schema to reverse -- 0052 is data only -- and the two halves it wrote are not
+-- equally reversible.
+--
+-- The 'shared-external-id' review rows are: that variation did not exist before 0052, so
+-- every one of them belongs to F71 and deleting them returns identity_review_queue to a
+-- state 0051 could have produced.
+--
+-- A pair 0052 UPGRADED from a weaker variation loses its row entirely here rather than being
+-- restored -- the prior value is not recorded anywhere, and guessing 'punctuation' would
+-- invent one. This self-heals: SeedIdentityReviewQueue runs every boot, is not gated, and
+-- re-derives that pair from the names it was found by in the first place.
+--
+-- The folded entity_external_ids rows are NOT. Once written they are indistinguishable from
+-- the rows attachExternalID would have produced on the scan path -- same shape, same
+-- meaning, no provenance column -- so reconstructing "which ones came from the memo" would
+-- have to guess, and guessing wrong deletes an identity the owner asserted and breaks
+-- id-first resolve for that entity. The precedent is 0044's down, which leaves promoted
+-- aliases in place for the same reason. Re-applying 0052 is a no-op on them (INSERT OR
+-- IGNORE), so the lossy direction is documented rather than silent: spec F71 P0-9.
+DELETE FROM identity_review_queue WHERE variation = 'shared-external-id';

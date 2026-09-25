@@ -252,9 +252,18 @@ func lookupByNameKey(ctx context.Context, qr queryRower, q identityQueries, enti
 
 // attachExternalID records external_id → entity idempotently; a no-op when
 // externalID is empty. INSERT OR IGNORE: the per-kind PK means an id already owned by
-// another entity of that kind is left where it is — the id-first lookup in
-// resolveOrCreateByName would already have returned that owner, so this only ever
-// records a genuinely new (id, entity) pair.
+// another entity of that kind is left where it is, silently.
+//
+// That silence is correct HERE and only here (F71 P0-3, ADR-107 D4). Both callers are
+// resolveOrCreateByName, and by the time either reaches this writer its step 1 ("external-id
+// first") has already looked the id up and returned early if anyone owned it — so a contested id
+// cannot arrive here at all, and a guard in this function would be dead code on the scan
+// path while still writing review rows inside the caller's scan transaction, which may
+// roll back. (ADR-107 D4 gives the reason as "would fire on every relink"; the
+// transactional half is the one that actually holds — step 1's early return means the
+// flood never materializes.) The public Repo.AttachExternalID is the enrich path, where the
+// entity came from an owner's pick and there is no id lookup upstream; it wraps this writer
+// with the contested-id guard instead of inheriting the silence. Do not move it in here.
 func attachExternalID(ctx context.Context, tx execer, entityType string, id int64, externalID string) error {
 	if externalID == "" {
 		return nil
@@ -268,13 +277,54 @@ func attachExternalID(ctx context.Context, tx execer, entityType string, id int6
 // AttachExternalID records a provider id for an entity of any kind outside the scan
 // path — the enrich service calls it once a provider record has been adopted for a
 // person/studio/tag/film (ADR-096 D2: the identity row and the "which id did we enrich
-// against" memo are the same fact). Idempotent; an id already owned by another entity
-// of that kind is left where it is (see attachExternalID). Not for videos, which have
-// no row in entity_external_ids.
+// against" memo are the same fact). Not for videos, which have no row in
+// entity_external_ids.
+//
+// Idempotent, and NOT silent about a conflict (F71 P0-3, ADR-107 D4). If the id already
+// belongs to a different entity of the same kind, the pair goes to
+// identity_review_queue as 'shared-external-id' and this returns nil: the enrich must
+// still succeed, because the provider's field values are already stored and only the
+// identity claim is contested. The entity that holds the spine row keeps it — the owner's
+// merge decides, never this write (ADR-107 D3). This is where the collisions the data
+// carries came from: the entity is one the OWNER picked in the enrich UI, so unlike the
+// scan path there is no id-first resolve upstream to guarantee the id is free.
+//
+// Why the owner is re-read rather than keyed on RowsAffected: INSERT OR IGNORE collapses
+// three outcomes into one nil — inserted, already owned by THIS entity, and owned by
+// another. The middle case is the common one on every re-enrich and refresh sweep, so a
+// guard that queued whenever nothing was inserted would flood the queue. Only the
+// follow-up lookup separates benign idempotence from a real conflict.
 func (r *Repo) AttachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
-	return attachExternalID(ctx, r.db, entityType, entityID, externalID)
+
+	if err := attachExternalID(ctx, r.db, entityType, entityID, externalID); err != nil {
+		return err
+	}
+	// Tag is excluded with video: it is not enrichable, so a contested tag id is not the
+	// owner-mis-pick this feature reports (ADR-107 D5, named test). Video never reaches
+	// here at all — enrich.identityEntityType stops it a layer up.
+	if externalID == "" || !sharedExternalIDKind(entityType) {
+		return nil
+	}
+	// Same critical section as the attach above: r.writeMu is held for the whole method
+	// and both statements run on r.db, so nothing can repoint the id between the write
+	// and this read. There is no AttachExternalIDLocked to hand a caller's tx, so leaving
+	// and re-entering the lock is the one thing that would make this racy.
+	var owner int64
+	switch err := r.db.QueryRowContext(ctx, externalIDSelect, entityType, externalID).Scan(&owner); {
+	case errors.Is(err, sql.ErrNoRows):
+		// Unreachable: the attach either inserted the row or found one already there.
+		return nil
+	case err != nil:
+		return fmt.Errorf("lookup %s external id owner: %w", entityType, err)
+	case owner == entityID:
+		return nil // inserted just now, or this entity already held it — the common case
+	}
+	// The queue write, the kind predicate and the boot sweep that shares them live in
+	// shared_external_id.go.
+	_, err := queueSharedExternalIDPair(ctx, r.db, entityType, owner, entityID, providerOf(externalID))
+	return err
 }
 
 // ExactEntityMatch reports whether name resolves to an existing Person/Studio

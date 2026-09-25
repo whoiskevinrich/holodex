@@ -43,6 +43,38 @@ export function matchKindLabel(matchKind: string): { text: string; weak: boolean
 	return { text: MATCH_KIND_LABEL[matchKind] ?? '', weak: matchKind === 'alias' };
 }
 
+/** The noun a citation uses for each kind, so the chip reads as a sentence. `tag` is here
+ *  for exhaustiveness only — a tag is not enrichable, so no tag pair carries this variation
+ *  (ADR-107 D5, asserted at both producers). */
+const KIND_NOUN: Record<EntityKind, string> = {
+	person: 'person',
+	studio: 'studio',
+	film: 'film',
+	tag: 'tag'
+};
+
+/** The chip for a `shared-external-id` row, or null for every other variation — a SIBLING
+ *  of MATCH_KIND_LABEL, never an entry in it, because that map is keyed on the derived
+ *  `match_kind`, which ListReviewPairs leaves '' for every non-fuzzy row.
+ *
+ *  It replaces the muted variation slug rather than joining it, so the row costs nothing and
+ *  stays one line — which is why, unlike `labelPlacement`, this does not move to the panel
+ *  for a person.
+ *
+ *  It names the ASSERTER, not the verdict: "tmdb says one person", never "same person". F70's
+ *  rule holds — the surface reports who asserted what and never adjudicates, so the chip is a
+ *  citation. `detail` carries the provider; a row that somehow has none says so generically
+ *  rather than inventing a name. Styled accent, never `text-warn`: warn already means *weak*
+ *  on this surface and this is the strongest evidence the queue will ever carry. */
+export function sharedIdChip(pair: DuplicatePair): { text: string } | null {
+	if (pair.variation !== 'shared-external-id') return null;
+	const noun = KIND_NOUN[pair.entity_type] ?? 'record';
+	// `?? ''` guards a payload without the field rather than throwing: `detail` is new to
+	// this response (F71), and a row that cannot name its asserter must still render.
+	const asserter = (pair.detail ?? '').trim();
+	return { text: asserter ? `${asserter} says one ${noun}` : `a provider says one ${noun}` };
+}
+
 /** Where the match-kind label renders (OQ3, resolved 2026-09-23). A PERSON pair
  *  carries it in the panel — measured at real type sizes it needs ~836 px in the row,
  *  and 100 % of the live queue carries one, so leaving it there made the two-line row

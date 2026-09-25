@@ -57,7 +57,14 @@ export interface DuplicatePair {
 	entity_type: EntityKind;
 	a: EntityRef;
 	b: EntityRef;
-	variation: string; // 'internal-whitespace' | 'punctuation' | 'provider-alias' | 'same-title' (film)
+	// 'internal-whitespace' | 'punctuation' | 'provider-alias' | 'same-title' (film) |
+	// 'shared-external-id' (F71: a provider assigns the same external id to both — the
+	// strongest positive evidence the queue carries, and the only one that is not about names)
+	variation: string;
+	// The per-variation fact the pair cannot be read off the two entities. For
+	// 'shared-external-id' it is the asserting provider's namespace, which the row cites in
+	// its chip; '' for every other variation.
+	detail: string;
 	// 'canonical': both names collide directly (strong — likely the same entity typed
 	// twice). 'mixed': one side needs an alias. 'alias': ONLY an alias on each side
 	// collides — the weakest signal, since aliases on distinct entities coincide far
