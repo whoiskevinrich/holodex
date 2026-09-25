@@ -403,17 +403,36 @@ LAST, so it cannot pass on the name tiebreak) and confirmed on the live preview.
   is not one provider's bookkeeping error. Verified against a throwaway migrated database seeded with
   all five branches, including the pair that must *not* appear.
 
-  **The four pairs, from the 2026-09-23 host run** (ids are the handle — `/people/<id>` opens each):
+  **Done 2026-09-25. All four decided on the host: three merged, one re-affirmed as distinct.**
 
-  | pair | asserted by | spine side | note |
-  |---|---|---|---|
-  | **167 ↔ 862** | **two providers** | 862 | The strongest of the four. One of the two rows is also where the anonymization leak was caught, so its id is never printed. |
-  | 333 ↔ 911 | one | 333 | |
-  | 836 ↔ 1429 | one | 1429 | |
-  | 858 ↔ 1280 | one | 1280 | |
+  | pair | asserted by | decision |
+  |---|---|---|
+  | **167 ↔ 862** | **two providers**, no dissent | **merged**, canonical 167 |
+  | 858 ↔ 1280 | one; no second provider knows either side | **merged**, canonical 858 |
+  | 836 ↔ 1429 | one; **co-appeared on one video** | **merged**, canonical 836 — the co-appearance was a credit-list artifact |
+  | 333 ↔ 911 | one, with a **second provider dissenting** | **not merged — genuinely two people** |
 
   None of the four was in the queue at probe time, which is the point: every detector honors the
-  dismissal, so nothing but this pass will ever raise them again.
+  dismissal, so nothing but this pass would ever have raised them.
+
+  **What the pass taught, because it changes how the next one reads the sheet:**
+
+  - **`dissenting` is the signal that earned its place**, and it did not exist until the live run.
+    333 ↔ 911 looked mergeable on every other column — two substantial records, no co-appearance
+    across seven videos — and the thing that held it back was a *second* provider holding ids for
+    both sides and keeping them apart. One provider asserting while another dissents is a far
+    weaker case than one asserting while nobody else has a view, and the two were indistinguishable
+    before.
+  - **`shared_videos` is a flag, not a verdict, and the first version of the probe said otherwise.**
+    It reasoned that two credits on one file are two people in that scene. The only live pair that
+    carried a co-appearance was still a real duplicate: a single file's credit list had named one
+    performer under two spellings, which is a *primary* way these duplicates get created here. The
+    tell is the other side looking like an artifact — no enrichment, no aliases, its only video
+    being the shared one. Corrected in the script.
+  - **A recurrence is now F71's problem, not a hand pass's.** 836 ↔ 1429 is expected to recur via an
+    unrelated bug. A re-created duplicate takes a **new** person id, so no keep-separate marker
+    covers the new pair, and the boot sweep queues it on the next start with the asserting provider
+    named in the chip — which is exactly the gap this epic was built to close.
 
   **Two facts about acting on a decision, both verified 2026-09-25 rather than assumed.** A
   keep-separate marker does **not** block a merge — `Repo.IsKeptSeparate` has no production caller,

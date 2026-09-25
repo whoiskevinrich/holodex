@@ -202,20 +202,44 @@ OQ2 repair pass makes the number stop being small.
    one-way ratchet, since `SeedIdentityReviewQueue`'s own `INSERT OR IGNORE` can never demote it.
    Shipped in 0052. **P0-3's guard and P0-4's sweep must use the same upsert** — a producer left on
    `INSERT OR IGNORE` reintroduces the weak label for exactly the pairs this decision was about.
-4. **Work the 4 dismissed-but-now-evidenced person pairs by hand** — spec P1-2. **Tool built
-   2026-09-25: `scripts/review_kept_separate_shared_id_pairs.sql`**, verified against a seeded
-   throwaway migrated DB. **The four decisions are Kevin's and are not made yet**, because they
-   need the live library, which this machine cannot reach:
+4. ~~Work the 4 dismissed-but-now-evidenced person pairs by hand.~~ **DONE 2026-09-25 — spec P1-2
+   is closed.** Tool: `scripts/review_kept_separate_shared_id_pairs.sql`. Kevin ran it on the host
+   and decided all four: **3 merged, 1 re-affirmed as distinct.**
 
-   **Probe run on the host 2026-09-25. Evidence and recommendation per pair; no decision is
-   recorded yet.** (`co` = shared videos, `vids`/`als`/`flds` = per side.)
+   | pair | decision | outcome |
+   |---|---|---|
+   | 167 ↔ 862 | **merged**, canonical 167 | as recommended — two providers agreed, no dissent |
+   | 858 ↔ 1280 | **merged**, canonical 858 | as recommended |
+   | 333 ↔ 911 | **NOT merged — genuinely two people** | the dismissal was right and is now re-affirmed against the *strongest* signal the system has. The `dissenting` column predicted this: both sides carry 2 providers and only 1 asserted, so the other had them apart |
+   | 836 ↔ 1429 | **merged**, canonical 836 | the co-appearance was the credit-list artifact, not two performers — the second reading. **Kevin notes it may recur via an unrelated bug**; see below |
+
+   **333 ↔ 911 needs no action and must not be re-raised.** Its `entity_keep_separate` row already
+   stands, every detector honors it, and it has now been weighed against a shared provider id and
+   upheld. A future session that finds it in a probe should read this row, not re-litigate it.
+
+   **If 836 ↔ 1429 recurs, F71 catches it by itself** — and that is the one thing this epic changes
+   about a recurrence. A re-created duplicate gets a **new** person id, so no keep-separate marker
+   covers the new pair, and the boot sweep queues it on the next start with the asserting provider
+   named in the chip. The old `(836, 1429)` marker is now dangling (HOLODEX-458) but inert, since
+   `people.id` is `AUTOINCREMENT`.
+
+   Evidence the decisions were taken on (`co` = shared videos, `vids`/`als`/`flds` = per side):
 
    | pair | asserts | dissent | co | vids | als | flds | read |
    |---|---|---|---|---|---|---|---|
-   | **167 ↔ 862** | **2** | 0 | 0 | 4 / 2 | 13 / 0 | 17 / 17 | **Merge, canonical 167.** Two independent providers agree, none dissents, no co-appearance over 6 videos, both fully enriched — a real split identity |
-   | 858 ↔ 1280 | 1 | 0 | 0 | 1 / 1 | 6 / 0 | 4 / 4 | **Merge, canonical 858.** No dissent is possible (one provider knows either side); two thin records, least consequential either way |
-   | 333 ↔ 911 | 1 | **1?** | 0 | 5 / 2 | 9 / 4 | 19 / 17 | **Hold.** Both sides carry 2 providers, only 1 asserts → a second provider probably has them apart. Re-run for the `dissenting` column and look before merging |
-   | 836 ↔ 1429 | 1 | 0 | **1** | 2 / 1 | 2 / 0 | 19 / **0** | **Look at the shared video.** Counts cannot settle it: either two performers on one file (dismissal right) or one file's credit list naming one performer twice — and 1429, with 0 fields and its only video being the shared one, has the artifact shape |
+   | **167 ↔ 862** | **2** | 0 | 0 | 4 / 2 | 13 / 0 | 17 / 17 | recommended merge → **merged** |
+   | 858 ↔ 1280 | 1 | 0 | 0 | 1 / 1 | 6 / 0 | 4 / 4 | recommended merge → **merged** |
+   | 333 ↔ 911 | 1 | **1?** | 0 | 5 / 2 | 9 / 4 | 19 / 17 | recommended hold → **not merged, distinct** |
+   | 836 ↔ 1429 | 1 | 0 | **1** | 2 / 1 | 2 / 0 | 19 / **0** | recommended a look → **merged** |
+
+   **What the evidence was worth, now that the answers are known.** `providers = 2` with no dissent
+   was decisive and right. The `dissenting` signal was right too, and it is the one this pass
+   *added* — 333 ↔ 911 was the pair that looked mergeable on every other column. **`shared_videos`
+   was the misleading one**: it read as the strongest negative, and on the only row that had it the
+   answer was still merge, because two credits on one file are two people *unless the file's own
+   credit list named one performer twice* — which is how these duplicates arise here in the first
+   place. It is a flag to investigate, not a verdict; the script's wording overstated it and has
+   been corrected.
 
    Nothing has to be cleared first: a keep-separate marker does **not** block a merge
    (`IsKeptSeparate` has no production caller), the merge repoints the spine id to the survivor and
@@ -240,7 +264,46 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-25 (latest) — P1-2: the decision sheet is built, the four decisions are Kevin's
+### 2026-09-25 (latest) — P1-2 is closed: 3 merged, 1 upheld as distinct
+
+Kevin ran the probe on the host and decided all four. **167↔862 merged into 167. 858↔1280 merged
+into 858. 836↔1429 merged into 836. 333↔911 NOT merged — genuinely two people.** Three of the four
+went as recommended; the fourth went the other way and is the most useful result of the pass.
+
+**`shared_videos` was the column the probe got wrong, and the live answer is what proved it.** It
+was written as the strongest *negative* — two credits on one file are two people in that scene — and
+836↔1429 was the only pair carrying one, so the sheet sent it to a human look rather than
+recommending a merge. It was a real duplicate. The reason is the reading the probe failed to weigh:
+**a single file's credit list naming one performer under two spellings**, which is a primary way
+these duplicates get created in this library, not an exotic case. The column is now documented as a
+flag to investigate with the artifact tell spelled out (no enrichment, no aliases, only video is the
+shared one — exactly 1429's shape), and the sort comment no longer claims it ends the question.
+
+**`dissenting` is the column that earned its place**, and it did not exist until the live run.
+333↔911 looked mergeable on everything else — two substantial records, no co-appearance across seven
+videos — and what held it back was a second provider holding ids for both sides and keeping them
+apart. Kevin's answer confirms it. Recorded in the spec so it is not re-litigated: that pair has now
+been weighed against the strongest signal the system has and upheld.
+
+**A recurrence is F71's job now.** Kevin notes 836↔1429 may come back via an unrelated bug. It will
+not need another hand pass: a re-created duplicate takes a **new** person id, so no keep-separate
+marker covers the new pair, and the boot sweep queues it on the next start with the provider named
+in the chip. That is the gap this epic exists to close, and the first thing it will catch in anger.
+
+**HOLODEX-458 is no longer theoretical** — the three merges left three dangling
+`entity_keep_separate` rows in production, which is what that ticket predicted. Still inert
+(`people.id` is `AUTOINCREMENT`, so those ids are never re-issued), still hygiene; commented on the
+ticket with the actual pairs.
+
+- handoff: **P1-2 is closed and every gate on this epic is green.** Nothing on HOLODEX-452 is
+  waiting on anyone: PR #385 is ready for review. The only open threads are other tickets —
+  **HOLODEX-458** (dangling keep-separate rows, now real but inert) and **HOLODEX-457** (the memo
+  column drop, which was blocked on these contested pairs being worked and **is now unblocked for
+  the three that merged**; it must still not destroy the evidence for any pair left unowned). If
+  836↔1429 reappears, that is the unrelated bug surfacing, not a regression in this feature —
+  **ask Kevin which bug and file it** if it is not already tracked.
+
+### 2026-09-25 — P1-2: the decision sheet is built, the four decisions are Kevin's
 
 **What this session could not do, stated first: the four merges.** They need the live library, which
 this machine cannot reach (`data/holodex.db` here is a 72-person dev database), and a merge is

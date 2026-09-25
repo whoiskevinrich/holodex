@@ -17,9 +17,15 @@
 -- app's job**: each pair prints two ids, and `/people/<id>` opens the record.
 --
 -- HOW TO DECIDE A ROW, in the order the evidence actually settles it:
---   * `shared_videos > 0` is the strongest NEGATIVE. Two credits on one file are two people
---     in that scene; a split identity almost never co-appears with itself. If this is
---     non-zero, the provider has conflated two performers and the dismissal was RIGHT.
+--   * `shared_videos > 0` is a flag to INVESTIGATE, not a verdict — and the first version of
+--     this file got that wrong, so read this before trusting the column. Two credits on one
+--     file usually mean two people in that scene, since a split identity rarely co-appears
+--     with itself. But it also happens when **one file's own credit list names one performer
+--     twice in two spellings**, which is a major way these duplicates get created here. The
+--     only live pair that carried a co-appearance (2026-09-25) was still a real duplicate and
+--     was merged. So: open the shared video and read the two credits. What tips it toward the
+--     artifact is the other side looking like one — no enrichment, no aliases, and its only
+--     video being the shared one.
 --   * `providers` = 2 is the strongest POSITIVE: two independent providers minting the same
 --     id for both sides is not one provider's bookkeeping error.
 --   * `dissenting` > 0 is the quiet negative, and it is why `providers` alone is not enough:
@@ -132,9 +138,9 @@ SELECT (SELECT count(*) FROM pair)                                    AS pairs_t
          WHERE entity_type = 'person')                                AS person_keep_separate_total,
        (SELECT count(*) FROM pair WHERE providers > 1)                AS asserted_by_two_providers;
 
--- ── 2. The decision sheet, strongest negative evidence first ─────────────────────────────
--- shared_videos DESC puts any co-appearing pair at the top, because that is the one shape
--- that ends the question without opening the app.
+-- ── 2. The decision sheet, the rows needing a human eye first ────────────────────────────
+-- shared_videos DESC puts any co-appearing pair at the top — not because it settles the row
+-- but because it is the one that cannot be settled from counts at all.
 SELECT p.id_lo,
        p.id_hi,
        p.providers,
@@ -161,7 +167,8 @@ SELECT p.id_lo,
            AND EXISTS (SELECT 1 FROM claimant cb
                         WHERE cb.provider = ca.provider AND cb.entity_id = p.id_hi)
        ) - p.providers                                                AS dissenting,
-       -- THE decisive column. Two credits on one file are two people in that scene.
+       -- Co-appearance: usually two people in that scene, but ALSO what one file's credit list
+       -- naming a performer twice produces. Investigate it, don't rule on it — see the header.
        (SELECT count(*) FROM video_people va
           JOIN video_people vb ON vb.video_id = va.video_id
          WHERE va.person_id = p.id_lo AND vb.person_id = p.id_hi)     AS shared_videos,
