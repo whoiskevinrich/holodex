@@ -387,11 +387,44 @@ LAST, so it cannot pass on the name tiebreak) and confirmed on the live preview.
   weaker check, so P0-3 could report a contested id the sidecar path would have refused outright.
   Align the two, or the queue inherits the discrepancy.
 - **P1-2 — reconcile the 4 dismissed-but-now-evidenced pairs, once.** No code and no UI: at N = 4
-  the tool is the probe itself, whose §2 already lists them with `kept_separate = 1`. Work them by
-  hand, and either merge or leave the dismissal standing. Building a surface for four rows would be
-  over-building — but this stops being true if the OQ2 repair pass lands and the number grows, at
-  which point RD7's rejected option (reason-aware dismissals) is the one to reopen. Recorded here
-  so the four are not silently re-suppressed on every sweep with nobody remembering why.
+  the tool is a probe, not a surface. Building one for four rows would be over-building — but that
+  stops being true if the OQ2 repair pass lands and the number grows, at which point RD7's rejected
+  option (reason-aware dismissals) is the one to reopen. Recorded here so the four are not silently
+  re-suppressed on every sweep with nobody remembering why.
+
+  **Tool, 2026-09-25: `scripts/review_kept_separate_shared_id_pairs.sql`.** The detector's §2 lists
+  these pairs but not what decides them, so this one re-derives the population (shared-id pairs ∩
+  `entity_keep_separate`, so it stays correct on a later run) and prints the evidence as **ids and
+  counts only** — `scripts/CLAUDE.md` is explicit that a question needing a name is the wrong
+  question for a probe, and the names are the app's job. It leads with **`shared_videos`**, which is
+  the one column that can end the question outright: two credits on one file are two people in that
+  scene, so a co-appearance means the provider conflated two performers and **the dismissal was
+  right**. `providers = 2` is the converse — two independent providers minting one id for both sides
+  is not one provider's bookkeeping error. Verified against a throwaway migrated database seeded with
+  all five branches, including the pair that must *not* appear.
+
+  **The four pairs, from the 2026-09-23 host run** (ids are the handle — `/people/<id>` opens each):
+
+  | pair | asserted by | spine side | note |
+  |---|---|---|---|
+  | **167 ↔ 862** | **two providers** | 862 | The strongest of the four. One of the two rows is also where the anonymization leak was caught, so its id is never printed. |
+  | 333 ↔ 911 | one | 333 | |
+  | 836 ↔ 1429 | one | 1429 | |
+  | 858 ↔ 1280 | one | 1280 | |
+
+  None of the four was in the queue at probe time, which is the point: every detector honors the
+  dismissal, so nothing but this pass will ever raise them again.
+
+  **Two facts about acting on a decision, both verified 2026-09-25 rather than assumed.** A
+  keep-separate marker does **not** block a merge — `Repo.IsKeptSeparate` has no production caller,
+  only tests — so nothing has to be cleared first. And the merge does the right thing with this
+  feature's own state: it repoints `entity_external_ids` to the survivor (`UPDATE OR IGNORE`) and
+  drops any review-queue row touching the loser, so the contest resolves itself. It leaves the
+  `entity_keep_separate` row standing, because person/studio/tag have no `AFTER DELETE` cleanup for
+  that table while film got one in migration 0047 — **inert**, since `people.id` is `AUTOINCREMENT`
+  and the loser's id can never be issued again. Filed as hygiene, not a blocker.
+
+  Deciding a pair is genuinely two people needs **no action at all**: the marker already says so.
 - ~~**P1-1 — size the orphaned memos.**~~ Promoted to **P0-9** on the measurement.
 
 ### Future Considerations (P2)

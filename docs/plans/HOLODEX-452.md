@@ -202,8 +202,23 @@ OQ2 repair pass makes the number stop being small.
    one-way ratchet, since `SeedIdentityReviewQueue`'s own `INSERT OR IGNORE` can never demote it.
    Shipped in 0052. **P0-3's guard and P0-4's sweep must use the same upsert** — a producer left on
    `INSERT OR IGNORE` reintroduces the weak label for exactly the pairs this decision was about.
-4. **Work the 4 dismissed-but-now-evidenced person pairs by hand** from the probe's §2
-   (`kept_separate = 1`) — spec P1-2.
+4. **Work the 4 dismissed-but-now-evidenced person pairs by hand** — spec P1-2. **Tool built
+   2026-09-25: `scripts/review_kept_separate_shared_id_pairs.sql`**, verified against a seeded
+   throwaway migrated DB. **The four decisions are Kevin's and are not made yet**, because they
+   need the live library, which this machine cannot reach:
+
+   | pair | asserted by | spine side |
+   |---|---|---|
+   | **167 ↔ 862** | **two providers** | 862 |
+   | 333 ↔ 911 | one | 333 |
+   | 836 ↔ 1429 | one | 1429 |
+   | 858 ↔ 1280 | one | 1280 |
+
+   Run the probe on the host, then merge in the app or leave the dismissal standing — record the
+   outcome per pair here. `shared_videos > 0` on any row means the provider conflated two
+   performers and the dismissal was right. Nothing has to be cleared first: a keep-separate marker
+   does **not** block a merge (`IsKeptSeparate` has no production caller), and the merge repoints
+   the spine id to the survivor and drops the queue row by itself.
 5. ~~File the ADR-096 D2 follow-up.~~ Filed as **HOLODEX-457** (drop `entity_enrichment.external_id`,
    re-home the video re-enrich memo), linked `Relates` to 452 and blocked on the host probe's §7.
    **Still blocked, but the block is now partial:** 0052 has made the spine the record for every
@@ -217,7 +232,55 @@ OQ2 repair pass makes the number stop being small.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-09-25 (latest) — marked ready for review. No merge was needed.
+### 2026-09-25 (latest) — P1-2: the decision sheet is built, the four decisions are Kevin's
+
+**What this session could not do, stated first: the four merges.** They need the live library, which
+this machine cannot reach (`data/holodex.db` here is a 72-person dev database), and a merge is
+irreversible and is by design the owner's adjudication — ADR-107 D3 is the whole reason this feature
+queues instead of merging. So the deliverable is the tool and the evidence, not the outcome.
+
+**Recovered the four pairs** from the 2026-09-23 host run's §2 output — the run's *anonymized* table,
+and the ids only. The pre-fix table in that same transcript carries real names, which is the
+anonymization leak already recorded above; nothing from it is reproduced here. Distinct kept-separate
+pairs: **167↔862 (asserted by TWO providers), 333↔911, 836↔1429, 858↔1280.** The count matches the
+recorded "4 of 9". 167↔862 appears twice in §2 — once per asserting provider — which is why the row
+count is 5 and the pair count is 4.
+
+**Built `scripts/review_kept_separate_shared_id_pairs.sql`.** The detector's §2 lists these pairs but
+not what *decides* them. This one re-derives the population as an intersection (shared-id pairs ∩
+`entity_keep_separate`), so it stays correct on a later run rather than hardcoding today's four, and
+prints **ids and counts only** — `scripts/CLAUDE.md` is explicit that a query needing a name is the
+wrong question for a probe, and reading names is the app's job.
+
+**The column that matters is `shared_videos`, and it leads the sort.** Two credits on one file are
+two people in that scene, so a co-appearance means the provider conflated two performers and the
+dismissal was *right* — the one fact that settles a row without opening the app. Its converse is
+`providers = 2`: two independent providers minting one id for both sides is not one provider's
+bookkeeping error, which is what makes 167↔862 the strongest of the four. Verified against a
+throwaway DB built from all 51 up migrations and seeded with five branches, including the pair that
+must **not** appear and an output check that nothing leaked a name.
+
+**Two things about acting on a decision, verified rather than assumed.** A keep-separate marker does
+**not** block a merge — `Repo.IsKeptSeparate` has no production caller, only tests — so nothing has
+to be cleared first. And the merge handles this feature's own state correctly: it repoints
+`entity_external_ids` to the survivor and drops any review-queue row touching the loser.
+
+**One follow-up filed: [HOLODEX-458](https://whoiskevinrich.atlassian.net/browse/HOLODEX-458).**
+`entity_keep_separate` has an `AFTER DELETE` cleanup for **film only** (migration 0047); person,
+studio and tag have none, so a merge leaves a dangling marker — and this hand pass will create up to
+four. It is **hygiene, not correctness**, and the reason is load-bearing: `people.id` is
+`AUTOINCREMENT`, so a deleted id is never re-issued and no future entity can inherit a stale marker.
+The ticket says to verify that for studios and tags before fixing, because the whole severity call
+rests on it.
+
+- handoff: **P1-2 is half-done by construction — the tool is committed, the four decisions are
+  Kevin's.** Run
+  `sqlite3 -readonly <library> < scripts/review_kept_separate_shared_id_pairs.sql` on the host, then
+  for each pair either merge in the app or leave the dismissal standing, and **record the outcome in
+  `Up next` item 4** — otherwise the next session cannot tell "decided to keep separate" from "never
+  looked". Everything else on this epic is closed: PR #385 is ready for review with every gate green.
+
+### 2026-09-25 — marked ready for review. No merge was needed.
 
 **`origin/main` was already an ancestor of the branch** — 0 behind, 18 ahead, and GitHub reports
 MERGEABLE / CLEAN — so there was nothing to merge and no merge commit was made. The usual

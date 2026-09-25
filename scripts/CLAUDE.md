@@ -51,8 +51,9 @@ probes that measure the live library.
 | `detect_shared_external_id.sql` | **The maintained duplicate detector** (HOLODEX-452, ADR-107 D1): entities that share a provider external id, found by pairing the whole claimant set — the spine's owner union every memo holder. |
 | `detect_person_duplicate_evidence.sql` | What evidence exists to *decide* the person pairs already in `identity_review_queue` (sized the F70 compare panel). Its own external-id cross-check counts colliding memos only and misses the spine side — use the detector above for that. |
 | `detect_entity_collisions.sql` | Name collisions across all four spine kinds: case/whitespace (Tier A, migration blockers), punctuation/spacing near-misses (Tier B), and film's same-title-different-year pairs. |
+| `review_kept_separate_shared_id_pairs.sql` | **The P1-2 decision sheet** (HOLODEX-452, spec F71 P1-2): the pairs a provider says are one record that the owner dismissed *before* that signal existed. Deliberately out of queue — ADR-061's durable no stays intact and no detector re-proposes them — so this is the one-time reconciliation, worked by hand. Leads with `shared_videos`, because a co-appearance is the one fact that ends the question without opening the app. |
 
-All three conform to the rules above as of 2026-09-23.
+All four conform to the rules above as of 2026-09-25.
 
 **Film keys on `(nameKey, year)`, and the probe carries that through.** `ux_films_namekey`
 (migration 0047, ADR-096 D3) makes two films sharing a title across different years legal, so
