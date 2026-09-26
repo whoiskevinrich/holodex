@@ -2,6 +2,9 @@
 # Copy to .claude/flightplan.yaml and edit for this repo. Nothing repo-specific is compiled into
 # the plugin; this file is the only thing that changes between repos.
 
+flightplan:
+  reviewed: M1
+
 tracker:
   system: jira                  # none | jira | github (Flightplan ADR-005)
   project: HOLODEX
