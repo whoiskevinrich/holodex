@@ -42,7 +42,9 @@ Flightplan ADR-005's addendum (whoiskevinrich/flightplan#11).
 
 ## Session log
 
-- 2026-09-26 — filed HOLODEX-462 (Relates HOLODEX-358), implemented the category guard with
-  tests and docs, and ran `/code-review high --fix`, which fixed 1 finding and skipped 1.
-  - handoff: Code, tests and docs are done and all 144 script tests pass. The PR is open and
-    ready; next is the merge.
+### 2026-09-26 · session
+- skills: code-review (high --fix: 1 fixed, 1 skipped), handoff
+- Filed HOLODEX-462 (Relates HOLODEX-358). Implemented the statusCategory guard in `syncOne`,
+  with 5 new tests, the pipeline doc and the testing-strategy note. Merged `origin/main` in.
+- handoff: Every gate is settled and all 144 script tests pass. The PR opens as ready for review;
+  the next move is to merge it, and CI fires Done.
