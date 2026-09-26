@@ -68,11 +68,11 @@ adding.
 | `when(entry)` | Selects pages by their manifest coordinate. **Write the property, not the id.** |
 | `urls` | …or literal pages, for surfaces the manifest does not address (the list pages). Exactly one of `when` / `urls`. |
 | `selector` | CSS, or `:document` for the page itself. |
-| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` |
+| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` · `gutterRight` (viewport right edge − element right edge) |
 | `expect` | `{ min }`, `{ max }`, or both. Inclusive. |
 | `applies` | `each` (default) bounds every match; `count` bounds how many matched. |
 | `atLeast` | Matches required before the assertion means anything. Default 1. |
-| `prepare` | `metadata-fold`, `source-badge:<field>`, `visitor-view`, `enrich-picker-open:<provider>` — subtrees that exist only after an interaction (two folds, the role switch, and the Enrich picker opened on the stub's ten-entry `searched[]` cascade). |
+| `prepare` | `metadata-fold`, `source-badge:<field>`, `visitor-view`, `enrich-picker-open:<provider>`, `person-card-open` — subtrees that exist only after an interaction (two folds, the role switch, the Enrich picker opened on the stub's ten-entry `searched[]` cascade, and the person hover card on the right-most People tile). |
 | `requires` | `{why, met(manifest)}` — skip, with the reason printed, when the fixture is the wrong shape. |
 | `blockedBy` | A filed, unfixed ticket. Reported but does not fail the run. |
 
