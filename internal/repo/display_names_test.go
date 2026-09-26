@@ -121,6 +121,19 @@ func TestListPeopleDisplayNames(t *testing.T) {
 	if got[2].Name != "Alpha" {
 		t.Errorf("decided row name = %q, want canonical Alpha", got[2].Name)
 	}
+
+	// Count sort: every row ties on one video, so the tie-break is the shown spelling too.
+	byCount, err := r.ListPeople(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var countOrder []string
+	for _, p := range byCount {
+		countOrder = append(countOrder, p.Name)
+	}
+	if want := []string{"bravo", "Charlie", "Alpha"}; !slices.Equal(countOrder, want) {
+		t.Errorf("ListPeople(count) canonical order = %v, want %v (Alpha shows as zulu)", countOrder, want)
+	}
 }
 
 // TestCastDisplayNames pins HOLODEX-461: both Cast grids (the video detail and a

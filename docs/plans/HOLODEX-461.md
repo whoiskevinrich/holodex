@@ -36,8 +36,9 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
   `attachPersonImageVersions` in `GetVideo` and `FilmCast`, and `Related` fills `RelatedShelf.DisplayName`.
   `name` is never overwritten: it is the identity that pickers, detach and writeback read.
 - **People list (Kevin, 2026-09-26: "fix the People list page too").** `ListPeopleFiltered` overlays
-  `display_name`, and the name sort re-orders by the shown spelling (ASCII case fold, matching SQLite
-  NOCASE), so the A–Z bar anchors land on the labels. `filterByName` matches either spelling. The
+  `display_name`, and the SQL orders people by the shown spelling (`personLabelExpr`, mirroring
+  `DisplayNames`). That covers both the name sort and the count/completeness tie-breaks, so the A–Z bar
+  anchors land on the labels. `filterByName` matches either spelling. The
   merge dialog ("Keep which name?") stays canonical, because it picks the surviving identity.
 - **The picker's "Create …" row also checks `display_name`.** Otherwise typing a displayed spelling
   offers to mint a duplicate person beside the matching candidate.
@@ -90,6 +91,7 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 - skills: code-review (high --fix), handoff
 - merged origin/main (cd254e1; ecc5207 geometry tests, no overlap) before opening the Draft PR
 - extended to the People list at Kevin's request: labels, name sort, A–Z anchors and filter; browser-verified (the decided person sorts under Z and is found by either spelling)
+- applied two review findings: moved the People list's display-name ordering into SQL, so count/completeness ties break on the shown name and the Go re-sort is gone
 - handoff: Media Details, Film Cast and the People list all show the Displayed As name, verified on backend-films; Draft PR #392 waits only on Kevin's skin look before `gh pr ready`.
 
 ## Dropped — newest first (the reason is the point)
@@ -101,5 +103,4 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 -->
 
 - [~] [backend] Id-scoped `DisplayNames` for the Cast overlay — dropped 2026-09-26, the name-decision set is small and search already runs the unscoped query per keystroke
-- [~] [backend] Tie-break the People list's count/completeness sorts by display spelling — dropped 2026-09-26, it only reorders within equal-count groups
 - [~] [backend] Sort the Cast grid by display spelling — dropped 2026-09-26, it changes ordering behaviour beyond the bug; canonical order is stable and matches the file

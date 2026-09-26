@@ -1091,16 +1091,36 @@ func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
 }
 
 func (f NamedListFilter) orderBy(entityType, idCol string) string {
+	name := "e.name COLLATE NOCASE ASC"
+	if entityType == model.EnrichEntityPerson {
+		// A person row is labelled by its Displayed As spelling (HOLODEX-461), so the
+		// name order and every tie-break follow that label.
+		name = personLabelExpr(idCol) + " COLLATE NOCASE ASC"
+	}
 	switch f.Sort {
 	case "count":
-		return "cnt DESC, e.name COLLATE NOCASE ASC"
+		return "cnt DESC, " + name
 	case SortCompletenessAsc:
-		return completenessOrder(entityType, idCol, "ASC") + ", e.name COLLATE NOCASE ASC"
+		return completenessOrder(entityType, idCol, "ASC") + ", " + name
 	case SortCompletenessDesc:
-		return completenessOrder(entityType, idCol, "DESC") + ", e.name COLLATE NOCASE ASC"
+		return completenessOrder(entityType, idCol, "DESC") + ", " + name
 	default:
-		return "e.name COLLATE NOCASE ASC"
+		return name
 	}
+}
+
+// personLabelExpr is the SQL for a person's shown spelling: the one DisplayNames
+// selects for a standing name decision, else the canonical e.name. The constants
+// interpolated are trusted fieldsource values, never request input.
+func personLabelExpr(idCol string) string {
+	return fmt.Sprintf(`COALESCE(NULLIF(TRIM((
+		SELECT CASE WHEN d.source = '%s' THEN d.manual_value ELSE COALESCE(en.value, '') END
+		FROM field_source_decisions d
+		LEFT JOIN entity_enrichment en
+		       ON en.entity_type = d.entity_type AND en.entity_id = d.entity_id
+		      AND en.field_key = 'name' AND d.source = '%s' || en.provider
+		WHERE d.entity_type = '%s' AND d.entity_id = %s AND d.field_key = 'name' AND d.source != '%s')), ''), e.name)`,
+		fieldsource.Manual, fieldsource.ForProvider(""), model.EnrichEntityPerson, idCol, fieldsource.File)
 }
 
 // completenessOrder is the composite completeness sort (ADR-099 D2) over the
@@ -1161,34 +1181,7 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 	if err := r.attachPersonDisplayNames(ctx, out); err != nil {
 		return nil, err
 	}
-	// The name sort orders by the label the row shows (HOLODEX-461), so the SQL's
-	// canonical `e.name COLLATE NOCASE` is re-applied to the display spelling. Stable,
-	// so ties keep the SQL order.
-	if f.Sort != "count" && f.Sort != SortCompletenessAsc && f.Sort != SortCompletenessDesc {
-		slices.SortStableFunc(out, func(a, b model.Person) int {
-			return strings.Compare(nocaseKey(personLabel(a)), nocaseKey(personLabel(b)))
-		})
-	}
 	return out, nil
-}
-
-// personLabel is the spelling a person is shown by outside their own page.
-func personLabel(p model.Person) string {
-	if p.DisplayName != "" {
-		return p.DisplayName
-	}
-	return p.Name
-}
-
-// nocaseKey folds ASCII case only — SQLite's NOCASE collation — so a Go re-sort
-// orders exactly as the SQL it replaces.
-func nocaseKey(s string) string {
-	return strings.Map(func(c rune) rune {
-		if 'A' <= c && c <= 'Z' {
-			return c + ('a' - 'A')
-		}
-		return c
-	}, s)
 }
 
 // personImageVersions returns personID -> {role: rowID} for every person in ids, in ONE
