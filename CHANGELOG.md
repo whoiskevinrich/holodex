@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.17.0](https://github.com/whoiskevinrich/holodex/compare/v1.16.1...v1.17.0) (2026-09-26)
+
+
+### 🚀 Features
+
+* **duplicates:** detect duplicates by shared provider external id ([6ecb3c5](https://github.com/whoiskevinrich/holodex/commit/6ecb3c5ed32fbb4bbeacf0a5e355de3637505fd2))
+* **duplicates:** provider-alias collisions leave the Duplicates queue ([#386](https://github.com/whoiskevinrich/holodex/issues/386)) ([0f53458](https://github.com/whoiskevinrich/holodex/commit/0f5345817103e45b0eb581726ac4083c06d7bfb9))
+* **duplicates:** side-by-side evidence so a person pair is decidable ([5e0ce90](https://github.com/whoiskevinrich/holodex/commit/5e0ce904dafecd79c9e4777956400669068e7f0b)), closes [#382](https://github.com/whoiskevinrich/holodex/issues/382)
+
+
+### 🐛 Bug Fixes
+
+* **people:** show people by their Displayed As name outside the person page ([e2ca6fe](https://github.com/whoiskevinrich/holodex/commit/e2ca6feb947d996b1d671114c6777d63cc657bcb))
+
+
+### 📚 Documentation
+
+* **people:** drop the hover card's alias-overflow follow-up ([#389](https://github.com/whoiskevinrich/holodex/issues/389)) ([1b817ea](https://github.com/whoiskevinrich/holodex/commit/1b817eaf4ff17986c1b8dfd2ca2274cdc5e311f7))
+
+
+### 🧪 Testing
+
+* **geometry:** person hover card clamp and no-scroll rungs ([#390](https://github.com/whoiskevinrich/holodex/issues/390)) ([ecc5207](https://github.com/whoiskevinrich/holodex/commit/ecc5207c4129a0009c4b4eb67a3f09d2f7ab10fe))
+
 ## [1.16.1](https://github.com/whoiskevinrich/holodex/compare/v1.16.0...v1.16.1) (2026-09-23)
 
 
