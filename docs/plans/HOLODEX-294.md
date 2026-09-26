@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-294                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: The People and Cast sections now show larger poster tiles, and share one consistent look across Media and Film pages.
 ---
@@ -21,13 +22,9 @@ change — see the handoff's own "Why no spec/ADR" section) · [people-grid-hand
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable, no new user capability (handoff §"Why no spec/ADR")
-- [~] architecture `architecture` — not applicable, no schema/cross-cutting decision
 - [x] design `design-handoff` → `docs/design/people-grid-handoff.md`, `docs/design/people-grid-mockup.svg`
-- [~] backend — not applicable, both pages already receive fully-populated `Person[]`; no query changes
 - [x] frontend → `web/src/lib/components/entity/PeopleGrid.svelte`, wired into `media/[id]` and `films/[id]`
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` (manual driven-browser QA, no backend to Go-test)
-- [~] security `security-review` — not applicable, no auth/access/infrastructure touched, no new mutation surface
 
 ## Up next — ordered (position = priority)
 

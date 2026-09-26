@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-370
 status: in-progress
+profile: feature
 release_note: Clearing a provider's data — or answering "None of these match" — now tells you when that provider's values were also written into the file, and points at the write's Revert; Revert asks first and says what it costs.
 ---
 
@@ -40,9 +41,6 @@ pointing at the existing Revert, and Revert gains the confirmation the provider 
 - [x] spec `write-spec` — `enrichment-review-workflow.md` API block (dismiss → `200 {written_back}`,
   media clear → `200 {written_back}`, the detection-only rationale), `metadata-extraction.md`
   F48.9e (Revert confirms, names the cost), `metadata-plugins.md` F22.7b acceptance line
-- [~] architecture `architecture` — n/a: no seam touched; no migration; the decision *not* to
-  build per-provider revert is recorded on the ticket and in the spec, with the prerequisite named
-  (per-field snapshot revert + `batch_id` on `file_writebacks`) should it ever matter
 - [~] design `design-handoff` — n/a: one inline notice in the existing chip-row outcome slot
   (`text-xs text-warn`, accent link, `aria-live`) and the shared `ConfirmDialog` on an existing
   button; no new pattern, no new component
@@ -63,9 +61,6 @@ pointing at the existing Revert, and Revert gains the confirmation the provider 
   `fake:` row → true on both Clear and Dismiss; undismiss stays 204); person/film dismiss tests
   updated to `200 {written_back:false}`; `go test ./internal/api ./internal/repo` green,
   `npm run test` 272 / `npm run check` 0 errors; strategy doc row added
-- [~] security `security-review` — n/a: no auth, access or infrastructure change; both handlers
-  stay `requireOwner`; the new field discloses only "a writeback row exists" to the owner who
-  wrote it
 
 ## Up next — ordered (position = priority)
 

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-361
 status: in-review
+profile: ui
 depends-on: [HOLODEX-325]
 release_note: A short synopsis or bio no longer shows an expand arrow that does nothing.
 ---
@@ -31,16 +32,12 @@ the next reader of `ExpandableText` will find it.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: a defect fix, no requirement or scope change
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision
 - [~] design `design-handoff` — n/a: no new surface. Hiding a dead control restores the
   component's documented intent rather than taking a design decision
-- [~] backend — n/a: frontend-only
 - [x] frontend — measured gate in `ExpandableText.svelte`; all three call sites inherit it
 - [x] testing `testing-strategy` — verified by hand across skins and widths (see session log).
   No automated assertion added: the repo has no component-test harness (every `*.test.ts` is pure
   logic) and the gate is a DOM measurement, so the honest coverage is the harness rung queued below
-- [~] security `security-review` — n/a: no auth, access or infrastructure surface
 
 ## Up next — ordered (position = priority)
 

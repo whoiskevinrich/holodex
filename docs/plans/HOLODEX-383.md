@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-383
 status: in-progress
+profile: ui
 release_note: The Films row on person, studio and tag pages now shows each film's poster when it has one, instead of a lettered plate for every film.
 ---
 
@@ -15,16 +16,12 @@ its art on `/films` and `/films/{id}` but a letter on the person page. The list 
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: restores design handoff §5's "poster-thumb cards", no new behaviour
-- [~] architecture `architecture` — n/a
 - [~] design `design-handoff` — n/a: same tile, same fallback; the monogram becomes the empty state
-- [~] backend — n/a: `setFilmImageURLs` already fills `poster_url` on the filtered list read
 - [x] frontend — `FilmsRow.svelte`: `{#if f.poster_url}<img>{:else}monogram{/if}`, mirroring the
   HOLODEX-318 fix on `routes/films/+page.svelte`
 - [x] testing `testing-strategy` — no render harness for this component (none for the 318 fix
   either); `npm run check` 0 errors; live-verified on `backend-films` with a seeded film + poster
   + actor: `<img>` loaded 400×600 filling the 80×120 plate, poster-less sibling still draws "N"
-- [~] security `security-review` — n/a: no auth/access/infra change
 
 ## Up next — ordered (position = priority)
 

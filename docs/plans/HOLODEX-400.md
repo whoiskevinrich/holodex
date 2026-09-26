@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-400
 status: in-review
+profile: ui
 release_note: The "Write metadata to file" dialog now shows every candidate value for a field that differs from the file and lets you pick which one to write — the chooser from the media page, inside the dialog, with the Write button as its confirm.
 ---
 
@@ -18,13 +19,9 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: no new capability; F36 spec §Writeback already covers decisions
-  written from the dialog. Revisit if the M→W promotion needs a spec line.
-- [~] architecture `architecture` — n/a: no new seam; reuses `PUT …/decision` + ADR-091 enqueue
 - [x] design `design-handoff` — `docs/design/writeback-cockpit-handoff.md` + `writeback-cockpit-mockup.svg`
   (2026-09-18); vocabulary term **applied vs. on file** + two translations added to
   `docs/reference/ui-vocabulary.md`
-- [~] backend — n/a
 - [x] frontend — `WritebackFormDialog.svelte` cockpit rows (F / S / U / M / D / ⊖), **no checkbox anywhere**, no Select all (`willWrite` / `savesDecisionOnly`; image_url/merge read-only), two destinations in the gutter (`↧` file / cylinder Holodex), unmapped rows decidable, `not read back` file chip, staged picks, Write =
   Confirm via `needsDecision`, `focusables()` excludes `tabIndex === -1`; lifted
   `curation/SourceChipRow.svelte` (from `SourceBadge`, which still keeps its own copy) and
@@ -34,7 +31,6 @@ scalar replace fields only. Parent epic HOLODEX-167. Siblings deferred: 401 (tag
   `backend-films` (Dune, TMDB): 2 decision PUTs + 1 writeback POST for 3 checked rows, none for the
   untouched decided row; Tab lands on the checked chip; three-skin contrast all ≥ 4.5:1 (row in
   `docs/testing-strategy.md`)
-- [~] security `security-review` — n/a: no auth/access/infra change; same owner-gated endpoints
 
 ## Up next — ordered (position = priority)
 

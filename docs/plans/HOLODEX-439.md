@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-439
 status: in-review
+profile: backend
 depends-on: [HOLODEX-431, HOLODEX-349]
 release_note: Internal only — the layout test harness now checks that the person hover card never pushes a page sideways.
 ---
@@ -28,13 +29,9 @@ flip-above half of the card (bottom-edge trigger) stays a live check.
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: test tooling, no requirement change
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision
-- [~] design `design-handoff` — n/a: no UI change
 - [~] backend — n/a: harness-only
-- [~] frontend — n/a: `web/geometry/` only; no `web/src/**` change
 - [x] testing `testing-strategy` — rungs + preparation in `web/geometry/`; §4 F68 row and §12.4
   updated in `docs/testing-strategy.md`; 12/12 pass (cinematheque), mutation-tested
-- [~] security `security-review` — n/a: dev-only harness, no auth/access/infra surface
 
 ## Up next — ordered (position = priority)
 

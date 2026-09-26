@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-431
 status: in-review
+profile: full
 release_note: Hovering a person's name on a film page, the search page or a "More with" shelf now shows a small card — headshot, age, how many titles and films you have with them, aliases — with links to their profile and provider pages.
 ---
 

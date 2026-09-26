@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-418
 status: in-progress
+profile: feature
 release_note: "Re-match…" on a linked provider now always shows the candidate list instead of silently re-applying a lone strong match — the match the owner just said was wrong.
 ---
 
@@ -20,8 +21,6 @@ films testbed (media 6, Commando → `tmdb:10999`) before the fix.
   on an unlinked provider; a Re-match never auto-applies), RD7 cross-references it, P0-2 gains the
   re-match Given/When/Then. Queue-row "Try again" decided: **unchanged** — the row isn't linked, RD1
   is the right outcome there.
-- [~] architecture `architecture` — n/a: no data-model / API change; ADR-066 D1's threshold is
-  untouched, only *when* the client asks for it
 - [x] design `design-handoff` — `enrichment-review-workflow-handoff.md` §3 chip table, the
   interaction row and a new QA item **3.5a**; no visual change, no mockup needed
 - [x] frontend — `EnrichPicker` takes `autoApply` (default `true`); chips' Re-match fires
@@ -34,7 +33,6 @@ films testbed (media 6, Commando → `tmdb:10999`) before the fix.
   `docs/testing-strategy.md`; live: first Enrich still auto-applies (resolve + enrich), Re-match →
   resolve only, dialog open with "Commando · Strong match", nothing applied until clicked (then one
   enrich, dialog closes); no console errors. Skins n/a — no styling touched
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — no findings
 
 ## Up next — ordered (position = priority)

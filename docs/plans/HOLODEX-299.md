@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-299                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — the film→video bulk attach dialog no longer renders an empty candidate list.
 ---
@@ -26,13 +27,10 @@ HOLODEX-298 · verified live against `backend-films`/`web` dev servers + `npm ru
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable; no requirement/scope change
-- [~] architecture `architecture` — not applicable; no data-model/seam change
 - [~] design `design-handoff` — not applicable; no new UX, just fixing a broken existing one
 - [x] frontend
 - [x] testing — added a regression assertion (`internal/api/film_candidates_test.go`) that the
   wire response never contains `"already_attached":null`
-- [~] security `security-review` — not applicable; no auth/access/infra touched
 
 ## Up next — ordered (position = priority)
 

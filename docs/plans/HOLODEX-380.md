@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-380
 status: in-progress
+profile: feature
 release_note: When a provider returns several records for the same release, the Enrich picker can now show each record's summary — studio chain, how fully it's catalogued — behind an info toggle that opens automatically when two candidates share a name; an auto-applied match's summary is kept in the activity log so it can be checked later.
 ---
 
@@ -28,8 +29,6 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
 - [x] spec `write-spec` — `docs/specs/candidates-detail.md` (F61: FR1–FR6, P1-a, P2-a–c, AC 1–11,
   test notes per surface, Resolved Decisions table) **and** the contract amendment
   (`metadata-provider-contract.md` §2.3 example + `candidates[].detail` row, §5 caps row)
-- [~] architecture `architecture` — n/a: additive optional response key, no seam touched, no
-  migration; `profile_url` (F47/RD6) precedent. Revisit only if P2-c (thumbnail) ever returns
 - [x] design `design-handoff` — `candidates-detail-handoff.md` + `candidates-detail-mockup.svg`
   (four panels: collapsed / one toggled / collision auto-expanded / activity row) + numbered,
   verifier-tagged `candidates-detail-qa-checklist.md`. **Text toggle** (`details` / `hide details`,
@@ -64,9 +63,6 @@ nothing here is. Label-collision normalization is case-fold + whitespace-collaps
   cell), the five existing picker assertions re-run green. QA checklist §2 annotated with the
   harness reconciliation. Found on the way: the **full** matrix crashes the Vite dev server
   (`0xC0000409`) — filed HOLODEX-381; `--only` runs are reliable
-- [~] security `security-review` — n/a, confirmed at the backend gate: `detail` is text through
-  the same sanitizer path as `label`/`searched[]`; nothing fetched, no perimeter change, no auth
-  or access change
 
 ## Up next — ordered (position = priority)
 

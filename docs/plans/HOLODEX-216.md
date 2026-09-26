@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-216                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: feature
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Writeback now shows a field's destination file tag and only offers fields it can actually write — a mixed batch tells you exactly what was written instead of reporting success for fields it silently skipped.
 ---
@@ -22,12 +23,10 @@ introduce new scope) · ADR: not required · [design handoff](../design/writebac
 ## Gates — definition of done
 
 - [~] spec `write-spec` — until: never; judged unnecessary, this extends the sync path's existing full-unmapped-422 policy consistently to the mixed case rather than deciding new behavior
-- [~] architecture `architecture` — until: never; no data model/deployment/cross-cutting decision, only an API-layer field stamp + response shape
 - [x] design `design-handoff` → `docs/design/writeback-target-visibility-handoff.md`
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` §11
-- [~] security `security-review` — until: never; no auth/access/infrastructure surface touched
 
 ## Up next — ordered (position = priority)
 

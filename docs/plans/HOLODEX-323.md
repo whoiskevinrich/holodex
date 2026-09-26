@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-323
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []
 release_note: Writing metadata to a file no longer holds you in a dialog — submit and walk away; the Metadata section tells you only if a write is still running or failed.
 ---

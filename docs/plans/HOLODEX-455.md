@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-455
 status: in-progress
+profile: infra
 release_note: No user-facing change. Agent-workflow documentation only — the repo no longer instructs opening a Draft PR at the first gate artifact, which its own PreToolUse guard refuses.
 ---
 
@@ -20,19 +21,12 @@ merges `main`); this ticket is the documentation half.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — **not applicable.** Agent/dev-workflow process. Nothing ships to a user,
-  no product behaviour changes, no F## number involved.
 - [x] architecture `architecture` — **[ADR-106](../architecture/ADR-106-push-early-pr-at-implementation.md)**,
   Accepted. Supersedes **ADR-069 §1 only**; §2's `In Review`-on-ready-for-review amendment to ADR-058
   is live in CI and a dependency of Flightplan ADR-007, so retiring ADR-069 wholesale was the wrong
   move and is recorded as rejected option **D**. ADR number taken from
   `node scripts/adr-claims.mjs --reserve push-early-pr-at-implementation`, never by eye.
-- [~] design `design-handoff` — **not applicable.** No user-facing surface; no mockup to sign off.
-  (This is the repo's one `approve: true` gate — `[~]` settles it, so the phase derives to `build`
-  and the PR may open in the same session. A change with no build-phase artifact is the general
-  rule with an empty build phase, not a special case; ADR-106 §2 says so explicitly.)
 - [~] backend — **not applicable.** No `cmd/`, `internal/` or `providers/` change.
-- [~] frontend — **not applicable.** No `web/**` change, so no three-skin QA.
 - [~] testing `testing-strategy` — **deliberately skipped.** The change is five prose files; there
   is no behaviour to assert and nothing a test could hold that a reader cannot. A guard that greps
   the docs for "open a Draft PR" would be a lint against English, and the real enforcement already

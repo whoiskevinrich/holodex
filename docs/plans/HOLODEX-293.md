@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-293                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: [HOLODEX-292]               # [KEY-…] cross-epic deps that must land first
 release_note:                # not user-facing — pure internal markup consolidation, no behavior change
 ---
@@ -20,13 +21,9 @@ already-designed and already-reviewed component — same precedent as HOLODEX-29
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable, no new capability, identical precedent to HOLODEX-292
-- [~] architecture `architecture` — not applicable, no schema/cross-cutting decision
 - [~] design `design-handoff` — not applicable, reuses HOLODEX-292's already-committed design as-is
-- [~] backend — not applicable, `category.tags` already fully populated, no query changes
 - [x] frontend → `web/src/routes/categories/[id]/+page.svelte`
 - [x] testing `testing-strategy` — manual driven-browser QA (owner/visitor × 3 skins), no backend to Go-test
-- [~] security `security-review` — not applicable, no auth/access/infrastructure touched
 
 ## Up next — ordered (position = priority)
 

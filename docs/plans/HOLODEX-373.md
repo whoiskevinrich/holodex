@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-373
 status: in-progress
+profile: full
 release_note: Every person, studio, tag, film and video now carries a copyable reference like `film:42`; films can be aliased and renamed like everything else; a film's files can carry an edition (Theatrical, Final Cut) read from the file or set by you; and a name can be shown one way while the file keeps another.
 ---
 

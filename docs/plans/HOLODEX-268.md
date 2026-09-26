@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-268                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: feature
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Owner field editing on Video/Person/Studio pages now matches the visitor view at rest, and confirming a suggested value always works.
 ---
@@ -26,12 +27,10 @@ side effect of the new Confirm step — not patched standalone.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/two-tier-field-editing.md`
-- [~] architecture `architecture` → none needed — presentation-layer restructuring of ADR-051, no new persistence/API/access-control shape (see spec's Depends-on line)
 - [x] design `design-handoff` → `docs/design/two-tier-field-editing-handoff.md` + `docs/design/two-tier-field-editing-qa-checklist.md`
 - [~] backend — none needed, this story is a frontend-only presentation restructuring (no API/schema change)
 - [x] frontend
 - [x] testing `testing-strategy` → `docs/testing-strategy.md` §5 frontend row + §11 gap-tracking bullet (frontend-only feature, no §4 backend row needed)
-- [~] security `security-review` — until: a new mutation surface is introduced (none planned; see spec § Access control & security)
 
 ## Up next — ordered (position = priority)
 

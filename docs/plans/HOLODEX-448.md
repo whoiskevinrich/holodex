@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-448
 status: in-progress
+profile: infra
 release_note: The TMDB provider sidecar image is now distroless — about 82% smaller (146MB → 26MB), runs as a non-root user (uid 65532), and carries almost no OS packages to patch. Its health probe is now the sidecar's own binary rather than wget. Existing compose files keep working; if yours overrides the healthcheck with a wget command, switching it to ["CMD", "/usr/local/bin/holodex-provider-tmdb", "-healthcheck"] is more durable. Anything that mounted a volume into the sidecar may need its ownership adjusted for the non-root user.
 ---
 
@@ -21,15 +22,9 @@ ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
 - [x] architecture `architecture` — [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md)
   D1–D4; index row landed. D3 records that `edge` and `latest` **cannot** carry different bases
   (ADR-070 retag promotion makes them one digest) — the question that will otherwise be re-asked.
-- [~] spec `write-spec` — **deliberately skipped.** No functional or behavioural change: `/healthz`
-  is byte-identical on the wire, and CLAUDE.md's routing table sends infrastructure to an ADR, not a
-  spec. The two operator-facing *docs* that this invalidated were corrected instead
-  (`metadata-provider-contract.md` §Operator wiring, `tmdb-provider.md` §Operator wiring).
-- [~] design `design-handoff` — **deliberately skipped.** No user-facing surface; nothing renders.
 - [x] backend — `-healthcheck` flag on `providers/tmdb/main.go` handled before credential validation,
   `resolvePort` shared by server and probe, `Dockerfile.provider-tmdb` runtime stage rebased.
   Verified locally (see session log).
-- [~] frontend — **not applicable.** No `web/**` change; the sidecar has no UI.
 - [x] testing `testing-strategy` — `docs/testing-strategy.md` §15 + `TestResolvePort` /
   `TestRunHealthcheck` in `providers/tmdb/main_test.go` (mutation-checked), and
   `qa-tmdb-provider.md` §4 rewritten for the distroless runtime (4.5–4.8 added, all executed

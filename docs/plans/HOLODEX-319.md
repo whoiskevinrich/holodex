@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-319                 # the tracker key; must match the branch key regex
 status: in-review                   # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: The provider-facing metadata contract now documents Film as a first-class entity type, including the billed-cast field, the banner asset kind, and the release-date-to-year rule.
 ---

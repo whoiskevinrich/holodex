@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-433
 status: in-progress
+profile: ui
 release_note: Picking a provider poster (or any provider value you had not decided on yet) in the "Write to file" dialog now actually writes it to the file — previously it only saved the choice and left the file untouched. Poster tiles in that dialog also show the whole image at its own proportions instead of cropping it.
 ---
 
@@ -27,12 +28,9 @@ treatment on the owner's follow-up (`h-8 w-auto min-w-6 object-contain`).
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: bug fix; the handoff's QA item 8.3 already specifies the restored behaviour
-- [~] architecture `architecture` — n/a: ADR-101 stands (the frontend now matches its D1)
 - [~] design `design-handoff` — n/a: sizing fix inside the existing tile design
 - [x] frontend — `writebackCockpit.ts` standing-decision gate; `SourceImageTiles.svelte` sizing
 - [x] testing `testing-strategy` — `writebackCockpit.test.ts` undecided case (image + text); §5 row amended
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — one finding (broken image collapsed the `w-auto` tile), applied
 
 ## Up next — ordered (position = priority)

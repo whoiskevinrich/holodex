@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-114                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: infra
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
@@ -22,11 +23,8 @@ this is the human framing.>
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [ ] spec `write-spec` → `docs/specs/**`
 - [ ] architecture `architecture` → `docs/architecture/ADR-*`
-- [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend
-- [ ] frontend
 - [ ] testing `testing-strategy`
 - [/] security `security-review`
 

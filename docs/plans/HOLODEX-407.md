@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-407
 status: in-progress
+profile: backend
 release_note: ""
 ---
 
@@ -33,19 +34,13 @@ match per file). Cache: gitignored `.feature-claims` at the main worktree root; 
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: dev tooling, no user-facing behaviour
-- [~] architecture `architecture` — n/a: same design as `adr-claims.mjs` (its header comment is
-  the decision record); no new seam
-- [~] design `design-handoff` — n/a
 - [~] backend — n/a
-- [~] frontend — n/a
 - [x] testing `testing-strategy` — `scripts/feature-claims.test.mjs` (11 tests: heading parser
   incl. sub/phase/QA cases, `git grep` output parsing, the 390/406 collision, two-in-flight
   collision, shared-on-main non-collision, sub-feature non-collision + `nextFree`, reservation
   round-trip through the shared parser, render). Picked up by the existing
   `make test-scripts` glob; 127/127 green. Live run against this repo: next free **F65**, zero
   collisions (F46 Phase 3 on `origin/HOLODEX-180` correctly a child, not a rival)
-- [~] security `security-review` — n/a: read-only against git, never fetches or checks out;
-  writes one gitignored file
 
 ## Up next — ordered (position = priority)
 

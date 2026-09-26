@@ -147,6 +147,18 @@ Design notes:
   ADR-106 a `PreToolUse` guard refuses `gh pr create` while a design gate is open. Symptom if
   this regresses: an issue is `Released` in Jira with only a spec/design/worklog PR merged and
   no feature code.
+- **CI never moves an issue backwards** (HOLODEX-462, 2026-09-26) — `syncOne` refuses any
+  transition whose destination `statusCategory` ranks earlier than the issue's current one
+  (`new` → `indeterminate` → `done`) and logs a `::warning::`. Sideways moves still happen:
+  `Done` → `Released` (both `done`) and `In Progress` → `In Review` (both `indeterminate`). A
+  category Jira doesn't rank is let through. This closes the gap the docs-only guard leaves:
+  a worklog closeout PR on a keyed branch (`chore/holodex-358-…`; key matching is
+  case-insensitive), marked ready after the issue was already `Done`, moved HOLODEX-358
+  `Done` → `In Review`, and then its docs-only merge skipped `Done`, stranding it with
+  nothing left to review. There is no force flag. The rule covers every `syncKeys` caller, and
+  Flightplan's SessionStart In Progress transition (flightplan#31) applies the same rule
+  in-process: starting work on a `Done` issue's key leaves it `Done`. To reopen an issue, move it by hand. Symptom if this regresses: a `Done` issue
+  goes back to `In Review` or `In Progress` when a follow-up PR on its key is marked ready or opened.
 - **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
   so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a
   privileged context; the key is matched by an anchored `\bHOLODEX-\d+\b` regex; the token is

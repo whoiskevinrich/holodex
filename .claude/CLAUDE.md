@@ -79,9 +79,12 @@ While making a change, route it through the right skill based on what it touches
 `.claude/flightplan.yaml`, and it has **seven**: the five above plus **`backend`** and **`frontend`**,
 which have no producing skill but are still gates with artifact globs (`{cmd,internal,providers}/**`
 and `web/src/**`). That file also declares which gates belong to the design phase and which to build,
-and the `approve: true` flag on `design`. So a worklog's `Gates — definition of done` checklist has
-seven rows, `gates n/7` in the session banner counts against that file, and if this table and the YAML
-ever disagree the YAML wins. Don't add or rename a gate here alone.
+and the `approve: true` flag on `design`. It also names **postures** — `full`, `feature`, `backend`,
+`ui`, `infra`, `chore` — the subsets of the seven an epic is actually held to. Each worklog records
+its posture as `profile:`, its `Gates — definition of done` checklist carries only that posture's
+rows, and `gates n/M` in the session banner counts against them; a new worklog starts on the full
+roster and the banner asks for a posture until `/handoff` sets one. If this table and the YAML ever
+disagree the YAML wins. Don't add or rename a gate here alone.
 
 **`/design-handoff` must persist any rendered mockup as a committed asset** (SVG preferred —
 self-contained, renders inline on GitHub, no CDN/font dependency) in `docs/design/` next to the
@@ -209,10 +212,12 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   commit: `git branch -m HOLODEX-123-short-slug`. The worktree directory name can stay as-is;
   only the branch name must carry the key. The substring is enough — GitHub-for-Jira detects
   the key anywhere in the branch name, so a `worktree-`/other prefix still links.
-- **Fire `In Progress` at that same start-of-work step (agent default).** Immediately after
-  the rename, transition the issue to **In Progress** via the Jira MCP `transitionJiraIssue`.
-  Per ADR-058, `In Progress` is the one transition with no server-side event, so the agent
-  owns it (CI owns In Review/Done/Released) — it's a REST call, not a metered Automation run.
+- **`In Progress` fires on the next session start — no manual step.** Once the branch carries
+  the key, Flightplan's SessionStart hook transitions the issue over Jira REST (ADR-058's
+  uncounted path; CI owns In Review/Done/Released). It never moves an issue backwards: a branch
+  keyed to a `Done` issue leaves it `Done`, and the banner says so. Fire it by hand via the Jira
+  MCP `transitionJiraIssue` **only** when the banner reports it didn't land — and never on an
+  issue that is already `Done` or later.
 - **Keep commit subjects and PR titles clean Conventional Commits** — `release-please` and
   `git-cliff` parse them into the changelog. Do **not** put the key in the subject/PR title
   (it would pollute every CHANGELOG/Release line); the branch name carries it.
@@ -221,16 +226,16 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   commits, so this keeps agent-tooling changes out of user-facing CHANGELOG/Release notes
   without any config change — neither tool supports filtering by scope, only by type.
 - Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
-  meters the shared Free-plan quota): **In Progress** is agent-fired at branch-rename (above);
+  meters the shared Free-plan quota): **In Progress** is fired by the SessionStart hook (above);
   **In Review** (PR marked *ready for review* — a Draft PR fires nothing, ADR-069), **Done**
   (merge), and **Released** (`ghcr` deploy) are fired by CI
   (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
   Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
-- **CI transitions exactly one issue — the branch's — so an epic's children never move on
-  their own.** `scripts/jira-transition.mjs` takes `extractKeys(BRANCH_REF)[0]` and calls
-  `syncKeys({ keys: [key] })`; nothing walks to children. A child of an epic therefore stays
-  `In Progress` when its work lands, and is swept **by hand, with the epic**: to `In Review`
-  when the PR is marked ready, to `Done` on merge. Do not move a child to `Done` just because
+- **CI transitions only the branch's own issue — so an epic's children never move on their
+  own.** `scripts/jira-branch-sync.mjs` (run by `jira-sync.yml`) passes only the keys in the
+  branch name — `extractKeys(BRANCH_REF)` — to `syncKeys`; nothing walks to children. A child
+  of an epic therefore stays `In Progress` when its work lands, and is swept **by hand, with
+  the epic**: to `In Review` when the PR is marked ready, to `Done` on merge. Do not move a child to `Done` just because
   its code is committed — `Done` means merged to main, and a branch can still be abandoned.
   Put both sweeps in the worklog's `Up next` so they survive a context reset.
 

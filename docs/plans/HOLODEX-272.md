@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-272
 status: done                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: [HOLODEX-270]
 release_note: Adding or removing a person on a video now goes through a picker on the video detail page — known candidates, full-library search, or an inline create-fallback — protected by the same duplicate-video safeguard as a title or studio change.
 ---

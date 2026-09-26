@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-220                 # the tracker key; must match the branch key regex
 status: in-progress
+profile: ui
 depends-on: [HOLODEX-114]    # [KEY-…] cross-epic deps that must land first
 release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
@@ -23,14 +24,9 @@ and no data-model change. Both halves are subtractive.
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [~] spec `write-spec` → `docs/specs/**` — n/a: no new capability, both parts subtractive
-- [~] architecture `architecture` → `docs/architecture/ADR-*` — n/a: no new seam or data-model change
 - [x] design `design-handoff` → `docs/design/media-page-restructure-handoff.md`
-- [~] backend — n/a: frontend-only; `runEnrichRefreshAll` stays for person/studio
 - [ ] frontend
 - [ ] testing `testing-strategy`
-- [~] security `security-review` — until: this touches an owner-gated mutation path (today it only
-      removes call sites of existing gated endpoints)
 
 ## Up next — ordered (position = priority)
 

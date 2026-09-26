@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-270                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: [HOLODEX-269]               # [KEY-…] cross-epic deps that must land first
 release_note: Editing a video's title now warns you when another video already has the same title, people, date, and studio — so accidental duplicates don't slip in unnoticed.
 ---

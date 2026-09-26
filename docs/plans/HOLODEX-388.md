@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-388
 status: in-progress
+profile: backend
 release_note: Removing a film's banner or poster now works when the image came from a metadata provider — the Remove control clears the whole slot instead of silently doing nothing.
 ---
 
@@ -20,15 +21,11 @@ different costume.
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: bug fix; the documented intent (Remove empties the slot) is unchanged
-- [~] architecture `architecture` — n/a: ADR-086 §2 unchanged; delete semantics were an implementation gap
-- [~] design `design-handoff` — n/a: no UI change; `EntityImageSlot` already wires × → DELETE → reload
 - [x] backend — `repo.DeleteFilmImageRole` (role-wide, returns removed ids) + `deleteFilmImage`
   removes every file; `DeleteFilmImage`'s per-source form stays for the enrichment sink
-- [~] frontend — n/a
 - [x] testing `testing-strategy` — two scenarios added; `TestFilmImage_DeleteClearsProviderRow`
   (provider-only slot + upload/provider pair) — confirmed red against the old handler
   (`200, want 404 — provider row survived`), green with the fix
-- [~] security `security-review` — n/a: no auth/access/infra change; same owner-gated route
 
 ## Up next — ordered (position = priority)
 

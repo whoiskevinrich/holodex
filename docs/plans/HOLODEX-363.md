@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-363
 status: in-progress
+profile: ui
 release_note: The media page now puts file details with the enrichment dumps at the bottom, runs the "More with" rows the full width of the window, and shows visitors the metadata values again.
 ---
 
@@ -67,22 +68,12 @@ lives in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so that wo
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: no new capability or changed requirement. Every element already
-  exists with the same semantics; this changes where three of them sit and who sees one of them
-- [~] architecture `architecture` — n/a **as of the unconditional overview rule**. It was required
-  while the move was viewport-conditional, because that forced a named-area restructure of
-  `stage-grid`, a primitive the film detail page shares. An unconditional move is a DOM relocation:
-  no grid change, nothing for the film page to inherit structurally. No ADR number was claimed, so
-  none needs releasing
 - [x] design `design-handoff` —
   [media-detail-stage-layout-handoff.md](../design/media-detail-stage-layout-handoff.md) + two
   committed SVGs: [block order and width scope](../design/media-detail-stage-layout-mockup.svg)
   across all three viewports, and the [shelf justification rule](../design/media-detail-stage-layout-shelf-rule.svg).
   Supersedes two points in [media-detail-reorder-handoff.md](../design/media-detail-reorder-handoff.md):
   File's position (§File-above-Completeness) and the owner-only Metadata re-gate (§2)
-- [~] backend — n/a: frontend-only. The resolver already returns the fields; no endpoint, gate or
-  payload changes. Visitors were already served the resolved fields by the API — only the template
-  withheld them
 - [x] frontend — `+page.svelte`: File to the bottom audit wrapper, overview into the rail as its
   first block, Metadata un-gated for visitors (`visibleResolved`, owner-only fold, fallback guarded on
   `!resolved.length`), the article split into two `max-w-stage` wrappers with the shelves between
@@ -98,9 +89,6 @@ lives in [`web/src/routes/CLAUDE.md`](../../web/src/routes/CLAUDE.md) so that wo
   preparation. Shelf overhang symmetry is **not** a harness assertion — the harness expresses a
   bound in px, not "equals another element's width", so it is measured live and recorded in §5
   instead. Full run: 684 passed, 27 known-open (HOLODEX-357), 585 loads across 9 cells
-- [~] security `security-review` — n/a: no auth, access or infrastructure change. Re-exposing
-  resolved field values to visitors is a template gate, not an access-control one; `file_path`,
-  codecs and byte size stay behind `isOwner` with `File` itself
 
 ## Up next — ordered (position = priority)
 

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-296
 status: in-review
+profile: ui
 release_note: ~
 ---
 
@@ -27,15 +28,11 @@ slot the scene pill renders into. No visible or behavioral change.
 
 ## Gates — definition of done
 
-- [~] spec — n/a: pure refactor, no behavior change
-- [~] architecture — n/a
 - [~] design — n/a: pixel-identical tiles; no new surface
-- [~] backend — n/a
 - [x] frontend — `PosterTile.svelte` new; `PeopleGrid.svelte` + `media/[id]/+page.svelte` Films
   row render through it; `entity/CLAUDE.md` row added, `PeopleGrid` row refreshed
 - [x] testing — `npm run check` 0 errors (warnings all pre-existing, none in touched files);
   no unit tests cover these tiles (none did before); live parity QA below
-- [~] security — n/a: presentational only
 - [x] three-skin QA — 2026-09-19 on backend-films (fresh DB, video 6 seeded with 2 films +
   3 curated people via the API). Owner: Films remove docks top-left (`left: 6px`) beside the
   `#3`/`Full` pill, People remove top-right (`right: 6px`), both hidden at rest (opacity 0),

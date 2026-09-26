@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-182
 status: in-progress
+profile: full
 depends-on: []
 release_note: Flightplan plugin — per-epic session-state worklogs that survive session boundaries.
 ---

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-451
 status: in-progress
+profile: full
 approved:
   design:
     on: 2026-09-23

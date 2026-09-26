@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-305                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fixed the person page bio being unreadable behind the banner photo, added a legibility fade so hero text stays readable against any banner photo, and stopped the banner from lifting on hover.
 ---
@@ -37,9 +38,6 @@ with a banner set.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable, regression fix only, no behavior change beyond
-      restoring the already-specified hero layout
-- [~] architecture `architecture` — not applicable, no data model/infra change
 - [~] design `design-handoff` — not applicable, no new UX surface; the legibility-fade addendum
       restores contrast on already-shipped hero text rather than introducing one. Mockups for the
       three treatments considered were rendered and reviewed inline (`/design-critique`), not
@@ -55,7 +53,6 @@ with a banner set.
       computed-style check across all three skins confirming the fade resolves each skin's own
       `--bg` token and doesn't collide with the broadcast scanline `::after`, and `npm run check`
       (0 errors)
-- [~] security `security-review` — not applicable, no auth/access/infra surface touched
 
 ## Up next — ordered (position = priority)
 

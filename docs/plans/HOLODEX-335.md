@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-335                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — a title or release date written back to a file no longer reports "out of sync" forever. Fields whose written tag cannot be read back now report no sync state at all instead of a false mismatch, and the shipped example mapping declares the file tags the writeback writes.
 ---

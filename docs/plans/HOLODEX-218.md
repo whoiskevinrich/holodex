@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-218
 status: released
+profile: full
 depends-on: []
 release_note: Stop seeing the same information duplicated across multiple rows.
 ---

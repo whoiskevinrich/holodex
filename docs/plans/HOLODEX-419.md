@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-419
 status: in-progress
+profile: feature
 release_note: The media page now keeps tracking a file write until it finishes, however long it takes — the "writing to file" badge clears and the poster refreshes on its own instead of sticking until a reload after a slow (multi-GB) write.
 ---
 
@@ -20,13 +21,11 @@ ffmpeg remux (~4× file size in I/O), so the films testbed's multi-GB MKVs hit i
 
 - [x] spec `write-spec` — `docs/specs/fire-and-forget-writeback.md` gains R2.5a (page-level wait has
   no time cap; unmount/navigation is the only cancel)
-- [~] architecture `architecture` — n/a: no architecture change (ADR-091 stands)
 - [~] design `design-handoff` — n/a: no visual change; the existing badges now clear as designed
 - [x] frontend — `+page.svelte`'s poll passes `timeoutMs: Infinity`
 - [x] testing `testing-strategy` — `writebackJob.test.ts` pins the uncapped wait under fake timers
   (mutation-checked: fails under the default cap); row added to `docs/testing-strategy.md`; live
   repro + re-verify on `backend-amv` with the helper cap shrunk to 400 ms
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — one finding, fixed: the re-entrancy guard is now keyed by
   `pageGeneration` (a bare boolean still set by the previous video's winding-down loop — up to 5 s
   at the backoff ceiling, the steady state of a long write — would make the next video's effect

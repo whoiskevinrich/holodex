@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-406
 status: in-progress
+profile: full
 release_note: The Enrich picker now shows each candidate's picture — a headshot, poster, or studio logo — beside its name, so same-named people and same-title films can be told apart at a glance. Providers that don't send one get a monogram in the same spot.
 ---
 
