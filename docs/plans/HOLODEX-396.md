@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-396
 status: in-progress
+profile: full
 release_note: A studio logo, icon or provider mark with a transparent background now keeps it — uploads and provider downloads are no longer flattened onto an opaque box.
 ---
 

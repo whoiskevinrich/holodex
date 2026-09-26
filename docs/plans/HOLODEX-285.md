@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-285
 status: in-progress
+profile: full
 depends-on: []
 release_note: Owners can now change a film's studio once and have it cascade to every attached video's decision and file.
 ---

@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-277
 status: in-progress
+profile: full
 depends-on: [HOLODEX-274]
 release_note: null
 ---

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-397
 status: in-progress
+profile: ui
 release_note: The Film and Media detail pages now show a studio's logo (when it has one) instead of a monogram — the plate follows the logo's shape, so wordmarks read at full width.
 ---
 
@@ -15,8 +16,6 @@ a fixed-height, aspect-following plate (`h-12 min-w-12 max-w-48`); name and coun
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: presentation-only, no new capability or data
-- [~] architecture `architecture` — n/a: ADR-079 image roles / serving untouched
 - [x] design `design-handoff` — options B + logo-first approved 2026-09-16:
   `docs/design/studio-logo-link-card-handoff.md` + `studio-logo-link-card-mockup.svg`;
   HOLODEX-290 handoff carries a supersession note
@@ -24,8 +23,6 @@ a fixed-height, aspect-following plate (`h-12 min-w-12 max-w-48`); name and coun
   `CLAUDE.md` row updated
 - [x] testing `testing-strategy` — row added; §11 agent QA (11.1–11.10) passed 2026-09-17 against
   synthetic 5:1 / 12:1 / portrait / square / both / icon-only / none studios; human 11.11–11.13 open
-- [~] security `security-review` — n/a: no auth/access/infra change
-- [~] backend — n/a: `logo_url` already populated at both call sites
 
 ## Up next — ordered (position = priority)
 

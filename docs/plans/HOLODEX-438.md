@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-438
 status: in-progress
+profile: full
 release_note: Video playlists — save the browse view you're looking at as a playlist, or add a video to one from its page; playlists are private until you make them public, and play through item to item (Picture-in-Picture included).
 ---
 

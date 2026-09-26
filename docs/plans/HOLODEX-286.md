@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-286                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: [HOLODEX-280]        # PR #255 merged to main (squash) 2026-08-25; this branch was rebased onto main directly
 release_note: Internal refactor only — no user-facing behavior change.
 ---

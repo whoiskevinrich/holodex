@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-386
 status: in-progress
+profile: feature
 release_note: A portrait image offered as a film's banner is now refused instead of being cropped into the header band — the enrich activity log names the dimensions, and an owner upload gets a plain-language error.
 ---
 
@@ -18,7 +19,6 @@ band's fate (destination vs. container page) is deferred at zero cost via the ex
 ## Gates — definition of done
 
 - [x] spec `write-spec` — P0-10a added to `docs/specs/film-provider-enrichment-ux.md` (no new spec)
-- [~] architecture `architecture` — n/a: ADR-089 D4 unchanged; this enforces its intent
 - [x] design `design-handoff` — option C approved 2026-09-16 (PR #337):
   `docs/design/film-banner-landscape-guard-handoff.md` + mockup SVG
 - [x] backend — `filmimage.CheckRoleAspect` / `PortraitBannerError` (dimensions already decoded by
@@ -29,8 +29,6 @@ band's fate (destination vs. container page) is deferred at zero cost via the ex
 - [x] testing `testing-strategy` — row added; `TestCheckRoleAspect`, `TestSinkRefusesPortraitFilmBanner`,
   `TestEnrichRecordsRefusedFilmBanner`, `TestFilmImage_BannerRequiresLandscape`; happy-path banner
   upload switched to a landscape fixture (the guard broke it first — proof it is wired)
-- [~] security `security-review` — n/a: no auth/access/infra change; the check runs after the
-  existing normalize gauntlet on already-owner-gated paths
 
 ## Up next — ordered (position = priority)
 

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-403
 status: in-progress
+profile: full
 depends-on: [HOLODEX-400]
 release_note: The "Write metadata to file" dialog's Poster row is now a chooser — pick the file's cover art or a provider poster, and a poster you've already written reads as in sync instead of being re-embedded on every write.
 ---

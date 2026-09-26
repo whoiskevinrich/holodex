@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-425
 status: in-review
+profile: full
 release_note: The skin is now the instance's identity — the owner picks it once on the new Appearance tab and every viewer sees it; an owner can also declare a custom palette (five colors on top of Cinémathèque) in holodex.yaml.
 ---
 

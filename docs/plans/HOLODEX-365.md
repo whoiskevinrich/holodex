@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-365
 status: in-progress
+profile: ui
 release_note: Long text — the media Overview, a person's Bio, a film's description — now reads the same everywhere and for everyone (small muted prose, clamped with the expand chevron), and the media Overview gains a pencil beside the heading that opens the source editor.
 ---
 
@@ -47,14 +48,10 @@ assertion that would have caught this: owner/visitor computed typography identic
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: no new capability. Same field, same decision model, same values;
-  only the owner's rendering and the control that opens the decision changed
-- [~] architecture `architecture` — n/a: frontend-only, no seam touched
 - [x] design `design-handoff` — covered by the existing
   [person-detail-bio-header-handoff.md](../design/person-detail-bio-header-handoff.md) +
   [mockup](../design/person-detail-bio-header-mockup.svg), which names Video overview as this
   follow-up. No new mockup: the heading-pencil + modal is that design applied to its second field
-- [~] backend — n/a
 - [x] design — the bio handoff's token table records the `text-ink` → `text-muted` supersession
 - [x] frontend — `ExpandableText` loses its `tone` prop (always muted); Person bio and film
   description flip to match, verified live on person 42 (14px / 22.75px, prose colour == eyebrow
@@ -67,8 +64,6 @@ assertion that would have caught this: owner/visitor computed typography identic
   skins ≥ 4.9:1 on the prose, no horizontal overflow
 - [~] testing `testing-strategy` — n/a: no logic added; the two components already carry their
   own coverage and `npm run test` (272) + `npm run check` (0 errors) pass
-- [~] security `security-review` — n/a: no auth, access or infrastructure change; the pencil is
-  gated on the same `isOwner && isReplaceField` term the badge was
 
 ## Up next — ordered (position = priority)
 

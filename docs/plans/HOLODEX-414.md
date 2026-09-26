@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-414
 status: in-progress
+profile: feature
 release_note: The Enrich picker's candidate pictures now match what you're matching — a widescreen still for a media file, the poster for a film, a headshot for a person, and the logo for a studio — instead of one portrait box for everything.
 ---
 
@@ -36,7 +37,6 @@ security-review gate.
   `entity_type` table + video/film Given/When/Then), AC4/7/9, sidecar + geometry test notes,
   Resolved Decisions 7–9 (kind-shaped · height locked · poster fallback); contract §2.3
   `image_url` row now carries shape guidance per `entity_type` and target widths (185 / 300)
-- [~] architecture `architecture` — n/a: presentation rule + one sidecar field; no seam
 - [x] sidecar — `resolveMovie` / `searchMovie` / `findMovieByIMDB` take `entityType`;
   `movieSearchEntry.BackdropPath` (the find result reuses that struct; `movieDetails` already had
   it); `movieThumbURL(entityType, backdrop, poster)` — video → w300 backdrop else w185 poster,
@@ -62,7 +62,6 @@ security-review gate.
   studio page the handoff first assumed); 27/27 across 9 cells; **mutation-tested**: no `w-27`
   → width fails ×9, no `h-15` → row floor fails ×9 (the pair covers both axes);
   `docs/testing-strategy.md` §4 invariant, §12 rows, and a new HOLODEX-414 Given/When/Then block
-- [~] security `security-review` — n/a unless `asset_hosts` widens (it does not)
 - [x] `/code-review high --fix` before each commit (clean ×3); three-skin QA per the checklist §3
 - [ ] PR: Draft now (design gate landed), ready when the gates above are green; Jira
   `needs-design` cleared on this push, `needs-spec` cleared when the spec edit lands.

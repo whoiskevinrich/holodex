@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-308
 status: in-progress
+profile: full
 depends-on: []
 release_note: Films can now be enriched from a metadata provider, and the film page shows which billed cast members appear in none of your scenes.
 ---

@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-203                 # the tracker key; must match the branch key regex
 status: in-progress          # code already merged/released (PRs #160/#163/#166); stays in-progress
+profile: full
                              # here only because this doc-only reconciliation PR hasn't merged and
                              # Jira's own In Progress hasn't been transitioned
 depends-on: []               # [KEY-…] cross-epic deps that must land first

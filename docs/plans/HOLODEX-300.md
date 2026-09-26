@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-300                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: feature
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — the film bulk-attach dialog now defaults its search to the film's title and attaches the selection unnumbered when no starting scene number is given.
 ---
@@ -23,12 +24,10 @@ new logic.
 ## Gates — definition of done
 
 - [~] spec `write-spec` — not applicable; conforms to existing `docs/design/films-entity-handoff.md` §4c, no requirement change
-- [~] architecture `architecture` — not applicable; no data-model/seam change, reuses `insertFilmVideo`'s existing nil-scene handling verbatim
 - [~] design `design-handoff` — not applicable; behavior already specified in §4c, no new markup/visual change
 - [x] backend
 - [x] frontend
 - [x] testing `testing-strategy` — new repo- and API-layer test coverage for the nil/omitted-starting-scene-number path (mirrors existing `TestBulkAttachFilmVideos`/`TestFilmVideoSceneCollision`)
-- [~] security `security-review` — not applicable; no auth/access/infra surface touched (existing owner-gated bulk-attach endpoint, only the scene-number field's nullability changed)
 
 ## Up next — ordered (position = priority)
 

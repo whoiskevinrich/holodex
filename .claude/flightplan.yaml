@@ -3,16 +3,13 @@
 # the plugin; this file is the only thing that changes between repos.
 
 tracker:
-  system: jira                  # jira | linear | github-projects (only jira implemented; others deferred to extraction)
+  system: jira                  # none | jira | github (Flightplan ADR-005)
   project: HOLODEX
   branch_key: 'HOLODEX-\d+'     # SessionStart matches this against the branch to find the key
-  transitions:
-    # In Progress is fired at start-of-work over the uncounted REST path (ADR-058), NOT Automation.
-    # The SessionStart hook drives it via scripts/jira-transition.mjs (soft-fails without JIRA_* env).
-    # In Review / Done / Released are fired by CI (see .github/workflows + scripts/), not by Flightplan.
-    in_progress: { via: rest, script: scripts/jira-transition.mjs }
-    # ready_to_build: { via: rest, script: … }   # optional — the "Ready to Build" status exists in
-    #                                             # this project, but the label below is what ships.
+  # In Progress: SessionStart fires it over Jira REST (ADR-058's uncounted path) using JIRA_* from
+  # the environment — no script to configure. It never moves an issue backwards, so a session on a
+  # branch keyed to a Done issue leaves it Done. In Review / Done / Released are fired by CI
+  # (.github/workflows/jira-sync.yml + release.yml), not by Flightplan.
 
   labels:
     # Designed and waiting on the owner (Flightplan ADR-007 §5). /handoff adds it when every
@@ -37,6 +34,17 @@ gates:
   - { id: testing,      skill: testing-strategy }
   - { id: security,     skill: security-review }
 
+# Postures — which gates an epic is actually held to, picked per worklog as `profile:` (Flightplan
+# ADR-004). Derived from CLAUDE.md's change-routing table; rows always print in roster order. No
+# `default:`, so a new worklog gets the full roster and the banner asks for a posture.
+postures:
+  full:    [spec, architecture, design, backend, frontend, testing, security]  # data model / auth + UI
+  feature: [spec, design, backend, frontend, testing]            # new user-facing behavior
+  backend: [spec, backend, testing]                              # behavior with no UI surface
+  ui:      [design, frontend, testing]                           # UX change, behavior unchanged
+  infra:   [architecture, backend, testing, security]            # stack, data model, deploy, auth
+  chore:   []                                                    # closeouts, tooling, bookkeeping
+
 # The design → build boundary (Flightplan ADR-007). An epic is in its design phase until spec,
 # architecture and design are settled AND the owner has signed off on the design handoff — recorded
 # under `approved:` in the worklog, pinned to a commit. Until then a keyed branch can be pushed but
@@ -48,5 +56,5 @@ phases:
   design: [spec, architecture, design]
   build:  [backend, frontend, testing, security]
 
-capture:
-  inbox: docs/backlog/INBOX.md  # offline, append-only idea capture (batch 2); /triage drains it
+# capture.inbox intentionally unset → <git common dir>/flightplan/INBOX.md (Flightplan ADR-006):
+# shared by every worktree, never in a diff. /triage drains it.

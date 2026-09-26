@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-405
 status: in-progress
+profile: feature
 release_note: Press `e` on a detail page to refresh enrichment and `f` on a media page to open the write-to-file dialog; `?` lists the keys that work on the current page.
 ---
 
@@ -16,12 +17,10 @@ button**, so the button's existence is the gate and the next hotkey is one attri
 ## Gates — definition of done
 
 - [x] spec `write-spec` — `docs/specs/hotkeys.md` (F62), RD1–RD8 locked from the 2026-09-16 brainstorm
-- [~] architecture `architecture` — n/a: frontend-local action + module store; no data model or cross-cutting decision
 - [x] design `design-handoff` — `docs/design/hotkeys-handoff.md` + `hotkeys-sheet.svg`: centered modal (A) on the ConfirmDialog surface, empty + 9-key two-column states, numbered three-skin QA
 - [~] backend — n/a
 - [x] frontend — `lib/actions/hotkey.svelte.ts` (action + registry + guard) · `shared/HotkeySheet.svelte` · listener in `+layout.svelte` · `use:hotkey={'e'}` on Refresh all, `use:hotkey={'f'}` on media writeback; P1-1 clickable rows included
 - [x] testing `testing-strategy` — §5 rows added; `hotkey.test.ts` (14 tests: registry, RD6 guard matrix, fire order); browser QA per handoff §QA on backend-films (three skins via computed tokens, empty + 9-key states, video/dialog guards, launcher rows)
-- [~] security `security-review` — n/a: no auth/access/infra change; no new endpoint
 
 ## Up next — ordered (position = priority)
 

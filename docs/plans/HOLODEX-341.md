@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-341                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: infra
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note:                # none — dev-environment and CI change only, no user-facing behavior (chore is hidden from the changelog by cliff.toml)
 ---
@@ -44,13 +45,9 @@ security gate is ADR-070's.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable; no functional or behavioral change to the product. The one
-  spec edit is a correction, not a new requirement: `qa-tmdb-provider.md` step 0.5 told the reader to
-  put `TMDB_API_TOKEN` in a `.env` that never contained it and that the sidecar cannot read
 - [x] architecture `architecture` —
   `docs/architecture/ADR-094-local-dev-credentials-from-environment.md` (D1–D5), indexed in
   `docs/architecture/README.md`. ADR number claimed via `scripts/adr-claims.mjs --reserve`, not by eye
-- [~] design `design-handoff` — not applicable; no user-facing surface
 - [x] testing `testing-strategy` — `providers/tmdb/main_test.go` pins the credential shapes (14 cases
   incl. both swap directions, the template placeholder, and a guard that a hex key can never satisfy
   the JWT shape). All five startup paths verified against the built binary, not just the classifier

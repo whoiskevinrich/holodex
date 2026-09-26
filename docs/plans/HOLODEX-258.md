@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-258                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: infra
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Hardened metadata-provider enrichment so a compromised provider can no longer redirect a video's studio credit onto an unrelated existing studio.
 ---
@@ -25,15 +26,11 @@ means `_studio_external_ids` gets the same ingest-time shape guard, mirroring `s
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not required: no functional/behavioral scope change, a security hardening
-      fix to an existing internal ingest path
 - [~] architecture `architecture` — not required: `sanitizeFields`'s generic shape is deliberately
       unchanged; the new `sanitizeStudioExternalIDs` is a local ADR-055-aligned guard, not a new
       architectural seam
-- [~] design `design-handoff` — not required: no UI surface
 - [x] backend → `sanitizeStudioExternalIDs` + call-site wiring in
       `internal/enrich/service.go`, right after the existing `sanitizeFields` call
-- [~] frontend — not applicable: no frontend surface touched
 - [x] testing `testing-strategy` → pure-function table test
       (`TestSanitizeStudioExternalIDsRejectsMalformedID`) + end-to-end fake-provider/real-DB test
       (`TestEnrichVideoRejectsMalformedStudioExternalID`) in `internal/enrich/enrich_test.go`;

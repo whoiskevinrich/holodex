@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-298                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — the film detail page's Tags section now matches the media detail page's heading/spacing.
 ---
@@ -23,12 +24,9 @@ unchanged) · verified live against `backend-films`/`web` dev servers, all 3 ski
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable; no requirement/scope change
-- [~] architecture `architecture` — not applicable; no data-model/seam change
 - [~] design `design-handoff` — not applicable; reuses the media page's existing, already-approved Tags section markup verbatim
 - [x] frontend
 - [~] testing `testing-strategy` — not applicable; no behavior change to test, live-verified visually instead
-- [~] security `security-review` — not applicable; no auth/access/infra touched
 
 ## Up next — ordered (position = priority)
 

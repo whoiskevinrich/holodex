@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-320                 # the tracker key; must match the branch key regex
 status: in-review                  # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: The media page's Metadata section now sits with the rest of the fields you curate, folds away when you don't need it, and no longer repeats the genres, cast, poster, and synopsis already shown elsewhere on the page — the synopsis moved up under the title.
 ---

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-364
 status: in-progress
+profile: ui
 release_note: A film's description now sits at the top of the right-hand column with its tags, reads the same for the owner and for visitors, and the owner edits its source from a pencil beside the heading instead of a second copy lower down.
 ---
 
@@ -41,13 +42,9 @@ carries the value for both roles; the owner's pencil in the heading opens `Sourc
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: same field, same decision model, same values; only where it renders
-  and which control opens the decision changed (same reasoning as HOLODEX-363 / HOLODEX-365)
-- [~] architecture `architecture` — n/a: frontend-only, no seam touched
 - [x] design `design-handoff` — the rail block is the HOLODEX-303 / HOLODEX-365 pattern
   ([person-detail-bio-header-handoff.md](../design/person-detail-bio-header-handoff.md)); the
   HOLODEX-363 handoff §3c now records the resolution and the measured overlap
-- [~] backend — n/a
 - [x] frontend — `films/[id]/+page.svelte`: description + Tags into the rail, pencil →
   `SourceEditModal`, visitor badge, `detailFields` excludes the description; `media/[id]/+page.svelte`:
   visitor `ProvenanceBadge` under the Overview. Verified live on `backend-films` film 1 (Dune,
@@ -59,8 +56,6 @@ carries the value for both roles; the owner's pencil in the heading opens `Sourc
 - [~] testing `testing-strategy` — n/a: no logic added; `npm run check` 0 errors. Parity is
   satisfied by construction (one unconditional `ExpandableText`); HOLODEX-366's rung, when it
   lands, gains `field-description` as its second acceptance case
-- [~] security `security-review` — n/a: no auth, access or infrastructure change; the pencil is
-  gated on the same `isOwner && isReplaceField` term the badge row was
 
 ## Up next — ordered (position = priority)
 

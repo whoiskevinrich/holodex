@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-275                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: backend
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fix — API list endpoints (facets, media, people, search) now return an empty array instead of null when there's nothing to show, so the browse page and search no longer crash on a sparse or empty library.
 ---
@@ -23,12 +24,8 @@ Known Gaps & Open Questions
 ## Gates — definition of done
 
 - [~] spec `write-spec` — not applicable; bug fix with no requirement/scope change
-- [~] architecture `architecture` — not applicable; no data-model/seam change, existing query shapes only
-- [~] design `design-handoff` — not applicable; no new markup, no visual change (a frontend guard already shipped separately on HOLODEX-272)
 - [x] backend
-- [~] frontend — not applicable to *this* fix; the frontend guard (`facet.values?.length`) already shipped as an incidental fix in HOLODEX-272 (commit 406d4e5, PR #235)
 - [x] testing `testing-strategy`
-- [~] security `security-review` — not applicable; no auth/access/mutation surface touched, read-only query-shape fix only
 
 ## Up next — ordered (position = priority)
 

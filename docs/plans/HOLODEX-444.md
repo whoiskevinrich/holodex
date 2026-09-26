@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-444
 status: in-progress
+profile: feature
 release_note: The person hover card no longer gets cut off at the top of a short window — when it has no room below or above the name, it opens below and the page scrolls to it.
 ---
 
@@ -18,11 +19,9 @@ where the card extends the page and scrolls into view. R3/RD10 and the handoff n
 ## Gates — definition of done
 
 - [x] spec `write-spec` — R3 + RD10 in `docs/specs/person-hover-card.md` amended with the neither-fits clause
-- [~] architecture `architecture` — n/a: pure placement math, no ADR
 - [x] design `design-handoff` — flip paragraph in `docs/design/person-hover-card-handoff.md` amended
 - [x] frontend — `personCard.svelte.ts` `placeCard`
 - [x] testing `testing-strategy` — `personCard.test.ts` pins the neither-fits-above-has-more-room case
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — no findings
 
 ## Up next — ordered (position = priority)

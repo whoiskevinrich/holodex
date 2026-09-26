@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-266                 # the tracker key; must match the branch key regex
 status: in-progress               # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Person and studio pages now show a clickable provider badge (e.g. "IMDb") linking out to the source, matching the video badge from F55.
 ---
