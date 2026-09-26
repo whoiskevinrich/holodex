@@ -6,6 +6,7 @@ import {
 	resolutionBucket,
 	providerFromWinningSource,
 	calculatedFrom,
+	filterByName,
 	filterByTitle,
 	sortExternalLinks,
 	isHttpUrl
@@ -64,6 +65,18 @@ describe('calculatedFrom', () => {
 		expect(calculatedFrom(['Born', 'Died'])).toBe('calculated from Born and Died');
 		expect(calculatedFrom(['A', 'B', 'C'])).toBe('calculated from A, B, and C');
 		expect(calculatedFrom([])).toBe('');
+	});
+});
+
+describe('filterByName', () => {
+	// HOLODEX-461: a row labelled by its Displayed As spelling must be findable by
+	// that spelling, and still by its canonical name (search matches both too).
+	const people = [{ name: 'Alpha', display_name: 'Zulu' }, { name: 'Bravo' }];
+
+	it('matches the display spelling or the canonical name', () => {
+		expect(filterByName(people, 'zul')).toEqual([people[0]]);
+		expect(filterByName(people, 'alph')).toEqual([people[0]]);
+		expect(filterByName(people, 'BRAV')).toEqual([people[1]]);
 	});
 });
 

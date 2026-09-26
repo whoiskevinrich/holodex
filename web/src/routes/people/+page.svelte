@@ -103,7 +103,7 @@
 	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
 	// the first person under each letter. Logic lives in $lib/peopleNav (unit-tested).
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.name)));
+	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.display_name ?? p.name)));
 	function jumpTo(letter: string) {
 		const el = document.getElementById(`pl-${letter}`);
 		if (!el) return;
@@ -270,8 +270,8 @@
 		     checkbox, so the wrapper is a stretched link/label (its ::after covers the
 		     row) and the ring rides above the stretch as a sibling. -->
 		{#snippet personRow(p: Person, i: number)}
-			<PersonAvatar personId={p.id} name={p.name} version={p.headshot_version} size="sm" eager={i < 6} />
-			<span class="flex-1 truncate">{p.name}</span>
+			<PersonAvatar personId={p.id} name={p.display_name ?? p.name} version={p.headshot_version} size="sm" eager={i < 6} />
+			<span class="flex-1 truncate">{p.display_name ?? p.name}</span>
 		{/snippet}
 		{#snippet rowTrail(p: Person)}
 			{#if p.completeness}
@@ -291,8 +291,8 @@
 		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
 			{#each displayed as p, i (p.id)}
 				<li
-					id={sort === 'name' && !q.trim() && letterAnchors[firstLetter(p.name)] === i
-						? `pl-${firstLetter(p.name)}`
+					id={sort === 'name' && !q.trim() && letterAnchors[firstLetter(p.display_name ?? p.name)] === i
+						? `pl-${firstLetter(p.display_name ?? p.name)}`
 						: undefined}
 					class="scroll-mt-16"
 				>

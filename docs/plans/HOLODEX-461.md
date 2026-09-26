@@ -12,7 +12,7 @@ profile:                     # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are trimmed to match.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note: On a media item's page, the People grid, the add-person picker and the "More with …" shelf now show each person's Displayed As name instead of their canonical name, and so does a film's Cast grid.
+release_note: People are now shown by their Displayed As name everywhere outside their own page. This covers a media item's People grid, add-person picker and "More with …" shelf, a film's Cast grid, and the People list, which also sorts and filters by that name.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -35,6 +35,10 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 - **Overlay at the repo read, render in the component.** `attachPersonDisplayNames` sits beside
   `attachPersonImageVersions` in `GetVideo` and `FilmCast`, and `Related` fills `RelatedShelf.DisplayName`.
   `name` is never overwritten: it is the identity that pickers, detach and writeback read.
+- **People list (Kevin, 2026-09-26: "fix the People list page too").** `ListPeopleFiltered` overlays
+  `display_name`, and the name sort re-orders by the shown spelling (ASCII case fold, matching SQLite
+  NOCASE), so the A–Z bar anchors land on the labels. `filterByName` matches either spelling. The
+  merge dialog ("Keep which name?") stays canonical, because it picks the surviving identity.
 - **The picker's "Create …" row also checks `display_name`.** Otherwise typing a displayed spelling
   offers to mint a duplicate person beside the matching candidate.
 
@@ -85,7 +89,8 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 ### 2026-09-26 · session
 - skills: code-review (high --fix), handoff
 - merged origin/main (cd254e1; ecc5207 geometry tests, no overlap) before opening the Draft PR
-- handoff: Fix committed (d9bcd5d) and verified on backend-films (the Cast tile and "More with" shelf show the decided spelling, and the canonical name is absent from the page); the Draft PR waits only on Kevin's skin look before `gh pr ready`.
+- extended to the People list at Kevin's request: labels, name sort, A–Z anchors and filter; browser-verified (the decided person sorts under Z and is found by either spelling)
+- handoff: Media Details, Film Cast and the People list all show the Displayed As name, verified on backend-films; Draft PR #392 waits only on Kevin's skin look before `gh pr ready`.
 
 ## Dropped — newest first (the reason is the point)
 
@@ -96,4 +101,5 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 -->
 
 - [~] [backend] Id-scoped `DisplayNames` for the Cast overlay — dropped 2026-09-26, the name-decision set is small and search already runs the unscoped query per keystroke
+- [~] [backend] Tie-break the People list's count/completeness sorts by display spelling — dropped 2026-09-26, it only reorders within equal-count groups
 - [~] [backend] Sort the Cast grid by display spelling — dropped 2026-09-26, it changes ordering behaviour beyond the bug; canonical order is stable and matches the file

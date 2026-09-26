@@ -81,9 +81,12 @@ export function personKey(p: { id: number; role?: string }): string {
 // filterByName narrows items to those whose name contains query, case-insensitive
 // (personal-library scale, client-side filter over an already-loaded unpaged
 // list — the shape EntityPicker/CategoryPicker/tags' unified search all share).
-export function filterByName<T extends { name: string }>(items: T[], query: string): T[] {
+// A Displayed As spelling matches too (HOLODEX-461), as it does in search.
+export function filterByName<T extends { name: string; display_name?: string }>(items: T[], query: string): T[] {
 	const q = query.trim().toLowerCase();
-	return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+	return q
+		? items.filter((i) => i.name.toLowerCase().includes(q) || !!i.display_name?.toLowerCase().includes(q))
+		: items;
 }
 
 // filterByTitle mirrors filterByName for Video, whose display field is `title`

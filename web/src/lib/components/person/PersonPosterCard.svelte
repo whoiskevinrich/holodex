@@ -27,13 +27,13 @@
 		<PersonImageFrame
 			personId={person.id}
 			role="poster"
-			name={person.name}
+			name={person.display_name ?? person.name}
 			version={person.poster_version}
 			{eager}
 			frameClass={`portrait-frame--2x3 w-full poster-card-frame ${hasPoster ? 'border-transparent' : 'border-rule'} group-focus-visible:ring-2 group-focus-visible:ring-accent`}
 		/>
-		<h3 class="skin-title line-clamp-1 pt-1.5 text-sm font-medium text-ink" title={person.name}>
-			{person.name}
+		<h3 class="skin-title line-clamp-1 pt-1.5 text-sm font-medium text-ink" title={person.display_name ?? person.name}>
+			{person.display_name ?? person.name}
 		</h3>
 	</a>
 	<span class="flex items-center gap-1.5 pt-0.5">

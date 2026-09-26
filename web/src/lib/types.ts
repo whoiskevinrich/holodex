@@ -81,8 +81,8 @@ export interface Person {
 	name: string;
 	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
 	completeness?: CompletenessSummary;
-	// The spelling a standing decision on `name` selects (F60 RD9); search results and the
-	// video/film Cast grids (HOLODEX-461). `name` stays canonical everywhere — it is what
+	// The spelling a standing decision on `name` selects (F60 RD9); search results, the people
+	// list, and the video/film Cast grids (HOLODEX-461). `name` stays canonical everywhere — it is what
 	// pickers send back for linking.
 	display_name?: string;
 	video_count?: number;

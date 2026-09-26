@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"holodex/internal/model"
@@ -78,6 +79,47 @@ func TestDisplayNames(t *testing.T) {
 	}
 	if got, err := r.DisplayNames(ctx, model.EnrichEntityFilm, "title"); err != nil || got[fid] != "Dune: Part One" {
 		t.Errorf("film under title = %v (%v), want the provider title", got, err)
+	}
+}
+
+// TestListPeopleDisplayNames pins HOLODEX-461 on the People index: each row carries
+// its Displayed As spelling, and the name sort orders by that spelling (case-folded,
+// like the SQL NOCASE it replaces) so the A–Z bar lands where the labels say.
+func TestListPeopleDisplayNames(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	for _, n := range []string{"Alpha", "bravo", "Charlie"} {
+		vid, err := r.UpsertVideo(ctx, sampleVideo("/m/"+n+".mkv", n, []string{n}, nil), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		linkPeople(t, r, vid, n)
+	}
+	alpha, _, err := r.PersonIDByName(ctx, "Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, alpha, "name", "manual", "zulu"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, p := range got {
+		label := p.Name
+		if p.DisplayName != "" {
+			label = p.DisplayName
+		}
+		order = append(order, label)
+	}
+	if want := []string{"bravo", "Charlie", "zulu"}; !slices.Equal(order, want) {
+		t.Errorf("ListPeople labels = %v, want %v", order, want)
+	}
+	if got[2].Name != "Alpha" {
+		t.Errorf("decided row name = %q, want canonical Alpha", got[2].Name)
 	}
 }
 

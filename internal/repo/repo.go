@@ -1158,7 +1158,37 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 	if err := r.attachPersonImageVersions(ctx, out); err != nil {
 		return nil, err
 	}
+	if err := r.attachPersonDisplayNames(ctx, out); err != nil {
+		return nil, err
+	}
+	// The name sort orders by the label the row shows (HOLODEX-461), so the SQL's
+	// canonical `e.name COLLATE NOCASE` is re-applied to the display spelling. Stable,
+	// so ties keep the SQL order.
+	if f.Sort != "count" && f.Sort != SortCompletenessAsc && f.Sort != SortCompletenessDesc {
+		slices.SortStableFunc(out, func(a, b model.Person) int {
+			return strings.Compare(nocaseKey(personLabel(a)), nocaseKey(personLabel(b)))
+		})
+	}
 	return out, nil
+}
+
+// personLabel is the spelling a person is shown by outside their own page.
+func personLabel(p model.Person) string {
+	if p.DisplayName != "" {
+		return p.DisplayName
+	}
+	return p.Name
+}
+
+// nocaseKey folds ASCII case only — SQLite's NOCASE collation — so a Go re-sort
+// orders exactly as the SQL it replaces.
+func nocaseKey(s string) string {
+	return strings.Map(func(c rune) rune {
+		if 'A' <= c && c <= 'Z' {
+			return c + ('a' - 'A')
+		}
+		return c
+	}, s)
 }
 
 // personImageVersions returns personID -> {role: rowID} for every person in ids, in ONE
