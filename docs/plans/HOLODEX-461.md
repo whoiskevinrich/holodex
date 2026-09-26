@@ -8,7 +8,7 @@ status: in-progress                 # DERIVED from the Gates below — nothing s
                              # `done` and `released` are read from here (a merge and a release are
                              # facts the checklist can't see). Any other value is ignored, so this
                              # field cannot drift. If the status looks wrong, a gate is wrong.
-profile:                     # the gate posture (see flightplan.yaml `postures:`). Which gates this
+profile: feature             # the gate posture (see flightplan.yaml `postures:`). Which gates this
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are trimmed to match.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
@@ -53,12 +53,10 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
      /handoff writes [~] or [x]. -->
 
 - [~] spec `write-spec` → `docs/specs/**` — bug fix restoring F60 RD9's intended display; no new requirement
-- [~] architecture `architecture` → `docs/architecture/ADR-*` — no architectural change; reuses `Repo.DisplayNames` (HOLODEX-378)
 - [~] design `design-handoff` → `docs/design/**` — no new UI; existing labels swap to the display spelling
 - [x] backend → `{cmd,internal,providers}/**` — `GetVideo`/`FilmCast`/`Related` carry `display_name` (d9bcd5d)
 - [x] frontend → `web/src/**` — `PeopleGrid`, `PersonPicker`, and the media page's shelf title + remove error (d9bcd5d)
 - [~] testing `testing-strategy` — regression test `TestCastDisplayNames` added; no strategy change
-- [~] security `security-review` — no auth/access change; `display_name` is already public on search and the person page
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -75,7 +73,7 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Kevin's three-skin look at Media Details' People grid, then `gh pr ready` (CI moves 461 to In Review)
+1. [ ] [—] Confirm #392 merged and CI moved HOLODEX-461 to Done — `gh pr view 392`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -92,7 +90,8 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 - merged origin/main (cd254e1; ecc5207 geometry tests, no overlap) before opening the Draft PR
 - extended to the People list at Kevin's request: labels, name sort, A–Z anchors and filter; browser-verified (the decided person sorts under Z and is found by either spelling)
 - applied two review findings: moved the People list's display-name ordering into SQL, so count/completeness ties break on the shown name and the Go re-sort is gone
-- handoff: Media Details, Film Cast and the People list all show the Displayed As name, verified on backend-films; Draft PR #392 waits only on Kevin's skin look before `gh pr ready`.
+- set posture `feature` (main adopted postures in 3c5c23d) and merged origin/main again; Kevin asked to mark #392 ready and merge it once CI passes
+- handoff: All gates settled; #392 was marked ready and set to squash-merge once CI passes. The only step left is confirming the merge and CI's Done transition.
 
 ## Dropped — newest first (the reason is the point)
 
