@@ -5,7 +5,7 @@
 	import { showName as showNameFor, type Wordmark } from './studioLogo';
 
 	// One /studios index row (HOLODEX-432, docs/design/studio-list-logo-handoff.md): the
-	// StudioLinkCard image box (logo → icon → monogram, bare + halo, aspect-following) in front
+	// StudioLinkCard image box (logo → icon → monogram, bare + the owner's halo choice, aspect-following) in front
 	// of the name, the owner-only completeness ring and the video count. Same caption rule as
 	// the card: a wordmark logo already says the name, so the text is dropped and the name moves
 	// to the image alt + link title — announced once either way. A component rather than inline

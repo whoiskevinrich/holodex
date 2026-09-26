@@ -15,6 +15,9 @@
 	// (e.g. the Film detail header) — just the image frame plus small owner overlay buttons
 	// (pencil = replace, × = remove) in the frame's corners, instead of a dedicated section.
 	import { toMessage, monogram } from '$lib/format';
+	import { haloClass } from '$lib/halo';
+	import { theme } from '$lib/theme.svelte';
+	import type { HaloMode } from '$lib/types';
 
 	let {
 		entityId,
@@ -28,7 +31,9 @@
 		onchanged,
 		variant = 'row',
 		frameClass: frameClassProp,
-		fit = 'contain'
+		fit = 'contain',
+		halo,
+		onhalo
 	}: {
 		entityId: number;
 		entityName: string;
@@ -47,7 +52,30 @@
 		// banner shows a ~16:9 backdrop in an 8:3 band, which `contain` pillarboxes against
 		// the light plate. The design handoff calls for a crop, not letterboxing.
 		fit?: 'contain' | 'cover';
+		// The owner's per-palette halo choice for this role (HOLODEX-463, ADR-109). Absent
+		// = the caller has no choice to make, and a contained image keeps the unconditional
+		// `.logo-halo` (film slots). Present = the halo is on only for the listed modes.
+		halo?: HaloMode[];
+		// Saves the halo for one mode; given with `halo`, it adds the owner's switch.
+		onhalo?: (mode: HaloMode, on: boolean) => Promise<unknown>;
 	} = $props();
+
+	const haloOn = $derived(halo?.includes(theme.mode) ?? false);
+	const imgHalo = $derived(fit === 'cover' ? '' : halo ? haloClass(halo) : 'logo-halo');
+	let savingHalo = $state(false);
+
+	async function toggleHalo() {
+		if (!onhalo || savingHalo) return;
+		savingHalo = true;
+		error = '';
+		try {
+			await onhalo(theme.mode, !haloOn);
+		} catch (err) {
+			error = toMessage(err);
+		} finally {
+			savingHalo = false;
+		}
+	}
 
 	const isPoster = $derived(role === 'poster');
 	const isFrame = $derived(variant === 'frame');
@@ -106,15 +134,16 @@
 				: 'bg-logo-plate'} {frameClass}"
 	>
 		{#if url}
-			<!-- No plate under an image (HOLODEX-437): a contained image sits bare and wears the
-			     `.logo-halo` so a dark mark still reads on the dark skins; the `p-1` is transparent
-			     room for the halo inside this `overflow-hidden` box, not a visible border. A
-			     `cover` image fills the box edge-to-edge — no inset, no halo. The plate survives
-			     only under the monogram / empty state below. -->
+			<!-- No plate under an image (HOLODEX-437): a contained image sits bare and may wear
+			     a halo so a dark mark still reads on a dark palette — `.logo-halo` always, or the
+			     owner's per-mode choice when the caller passes `halo` (HOLODEX-463); the `p-1` is
+			     transparent room for the halo inside this `overflow-hidden` box, not a visible
+			     border. A `cover` image fills the box edge-to-edge — no inset, no halo. The plate
+			     survives only under the monogram / empty state below. -->
 			<img
 				src={url}
 				alt={`${entityName} ${label.toLowerCase()}`}
-				class="h-full w-full {fit === 'cover' ? 'object-cover' : 'logo-halo object-contain p-1'} {uploading
+				class="h-full w-full {fit === 'cover' ? 'object-cover' : 'object-contain p-1'} {imgHalo} {uploading
 					? 'opacity-60'
 					: ''}"
 			/>
@@ -237,6 +266,31 @@
 						{/if}
 					{/if}
 				</div>
+				{#if onhalo && url && fit !== 'cover'}
+					<!-- Halo knob (HOLODEX-463, design option A): one switch, saved for the
+					     palette being viewed, which the trailing word names. -->
+					<button
+						type="button"
+						role="switch"
+						aria-checked={haloOn}
+						onclick={toggleHalo}
+						disabled={savingHalo}
+						title={`Glow behind the ${label.toLowerCase()} on ${theme.mode} palettes`}
+						class="flex items-center gap-1.5 py-0.5 text-xs {haloOn ? 'text-accent' : 'text-muted hover:text-ink'}"
+					>
+						<span
+							class="relative h-3 w-5 rounded-full border {haloOn ? 'border-accent' : 'border-muted'}"
+							aria-hidden="true"
+						>
+							<span
+								class="absolute top-px h-2 w-2 rounded-full transition-[left] {haloOn
+									? 'left-2.5 bg-accent'
+									: 'left-px bg-muted'}"
+							></span>
+						</span>
+						Halo <span class="text-muted">· {theme.mode}</span>
+					</button>
+				{/if}
 			{/if}
 		</div>
 	{/if}

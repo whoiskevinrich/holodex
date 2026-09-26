@@ -26,6 +26,43 @@ import (
 func (h *Handlers) mountStudioImages(r chi.Router) {
 	r.Post("/studios/{id}/images/{role}", h.uploadStudioImage)
 	r.Delete("/studios/{id}/images/{role}", h.deleteStudioImage)
+	r.Put("/studios/{id}/images/{role}/halo", h.setStudioImageHalo)
+}
+
+// setStudioImageHalo turns the halo on or off for one image role in one palette mode
+// (HOLODEX-463, ADR-109). Body {mode: "dark"|"light", on: bool}. It is a display choice
+// only: it touches no image bytes and no provenance, and it does not need the role's
+// slot to be filled, so a choice made before a replace still stands after it. 400 on a
+// bad role or mode, 404 on an unknown studio, 204 on success (idempotent).
+func (h *Handlers) setStudioImageHalo(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	role, ok := studioImageRole(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Mode string `json:"mode"`
+		On   bool   `json:"on"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	if !model.ValidHaloMode(body.Mode) {
+		writeError(w, http.StatusBadRequest, "invalid halo mode")
+		return
+	}
+	if _, err := h.repo.GetStudio(r.Context(), id); err != nil {
+		h.studioLookupError(w, err)
+		return
+	}
+	if err := h.repo.SetStudioImageHalo(r.Context(), id, role, body.Mode, body.On); err != nil {
+		h.fail(w, "set studio image halo", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // setStudioImageURLs fills IconURL/LogoURL/PosterURL from ImageVersions, pointing at

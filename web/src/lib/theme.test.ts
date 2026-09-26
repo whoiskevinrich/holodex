@@ -69,6 +69,18 @@ describe('theme (F67 instance skin)', () => {
 		expect(t.custom).toEqual(CUSTOM); // still configured, just not active
 	});
 
+	it('data-mode (HOLODEX-463): shipped skins are dark; a custom palette follows its --bg', () => {
+		const t = new ThemeState();
+		t.applyServer({ active: 'broadcast', custom: null });
+		expect(root.dataset.mode).toBe('dark');
+		const light = { ...CUSTOM, tokens: { ...CUSTOM.tokens, bg: '#fafafa' } };
+		t.applyServer({ active: 'custom', custom: light });
+		expect(t.mode).toBe('light');
+		expect(root.dataset.mode).toBe('light');
+		t.applyServer({ active: 'cinematheque', custom: light }); // configured, not active
+		expect(root.dataset.mode).toBe('dark');
+	});
+
 	it('paint cache: init applies the last server value before capabilities arrive', () => {
 		const first = new ThemeState();
 		first.applyServer({ active: 'custom', custom: CUSTOM });

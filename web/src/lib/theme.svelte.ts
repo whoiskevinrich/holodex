@@ -5,7 +5,8 @@
 // a non-default instance doesn't flash Cinémathèque on a cold load. The server value
 // always overwrites it (spec R7/R8).
 import { api } from '$lib/api';
-import type { ShippedTheme, ThemeCapability, ThemeCustom, ThemeId } from '$lib/types';
+import { paletteMode } from '$lib/halo';
+import type { HaloMode, ShippedTheme, ThemeCapability, ThemeCustom, ThemeId } from '$lib/types';
 
 export const THEMES: readonly ShippedTheme[] = ['cinematheque', 'broadcast', 'brutalist'] as const;
 
@@ -84,6 +85,10 @@ export class ThemeState {
 	active = $state<ThemeId>(DEFAULT);
 	// custom is the configured palette, or null when none is (spec R3).
 	custom = $state<ThemeCustom | null>(null);
+	// mode is the active palette's brightness (HOLODEX-463): every shipped skin is dark;
+	// a custom palette is light when its --bg is. Mirrored to <html data-mode>, which is
+	// what app.css keys the per-mode studio image halo on.
+	mode = $state<HaloMode>('dark');
 
 	// init applies the paint cache, if any, before /capabilities arrives.
 	init() {
@@ -120,9 +125,11 @@ export class ThemeState {
 		this.current = base;
 		this.active = custom ? 'custom' : base;
 		this.custom = t.custom ?? null;
+		this.mode = custom ? paletteMode(custom.tokens.bg) : 'dark';
 		if (typeof document === 'undefined') return;
 		const root = document.documentElement;
 		root.dataset.theme = base;
+		root.dataset.mode = this.mode;
 		// data-palette switches on app.css's derivation block (ADR-102 D4): every
 		// pair-partner token is computed from the five primaries below.
 		if (custom) root.dataset.palette = 'custom';

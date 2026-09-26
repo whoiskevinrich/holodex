@@ -183,8 +183,65 @@ func (r *Repo) attachStudioImages(ctx context.Context, studios []model.Studio) e
 	if err != nil {
 		return err
 	}
+	halo, err := r.studioImageHalo(ctx, ids)
+	if err != nil {
+		return err
+	}
 	for i := range studios {
 		studios[i].ImageVersions = versions[studios[i].ID]
+		studios[i].ImageHalo = halo[studios[i].ID]
 	}
 	return nil
+}
+
+// SetStudioImageHalo turns the halo on or off for one studio image role in one palette
+// mode (HOLODEX-463, ADR-109). On is a row, off is its absence, so both directions are
+// idempotent. Keyed on studio + role, not the image row, so it survives a replace.
+func (r *Repo) SetStudioImageHalo(ctx context.Context, studioID int64, role, mode string, on bool) error {
+	if !model.ValidStudioImageRole(role) {
+		return fmt.Errorf("invalid studio image role %q", role)
+	}
+	if !model.ValidHaloMode(mode) {
+		return fmt.Errorf("invalid halo mode %q", mode)
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	q := `DELETE FROM studio_image_halo WHERE studio_id = ? AND role = ? AND mode = ?`
+	if on {
+		q = `INSERT OR IGNORE INTO studio_image_halo (studio_id, role, mode) VALUES (?, ?, ?)`
+	}
+	if _, err := r.db.ExecContext(ctx, q, studioID, role, mode); err != nil {
+		return fmt.Errorf("set studio image halo: %w", err)
+	}
+	return nil
+}
+
+// studioImageHalo returns studioID -> {role: modes the halo is on for} for every studio
+// in ids, in ONE batch query — the halo sibling of studioImageVersions. Modes come back
+// sorted ("dark" before "light") so the payload is stable.
+func (r *Repo) studioImageHalo(ctx context.Context, ids []int64) (map[int64]map[string][]string, error) {
+	out := make(map[int64]map[string][]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT studio_id, role, mode FROM studio_image_halo
+		WHERE studio_id IN (`+placeholders(len(ids))+`)
+		ORDER BY studio_id, role, mode`, toAnySlice(ids)...)
+	if err != nil {
+		return nil, fmt.Errorf("studio image halo: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var studioID int64
+		var role, mode string
+		if err := rows.Scan(&studioID, &role, &mode); err != nil {
+			return nil, err
+		}
+		if out[studioID] == nil {
+			out[studioID] = map[string][]string{}
+		}
+		out[studioID][role] = append(out[studioID][role], mode)
+	}
+	return out, rows.Err()
 }

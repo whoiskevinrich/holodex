@@ -171,11 +171,11 @@ func (r *Repo) GetStudio(ctx context.Context, id int64) (*model.Studio, error) {
 	if err != nil {
 		return nil, err
 	}
-	versions, err := r.studioImageVersions(ctx, []int64{id})
-	if err != nil {
+	one := []model.Studio{s}
+	if err := r.attachStudioImages(ctx, one); err != nil {
 		return nil, err
 	}
-	s.ImageVersions = versions[id]
+	s = one[0]
 	// Owner-curated aliases (F43, ADR-061) for the detail view.
 	if s.Aliases, err = r.AliasesForEntity(ctx, model.EnrichEntityStudio, id); err != nil {
 		return nil, err
@@ -257,9 +257,14 @@ func (r *Repo) StudiosForVideos(ctx context.Context, ids []int64) (map[int64][]m
 	if err != nil {
 		return nil, err
 	}
+	halo, err := r.studioImageHalo(ctx, studioIDs)
+	if err != nil {
+		return nil, err
+	}
 	for vid := range out {
 		for i := range out[vid] {
 			out[vid][i].ImageVersions = versions[out[vid][i].ID]
+			out[vid][i].ImageHalo = halo[out[vid][i].ID]
 		}
 	}
 	return out, nil

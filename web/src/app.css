@@ -182,6 +182,16 @@
 	--logo-plate-ink: color-mix(in oklab, var(--surface-2), var(--accent) 11%);
 }
 
+/* ---- Logo halo colour (HOLODEX-463, ADR-109) ----
+   The studio image halo glows in the plate colour on a dark palette and inverts to black
+   on a light one (a light custom palette; theme.svelte.ts sets data-mode from --bg). */
+:root {
+	--logo-halo: var(--logo-plate);
+}
+:root[data-mode='light'] {
+	--logo-halo: #000000;
+}
+
 @layer base {
 	body {
 		background-color: var(--bg);
@@ -663,9 +673,17 @@
 	   2+8 read as a blurry aura). On the icon plate the halo is plate-on-plate and
 	   simply disappears, so the one image element carries it in both roles. Token-driven:
 	   `--logo-plate` is light in every shipped skin and derived for the custom palette. */
-	.logo-halo {
-		filter: drop-shadow(0 0 1px var(--logo-plate)) drop-shadow(0 0 3px var(--logo-plate))
-			drop-shadow(0 0 6px var(--logo-plate));
+	/* HOLODEX-463 (ADR-109): on studio images the halo is the owner's per-role choice,
+	   default off, saved separately for a dark and a light palette. The component emits
+	   `.halo-dark` / `.halo-light` for the modes it is on for; only the one matching
+	   <html data-mode> (theme.svelte.ts) glows. `.logo-halo` stays the unconditional hook
+	   for non-studio callers (the film poster slot). The glow is `--logo-halo`: the light
+	   plate on a dark palette, black on a light one. */
+	.logo-halo,
+	:root:not([data-mode='light']) .halo-dark,
+	:root[data-mode='light'] .halo-light {
+		filter: drop-shadow(0 0 1px var(--logo-halo)) drop-shadow(0 0 3px var(--logo-halo))
+			drop-shadow(0 0 6px var(--logo-halo));
 	}
 
 	/* ---- Entity Films row shelf (HOLODEX-384) ----

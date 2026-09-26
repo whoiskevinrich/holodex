@@ -324,6 +324,19 @@ const (
 	StudioImageSourceEnrichment = "enrichment" // fetched from a metadata provider asset
 )
 
+// Halo palette modes (HOLODEX-463, ADR-109): the owner's per-role halo choice is stored
+// separately for a dark and a light palette. Light/dark is the SPA's call (the active
+// palette's --bg brightness); the server only stores and serves both.
+const (
+	HaloModeDark  = "dark"
+	HaloModeLight = "light"
+)
+
+// ValidHaloMode reports whether mode is one of the two halo palette modes.
+func ValidHaloMode(mode string) bool {
+	return mode == HaloModeDark || mode == HaloModeLight
+}
+
 // ValidStudioImageRole reports whether role is one of the three known roles — the enum
 // every request value is validated against (never a filesystem path).
 func ValidStudioImageRole(role string) bool {
@@ -369,6 +382,10 @@ type Studio struct {
 	// setStudioImageURLs. Absent role = no image. Mirrors the old LogoVersion field,
 	// generalized to a map across three roles instead of one int.
 	ImageVersions map[string]int64 `json:"-"`
+	// ImageHalo is the owner's halo choice per image role (HOLODEX-463, ADR-109): role →
+	// the palette modes ("dark", "light") the halo is on for. An absent role, or an
+	// absent mode, is off — the default. Populated wherever ImageVersions is.
+	ImageHalo map[string][]string `json:"image_halo,omitempty"`
 	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
 	Completeness *CompletenessSummary `json:"completeness,omitempty"`
 }

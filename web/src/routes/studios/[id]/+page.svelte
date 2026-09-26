@@ -15,8 +15,10 @@
 		PersonAlias,
 		SkippedAlias,
 		ResolvedField,
+		HaloMode,
 		Studio,
 		StudioDetailResponse,
+		StudioImageRole,
 		Video
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
@@ -195,6 +197,16 @@
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
+	}
+
+	// Owner's per-role, per-palette halo choice (HOLODEX-463, ADR-109). Applied to the
+	// local studio on success so the slot re-renders without a detail refetch.
+	async function setHalo(role: StudioImageRole, mode: HaloMode, on: boolean) {
+		await api.setStudioImageHalo(id, role, mode, on);
+		if (!studio) return;
+		const rest = (studio.image_halo?.[role] ?? []).filter((m) => m !== mode);
+		const modes = on ? [...rest, mode] : rest;
+		studio.image_halo = { ...studio.image_halo, [role]: modes };
 	}
 
 	async function clearProvider(p: string) {
@@ -412,6 +424,8 @@
 							label="Logo"
 							url={studio.logo_url}
 							{isOwner}
+							halo={studio.image_halo?.logo ?? []}
+							onhalo={(mode, on) => setHalo('logo', mode, on)}
 							upload={api.uploadStudioImage}
 							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
@@ -423,6 +437,8 @@
 							label="Icon"
 							url={studio.icon_url}
 							{isOwner}
+							halo={studio.image_halo?.icon ?? []}
+							onhalo={(mode, on) => setHalo('icon', mode, on)}
 							upload={api.uploadStudioImage}
 							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
@@ -434,6 +450,8 @@
 							label="Poster"
 							url={studio.poster_url}
 							{isOwner}
+							halo={studio.image_halo?.poster ?? []}
+							onhalo={(mode, on) => setHalo('poster', mode, on)}
 							upload={api.uploadStudioImage}
 							remove={api.deleteStudioImage}
 							onchanged={reloadDetail}
