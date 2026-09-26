@@ -2,6 +2,10 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-453
 status: in-progress
+approved:
+  design:
+    on: 2026-09-25
+    at: f03774d
 release_note: The Duplicates queue no longer fills up with pairs whose only link is a provider-supplied alternate name. The Aliases panel now says which person or studio already holds a skipped name, and links to them.
 ---
 
@@ -48,7 +52,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 ## Up next — ordered (position = priority)
 
-1. **`/implement HOLODEX-453`** — Kevin signs off the handoff; opens the Draft PR.
+1. ~~`/implement HOLODEX-453`~~ **Done 2026-09-25** — design signed off at `f03774d`.
 2. Backend: one `AND q.variation <> 'provider-alias'` in `ListReviewPairs`
    (`internal/repo/review_queue.go`) plus its doc comment, and `conflict_name` in
    `SkippedAliasesForEntity`. Tests: flip `TestReviewQueue_ProviderAliasRowsAlwaysSurface` to
@@ -63,7 +67,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 ### 2026-09-25 — the question is decided; design phase done
 
-- skills: architecture, write-spec (amendment), design-handoff
+- skills: architecture, write-spec (amendment), design-handoff, implement
 
 Confirmed the ticket was untouched on `main`: 451 and 452 merged, but nothing changed the
 provider-alias producer or the queue read. Kevin leaned to option 1. The trace found that option 1
@@ -71,6 +75,5 @@ at the producer would remove the Aliases panel's skipped line, which reads the s
 the "alias-only" figure was a probe fallthrough. He chose to hide the rows at the read and to link
 the holder on the panel.
 
-- handoff: **Design phase is done: spec, ADR-108 and the handoff (with its SVG) are committed and
-  pushed, with no PR.** Next is `/implement HOLODEX-453` for Kevin's sign-off on the handoff, then a
-  small backend + frontend change (see Up next 2–3).
+- handoff: Crossed into build — design signed off at f03774d; draft PR open on this branch. Start at Up next 2
+  (the `ListReviewPairs` filter + `conflict_name`).
