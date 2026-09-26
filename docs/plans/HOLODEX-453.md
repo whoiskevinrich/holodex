@@ -6,7 +6,7 @@ status: in-progress
 approved:
   design:
     on: 2026-09-25
-    at: f03774d
+    at: f76a5c6
 release_note: The Duplicates queue no longer fills up with pairs whose only link is a provider-supplied alternate name. The Aliases panel now says which person or studio already holds a skipped name, and links to them.
 ---
 
@@ -98,5 +98,10 @@ Then the frontend. Live QA caught two wrap bugs the mockup could not show: a ` Â
 the next line when the list wrapped, and items running together on wide screens because `{#each}`
 trims whitespace. The separator now ends the item before it, and an explicit space follows.
 
-- handoff: **All seven gates are green.** Remaining: Kevin's go-ahead to mark #386 ready (after
-  checking whether `origin/main` has moved), plus an optional look at the panel on a real skin.
+Kevin re-confirmed the design sign-off at `f76a5c6`. The two post-approval handoff edits were the
+separator moving onto the end of the previous item, and the F58 handoff's Review bullet marked
+superseded. PR #386 was marked ready with squash auto-merge set.
+
+- handoff: **All seven gates are green; #386 is ready and auto-merges on green CI.** After the
+  merge, verify that `jira-sync` moved 453 to In Review and then Done. It is a Task, so no hand
+  sweep is needed.
