@@ -303,15 +303,12 @@ func TestReviewQueue_StaleRowDropped(t *testing.T) {
 	}
 }
 
-// TestReviewQueue_ProviderAliasRowsAlwaysSurface proves a non-fuzzy queue row (F58/
-// ADR-088's 'provider-alias' variation: an EXACT alias conflict between two entities
-// whose actual names/aliases are NOT required to resemble each other at all — the
-// collision is about one specific candidate string, not name similarity) is never
-// dropped by the live-revalidation added for near-miss staleness. That join only
-// makes sense for the fuzzy variations it understands (internal-whitespace/
-// punctuation); this regression-tests that anything else always passes through, since
-// the two entities here would never survive a loose-key recheck on their own names.
-func TestReviewQueue_ProviderAliasRowsAlwaysSurface(t *testing.T) {
+// TestReviewQueue_ProviderAliasRowsAreNotListed pins ADR-108 D1 (HOLODEX-453): a
+// 'provider-alias' row (F58/ADR-088: an EXACT alias conflict between two entities whose
+// names need not resemble each other) stays in identity_review_queue as the skip record,
+// but the Duplicates queue does not list it. Every one the owner checked was two
+// different people. The row here is seeded exactly as queueProviderAliasPair writes it.
+func TestReviewQueue_ProviderAliasRowsAreNotListed(t *testing.T) {
 	r, db := newRepoDB(t)
 	ctx := context.Background()
 
@@ -334,8 +331,7 @@ func TestReviewQueue_ProviderAliasRowsAlwaysSurface(t *testing.T) {
 
 	// Queued the way ApplyProviderAliases does (queueProviderAliasPair): the two
 	// canonical names are nothing alike, and the skipped candidate ("Bob") belongs to
-	// neither of them -- the row itself, not a live loose-key match, is what says
-	// there's still something to resolve.
+	// neither of them.
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
 		 VALUES ('person', ?, ?, 'provider-alias', 'Bob')`, lo, hi); err != nil {
@@ -346,8 +342,16 @@ func TestReviewQueue_ProviderAliasRowsAlwaysSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
-	if len(pairs) != 1 || pairs[0].Variation != "provider-alias" || pairs[0].MatchKind != "" {
-		t.Fatalf("pairs = %+v, want one provider-alias row with empty match_kind", pairs)
+	if len(pairs) != 0 {
+		t.Fatalf("pairs = %+v, want none — provider-alias rows are not listed (ADR-108)", pairs)
+	}
+	var n int
+	if err := db.QueryRowContext(ctx,
+		`SELECT count(*) FROM identity_review_queue WHERE variation = 'provider-alias'`).Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("provider-alias rows stored = %d, want 1 — the row is still the skip record", n)
 	}
 }
 

@@ -45,7 +45,11 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
       `provider-alias-skipped-line-mockup.svg` (text extents measured in the browser: every line
       fits its 592 px box). **Option A chosen by Kevin 2026-09-25; sign-off on the artifact is
       `/implement`'s**
-- [ ] backend — `ListReviewPairs` excludes `provider-alias`; `SkippedAlias.ConflictName` joined
+- [x] backend — `ListReviewPairs` excludes `provider-alias`; `SkippedAlias.ConflictName` joined
+      in `SkippedAliasesForEntity`. Tests: `TestReviewQueue_ProviderAliasRowsAreNotListed`,
+      `TestProviderAliasRowSurfacesOnceUpgraded`, `conflict_name` on both collision routes, and
+      the sort test now pins the -2 slot on film (no other person non-fuzzy variation is
+      listed). The three queue tests fail with the filter removed (mutation-checked)
 - [ ] frontend — `AliasPanel.svelte` skipped line; `SkippedAlias.conflict_name` in `types.ts`
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — read-path filter + one extra owner-gated field; expect a short
@@ -54,11 +58,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 ## Up next — ordered (position = priority)
 
 1. ~~`/implement HOLODEX-453`~~ **Done 2026-09-25** — design signed off at `f03774d`.
-2. Backend: one `AND q.variation <> 'provider-alias'` in `ListReviewPairs`
-   (`internal/repo/review_queue.go`) plus its doc comment, and `conflict_name` in
-   `SkippedAliasesForEntity`. Tests: flip `TestReviewQueue_ProviderAliasRowsAlwaysSurface` to
-   assert absence; add an upgrade-to-`shared-external-id`-surfaces case; assert `conflict_name`
-   in `TestSkippedAliasesForEntity`.
+2. ~~Backend.~~ **Done 2026-09-25** — see the backend gate.
 3. Frontend: `AliasPanel.svelte` line per the handoff, then QA all three skins at 375 px.
 4. Testing + security gates, then `gh pr ready`.
 5. Optional: fix the probe's `qmatch` so a provider-alias row reports the holder's side from
@@ -68,7 +68,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 ### 2026-09-25 — the question is decided; design phase done
 
-- skills: architecture, write-spec (amendment), design-handoff, implement
+- skills: architecture, write-spec (amendment), design-handoff, implement, code-review
 
 Confirmed the ticket was untouched on `main`: 451 and 452 merged, but nothing changed the
 provider-alias producer or the queue read. Kevin leaned to option 1. The trace found that option 1
@@ -76,5 +76,11 @@ at the producer would remove the Aliases panel's skipped line, which reads the s
 the "alias-only" figure was a probe fallthrough. He chose to hide the rows at the read and to link
 the holder on the panel.
 
-- handoff: Crossed into build — design signed off at f03774d; draft PR open on this branch. Start at Up next 2
-  (the `ListReviewPairs` filter + `conflict_name`).
+Crossed into build (design signed off at `f03774d`, Draft PR #386), then landed the backend. The
+code review's one real gap was the sort test: with provider-alias hidden, person no longer lists
+any other non-fuzzy variation, so the shared-external-id -2 slot is now pinned against film
+`same-title` instead.
+
+- handoff: **Backend is in and green; frontend is next** (Up next 3). `AliasPanel.svelte` reads
+  `skipped_aliases[].conflict_name` (add it to `SkippedAlias` in `types.ts`) and links the holder
+  per the handoff; QA all three skins at 375 px.

@@ -12,12 +12,15 @@ import (
 )
 
 // SkippedAlias is a provider-supplied name that was not added because another entity of
-// the same type already holds it (ADR-088 D5). The pair is queued for the owner in
-// identity_review_queue; this value is what the detail read surfaces so the Aliases panel
-// can say which name was dropped and why.
+// the same type already holds it (ADR-088 D5). The pair is recorded in
+// identity_review_queue (not listed in the Duplicates queue since ADR-108); this value is
+// what the detail read surfaces so the Aliases panel can say which name was dropped and
+// who holds it. ConflictName is the holder's current canonical name, filled by
+// SkippedAliasesForEntity only; ApplyProviderAliases' return leaves it empty.
 type SkippedAlias struct {
-	Alias      string `json:"alias"`
-	ConflictID int64  `json:"conflict_id"`
+	Alias        string `json:"alias"`
+	ConflictID   int64  `json:"conflict_id"`
+	ConflictName string `json:"conflict_name"`
 }
 
 // aliasFold implements spec F58 RD6's near-duplicate test: lowercase and drop every
@@ -280,12 +283,14 @@ func (r *Repo) deleteEnrichmentAliasRows(ctx context.Context) (int64, error) {
 // the Aliases panel renders as its collision review line.
 //
 // Derived from identity_review_queue rather than stored per-entity: the pair *is* the
-// outstanding question, so resolving it (merge, keep-separate, or any other queue action)
-// makes the line disappear with no extra bookkeeping. Only 'provider-alias' rows carry a
-// name in detail, and only those are returned.
+// outstanding question, so resolving it (a merge, or the holder dropping the name) makes
+// the line disappear with no extra bookkeeping. Only 'provider-alias' rows carry a name in
+// detail, and only those are returned. The Duplicates queue no longer lists these rows
+// (ADR-108), so this line — naming the holder via ConflictName — is where the owner sees
+// them.
 //
 // **Returned to the denied side only.** A queue row is a pair and reads from both ends,
-// but the panel's sentence — "<name> already belongs to another <noun>" — is only true on
+// but the panel's sentence — "<name> already belongs to <holder>" — is only true on
 // the entity that was refused the name; on the entity that *owns* it the same line asserts
 // the opposite of the truth. The side is not stored, so it is derived: this row belongs to
 // the caller when the OTHER entity holds `detail`, by canonical name or as an alias, which
@@ -308,14 +313,13 @@ func (r *Repo) SkippedAliasesForEntity(ctx context.Context, entityType string, e
 			 WHERE entity_type = ? AND variation = 'provider-alias'
 			   AND (id_lo = ? OR id_hi = ?) AND detail <> ''
 		)
-		SELECT detail, other_id FROM pairs p
-		 WHERE EXISTS (SELECT 1 FROM `+table+` c
-		                WHERE c.id = p.other_id
-		                  AND `+nameKeyExpr(entityType, "c.name")+` = `+nameKeyExpr(entityType, "p.detail")+`)
+		SELECT p.detail, p.other_id, c.name FROM pairs p
+		  JOIN `+table+` c ON c.id = p.other_id
+		 WHERE `+nameKeyExpr(entityType, "c.name")+` = `+nameKeyExpr(entityType, "p.detail")+`
 		    OR EXISTS (SELECT 1 FROM entity_aliases a
 		                WHERE a.entity_type = ? AND a.entity_id = p.other_id
 		                  AND a.alias_key = `+nameKeyExpr(entityType, "p.detail")+`)
-		 ORDER BY detail COLLATE NOCASE`,
+		 ORDER BY p.detail COLLATE NOCASE`,
 		entityID, entityType, entityID, entityID, entityType)
 	if err != nil {
 		return nil, fmt.Errorf("skipped aliases for %s: %w", entityType, err)
@@ -324,7 +328,7 @@ func (r *Repo) SkippedAliasesForEntity(ctx context.Context, entityType string, e
 	var out []SkippedAlias
 	for rows.Next() {
 		var s SkippedAlias
-		if err := rows.Scan(&s.Alias, &s.ConflictID); err != nil {
+		if err := rows.Scan(&s.Alias, &s.ConflictID, &s.ConflictName); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
