@@ -41,7 +41,10 @@ Renders when `skipped_aliases` on the detail read is non-empty.
   no rounded corners on a single-sided border), `p-3`.
 - Copy, one name: `1 name from {provider} was skipped — {name} already belongs to another {noun}.`
 - Copy, several: `{n} names from {provider} were skipped because they belong to other {noun}s.`
-- Trailing `Review` link routes to the existing near-miss review queue, filtered to this entity.
+- ~~Trailing `Review` link routes to the existing near-miss review queue, filtered to this entity.~~
+  **Superseded 2026-09-25 (HOLODEX-453, ADR-108):** the queue no longer lists provider-alias
+  pairs, so the line names and links the holder instead — see
+  [provider-alias-skipped-line-handoff](provider-alias-skipped-line-handoff.md).
 - Visitor sees nothing — this is owner-only, like the rest of the panel's controls.
 
 ## States

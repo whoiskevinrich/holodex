@@ -500,6 +500,11 @@ func TestSkippedAliasesForEntity(t *testing.T) {
 	if got[0].ConflictID != jen {
 		t.Errorf("conflict id = %d, want the holder (%d)", got[0].ConflictID, jen)
 	}
+	// ADR-108 D3: the line names the holder, since the Duplicates queue no longer lists
+	// the pair for the owner to find it there.
+	if got[0].ConflictName != "Jennifer Lawrence" {
+		t.Errorf("conflict name = %q, want the holder's canonical name", got[0].ConflictName)
+	}
 	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, jen); len(got) != 0 {
 		t.Errorf("the holder's own page reported its own name as skipped: %+v", got)
 	}
@@ -512,8 +517,14 @@ func TestSkippedAliasesForEntity(t *testing.T) {
 		[]string{"Katniss"}); err != nil {
 		t.Fatalf("apply canonical-name collision: %v", err)
 	}
-	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter); len(got) != 2 {
+	got, _ = r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, imposter)
+	if len(got) != 2 {
 		t.Errorf("denied side should now report both collisions, got %+v", got)
+	}
+	for _, s := range got {
+		if s.Alias == "Katniss" && (s.ConflictID != byName || s.ConflictName != "Katniss") {
+			t.Errorf("canonical-name collision = %+v, want holder %d named %q", s, byName, "Katniss")
+		}
 	}
 	if got, _ := r.SkippedAliasesForEntity(ctx, model.EnrichEntityPerson, byName); len(got) != 0 {
 		t.Errorf("the canonical-name holder reported its own name as skipped: %+v", got)

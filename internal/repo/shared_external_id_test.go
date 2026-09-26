@@ -148,6 +148,34 @@ func TestAttachExternalIDGuardHonorsKeepSeparateAndUpgrades(t *testing.T) {
 	}
 }
 
+// TestProviderAliasRowSurfacesOnceUpgraded is ADR-108 D2's escape hatch. A provider-alias
+// pair is not listed in the Duplicates queue, but when the provider's ID lands on both
+// entities the same row is upgraded to 'shared-external-id' in place (spec RD8), and that
+// strong evidence must reach the owner despite the row having started hidden.
+func TestProviderAliasRowSurfacesOnceUpgraded(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+
+	mustExec(t, db, `INSERT INTO people (id, name) VALUES (1,'Ada Lovelace'),(2,'Grace Hopper')`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation, detail)
+		VALUES ('person',1,2,'provider-alias','Countess')`)
+
+	if pairs, err := r.ListReviewPairs(ctx); err != nil || len(pairs) != 0 {
+		t.Fatalf("before the upgrade: pairs = %+v, err = %v, want none listed", pairs, err)
+	}
+
+	mustAttach(t, r, model.EnrichEntityPerson, 1, "prov1:p1")
+	mustAttach(t, r, model.EnrichEntityPerson, 2, "prov1:p1")
+
+	pairs, err := r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list review pairs: %v", err)
+	}
+	if len(pairs) != 1 || pairs[0].Variation != "shared-external-id" {
+		t.Fatalf("after the upgrade: pairs = %+v, want the one pair as shared-external-id", pairs)
+	}
+}
+
 // TestAttachExternalIDGuardKindScope proves ADR-107 D5's scope with tests rather than
 // comments. Studio and film run the identical path and are in scope; TAG is excluded
 // because it is not enrichable, so a contested tag id keeps the old silent-ignore
@@ -409,7 +437,9 @@ func TestSharedExternalIDSortsAboveEveryOtherVariation(t *testing.T) {
 			got = append(got, p.Variation)
 		}
 	}
-	want := []string{"shared-external-id", "provider-alias", "internal-whitespace"}
+	// The provider-alias row is seeded but not listed (ADR-108): it must neither appear nor
+	// displace the order of the rows that are.
+	want := []string{"shared-external-id", "internal-whitespace"}
 	if len(got) != len(want) {
 		t.Fatalf("person pairs = %v, want %v", got, want)
 	}
@@ -417,6 +447,28 @@ func TestSharedExternalIDSortsAboveEveryOtherVariation(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("sort order = %v, want %v", got, want)
 		}
+	}
+
+	// The -2 slot against another NON-fuzzy variation, which person no longer lists. Film
+	// still has one: same-title shares the -1 slot, and it carries the alphabetically
+	// first names so the name tiebreak alone would put it on top.
+	mustExec(t, db, `INSERT INTO films (id, name, year) VALUES
+		(1,'Alpha One',2001),(2,'Alpha Two',2002),(3,'Zulu One',2003),(4,'Zulu Two',2004)`)
+	mustExec(t, db, `INSERT INTO identity_review_queue (entity_type, id_lo, id_hi, variation) VALUES
+		('film',1,2,'same-title'),
+		('film',3,4,'shared-external-id')`)
+	pairs, err = r.ListReviewPairs(ctx)
+	if err != nil {
+		t.Fatalf("list review pairs: %v", err)
+	}
+	var films []string
+	for _, p := range pairs {
+		if p.EntityType == model.EnrichEntityFilm {
+			films = append(films, p.Variation)
+		}
+	}
+	if len(films) != 2 || films[0] != "shared-external-id" || films[1] != "same-title" {
+		t.Fatalf("film sort order = %v, want [shared-external-id same-title]", films)
 	}
 }
 
@@ -449,6 +501,9 @@ func TestListReviewPairsDetailScopedToSharedID(t *testing.T) {
 	if got := seen["shared-external-id"]; got != "prov1" {
 		t.Errorf("shared-external-id detail = %q, want the asserting provider", got)
 	}
+	// Since ADR-108 the provider-alias row is not listed at all, so this holds twice over.
+	// No other variation writes `detail` today, which is why the CASE is kept and pinned
+	// here anyway: removing the filter must not start leaking a skipped person name.
 	if got := seen["provider-alias"]; got != "" {
 		t.Errorf("provider-alias detail = %q, want it withheld from this payload", got)
 	}

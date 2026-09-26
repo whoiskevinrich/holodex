@@ -143,10 +143,10 @@ func FlagNearMiss(ctx context.Context, tx *sql.Tx, entityType string, id int64) 
 
 // fuzzyVariations lists the variation values the near-miss detector itself produces
 // (identity_queue.go's seed + review_queue.go's scan-time flag) — the only rows
-// ListReviewPairs' live-revalidation applies to. Any OTHER variation (today just
-// F58/ADR-088's "provider-alias": an EXACT alias conflict between two entities whose
-// actual names are NOT required to resemble each other at all — see ListReviewPairs)
-// is passed through untouched, on purpose: re-validating "do these two entities'
+// ListReviewPairs' live-revalidation applies to. Any OTHER variation (film "same-title",
+// F71's "shared-external-id": pairs whose names are NOT required to resemble each other
+// at all; F58's "provider-alias" is one too, but ListReviewPairs no longer lists it —
+// ADR-108) is passed through untouched, on purpose: re-validating "do these two entities'
 // names/aliases loosely collide" would silently drop a live, resolvable conflict that
 // was never about name similarity in the first place. New variations default to this
 // pass-through side unless explicitly added here.
@@ -164,14 +164,15 @@ var fuzzyVariations = []string{"internal-whitespace", "punctuation"}
 // one ever touched identity_review_queue. Confirmed on the private-media instance: of
 // 207 stored person pairs, only 4 still collided under the live name set — the other
 // 203 were exactly this kind of orphan, most from renames done long after the pair was
-// flagged. A non-fuzzy row (provider-alias) always passes through with match_kind ”.
+// flagged. A non-fuzzy row (film same-title, shared-external-id) always passes through
+// with match_kind ”.
 //
 // For a fuzzy row, match_kind is the strongest live evidence connecting the pair:
 // "canonical" (both sides' canonical names collide — the strong, "same entity typo'd
 // twice" case), "mixed" (one side needs an alias), or "alias" (only an alias on EACH
 // side collides — the weakest signal, since aliases on genuinely distinct entities
 // coincide far more often than canonical names do, especially after a few rounds of
-// merging). Rows sort strongest-first (provider-alias, being about a concrete,
+// merging). Rows sort strongest-first (a non-fuzzy row, being about a concrete,
 // resolvable conflict rather than a fuzziness tier, sorts first of all) so the weak
 // alias-alias matches sink to the bottom of each group instead of mixing in
 // indistinguishably with real duplicates.
@@ -181,6 +182,11 @@ var fuzzyVariations = []string{"internal-whitespace", "punctuation"}
 // carry. Before F71 every non-fuzzy variation shared the -1 slot with no tiebreak, so the
 // strongest signal and the weakest resolvable conflict were ordered by nothing but
 // insertion order (spec P0-8).
+//
+// 'provider-alias' rows are NOT listed (ADR-108, HOLODEX-453). Every one the owner checked
+// was two different people, so the queue stopped showing them. The row is still written:
+// it is the skip record SkippedAliasesForEntity reads for the Aliases panel, and the row
+// queueSharedExternalIDPair upgrades in place, at which point it surfaces here again.
 func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 	fuzzyList := "'" + strings.Join(fuzzyVariations, "','") + "'"
 	var out []ReviewPair
@@ -209,6 +215,7 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 				GROUP BY iq.id_lo, iq.id_hi
 			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
 			WHERE q.entity_type = ?
+			  AND q.variation <> 'provider-alias'
 			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)
 			ORDER BY CASE WHEN q.variation = 'shared-external-id' THEN -2
 			              WHEN q.variation NOT IN (%[8]s) THEN -1

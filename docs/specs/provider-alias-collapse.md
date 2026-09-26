@@ -134,6 +134,15 @@ inserted. Enrich skips that one candidate, records the pair in `identity_review_
 `variation='provider-alias'`, and completes normally. *Enrich completing* is as load-bearing as the
 skip: one awkward AKA must never cost an entity its bio, birthdate, and photo.
 
+> **Amended 2026-09-25 ([ADR-108](../architecture/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md),
+> HOLODEX-453): the pair is recorded, but no longer reviewed.** The row is still written, and it is
+> still the skip record behind `skipped_aliases`. But the Duplicates queue no longer lists
+> `provider-alias` pairs. Of 31 open person pairs, every one was provider-alias; 185 had been
+> dismissed keep-separate; and on the owner's hands-on pass through the compare panel, none turned
+> out to be the same person. A real duplicate that shares a provider **id** still surfaces, as
+> ADR-107's `shared-external-id`. The Aliases panel line now names the holder instead of linking
+> the queue (P0-5a).
+
 **RD5 — Provider input is additive; a name the provider later drops is kept.** *(Card, 2026-09-02.)*
 On re-enrich, an alias the provider no longer lists stays in the spine. Considered and rejected:
 mirroring the provider's current list, so a dropped name disappears. That keeps the store honest to
@@ -205,6 +214,14 @@ identical either way. Not tag (Non-Goal 1).
   enrichment completes (RD4). Acceptance: the entity's other enriched fields all land in the same
   run; the alias is absent; no merge occurred. A candidate colliding with the *same* entity's
   existing alias is a plain no-op with no queue row.
+- **P0-5a** *(HOLODEX-453, ADR-108)*: `GET /owner/duplicates` does not return `provider-alias` pairs,
+  for any entity type. The row stays in `identity_review_queue`, `skipped_aliases` still reports
+  it, and a later `shared-external-id` upgrade of that row **does** surface. Each
+  `skipped_aliases` entry carries `conflict_name`. The Aliases panel line names that holder,
+  linked to its page, in place of the `Review` link to the queue. Acceptance: a provider-alias
+  row is absent from the queue listing and present in the entity's `skipped_aliases` with the
+  holder's current name; upgrading the same pair to `shared-external-id` makes it appear in the
+  queue.
 - **P0-6**: `aliases` stops being a resolved field anywhere (ADR-088 D1). Acceptance: a person's
   `resolved[]` contains no `aliases` entry. **Amended during implementation** — the registry was
   one of four places that had to change, and deleting it alone does not satisfy the acceptance
@@ -302,7 +319,9 @@ identical either way. Not tag (Non-Goal 1).
   suppression write as a side effect; its request and response shapes do not change.
 - **Extended**: `GET /people/{id}` and `GET /studios/{id}` — each alias in `aliases[]` gains
   `source` (empty for owner-authored), and the payload gains `skipped_aliases` for the collision
-  review line. Both are additive; a client ignoring them behaves as it does today.
+  review line. Both are additive; a client ignoring them behaves as it does today. Each
+  `skipped_aliases` entry is `{alias, conflict_id, conflict_name}`; `conflict_name` was added by
+  P0-5a.
 - **Removed**: nothing. `aliases` disappearing from `resolved[]` is a consequence of P0-6, not a
   route change — the person curation endpoints stay for the other merge fields.
 
@@ -315,7 +334,9 @@ span, deliberately **not** `ProvenanceBadge`, which expands to a source breakdow
 meaning for a value with exactly one origin. Chips stay in one case-insensitive list with provider
 and owner names mixed; grouping them would re-introduce the two-tier reading this spec removes. A
 collision review line renders above the add form when `skipped_aliases` is non-empty, inside the
-panel's existing `aria-live` region.
+panel's existing `aria-live` region. Since P0-5a, the line names and links the holding entity
+instead of linking the Duplicates queue
+([handoff](../design/provider-alias-skipped-line-handoff.md)).
 
 ## Success Metrics
 

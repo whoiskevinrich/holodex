@@ -48,6 +48,12 @@
 		return sources.length === 1 ? (sources[0] as string) : '';
 	});
 
+	// The holder's detail page. The SPA's entity routes are the plural noun
+	// (/people, /studios), the same word nounPlural already derives.
+	function holderHref(s: SkippedAlias): string {
+		return `/${nounPlural}/${s.conflict_id}`;
+	}
+
 	let newAlias = $state('');
 	let aliasBusy = $state(false);
 	let aliasError = $state('');
@@ -206,22 +212,42 @@
 		</div>
 
 		{#if isOwner && skippedAliases.length}
-			<!-- Collision review line (F58, ADR-088 D5): a provider name that already belongs
-			     to another entity is skipped, never merged in silently. Square corners — the
-			     theming rule forbids rounding a single-sided border. -->
+			<!-- Collision line (F58, ADR-088 D5): a provider name that already belongs to
+			     another entity is skipped, never merged in silently. It names and links the
+			     holder (ADR-108 D3) — the Duplicates queue no longer lists these pairs, so the
+			     holder's own page (and its merge picker) is where the owner acts. Square
+			     corners — the theming rule forbids rounding a single-sided border. -->
 			<div class="border-l-[3px] border-accent bg-surface-2 p-3" aria-live="polite">
 				<p class="text-sm text-ink">
 					{#if skippedAliases.length === 1}
 						1 name{#if skippedProvider}&nbsp;from <span class="uppercase">{skippedProvider}</span
 							>{/if} was skipped — <span class="font-semibold">{skippedAliases[0].alias}</span>
-						already belongs to another {noun}.
+						already belongs to
+						<a href={holderHref(skippedAliases[0])} class="text-accent hover:underline"
+							>{skippedAliases[0].conflict_name}</a
+						>.
 					{:else}
 						{skippedAliases.length} names{#if skippedProvider}&nbsp;from <span class="uppercase"
 								>{skippedProvider}</span
-							>{/if} were skipped because they belong to other {nounPlural}.
+							>{/if} were skipped because other {nounPlural} already hold them:
 					{/if}
-					<a href="/owner/duplicates" class="ml-1 text-accent hover:underline">Review</a>
 				</p>
+				{#if skippedAliases.length > 1}
+					<!-- One `alias → holder` item per name; each item is an inline-block so the
+					     list wraps between items, and still wraps inside one longer than a line.
+					     The ` ·` separator ends the item before it, so a wrap never starts a line
+					     with it. -->
+					<p class="mt-1 text-sm text-ink">
+						{#each skippedAliases as s, i (`${s.alias}|${s.conflict_id}`)}
+							<span class="inline-block max-w-full"
+								><span class="font-semibold">{s.alias}</span>
+								<span aria-hidden="true">→</span><span class="sr-only">held by</span>
+								<a href={holderHref(s)} class="text-accent hover:underline">{s.conflict_name}</a
+								>{#if i < skippedAliases.length - 1}&nbsp;·{/if}</span
+							>{' '}
+						{/each}
+					</p>
+				{/if}
 			</div>
 		{/if}
 
