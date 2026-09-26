@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 250" font-family="Archivo, system-ui, sans-serif">
+  <title>Studio image halo toggle — option A (HOLODEX-463)</title>
+  <desc>Studio page Images section in the Cinémathèque skin: three slots (logo, icon, poster), each with Replace, Remove and a Halo switch labelled with the palette mode. The logo's halo is on and glows in the plate colour; the icon and poster are off.</desc>
+  <defs>
+    <filter id="halo" x="-20%" y="-40%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="0.5" flood-color="#e9e0d0"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="1.5" flood-color="#e9e0d0"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#e9e0d0"/>
+    </filter>
+  </defs>
+  <rect width="760" height="250" fill="#0c0a09"/>
+  <text x="16" y="28" font-size="11" letter-spacing="0.8" fill="#9b9082">IMAGES</text>
+
+  <!-- Slot 1: logo, halo ON -->
+  <rect x="16" y="40" width="236" height="120" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <g filter="url(#halo)">
+    <rect x="30" y="86" width="56" height="14" fill="#141210"/>
+    <rect x="30" y="86" width="6" height="30" fill="#141210"/>
+    <rect x="44" y="86" width="6" height="30" fill="#141210"/>
+    <rect x="58" y="86" width="6" height="30" fill="#141210"/>
+    <rect x="72" y="86" width="6" height="30" fill="#141210"/>
+  </g>
+  <text x="108" y="72" font-size="14" font-weight="500" fill="#f3ece1">Logo</text>
+  <rect x="108" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="137" y="96" font-size="12" text-anchor="middle" fill="#f3ece1">Replace</text>
+  <rect x="172" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="201" y="96" font-size="12" text-anchor="middle" fill="#9b9082">Remove</text>
+  <rect x="108" y="114" width="20" height="12" rx="6" fill="none" stroke="#e8a33d"/>
+  <circle cx="122" cy="120" r="4" fill="#e8a33d"/>
+  <text x="134" y="124" font-size="12" fill="#e8a33d">Halo</text>
+  <text x="164" y="124" font-size="12" fill="#9b9082">· dark</text>
+
+  <!-- Slot 2: icon, halo OFF -->
+  <rect x="262" y="40" width="236" height="120" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <circle cx="308" cy="100" r="22" fill="#141210"/>
+  <text x="354" y="72" font-size="14" font-weight="500" fill="#f3ece1">Icon</text>
+  <rect x="354" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="383" y="96" font-size="12" text-anchor="middle" fill="#f3ece1">Replace</text>
+  <rect x="418" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="447" y="96" font-size="12" text-anchor="middle" fill="#9b9082">Remove</text>
+  <rect x="354" y="114" width="20" height="12" rx="6" fill="none" stroke="#9b9082"/>
+  <circle cx="360" cy="120" r="4" fill="#9b9082"/>
+  <text x="380" y="124" font-size="12" fill="#9b9082">Halo</text>
+  <text x="410" y="124" font-size="12" fill="#9b9082">· dark</text>
+
+  <!-- Slot 3: poster, halo OFF -->
+  <rect x="508" y="40" width="236" height="120" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="524" y="52" width="64" height="96" fill="#3a2f26"/>
+  <rect x="530" y="118" width="52" height="6" fill="#e8a33d"/>
+  <text x="600" y="72" font-size="14" font-weight="500" fill="#f3ece1">Poster</text>
+  <rect x="600" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="629" y="96" font-size="12" text-anchor="middle" fill="#f3ece1">Replace</text>
+  <rect x="664" y="82" width="58" height="20" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="693" y="96" font-size="12" text-anchor="middle" fill="#9b9082">Remove</text>
+  <rect x="600" y="114" width="20" height="12" rx="6" fill="none" stroke="#9b9082"/>
+  <circle cx="606" cy="120" r="4" fill="#9b9082"/>
+  <text x="626" y="124" font-size="12" fill="#9b9082">Halo</text>
+  <text x="656" y="124" font-size="12" fill="#9b9082">· dark</text>
+
+  <text x="16" y="190" font-size="12" fill="#9b9082">One switch per filled slot, owner only. It saves for the palette being viewed (the trailing word);</text>
+  <text x="16" y="208" font-size="12" fill="#9b9082">the other palette's choice is untouched. Default off. On a light custom palette the word reads</text>
+  <text x="16" y="226" font-size="12" fill="#9b9082">"· light" and the halo glows black.</text>
+</svg>

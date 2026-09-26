@@ -213,6 +213,7 @@ empty slot (no placeholder route — the SPA already owns the empty-state render
 GET    /api/v1/studios/{id}/images/{role}        serve (public; role ∈ icon|logo|poster; 404 if empty)
 POST   /api/v1/studios/{id}/images/{role}         upload/replace (requireOwner; multipart)
 DELETE /api/v1/studios/{id}/images/{role}         remove (requireOwner)
+PUT    /api/v1/studios/{id}/images/{role}/halo    halo on/off for one palette mode (requireOwner; HOLODEX-463)
 ```
 
 Removed: `GET /api/v1/studios/{id}/logo`, and the `logo` canonical field from
@@ -229,6 +230,34 @@ Removed: `GET /api/v1/studios/{id}/logo`, and the `logo` canonical field from
   (`web/src/lib/components/person/`), but without the gallery/viewer-modal surface Person
   needs and Studio doesn't. Owner-gated controls; visitors see read-only images.
 - Tokens only; QA Cinémathèque / Broadcast / Brutalist.
+
+## Image halo (HOLODEX-463, ADR-109) — amendment 2026-09-26
+
+On studio images, the `.logo-halo` glow (HOLODEX-432/437) is no longer always on. It becomes the
+owner's choice.
+
+- **H1 — Off by default.** No studio image has a halo until the owner turns it on, so existing
+  studios lose the halo on upgrade.
+- **H2 — Per studio, per role.** Logo, icon and poster each have their own choice.
+- **H3 — Per palette mode.** The choice is saved separately for a **dark** palette and a **light**
+  one. Holodex has no light mode. A palette counts as light when it is a custom palette (ADR-102)
+  whose `--bg` has relative luminance above 0.179. Every shipped skin is dark.
+- **H4 — Inverted on light.** On a light palette the halo glows black. On a dark palette it glows
+  in `--logo-plate`, as before.
+- **H5 — Owner control.** Each filled, contained slot on `/studios/{id}` shows the owner one
+  `Halo · <mode>` switch. It saves for the palette being viewed and leaves the other mode's choice
+  as it was. Visitors see the result but never the switch.
+- **H6 — Follows the image everywhere.** The choice applies on:
+  - the Studio page slots;
+  - the /studios list row and the Film/Media studio link card (`StudioLogoBox` uses the choice
+    for whichever role it shows);
+  - the completeness queue icon.
+- **H7 — Survives a replace.** The choice belongs to the studio + role, not to the stored image,
+  so re-uploading or re-enriching a role keeps it. It is removed with the studio.
+- **Out of scope:**
+  - film images (the film poster keeps its always-on halo, now also inverted on a light palette);
+  - person images;
+  - a real light mode.
 
 ## Success Metrics
 

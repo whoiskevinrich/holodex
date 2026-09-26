@@ -13,6 +13,7 @@
 	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
 	import { monogram } from '$lib/format';
 	import { toMessage } from '$lib/format';
+	import { haloClass } from '$lib/halo';
 	import { api, ENRICH_ENTITY_BASE } from '$lib/api';
 	import type { CompletenessQueueRow } from '$lib/types';
 
@@ -98,8 +99,8 @@
 				: 'bg-logo-plate'}"
 		>
 			{#if row.icon_url}
-				<!-- Bare + halo, plate only under the monogram (HOLODEX-437). -->
-				<img src={row.icon_url} alt="" class="logo-halo h-full w-full object-contain p-0.5" />
+				<!-- Bare, plate only under the monogram (HOLODEX-437); the owner's icon halo (HOLODEX-463). -->
+				<img src={row.icon_url} alt="" class="{haloClass(row.icon_halo)} h-full w-full object-contain p-0.5" />
 			{:else}
 				<span class="font-display text-sm font-semibold text-logo-plate-ink" aria-hidden="true"
 					>{monogram(row.name)}</span

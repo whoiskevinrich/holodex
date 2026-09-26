@@ -216,6 +216,7 @@ multipart field named `image`.
 - 11.10 `[agent]` Viewport 375px: every row narrower than the viewport, boxes 48–192px; one grid column. ✅ (rows 327px; the toolbar overflow above the grid is pre-existing — see §10)
 - 11.11 `[agent]` Repeat 11.3, 11.6, 11.7 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: logo box transparent in every skin; plate `background-color` = `#e9e0d0` / `#e4ebf8` / `#f0f0f0`; plate `border-radius` 2px / 0 / 0. ✅
 - 11.11b `[agent]` Halo: the `<img>` in every logo/icon row has class `logo-halo` and computed `filter` = `drop-shadow(<plate> 0px 0px 1px) drop-shadow(<plate> 0px 0px 3px) drop-shadow(<plate> 0px 0px 6px)` where `<plate>` is that skin's `--logo-plate` (`rgb(233, 224, 208)` / `rgb(228, 235, 248)` / `rgb(240, 240, 240)`); the monogram `<span>` has no filter. ✅ 2026-09-20, all three skins
+  - **Superseded 2026-09-26 (HOLODEX-463, [ADR-109](../architecture/ADR-109-per-studio-image-halo.md)):** the halo is now the owner's per-role, per-palette choice, off by default. The `<img>` carries `halo-dark`/`halo-light` for the saved modes, not `logo-halo`. See [studio-image-halo-handoff.md](studio-image-halo-handoff.md) §4.
 - 11.12 `[agent]` Sort by name, click the letter of a wordmark studio in the jump-nav: the row scrolls into view (its name is in `alt`/`title`, not text).
 - 11.13 `[agent]` `/media/{id}` and `/films/{id}` with a logo-bearing studio: `StudioLinkCard` renders exactly as on `main` (same box width, caption rule, alt/title) — the extraction changed no behaviour.
 

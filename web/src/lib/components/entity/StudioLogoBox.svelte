@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { monogram } from '$lib/format';
+	import { haloClass } from '$lib/halo';
 	import type { Studio } from '$lib/types';
 	import { imageAlt, isWordmark, type Wordmark } from './studioLogo';
 
 	// The studio image box shared by StudioLinkCard (Film/Media detail) and the /studios list
 	// rows (HOLODEX-432): `logo_url` → `icon_url` → monogram. Any image draws bare — no plate
-	// (HOLODEX-411 for logos, HOLODEX-437 for icons) — wearing the `.logo-halo` instead, in a
+	// (HOLODEX-411 for logos, HOLODEX-437 for icons) — wearing the owner's per-role, per-palette
+	// halo instead (HOLODEX-463, ADR-109: default off; the shown role's choice), in a
 	// box that follows its own aspect (fixed 48px height, width clamped to [48, 192]px, never
 	// a cover-crop; see entity/CLAUDE.md "Frame follows source aspect"). The `p-1` inset is
 	// transparent room for the halo inside the `overflow-hidden` box. Only the monogram keeps
@@ -22,6 +24,7 @@
 
 	const image = $derived(studio.logo_url || studio.icon_url);
 	const bare = $derived(Boolean(studio.logo_url));
+	const halo = $derived(haloClass(studio.image_halo?.[bare ? 'logo' : 'icon']));
 
 	let img = $state<HTMLImageElement | undefined>();
 
@@ -51,7 +54,7 @@
 			loading={eager ? 'eager' : 'lazy'}
 			src={image}
 			alt={imageAlt(studio.name, bare, wordmark)}
-			class="logo-halo h-full w-auto max-w-full object-contain p-1"
+			class="{halo} h-full w-auto max-w-full object-contain p-1"
 			onload={decide}
 			onerror={() => (wordmark = false)}
 		/>
