@@ -34,10 +34,25 @@ export function extractKeys(text, prefix = "HOLODEX") {
 
 // Pure: pick the transition whose DESTINATION status matches (case-insensitive) —
 // robust to transition naming like "Done" vs "Mark as Done".
-export function selectTransitionId(transitions, targetStatus) {
+export function selectTransition(transitions, targetStatus) {
   const target = targetStatus.toLowerCase();
-  const t = (transitions ?? []).find((tr) => tr.to?.name?.toLowerCase() === target);
-  return t?.id ?? null;
+  return (transitions ?? []).find((tr) => tr.to?.name?.toLowerCase() === target) ?? null;
+}
+
+export function selectTransitionId(transitions, targetStatus) {
+  return selectTransition(transitions, targetStatus)?.id ?? null;
+}
+
+// Jira's fixed statusCategory order. A category not listed here (e.g. the
+// `undefined` one Jira uses for unmapped statuses) is unranked.
+const CATEGORY_RANK = { new: 0, indeterminate: 1, done: 2 };
+
+// Pure: true when moving from `fromCategory` to `toCategory` goes to an earlier
+// statusCategory. Unranked on either side → not backwards (let it through).
+export function isBackwards(fromCategory, toCategory) {
+  const from = CATEGORY_RANK[fromCategory];
+  const to = CATEGORY_RANK[toCategory];
+  return from !== undefined && to !== undefined && to < from;
 }
 
 export function makeJiraClient({ baseUrl, email, token }) {
@@ -58,14 +73,17 @@ export function makeJiraClient({ baseUrl, email, token }) {
       return {
         status: json.fields?.status?.name ?? null,
         issueType: json.fields?.issuetype?.name ?? null,
+        category: json.fields?.status?.statusCategory?.key ?? null,
       };
     },
-    async findTransitionId(key, targetStatus) {
+    // The transition reaching `targetStatus` as { id, toCategory }, or null.
+    async findTransition(key, targetStatus) {
       const res = await fetch(`${base}/rest/api/3/issue/${key}/transitions`, { headers });
       if (!res.ok)
         throw new Error(`GET transitions for ${key} failed: ${res.status} ${res.statusText}`);
       const json = await res.json();
-      return selectTransitionId(json.transitions, targetStatus);
+      const t = selectTransition(json.transitions, targetStatus);
+      return t ? { id: t.id, toCategory: t.to?.statusCategory?.key ?? null } : null;
     },
     async transition(key, transitionId) {
       const res = await fetch(`${base}/rest/api/3/issue/${key}/transitions`, {
@@ -123,12 +141,23 @@ async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOn
   if (cur.status?.toLowerCase() === targetStatus.toLowerCase()) {
     return log.info(`${key}: already "${targetStatus}" — no-op`);
   }
-  const id = await client.findTransitionId(key, targetStatus);
-  if (!id) {
+  const tr = await client.findTransition(key, targetStatus);
+  if (!tr) {
     return log.warn(
       `${key}: no transition to "${targetStatus}" available from "${cur.status}" — skipping`,
     );
   }
+  // Never move an issue to an earlier statusCategory (HOLODEX-462). A closeout PR on a
+  // keyed branch, marked ready after the issue was already Done, dragged HOLODEX-358
+  // Done → In Review; its docs-only merge then skipped Done, stranding it. Sideways
+  // moves (Done → Released, In Progress → In Review) stay allowed.
+  if (isBackwards(cur.category, tr.toCategory)) {
+    return log.warn(
+      `${key}: refusing "${cur.status}" → "${targetStatus}" — CI never moves an issue ` +
+        `backwards (${cur.category} → ${tr.toCategory}; see docs/reference/jira-pipeline.md)`,
+    );
+  }
+  const { id } = tr;
   if (dryRun) {
     return log.info(
       `${key}: [dry-run] would transition "${cur.status}" → "${targetStatus}" (id ${id})`,
