@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"holodex/internal/model"
@@ -79,4 +80,107 @@ func TestDisplayNames(t *testing.T) {
 	if got, err := r.DisplayNames(ctx, model.EnrichEntityFilm, "title"); err != nil || got[fid] != "Dune: Part One" {
 		t.Errorf("film under title = %v (%v), want the provider title", got, err)
 	}
+}
+
+// TestListPeopleDisplayNames pins HOLODEX-461 on the People index: each row carries
+// its Displayed As spelling, and the name sort orders by that spelling (case-folded,
+// like the SQL NOCASE it replaces) so the A–Z bar lands where the labels say.
+func TestListPeopleDisplayNames(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	for _, n := range []string{"Alpha", "bravo", "Charlie"} {
+		vid, err := r.UpsertVideo(ctx, sampleVideo("/m/"+n+".mkv", n, []string{n}, nil), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		linkPeople(t, r, vid, n)
+	}
+	alpha, _, err := r.PersonIDByName(ctx, "Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, alpha, "name", "manual", "zulu"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := r.ListPeople(ctx, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []string
+	for _, p := range got {
+		label := p.Name
+		if p.DisplayName != "" {
+			label = p.DisplayName
+		}
+		order = append(order, label)
+	}
+	if want := []string{"bravo", "Charlie", "zulu"}; !slices.Equal(order, want) {
+		t.Errorf("ListPeople labels = %v, want %v", order, want)
+	}
+	if got[2].Name != "Alpha" {
+		t.Errorf("decided row name = %q, want canonical Alpha", got[2].Name)
+	}
+
+	// Count sort: every row ties on one video, so the tie-break is the shown spelling too.
+	byCount, err := r.ListPeople(ctx, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var countOrder []string
+	for _, p := range byCount {
+		countOrder = append(countOrder, p.Name)
+	}
+	if want := []string{"bravo", "Charlie", "Alpha"}; !slices.Equal(countOrder, want) {
+		t.Errorf("ListPeople(count) canonical order = %v, want %v (Alpha shows as zulu)", countOrder, want)
+	}
+}
+
+// TestCastDisplayNames pins HOLODEX-461: both Cast grids (the video detail and a
+// film's inherited cast) carry the Displayed As spelling, while `name` stays
+// canonical — it is what the grid's detach sends back for linking.
+func TestCastDisplayNames(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	vid, pid := seedVideoAndPerson(t, r)
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, pid, "name", "manual", "Miyazaki-sensei"); err != nil {
+		t.Fatal(err)
+	}
+
+	check := func(surface string, people []model.Person) {
+		t.Helper()
+		if len(people) != 1 {
+			t.Fatalf("%s people = %v, want one", surface, people)
+		}
+		if p := people[0]; p.DisplayName != "Miyazaki-sensei" || p.Name != "Hayao Miyazaki" {
+			t.Errorf("%s person = {name %q, display %q}, want canonical name + decided display", surface, p.Name, p.DisplayName)
+		}
+	}
+
+	v, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("GetVideo", v.People)
+
+	rel, err := r.Related(ctx, vid, 5, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel.Person == nil || rel.Person.DisplayName != "Miyazaki-sensei" || rel.Person.Name != "Hayao Miyazaki" {
+		t.Errorf("Related person shelf = %+v, want canonical name + decided display", rel.Person)
+	}
+
+	fid, err := r.CreateFilm(ctx, "Spirited Away", 2001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, fid, vid, nil, true); err != nil {
+		t.Fatal(err)
+	}
+	cast, err := r.FilmCast(ctx, fid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("FilmCast", cast)
 }

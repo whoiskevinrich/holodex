@@ -94,9 +94,10 @@ type Person struct {
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
 	// DisplayName is the spelling a standing decision on `name` selects (F60 RD9,
-	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated only
-	// on search results (the row must show what matched); omitted elsewhere, where
-	// the detail page reads the resolved `name` field instead. Name stays canonical
+	// HOLODEX-378) — a provider's spelling or the owner's custom one. Populated on
+	// search results (the row must show what matched), the people list, and the
+	// video-detail and film Cast grids (HOLODEX-461); omitted elsewhere, and the person detail page
+	// reads the resolved `name` field instead. Name stays canonical
 	// on every payload: pickers send it back for linking, and it is the
 	// identity / alias / writeback truth.
 	DisplayName string `json:"display_name,omitempty"`

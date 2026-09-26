@@ -81,7 +81,7 @@
 			{#each people as p (personKey(p))}
 				<PosterTile
 					href={`/people/${p.id}`}
-					name={p.name}
+					name={p.display_name ?? p.name}
 					personId={p.id}
 					onRemove={editable ? () => onRemove?.(p) : undefined}
 					busy={busyKey === personKey(p)}
@@ -90,7 +90,7 @@
 						<div class="rounded-theme transition group-hover:opacity-90">
 							<!-- poster_version is the ?v= cache-buster: the image route is served
 							     immutable, so a versionless URL would pin the first poster forever. -->
-							<PersonPoster personId={p.id} name={p.name} version={p.poster_version} />
+							<PersonPoster personId={p.id} name={p.display_name ?? p.name} version={p.poster_version} />
 						</div>
 					{/snippet}
 				</PosterTile>

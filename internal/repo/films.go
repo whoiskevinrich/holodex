@@ -836,6 +836,9 @@ func (r *Repo) FilmCast(ctx context.Context, filmID int64) ([]model.Person, erro
 	if err := r.attachPersonImageVersions(ctx, cast); err != nil {
 		return nil, err
 	}
+	if err := r.attachPersonDisplayNames(ctx, cast); err != nil {
+		return nil, err
+	}
 	return cast, nil
 }
 

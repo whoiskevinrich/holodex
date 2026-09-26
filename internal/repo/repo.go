@@ -679,6 +679,9 @@ func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.Ex
 	if err := r.attachPersonImageVersions(ctx, one[0].People); err != nil {
 		return nil, nil, err
 	}
+	if err := r.attachPersonDisplayNames(ctx, one[0].People); err != nil {
+		return nil, nil, err
+	}
 	extra, err := r.videoMetadata(ctx, id)
 	if err != nil {
 		return nil, nil, err
@@ -1088,16 +1091,36 @@ func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
 }
 
 func (f NamedListFilter) orderBy(entityType, idCol string) string {
+	name := "e.name COLLATE NOCASE ASC"
+	if entityType == model.EnrichEntityPerson {
+		// A person row is labelled by its Displayed As spelling (HOLODEX-461), so the
+		// name order and every tie-break follow that label.
+		name = personLabelExpr(idCol) + " COLLATE NOCASE ASC"
+	}
 	switch f.Sort {
 	case "count":
-		return "cnt DESC, e.name COLLATE NOCASE ASC"
+		return "cnt DESC, " + name
 	case SortCompletenessAsc:
-		return completenessOrder(entityType, idCol, "ASC") + ", e.name COLLATE NOCASE ASC"
+		return completenessOrder(entityType, idCol, "ASC") + ", " + name
 	case SortCompletenessDesc:
-		return completenessOrder(entityType, idCol, "DESC") + ", e.name COLLATE NOCASE ASC"
+		return completenessOrder(entityType, idCol, "DESC") + ", " + name
 	default:
-		return "e.name COLLATE NOCASE ASC"
+		return name
 	}
+}
+
+// personLabelExpr is the SQL for a person's shown spelling: the one DisplayNames
+// selects for a standing name decision, else the canonical e.name. The constants
+// interpolated are trusted fieldsource values, never request input.
+func personLabelExpr(idCol string) string {
+	return fmt.Sprintf(`COALESCE(NULLIF(TRIM((
+		SELECT CASE WHEN d.source = '%s' THEN d.manual_value ELSE COALESCE(en.value, '') END
+		FROM field_source_decisions d
+		LEFT JOIN entity_enrichment en
+		       ON en.entity_type = d.entity_type AND en.entity_id = d.entity_id
+		      AND en.field_key = 'name' AND d.source = '%s' || en.provider
+		WHERE d.entity_type = '%s' AND d.entity_id = %s AND d.field_key = 'name' AND d.source != '%s')), ''), e.name)`,
+		fieldsource.Manual, fieldsource.ForProvider(""), model.EnrichEntityPerson, idCol, fieldsource.File)
 }
 
 // completenessOrder is the composite completeness sort (ADR-099 D2) over the
@@ -1153,6 +1176,9 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 		return nil, err
 	}
 	if err := r.attachPersonImageVersions(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.attachPersonDisplayNames(ctx, out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -1214,6 +1240,23 @@ func (r *Repo) attachPersonImageVersions(ctx context.Context, people []model.Per
 		roles := versions[people[i].ID]
 		people[i].HeadshotVersion = roles[model.PersonImageHeadshot]
 		people[i].PosterVersion = roles[model.PersonImagePoster]
+	}
+	return nil
+}
+
+// attachPersonDisplayNames fills DisplayName on a Cast grid's people (HOLODEX-461):
+// outside the person's own page a person is labelled by their Displayed As spelling,
+// never the canonical name (which stays in Name for linking).
+func (r *Repo) attachPersonDisplayNames(ctx context.Context, people []model.Person) error {
+	if len(people) == 0 {
+		return nil
+	}
+	disp, err := r.DisplayNames(ctx, model.EnrichEntityPerson, "name")
+	if err != nil {
+		return err
+	}
+	for i := range people {
+		people[i].DisplayName = disp[people[i].ID]
 	}
 	return nil
 }
@@ -1394,9 +1437,12 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 // N random sibling videos, excluding the source item. Items is always non-nil (an
 // empty shelf is valid — the entity exists on the item but has no other siblings).
 type RelatedShelf struct {
-	ID    int64         `json:"id"`
-	Name  string        `json:"name"`
-	Items []model.Video `json:"items"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// DisplayName is the person shelf's decided name spelling (HOLODEX-461); empty
+	// for the tag shelf and for an undecided person.
+	DisplayName string        `json:"display_name,omitempty"`
+	Items       []model.Video `json:"items"`
 }
 
 // RelatedMedia carries the person- and tag-keyed shelves for a media item. Either
@@ -1443,6 +1489,14 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int, hideFullFi
 		         p.id ASC
 		LIMIT 1`); err != nil {
 		return nil, err
+	}
+	// The shelf's "More with …" title is the person's Displayed As spelling (HOLODEX-461).
+	if out.Person != nil {
+		disp, err := r.DisplayNames(ctx, model.EnrichEntityPerson, "name")
+		if err != nil {
+			return nil, err
+		}
+		out.Person.DisplayName = disp[out.Person.ID]
 	}
 
 	// Tag shelf — the item's most *distinctive* tag: maximize c·(1 − c/N), where c is

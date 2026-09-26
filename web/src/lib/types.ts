@@ -81,8 +81,9 @@ export interface Person {
 	name: string;
 	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
 	completeness?: CompletenessSummary;
-	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
-	// `name` stays canonical everywhere — it is what pickers send back for linking.
+	// The spelling a standing decision on `name` selects (F60 RD9); search results, the people
+	// list, and the video/film Cast grids (HOLODEX-461). `name` stays canonical everywhere — it is what
+	// pickers send back for linking.
 	display_name?: string;
 	video_count?: number;
 	// Headshot image id on the people-list read — the avatar's ?v= cache-buster so the
@@ -531,6 +532,7 @@ export interface SearchResponse {
 export interface RelatedShelf {
 	id: number;
 	name: string;
+	display_name?: string; // person shelf only: the decided name spelling (HOLODEX-461)
 	items: Video[];
 }
 
