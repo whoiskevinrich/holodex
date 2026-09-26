@@ -213,6 +213,9 @@ export interface Studio {
 	icon_url?: string;
 	logo_url?: string;
 	poster_url?: string;
+	// The owner's halo choice per image role (HOLODEX-463, ADR-109): the palette modes the
+	// halo is on for. An absent role or mode is off — the default.
+	image_halo?: Partial<Record<StudioImageRole, HaloMode[]>>;
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
 	// studio-detail read; omitted (undefined) elsewhere.
 	aliases?: PersonAlias[];
@@ -220,6 +223,9 @@ export interface Studio {
 
 // StudioImageRole is the enum of editable studio image slots (F51, ADR-079).
 export type StudioImageRole = "icon" | "logo" | "poster";
+
+// HaloMode is the palette brightness a halo choice is saved for (HOLODEX-463, ADR-109).
+export type HaloMode = "dark" | "light";
 
 export interface ExtraMetadata {
 	source_key: string;
@@ -1222,6 +1228,7 @@ export interface CompletenessQueueRow {
 	thumbnail_url?: string;
 	headshot_version?: number;
 	icon_url?: string;
+	icon_halo?: HaloMode[]; // studio rows: the icon's halo modes (HOLODEX-463)
 	provider?: string;
 }
 

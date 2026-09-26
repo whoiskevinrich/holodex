@@ -24,6 +24,9 @@ type QueueRow struct {
 	ThumbnailURL    string `json:"thumbnail_url,omitempty"`    // video
 	HeadshotVersion int64  `json:"headshot_version,omitempty"` // person
 	IconURL         string `json:"icon_url,omitempty"`         // studio
+	// IconHalo is the palette modes the owner turned the icon's halo on for
+	// (HOLODEX-463, ADR-109); empty = off. Studio rows only.
+	IconHalo []string `json:"icon_halo,omitempty"`
 	// Provider is the candidate's namespace (e.g. "tmdb") — set only on
 	// candidate-ready rows, mirroring FacetScore.Provider.
 	Provider string `json:"provider,omitempty"`
@@ -145,6 +148,7 @@ func (h *Handlers) remediationQueue(ctx context.Context) ([]FacetGroup, error) {
 				EntityID:   sc.Studio.ID,
 				Name:       sc.Studio.Name,
 				IconURL:    sc.Studio.IconURL,
+				IconHalo:   sc.Studio.ImageHalo[model.StudioImageIcon],
 			})
 		}
 	}

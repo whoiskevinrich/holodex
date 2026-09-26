@@ -50,6 +50,7 @@ import type {
 	StudioDetailResponse,
 	SweepKind,
 	StudioImageRole,
+	HaloMode,
 	FilmImageRole,
 	Tag,
 	TrashEntry,
@@ -527,6 +528,10 @@ export const api = {
 
 	deleteStudioImage: (id: number, role: StudioImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
+
+	// Owner's per-role halo choice for one palette mode (HOLODEX-463, ADR-109).
+	setStudioImageHalo: (id: number, role: StudioImageRole, mode: HaloMode, on: boolean) =>
+		sendAuthed<Record<string, never>>('PUT', `/studios/${id}/images/${role}/halo`, { mode, on }),
 
 	// Film entities (F56, ADR-085): the first entity whose video membership is an owner
 	// assertion, not a derived link — see docs/architecture/ADR-085-films-entity.md.
