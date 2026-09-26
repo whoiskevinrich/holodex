@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-358
 status: done
+profile: ui
 depends-on: [HOLODEX-356]
 release_note: Fixed a long field value scrolling the media page sideways on a phone.
 ---
@@ -31,15 +32,11 @@ closing it would move the desktop header.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: a defect fix, no requirement or scope change
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision
 - [x] design `design-handoff` — HOLODEX-356's handoff and mockup corrected to match the shipped
   layout; no new decision was taken
-- [~] backend — n/a: frontend-only
 - [x] frontend — `wrap-anywhere` on `SourceBadge`'s value span
 - [x] testing `testing-strategy` — no new assertion is possible yet: the harness runs at 768 and
   1440, and this only reproduces below ~440px. Verified by hand instead; the missing rung is item 1
-- [~] security `security-review` — n/a: no auth, access or infrastructure surface
 
 ## Up next — ordered (position = priority)
 

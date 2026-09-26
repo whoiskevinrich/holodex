@@ -155,9 +155,9 @@ Design notes:
   a worklog closeout PR on a keyed branch (`chore/holodex-358-…`; key matching is
   case-insensitive), marked ready after the issue was already `Done`, moved HOLODEX-358
   `Done` → `In Review`, and then its docs-only merge skipped `Done`, stranding it with
-  nothing left to review. There is no force flag. The rule covers every `syncKeys` caller,
-  including `jira-transition.mjs`'s In Progress: starting work on a `Done` issue's key leaves
-  it `Done`. To reopen an issue, move it by hand. Symptom if this regresses: a `Done` issue
+  nothing left to review. There is no force flag. The rule covers every `syncKeys` caller, and
+  Flightplan's SessionStart In Progress transition (flightplan#31) applies the same rule
+  in-process: starting work on a `Done` issue's key leaves it `Done`. To reopen an issue, move it by hand. Symptom if this regresses: a `Done` issue
   goes back to `In Review` or `In Progress` when a follow-up PR on its key is marked ready or opened.
 - **Security** — the PR workflow uses plain `pull_request` (**never** `pull_request_target`),
   so secrets are withheld from fork PRs (they no-op) and untrusted branch names can't reach a

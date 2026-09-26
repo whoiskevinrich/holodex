@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-212                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: infra
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fixed a security gap where provider-sourced cover-art downloads and image_url fields could bypass the metadata-provider host allowlist.
 ---
@@ -22,11 +23,8 @@ between the resolver-side and API-side gates.
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [~] spec `write-spec` — not applicable: no requirement/scope change, closes a gap in an existing decision (ADR-039)
 - [~] architecture `architecture` — not applicable: enforces ADR-039/056 as already decided, no new architectural decision
-- [~] design `design-handoff` — not applicable: no operator-facing screen/flow change (image_url degrades to existing text display, no new UI)
 - [x] backend — `internal/writeback/writeback.go`, `internal/enrich/service.go`, `internal/resolver/resolver.go`, `internal/api/field_promotions.go`, `internal/api/auto_register.go`, `internal/api/handlers.go`, `cmd/holodex/main.go`
-- [~] frontend — not applicable: no `web/**` changes; SPA already renders `display: "text"` vs `image_url` correctly
 - [x] testing `testing-strategy` — `internal/enrich/fetch_allowed_image_test.go`, `internal/resolver/image_gate_test.go`, `internal/writeback/image_fetch_test.go`, `internal/api/field_promotions_internal_test.go`
 - [x] security `security-review` — clean run, 0 findings ≥8/10 confidence; fail-closed behavior verified end-to-end; `/code-review --fix` found + closed a follow-on merge-field gap (see session log)
 

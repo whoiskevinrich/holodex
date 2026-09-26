@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-328                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Improvement — the media detail page's Films and People sections now collapse to a plain "add" link when empty, use matching poster sizes when both are filled, and show a film's scene number as an editable pill on the poster, matching the film page's scenes grid.
 ---
@@ -30,14 +31,11 @@ and affordance only; no field, namespace, or decision-model seam is touched.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — not applicable; no behavior or requirement change, layout and affordance only
-- [~] architecture `architecture` — not applicable; no data-model or seam change
 - [x] design `design-handoff` — `docs/design/media-detail-films-people-handoff.md` + `media-detail-films-people-mockup.svg`
 - [x] frontend
 - [x] testing `testing-strategy` — `filmsPeopleLayout` extracted as a pure function so the
   four-state matrix is unit-testable (this repo has no component-test harness), 10 cases covering
   all four link states × owner/visitor plus films_enabled off
-- [~] security `security-review` — not applicable; no auth, access, or infrastructure change
 - [x] three-skin QA — Cinémathèque / Broadcast / Brutalist, owner **and** visitor; found and fixed
   a real AA contrast failure on the dim pill (see the session log)
 

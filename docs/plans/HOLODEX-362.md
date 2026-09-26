@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-362
 status: in-review
+profile: ui
 release_note: Permanent delete now sits behind a menu on the media page, so it can no longer be hit by overshooting Move to Trash.
 ---
 
@@ -37,21 +38,14 @@ with no form would have to invent a fake id to use it.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: no new capability or changed requirement. Both delete paths already
-  existed with the same semantics; this changes how one of them is reached
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision. ADR-037's
-  soft-delete/purge model is untouched
 - [x] design `design-handoff` — [manage-split-button-handoff.md](../design/manage-split-button-handoff.md)
   + committed [SVG mockup](../design/manage-split-button-mockup.svg) (before/after, all three skins,
   behaviour panel). Revises [delete-media-handoff.md](../design/delete-media-handoff.md) §1
-- [~] backend — n/a: frontend-only. Both endpoints and both confirm dialogs are unchanged
 - [x] frontend — split button in `web/src/routes/media/[id]/+page.svelte` §Manage
 - [x] testing `testing-strategy` — the Delete/Trash (F24) row in `docs/testing-strategy.md` now
   carries the split-button behaviours and the measured token values. **No geometry assertion**, and
   that is the documented call rather than a gap: §12.2 excludes colour, focus and contrast from that
   harness, so §5's computed-token method is the right instrument here and is what ran
-- [~] security `security-review` — n/a: no auth, access or infrastructure change. The `isOwner`
-  gate on the Manage block is byte-identical
 
 ## Up next — ordered (position = priority)
 

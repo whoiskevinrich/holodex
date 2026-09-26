@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-289                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fixed a bug where the video detail page hid the Studio section entirely (with no way to add one) when no studio was linked yet.
 ---
@@ -19,12 +20,9 @@ Owners can always add a studio to a video from the Media detail page, even when 
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [~] spec `write-spec` → `docs/specs/**` — not applicable: bug fix, no requirement change
-- [~] architecture `architecture` → `docs/architecture/ADR-*` — not applicable: no architectural decision changed
 - [x] design — decisions (trailing pencil, always-visible modifier, empty-state CTA) documented as an addendum in `docs/design/studio-picker-handoff.md` (proportionate to scope; full `/design-handoff` judged unnecessary for polish to one existing control)
 - [x] frontend — `web/src/lib/components/entity/StudioPicker.svelte`, `web/src/routes/media/[id]/+page.svelte`
 - [x] testing — verified live against local dev servers (repro, fix, search/create, persistence, visitor-view no-regression, all 3 skins); `npm run check` clean (0 errors, only pre-existing unrelated warnings)
-- [~] security `security-review` — not applicable: no auth/access/infrastructure change
 
 ## Up next — ordered (position = priority)
 

@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-102                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: A video's TMDB credits now create real Person records — with linked roles and downloaded headshots — for its cast and crew, not just flat actor/director text.
 ---

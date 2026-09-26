@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-271
 status: in-review
+profile: full
 depends-on: [HOLODEX-270]
 release_note: Reassigning a video's studio now goes through a single popover — pick a known candidate, search the full studio library, or create one inline — and it's protected by the same duplicate-video safeguard as renaming a title.
 ---

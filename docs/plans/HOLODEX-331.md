@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-331                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Improvement — detail pages now use the full width of large displays, placing tags, films, people and metadata in a rail beside the video instead of stacked below it, and the media grid picks its column count from the available width so it works on both ultrawide monitors and phones.
 ---
@@ -42,12 +43,6 @@ field-grid change is what makes the width change worth anything.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — **no longer required**. It existed solely to document the stored-preference
-  remap the target-width model would have forced; that model was rejected (handoff §2e), so
-  `holodex:media-density` keeps its existing column-count meaning and no migration happens
-- [~] architecture `architecture` — not applicable as judged; layout convention plus a
-  component-local storage change, no data-model or seam change. Revisit if the stage cap is meant
-  to be a standing rule for all future pages rather than a per-page choice (handoff §9.2)
 - [x] design `design-handoff` — `docs/design/responsive-page-width-handoff.md` +
   `responsive-page-width-mockup.svg` + `responsive-page-width-ladder.svg` +
   `responsive-page-width-qa-checklist.md`
@@ -57,8 +52,6 @@ field-grid change is what makes the width change worth anything.
   card-width bands; mutation-checked) and `stageGrid.test.ts` (track maths, stage-hold threshold).
   The QA §3/§4 *geometry* assertions were verified in-session against a running app but are not
   automated — this repo has no component-test harness, so they stay a manual checklist
-- [~] security `security-review` — not applicable; presentation only, no auth, access, or
-  infrastructure surface
 - [~] three-skin QA — done for the density ceiling at 1536 and 1920. Still needed across
   412 / 768 / 1024 / 1280 / 2560 / 3840 / 5120, reloading (not resizing) at each width
 

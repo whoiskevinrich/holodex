@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-259                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Tag pages now show and let you edit a tag's parent, children, and category memberships in place.
 ---

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-384
 status: in-review
+profile: ui
 depends-on: []
 release_note: The film posters below a person, studio or tag's videos are now the same height as the video cards above them and lift forward on hover, the way the person's headshot does.
 ---
@@ -23,10 +24,7 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
 
 <!-- States: [ ] not started · [/] in progress · [~] deferred · [x] done. ONLY /handoff sets [x]. -->
 
-- [~] spec `write-spec` — n/a: no behaviour or data-model change; pure presentation of an existing row
-- [~] architecture `architecture` — n/a
 - [x] design `design-handoff` — `docs/design/entity-films-row-handoff.md` + committed SVG mockup
-- [~] backend — n/a
 - [x] frontend — `FilmsRow.svelte` (reads `effectiveDensity()` + `activity.cardLayout` itself;
   `.films-shelf` size container, frame chrome, VideoCard caption block, `.media-lift` hook,
   `--lift-slack` padding on the `<ul>` — 6% of tile width, code-review caught the fixed 8px clipping tall tiles), `app.css` (`.person-hero-media` → `.media-lift` + `--static`
@@ -42,7 +40,6 @@ block, and lifts on hover/focus via the HOLODEX-302 hero hook renamed to a neutr
   confirmed present in the served stylesheet (`@layer components`). Harness rung NOT added —
   the invariant is an equality between two elements the geometry harness can't express →
   HOLODEX-395; recorded in `docs/testing-strategy.md` §11. Human items §9.8–9.10 passed by Kevin 2026-09-16.
-- [~] security `security-review` — n/a: no auth/access/infra surface
 
 ## Up next — ordered (position = priority)
 

@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-303                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: ui
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Person bio now shows in the header next to the name, and edits open a clearer picker.
 ---
@@ -22,13 +23,9 @@ documented as the standard for `long_text` tier-2 fields going forward.
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [~] spec `write-spec` → `docs/specs/**` — until: judged behavior-only (layout + interaction pattern change on an existing field), no new spec needed; revisit if scope grows
-- [~] architecture `architecture` → `docs/architecture/ADR-*` — until: no cross-cutting/data-model change identified; the new modal pattern is a component convention, not an ADR-worthy decision
 - [x] design `design-handoff` → `docs/design/**`
-- [~] backend — until: zero-candidate resolver omission worked around in the frontend (bio-specific placeholder), general fix filed as [HOLODEX-304](https://whoiskevinrich.atlassian.net/browse/HOLODEX-304); no backend change in this diff
 - [x] frontend
 - [~] testing `testing-strategy` — until: no pure-logic surface added (`SourceEditModal` is markup over already-tested `f36.ts` helpers — `resolveSelection`/`sourceChips` already cover the bio/record-baseline/empty-value shapes it exercises); repo has no Svelte component-test harness (`@testing-library/svelte` not installed) to add coverage for the modal/header markup itself without a separate infra decision; verified instead via manual QA across owner/visitor, empty/short/long bio, and all three skins
-- [~] security `security-review` — until: no new endpoint or auth surface; `SourceEditModal` calls the same owner-gated `decideField`/`api.setPersonFieldDecision` that `SourceBadge` already calls on this page — revisit if that changes
 
 ## Up next — ordered (position = priority)
 

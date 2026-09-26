@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-424
 status: in-review
+profile: feature
 release_note: The media detail page now shows a provider link pill for the provider you matched the video to — a TMDB-matched video links to its TMDB page just as a matched person does — instead of only when the file carried an external-id tag.
 ---
 
@@ -29,8 +30,6 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
   hover / degraded, plus the derivation strip)
 - [x] spec `write-spec` — `provider-link-badge-coverage.md` P0-7b (five ACs), RD12, non-goal
   wording
-- [~] architecture — n/a: ADR-098 D4 ("video has no identity rows") and RD4 still hold; this reads
-  a second input from rows the handler already fetches. Flag if a superseding note is wanted.
 - [x] backend — `externalLinksForVideo`: resolved value + one id per provider from its **newest**
   enrichment row (a re-match upserts without clearing — `/code-review high` caught the stale-id
   case), dedup by namespace through the new shared `linksFromIDs` (also what
@@ -41,8 +40,6 @@ reuse `externalLinksForEntity`) deferred: a data-model move gating a ~20-line re
   `ProviderLinkBadge` row refreshed (it still said "video later")
 - [x] testing `testing-strategy` — §4 projection row + §11 P0 coverage map extended to the
   match input and the re-match rule
-- [~] security — n/a: read-only projection; hrefs still come from validated templates /
-  ingest-validated `_source_url`; `isHttpUrl` gate unchanged
 - [x] three-skin QA — 2026-09-19 on backend-films (fresh scratch DB, this worktree's sidecar on
   :9101 — the shared :9100 sidecar predates 391 and declares no templates, so every pill degraded
   until swapped). Aladdin: **before the match, no pill at all** (the films mapping never fed

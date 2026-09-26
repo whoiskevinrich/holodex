@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-412
 status: in-review
+profile: full
 release_note: The completeness score now measures the required facets alone (extras are a separate number that overfills the ring), and every entity card shows a completeness ring in owner mode.
 ---
 

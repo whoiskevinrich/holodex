@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-408
 status: in-progress
+profile: backend
 release_note: People tagged in a file's Artist/Cast/Actor/Performer/Director tags now link on first import, and a comma-separated list always becomes separate people even when the mapping omits `multi: true`.
 ---
 
@@ -24,12 +25,8 @@ Spec: [person-media-linking.md](../specs/person-media-linking.md) RD9 addendum (
 ## Gates — definition of done
 
 - [x] spec `write-spec` — RD9 addendum (d)/(e) + corrected writeback round-trip read half
-- [~] architecture `architecture` — n/a: restores ADR-072's stated lossless-cutover constraint; no new decision
-- [~] design `design-handoff` — n/a: no UI change (the Actors row now simply resolves from the file)
 - [x] backend — `internal/metadata/extractor.go` (Extra append) · `internal/mapping/mapping.go` (forced multi)
-- [~] frontend — n/a
 - [x] testing `testing-strategy` — new cardinal row under F40; `TestFirstImportLinksPeopleFromEmbeddedTags` (real scanner → repo → `RelinkVideoEntity` over `mapExiftool` output), mutation-tested both ways; extractor unit tests updated
-- [~] security `security-review` — n/a: no auth/access/infra change
 - [x] code-review `code-review high --fix` — 2 findings: reach of the fix on already-indexed files → spun off as HOLODEX-410; worklog wording fixed
 
 ## Up next — ordered (position = priority)

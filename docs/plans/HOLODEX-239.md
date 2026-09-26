@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-239
 status: In Progress
+profile: full
 depends-on: []
 release_note: "Tags can now be excluded from file writeback while staying searchable in Holodex, with a manual per-tag or bulk sync to catch already-written files up."
 ---

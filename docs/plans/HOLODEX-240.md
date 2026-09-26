@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-240
 status: In Progress
+profile: full
 depends-on: [HOLODEX-239]
 release_note: "Tags can now be grouped into hand-curated categories — browsable and filterable alongside tags, with no effect on file writeback."
 ---

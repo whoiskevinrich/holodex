@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-434
 status: in-progress
+profile: feature
 release_note: The "Write metadata to file" dialog now shows every field's source chooser up front — no more "provider values you haven't decided on" fold to open and no per-row "change" link — and is wider on desktop screens. Phones are unchanged.
 ---
 
@@ -21,11 +22,9 @@ either way).
 ## Gates — definition of done
 
 - [x] spec `write-spec` — `docs/specs/field-source-of-truth.md` §Writeback paragraph amended
-- [~] architecture `architecture` — n/a: frontend-only, no seam touched
 - [x] design `design-handoff` — `docs/design/writeback-dialog-always-open-handoff.md` + SVG; supersession note in the cockpit handoff
 - [x] frontend — dialog edited in place; `web/src/lib/components/writeback/CLAUDE.md` updated
 - [~] testing `testing-strategy` — n/a: no test referenced the removed controls; the pure predicates in `writebackCockpit.ts` are untouched (380/380 green)
-- [~] security `security-review` — n/a
 - [x] follow-up (owner, 2026-09-19): no truncated candidates — `stacksCandidates` + `CHIP_VALUE_MAX_CHARS` in `writebackCockpit.ts` (tests), stacked rows for any long candidate; translation recorded in `ui-vocabulary.md`
 - [x] `code-review high --fix` — one finding (stale focus comment), applied
 - [x] three-skin QA — Cinémathèque / Broadcast / Brutalist: caption contrast 6.0 / 4.7 / 5.6 : 1, 768px desktop, 343px phone, no overflow; M → W promotion round-trips on the `=` Poster row with focus kept

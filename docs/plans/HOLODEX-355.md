@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-355
 status: in-review
+profile: ui
 depends-on: [HOLODEX-342]
 release_note: Fixed media and film detail pages scrolling sideways on tablet and phone widths.
 ---
@@ -23,15 +24,11 @@ coverage is [`docs/testing-strategy.md`](../testing-strategy.md) §12 (the HOLOD
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: a defect fix, no requirement or scope change
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision
 - [~] design `design-handoff` — n/a: restores the intended layout, does not redesign it
-- [~] backend — n/a: frontend-only
 - [x] frontend — base `grid-template-columns: minmax(0, 1fr)` on `@utility stage-grid`
 - [x] testing `testing-strategy` — the `no-horizontal-page-overflow` assertion already covered
   this (HOLODEX-349); its `blockedBy` narrowed from `HOLODEX-355, HOLODEX-356` to `HOLODEX-356`
   so the marker stays honest and does not silently disarm
-- [~] security `security-review` — n/a: no auth, access or infrastructure surface
 
 ## Up next — ordered (position = priority)
 

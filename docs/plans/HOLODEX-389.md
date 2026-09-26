@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-389
 status: in-progress
+profile: feature
 release_note: Files that are parts of one media can now carry a part number — `{part-2}` in the filename or a container tag — and show it on cards, the media page, film lists and queue rows, so three files enriched with the same provider entry stay tellable apart.
 ---
 
@@ -19,12 +20,10 @@ enrichment change — all ruled out on purpose ([spec](../specs/media-parts.md) 
 ## Gates — definition of done
 
 - [x] spec `write-spec` — [docs/specs/media-parts.md](../specs/media-parts.md) (RD1–RD10; OQ1/OQ2 engineering, OQ3 design)
-- [~] architecture `architecture` — n/a: a canonical field is mapping config, as edition was (ADR-096 D4)
 - [x] design `design-handoff` — [docs/design/media-parts-handoff.md](../design/media-parts-handoff.md) + [SVG](../design/media-parts-mockup.svg); card slot = bottom-left duration-style, "Part N" everywhere, no film-page "+ Set part"
 - [x] backend — mapping example + loader rejection of `<provider>:part`, lifter generalised to both markers, `formatMap` rows, summary payload (`part` on `model.Video`, batch pass on every list surface + both queues)
 - [x] frontend — media header pill + owner "+ Set part" link, film list pill, `VideoCard` marker, both queue-row markers, writeback dialog lists `part`; three skins measured live per surface
 - [ ] testing `testing-strategy` — strategy row landed in [docs/testing-strategy.md](../../docs/testing-strategy.md) (2026-09-16, target coverage); flips when the named tests exist: lifter cases (RD4 incl. rejected bodies), loader rejection (*new*), MKV+MP4 round trip incl. `PART_NUMBER` replace, list-path `part` incl. container-tag-only, triplet-enrich invariance, three-skin QA
-- [~] security `security-review` — n/a: no auth/access/infra change; one more `formatMap` row in an existing perimeter
 
 ## Up next — ordered (position = priority)
 

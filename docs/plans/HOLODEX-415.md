@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-415
 status: in-progress
+profile: feature
 release_note: Replacing a person's poster now shows up on the Media and Film detail Cast grids immediately, instead of the old poster staying pinned in the browser cache.
 ---
 
@@ -17,8 +18,6 @@ saw at that URL is the one it keeps.
 ## Gates — definition of done
 
 - [~] spec `write-spec` — n/a: bug fix, no behavior change beyond the defect
-- [~] architecture `architecture` — n/a: existing `?v={image id}` + immutable scheme, applied to two
-  more reads
 - [~] design `design-handoff` — n/a: no visual change
 - [x] backend — `repo.GetVideo` and `repo.FilmCast` call `attachPersonImageVersions` (one batch
   query each, detail reads only — list cards never draw people images); **media hardening**
@@ -36,7 +35,6 @@ saw at that URL is the one it keeps.
   `TestRemediationQueue_VideoRowThumbnailURL` (mutation-checked); rows added to
   `docs/testing-strategy.md`; live repro on `/media/1` before (red pinned at `?skin=…`) and after
   (`&v=2` blue, `&v=3` green); browse-grid `thumbnail_url` token verified to change on poster upload
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — no findings
 
 ## Up next — ordered (position = priority)

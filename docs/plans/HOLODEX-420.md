@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-420
 status: in-progress
+profile: feature
 release_note: If the server refuses a status check while the media page is tracking a file write (for example the video was removed or re-indexed mid-write), the page now recovers cleanly instead of leaving the "writing to file" badge stuck until you navigate away.
 ---
 
@@ -25,14 +26,12 @@ the badge on the stale pending object.
 
 - [x] spec `write-spec` — `docs/specs/fire-and-forget-writeback.md` gains R2.5b (refusal settles
   the wait as not-pending; the follow-up reload decides what renders)
-- [~] architecture `architecture` — n/a: ADR-091 stands
 - [~] design `design-handoff` — n/a: no visual change; the existing badge stops sticking
 - [x] frontend — `writebackJob.ts` catches the refusal; `+page.svelte` applies `settled` before
   `reloadDetail()`
 - [x] testing `testing-strategy` — `writebackJob.test.ts` refusal case flipped from
   `rejects` to `resolves` not-pending after one fetch (mutation-checked: restoring the rethrow fails
   exactly that case); row added to `docs/testing-strategy.md`
-- [~] security `security-review` — n/a
 - [x] `code-review high --fix` — one finding, applied: the helper's try/catch collapsed to
   `.catch(() => null)` on the awaited call
 

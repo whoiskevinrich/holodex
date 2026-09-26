@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-186
 status: released
+profile: full
 depends-on: []
 release_note: Metadata auto-applies when there's only one clear match, and the system remembers when you skip something.
 ---

@@ -1,6 +1,7 @@
 ---
 key: HOLODEX-417
 status: in-progress
+profile: ui
 depends-on: []
 release_note: The Edit Description / Notes / Bio dialog now keeps Save and Cancel on screen however long the text is — each source is clamped to four lines with a Show more toggle, and the dialog scrolls inside itself instead of growing past the window.
 ---
@@ -16,13 +17,9 @@ caller is bounded the same way.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` → `docs/specs/**` — until: a behaviour change; this is a layout bug
-- [~] architecture `architecture` → `docs/architecture/ADR-*` — until: a cross-cutting decision; none here
 - [x] design `design-handoff` → `docs/design/**`
-- [~] backend — until: any server change; none
 - [x] frontend
 - [x] testing `testing-strategy`
-- [~] security `security-review` — until: auth/access/infra is touched; none
 
 ## Up next — ordered (position = priority)
 

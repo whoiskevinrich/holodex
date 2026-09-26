@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-411
 status: in-progress
+profile: ui
 release_note: A studio's logo on the Film and Media detail pages now sits directly on the page background instead of a light plate, and a wordmark logo no longer repeats the studio's name beside it.
 ---
 
@@ -14,8 +15,6 @@ page reads as a jarring badge. Drop the plate on the logo state only — icon an
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: presentation-only
-- [~] architecture `architecture` — n/a
 - [x] design `design-handoff` — options mockup (A plate / B none / C frame) reviewed 2026-09-18,
   **B chosen**; then a caption critique (A always / B logo only / C aspect rule) → **C chosen**;
   `docs/design/studio-logo-link-card-handoff.md` revised in place (§1 rows, code, tokens,
@@ -30,7 +29,6 @@ page reads as a jarring badge. Drop the plate on the logo state only — icon an
   monogram plate `#e9e0d0` dashed intact, dark-on-transparent logo confirmed faint (accepted cost);
   900×220 wordmark → logo alone with `alt`/`title`, no caption in 8 × 150ms samples from
   navigation; 300×300 symbol → caption kept, `alt=""`; monogram unchanged
-- [~] security `security-review` — n/a
 
 ## Up next — ordered (position = priority)
 

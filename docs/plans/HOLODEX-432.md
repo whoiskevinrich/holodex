@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-432
 status: in-review
+profile: ui
 release_note: The Studios list now shows each studio's logo in its row — the image TMDB actually supplies — the same way the film and media pages do; a wordmark logo stands in for the name, and a light halo keeps dark marks readable on the dark skins. The cream plate behind studio icons, detail-page images and film posters is gone everywhere — images sit bare with the same halo; only a studio with no image still shows its lettered placeholder.
 ---
 
@@ -20,8 +21,6 @@ plate under any image, app-wide — option B) in the same PR.
 
 ## Gates — definition of done
 
-- [ ] spec — n/a (no new capability, field, or endpoint; recorded in the handoff's "Why no spec/ADR")
-- [ ] architecture — n/a (ADR-079 image roles untouched)
 - [x] design `design-handoff` — [studio-list-logo-handoff.md](../design/studio-list-logo-handoff.md) +
   [mockup SVG](../design/studio-list-logo-mockup.svg); **B chosen** (StudioLinkCard rule: h-12
   bare box, aspect-following, wordmark replaces the name; A free-width and C fixed-slot rejected);
@@ -30,7 +29,6 @@ plate under any image, app-wide — option B) in the same PR.
   live six-step comparison; **HOLODEX-437** [image-plate-handoff.md](../design/image-plate-handoff.md) +
   [mockup SVG](../design/image-plate-mockup.svg), option B (no plate under an image, halo; plate only
   under the monogram) — inventory of the four plate sites recorded there
-- [ ] backend — n/a (no `internal/` edit; the stale role comment lives in `types.ts` only)
 - [x] frontend — `entity/studioLogo.ts` (+test), `entity/StudioLogoBox.svelte` (extracted),
   `entity/StudioLinkCard.svelte` (mounts the box), `entity/StudioListRow.svelte` (new),
   `routes/studios/+page.svelte` (row → component); entity `CLAUDE.md` table + `types.ts` comment;
@@ -40,7 +38,6 @@ plate under any image, app-wide — option B) in the same PR.
   driven-browser 11.3–11.11 verified 2026-09-20 (3 skins, a11y tree, 375px); 437 appended to the
   same row (§7.3/7.4/7.6 verified live, 7.5/7.7 by shared class expression — no film on the worktree
   DB); **human rows passed (Kevin, 2026-09-20: "looks good")**
-- [ ] security — n/a (no auth/access/infra)
 
 ## Up next — ordered (position = priority)
 

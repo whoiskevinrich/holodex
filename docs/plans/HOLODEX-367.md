@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-367
 status: done
+profile: full
 release_note: Providers that ask for it now receive the video's resolved fields and its raw filename alongside the search query, so they can match a release directly and fall back to a performers + studio search when the title misses; the search query no longer repeats the studio and cast when the title is only those words; and the picker can show what a provider actually searched.
 ---
 

@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-356
 status: done
+profile: ui
 depends-on: [HOLODEX-355]
 release_note: Fixed the header and long titles pushing pages sideways on tablet and phone widths.
 ---
@@ -45,16 +46,12 @@ hidden, desktop untouched. Nothing else here changes a requirement or a seam.
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — n/a: a defect fix, no requirement or scope change
-- [~] architecture `architecture` — n/a: no seam, stack or data-model decision
 - [x] design `design-handoff` — `docs/design/header-narrow-width-handoff.md` + committed SVG mockup;
   the header's narrow-width behaviour was a real either/or and was decided by the owner, not assumed
-- [~] backend — n/a: frontend-only
 - [x] frontend — `flex-wrap` on the header and nav; `min-w-0` on the person hero's identity column;
   `min-w-0 break-words` on `NameEditControl`'s heading
 - [x] testing `testing-strategy` — `no-horizontal-page-overflow` armed: `blockedBy: 'HOLODEX-356'`
   removed from `web/geometry/assertions.mjs`. 180/180 across three skins and both widths
-- [~] security `security-review` — n/a: no auth, access or infrastructure surface
 
 ## Up next — ordered (position = priority)
 

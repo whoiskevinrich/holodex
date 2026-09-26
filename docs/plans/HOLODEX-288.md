@@ -4,6 +4,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-288                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
+profile: full
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Fixed several correctness and robustness gaps in the film-studio cascade writeback (missing provider-match check, stale-video race, and partial-result reporting) found in code review before the feature shipped.
 ---

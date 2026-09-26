@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-435
 status: in-review
+profile: full
 release_note: The completeness ring on cards and rows is now a button — click it to refresh that one video, person or studio from every provider, the same way the bulk sweep does, and watch the ring redraw.
 ---
 

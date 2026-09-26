@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-421
 status: in-progress
+profile: full
 release_note: Owners can refresh every person or studio against their metadata providers in one background sweep from System Activity — linked providers refresh, unlinked ones auto-link on exactly one strong match, everything else lands in the review queue — with live progress on the People and Studios pages and a per-sweep audit trail.
 ---
 

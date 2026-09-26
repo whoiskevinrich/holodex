@@ -3,6 +3,7 @@
 # Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
 key: HOLODEX-449
 status: in-progress
+profile: infra
 release_note: No user-facing change. CodeQL no longer analyses test files, which stops a recurring class of false positives in the Security tab.
 ---
 
@@ -17,15 +18,11 @@ not attack surface; excluding the class beats dismissing them one at a time fore
 
 ## Gates — definition of done
 
-- [~] spec `write-spec` — **not applicable.** No functional or behavioural change; nothing ships
-  to a user. CI configuration only.
 - [~] architecture `architecture` — **deliberately skipped.** CLAUDE.md routes *cross-cutting*
   infrastructure decisions to an ADR; this is a two-line narrowing of one scanner's file set, and
   the reasoning lives where a maintainer will actually meet it — in the config file's own header
   comment. An ADR here would be ceremony pointing at eight lines of YAML.
-- [~] design `design-handoff` — **not applicable.** No user-facing surface.
 - [~] backend — **not applicable.** No `cmd/`, `internal/` or `providers/` change.
-- [~] frontend — **not applicable.** No `web/**` change.
 - [x] testing `testing-strategy` — `scripts/codeql-config.test.mjs`, 5 assertions, both failure
   directions mutation-checked. It runs in the existing `scripts` CI job via `make test-scripts`.
   No `docs/testing-strategy.md` section: the guard is self-describing and §15's precedent is for
