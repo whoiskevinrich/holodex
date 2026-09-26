@@ -493,6 +493,10 @@ Conventions:
   decides which image digest gets published as a release (ADR-070), so its **negative** cases are the
   point — a mismatched revision label, a non-ancestor commit, and a registry error that must abort rather
   than be mistaken for "no image here" each have a test. Treat that file as critical-invariant.
+  `scripts/lib/jira-sync.test.mjs` is the same kind of file for the CI Jira guards: an Epic is never
+  moved (HOLODEX-185), a docs-only merge never fires Done (HOLODEX-173/220), and nothing moves an
+  issue to an earlier status category (HOLODEX-462), with `Done` → `In Review` tested both with and
+  without `docsOnly`. Each guard has a refusal test that a mutation removing the guard fails.
 - Fixtures generated deterministically in CI; goldens committed.
 - Coverage reported per-package; PRs surface deltas (informational, not a hard gate except on the critical-invariant packages).
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractKeys, selectTransitionId, syncKeys } from "./jira-sync.mjs";
+import { extractKeys, isBackwards, selectTransitionId, syncKeys } from "./jira-sync.mjs";
 
 test("extractKeys pulls the key from a branch name", () => {
   assert.deepEqual(extractKeys("HOLODEX-132-jira-transitions-rest-api"), ["HOLODEX-132"]);
@@ -51,9 +51,9 @@ test("syncKeys skips an Epic without transitioning it", async () => {
   const calls = [];
   const client = {
     currentStatus: async (key) => ({ status: "Done", issueType: "Epic" }),
-    findTransitionId: async () => {
-      calls.push("findTransitionId");
-      return "2";
+    findTransition: async () => {
+      calls.push("findTransition");
+      return { id: "2" };
     },
     transition: async () => calls.push("transition"),
   };
@@ -73,8 +73,9 @@ test("syncKeys skips an Epic without transitioning it", async () => {
 test("syncKeys still transitions a non-Epic issue", async () => {
   const calls = [];
   const client = {
-    currentStatus: async () => ({ status: "Done", issueType: "Story" }),
-    findTransitionId: async () => "2",
+    // Done → Released is sideways (both in the `done` category), not backwards.
+    currentStatus: async () => ({ status: "Done", issueType: "Story", category: "done" }),
+    findTransition: async () => ({ id: "2", toCategory: "done" }),
     transition: async (key, id) => calls.push([key, id]),
   };
   const log = { info: () => {}, warn: () => {} };
@@ -97,9 +98,9 @@ test("syncKeys skips Done for a docs-only PR", async () => {
   const calls = [];
   const client = {
     currentStatus: async () => ({ status: "In Progress", issueType: "Story" }),
-    findTransitionId: async () => {
-      calls.push("findTransitionId");
-      return "41";
+    findTransition: async () => {
+      calls.push("findTransition");
+      return { id: "41" };
     },
     transition: async () => calls.push("transition"),
   };
@@ -121,7 +122,7 @@ test("syncKeys does not guard In Review for a docs-only PR", async () => {
   const calls = [];
   const client = {
     currentStatus: async () => ({ status: "In Progress", issueType: "Story" }),
-    findTransitionId: async () => "31",
+    findTransition: async () => ({ id: "31" }),
     transition: async (key, id) => calls.push([key, id]),
   };
   const log = { info: () => {}, warn: () => {} };
@@ -142,7 +143,7 @@ test("syncKeys still transitions to Done when docsOnly is false", async () => {
   const calls = [];
   const client = {
     currentStatus: async () => ({ status: "In Review", issueType: "Story" }),
-    findTransitionId: async () => "41",
+    findTransition: async () => ({ id: "41" }),
     transition: async (key, id) => calls.push([key, id]),
   };
   const log = { info: () => {}, warn: () => {} };
@@ -157,4 +158,74 @@ test("syncKeys still transitions to Done when docsOnly is false", async () => {
 
   assert.equal(failures, 0);
   assert.deepEqual(calls, [["HOLODEX-186", "41"]]);
+});
+
+// HOLODEX-462: a closeout PR on a keyed branch, marked ready after the issue was
+// already Done, dragged HOLODEX-358 Done → In Review; the docs-only merge then
+// skipped Done and stranded it. CI must never move an issue to an earlier category.
+function backwardsHarness({ from, to }) {
+  const calls = [];
+  const warnings = [];
+  const client = {
+    currentStatus: async () => ({ status: from.status, issueType: "Task", category: from.category }),
+    findTransition: async () => ({ id: "31", toCategory: to }),
+    transition: async (key, id) => calls.push([key, id]),
+  };
+  const log = { info: () => {}, warn: (m) => warnings.push(m) };
+  return { calls, warnings, client, log };
+}
+
+for (const docsOnly of [true, false]) {
+  test(`syncKeys refuses Done → In Review (docsOnly=${docsOnly})`, async () => {
+    const h = backwardsHarness({
+      from: { status: "Done", category: "done" },
+      to: "indeterminate",
+    });
+
+    const failures = await syncKeys({
+      keys: ["HOLODEX-358"],
+      targetStatus: "In Review",
+      client: h.client,
+      log: h.log,
+      docsOnly,
+    });
+
+    assert.equal(failures, 0);
+    assert.deepEqual(h.calls, []);
+    assert.equal(h.warnings.length, 1);
+    assert.match(h.warnings[0], /"Done" → "In Review"/);
+    assert.match(h.warnings[0], /backwards/);
+  });
+}
+
+test("syncKeys still moves In Progress → In Review (sideways in indeterminate)", async () => {
+  const h = backwardsHarness({
+    from: { status: "In Progress", category: "indeterminate" },
+    to: "indeterminate",
+  });
+
+  await syncKeys({ keys: ["HOLODEX-462"], targetStatus: "In Review", client: h.client, log: h.log });
+
+  assert.deepEqual(h.calls, [["HOLODEX-462", "31"]]);
+  assert.deepEqual(h.warnings, []);
+});
+
+test("syncKeys lets an unranked status category through", async () => {
+  const h = backwardsHarness({
+    from: { status: "Limbo", category: "undefined" },
+    to: "indeterminate",
+  });
+
+  await syncKeys({ keys: ["HOLODEX-462"], targetStatus: "In Review", client: h.client, log: h.log });
+
+  assert.deepEqual(h.calls, [["HOLODEX-462", "31"]]);
+});
+
+test("isBackwards ranks new < indeterminate < done and ignores unranked", () => {
+  assert.equal(isBackwards("done", "indeterminate"), true);
+  assert.equal(isBackwards("indeterminate", "new"), true);
+  assert.equal(isBackwards("done", "done"), false);
+  assert.equal(isBackwards("new", "done"), false);
+  assert.equal(isBackwards("undefined", "new"), false);
+  assert.equal(isBackwards("done", null), false);
 });
