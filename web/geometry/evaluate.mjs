@@ -14,12 +14,14 @@
  * @property {number} overflowX
  * @property {number} overflowY
  * @property {number} fontSize
+ * @property {number} gutterRight  Viewport right edge minus the element's right edge;
+ *   negative when the element runs off the right of the viewport.
  * @property {boolean} visible
  * @property {string} text
  */
 
 /** The metrics an assertion may bound. Anything else is a typo, and is refused. */
-export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize'];
+export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize', 'gutterRight'];
 
 /**
  * within reports whether a value satisfies a {min, max} bound, and how it reads when

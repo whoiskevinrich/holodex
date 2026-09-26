@@ -28,7 +28,7 @@ import { METRICS } from './evaluate.mjs';
  * @property {string[]} [prepare]    Named page preparations to run before measuring.
  * @property {string} selector       CSS selector, or `:document` for the page itself.
  * @property {'each'|'count'} [applies]  Default `each`.
- * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'} [measure]
+ * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'} [measure]
  *   Required for `each`; ignored for `count`.
  * @property {{min?: number, max?: number}} expect
  * @property {number} [atLeast]      Minimum matches before the assertion means anything.
@@ -49,6 +49,20 @@ import { METRICS } from './evaluate.mjs';
 const stressedPicker = {
 	when: (e) => e.entity === 'video' && e.dimension === 'enrich' && (e.axes.video?.namespaces ?? 0) === 0,
 	prepare: ['enrich-picker-open:flood']
+};
+
+/**
+ * The person hover card open on the right-most person tile (HOLODEX-439, F68 R3/R8).
+ * Media pages, not film pages: a film's Cast grid ends 40px+ short of the clamp zone
+ * at every width cell, so there the card never needs clamping and both rungs would
+ * pass without exercising it. A media page's People grid with 25+ people runs full
+ * rows whose last tile sits within 288 + 16px of the viewport's right edge at all
+ * three widths — measured, not assumed. Shared so the two card rungs measure the same
+ * open state.
+ */
+const openPersonCard = {
+	when: (e) => (e.axes.video?.people ?? 0) >= 25,
+	prepare: ['person-card-open']
 };
 
 /** @type {Assertion[]} */
@@ -82,6 +96,30 @@ export const ASSERTIONS = [
 		selector: ':document',
 		measure: 'overflowX',
 		expect: { max: 0 }
+	},
+
+	{
+		key: 'person-card-no-page-overflow',
+		finds:
+			'Hovering a right-most person tile makes the whole page scroll sideways: the person ' +
+			'card is absolutely positioned from its trigger and, unclamped, pushes the document ' +
+			'past the viewport (the HOLODEX-356 guard, with a card open).',
+		...openPersonCard,
+		selector: ':document',
+		measure: 'overflowX',
+		expect: { max: 0 }
+	},
+
+	{
+		key: 'person-card-inside-gutter',
+		finds:
+			'The person card’s right edge running into — or past — the viewport’s right edge. ' +
+			'placeCard shifts it left by the overshoot past a 16px gutter (handoff RD10); a card ' +
+			'closer than 16px means the clamp stopped running or measures the wrong box.',
+		...openPersonCard,
+		selector: '.person-hover-card',
+		measure: 'gutterRight',
+		expect: { min: 16 }
 	},
 
 	{

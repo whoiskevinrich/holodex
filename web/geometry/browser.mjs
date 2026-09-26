@@ -234,6 +234,36 @@ export const PREPARATIONS = {
 			if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
 		}
 		await page.waitForSelector('#enrich-searched li:nth-child(10)', { state: 'attached', timeout: 5000 });
+	},
+	// The fifth kind is a hover: F68's person card is mounted by PersonLinkChip only
+	// while a pointer rests on a person link, and `open()` parks the mouse at (0, 0), so
+	// its "no sideways scroll with the card open" and "clamped inside the 16px gutter"
+	// invariants were live-only checks (HOLODEX-439). This opens the card on the
+	// right-most person tile (PeopleGrid) — the trigger the clamp exists for (its 288px
+	// card would otherwise run off the viewport's right edge).
+	//
+	// `pointerenter` is dispatched on the chip wrapper rather than the mouse moved onto
+	// it: a real hover also lifts the tile (`group-hover`), which is not what is being
+	// measured, and focusing the link instead needs `document.hasFocus()`. The wait is on
+	// the *loaded* card (its Videos link renders only once `/card` answered), so the
+	// measure that follows the fetch has run. Idempotent: a card already open is left be.
+	'person-card-open': async (page) => {
+		const chips = 'li.curation-chip [data-person-chip]';
+		if ((await page.locator('.person-hover-card').count()) === 0) {
+			await page.waitForSelector(chips, { state: 'attached', timeout: 10000 });
+			const rightmost = await page.$$eval(chips, (els) => {
+				let best = 0;
+				els.forEach((el, i) => {
+					if (el.getBoundingClientRect().right > els[best].getBoundingClientRect().right) best = i;
+				});
+				return best;
+			});
+			const chip = page.locator(chips).nth(rightmost);
+			await chip.scrollIntoViewIfNeeded();
+			await chip.dispatchEvent('pointerenter');
+		}
+		// Past the 250ms hover-intent delay plus the /card round trip.
+		await page.waitForSelector('.person-hover-card a[href$="#videos"]', { state: 'attached', timeout: 5000 });
 	}
 };
 
@@ -309,6 +339,8 @@ export async function probe(page, selector) {
 					height: Math.round(rect.height * 100) / 100,
 					overflowX: measurableX ? el.scrollWidth - el.clientWidth : null,
 					overflowY: measurableY ? el.scrollHeight - el.clientHeight : null,
+					// window.innerWidth, not clientWidth: it is the width placeCard clamps against.
+					gutterRight: Math.round((window.innerWidth - rect.right) * 100) / 100,
 					fontSize: parseFloat(style.fontSize) || 0,
 					visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',
 					text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60)
