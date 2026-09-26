@@ -679,6 +679,9 @@ func (r *Repo) GetVideo(ctx context.Context, id int64) (*model.Video, []model.Ex
 	if err := r.attachPersonImageVersions(ctx, one[0].People); err != nil {
 		return nil, nil, err
 	}
+	if err := r.attachPersonDisplayNames(ctx, one[0].People); err != nil {
+		return nil, nil, err
+	}
 	extra, err := r.videoMetadata(ctx, id)
 	if err != nil {
 		return nil, nil, err
@@ -1218,6 +1221,23 @@ func (r *Repo) attachPersonImageVersions(ctx context.Context, people []model.Per
 	return nil
 }
 
+// attachPersonDisplayNames fills DisplayName on a Cast grid's people (HOLODEX-461):
+// outside the person's own page a person is labelled by their Displayed As spelling,
+// never the canonical name (which stays in Name for linking).
+func (r *Repo) attachPersonDisplayNames(ctx context.Context, people []model.Person) error {
+	if len(people) == 0 {
+		return nil
+	}
+	disp, err := r.DisplayNames(ctx, model.EnrichEntityPerson, "name")
+	if err != nil {
+		return err
+	}
+	for i := range people {
+		people[i].DisplayName = disp[people[i].ID]
+	}
+	return nil
+}
+
 // ListTags mirrors ListPeople for tags.
 func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, error) {
 	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", countSortFilter(sortByCount), true)
@@ -1394,9 +1414,12 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 // N random sibling videos, excluding the source item. Items is always non-nil (an
 // empty shelf is valid — the entity exists on the item but has no other siblings).
 type RelatedShelf struct {
-	ID    int64         `json:"id"`
-	Name  string        `json:"name"`
-	Items []model.Video `json:"items"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// DisplayName is the person shelf's decided name spelling (HOLODEX-461); empty
+	// for the tag shelf and for an undecided person.
+	DisplayName string        `json:"display_name,omitempty"`
+	Items       []model.Video `json:"items"`
 }
 
 // RelatedMedia carries the person- and tag-keyed shelves for a media item. Either
@@ -1443,6 +1466,14 @@ func (r *Repo) Related(ctx context.Context, videoID int64, limit int, hideFullFi
 		         p.id ASC
 		LIMIT 1`); err != nil {
 		return nil, err
+	}
+	// The shelf's "More with …" title is the person's Displayed As spelling (HOLODEX-461).
+	if out.Person != nil {
+		disp, err := r.DisplayNames(ctx, model.EnrichEntityPerson, "name")
+		if err != nil {
+			return nil, err
+		}
+		out.Person.DisplayName = disp[out.Person.ID]
 	}
 
 	// Tag shelf — the item's most *distinctive* tag: maximize c·(1 − c/N), where c is

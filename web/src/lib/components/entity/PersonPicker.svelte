@@ -64,7 +64,8 @@
 
 	const trimmedQuery = $derived(query.trim());
 	const showCreateRow = $derived(
-		trimmedQuery.length >= 2 && !candidates.some((c) => c.name.toLowerCase() === trimmedQuery.toLowerCase())
+		trimmedQuery.length >= 2 &&
+		!candidates.some((c) => [c.name, c.display_name].some((n) => n?.toLowerCase() === trimmedQuery.toLowerCase()))
 	);
 	const optionCount = $derived(candidates.length + (showCreateRow ? 1 : 0));
 
@@ -267,11 +268,11 @@
 					<li
 						class="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-ink"
 					>
-						<span class="max-w-[10rem] truncate">{p.name}</span>
+						<span class="max-w-[10rem] truncate">{p.display_name ?? p.name}</span>
 						<span class="text-muted">{roleLabel(p.role)}</span>
 						<button
 							type="button"
-							aria-label={`Remove ${p.name} (${roleLabel(p.role)})`}
+							aria-label={`Remove ${p.display_name ?? p.name} (${roleLabel(p.role)})`}
 							disabled={busyKey === personKey(p)}
 							onclick={() => commitDetach(p)}
 							class="text-muted hover:text-accent disabled:cursor-default"
@@ -330,11 +331,11 @@
 						: 'border-transparent'}"
 				>
 					<div class="flex items-center justify-between gap-2">
-						<span class="truncate text-sm text-ink">{c.name}{busyKey === key ? '…' : ''}</span>
+						<span class="truncate text-sm text-ink">{c.display_name ?? c.name}{busyKey === key ? '…' : ''}</span>
 						{#if !avail.length}
 							<span class="shrink-0 text-xs text-muted">Already attached as Actor, Director</span>
 						{:else}
-							{@render roleToggle(key, avail, `Role for ${c.name}`)}
+							{@render roleToggle(key, avail, `Role for ${c.display_name ?? c.name}`)}
 						{/if}
 					</div>
 				</li>

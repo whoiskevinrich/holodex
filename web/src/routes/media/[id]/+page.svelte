@@ -848,7 +848,7 @@
 		// ('') — roleField('') would silently fall through to 'director', suppressing
 		// the wrong field's link (HOLODEX-272 review fix).
 		if (p.role !== 'actor' && p.role !== 'director') {
-			personRemoveError = `${p.name} has no role set on this video — can't determine which field to remove.`;
+			personRemoveError = `${p.display_name ?? p.name} has no role set on this video — can't determine which field to remove.`;
 			return;
 		}
 		personBusyKey = personKey(p);
@@ -2389,7 +2389,7 @@
 		     below lg, where the rail follows the subject in DOM order. -->
 		{#if related?.person}
 			<RelatedShelf
-				title={related.person.name}
+				title={related.person.display_name ?? related.person.name}
 				href={`/people/${related.person.id}`}
 				items={related.person.items}
 				personId={related.person.id}
