@@ -203,7 +203,6 @@ rung asserting no horizontal overflow with the card open at max density.
 
 - **Keyboard shortcut hint** in the card footer (ties into the F62 hotkey sheet) — only if the
   card grows a second row anyway.
-- **Alias overflow** "+N more" as a link to the profile's Aliases section.
 
 ### Future Considerations (P2)
 
