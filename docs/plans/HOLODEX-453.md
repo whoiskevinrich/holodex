@@ -55,9 +55,15 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
       name, 905 = three incl. a long holder): no overflow at 375 px or 1280 px, the holder's page
       shows no line, and link + border take the accent in all three skins (computed style, pane
       hidden, so no screenshots)
-- [ ] testing `testing-strategy`
-- [ ] security `security-review` — read-path filter + one extra owner-gated field; expect a short
-      sign-off
+- [x] testing `testing-strategy` — `docs/testing-strategy.md` §18 (three risks: hide / keep the
+      skip record / upgrade resurfaces), §17 bullets and the F58 row amended. Mutation-checked:
+      filter removed → 3 queue tests fail; `c.name`→`p.detail` → `TestSkippedAliasesForEntity`
+      fails. Standing gap: no automated check on the separator/space markup (no harness)
+- [x] security `security-review` — **no findings.** Both SQL changes are static literals or
+      bound parameters (`canonicalTable` is a 4-name allowlist); `/owner/duplicates` stays under
+      `requireOwner` (`handlers.go:399-400`); `skipped_aliases`, and so `conflict_name`, is nil
+      for a non-owner on all three detail reads (`handlers.go:1320-1330`); the panel has no
+      `{@html}`, and the new href is `/${nounPlural}/${int id}`
 
 ## Up next — ordered (position = priority)
 
@@ -65,7 +71,9 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 2. ~~Backend.~~ **Done 2026-09-25** — see the backend gate.
 3. ~~Frontend.~~ **Done 2026-09-25** — see the frontend gate. Optional: Kevin's eyeball on a real
    skin.
-4. Testing + security gates, then `gh pr ready`.
+4. ~~Testing + security gates.~~ **Done 2026-09-25.** Next: `git fetch` + merge `origin/main` only
+   if it moved, then `gh pr ready` (Kevin's call). 453 is a Task, so `jira-sync` fires In Review
+   and Done itself.
 5. Optional: fix the probe's `qmatch` so a provider-alias row reports the holder's side from
    `detail`, instead of falling through to `alias`.
 
@@ -73,7 +81,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 ### 2026-09-25 — the question is decided; design phase done
 
-- skills: architecture, write-spec (amendment), design-handoff, implement, code-review
+- skills: architecture, write-spec (amendment), design-handoff, implement, code-review, security-review
 
 Confirmed the ticket was untouched on `main`: 451 and 452 merged, but nothing changed the
 provider-alias producer or the queue read. Kevin leaned to option 1. The trace found that option 1
@@ -90,5 +98,5 @@ Then the frontend. Live QA caught two wrap bugs the mockup could not show: a ` �
 the next line when the list wrapped, and items running together on wide screens because `{#each}`
 trims whitespace. The separator now ends the item before it, and an explicit space follows.
 
-- handoff: **Backend and frontend are in and green; the testing and security gates are next** (Up
-  next 4), then `gh pr ready` after checking whether `origin/main` has moved.
+- handoff: **All seven gates are green.** Remaining: Kevin's go-ahead to mark #386 ready (after
+  checking whether `origin/main` has moved), plus an optional look at the panel on a real skin.
