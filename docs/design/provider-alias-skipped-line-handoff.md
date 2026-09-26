@@ -20,7 +20,7 @@ removing the line (the skip would become invisible).
 |---|---|
 | `AliasPanel.svelte` skipped line | The trailing `Review` → `/owner/duplicates` link is removed. |
 | … one skipped name | `… — {alias} already belongs to {holder}.` — `{holder}` is a link. The wording "another {noun}" goes. |
-| … several skipped names | Lead sentence `{n} names from {provider} were skipped because other {nounPlural} already hold them:`, then one `{alias} → {holder}` item per name, separated by ` · `, in `skipped_aliases` order (alias, case-insensitive). |
+| … several skipped names | Lead sentence `{n} names from {provider} were skipped because other {nounPlural} already hold them:`, then one `{alias} → {holder}` item per name, in `skipped_aliases` order (alias, case-insensitive). The separator is a non-breaking ` ·` that **ends the item before it**, plus a plain space, so a wrap never starts a line with the dot (caught in 375 px QA). |
 | `SkippedAlias` (API + `types.ts`) | Gains `conflict_name` — the holder's current canonical name, joined in the same read. |
 | `/owner/duplicates` | No visual change. It simply stops listing `provider-alias` rows. |
 

@@ -18,6 +18,9 @@ export interface PersonAlias {
 export interface SkippedAlias {
 	alias: string;
 	conflict_id: number;
+	// The holder's current canonical name (ADR-108 D3) — the panel links it, since the
+	// Duplicates queue no longer lists provider-alias pairs.
+	conflict_name: string;
 }
 
 // EntityKind names the four identity entities that share the alias/merge/rename

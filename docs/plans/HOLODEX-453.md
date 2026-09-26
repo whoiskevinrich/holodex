@@ -50,7 +50,11 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
       `TestProviderAliasRowSurfacesOnceUpgraded`, `conflict_name` on both collision routes, and
       the sort test now pins the -2 slot on film (no other person non-fuzzy variation is
       listed). The three queue tests fail with the filter removed (mutation-checked)
-- [ ] frontend — `AliasPanel.svelte` skipped line; `SkippedAlias.conflict_name` in `types.ts`
+- [x] frontend — `AliasPanel.svelte` skipped line names and links the holder;
+      `SkippedAlias.conflict_name` in `types.ts`. Live QA on the aliasseed fixture (904 = one
+      name, 905 = three incl. a long holder): no overflow at 375 px or 1280 px, the holder's page
+      shows no line, and link + border take the accent in all three skins (computed style, pane
+      hidden, so no screenshots)
 - [ ] testing `testing-strategy`
 - [ ] security `security-review` — read-path filter + one extra owner-gated field; expect a short
       sign-off
@@ -59,7 +63,8 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 1. ~~`/implement HOLODEX-453`~~ **Done 2026-09-25** — design signed off at `f03774d`.
 2. ~~Backend.~~ **Done 2026-09-25** — see the backend gate.
-3. Frontend: `AliasPanel.svelte` line per the handoff, then QA all three skins at 375 px.
+3. ~~Frontend.~~ **Done 2026-09-25** — see the frontend gate. Optional: Kevin's eyeball on a real
+   skin.
 4. Testing + security gates, then `gh pr ready`.
 5. Optional: fix the probe's `qmatch` so a provider-alias row reports the holder's side from
    `detail`, instead of falling through to `alias`.
@@ -81,6 +86,9 @@ code review's one real gap was the sort test: with provider-alias hidden, person
 any other non-fuzzy variation, so the shared-external-id -2 slot is now pinned against film
 `same-title` instead.
 
-- handoff: **Backend is in and green; frontend is next** (Up next 3). `AliasPanel.svelte` reads
-  `skipped_aliases[].conflict_name` (add it to `SkippedAlias` in `types.ts`) and links the holder
-  per the handoff; QA all three skins at 375 px.
+Then the frontend. Live QA caught two wrap bugs the mockup could not show: a ` · ` that started
+the next line when the list wrapped, and items running together on wide screens because `{#each}`
+trims whitespace. The separator now ends the item before it, and an explicit space follows.
+
+- handoff: **Backend and frontend are in and green; the testing and security gates are next** (Up
+  next 4), then `gh pr ready` after checking whether `origin/main` has moved.
