@@ -1,6 +1,8 @@
 # ADR-088: Provider aliases collapse into the canonical alias spine
 
-**Status:** Proposed
+**Status:** Proposed — **D5's "enqueue for review" half superseded** by
+[ADR-108](ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md) (the row is still
+written as the skip record, but the Duplicates queue no longer lists it); everything else stands
 **Date:** 2026-09-02
 **Deciders:** Project owner
 
