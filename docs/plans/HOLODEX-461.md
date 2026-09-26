@@ -84,6 +84,7 @@ Regression test: `internal/repo/display_names_test.go` → `TestCastDisplayNames
 
 ### 2026-09-26 · session
 - skills: code-review (high --fix), handoff
+- merged origin/main (cd254e1; ecc5207 geometry tests, no overlap) before opening the Draft PR
 - handoff: Fix committed (d9bcd5d) and verified on backend-films (the Cast tile and "More with" shelf show the decided spelling, and the canonical name is absent from the page); the Draft PR waits only on Kevin's skin look before `gh pr ready`.
 
 ## Dropped — newest first (the reason is the point)
