@@ -401,6 +401,24 @@ func TestReactivate(t *testing.T) {
 	}
 }
 
+// HOLODEX-468: StatByPath reports whether file_tags was ever recorded, so the
+// scanner can re-extract a pre-0054 row whose file is unchanged.
+func TestStatByPathFileTagsKnown(t *testing.T) {
+	r, database := newRepoDB(t)
+	ctx := context.Background()
+	id, _ := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+
+	if st, _, _ := r.StatByPath(ctx, "/m/a.mkv"); !st.FileTagsKnown {
+		t.Error("an upserted row (no tags → \"[]\") should report file tags known")
+	}
+	if _, err := database.ExecContext(ctx,`UPDATE videos SET file_tags = NULL WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	if st, _, _ := r.StatByPath(ctx, "/m/a.mkv"); st.FileTagsKnown {
+		t.Error("a NULL file_tags row should report file tags unknown")
+	}
+}
+
 func TestMetadataFacetsKeysAndFilter(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

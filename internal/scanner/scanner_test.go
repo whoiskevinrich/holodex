@@ -57,6 +57,7 @@ func (f *fakeRepo) UpsertVideo(_ context.Context, v *model.Video, _ []model.Extr
 		st = repo.VideoStat{ID: f.nextID}
 	}
 	st.Size, st.Mtime = v.FileSize, v.FileMtime
+	st.FileTagsKnown = true // UpsertVideo always records file_tags (ADR-111 D1)
 	f.byPath[v.FilePath] = st
 	f.active[st.ID] = true
 	return st.ID, nil
@@ -313,6 +314,54 @@ func TestChangedFileIsReindexed(t *testing.T) {
 	_ = s.ScanOnce(ctx)
 	if fr.uparts != 2 {
 		t.Errorf("upserts after change = %d, want 2", fr.uparts)
+	}
+}
+
+// HOLODEX-468: a row indexed before migration 0054 has file_tags NULL. An
+// unchanged file with such a row is re-extracted once — filling file_tags —
+// and skipped on every scan after that.
+func TestUnknownFileTagsReextractedOnce(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.mkv")
+	writeFile(t, path, 100)
+
+	fr := newFakeRepo()
+	s := newTestScanner(dir, fr)
+	ft := &fakeThumbnailer{}
+	s.SetThumbnailer(ft)
+	extracts := 0
+	s.SetExtractionRunner(func(context.Context, int64) error { extracts++; return nil })
+	ctx := context.Background()
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 1: %v", err)
+	}
+
+	// Simulate the pre-0054 row: file_tags never recorded.
+	fr.mu.Lock()
+	st := fr.byPath[path]
+	st.FileTagsKnown = false
+	fr.byPath[path] = st
+	fr.mu.Unlock()
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 2: %v", err)
+	}
+	if fr.uparts != 2 {
+		t.Errorf("upserts after unknown-file-tags rescan = %d, want 2 (one re-extract)", fr.uparts)
+	}
+	if last := s.Status().LastRun; last == nil || last.Updated != 1 {
+		t.Errorf("re-extract should count as 1 updated; last run = %+v", last)
+	}
+	// The file is unchanged: no second thumbnail or filename-extraction pass.
+	if extracts != 1 || len(ft.enqueued) != 1 {
+		t.Errorf("post-upsert hooks after fill: extracts=%d thumbs=%d, want 1/1 (first scan only)", extracts, len(ft.enqueued))
+	}
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan 3: %v", err)
+	}
+	if fr.uparts != 2 {
+		t.Errorf("upserts after file_tags filled = %d, want still 2 (fast-path)", fr.uparts)
 	}
 }
 
