@@ -16,7 +16,7 @@ release_note: The Enrich dialog now offers "Search again" for a provider you ear
 approved:
   design:
     on: 2026-09-27
-    at: 33718f23
+    at: adf8e3af
 ---
 
 # HOLODEX-467 · Enrich picker dead-ends on a dismissed provider
@@ -41,14 +41,13 @@ dismissal only when it finds candidates.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**`
-- [/] frontend → `web/src/**` — built + browser-QA'd; held on Kevin comparing the build to the approved mockup (§3d)
+- [x] frontend → `web/src/**` — Kevin confirmed the build matches approved mockup A (2026-09-27)
 - [x] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Kevin: confirm the built dialog matches approved mockup A, then mark the PR ready — `web/src/lib/components/enrichment/EnrichPicker.svelte`
-2. [ ] [—] On merge: CI moves HOLODEX-467 to Done (branch-keyed, no children to sweep)
-3. [ ] [—] Optional follow-up: provider chip shows "not matched" before the picker opens — `web/src/lib/components/enrichment/EnrichProviderChips.svelte`
+1. [ ] [—] Squash-merge #399 on Kevin's ping; on merge: CI moves HOLODEX-467 to Done (branch-keyed, no children to sweep)
+2. [ ] [—] Optional follow-up: provider chip shows "not matched" before the picker opens — `web/src/lib/components/enrichment/EnrichProviderChips.svelte`
 
 ## Session log — newest first
 
@@ -56,7 +55,7 @@ dismissal only when it finds candidates.
 
 - skills: design-critique, code-review high --fix, handoff
 - Filed HOLODEX-467; option A approved from three-skin mockup; backend `retry` on four `/resolve` handlers, picker dismissed state, spec/handoff/testing docs; browser QA on media + person pages.
-- handoff: Fix built, tested and QA'd on backend-films (commit 33718f23); only Kevin's build-vs-mockup look stands between the Draft PR and ready.
+- handoff: All five gates settled and Kevin confirmed the build matches mockup A; PR #399 marked ready — next move is the squash-merge on Kevin's ping.
 
 ## Dropped — newest first (the reason is the point)
 
