@@ -55,8 +55,14 @@ the same shape it already builds for an undecided field:
 - a non-standing `decision` whose source falls back to `file`
 
 No new field and no new shape: `sourceChips()` already renders this as File "No value" + Custom. The
-resolver stays pure, and it stays the one place a resolved row is built (ADR-033). Offered rows are
-built before `markWriteTargets`, so they carry `write_target` like any other row.
+resolver stays pure, and it stays the one place a resolved row is built (ADR-033).
+
+Being built before `markWriteTargets` is not enough on its own to make an offered row writable.
+`writeback.ResolveForContainer` skips a field with no values, so an empty row would get no
+`write_target` and the dialog would disable it. `markWriteTargets` therefore asks the mapper where
+an offered field's value *would* land (it passes one empty value for a valueless offered row). An
+empty row that the owner blank-pinned keeps today's unwritable stamp. The write path is unchanged:
+by the time anything is written, the row carries the Custom value.
 
 Merge, multi, entity-link and identity fields are never offered. Offering means a place to type a
 Custom value, and ADR-051 RD1 limits Custom to replace fields.

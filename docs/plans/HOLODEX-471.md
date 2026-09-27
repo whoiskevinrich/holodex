@@ -34,22 +34,22 @@ empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-tru
 - [x] spec `write-spec` → `docs/specs/**` — F36 P1-5 + Resolution step 4 in `field-source-of-truth.md`
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-113 (owner-offered empty fields, adopted per field)
 - [x] design `design-handoff` → `docs/design/**` — `overview-add-handoff.md` + `overview-add-mockup.svg` (option B; sign-off pending)
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**` — `resolver.Options.Offer`, registry `OfferWhenEmpty` on `overview`, owner-only in `getMedia`, offered rows stamped writable (blank pins excluded)
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] `resolver.Options.Offer`, registry `OfferWhenEmpty` on `overview`, `getMedia` passes it for the owner only, before `markWriteTargets`
-2. [ ] [frontend] The **+ Add overview** pill and Custom pre-selected in `SourceEditModal` when no source has a value; QA all three skins
-3. [ ] [testing] Testing strategy, then [security] review (D3 is an owner/visitor gate on the response)
+1. [ ] [frontend] The **+ Add overview** pill and Custom pre-selected in `SourceEditModal` when no source has a value; QA all three skins — `web/src/routes/media/[id]/+page.svelte`
+2. [ ] [testing] Testing strategy, then [security] review (D3 is an owner/visitor gate on the response)
 
 ## Session log — newest first
 
 ### 2026-09-27 · session
-- skills: handoff, implement
+- skills: handoff, implement, code-review
 - Mocked the empty-Overview affordance (A/B/C); Kevin picked B (dashed **+ Add overview** pill → existing Edit Overview dialog) and Overview-only scope with an ADR for per-field adoption. Found the cause: the resolver drops empty undecided replace fields, so neither the page nor the writeback dialog had a row. Wrote ADR-113, spec F36 P1-5, and the handoff + three-skin SVG. Linked HOLODEX-304 as the rollout backlog.
-- handoff: Crossed into build: design signed off at ffb4ba25 and the Draft PR is open. Start at Up next #1, the backend `resolver.Options.Offer` + registry `OfferWhenEmpty` on `overview`.
+- Backend: `ResolveFields` keeps an empty replace field when `opts.Offer` names it; `getMedia` sets `Offer = registry.OffersWhenEmpty` for the owner only. `ResolveForContainer` skips valueless fields, so `markWriteTargets` asks where an offered row's value would land (ADR-113 D1 amended). code-review high found that this also stamped blank-pinned rows; fixed and mutation-tested.
+- handoff: Crossed into build (design signed off at ffb4ba25, Draft PR #402), and the backend is done. The owner's detail now carries an empty, writable overview row. Next: the frontend **+ Add overview** pill in `+page.svelte` and Custom pre-selected in `SourceEditModal`.
 
 ## Dropped — newest first (the reason is the point)

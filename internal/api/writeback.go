@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/writeback"
@@ -106,7 +107,17 @@ func (h *Handlers) dismissWriteback(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) markWriteTargets(fields []resolver.ResolvedField, container string) {
 	specs := make([]writeback.FieldValues, len(fields))
 	for i, f := range fields {
-		specs[i] = writeback.FieldValues{Field: f.Canonical, Values: f.Values}
+		vals := f.Values
+		// An owner-offered empty row (ADR-113) has no value yet, and the mapper skips a
+		// valueless field. Ask it where a value *would* land, so the dialog can write
+		// the Custom value typed into that row. Only offered rows get this: an empty
+		// row the owner blank-pinned keeps today's unwritable stamp.
+		offered := len(vals) == 0 && !f.Multi && (f.Decision == nil || !f.Decision.Standing) &&
+			registry.OffersWhenEmpty(f.Canonical)
+		if offered {
+			vals = []string{""}
+		}
+		specs[i] = writeback.FieldValues{Field: f.Canonical, Values: vals}
 	}
 	mapped, _ := writeback.ResolveForContainer(container, specs)
 	targets := make(map[string]string, len(mapped))

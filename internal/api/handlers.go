@@ -810,6 +810,12 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			} else {
 				opts.LastWritten = written
 			}
+			// ADR-113 D3: only the owner is offered empty fields (the "+ Add overview" row),
+			// so a visitor's resolved[] is unchanged. Resolved before markWriteTargets
+			// below, so an offered row is writable in the dialog.
+			if authorized {
+				opts.Offer = registry.OffersWhenEmpty
+			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
