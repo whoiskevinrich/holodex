@@ -20,6 +20,10 @@ release_note: Media, People, Studios, Films and Tags now share one sort, filter 
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-09-27
+    at: c99b221
 ---
 
 # HOLODEX-472 · F73 One list toolbar: shared sort, filter and view across list pages
@@ -63,14 +67,13 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner sign-off on the handoff and its 6 end-of-doc decisions — run /implement — `docs/design/list-toolbar-handoff.md`
-2. [ ] [testing] Run testing-strategy for F73 (ADR-114 action item 6 cases) — `docs/testing-strategy.md`
-3. [ ] [frontend] `listState.ts` parse/serialize/commit/exitAfterRemoval + unit tests (ADR-114 D6) — `web/src/lib/listState.ts`
-4. [ ] [frontend] ListToolbar, FiltersButton, FilterPanel popover/sheet, FilterChip — `web/src/lib/components/sort/`
-5. [ ] [frontend] Migrate Media/People/Studios/Films/Tags; retire SortToggle + CompletenessSortToggle — `web/src/routes/`
-6. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
-7. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
-8. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
+1. [ ] [testing] Run testing-strategy for F73 (ADR-114 action item 6 cases) — `docs/testing-strategy.md`
+2. [ ] [frontend] `listState.ts` parse/serialize/commit/exitAfterRemoval + unit tests (ADR-114 D6) — `web/src/lib/listState.ts`
+3. [ ] [frontend] ListToolbar, FiltersButton, FilterPanel popover/sheet, FilterChip — `web/src/lib/components/sort/`
+4. [ ] [frontend] Migrate Media/People/Studios/Films/Tags; retire SortToggle + CompletenessSortToggle — `web/src/routes/`
+5. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
+6. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
+7. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,7 +86,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 -->
 
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
-- skills: product-brainstorming, write-spec, architecture, design-handoff, handoff
+- skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
 - handoff: Design phase complete (spec, ADR-114, handoff + 3 measured SVGs pushed); waiting on the owner's design sign-off — run /implement to review the handoff and its 6 open decisions, then open the Draft PR.
 
