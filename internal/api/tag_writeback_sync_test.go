@@ -204,6 +204,35 @@ func TestSyncTagWriteback_RecomputesFullUnion(t *testing.T) {
 	_ = vid
 }
 
+// ADR-110: turning writeback off for a video's only tag and syncing still
+// enqueues that video — its genres union is now empty, and the job is what
+// clears the tag from the file. It used to be skipped as "nothing to write",
+// which left the ignored tag on file for good.
+func TestSyncTagWriteback_EmptyUnionStillClearsTheFile(t *testing.T) {
+	srv, r, written, mu := tagWritebackSyncServer(t)
+	seedGenreVideo(t, r, "/m/only_ignored.mkv", "V", "Yoda")
+	yodaID := tagID(t, r, "Yoda")
+
+	if code, body := patchTok(t, srv.URL+"/api/v1/tags/"+itoa(yodaID)+"/writeback", "", map[string]bool{"enabled": false}); code != http.StatusOK {
+		t.Fatalf("disable = %d: %v", code, body)
+	}
+	code, body := postTok(t, srv.URL+"/api/v1/tags/"+itoa(yodaID)+"/writeback/sync", "", nil)
+	if code != http.StatusAccepted {
+		t.Fatalf("sync = %d, want 202: %v", code, body)
+	}
+	if n, _ := body["enqueued"].(float64); n != 1 {
+		t.Errorf("enqueued = %v, want 1", body["enqueued"])
+	}
+	waitQueueDrained(t, r)
+
+	mu.Lock()
+	defer mu.Unlock()
+	got, wrote := (*written)["/m/only_ignored.mkv"]
+	if !wrote || len(got) != 0 {
+		t.Errorf("Genre write = %v (wrote %v), want an empty write that deletes Genre", got, wrote)
+	}
+}
+
 // TestSyncTagWritebackBulk_DedupsSharedVideo covers D2's bulk sync scope: a
 // video attached to two selected tags is enqueued (and so written) once, not
 // once per selected tag it happens to carry.

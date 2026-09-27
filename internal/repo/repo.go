@@ -1338,6 +1338,37 @@ func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, e
 	return out, rows.Err()
 }
 
+// WritebackDisabledTagSet returns the subset of names that resolve (name key,
+// then alias — the scanner's resolution) to a tag with writeback turned off,
+// keyed by the name as given. The genres writeback drops these from its raw
+// resolved side too, or an ignored tag would reach Genre through file:Genre
+// (ADR-110 D1). A name resolving to no tag is simply absent.
+func (r *Repo) WritebackDisabledTagSet(ctx context.Context, names []string) (map[string]bool, error) {
+	idByName := make(map[string]int64, len(names))
+	ids := make([]int64, 0, len(names))
+	for _, n := range names {
+		id, ok, err := r.LookupEntityIDByName(ctx, model.EntityTag, n)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			idByName[n] = id
+			ids = append(ids, id)
+		}
+	}
+	enabled, err := r.tagWritebackEnabled(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool, len(idByName))
+	for n, id := range idByName {
+		if on, found := enabled[id]; found && !on {
+			out[n] = true
+		}
+	}
+	return out, nil
+}
+
 // tagWritebackEnabled returns each id's writeback_enabled flag, keyed by id
 // (HOLODEX-239, ADR-077).
 func (r *Repo) tagWritebackEnabled(ctx context.Context, ids []int64) (map[int64]bool, error) {

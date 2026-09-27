@@ -353,6 +353,15 @@ func ToString(v any) string {
 		return strconv.FormatBool(t)
 	case nil:
 		return ""
+	case []any:
+		// exiftool returns a list-type tag (e.g. Matroska KEYWORDS) as a JSON
+		// array; %v would render it "[Drama Heist]" — one bogus tag. Join it the
+		// way writeback stores a multi-value field, which SplitMulti undoes.
+		parts := make([]string, len(t))
+		for i, e := range t {
+			parts[i] = ToString(e)
+		}
+		return strings.Join(parts, ", ")
 	default:
 		return fmt.Sprintf("%v", t)
 	}

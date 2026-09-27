@@ -1,6 +1,7 @@
 # Spec: Tag Writeback Exclusion — per-tag Genre writeback control
 
-**Status**: Draft
+**Status**: Draft · **amended 2026-09-26 by [HOLODEX-465](#amendment--the-file-tag-contract-holodex-465)**,
+which changes the meaning of "excluded" from *not written to Genre* to *UI-only: removed from the file*
 **Epic**: [HOLODEX-239](https://whoiskevinrich.atlassian.net/browse/HOLODEX-239)
 **Owner**: Project owner
 **Date**: 2026-07-31
@@ -184,3 +185,98 @@ Single-owner, self-hosted app — adoption-funnel metrics don't apply. The pract
 No hard deadline. This is the first of two related fast-follows — a tag-categories feature is
 intentionally sequenced after this one, since it reuses the Details-card scaffold and the
 Manage-bar bulk-action extension point this spec originates.
+
+---
+
+## Amendment — the file tag contract (HOLODEX-465)
+
+**Date**: 2026-09-26 · **ADR**: [ADR-110](../architecture/ADR-110-tag-writeback-file-contract.md) ·
+**Also closes**: [HOLODEX-466](https://whoiskevinrich.atlassian.net/browse/HOLODEX-466) (MP4 tagline
+read back as tags)
+
+### Problem
+
+Tags are *written* to one container key (Genre) but *read* from five (`Genre, Genres, Keywords,
+Category, Categories`, `internal/metadata/extractor.go` `tagKeys`). So a tag removed in Holodex
+that another tool left in Keywords or Category comes back on the next rescan. The owner can't make
+a file's tags match the UI. On MP4, Holodex also writes the **tagline** into `QuickTime:Keywords`,
+so a rescan splits the tagline on commas and turns the pieces into tags.
+
+### The contract (the owner's three rules)
+
+1. **Tags in the UI are written to the file on writeback.**
+2. **Tags from the file appear in the UI.** The reader is unchanged and still reads all five keys.
+3. **Ignored tags (writeback turned off) are UI-only.** A writeback removes them from the file,
+   and they stay in the UI.
+
+Put together: **after a genres writeback, every tag key on the file holds only the UI's tags minus
+ignored ones, and no tag leaves the UI because of a writeback.** This replaces P0's "a tag with the
+flag off contributes nothing to `GenreWritebackValues`" as the definition of *excluded*. Before,
+an ignored tag was simply not added to Genre. Now it is actively removed from the file.
+
+### Requirements (P0)
+
+**Genre carries the written set.** Unchanged from today: the video's tags plus their ancestors,
+minus ignored tags, unioned with the deny-filtered raw genres. The only change is that the raw side
+now **also drops ignored tag names**. Today an ignored tag can still reach Genre through the raw
+`file:Genre` value.
+- [ ] An ignored tag present in the file's Genre is gone from Genre after writeback, even when it
+      also arrives through the raw resolved genres.
+
+**The other tag keys are filtered, not cleared.** In the same writeback, each of `Genres, Keywords,
+Category, Categories` that exists on the file keeps only the values in the written set. A value
+matches a written tag the same way the scanner would resolve it (the tag name identity spine:
+case/whitespace folding, aliases, merges). Values are never added to these keys; a key left with
+nothing is removed from the file.
+- [ ] A file with Genre `Drama` and Keywords `Drama, Heist`, whose video has only `Drama`, ends
+      with Keywords `Drama`; a rescan leaves the video with only `Drama`.
+- [ ] A file with Keywords `Heist` only (no Drama) ends with no Keywords key at all.
+- [ ] Keys that are absent from the file are not created.
+
+**Ignored tags stay in the UI.** Before removing an ignored tag from the file, the writeback changes
+that video's link to the tag from `source='file'` to `source='manual'`. Rescans only manage `file`
+links (`replaceAssociations`, ADR-075 D3), so the tag survives. This also fixes today's silent
+loss, where an ignored tag that came only from Genre disappeared on the next rescan.
+- [ ] An ignored tag that came only from the file is gone from the file after writeback, and still
+      on the video after a rescan.
+
+**Undo covers everything the writeback changed.** The writeback's before-snapshot and revert cover
+each filtered key as well as Genre, so undoing a genres writeback restores Keywords/Category too.
+- [ ] Reverting a genres writeback restores the prior Genre *and* the prior filtered keys.
+
+**The MP4 tagline leaves Keywords (HOLODEX-466).** The MP4 `tagline` write target moves from
+`QuickTime:Keywords` to a key the reader doesn't treat as tags. The candidate is
+`QuickTime:Description`, confirmed by a write-then-read probe on generated clips the way ADR-096
+RD8 chose edition's key. Matroska keeps `Subtitle`.
+- [ ] Writing a tagline containing commas to an MP4 and rescanning adds no tags.
+
+**An empty written set clears the file.** A video whose tags were all removed or ignored still gets
+its genres job: Genre is deleted and the other keys are filtered to nothing. Both the dialog and the
+tag sync used to skip that video as "nothing to write".
+- [ ] Turning writeback off for a video's only tag and syncing removes that tag from the file.
+
+**The scanner reads a list-valued key as separate tags.** exiftool returns Matroska Keywords as a
+list, which the scanner used to read as one tag named like `[Drama Heist]`. Found by the round-trip
+test; rule 2 needs it fixed.
+- [ ] An MKV with Keywords `Drama, Heist` reads back as the tags `Drama` and `Heist`.
+
+**Triggers are unchanged.** Only an explicit writeback writes the file: the per-video dialog and the
+tag sync, the only two paths that write genres. Attaching or detaching a tag does **not**
+write the file (owner decision, 2026-09-26). Known and accepted: a tag detached in the UI but still
+on the file comes back if a rescan runs before the next writeback.
+
+### Non-goals (this amendment)
+
+- Auto-writing on attach/detach (see above).
+- Changing what the reader reads (all five keys stay).
+- The writeback-dialog tags row (HOLODEX-401). That is UI work that builds on this contract.
+- Cleaning up tags created by the old tagline leak. Pieces of an MP4 tagline that an earlier rescan
+  turned into tags are real tags on the video now, so the filter keeps them. The owner removes them
+  (detach, or deny-list) and the next writeback strips them from the file.
+
+### Open question
+
+- **Raw genres that aren't tags.** The written set still unions in resolved genres that were never
+  materialized into Tag rows (ADR-075 D4 normally materializes them). Under rule 1, strictly only
+  UI tags should be written. Kept as-is for this amendment, since materialization makes the two
+  sets equal in practice; revisit if a probe shows unmaterialized genres reaching files.

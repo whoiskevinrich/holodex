@@ -138,6 +138,27 @@ func (r *Repo) AttachMaterializedTags(ctx context.Context, videoID int64, tags [
 	return tx.Commit()
 }
 
+// PromoteIgnoredFileTags re-sources videoID's file-sourced links to tags with
+// writeback turned off from 'file' to 'manual' (ADR-110 D4). A genres writeback
+// removes those tags from the file, and replaceAssociations only manages 'file'
+// links on rescan, so without this the tag would vanish from the video the next
+// time the file is read. Called only after the write succeeded; one-way on
+// purpose — the tag is now Holodex's, no longer a fact about the file.
+func (r *Repo) PromoteIgnoredFileTags(ctx context.Context, videoID int64) (int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE video_tags SET source = ?
+		 WHERE video_id = ? AND source = ?
+		   AND tag_id IN (SELECT id FROM tags WHERE writeback_enabled = 0)`,
+		fieldsource.Manual, videoID, fieldsource.File)
+	if err != nil {
+		return 0, fmt.Errorf("promote ignored file tags: %w", err)
+	}
+	return res.RowsAffected()
+}
+
 // DetachTagFromVideo removes tagID's link to videoID. ErrNotFound if the tag isn't
 // currently attached to the video — surfaced, not a silent no-op, so the owner UI
 // can tell a stale chip apart from a real removal.

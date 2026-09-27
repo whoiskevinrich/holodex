@@ -37,13 +37,16 @@ type FieldValues struct {
 }
 
 // Mapped is one resolved write target: a container tag name plus the values and
-// provenance to write/audit. IsImage marks a binary cover-art embed.
+// provenance to write/audit. IsImage marks a binary cover-art embed; Delete
+// removes the tag instead (no Values) — an empty genres write, or a tag key
+// filtered to nothing (ADR-110).
 type Mapped struct {
 	Field   string
 	TagName string
 	Source  string
 	Values  []string
 	IsImage bool
+	Delete  bool
 }
 
 // ResolveForContainer maps curated canonical fields to their per-container tag
@@ -57,11 +60,11 @@ func ResolveForContainer(container string, fields []FieldValues) (mapped []Mappe
 			continue
 		}
 		if tag, ok := ImageTagForField(f.Field, container); ok {
-			mapped = append(mapped, Mapped{f.Field, tag, f.Source, f.Values, true})
+			mapped = append(mapped, Mapped{Field: f.Field, TagName: tag, Source: f.Source, Values: f.Values, IsImage: true})
 			continue
 		}
 		if tag, ok := TagForField(f.Field, container); ok {
-			mapped = append(mapped, Mapped{f.Field, tag, f.Source, f.Values, false})
+			mapped = append(mapped, Mapped{Field: f.Field, TagName: tag, Source: f.Source, Values: f.Values})
 			continue
 		}
 		unmapped = append(unmapped, f.Field)
@@ -122,7 +125,7 @@ var formatMap = map[string]map[string]string{
 	"MP4": {
 		"title":             "QuickTime:Title",
 		"overview":          "QuickTime:Comment",
-		"tagline":           "QuickTime:Keywords",
+		"tagline":           "QuickTime:Description", // not Keywords: the scanner reads Keywords as tags, so a tagline there came back as tags (HOLODEX-466, ADR-110 D5)
 		"release_date":      "QuickTime:Year",
 		"edition":           "XMP-prism:Edition",    // no writable QuickTime edition atom; exiftool reads the XMP packet back as Edition (F60 RD8)
 		"part":              "QuickTime:DiskNumber", // the iTunes `disk` atom (HOLODEX-389 RD5); a bare ordinal reads back bare

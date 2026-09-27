@@ -258,9 +258,9 @@ func TestMergeTagsXML(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"<Name>ARTIST</Name><String>Prior Artist</String>", // untouched tag survives
-		"<Name>PART_NUMBER</Name><String>3</String>",       // targeted Tag survives
-		"<TargetTypeValue>30</TargetTypeValue>",            // its Targets survive
+		"<Name>ARTIST</Name><String>Prior Artist</String>",   // untouched tag survives
+		"<Name>PART_NUMBER</Name><String>3</String>",         // targeted Tag survives
+		"<TargetTypeValue>30</TargetTypeValue>",              // its Targets survive
 		"<Name>GENRE</Name><String>Drama, Thriller</String>", // multi-value → one comma-joined Simple (HOLODEX-464)
 	} {
 		if !strings.Contains(got, want) {

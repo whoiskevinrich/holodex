@@ -19,6 +19,7 @@ type FieldWrite struct {
 	TagName string   // format-specific tag name from TagForField / ImageTagForField
 	Values  []string // one or more values; for IsImage fields Values[0] is a URL
 	IsImage bool     // when true, Values[0] is an https:// URL to download+embed as cover art
+	Delete  bool     // when true, Values is empty and the tag is removed from the file (ADR-110)
 }
 
 // fileValue is the single string a text field is stored as on file. Container
@@ -26,6 +27,9 @@ type FieldWrite struct {
 // splits it back apart (metadata.splitMulti) — and every backend must write that
 // same shape: exiftool keeps only the LAST of repeated -TAG=VALUE assignments to
 // a non-list tag, which silently cut MP4 genres to one (HOLODEX-464).
+//
+// A Delete field yields "", which is itself the delete on both text backends:
+// exiftool's -TAG= and ffmpeg's -metadata key= remove the tag (ADR-110).
 func fileValue(f FieldWrite) string {
 	return strings.Join(f.Values, ", ")
 }
@@ -46,7 +50,8 @@ func fileValue(f FieldWrite) string {
 // silently destroyed metadata here before.
 //
 // On any failure the original is untouched; temp files are cleaned up.
-// All FieldWrite entries must have a non-empty TagName and at least one value.
+// All FieldWrite entries must have a non-empty TagName and either at least one
+// value or Delete set.
 func WriteBatch(ctx context.Context, path string, fields []FieldWrite) error {
 	if len(fields) == 0 {
 		return fmt.Errorf("writeback: no fields to write")
@@ -55,8 +60,11 @@ func WriteBatch(ctx context.Context, path string, fields []FieldWrite) error {
 		if f.TagName == "" {
 			return fmt.Errorf("writeback: empty tag name in batch")
 		}
-		if len(f.Values) == 0 {
-			return fmt.Errorf("writeback: no values for tag %q", f.TagName)
+		if f.Delete != (len(f.Values) == 0) {
+			return fmt.Errorf("writeback: tag %q must carry values or be a delete, not both or neither", f.TagName)
+		}
+		if f.Delete && f.IsImage {
+			return fmt.Errorf("writeback: cannot delete image tag %q", f.TagName)
 		}
 	}
 
@@ -416,8 +424,12 @@ func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 		}
 		// The first untargeted Tag takes our fields.
 		addHere := !added && untargeted(tag)
-		if len(kept) == 0 && !addHere {
-			// Matroska requires every Tag to carry at least one Simple.
+		if addHere {
+			added = true
+		}
+		if len(kept) == 0 && !(addHere && hasWrites(fields)) {
+			// Matroska requires every Tag to carry at least one Simple — and a
+			// batch of only deletes (ADR-110) adds none.
 			continue
 		}
 
@@ -432,7 +444,6 @@ func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 		}
 		if addHere {
 			writeSimples(&sb, fields)
-			added = true
 		}
 		sb.WriteString("</Tag>\n")
 	}
@@ -441,9 +452,18 @@ func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 	return sb.String(), nil
 }
 
-// writeSimples renders one <Simple> element per field.
+// hasWrites reports whether any field adds a value rather than deleting its tag.
+func hasWrites(fields []FieldWrite) bool {
+	return slices.ContainsFunc(fields, func(f FieldWrite) bool { return !f.Delete })
+}
+
+// writeSimples renders one <Simple> element per field. A Delete field renders
+// nothing: mergeTagsXML has already dropped its existing Simples.
 func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 	for _, f := range fields {
+		if f.Delete {
+			continue
+		}
 		sb.WriteString("<Simple><Name>")
 		sb.WriteString(strings.ToUpper(f.TagName))
 		sb.WriteString("</Name><String>")

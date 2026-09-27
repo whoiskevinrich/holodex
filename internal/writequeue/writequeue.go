@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -57,11 +58,17 @@ const (
 	SourceRevert = "revert"
 )
 
+// genresField is the canonical field tags reach the file through; a job that
+// writes it also filters the file's other tag keys (ADR-110).
+const genresField = "genres"
+
 // Queue is the durable writeback worker.
 type Queue struct {
 	repo        *repo.Repo
 	write       WriteFunc
 	postWrite   PostWriteFunc
+	readTagKeys func(ctx context.Context, path, container string) (map[string][]string, error)
+	readCurrent func(ctx context.Context, path string, mapped []writeback.Mapped) (map[string]string, error)
 	log         *slog.Logger
 	mediaRoot   string
 	concurrency int
@@ -78,6 +85,8 @@ func New(r *repo.Repo, write WriteFunc, log *slog.Logger, concurrency int, media
 	return &Queue{
 		repo:        r,
 		write:       write,
+		readTagKeys: writeback.ReadTagKeys,
+		readCurrent: writeback.ReadCurrentValues,
 		log:         log,
 		mediaRoot:   mediaRoot,
 		concurrency: concurrency,
@@ -256,6 +265,12 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	}
 
 	mapped, unmapped := buildBatch(fields, v.Container)
+	writesGenres := slices.ContainsFunc(mapped, func(m writeback.Mapped) bool { return m.Field == genresField })
+	// A revert restores the tag keys it snapshotted as fields of its own; filtering
+	// them against the restored Genre would undo the undo (ADR-110 D3).
+	if writesGenres && !slices.ContainsFunc(mapped, func(m writeback.Mapped) bool { return m.Source == SourceRevert }) {
+		mapped = q.withTagKeyFilter(ctx, job, v, mapped)
+	}
 	if len(mapped) == 0 {
 		// Nothing writable for this container — a success no-op, recorded so the
 		// operator sees why (e.g. .avi with no tag mapping).
@@ -265,7 +280,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 
 	batch := make([]writeback.FieldWrite, len(mapped))
 	for i, m := range mapped {
-		batch[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage}
+		batch[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage, Delete: m.Delete}
 	}
 
 	// F48.9a (ADR-067): snapshot each field's current on-disk value before it
@@ -286,10 +301,98 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 			q.log.Warn("insert writeback audit", "id", job.ID, "field", m.Field, "err", auditErr)
 		}
 	}
+	// Before the post-write re-read: that re-read rescans the file's tags, and
+	// an ignored tag this write just removed must already be off 'file' by then.
+	if writesGenres {
+		if _, err := q.repo.PromoteIgnoredFileTags(ctx, job.VideoID); err != nil {
+			q.log.Warn("promote ignored file tags", "id", job.ID, "video", job.VideoID, "err", err)
+		}
+	}
 	if q.postWrite != nil {
 		q.postWrite(ctx, job.VideoID, v.FilePath)
 	}
 	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped, batchID))
+}
+
+// withTagKeyFilter adds a genres job's derived tag-key writes (ADR-110 D2): every
+// ExtraTagKeys instance on the file is filtered down to the values that resolve
+// to the written set, so the file's tags match the UI after the write. Computed
+// here, at run time, because the file can change while the job waits. It also
+// drops a Genre delete when the file carries no Genre — on Matroska that write
+// would be a full remux for nothing. A read failure is logged and the job writes
+// Genre alone, the same non-fatal posture as the pre-write snapshot.
+func (q *Queue) withTagKeyFilter(ctx context.Context, job *repo.WritebackJob, v *model.Video, mapped []writeback.Mapped) []writeback.Mapped {
+	i := slices.IndexFunc(mapped, func(m writeback.Mapped) bool { return m.Field == genresField })
+	genres := mapped[i]
+
+	present, err := q.readTagKeys(ctx, v.FilePath, v.Container)
+	// The names come from the media file's own metadata, via exiftool: hold them
+	// to the same allowlist as a payload's tag-key fields before any is written.
+	for name := range present {
+		if !writeback.ValidTagKeyName(v.Container, name) {
+			delete(present, name)
+		}
+	}
+	if err == nil {
+		var keep func(string) bool
+		if keep, err = q.tagKeeper(ctx, genres.Values, present); err == nil {
+			mapped = append(mapped, writeback.FilterTagKeys(present, keep, genres.Source)...)
+		}
+	}
+	if err != nil {
+		q.log.Warn("writeback tag-key filter skipped", "id", job.ID, "video", job.VideoID, "err", err)
+	}
+
+	if genres.Delete {
+		cur, err := q.readCurrent(ctx, v.FilePath, []writeback.Mapped{genres})
+		if err == nil && cur[genresField] == "" {
+			mapped = slices.Delete(mapped, i, i+1)
+		}
+	}
+	return mapped
+}
+
+// tagKeeper decides which file tag-key values survive a genres write: those that
+// resolve — the way the scanner resolves a tag name (the name key, then aliases
+// and merged-away names) — to a tag in the written set. Resolution happens up
+// front so the returned func is a plain set lookup.
+func (q *Queue) tagKeeper(ctx context.Context, written []string, present map[string][]string) (func(string) bool, error) {
+	keys := make(map[string]bool, len(written))
+	ids := make(map[int64]bool, len(written))
+	for _, w := range written {
+		keys[tagNameKey(w)] = true
+		id, ok, err := q.repo.LookupEntityIDByName(ctx, model.EntityTag, w)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			ids[id] = true
+		}
+	}
+	kept := map[string]bool{}
+	for _, values := range present {
+		for _, v := range values {
+			k := tagNameKey(v)
+			if keys[k] || kept[k] {
+				kept[k] = true
+				continue
+			}
+			id, ok, err := q.repo.LookupEntityIDByName(ctx, model.EntityTag, v)
+			if err != nil {
+				return nil, err
+			}
+			if ok && ids[id] {
+				kept[k] = true
+			}
+		}
+	}
+	return func(v string) bool { return kept[tagNameKey(v)] }, nil
+}
+
+// tagNameKey mirrors the repo's tag name key (nameKeyExpr for tags: lowercased,
+// trimmed, spaces removed) so equal-keyed values match without a lookup.
+func tagNameKey(s string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), " ", "")
 }
 
 // snapshotBeforeWrite records each mapped field's current on-disk value under
@@ -321,7 +424,7 @@ func (q *Queue) snapshotBeforeWrite(ctx context.Context, job *repo.WritebackJob,
 		return batchID // already captured on an earlier attempt for this job
 	}
 
-	prior, err := writeback.ReadCurrentValues(ctx, path, mapped)
+	prior, err := q.readCurrent(ctx, path, mapped)
 	if err != nil {
 		q.log.Warn("writeback snapshot read failed", "id", job.ID, "video", job.VideoID, "err", err)
 		return ""
@@ -381,17 +484,40 @@ func (q *Queue) Revert(ctx context.Context, batchID string) ([]int64, error) {
 // (writeback.ResolveForContainer) — never trusting a stored tag (security C2).
 // Unmappable fields are returned so the job_run detail can name them (per-field,
 // not whole-batch — F30.4g).
+//
+// Two shapes bypass the canonical mapping (ADR-110): a TagKeyFieldPrefix field
+// (a derived tag-key write's revert) is written under its own tag name, but only
+// when writeback.ValidTagKeyName allows it; and a genres field with no values
+// deletes the Genre tag — the written set is empty, so the file holds no tags.
 func buildBatch(fields []JobField, container string) (mapped []writeback.Mapped, unmapped []string) {
 	specs := make([]writeback.FieldValues, 0, len(fields))
+	var direct []writeback.Mapped
 	for _, f := range fields {
 		if f.Field == "" {
 			continue
 		}
-		if cleaned := enrich.SanitizeValues(f.Values); len(cleaned) > 0 {
-			specs = append(specs, writeback.FieldValues{Field: f.Field, Values: cleaned, Source: f.Source})
+		cleaned := enrich.SanitizeValues(f.Values)
+		if name, ok := strings.CutPrefix(f.Field, writeback.TagKeyFieldPrefix); ok {
+			if !writeback.ValidTagKeyName(container, name) {
+				unmapped = append(unmapped, f.Field)
+				continue
+			}
+			direct = append(direct, writeback.Mapped{Field: f.Field, TagName: name, Source: f.Source,
+				Values: cleaned, Delete: len(cleaned) == 0})
+			continue
 		}
+		if len(cleaned) == 0 {
+			if f.Field == genresField {
+				if tag, ok := writeback.TagForField(genresField, container); ok {
+					direct = append(direct, writeback.Mapped{Field: f.Field, TagName: tag, Source: f.Source, Delete: true})
+				}
+			}
+			continue
+		}
+		specs = append(specs, writeback.FieldValues{Field: f.Field, Values: cleaned, Source: f.Source})
 	}
-	return writeback.ResolveForContainer(container, specs)
+	mapped, resolvedUnmapped := writeback.ResolveForContainer(container, specs)
+	return append(mapped, direct...), append(unmapped, resolvedUnmapped...)
 }
 
 // detailLine renders the job_runs.detail summary. batchID (F48.9d), when

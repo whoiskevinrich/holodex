@@ -31,9 +31,9 @@ import (
 var UnreadableWriteTargets = map[string]string{
 	"original_title": "written only on Matroska (OriginalMediaType); MP4 has no write target at all, " +
 		"so a file source would report a permanent mismatch on every MP4",
-	"tagline": "MP4 writes QuickTime:Keywords, which exiftool reads back as `Keywords` — a key " +
-		"internal/metadata classifies as a tag and consumes into Extracted.Tags, so it never " +
-		"reaches extra_metadata for a file: source to address",
+	"tagline": "MP4 writes QuickTime:Description (moved off Keywords, which the scanner read as " +
+		"tags — HOLODEX-466, ADR-110 D5); a file: source for it would need Description on " +
+		"MP4 beside Subtitle on Matroska, and no mapping declares one yet",
 	"original_language": "MP4 writes QuickTime:MediaLanguage, which is not a defined exiftool tag — " +
 		"the write is dropped with a warning, so there is nothing to read back (HOLODEX-336)",
 }
