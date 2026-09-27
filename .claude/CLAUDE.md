@@ -121,13 +121,17 @@ See [ADR-106](../docs/architecture/ADR-106-push-early-pr-at-implementation.md) (
 4. Confirm **no secrets, credentials, or PII** in the diff (see "Secrets & publishing").
 5. If the change touched the **frontend** → honor the theming rules (auto-loaded from
    `.claude/rules/frontend-theming.md` when you open a `web/**/*.svelte` file): no hardcoded
-   styling, and **QA all three skins**.
+   styling, and **QA Cinémathèque** (plus the custom palette when one is configured).
 
 ## Frontend theming
 
-Tokens-only components + **QA all three skins**. The full, load-bearing rules live in
-`.claude/rules/frontend-theming.md` and load automatically when you open a `web/**/*.svelte`
-file (also ADR-021 and `docs/design/theming.md`).
+Tokens-only components + **QA Cinémathèque**. **Cinémathèque is the only skin**
+([ADR-115](../docs/architecture/ADR-115-cinematheque-only-skin.md), HOLODEX-476): Broadcast and
+Brutalist are retired — never QA, mock up, propose, or extend them, and never offer a skin
+choice as a design option. Tokens stay (one value set, owner-recolourable via the custom
+palette). The full, load-bearing rules live in `.claude/rules/frontend-theming.md` and load
+automatically when you open a `web/**/*.svelte` file (also ADR-021 as amended and
+`docs/design/theming.md`).
 
 ## Before pushing or opening a PR
 

@@ -1,6 +1,10 @@
 # ADR-102: Instance skin — the skin as owner-set instance identity, a `settings` store for library-owned settings, and a derived custom palette applied as inline custom properties
 
 **Status:** Proposed
+
+> **Amended by [ADR-115](ADR-115-cinematheque-only-skin.md):** the shipped-skin set is `cinematheque`
+> only, so the domain is `{cinematheque, custom}`. D2, the `/capabilities` channel and the custom
+> palette (D4–D6) stand.
 **Date:** 2026-09-19
 **Deciders:** Project owner (brainstorm 2026-09-16; persistence model and the two residual questions confirmed 2026-09-19)
 

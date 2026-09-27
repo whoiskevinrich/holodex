@@ -7,19 +7,23 @@ paths:
 
 # Frontend theming (component discipline)
 
-The UI is built on semantic design tokens with three switchable skins (see
-[ADR-021](../../docs/architecture/ADR-021-frontend-theming-and-skins.md) and
-[`docs/design/theming.md`](../../docs/design/theming.md)). Two rules are load-bearing:
+The UI is built on semantic design tokens with **one skin, Cinémathèque** (see
+[ADR-021](../../docs/architecture/ADR-021-frontend-theming-and-skins.md) as amended by
+[ADR-115](../../docs/architecture/ADR-115-cinematheque-only-skin.md), and
+[`docs/design/theming.md`](../../docs/design/theming.md)). Broadcast and Brutalist are
+**retired** — do not QA, mock up, propose, or extend them, and do not present a skin choice as a
+design option. The owner can recolour Cinémathèque with the custom palette (ADR-102 D4), which is
+why tokens stay mandatory. Two rules are load-bearing:
 
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
   utilities backed by CSS variables (`bg-bg`, `bg-surface`, `text-ink`, `text-muted`,
   `border-rule`, `bg-accent`/`text-accent`, `text-accent-ink`, `font-display`/`font-ui`,
   `rounded-theme`, `text-warn`/`border-warn`, `max-w-stage`). **Never** a literal palette or value in a
   component: no `zinc-*`, `sky-*`, hex colors, named font families, or fixed `rounded-lg`/`px`
-  radii. A hardcoded value is a theming bug — it won't react to the skin. Use `--warn`
+  radii. A hardcoded value is a theming bug — it won't react to the custom palette. Use `--warn`
   (`text-warn`/`border-warn`) for error/attention states — deliberately distinct from
-  `--accent`, which doubles as the active/primary color. Skin-specific flourishes belong in
-  `app.css` gated by `[data-theme]`, attached to the shared hook classes
+  `--accent`, which doubles as the active/primary color. Flourishes belong in
+  `app.css`, attached to the shared hook classes
   (`.app-atmosphere`, `.video-frame`, `.video-grid`, `.skin-title`) — not as per-component
   markup. Layout-mode rules attach to `.video-grid[data-layout='...']` (operator-set
   via `holodex.yaml: card_layout`; not a skin — do not gate with `[data-theme]`).
@@ -30,14 +34,14 @@ The UI is built on semantic design tokens with three switchable skins (see
   (bordered neutral — an immediate resolve), or `.btn-quiet` (borderless neutral — a UI-only
   toggle) from `app.css`; solid `bg-accent` stays reserved for a page's one primary action.
   Don't fork a per-file variant. **`disabled:opacity-60` on `text-muted` is a contrast bug** —
-  it lands at 2.4–2.9:1 against `--surface` depending on skin. Withdraw the affordance
+  it lands at ~2.9:1 against `--surface`. Withdraw the affordance
   instead (drop the border, demote accent to neutral) and leave the label at full contrast;
   the `.btn-*` classes already do this. Quick check:
   `rg 'text-muted[^"]*disabled:opacity' web/src --glob '*.svelte'` should be empty.
-- **QA all three skins.** When verifying any UI change, render and eyeball **Cinémathèque,
-  Broadcast, and Brutalist** (switch on **Owner › Appearance** — the skin is instance identity,
-  ADR-102, so the choice applies to every viewer; there is no header picker), plus the custom
-  palette when one is configured, not just the default —
-  regressions routinely appear in only one skin (e.g. a badge/counter collision, an accent
-  that doesn't read on its background). Confirm fonts load offline and the
-  loading/empty/error/grid states are all themed.
+- **QA Cinémathèque — and only Cinémathèque.** When verifying any UI change, render and eyeball
+  **Cinémathèque**, plus the custom palette when one is configured (switch on **Owner › Appearance**;
+  the choice is instance identity, ADR-102, so it applies to every viewer). Check that the accent
+  reads on its background, that decorative elements don't collide, that fonts load offline, and
+  that the loading/empty/error/grid states are all themed. Until HOLODEX-476 removes them from the
+  code, Broadcast and Brutalist may still appear on the Appearance tab: ignore them, and don't
+  fix regressions that only show there.

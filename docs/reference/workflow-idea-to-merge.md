@@ -177,7 +177,7 @@ required artifact and the skill that produces it:
 | spec | `/write-spec` | `docs/specs/*` |
 | architecture | `/architecture` | an ADR in `docs/architecture/` |
 | backend | — | the implementation |
-| frontend | — | the implementation (+ QA all three skins) |
+| frontend | — | the implementation (+ QA Cinémathèque, ADR-115) |
 | testing | `/testing-strategy` | updated `docs/testing-strategy.md` + tests |
 | security | `/security-review` | sign-off (required for auth/access/infra) |
 
@@ -250,7 +250,7 @@ Rules that keep it honest:
 
 **Pre-commit** (every commit, per `CLAUDE.md`): run `/simplify` on the changed code; run
 `/security-review` if you touched auth/access/infra; confirm the matching spec/ADR/design/testing
-artifact exists; scan for secrets; if you touched the frontend, QA all three skins.
+artifact exists; scan for secrets; if you touched the frontend, QA Cinémathèque (plus the custom palette when configured, ADR-115).
 
 ## Stage 5 — End a session cleanly (the handoff)
 
