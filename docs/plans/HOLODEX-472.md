@@ -67,15 +67,16 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Live-QA the Filters sheet on a phone: decide scroll lock (no modal in the app locks today) — `web/src/lib/components/sort/FilterPanel.svelte`
-2. [ ] [—] ADR-115 (Cinémathèque only, HOLODEX-476): once on main, drop three-skin QA from handoff/§20 and re-measure the label budget in Archivo — `docs/design/list-toolbar-handoff.md`
-3. [ ] [testing] Geometry harness: add `phone` width, list-page entries, 5 assertions (§20.2) — `web/geometry/`
-4. [ ] [testing] Finish live QA: Films on backend-films, People/Studios with rows, §20.3 items 3 and 5 (items 1, 2, 4, 6, 7 passed), then the §20.4 mutation checks; record results in §20 — `docs/testing-strategy.md`
-5. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
-6. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
-7. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
-8. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
-9. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
+1. [ ] [design] Owner picks D1-D3 from approved-vs-built-vs-alternatives visuals; build the picks — see Divergences
+2. [ ] [frontend] Live-QA the Filters sheet on a phone: decide scroll lock (no modal in the app locks today) — `web/src/lib/components/sort/FilterPanel.svelte`
+3. [ ] [—] ADR-115 (Cinémathèque only, HOLODEX-476): once on main, drop three-skin QA from handoff/§20 and re-measure the label budget in Archivo — `docs/design/list-toolbar-handoff.md`
+4. [ ] [testing] Geometry harness: add `phone` width, list-page entries, 5 assertions (§20.2) — `web/geometry/`
+5. [ ] [testing] Finish live QA: Films on backend-films, People/Studios with rows, §20.3 items 3 and 5 (items 1, 2, 4, 6, 7 passed), then the §20.4 mutation checks; record results in §20 — `docs/testing-strategy.md`
+6. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
+7. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
+8. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
+9. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
+10. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -90,7 +91,19 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
 - skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement, testing-strategy, code-review
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
-- handoff: All five list pages migrated onto ListToolbar + listController (HOLODEX-473 fixed live; live QA items 1, 2, 4, 6, 7 pass; two migration bugs found live and fixed). Handoff doc gained a "Built differently" section, so the design sign-off needs re-confirming; next is the rest of live QA, then the geometry harness.
+- handoff: All five pages migrated; three build divergences (D1-D3) are logged under Divergences and the handoff is restored to the signed-off c99b221. The owner picks each from a visual comparison before anything else ships (flightplan#38).
+
+## Divergences from the approved design (signed off at c99b221)
+
+The approved handoff stays frozen at `c99b221`. Built changes the owner didn't choose are logged here,
+never written into the handoff (flightplan#38). Each is **open** until the owner picks from a visual
+comparison. Only then is the chosen option built or kept, and the handoff re-issued for sign-off.
+
+| # | Surface | Approved | Built (not chosen) | Status |
+|---|---|---|---|---|
+| D1 | People/Studios sweep status | Decision 2: folded into the count line ("· 3 need a refresh") | `SweepStatusLine` kept as its own row below the toolbar, shown only while a sweep runs or just after. The real component is a progress report, not a count | open |
+| D2 | People merge select mode | Not drawn (only "Merge people…" in `⋯` was approved) | Count line replaced by the hint + "Merge N selected" + Cancel | open |
+| D3 | Tags manage mode | Not drawn (only "Manage tags" in `⋯` was approved) | A **Done** button added to the existing manage bar | open |
 
 ## Dropped — newest first (the reason is the point)
 
