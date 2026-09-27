@@ -17,8 +17,8 @@ state" is withdrawn. See [Amendments to sort-persistence](#amendments-to-sort-pe
 which list state lives in the URL, in localStorage or in the session, and how arrival, Back and
 removal exits restore it.
 
-**Design handoff required**: `docs/design/list-toolbar-handoff.md`, with committed SVG mockups
-(desktop + 375px, all three skins, owner + visitor).
+**Design handoff**: [`list-toolbar-handoff.md`](../design/list-toolbar-handoff.md), with committed
+SVG mockups (desktop + 375px, three skins). **Test plan**: [testing-strategy §20](../testing-strategy.md#20-one-list-toolbar-and-the-list-state-model-f73-holodex-472-adr-114).
 
 ---
 

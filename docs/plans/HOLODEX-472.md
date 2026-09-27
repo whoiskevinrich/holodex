@@ -49,7 +49,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — every param already exists on the list APIs; frontend-only — until: `q`/`type` need server support on an entity list
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [/] testing `testing-strategy`
 - [~] security `security-review` — no auth, access or infra change; list state is client-side and public params only — until: a new endpoint or param is added
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,13 +67,14 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Run testing-strategy for F73 (ADR-114 action item 6 cases) — `docs/testing-strategy.md`
-2. [ ] [frontend] `listState.ts` parse/serialize/commit/exitAfterRemoval + unit tests (ADR-114 D6) — `web/src/lib/listState.ts`
-3. [ ] [frontend] ListToolbar, FiltersButton, FilterPanel popover/sheet, FilterChip — `web/src/lib/components/sort/`
-4. [ ] [frontend] Migrate Media/People/Studios/Films/Tags; retire SortToggle + CompletenessSortToggle — `web/src/routes/`
-5. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
-6. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
-7. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
+1. [ ] [frontend] `listState.ts` + unit tests U1–U9 and sort-list tests S1–S3 (testing-strategy §20.1) — `web/src/lib/listState.ts`
+2. [ ] [frontend] ListToolbar, FiltersButton, FilterPanel popover/sheet, FilterChip — `web/src/lib/components/sort/`
+3. [ ] [frontend] Migrate Media/People/Studios/Films/Tags; retire SortToggle + CompletenessSortToggle — `web/src/routes/`
+4. [ ] [testing] Geometry harness: add `phone` width, list-page entries, 5 assertions (§20.2) — `web/geometry/`
+5. [ ] [testing] Live QA §20.3 items 1–9, then the §20.4 mutation checks; record results in §20 — `docs/testing-strategy.md`
+6. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
+7. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
+8. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,9 +87,9 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 -->
 
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
-- skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement
+- skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement, testing-strategy
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
-- handoff: Crossed into build — design signed off at c99b221; draft PR #403 open. Start at item 1 of Up next: run testing-strategy for F73.
+- handoff: In build on draft PR #403 — test plan written (testing-strategy §20: 12 unit cases, 5 phone/list geometry assertions, 9 live checks); start at item 1, `listState.ts` with its unit tests.
 
 ## Dropped — newest first (the reason is the point)
 

@@ -3271,3 +3271,131 @@ The pill, the dialog's focus and the writeback row are markup. `web/` has no com
 live-QA only, for the harness reason above. A QA pitfall: a programmatic `.focus()` on the Custom
 textarea in a background tab doesn't fire its focus handler, so it never stages Custom and typing
 reads as "Save 1 decision". Click the Custom radio instead.
+
+## 20. One list toolbar and the list-state model (F73, HOLODEX-472, ADR-114)
+
+Five list pages (Media, People, Studios, Films, Tags) move onto one `ListToolbar` and one state
+contract, `web/src/lib/listState.ts`. Spec [F73](specs/list-toolbar.md) ·
+[ADR-114](architecture/ADR-114-list-state-model.md) ·
+[handoff](design/list-toolbar-handoff.md). What would go wrong silently:
+
+1. **Arriving by URL writes storage** (ADR-114 D3). A shared link overwrites the recipient's saved
+   sort. Nothing on screen shows it until their next visit.
+2. **A same-route navigation keeps stale filters** (D2). Clicking **People** while on
+   `/people?…` leaves the page filtered, because the state was read once in `onMount`.
+3. **Two active sorts again** (HOLODEX-473). Any second piece of sort state brings the bug back.
+4. **An owner-only sort reaches a visitor** from a saved value or a link. The server returns 401
+   for a non-owner completeness sort, so the list errors.
+5. **The toolbar outgrows a phone.** A native `<select>` is as wide as its widest option, and the
+   375px budget has 7px spare on People (handoff, Responsive). One longer label wraps the row or
+   scrolls the page sideways.
+6. **Back loses the list** (R7/R8). Filters, sort or scroll don't come back after a detail page or
+   a removal exit.
+7. **Legacy SP5 filters resurface.** Anything that still reads `holodex:filters:*` restores filters
+   nobody chose this visit.
+
+### 20.1 Unit (Vitest): the contract, where it's cheap
+
+**`web/src/lib/listState.test.ts`, new.** It covers everything in ADR-114 that is a pure function of
+(URL, storage, owner), with `$app/navigation` and `localStorage` mocked:
+
+| # | Case | Guards risk |
+|---|---|---|
+| U1 | A valid URL `sort` beats a valid saved one. A saved one fills an absent URL `sort`. An invalid value at either level falls through to the default without throwing. | SP1 precedence |
+| U2 | An owner-only sort (`completeness_*`) from the URL **or** from storage resolves to the default when `owner` is false, and is kept when true. | 4 |
+| U3 | Query keys come only from the URL. With `holodex:filters:media`/`:people` seeded in storage and a bare URL, the parsed state has **no** filters. | 7 |
+| U4 | **Parsing (arrival) makes zero `localStorage.setItem` calls** (spy). The sort change handler writes exactly `holodex:sort:<page>` and nothing else. | 1 |
+| U5 | `serialize` is canonical: defaults omitted, keys sorted, unknown params dropped, and `parse(serialize(s))` round-trips for every page schema. The seed never appears. | ADR-114 D5/D6 |
+| U6 | A restored non-default sort is `replaceState`d into a URL that lacked it. A default sort isn't. | 2 (address bar honest) |
+| U7 | `commit` calls SvelteKit `replaceState` exactly once with the canonical URL, and never `pushState` or raw `history.replaceState`. | ADR-114 D3 |
+| U8 | `exitAfterRemoval`: an in-app arrival calls `history.back()` and not `goto`; an `enter` arrival calls `goto(listHref)`. | 6 |
+| U9 | Two filter sets entered in different orders give the same snapshot key, so `listScroll` and `browseCache` restore. | 6 |
+
+**Sort lists (`web/src/lib/filters.test.ts` and the new People/Studios/Films/Tags lists):**
+
+| # | Case | Guards risk |
+|---|---|---|
+| S1 | **Every sort label on every page is ≤ 20 characters.** This is the handoff's measured width rule, enforced in milliseconds instead of by a browser. | 5 |
+| S2 | Completeness entries carry `ownerOnly` on Media, People and Studios, and Tags' list has none. | 4 |
+| S3 | Each page's sort is **one** value typed from one list. There's no second sort-direction or completeness state in any page schema (a type-level `expectTypeOf` check on the schema). | 3 |
+
+**Existing tests.** `filters.test.ts` (Media's `filtersToParams`/`paramsToFilters`) keeps passing
+unchanged, because it becomes Media's schema (ADR-114 D6). `filterPreference.test.ts` stays until
+HOLODEX-474 deletes the module. It covers a reader nothing calls any more, and U3 proves that.
+
+### 20.2 Browser: the geometry harness (§12), extended to phones and list pages
+
+Risk 5 is a rendered-width question, which only a browser can answer. The harness can't answer it
+today, for two reasons:
+
+- **No phone width.** `WIDTHS` is 1440/1024/768 (`web/geometry/browser.mjs`). Add
+  `{ key: 'phone', width: 375, height: 812 }`.
+  - That's about +33% page loads.
+  - It will probably surface existing phone failures on detail pages. Report those as known gaps
+    with a ticket each (§12.3's no-hiding rule), and don't let them block F73.
+- **No list pages.** The manifest addresses entity detail pages by coordinate. List pages need a
+  small set of URL-addressed entries. ADR-114 makes every toolbar state reachable by URL, which
+  makes them cheap:
+  - `/?sort=resolution_desc&resolution=4k&year_min=2015&studio_id=<any>`, the worst case for
+    Media's width
+  - `/people?sort=completeness_asc` as owner, the 7px-spare row
+  - `/people?sort=random`, which moves the reroll into `⋯` on a phone
+  - `/studios`, `/films`
+  - `/tags?type=categories`
+
+New assertions, all skins × all widths:
+
+| Key | Selector / measure | Expect | Finds |
+|---|---|---|---|
+| `list-toolbar-single-row` | toolbar `height` | ≤ 40 | The toolbar wrapped to a second row: a label over 20 characters, or a slot that grew. |
+| `list-page-no-horizontal-overflow` | `:document` `overflowX` | 0 | The row, chips or rail pushed the page sideways (HOLODEX-436 again). |
+| `list-chips-one-line-phone` | chips row `height` at `phone` | ≤ 28 | Chips wrapped on a phone instead of scrolling sideways. |
+| `list-first-row-near-top-phone` | first data row `top − main.top` at `phone` | ≤ 200 | The wall of toggles is back: something new above the data. |
+| `az-rail-clear-of-rows` | the rail's rect ∩ a row's tappable rect at `phone` | empty | The rail covers row content you can tap (missing `pr-5`). |
+
+The last three are gated to `phone`. Per §12.2 a gate that can't fail at a width must not run
+there, or it passes vacuously.
+
+### 20.3 Live QA: behaviour no harness here can drive
+
+`web/` has no component-test harness (§16), and the geometry harness measures a page but doesn't
+navigate between pages. So risks 2 and 6, plus the sheet's focus behaviour, are live checks on a
+dev instance. They're numbered for the PR's QA list:
+
+1. `[agent]` **Same-route nav clears filters (risk 2).** On `/people?sort=count&…` with a filter,
+   click **People** in the nav. The URL becomes `?sort=count` and no filter is applied.
+2. `[agent]` **Back restores (risk 6).** Filter Media to 4K, scroll, open a video, press Back. The
+   filter, sort and scroll are all restored.
+3. `[agent]` **Removal exit (risk 6).** Delete a video reached from a filtered Media list and you
+   land on that list. Delete one opened in a new tab and you land on bare `/`.
+4. `[agent]` **Shared link doesn't write (risk 1).** Save People as A–Z, then open
+   `/people?sort=count`. `localStorage['holodex:sort:people']` is still `name`, and a nav click
+   gives A–Z.
+5. `[agent]` **Two tabs** on different People views each return to their own view after Back.
+6. `[agent]` **Sheet** (below `sm`): focus is trapped; Escape, Done and a backdrop tap each close
+   it and return focus to Filters; the count line announces through `aria-live`.
+7. `[agent]` **Popover** (`sm` and up): an outside click and Escape close it; tabbing past its
+   last field closes it.
+8. `[smoke]` **HOLODEX-473:** pick Completeness on People, then Name. Only one sort is ever
+   selected, and the A–Z index appears.
+9. `[human]` **Three skins:** the handoff's QA checklist, items 1–6.
+
+### 20.4 Mutation checks to run once the code exists
+
+Each should turn a named test red. Record the results here, as §19 does.
+
+- Move the storage write from the change handler into an `$effect`: U4 fails.
+- Drop the `owner` check in `parse`: U2 fails.
+- Restore "Completeness — least complete": S1 fails, and `list-toolbar-single-row` fails in
+  Brutalist at `phone`.
+- Replace `commit`'s `replaceState` with `pushState`: U7 fails.
+- Replace the `ml-auto` with a spacer element: `list-toolbar-single-row` fails at `phone`.
+
+### 20.5 Standing gaps
+
+- **Risk 2 is live-QA only.** SvelteKit reusing the component on a same-route navigation is
+  exactly what a pure unit test can't reproduce. A navigation harness (Playwright driving
+  nav → filter → nav) would close it. It doesn't exist yet, and building one is beyond this epic.
+- **Focus order and the sheet's focus trap** are live-QA only, for the §16 harness reason.
+- **Colour and contrast** of chips on Brutalist's `#d6ff3f` accent use the §5 computed-style
+  method, not the geometry harness (§12.2).
