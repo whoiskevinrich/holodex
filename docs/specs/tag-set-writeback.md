@@ -40,8 +40,9 @@ actually on the file:
 - **Film pages.** The film dialog has no genres set row, so nothing changes there.
 - **Attach/detach writing the file.** Still no (ADR-110 owner decision). The file changes only on Write.
 - **Backfilling file tags at boot.** Unknown until the file is next re-extracted (owner,
-  2026-09-26). That happens when the file changes on disk, on a Refresh, or on a write. A routine
-  scan skips unchanged files, so it does **not** fill them. A library-wide fill is HOLODEX-468.
+  2026-09-26). That happens when the file changes on disk, on a Refresh, on a write, or on the
+  next background scan: the scanner treats `file_tags IS NULL` as changed and re-extracts that
+  file once (HOLODEX-468), so the fill is spread over a normal scan, never done at boot.
 
 ## Definitions
 
@@ -127,7 +128,8 @@ Visitors see the plain link chip, unchanged.
 4. After the job and re-extract, the row reads "drama, heist, crime — matches the file". The noir chip
    shows file-off.
 5. A video scanned before 0054 shows no glyphs, and the dialog row reads "Not read from this file
-   yet". Writing it populates F.
+   yet". Writing it populates F. So does the next background scan, even when the file is unchanged
+   (HOLODEX-468); the scan after that skips the file again.
 6. A file whose tags are all writeback-off shows a tag-set row that reads "Clears the file's tags",
    even though W is empty.
 7. An alias on the file (`Sci-Fi` → tag `science fiction`) counts as on file for `science fiction`.

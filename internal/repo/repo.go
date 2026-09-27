@@ -90,19 +90,23 @@ type VideoStat struct {
 	// scanner short-circuits a soft-deleted row before the change-detection
 	// fast-path so a delete is never undone by a re-scan of a still-present file.
 	Deleted bool
+	// FileTagsKnown is false while videos.file_tags is NULL — the row predates
+	// migration 0054 and its file has never been re-read. The fast-path treats
+	// that as changed so the next scan fills it once (HOLODEX-468, ADR-111 D1).
+	FileTagsKnown bool
 }
 
-// StatByPath returns the stored (id, size, mtime, active, deleted) for a canonical
-// path, or ok=false if the file has never been indexed.
+// StatByPath returns the stored (id, size, mtime, active, deleted, file-tags
+// known) for a canonical path, or ok=false if the file has never been indexed.
 func (r *Repo) StatByPath(ctx context.Context, path string) (VideoStat, bool, error) {
 	var (
 		st       VideoStat
 		mtimeStr string
 	)
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, file_size, file_mtime, active, deleted_at IS NOT NULL
+		`SELECT id, file_size, file_mtime, active, deleted_at IS NOT NULL, file_tags IS NOT NULL
 		   FROM videos WHERE file_path = ?`, path,
-	).Scan(&st.ID, &st.Size, &mtimeStr, &st.Active, &st.Deleted)
+	).Scan(&st.ID, &st.Size, &mtimeStr, &st.Active, &st.Deleted, &st.FileTagsKnown)
 	if errors.Is(err, sql.ErrNoRows) {
 		return VideoStat{}, false, nil
 	}

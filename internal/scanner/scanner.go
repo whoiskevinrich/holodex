@@ -382,7 +382,11 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		}
 		return
 	}
-	if ok && prev.Size == info.Size() && prev.Mtime.Equal(mtime) {
+	unchanged := ok && prev.Size == info.Size() && prev.Mtime.Equal(mtime)
+	// A row whose file_tags was never read (it predates migration 0054) is not
+	// skipped: re-extracting it once fills file_tags, which is never NULL after
+	// an upsert, so the next scan takes the fast-path again (HOLODEX-468).
+	if unchanged && prev.FileTagsKnown {
 		// Unchanged but still present. If a prior pass deactivated the row (e.g. a
 		// transient empty/unreadable walk), reactivate it cheaply — the metadata is
 		// already current, so there's no need to re-extract (issue #26).
@@ -425,6 +429,12 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		if err := s.relink(ctx, id); err != nil {
 			s.log.Warn("studio relink failed", "id", id, "err", err)
 		}
+	}
+	// A file_tags fill on an unchanged file (HOLODEX-468) has the same filename
+	// and pixels as before, so filename extraction and the thumbnail would only
+	// redo their earlier work — across the whole pre-0054 library at once.
+	if unchanged {
+		return
 	}
 	// Import-time filename extraction (F48.5c, ADR-067). Best-effort: a failure
 	// here never affects indexing, mirroring the relink hook above.

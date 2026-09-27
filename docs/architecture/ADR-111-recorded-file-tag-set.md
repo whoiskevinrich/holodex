@@ -47,6 +47,12 @@ so a row fills in the next time its file is re-extracted: a change on disk, a Re
 (owner, 2026-09-26: "unknown until rescan"). A routine scan skips unchanged files (ADR-018 change
 detection), so it does not fill them. A library-wide fill is follow-up HOLODEX-468.
 
+> **Follow-up (HOLODEX-468, 2026-09-27):** resolved by narrowing ADR-018's fast path, not by a boot
+> backfill. `StatByPath` also reports `file_tags IS NOT NULL`, and the scanner skips an unchanged file
+> only when that is true. A pre-0054 row is therefore re-extracted once, in the ordinary background
+> scan. `UpsertVideo` always records `[]` or more, so the row takes the fast path again after that.
+> Owner chose this over an owner-triggered batch or a tags-only exiftool pass.
+
 **D2 — Membership is identity, not spelling.** A file name and a written name are the same tag when they share
 the tag name key (lowercased, trimmed, spaces removed) or resolve to the same tag entity through the
 name-identity spine (`LookupEntityIDByName`: alias- and merge-aware, ADR-061). A denied term resolves to
