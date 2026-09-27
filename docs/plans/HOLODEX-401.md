@@ -4,6 +4,10 @@ status: in-progress
 profile: full
 depends-on: []
 release_note:
+approved:
+  design:
+    on: 2026-09-27
+    at: e0802c2a
 ---
 
 # HOLODEX-401 · Write tags to the file as a set + per-tag on-file markers
@@ -33,8 +37,8 @@ backed by the file's tag set recorded at every scan.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-26 · session
-- skills: (design phase by hand — spec, ADR-111, handoff)
+- skills: implement (design phase by hand — spec, ADR-111, handoff)
 - decisions (owner, question cards over an inline mockup): Tags row writes on open; 2B glyph on every chip (replaces the ·source suffix); record file tags at every scan; unknown until rescan (no backfill)
-- handoff: Design package written (spec F72, ADR-111, handoff + SVG); next is the /implement crossing and then the backend slice (migration 0054).
+- handoff: Crossed into build — design signed off at e0802c2a; draft PR open. Start at the backend slice (migration 0054 `videos.file_tags`).
 
 ## Dropped — newest first (the reason is the point)
