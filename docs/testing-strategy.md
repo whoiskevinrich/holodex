@@ -3391,6 +3391,28 @@ Each should turn a named test red. Record the results here, as §19 does.
 - Replace `commit`'s `replaceState` with `pushState`: U7 fails.
 - Replace the `ml-auto` with a spacer element: `list-toolbar-single-row` fails at `phone`.
 
+**Mutation pass on `listState.ts`, 2026-09-27.** Seven mutants, all caught by
+`web/src/lib/listState.test.ts`. The last two guard fixes from the pre-commit review: Media's
+mapped-facet params now pass through a round trip, and a garbage URL sort is always rewritten.
+
+| Mutant | Caught by |
+|---|---|
+| The owner filter in `sortValues` removed | U2 (three cases) |
+| `commit` switched to `history.pushState` | U7 |
+| "Completeness — least complete" restored | S1 |
+| `writeSort` called inside `parseList` (arrival writes storage) | U4, U2 |
+| `syncUrl` rewrites an owner-only URL sort seen before capabilities load | U2 ("leaves an owner-only URL sort in place"), U6 |
+| Media's mapped-facet passthrough removed | "passes mapped-facet params through a round trip" |
+| A garbage URL sort that resolves to the default is left in the URL | U6 ("the junk leaves the URL") |
+
+The last mutant guards a race the plan didn't originally list. Owner capabilities load
+asynchronously, so for a moment an owner parses as a visitor. Rewriting the URL then would strip
+`sort=completeness_*` before the owner's capabilities arrive. `parseList` therefore reports
+`syncUrl` only when the URL carries no sort the page recognises at all.
+
+The page-level mutants (the `$effect` storage write, the `ml-auto` spacer) wait for the toolbar
+components and the page migration.
+
 ### 20.5 Standing gaps
 
 - **Risk 2 is live-QA only.** SvelteKit reusing the component on a same-route navigation is
