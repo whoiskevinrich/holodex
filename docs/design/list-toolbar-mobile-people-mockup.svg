@@ -1,0 +1,295 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1189 760" width="1189" height="760" role="img" aria-labelledby="t d">
+<title id="t">F73 list toolbar, mobile People (owner): toolbar, merged status line and A–Z rail, three skins</title>
+<desc id="d">375px viewport. The title, then one toolbar row: native sort select, icon-only List/Poster toggle and the owner ⋯ menu. The count line absorbs the sweep and duplicates banners. The A–Z index is a one-column rail on the right edge (text-xs, 16px pitch), so no letters sit above the first row. Real tokens for all three skins.</desc>
+<g transform="translate(16,16)" font-family="Archivo, 'Archivo Variable', sans-serif">
+<rect x="0.0" y="0.0" width="375.0" height="728.0" rx="0" fill="#0c0a09" stroke="#2a2622" />
+<rect x="0.0" y="0.0" width="375.0" height="72.0" rx="0" fill="#0c0a09" />
+<line x1="0.0" y1="72.0" x2="375.0" y2="72.0" stroke="#2a2622" stroke-width="1"/>
+<text x="24.0" y="28.0" font-size="18" fill="#f3ece1" text-anchor="start" font-family="Fraunces, 'Fraunces Variable', serif" font-weight="600">Holodex</text>
+<text x="24.0" y="56.0" font-size="14" fill="#9b9082" text-anchor="start">Media  People  Studios  Films  Tags</text>
+<text x="351.0" y="28.0" font-size="12" fill="#9b9082" text-anchor="end">site header</text>
+<text x="24.0" y="118.0" font-size="24" fill="#f3ece1" text-anchor="start" font-family="Fraunces, 'Fraunces Variable', serif" font-weight="600">People</text>
+<g class="box">
+<rect x="319.0" y="136.0" width="32.0" height="32.0" rx="2" fill="#15110e" stroke="#2a2622" />
+<circle cx="329" cy="152" r="1.6" fill="#9b9082"/>
+<circle cx="335" cy="152" r="1.6" fill="#9b9082"/>
+<circle cx="341" cy="152" r="1.6" fill="#9b9082"/>
+</g>
+<g class="box">
+<rect x="247.0" y="136.0" width="64.0" height="32.0" rx="2" fill="none" stroke="#2a2622" />
+<rect x="247.0" y="136.0" width="32.0" height="32.0" rx="0" fill="#e8a33d" />
+<line x1="256.0" y1="147.0" x2="270.0" y2="147.0" stroke="#1a1206" stroke-width="1.5"/>
+<line x1="256.0" y1="152.0" x2="270.0" y2="152.0" stroke="#1a1206" stroke-width="1.5"/>
+<line x1="256.0" y1="157.0" x2="270.0" y2="157.0" stroke="#1a1206" stroke-width="1.5"/>
+<rect x="288.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#9b9082" />
+<rect x="288.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#9b9082" />
+<rect x="296.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#9b9082" />
+<rect x="296.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#9b9082" />
+</g>
+<g class="box">
+<rect x="24.0" y="136.0" width="118.4" height="32.0" rx="2" fill="#15110e" stroke="#2a2622" />
+<text x="36.0" y="157.0" font-size="14" fill="#f3ece1" text-anchor="start" class="fit">Name — A→Z</text>
+</g>
+<path d="M122.4 150 l4 4 l4 -4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text x="24.0" y="196.0" font-size="14" fill="#9b9082" text-anchor="start">412 people · </text>
+<text x="125.9" y="196.0" font-size="14" fill="#e8a33d" text-anchor="start">2 duplicates</text>
+<circle cx="42" cy="230" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="227.0" font-size="14" fill="#f3ece1" text-anchor="start">Aaliyah Brooks</text>
+<text x="70.0" y="243.0" font-size="12" fill="#9b9082" text-anchor="start">12 videos</text>
+<line x1="24.0" y1="256.0" x2="343.0" y2="256.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="282" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="279.0" font-size="14" fill="#f3ece1" text-anchor="start">Abel Moreno</text>
+<text x="70.0" y="295.0" font-size="12" fill="#9b9082" text-anchor="start">11 videos</text>
+<line x1="24.0" y1="308.0" x2="343.0" y2="308.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="334" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="331.0" font-size="14" fill="#f3ece1" text-anchor="start">Ada Kline</text>
+<text x="70.0" y="347.0" font-size="12" fill="#9b9082" text-anchor="start">10 videos</text>
+<line x1="24.0" y1="360.0" x2="343.0" y2="360.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="386" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="383.0" font-size="14" fill="#f3ece1" text-anchor="start">Adrian Voss</text>
+<text x="70.0" y="399.0" font-size="12" fill="#9b9082" text-anchor="start">9 videos</text>
+<line x1="24.0" y1="412.0" x2="343.0" y2="412.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="438" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="435.0" font-size="14" fill="#f3ece1" text-anchor="start">Agnes Tamura</text>
+<text x="70.0" y="451.0" font-size="12" fill="#9b9082" text-anchor="start">8 videos</text>
+<line x1="24.0" y1="464.0" x2="343.0" y2="464.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="490" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="487.0" font-size="14" fill="#f3ece1" text-anchor="start">Aiko Sato</text>
+<text x="70.0" y="503.0" font-size="12" fill="#9b9082" text-anchor="start">7 videos</text>
+<line x1="24.0" y1="516.0" x2="343.0" y2="516.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="542" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="539.0" font-size="14" fill="#f3ece1" text-anchor="start">Alba Reyes</text>
+<text x="70.0" y="555.0" font-size="12" fill="#9b9082" text-anchor="start">6 videos</text>
+<line x1="24.0" y1="568.0" x2="343.0" y2="568.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="594" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="591.0" font-size="14" fill="#f3ece1" text-anchor="start">Alec Dunmore</text>
+<text x="70.0" y="607.0" font-size="12" fill="#9b9082" text-anchor="start">5 videos</text>
+<line x1="24.0" y1="620.0" x2="343.0" y2="620.0" stroke="#2a2622" stroke-width="1"/>
+<circle cx="42" cy="646" r="18" fill="#15110e" stroke="#2a2622"/>
+<text x="70.0" y="643.0" font-size="14" fill="#f3ece1" text-anchor="start">Alma Ferreira</text>
+<text x="70.0" y="659.0" font-size="12" fill="#9b9082" text-anchor="start">4 videos</text>
+<line x1="24.0" y1="672.0" x2="343.0" y2="672.0" stroke="#2a2622" stroke-width="1"/>
+<text x="361.0" y="226.0" font-size="12" fill="#e8a33d" text-anchor="middle" font-weight="500">A</text>
+<text x="361.0" y="242.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">B</text>
+<text x="361.0" y="258.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">C</text>
+<text x="361.0" y="274.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">D</text>
+<text x="361.0" y="290.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">E</text>
+<text x="361.0" y="306.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">F</text>
+<text x="361.0" y="322.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">G</text>
+<text x="361.0" y="338.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">H</text>
+<text x="361.0" y="354.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">I</text>
+<text x="361.0" y="370.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">J</text>
+<text x="361.0" y="386.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">K</text>
+<text x="361.0" y="402.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">L</text>
+<text x="361.0" y="418.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">M</text>
+<text x="361.0" y="434.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">N</text>
+<text x="361.0" y="450.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">O</text>
+<text x="361.0" y="466.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">P</text>
+<text fill-opacity="0.3" x="361.0" y="482.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">Q</text>
+<text x="361.0" y="498.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">R</text>
+<text x="361.0" y="514.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">S</text>
+<text x="361.0" y="530.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">T</text>
+<text x="361.0" y="546.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">U</text>
+<text x="361.0" y="562.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">V</text>
+<text x="361.0" y="578.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">W</text>
+<text fill-opacity="0.3" x="361.0" y="594.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">X</text>
+<text x="361.0" y="610.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">Y</text>
+<text fill-opacity="0.3" x="361.0" y="626.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">Z</text>
+<text x="361.0" y="642.0" font-size="12" fill="#9b9082" text-anchor="middle" font-weight="500">#</text>
+<text x="187.5" y="716.0" font-size="12" fill="#9b9082" text-anchor="middle">Cinémathèque · 375px · owner</text>
+</g>
+<g transform="translate(407,16)" font-family="'Share Tech Mono', monospace">
+<rect x="0.0" y="0.0" width="375.0" height="728.0" rx="0" fill="#060814" stroke="#1a2240" />
+<rect x="0.0" y="0.0" width="375.0" height="72.0" rx="0" fill="#060814" />
+<line x1="0.0" y1="72.0" x2="375.0" y2="72.0" stroke="#1a2240" stroke-width="1"/>
+<text x="24.0" y="28.0" font-size="18" fill="#dfe9ff" text-anchor="start" font-family="VT323, monospace" font-weight="600">Holodex</text>
+<text x="24.0" y="56.0" font-size="14" fill="#6f7da6" text-anchor="start">Media  People  Studios  Films  Tags</text>
+<text x="351.0" y="28.0" font-size="12" fill="#6f7da6" text-anchor="end">site header</text>
+<text x="24.0" y="118.0" font-size="24" fill="#dfe9ff" text-anchor="start" font-family="VT323, monospace" font-weight="600">People</text>
+<g class="box">
+<rect x="319.0" y="136.0" width="32.0" height="32.0" rx="0" fill="#0b0f22" stroke="#1a2240" />
+<circle cx="329" cy="152" r="1.6" fill="#6f7da6"/>
+<circle cx="335" cy="152" r="1.6" fill="#6f7da6"/>
+<circle cx="341" cy="152" r="1.6" fill="#6f7da6"/>
+</g>
+<g class="box">
+<rect x="247.0" y="136.0" width="64.0" height="32.0" rx="0" fill="none" stroke="#1a2240" />
+<rect x="247.0" y="136.0" width="32.0" height="32.0" rx="0" fill="#36e0d0" />
+<line x1="256.0" y1="147.0" x2="270.0" y2="147.0" stroke="#04121a" stroke-width="1.5"/>
+<line x1="256.0" y1="152.0" x2="270.0" y2="152.0" stroke="#04121a" stroke-width="1.5"/>
+<line x1="256.0" y1="157.0" x2="270.0" y2="157.0" stroke="#04121a" stroke-width="1.5"/>
+<rect x="288.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#6f7da6" />
+<rect x="288.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#6f7da6" />
+<rect x="296.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#6f7da6" />
+<rect x="296.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#6f7da6" />
+</g>
+<g class="box">
+<rect x="24.0" y="136.0" width="124.0" height="32.0" rx="0" fill="#0b0f22" stroke="#1a2240" />
+<text x="36.0" y="157.0" font-size="14" fill="#dfe9ff" text-anchor="start" class="fit">Name — A→Z</text>
+</g>
+<path d="M128.0 150 l4 4 l4 -4" fill="none" stroke="#6f7da6" stroke-width="1.5"/>
+<text x="24.0" y="196.0" font-size="14" fill="#6f7da6" text-anchor="start">412 people · </text>
+<text x="133.2" y="196.0" font-size="14" fill="#36e0d0" text-anchor="start">2 duplicates</text>
+<circle cx="42" cy="230" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="227.0" font-size="14" fill="#dfe9ff" text-anchor="start">Aaliyah Brooks</text>
+<text x="70.0" y="243.0" font-size="12" fill="#6f7da6" text-anchor="start">12 videos</text>
+<line x1="24.0" y1="256.0" x2="343.0" y2="256.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="282" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="279.0" font-size="14" fill="#dfe9ff" text-anchor="start">Abel Moreno</text>
+<text x="70.0" y="295.0" font-size="12" fill="#6f7da6" text-anchor="start">11 videos</text>
+<line x1="24.0" y1="308.0" x2="343.0" y2="308.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="334" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="331.0" font-size="14" fill="#dfe9ff" text-anchor="start">Ada Kline</text>
+<text x="70.0" y="347.0" font-size="12" fill="#6f7da6" text-anchor="start">10 videos</text>
+<line x1="24.0" y1="360.0" x2="343.0" y2="360.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="386" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="383.0" font-size="14" fill="#dfe9ff" text-anchor="start">Adrian Voss</text>
+<text x="70.0" y="399.0" font-size="12" fill="#6f7da6" text-anchor="start">9 videos</text>
+<line x1="24.0" y1="412.0" x2="343.0" y2="412.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="438" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="435.0" font-size="14" fill="#dfe9ff" text-anchor="start">Agnes Tamura</text>
+<text x="70.0" y="451.0" font-size="12" fill="#6f7da6" text-anchor="start">8 videos</text>
+<line x1="24.0" y1="464.0" x2="343.0" y2="464.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="490" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="487.0" font-size="14" fill="#dfe9ff" text-anchor="start">Aiko Sato</text>
+<text x="70.0" y="503.0" font-size="12" fill="#6f7da6" text-anchor="start">7 videos</text>
+<line x1="24.0" y1="516.0" x2="343.0" y2="516.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="542" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="539.0" font-size="14" fill="#dfe9ff" text-anchor="start">Alba Reyes</text>
+<text x="70.0" y="555.0" font-size="12" fill="#6f7da6" text-anchor="start">6 videos</text>
+<line x1="24.0" y1="568.0" x2="343.0" y2="568.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="594" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="591.0" font-size="14" fill="#dfe9ff" text-anchor="start">Alec Dunmore</text>
+<text x="70.0" y="607.0" font-size="12" fill="#6f7da6" text-anchor="start">5 videos</text>
+<line x1="24.0" y1="620.0" x2="343.0" y2="620.0" stroke="#1a2240" stroke-width="1"/>
+<circle cx="42" cy="646" r="18" fill="#0b0f22" stroke="#1a2240"/>
+<text x="70.0" y="643.0" font-size="14" fill="#dfe9ff" text-anchor="start">Alma Ferreira</text>
+<text x="70.0" y="659.0" font-size="12" fill="#6f7da6" text-anchor="start">4 videos</text>
+<line x1="24.0" y1="672.0" x2="343.0" y2="672.0" stroke="#1a2240" stroke-width="1"/>
+<text x="361.0" y="226.0" font-size="12" fill="#36e0d0" text-anchor="middle" font-weight="500">A</text>
+<text x="361.0" y="242.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">B</text>
+<text x="361.0" y="258.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">C</text>
+<text x="361.0" y="274.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">D</text>
+<text x="361.0" y="290.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">E</text>
+<text x="361.0" y="306.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">F</text>
+<text x="361.0" y="322.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">G</text>
+<text x="361.0" y="338.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">H</text>
+<text x="361.0" y="354.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">I</text>
+<text x="361.0" y="370.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">J</text>
+<text x="361.0" y="386.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">K</text>
+<text x="361.0" y="402.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">L</text>
+<text x="361.0" y="418.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">M</text>
+<text x="361.0" y="434.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">N</text>
+<text x="361.0" y="450.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">O</text>
+<text x="361.0" y="466.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">P</text>
+<text fill-opacity="0.3" x="361.0" y="482.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">Q</text>
+<text x="361.0" y="498.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">R</text>
+<text x="361.0" y="514.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">S</text>
+<text x="361.0" y="530.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">T</text>
+<text x="361.0" y="546.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">U</text>
+<text x="361.0" y="562.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">V</text>
+<text x="361.0" y="578.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">W</text>
+<text fill-opacity="0.3" x="361.0" y="594.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">X</text>
+<text x="361.0" y="610.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">Y</text>
+<text fill-opacity="0.3" x="361.0" y="626.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">Z</text>
+<text x="361.0" y="642.0" font-size="12" fill="#6f7da6" text-anchor="middle" font-weight="500">#</text>
+<text x="187.5" y="716.0" font-size="12" fill="#6f7da6" text-anchor="middle">Broadcast · 375px · owner</text>
+</g>
+<g transform="translate(798,16)" font-family="'Spline Sans Mono', 'Spline Sans Mono Variable', monospace">
+<rect x="0.0" y="0.0" width="375.0" height="728.0" rx="0" fill="#0a0a0a" stroke="#333333" />
+<rect x="0.0" y="0.0" width="375.0" height="72.0" rx="0" fill="#0a0a0a" />
+<line x1="0.0" y1="72.0" x2="375.0" y2="72.0" stroke="#333333" stroke-width="1"/>
+<text x="24.0" y="28.0" font-size="18" fill="#fafafa" text-anchor="start" font-family="'Spline Sans Mono', 'Spline Sans Mono Variable', monospace" font-weight="600">Holodex</text>
+<text x="24.0" y="56.0" font-size="14" fill="#8a8a8a" text-anchor="start">Media  People  Studios  Films  Tags</text>
+<text x="351.0" y="28.0" font-size="12" fill="#8a8a8a" text-anchor="end">site header</text>
+<text x="24.0" y="118.0" font-size="24" fill="#fafafa" text-anchor="start" font-family="'Spline Sans Mono', 'Spline Sans Mono Variable', monospace" font-weight="600">People</text>
+<g class="box">
+<rect x="319.0" y="136.0" width="32.0" height="32.0" rx="0" fill="#0e0e0e" stroke="#333333" />
+<circle cx="329" cy="152" r="1.6" fill="#8a8a8a"/>
+<circle cx="335" cy="152" r="1.6" fill="#8a8a8a"/>
+<circle cx="341" cy="152" r="1.6" fill="#8a8a8a"/>
+</g>
+<g class="box">
+<rect x="247.0" y="136.0" width="64.0" height="32.0" rx="0" fill="none" stroke="#333333" />
+<rect x="247.0" y="136.0" width="32.0" height="32.0" rx="0" fill="#d6ff3f" />
+<line x1="256.0" y1="147.0" x2="270.0" y2="147.0" stroke="#0a0a0a" stroke-width="1.5"/>
+<line x1="256.0" y1="152.0" x2="270.0" y2="152.0" stroke="#0a0a0a" stroke-width="1.5"/>
+<line x1="256.0" y1="157.0" x2="270.0" y2="157.0" stroke="#0a0a0a" stroke-width="1.5"/>
+<rect x="288.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#8a8a8a" />
+<rect x="288.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#8a8a8a" />
+<rect x="296.0" y="145.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#8a8a8a" />
+<rect x="296.0" y="153.0" width="6.0" height="6.0" rx="0" fill="none" stroke="#8a8a8a" />
+</g>
+<g class="box">
+<rect x="24.0" y="136.0" width="126.8" height="32.0" rx="0" fill="#0e0e0e" stroke="#333333" />
+<text x="36.0" y="157.0" font-size="14" fill="#fafafa" text-anchor="start" class="fit">Name — A→Z</text>
+</g>
+<path d="M130.8 150 l4 4 l4 -4" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+<text x="24.0" y="196.0" font-size="14" fill="#8a8a8a" text-anchor="start">412 people · </text>
+<text x="136.8" y="196.0" font-size="14" fill="#d6ff3f" text-anchor="start">2 duplicates</text>
+<circle cx="42" cy="230" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="227.0" font-size="14" fill="#fafafa" text-anchor="start">Aaliyah Brooks</text>
+<text x="70.0" y="243.0" font-size="12" fill="#8a8a8a" text-anchor="start">12 videos</text>
+<line x1="24.0" y1="256.0" x2="343.0" y2="256.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="282" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="279.0" font-size="14" fill="#fafafa" text-anchor="start">Abel Moreno</text>
+<text x="70.0" y="295.0" font-size="12" fill="#8a8a8a" text-anchor="start">11 videos</text>
+<line x1="24.0" y1="308.0" x2="343.0" y2="308.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="334" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="331.0" font-size="14" fill="#fafafa" text-anchor="start">Ada Kline</text>
+<text x="70.0" y="347.0" font-size="12" fill="#8a8a8a" text-anchor="start">10 videos</text>
+<line x1="24.0" y1="360.0" x2="343.0" y2="360.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="386" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="383.0" font-size="14" fill="#fafafa" text-anchor="start">Adrian Voss</text>
+<text x="70.0" y="399.0" font-size="12" fill="#8a8a8a" text-anchor="start">9 videos</text>
+<line x1="24.0" y1="412.0" x2="343.0" y2="412.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="438" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="435.0" font-size="14" fill="#fafafa" text-anchor="start">Agnes Tamura</text>
+<text x="70.0" y="451.0" font-size="12" fill="#8a8a8a" text-anchor="start">8 videos</text>
+<line x1="24.0" y1="464.0" x2="343.0" y2="464.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="490" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="487.0" font-size="14" fill="#fafafa" text-anchor="start">Aiko Sato</text>
+<text x="70.0" y="503.0" font-size="12" fill="#8a8a8a" text-anchor="start">7 videos</text>
+<line x1="24.0" y1="516.0" x2="343.0" y2="516.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="542" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="539.0" font-size="14" fill="#fafafa" text-anchor="start">Alba Reyes</text>
+<text x="70.0" y="555.0" font-size="12" fill="#8a8a8a" text-anchor="start">6 videos</text>
+<line x1="24.0" y1="568.0" x2="343.0" y2="568.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="594" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="591.0" font-size="14" fill="#fafafa" text-anchor="start">Alec Dunmore</text>
+<text x="70.0" y="607.0" font-size="12" fill="#8a8a8a" text-anchor="start">5 videos</text>
+<line x1="24.0" y1="620.0" x2="343.0" y2="620.0" stroke="#333333" stroke-width="1"/>
+<circle cx="42" cy="646" r="18" fill="#0e0e0e" stroke="#333333"/>
+<text x="70.0" y="643.0" font-size="14" fill="#fafafa" text-anchor="start">Alma Ferreira</text>
+<text x="70.0" y="659.0" font-size="12" fill="#8a8a8a" text-anchor="start">4 videos</text>
+<line x1="24.0" y1="672.0" x2="343.0" y2="672.0" stroke="#333333" stroke-width="1"/>
+<text x="361.0" y="226.0" font-size="12" fill="#d6ff3f" text-anchor="middle" font-weight="500">A</text>
+<text x="361.0" y="242.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">B</text>
+<text x="361.0" y="258.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">C</text>
+<text x="361.0" y="274.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">D</text>
+<text x="361.0" y="290.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">E</text>
+<text x="361.0" y="306.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">F</text>
+<text x="361.0" y="322.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">G</text>
+<text x="361.0" y="338.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">H</text>
+<text x="361.0" y="354.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">I</text>
+<text x="361.0" y="370.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">J</text>
+<text x="361.0" y="386.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">K</text>
+<text x="361.0" y="402.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">L</text>
+<text x="361.0" y="418.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">M</text>
+<text x="361.0" y="434.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">N</text>
+<text x="361.0" y="450.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">O</text>
+<text x="361.0" y="466.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">P</text>
+<text fill-opacity="0.3" x="361.0" y="482.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">Q</text>
+<text x="361.0" y="498.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">R</text>
+<text x="361.0" y="514.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">S</text>
+<text x="361.0" y="530.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">T</text>
+<text x="361.0" y="546.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">U</text>
+<text x="361.0" y="562.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">V</text>
+<text x="361.0" y="578.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">W</text>
+<text fill-opacity="0.3" x="361.0" y="594.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">X</text>
+<text x="361.0" y="610.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">Y</text>
+<text fill-opacity="0.3" x="361.0" y="626.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">Z</text>
+<text x="361.0" y="642.0" font-size="12" fill="#8a8a8a" text-anchor="middle" font-weight="500">#</text>
+<text x="187.5" y="716.0" font-size="12" fill="#8a8a8a" text-anchor="middle">Brutalist · 375px · owner</text>
+</g>
+</svg>
