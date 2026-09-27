@@ -88,7 +88,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
 - skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
-- handoff: Design phase complete (spec, ADR-114, handoff + 3 measured SVGs pushed); waiting on the owner's design sign-off — run /implement to review the handoff and its 6 open decisions, then open the Draft PR.
+- handoff: Crossed into build — design signed off at c99b221; draft PR #403 open. Start at item 1 of Up next: run testing-strategy for F73.
 
 ## Dropped — newest first (the reason is the point)
 
