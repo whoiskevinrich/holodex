@@ -7,32 +7,38 @@ depends-on: []
 release_note:
 ---
 
-# HOLODEX-476 · Retire Broadcast and Brutalist — Cinémathèque is the only skin
+# HOLODEX-476 · Cinémathèque is the only look — retire the extra skins, the custom palette and the Appearance tab
 
-Done means Holodex ships one skin, Cinémathèque, and the owner can still recolour it with the
-custom palette. Broadcast and Brutalist are gone from the CSS, fonts, Appearance tab, the Go
-allowlist and placeholders, the geometry harness and the landing page. An instance that was set to
-either one comes up in Cinémathèque, and every UI change is QA'd once, not three times.
+Done means Holodex has one look, Cinémathèque, and nothing to choose. Broadcast, Brutalist, the
+custom palette (`theme.custom`), `PUT /admin/theme`, `/capabilities.theme`, the paint cache and
+`/owner/appearance` are gone from the code, fonts, geometry harness and docs. An instance that was
+set to any of them comes up in Cinémathèque with nothing to fix, and every UI change is QA'd once.
 
-**Design package:** [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)
+**Design package:** [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) ·
+[F67 amendment](../specs/instance-skin.md) (R17–R23)
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` → `docs/specs/**` — F67 `instance-skin.md` amended: RD11–RD12, story 9, R17–R23, OQ4 (the Appearance tab with one skin); superseded lines marked *(amended, ADR-115)*
-- [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102)
-- [ ] design `design-handoff` → `docs/design/**` — the Appearance tab without skin cards (ADR-115 D5), mockup as SVG
-- [ ] backend → `{cmd,internal,providers}/**` — `shippedThemes`, `skinPalettes` / `?skin=` collapse, `defaultSkin` merge, tests
-- [ ] frontend → `web/src/**` — app.css blocks and flourishes, `reel` counter, fonts and deps, `theme.svelte.ts` / `types.ts`, Appearance page, `?skin=` call sites, component CLAUDE.md lines
-- [ ] testing `testing-strategy` — rewrite §12's "three skins × widths" geometry matrix; drop `web/geometry` `SKINS` (closes HOLODEX-460)
-- [ ] security `security-review` — expected n/a (no auth or perimeter change; `PUT /admin/theme` only narrows)
+- [x] spec `write-spec` → `docs/specs/**` — F67 `instance-skin.md` amended to retire itself: RD11–RD12, story 9, R17–R23; OQ4 withdrawn; superseded lines marked *(amended, ADR-115)*
+- [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102 D1/D3–D6)
+- [ ] design `design-handoff` → `docs/design/**` — proposed **deliberate skip**: the change deletes a tab and adds no UI, and R20's acceptance covers the tab bar
+- [ ] backend → `{cmd,internal,providers}/**` — R17, R18, R21: delete `internal/theme`, `theme.go` and its route, `/capabilities.theme` and `ThemeCustom`; collapse `skinPalettes`/`?skin=`; tests
+- [ ] frontend → `web/src/**` — R19–R21: `app.css` down to `:root` Cinémathèque, drop fonts and deps, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites, update component CLAUDE.md lines
+- [ ] testing `testing-strategy` — R22: rewrite §12's geometry matrix, retire the F67 rows (R11/R12), drop `web/geometry` `SKINS` (closes HOLODEX-460)
+- [ ] security `security-review` — expected n/a (an owner-gated write is removed; nothing is added)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Design: answer F67 OQ4 — the Appearance tab with one skin (plus Custom when configured); SVG mockup in `docs/design/`, Cinémathèque only
+1. [ ] [—] `/handoff`: record the design gate as a deliberate skip, with the reason above
 2. [ ] [—] `/implement`, then backend (R17/R18/R21), frontend (R19–R21), geometry harness (R22), and docs (R23)
-3. [ ] [—] On merge: close HOLODEX-460 as obsolete; the release note says retired-skin instances become Cinémathèque
+3. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
+
+### 2026-09-27 · session (palette too)
+- skills: product-brainstorming, architecture, write-spec
+- Kevin asked whether removing the custom palette would be simpler than answering OQ4. It is: once there's one skin, the palette is the Appearance tab's only purpose. I also found I'd been wrong that the tab hosts the studio-halo toggle; that's per studio image (HOLODEX-463). Kevin chose to remove it. I revised ADR-115 in place (Proposed, unmerged): the palette, `/admin/theme`, `/capabilities.theme`, the paint cache and the tab all go, the tokens move to `:root`, and the `settings` table stays for ADR-112. F67's amendment now retires the feature, and OQ4 is withdrawn. The loader isn't strict, so a leftover `theme.custom` is dropped silently. I corrected the instructions and memory that said "plus the custom palette".
+- handoff: The ADR and spec are settled for the full retirement; record the design gate as a skip, then /implement.
 
 ### 2026-09-27 · session (spec)
 - skills: write-spec
@@ -46,3 +52,6 @@ either one comes up in Cinémathèque, and every UI change is QA'd once, not thr
 - handoff: ADR-115 is written and instructions now say Cinémathèque only; next is the F67 spec amendment, then the Appearance-tab design, then /implement.
 
 ## Dropped — newest first (the reason is the point)
+
+- **Keeping the custom palette** (the first draft of ADR-115) — once there's one skin, it leaves a tab, an endpoint, a setting, a paint cache and a CSS↔Go mirror serving one unused choice.
+- **F67 OQ4, what the Appearance tab shows with one skin** — moot, because the tab is removed.

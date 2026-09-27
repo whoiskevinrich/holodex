@@ -2,9 +2,9 @@
 
 **Status:** Proposed
 
-> **Amended by [ADR-115](ADR-115-cinematheque-only-skin.md):** the shipped-skin set is `cinematheque`
-> only, so the domain is `{cinematheque, custom}`. D2, the `/capabilities` channel and the custom
-> palette (D4–D6) stand.
+> **Superseded in part by [ADR-115](ADR-115-cinematheque-only-skin.md):** D1 and D3–D6 no longer
+> apply. There's no instance skin, no `/admin/theme`, no custom palette and no paint cache. The D2
+> `settings` store and its ownership boundary stand.
 **Date:** 2026-09-19
 **Deciders:** Project owner (brainstorm 2026-09-16; persistence model and the two residual questions confirmed 2026-09-19)
 

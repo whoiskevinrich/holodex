@@ -5,22 +5,16 @@
 **Architecture**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md), amended by
 [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)
 
-Holodex has **one skin: Cinémathèque** (dark). [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)
-retires Broadcast and Brutalist (HOLODEX-476). Until that epic removes them from the code they
-still render on the Appearance tab, but they are unsupported: don't QA, extend or propose them.
-The owner can recolour Cinémathèque with a custom palette. The active choice is **instance
-identity** ([ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)):
-the owner picks it on **Owner › Appearance**, it persists server-side and arrives with
-`/capabilities.theme`, and the SPA applies it as `data-theme` on `<html>` for every viewer —
-there is no per-browser preference (only a paint cache, `holodex-theme-cache`, that the server
-value always overwrites). A custom palette (`theme.custom` in `holodex.yaml`) rides a base
-skin's `data-theme` plus five inline custom properties on `<html>`, and `data-palette="custom"`
-switches on the derivation block in `app.css` that computes every pair-partner token
-(`surface`, `surface-2`, `rule`, `accent-ink`, `warn-ink`, `logo-plate`, `logo-plate-ink`) from
-them with oklab `color-mix()`. `internal/theme` mirrors that block in Go for the boot-time
-contrast WARN, and `TestDeriveMatchesCinematheque` gates both: Cinémathèque re-expressed as its
-five primaries must land within ΔE\*ab ≤ 2 of the hand-tuned block. **Change a percentage in one
-place, change it in the other** — the test is what notices when you forget.
+Holodex has **one look: Cinémathèque** (dark). There is nothing to choose.
+[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (HOLODEX-476) retires Broadcast,
+Brutalist, the custom palette (`theme.custom`), the instance-skin setting and the **Owner ›
+Appearance** tab. When it lands, the Cinémathèque tokens live in `:root` and nothing sets
+`data-theme`. Until then that machinery is still in the code but unsupported. Don't QA, extend or
+propose it, and don't switch the instance away from Cinémathèque.
+
+**While the palette code still exists:** `internal/theme` mirrors the `[data-palette='custom']`
+derivation block in `app.css`, and `TestDeriveMatchesCinematheque` gates both. If a change forces
+you to touch one, touch the other. HOLODEX-476 deletes both.
 
 ## Design tokens (the contract)
 
@@ -86,14 +80,14 @@ on the previous palette's colour.
 
 ## Adding a skin
 
-Don't. ADR-115 makes Cinémathèque the only skin; owner colour variation goes through the custom
-palette (ADR-102 D4). A second skin needs a new ADR that supersedes ADR-115.
+Don't. ADR-115 makes Cinémathèque the only look, with no palette and no switch. To change the
+look, edit its token block. A second skin, a palette or a theme switch needs a new ADR that
+supersedes ADR-115.
 
 ## QA checklist (every UI change)
 
-Render and eyeball **Cinémathèque**, plus the custom palette when one is configured (switch
-on **Owner › Appearance**). Don't QA Broadcast or Brutalist, and don't fix regressions that
-show only in them. Until HOLODEX-476 lands, the Appearance cards render flourishes inside a
+Render and eyeball **Cinémathèque**. Don't QA Broadcast, Brutalist or a custom palette, and don't
+fix regressions that only show in them. Until HOLODEX-476 lands, the Appearance cards render flourishes inside a
 `.skin-card` fence (`app.css`, the two-branch `.video-frame` selectors), so a new `.video-frame`
 flourish must keep both branches. Confirm: fonts load (offline), the accent reads on `--accent`
 fills, no decorative-element collisions, and the grid/empty/loading/error states are all themed.

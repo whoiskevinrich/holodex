@@ -3,8 +3,8 @@
 **Status**: Accepted
 
 > **Superseded in part by [ADR-115](ADR-115-cinematheque-only-skin.md):** Cinémathèque is the only
-> skin. The three-skin roster, the Broadcast/Brutalist flourishes and the "QA all three skins"
-> consequence no longer apply; the §1–§4 token layer stands.
+> look. The three-skin roster, the `[data-theme]` gating, the Broadcast/Brutalist flourishes and the
+> "QA all three skins" consequence no longer apply; the §1–§4 token layer stands.
 **Date**: 2026-06-10
 **Deciders**: Project owner
 **Relates to**: [ADR-002](ADR-002-frontend-framework.md) (SvelteKit SPA), [ADR-007](ADR-007-docker-structure.md) / [ADR-020](ADR-020-frontend-embed-and-build.md) (offline single-image delivery), F8 (dark mode)

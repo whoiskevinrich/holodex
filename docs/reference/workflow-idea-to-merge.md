@@ -250,7 +250,7 @@ Rules that keep it honest:
 
 **Pre-commit** (every commit, per `CLAUDE.md`): run `/simplify` on the changed code; run
 `/security-review` if you touched auth/access/infra; confirm the matching spec/ADR/design/testing
-artifact exists; scan for secrets; if you touched the frontend, QA Cinémathèque (plus the custom palette when configured, ADR-115).
+artifact exists; scan for secrets; if you touched the frontend, QA Cinémathèque (the only look, ADR-115).
 
 ## Stage 5 — End a session cleanly (the handoff)
 
