@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -162,6 +163,10 @@ type Handlers struct {
 	// override it (via clock) for deterministic Age values. Use h.clock(), which is
 	// nil-safe for handlers built by a struct literal.
 	now func() time.Time
+
+	// bootDrain is up while DrainCompletenessInBackground runs (ADR-112 D2);
+	// request-path drains skip rather than queue behind it on writeMu.
+	bootDrain atomic.Bool
 }
 
 // NewHandlers wires the REST handlers. thumbs, sc, and m are optional (nil-safe):

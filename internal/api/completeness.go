@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
@@ -316,10 +317,41 @@ func wantsCompleteness(sort string, missingFacets []string) bool {
 // caller serves the list from whatever the store holds (a stale ring, or none)
 // rather than turning every owner browse page into a 500 over one entity whose
 // resolve blew up; the ids stay dirty, so the next owner read retries.
+//
+// While the boot drain runs (DrainCompletenessInBackground, ADR-112 D2) a
+// request skips the drain entirely and serves the store as it stands: waiting
+// on writeMu would hand the boot re-score's cost straight back to the page.
 func (h *Handlers) drainCompleteness(ctx context.Context) {
+	if h.bootDrain.Load() {
+		return
+	}
 	if err := h.drainCompletenessStrict(ctx); err != nil {
 		h.log.Warn("completeness drain", "err", err)
 	}
+}
+
+// DrainCompletenessInBackground drains the dirty set off the request path
+// (ADR-112 D2). main calls it once at boot, before the server listens, so the
+// flag is up before any request can look at it; requests skip their own drain
+// until it clears. The returned channel closes once the drain finishes.
+func (h *Handlers) DrainCompletenessInBackground(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	h.bootDrain.Store(true)
+	go func() {
+		defer func() {
+			h.bootDrain.Store(false)
+			close(done)
+		}()
+		start := time.Now()
+		if err := h.drainCompletenessStrict(ctx); err != nil {
+			if ctx.Err() == nil { // a shutdown mid-drain is not a failure: the ids stay dirty for next boot
+				h.log.Warn("background completeness drain", "err", err)
+			}
+			return
+		}
+		h.log.Info("background completeness drain finished", "took", time.Since(start).Round(time.Millisecond))
+	}()
+	return done
 }
 
 func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {

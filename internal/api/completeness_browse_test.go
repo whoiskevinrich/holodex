@@ -36,6 +36,14 @@ func completenessBrowseServer(t *testing.T, token string) *httptest.Server {
 // for tests that mutate inputs or the store behind the running server (F65).
 func completenessBrowseServerWithRepo(t *testing.T, token string) (*httptest.Server, *repo.Repo) {
 	t.Helper()
+	srv, r, _ := completenessBrowseFixture(t, token)
+	return srv, r
+}
+
+// completenessBrowseFixture is completenessBrowseServerWithRepo plus the
+// handlers, for tests that drive the boot drain directly (ADR-112 D2).
+func completenessBrowseFixture(t *testing.T, token string) (*httptest.Server, *repo.Repo, *api.Handlers) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -85,7 +93,7 @@ func completenessBrowseServerWithRepo(t *testing.T, token string) (*httptest.Ser
 	h.SetAuth(api.NewAuth(token), false)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
-	return srv, r
+	return srv, r, h
 }
 
 // mediaTitles extracts the ordered titles from a /media list response body.

@@ -344,7 +344,9 @@ too.
   `entity_completeness(entity_type, entity_id, required, extras)` backs the badge and the SQL sort;
   `entity_completeness_missing(entity_type, entity_id, canonical, band)` backs the "Missing facet" chip
   and its counts; `completeness_dirty` is filled by `AFTER INSERT/UPDATE/DELETE` triggers on every input
-  table (the FTS triggers are the precedent) and drained under `writeMu` on the next owner read. Rows are
+  table (the FTS triggers are the precedent) and drained under `writeMu` on the next owner read — and once
+  at boot in the background, during which owner reads serve the store as it stands rather than wait
+  ([ADR-112](../architecture/ADR-112-completeness-boot-fingerprint.md); HOLODEX-469). Rows are
   a cache of `Complete`'s output, never a source of truth — the detail page computes live and self-heals
   the row. **Actionability stays computed, not stored** (queue-only; its candidate inputs are not in the
   store).
