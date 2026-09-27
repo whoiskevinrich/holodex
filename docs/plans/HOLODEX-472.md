@@ -67,7 +67,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Build the chosen D1 (C) / D2 (B) / D3 (B), then re-issue the handoff with them for sign-off — see Divergences
+1. [ ] [design] Re-issue the handoff with D1-D3 as mockups; owner signs off with approved mockup vs built UI side by side — see Divergences
 2. [ ] [frontend] Live-QA the Filters sheet on a phone: decide scroll lock (no modal in the app locks today) — `web/src/lib/components/sort/FilterPanel.svelte`
 3. [ ] [—] ADR-115 (Cinémathèque only, HOLODEX-476): once on main, drop three-skin QA from handoff/§20 and re-measure the label budget in Archivo — `docs/design/list-toolbar-handoff.md`
 4. [ ] [testing] Geometry harness: add `phone` width, list-page entries, 5 assertions (§20.2) — `web/geometry/`
@@ -91,7 +91,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
 - skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement, testing-strategy, code-review
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
-- handoff: All five pages migrated; three build divergences (D1-D3) are logged under Divergences and the handoff is restored to the signed-off c99b221. The owner picks each from a visual comparison before anything else ships (flightplan#38).
+- handoff: D1 (one-line sweep status), D2 and D3 (toolbar becomes a mode bar) built to the owner picks and verified live at 375px (D1 needs a live sweep to see). Next: add them to the handoff as mockups and get sign-off from a side-by-side with the built pages.
 
 ## Divergences from the approved design (signed off at c99b221)
 
@@ -101,9 +101,9 @@ comparison. Only then is the chosen option built or kept, and the handoff re-iss
 
 | # | Surface | Approved | Built (not chosen) | Status |
 |---|---|---|---|---|
-| D1 | People/Studios sweep status | Decision 2: folded into the count line ("· 3 need a refresh") | `SweepStatusLine` kept as its own row below the toolbar, shown only while a sweep runs or just after. The real component is a progress report, not a count | **chosen 2026-09-27: C**, one ellipsized line under the count ("Refreshing 120 of 412 · 3 need review · Details"); to build |
-| D2 | People merge select mode | Not drawn (only "Merge people…" in `⋯` was approved) | Count line replaced by the hint + "Merge N selected" + Cancel | **chosen 2026-09-27: B**, the toolbar row becomes a mode bar ("2 selected · Merge · Cancel"), hint as the count line; to build |
-| D3 | Tags manage mode | Not drawn (only "Manage tags" in `⋯` was approved) | A **Done** button added to the existing manage bar | **chosen 2026-09-27: B**, the same mode bar ("Managing · N selected · Merge… · ⋯ · Done"), category and writeback actions in that ⋯; to build |
+| D1 | People/Studios sweep status | Decision 2: folded into the count line ("· 3 need a refresh") | `SweepStatusLine` kept as its own row below the toolbar, shown only while a sweep runs or just after. The real component is a progress report, not a count | **chosen 2026-09-27: C**, one ellipsized line under the count ("Refreshing 120 of 412 · 3 need review · Details"); **built 2026-09-27**, awaiting side-by-side sign-off |
+| D2 | People merge select mode | Not drawn (only "Merge people…" in `⋯` was approved) | Count line replaced by the hint + "Merge N selected" + Cancel | **chosen 2026-09-27: B**, the toolbar row becomes a mode bar ("2 selected · Merge · Cancel"), hint as the count line; **built 2026-09-27**, awaiting side-by-side sign-off |
+| D3 | Tags manage mode | Not drawn (only "Manage tags" in `⋯` was approved) | A **Done** button added to the existing manage bar | **chosen 2026-09-27: B**, the same mode bar ("Managing · N selected · Merge… · ⋯ · Done"), category and writeback actions in that ⋯; **built 2026-09-27**, awaiting side-by-side sign-off |
 
 ## Dropped — newest first (the reason is the point)
 

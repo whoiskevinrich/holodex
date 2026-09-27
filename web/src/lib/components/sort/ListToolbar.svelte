@@ -18,7 +18,8 @@
 		chips,
 		chipCount = 0,
 		onclear,
-		count
+		count,
+		mode
 	}: {
 		/** The sort select (SortDropdown compact). */
 		sort: Snippet;
@@ -37,6 +38,12 @@
 		onclear?: () => void;
 		/** The count line ("38 videos", plus owner status links); announced politely. */
 		count?: Snippet;
+		/**
+		 * A page mode (People's merge selection, Tags' manage mode). While set, it replaces
+		 * the whole toolbar row — "2 selected · Merge · Cancel" — so a mode never stacks a
+		 * second bar above the list (F73 divergences D2/D3, the owner's pick).
+		 */
+		mode?: Snippet;
 	} = $props();
 
 	const menu = $derived<PageAction[]>(
@@ -46,6 +53,9 @@
 
 <div class="space-y-2">
 	<div class="flex items-center gap-2" data-list-toolbar>
+		{#if mode}
+			{@render mode()}
+		{:else}
 		{@render sort()}
 		{#if reroll}
 			<span class={actions.length ? 'hidden sm:inline-flex' : 'inline-flex'}>
@@ -58,6 +68,7 @@
 				{@render view?.()}
 				{#if menu.length}<PageActions items={menu} />{/if}
 			</div>
+		{/if}
 		{/if}
 	</div>
 

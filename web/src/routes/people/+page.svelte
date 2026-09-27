@@ -140,7 +140,8 @@
 	<ListToolbar
 		reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}
 		actions={isOwner && !selecting ? [{ label: 'Merge people…', onselect: startSelect }] : []}
-		count={selecting ? undefined : countLine}
+		count={selecting ? selectHint : countLine}
+		mode={selecting ? selectBar : undefined}
 	>
 		{#snippet sort()}
 			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
@@ -160,20 +161,20 @@
 		/>
 	{/snippet}
 
-	<!-- Select mode takes the count line's place: the hint, then the two verdicts. -->
-	{#if selecting}
-		<div class="flex flex-wrap items-center gap-2 text-sm">
-			<span class="text-muted">Select two or more people, then choose which name to keep.</span>
-			<button
-				onclick={() => (choosing = true)}
-				disabled={selectedIds.length < 2}
-				class="rounded-theme bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-60"
-			>
-				Merge {selectedIds.length || ''} selected
-			</button>
-			<button onclick={cancelSelect} class="btn-ghost px-3 py-1 text-sm">Cancel</button>
-		</div>
-	{/if}
+	<!-- Select mode (F73 D2, the owner's pick): the toolbar row becomes the mode bar, and
+	     the hint takes the count line's place. -->
+	{#snippet selectBar()}
+		<span class="min-w-0 flex-1 truncate text-sm text-ink" aria-live="polite">{selectedIds.length} selected</span>
+		<button
+			onclick={() => (choosing = true)}
+			disabled={selectedIds.length < 2}
+			class="h-8 shrink-0 rounded-theme bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-60"
+		>
+			Merge
+		</button>
+		<button onclick={cancelSelect} class="btn-ghost h-8 shrink-0 px-3 text-sm">Cancel</button>
+	{/snippet}
+	{#snippet selectHint()}Select two or more people, then choose which name to keep.{/snippet}
 
 	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle.
 	     Shown only while a sweep runs or just finished, so it isn't a standing row. -->

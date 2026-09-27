@@ -10,6 +10,7 @@
 	import type { Category, EntityRef, Tag } from '$lib/types';
 	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
+	import PageActions from '$lib/components/sort/PageActions.svelte';
 	import { segmentedToggleClass } from '$lib/components/sort/segmentedToggle';
 	import { TAG_SORTS, tagsSchema, type TagType } from '$lib/listState';
 	import { listController } from '$lib/listController.svelte';
@@ -202,6 +203,18 @@
 				? 'No categories yet.'
 				: 'No tags or categories indexed yet.'
 	);
+
+	const manageActions = $derived([
+		{ label: 'Add to category…', onselect: bulkAddToCategory },
+		{ label: 'Remove from category…', onselect: bulkRemoveFromCategory },
+		...(bulkBusy
+			? []
+			: [
+					{ label: 'Turn off writeback', onselect: () => bulkSetWriteback(false) },
+					{ label: 'Turn on writeback', onselect: () => bulkSetWriteback(true) },
+					{ label: 'Sync writeback now…', onselect: () => (bulkSyncOpen = true) }
+				])
+	]);
 
 	function exitManage() {
 		manage = false;
@@ -574,6 +587,8 @@
 	<ListToolbar
 		reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}
 		actions={isOwner && !manage ? [{ label: 'Manage tags', onselect: () => (manage = true) }] : []}
+		mode={manage ? manageBar : undefined}
+		count={manage ? manageHint : undefined}
 	>
 		{#snippet sort()}
 			<SortDropdown compact options={TAG_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
@@ -592,65 +607,29 @@
 
 	<DuplicatesBanner entityType="tag" />
 
-	{#if manage}
-		<!-- Merge bar: select 2+ pills, then choose the surviving name. Mirrors /people's
-		     multi-select semantics, pill-adapted (F43 §4). -->
-		<div
-			class="flex flex-wrap items-center gap-3 rounded-theme border border-rule bg-surface px-3 py-2"
+	<!-- Manage mode (F73 D3, the owner's pick): the toolbar row becomes the mode bar —
+	     the same pattern as /people's select mode — and the hint plus any warnings take the
+	     count line's place. Bulk category/writeback actions (HOLODEX-239: on and off both
+	     offered, never one combined toggle) live in the bar's ⋯ once two or more are picked. -->
+	{#snippet manageBar()}
+		<span class="min-w-0 flex-1 truncate text-sm text-ink" aria-live="polite">Managing · {selectedIds.length} selected</span>
+		<button
+			onclick={openChoose}
+			class="h-8 shrink-0 rounded-theme border border-accent px-3 text-sm text-accent hover:bg-surface-2"
 		>
-			<span class="text-sm text-muted">
-				{selectedIds.length} selected — select two or more, then merge; or use a tag’s ⋯ menu to
-				rename, alias, or merge into another.
-			</span>
-			<button
-				onclick={openChoose}
-				class="rounded-theme border border-accent px-3 py-1 text-sm text-accent hover:bg-surface-2"
-			>
-				Merge…
-			</button>
-			<button onclick={exitManage} class="btn-ghost px-3 py-1 text-sm">Done</button>
-			{#if selectedIds.length >= 2}
-				<button onclick={bulkAddToCategory} class="btn-ghost px-3 py-1 text-sm">Add to category…</button>
-				<button onclick={bulkRemoveFromCategory} class="btn-ghost px-3 py-1 text-sm">
-					Remove from category…
-				</button>
-			{/if}
-			{#if selectHint}
-				<span class="text-sm text-warn" role="status">{selectHint}</span>
-			{/if}
-			{#if catPickerHint}
-				<span class="text-sm text-warn" role="status">{catPickerHint}</span>
-			{/if}
-			{#if selectedIds.length >= 2}
-				<!-- Writeback bulk actions (HOLODEX-239): on/off always both visible —
-				     never a single combined toggle, since the selection can be mixed-state. -->
-				<button
-					onclick={() => bulkSetWriteback(false)}
-					disabled={bulkBusy}
-					class="btn-ghost px-3 py-1 text-sm"
-				>
-					Turn off writeback
-				</button>
-				<button
-					onclick={() => bulkSetWriteback(true)}
-					disabled={bulkBusy}
-					class="btn-ghost px-3 py-1 text-sm"
-				>
-					Turn on writeback
-				</button>
-				<button
-					onclick={() => (bulkSyncOpen = true)}
-					disabled={bulkBusy}
-					class="btn-accent px-3 py-1 text-sm"
-				>
-					Sync writeback now
-				</button>
-				{#if bulkError}
-					<span class="text-sm text-warn" role="status">{bulkError}</span>
-				{/if}
-			{/if}
-		</div>
-	{/if}
+			Merge…
+		</button>
+		{#if selectedIds.length >= 2}
+			<PageActions items={manageActions} label="More actions for the selected tags" />
+		{/if}
+		<button onclick={exitManage} class="btn-ghost h-8 shrink-0 px-3 text-sm">Done</button>
+	{/snippet}
+	{#snippet manageHint()}
+		Select two or more, then merge; or use a tag’s ⋯ menu to rename, alias, or merge into another.
+		{#if selectHint}<span class="text-warn">{selectHint}</span>{/if}
+		{#if catPickerHint}<span class="text-warn">{catPickerHint}</span>{/if}
+		{#if bulkError}<span class="text-warn">{bulkError}</span>{/if}
+	{/snippet}
 
 	<div id="tags-panel" role="tabpanel">
 	{#if loading}

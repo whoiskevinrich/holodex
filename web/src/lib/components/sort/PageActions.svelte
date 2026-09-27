@@ -14,7 +14,8 @@
 	import { tick } from 'svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 
-	let { items }: { items: PageAction[] } = $props();
+	// `label` names the trigger for a ⋯ that isn't the page's own (Tags' manage mode bar).
+	let { items, label = 'Page actions' }: { items: PageAction[]; label?: string } = $props();
 
 	const uid = $props.id();
 	let open = $state(false);
@@ -69,7 +70,7 @@
 		type="button"
 		aria-haspopup="menu"
 		aria-expanded={open}
-		aria-label="Page actions"
+		aria-label={label}
 		onclick={() => (open ? close() : show())}
 		class="inline-flex h-8 w-8 items-center justify-center rounded-theme border border-rule bg-surface text-muted hover:text-ink"
 	>
