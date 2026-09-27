@@ -220,11 +220,14 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 	// Completeness scores are materialized (F65, ADR-099 D3) against registry
 	// criticality that is compiled in, so a build that re-tags a facet is only
-	// ever seen at boot: flag every entity for recompute on the first owner
-	// read (D4's denominator-change hook). The triggers cover everything else.
-	if err := repository.MarkAllCompletenessDirty(ctx); err != nil {
-		log.Warn("mark completeness dirty at boot failed", "err", err)
+	// ever seen at boot: D4's denominator-change hook flags every entity for
+	// recompute — but only when the build or its config actually changed
+	// (ADR-112 D1). The triggers cover everything else.
+	exe, err := os.Executable()
+	if err != nil {
+		exe = "" // unfingerprintable → the hook re-scores everything, as before
 	}
+	markCompletenessDirtyIfInputsChanged(ctx, repository, log, exe, cfg.MetadataMappingsPath, cfg.MetadataSourcesPath)
 
 	// Metadata source plugins (F22, ADR-033): a registry of sidecar providers; the
 	// service is the only thing that dials them, and only on an owner action.
@@ -472,6 +475,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	// Drain whatever the boot hook (or writes since the last owner read) left
+	// dirty off the request path, before the server listens (ADR-112 D2).
+	handlers.DrainCompletenessInBackground(ctx)
 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
