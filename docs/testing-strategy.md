@@ -3217,3 +3217,57 @@ characters of markup, and extracting it only to test it was judged not worth a m
 parameter. The only new href is built from an integer entity id, and the holder's name is escaped
 text interpolation. The `skipped_aliases` owner gate is unchanged, and
 `TestPersonDetail_AliasSourceAndSkipped` still asserts the key is absent for a visitor.
+
+## 19. Owner-offered empty fields — adding an Overview (HOLODEX-471, ADR-113)
+
+The resolver drops a replace field with no value, no decision and no film candidate. ADR-113 keeps
+it for the owner when the field adopts `OfferWhenEmpty`; `overview` is the first. Three risks:
+
+1. **A visitor receives an offered row.** That leaks an owner-only affordance, and every visitor
+   surface would then have to filter it out (D3).
+2. **The offered row is not writable.** `writeback.ResolveForContainer` skips valueless fields, so
+   without the `markWriteTargets` special case the dialog disables the row, and a typed Custom
+   value is saved but never written.
+3. **The special case over-reaches.** A blank pin (a standing decision that resolves empty) is not
+   an offer. Stamping it writable lets the dialog submit an empty write for it.
+
+**Backend — `internal/resolver/offer_test.go`:** an offered empty field is kept in the undecided
+shape (no values, file candidate `""`, non-standing `file` decision, `long_text` display). It still
+drops with a nil `Offer` (the visitor path), for an unflagged field (`tagline`), and for a merge
+field even when `Offer` says yes (ADR-051 RD1). A field that has a value resolves identically with
+and without `Offer`.
+
+**API — `internal/api/offer_empty_test.go`, `TestGetMedia_OffersEmptyOverviewToOwnerOnly`:** one
+video with no overview, walked through four states:
+
+- **Owner:** the overview row is present with no values, a `write_target` and a non-standing
+  decision, and the completeness facet is still `missing`.
+- **Unflagged field:** `tagline` is absent.
+- **Blank pin:** with a standing decision whose value is empty, the row stays but has **no**
+  `write_target` (risk 3).
+- **Visitor:** with the auth gate closed, the row is absent (risk 1).
+
+**Mutation check, 2026-09-27.** Removing the standing-decision guard in `markWriteTargets` fails the
+blank-pin assertion (`write_target "Comment"`). Removing `Offer` from `getMedia` fails the owner
+assertions, and setting it unconditionally fails the visitor assertion.
+
+**SPA — `web/src/lib/f36.test.ts`, `startsOnCustom`:** the dialog opens on Custom for an undecided
+field that no source supplies. It does not when the file has a value, when only a provider has
+one, or for a standing blank pin.
+
+The pill, the dialog's focus and the writeback row are markup. `web/` has no component-test harness
+(§16), so they were verified live on `backend-amv`:
+
+- **Pill and dialog:** the pill renders for the owner. Clicking it opens the dialog with Custom
+  checked and the textarea focused, which means `SourceEditModal`'s `onMount` wins over
+  ConfirmDialog's initial focus. Saving empty shows the validation line; saving text replaces the
+  pill with the overview.
+- **Writeback dialog:** the offered row lists under "Not yet decided" in the `=` tier. Picking Custom
+  and typing gives "Will be written to the file → QuickTime:Comment" and "Write 1 field to file".
+- **Skins:** in all three, the pill takes that skin's `--accent` text and `--muted` dashed border,
+  at 12 px text and a 22 px pill height.
+
+**Standing gaps.** Nothing automated pins the pill's markup or the dialog's focus order: both are
+live-QA only, for the harness reason above. A QA pitfall: a programmatic `.focus()` on the Custom
+textarea in a background tab doesn't fire its focus handler, so it never stages Custom and typing
+reads as "Save 1 decision". Click the Custom radio instead.
