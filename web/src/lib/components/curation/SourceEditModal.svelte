@@ -14,7 +14,8 @@
 	// The rows themselves live in SourceRadioList (HOLODEX-400) so the writeback dialog can
 	// embed the same chooser; this modal only supplies the chrome and the Save commit.
 	import type { DecisionSource, ResolvedField } from '$lib/types';
-	import { resolveSelection, sourceChips } from '$lib/f36';
+	import { onMount } from 'svelte';
+	import { resolveSelection, sourceChips, startsOnCustom } from '$lib/f36';
 	import { toMessage } from '$lib/format';
 	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
 	import SourceRadioList from './SourceRadioList.svelte';
@@ -40,7 +41,17 @@
 	// alone, so an unrelated reloadDetail() elsewhere on the page (e.g. another field's own
 	// decide, or a promotion edit) can recompute `chips` while this modal stays open. `save()`
 	// below treats a stagedKey that's fallen out of `chips` as an error, not a silent no-op.
-	let stagedKey = $state<string | null>(resolveSelection(field, chips, baselineKey).key);
+	// With nothing to choose between (HOLODEX-471: an empty overview no source supplies), the
+	// dialog opens on Custom with its textarea focused — the only thing the owner can do here.
+	const openOnCustom = startsOnCustom(field, chips);
+	let stagedKey = $state<string | null>(
+		openOnCustom ? 'custom' : resolveSelection(field, chips, baselineKey).key
+	);
+	let customEl = $state<HTMLTextAreaElement | null>(null);
+	// Runs after ConfirmDialog's own initial focus (a child's onMount runs first), so this wins.
+	onMount(() => {
+		if (openOnCustom) customEl?.focus();
+	});
 	let stagedCustomValue = $state(
 		field.decision?.source === 'manual' ? (field.decision.manual_value ?? '') : ''
 	);
@@ -83,6 +94,6 @@
 	{#snippet body()}
 		<!-- The candidate rows live in SourceRadioList (HOLODEX-400) so the writeback dialog can
 		     embed the same chooser; this modal only supplies the chrome and the Save commit. -->
-		<SourceRadioList {field} {chips} bind:stagedKey bind:stagedCustomValue disabled={busy} />
+		<SourceRadioList {field} {chips} bind:stagedKey bind:stagedCustomValue bind:customEl disabled={busy} />
 	{/snippet}
 </ConfirmDialog>

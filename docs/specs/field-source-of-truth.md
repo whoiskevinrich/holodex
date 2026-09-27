@@ -160,6 +160,12 @@ global rule decide for them.
 - **P1-2 — Inter-provider trust order.** ✅ **implemented** ([HOLODEX-118](https://whoiskevinrich.atlassian.net/browse/HOLODEX-118)): the `provider_trust_order` config orders providers for the *undecided* winner among providers (file still ahead of all under `default_source: file`; unlisted providers keep mapping order behind the listed ones). Per-field decision overrides it. Applied under the file-first default; `default_source: mapping` keeps literal `sources` order. Backend-only — the SourceSelect chips are already per-provider.
 - **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision — provided the field declares a `file:` source matching the tag writeback writes. When it does not, there is no file value to compare against: the field shows **no chip and is excluded from the count**, because the state is unknown rather than in sync ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md) D1).
 - **P1-4 — Candidate visibility.** Under a replace field, show the available candidates (file value, each provider value) so the choice is informed, not blind.
+- **P1-5 — Add a value no source has (owner-offered empty fields).** A replace field that no layer supplies a value for and that has no decision is still offered to the owner, so they can type a Custom value, **if the field has adopted offering** ([ADR-113](../architecture/ADR-113-owner-offered-empty-fields.md); registry `OfferWhenEmpty`). Fields adopt one at a time, each with its own designed empty state. First adopter: `overview` ([HOLODEX-471](https://whoiskevinrich.atlassian.net/browse/HOLODEX-471); [handoff](../design/overview-add-handoff.md)). The rest are HOLODEX-304.
+  - Given a video whose file and providers have no `overview`, When the owner opens it, Then the Overview block shows its heading, the pencil and a **+ Add overview** pill.
+  - Given the same video, When a visitor opens it, Then no Overview block renders and `resolved[]` has no `overview` row.
+  - Given the owner activates the pill or the pencil, Then the Edit Overview dialog opens with **Custom** selected and its textarea focused; saving sets a `manual` decision (P0-1) and no file is touched (P0-4).
+  - Given the owner opens Write metadata to file on that video, Then an Overview row is listed under "Not yet decided" with File "No value" and Custom, is not preselected or counted, and typing a Custom value confirms it for the one atomic write.
+  - Given a field that has not adopted offering, Then it is dropped from `resolved[]` exactly as before.
 
 ### Future considerations (P2)
 
@@ -174,6 +180,7 @@ global rule decide for them.
 1. If a decision row exists → return the decided source's **current** value (`file` baseline / `provider:<name>` shadow value / `manual` literal). Stop.
 2. Else if `default_source: file` (default) → file value if present; else the inter-provider-trust-ordered first provider; else empty.
 3. Else (`default_source: mapping`) → today's first-non-empty in mapping order.
+4. If that is empty and there is no decision and no film candidate, the field is **dropped** from `resolved[]`, unless the request is the owner's and the field has adopted offering (P1-5, [ADR-113](../architecture/ADR-113-owner-offered-empty-fields.md)). In that case it is kept with no values, file candidate `""`, and a non-standing `file` decision.
 Merge fields are unchanged: F30 union + per-value curation; decisions do not apply.
 
 ### Writeback

@@ -12,7 +12,8 @@ import {
 	providerCandidates,
 	providerOf,
 	selectedChipKey,
-	sourceChips
+	sourceChips,
+	startsOnCustom
 } from './f36';
 import type { ResolvedField } from './types';
 
@@ -161,6 +162,38 @@ describe('selectedChipKey', () => {
 	it('selects the Custom chip for a manual decision', () => {
 		const f = field({ decision: { source: 'manual', standing: true, manual_value: 'X' } });
 		expect(selectedChipKey(f, sourceChips(f))).toBe('custom');
+	});
+});
+
+// HOLODEX-471 (ADR-113) — the owner-offered empty row has nothing to choose between, so its
+// editor opens on Custom; a row with any source value, or a standing blank pin, does not.
+describe('startsOnCustom', () => {
+	const offered = field({
+		canonical: 'overview',
+		values: [],
+		candidates: [{ source: 'file', value: '' }],
+		decision: { source: 'file', standing: false }
+	});
+	it('opens on Custom for an undecided field no source supplies', () => {
+		expect(startsOnCustom(offered, sourceChips(offered))).toBe(true);
+	});
+	it('does not when the file has a value', () => {
+		const f = field();
+		expect(startsOnCustom(f, sourceChips(f))).toBe(false);
+	});
+	it('does not when only a provider has a value', () => {
+		const f = field({
+			values: ['From TMDB'],
+			candidates: [
+				{ source: 'file', value: '' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'From TMDB' }
+			]
+		});
+		expect(startsOnCustom(f, sourceChips(f))).toBe(false);
+	});
+	it('keeps a standing blank pin on its baseline', () => {
+		const f = { ...offered, decision: { source: 'file' as const, standing: true } };
+		expect(startsOnCustom(f, sourceChips(f))).toBe(false);
 	});
 });
 

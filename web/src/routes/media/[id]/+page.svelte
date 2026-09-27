@@ -1663,6 +1663,16 @@
 							{#if provider}
 								<ProvenanceBadge {provider} label={provider} />
 							{/if}
+						{:else if isOwner}
+							<!-- HOLODEX-471 (ADR-113): no source has an overview, so the owner-offered
+							     empty row lands here. The "+ Set part" pill idiom; opens the same
+							     dialog as the pencil, which starts on Custom when nothing is on offer. -->
+							<button
+								type="button"
+								onclick={() => (overviewEditOpen = true)}
+								class="rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
+								>+ Add overview</button
+							>
 						{/if}
 					</section>
 				{/if}

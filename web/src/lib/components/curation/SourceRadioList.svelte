@@ -15,6 +15,7 @@
 		chips,
 		stagedKey = $bindable(),
 		stagedCustomValue = $bindable(''),
+		customEl = $bindable(null),
 		disabled = false,
 		baselineKey = 'file',
 		baselinePlaceholder = 'No value',
@@ -24,6 +25,8 @@
 		chips: SourceChip[];
 		stagedKey: string | null;
 		stagedCustomValue?: string;
+		// The Custom textarea, so an embedder can focus it (SourceEditModal opening on Custom).
+		customEl?: HTMLTextAreaElement | null;
 		disabled?: boolean;
 		baselineKey?: string;
 		// What the baseline row reads as when its value is empty ("No value" by default; the
@@ -74,6 +77,7 @@
 				     already-updated literal on the same keystroke (handler order is not guaranteed
 				     between a bind listener and a sibling oninput). -->
 				<textarea
+					bind:this={customEl}
 					value={stagedCustomValue}
 					onfocus={() => setStaged('custom')}
 					oninput={(e) => {
