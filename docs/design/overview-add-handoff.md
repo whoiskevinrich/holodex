@@ -60,8 +60,10 @@ would.
    another source." validation still applies to empty text.
 4. **Writeback dialog.** No component change. Because `resolved` now contains `overview`, the row
    renders with the stacked `SourceRadioList`: File "No value", then Custom. Before a pick, the row
-   is in "Not yet decided" with the hollow-circle glyph. Typing a Custom value confirms it: the
-   glyph becomes the write arrow and the footer counts it. On submit the page saves the manual
+   is in "Not yet decided" in the `=` tier ("— matches the file"). That's true: the file has no
+   overview, so there's nothing to write yet. Picking Custom and typing confirms it: the glyph
+   becomes the write arrow ("Will be written to the file → {tag}") and the footer counts it.
+   Verified in QA. On submit the page saves the manual
    decision and then enqueues the write, the same path every other custom value uses.
 5. **Cancel** leaves the pill in place and saves nothing.
 

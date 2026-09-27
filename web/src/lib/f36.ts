@@ -152,6 +152,13 @@ function standing(field: ResolvedField): boolean {
 	return field.decision?.standing === true;
 }
 
+// startsOnCustom: an undecided field with no value in any source row — the owner-offered empty
+// row (ADR-113) — has nothing to choose between, so its editor opens on Custom (HOLODEX-471).
+// A standing blank pin keeps its baseline selection: that emptiness was the owner's decision.
+export function startsOnCustom(field: ResolvedField, chips: SourceChip[]): boolean {
+	return !standing(field) && chips.every((c) => c.manual || c.value.trim() === '');
+}
+
 // resolveSelection maps the field's decided source onto the chip that should read selected, and
 // whether that selection is a real decision or the RD6 implicit-winner fallback (HOLODEX-245) —
 // one walk of the branch, shared by selectedChipKey/isPendingSelection/SourceSelect so nothing
