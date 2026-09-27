@@ -39,7 +39,9 @@ actually on the file:
 - **Other merge fields** (people, studios). They keep the read-only merge row (RD1).
 - **Film pages.** The film dialog has no genres set row, so nothing changes there.
 - **Attach/detach writing the file.** Still no (ADR-110 owner decision). The file changes only on Write.
-- **Backfilling file tags at boot.** Unknown until the next scan or write (owner, 2026-09-26).
+- **Backfilling file tags at boot.** Unknown until the file is next re-extracted (owner,
+  2026-09-26). That happens when the file changes on disk, on a Refresh, or on a write. A routine
+  scan skips unchanged files, so it does **not** fill them. A library-wide fill is HOLODEX-468.
 
 ## Definitions
 

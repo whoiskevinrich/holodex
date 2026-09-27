@@ -43,7 +43,9 @@ the name a write will drop. `UpsertVideo` sets it in the same transaction as `re
 scanner, the refresh path and the post-write re-extract (ADR-073) all keep it current with no new writer.
 `NULL` means *never read since this shipped* (unknown). `[]` means *read, and the file has no tags*.
 Migration `0054` adds the column with no backfill. Re-reading every file at boot was rejected for cost,
-so a row fills in on its next scan or write (owner, 2026-09-26: "unknown until rescan").
+so a row fills in the next time its file is re-extracted: a change on disk, a Refresh, or a write
+(owner, 2026-09-26: "unknown until rescan"). A routine scan skips unchanged files (ADR-018 change
+detection), so it does not fill them. A library-wide fill is follow-up HOLODEX-468.
 
 **D2 — Membership is identity, not spelling.** A file name and a written name are the same tag when they share
 the tag name key (lowercased, trimmed, spaces removed) or resolve to the same tag entity through the
