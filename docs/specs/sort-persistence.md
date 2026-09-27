@@ -123,6 +123,10 @@ independently per page.
   page's existing default (Media `added_desc`, People `name`, Tags `name`). A corrupt
   storage value never throws into the UI and never blocks rendering. *(This makes removing
   a sort option in future forward-safe — a stale saved value just falls back to default.)*
+> **Amended by [F73 — list toolbar](list-toolbar.md#amendments-to-sort-persistence).** The
+> "URL wins" rule below now applies to every list page, the "People / Tags: no URL sort state"
+> clause is withdrawn, and arriving by URL never writes the saved preference.
+
 - **Media precedence (URL wins).** Media's sort already lives in the URL for
   shareability. Precedence on load: **URL `sort` param → saved localStorage value →
   default.** A `sort` present in the URL (e.g. a shared/deep link) always wins; the saved
