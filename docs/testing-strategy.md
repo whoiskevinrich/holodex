@@ -3395,7 +3395,8 @@ Each should turn a named test red. Record the results here, as §19 does.
 
 - **Risk 2 is live-QA only.** SvelteKit reusing the component on a same-route navigation is
   exactly what a pure unit test can't reproduce. A navigation harness (Playwright driving
-  nav → filter → nav) would close it. It doesn't exist yet, and building one is beyond this epic.
+  nav → filter → nav) would close it. It doesn't exist yet, and building one is beyond this epic:
+  **HOLODEX-475**.
 - **Focus order and the sheet's focus trap** are live-QA only, for the §16 harness reason.
 - **Colour and contrast** of chips on Brutalist's `#d6ff3f` accent use the §5 computed-style
   method, not the geometry harness (§12.2).
