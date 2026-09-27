@@ -1,0 +1,52 @@
+---
+# Flightplan worklog — one epic, one worklog, one definition of done.
+# Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
+# Schema + design: see the Flightplan plugin's own README and ADR-001 (in the plugin repo).
+key: HOLODEX-471                 # the tracker key; must match the branch key regex
+status: in-progress                 # DERIVED from the Gates below — nothing settled is todo, some movement
+                             # is in-progress, all settled with a release_note is in-review. Only
+                             # `done` and `released` are read from here (a merge and a release are
+                             # facts the checklist can't see). Any other value is ignored, so this
+                             # field cannot drift. If the status looks wrong, a gate is wrong.
+profile: full                # the gate posture (see flightplan.yaml `postures:`). Which gates this
+                             # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
+                             # session until it does, and the Gates rows below are trimmed to match.
+depends-on: []               # [KEY-…] cross-epic deps that must land first
+release_note: Owners can add an Overview to a video that has none, from the page or from Write metadata to file.
+---
+
+# HOLODEX-471 · Owner can add an Overview when neither the file nor a provider supplies one
+
+Done means an owner viewing a video with no overview sees **+ Add overview** in the rail. It opens
+the existing Edit Overview dialog with Custom selected, and the Write metadata to file dialog lists
+an Overview row they can fill and write. Visitors see no change, and no other empty field changes.
+
+**Design package:** [ADR-113](../architecture/ADR-113-owner-offered-empty-fields.md) (owner-offered
+empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-truth.md) ·
+[handoff](../design/overview-add-handoff.md) + [mockup](../design/overview-add-mockup.svg)
+
+## Gates — definition of done
+
+- [x] spec `write-spec` → `docs/specs/**` — F36 P1-5 + Resolution step 4 in `field-source-of-truth.md`
+- [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-113 (owner-offered empty fields, adopted per field)
+- [x] design `design-handoff` → `docs/design/**` — `overview-add-handoff.md` + `overview-add-mockup.svg` (option B; sign-off pending)
+- [ ] backend → `{cmd,internal,providers}/**`
+- [ ] frontend → `web/src/**`
+- [ ] testing `testing-strategy`
+- [ ] security `security-review`
+
+## Up next — ordered (position = priority)
+
+1. [ ] [—] Kevin signs off on the handoff + ADR-113, then `/implement` opens the Draft PR
+2. [ ] [—] Backend: `resolver.Options.Offer`, registry `OfferWhenEmpty` on `overview`, `getMedia` passes it for the owner only, before `markWriteTargets`
+3. [ ] [—] Frontend: the **+ Add overview** pill and Custom pre-selected in `SourceEditModal` when no source has a value
+4. [ ] [—] Testing strategy, then a security review (D3 is an owner/visitor gate on the response)
+
+## Session log — newest first
+
+### 2026-09-27 · session
+- skills: handoff
+- Mocked the empty-Overview affordance (A/B/C); Kevin picked B (dashed **+ Add overview** pill → existing Edit Overview dialog) and Overview-only scope with an ADR for per-field adoption. Found the cause: the resolver drops empty undecided replace fields, so neither the page nor the writeback dialog had a row. Wrote ADR-113, spec F36 P1-5, and the handoff + three-skin SVG. Linked HOLODEX-304 as the rollout backlog.
+- handoff: Design phase settled and pushed, but the design and ADR-113 are not yet signed off. Next: Kevin reviews `docs/design/overview-add-handoff.md` + ADR-113, then `/implement` opens the Draft PR.
+
+## Dropped — newest first (the reason is the point)
