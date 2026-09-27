@@ -741,10 +741,14 @@ export const api = {
 	// and the website label that render for everyone (unlike owner-gated enrichSources).
 	providers: () => get<{ providers: EnrichSource[] }>(`/providers`),
 
-	enrichResolve: (personId: number, provider: string, query: string) =>
+	// `retry` (HOLODEX-467) searches past a "None of these match" dismissal and clears it
+	// once the search returns candidates — EnrichPicker's "Search {provider} again". Same
+	// on all four resolve methods; omitted from the body unless set.
+	enrichResolve: (personId: number, provider: string, query: string, retry = false) =>
 		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/people/${personId}/enrich/resolve`, {
 			provider,
-			query
+			query,
+			...(retry && { retry })
 		}),
 
 	enrichApply: (personId: number, provider: string, externalId: string) =>
@@ -759,11 +763,11 @@ export const api = {
 	// Video/film enrichment (F26). All owner-gated. `searched` is the provider's own
 	// record of the upstream queries it issued (ADR-095 D6, video only) — absent when
 	// it sent none; the picker renders it as the "Searched …" caption.
-	enrichVideoResolve: (videoId: number, provider: string, query: string) =>
+	enrichVideoResolve: (videoId: number, provider: string, query: string, retry = false) =>
 		sendAuthed<{ candidates: EnrichCandidate[]; searched?: string[] }>(
 			'POST',
 			`/media/${videoId}/enrich/resolve`,
-			{ provider, query }
+			{ provider, query, ...(retry && { retry }) }
 		),
 
 	enrichVideoApply: (videoId: number, provider: string, externalId: string) =>
@@ -784,10 +788,11 @@ export const api = {
 	// Studio (company) enrichment (F38 S3). Mirrors the person enrich trio; all
 	// owner-gated. Studios have no file → no writeback and no relink (a studio-entity
 	// enrich changes the studio's own fields, not the video → studio links).
-	enrichStudioResolve: (studioId: number, provider: string, query: string) =>
+	enrichStudioResolve: (studioId: number, provider: string, query: string, retry = false) =>
 		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/studios/${studioId}/enrich/resolve`, {
 			provider,
-			query
+			query,
+			...(retry && { retry })
 		}),
 
 	enrichStudioApply: (studioId: number, provider: string, externalId: string) =>
@@ -805,10 +810,11 @@ export const api = {
 	// the film's own fields and its poster asset, never an attached video (ADR-089 D1).
 	// Registered server-side only when films_enabled, so these 404 with films off; the
 	// film detail page cannot render without a film, so no separate client gate exists.
-	enrichFilmResolve: (filmId: number, provider: string, query: string) =>
+	enrichFilmResolve: (filmId: number, provider: string, query: string, retry = false) =>
 		sendAuthed<{ candidates: EnrichCandidate[] }>('POST', `/films/${filmId}/enrich/resolve`, {
 			provider,
-			query
+			query,
+			...(retry && { retry })
 		}),
 
 	// year_collision is present when the provider's release year was withheld because

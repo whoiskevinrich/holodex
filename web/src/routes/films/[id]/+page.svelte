@@ -1023,7 +1023,7 @@
 		entityType="film"
 		entityName={film?.name ?? ''}
 		provider={pickerProvider}
-		resolve={(prov, q) => api.enrichFilmResolve(id, prov, q)}
+		resolve={(prov, q, retry) => api.enrichFilmResolve(id, prov, q, retry)}
 		apply={(prov, extId) => api.enrichFilmApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
 		autoApply={!pickerRematch}

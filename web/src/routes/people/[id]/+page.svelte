@@ -816,7 +816,7 @@
 		entityType="person"
 		entityName={person?.name ?? ''}
 		provider={pickerProvider}
-		resolve={(prov, q) => api.enrichResolve(id, prov, q)}
+		resolve={(prov, q, retry) => api.enrichResolve(id, prov, q, retry)}
 		apply={(prov, extId) => api.enrichApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('person', id, prov)}
 		autoApply={!pickerRematch}

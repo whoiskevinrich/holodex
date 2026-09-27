@@ -2553,7 +2553,7 @@
 			entityType="video"
 			entityName={enrichQueries[pickerProvider] ?? displayTitle}
 			provider={pickerProvider}
-			resolve={(prov, q) => api.enrichVideoResolve(id, prov, q)}
+			resolve={(prov, q, retry) => api.enrichVideoResolve(id, prov, q, retry)}
 			apply={(prov, extId) => api.enrichVideoApply(id, prov, extId)}
 			dismiss={async (prov) => {
 				const res = await api.enrichDismiss('video', id, prov);

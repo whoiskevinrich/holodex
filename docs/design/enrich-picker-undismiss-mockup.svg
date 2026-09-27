@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1640 560" width="1640" height="560" role="img" aria-labelledby="t d">
+  <title id="t">EnrichPicker dismissed state (HOLODEX-467), three skins</title>
+  <desc id="d">The Enrich from tmdb dialog after the owner earlier chose None of these match: the search box keeps focus, a notice with a rule-colored left border replaces the status line, and an outlined accent button reads Search tmdb again. Rendered with the real Cinémathèque, Broadcast and Brutalist tokens at component sizes (18px title, 14px box and notice, 12px secondary line and button).</desc>
+
+  <!-- Cinémathèque -->
+  <g transform="translate(16,16)" font-family="Archivo, 'Archivo Variable', sans-serif">
+    <rect width="520" height="528" fill="#0c0a09"/>
+    <text x="16" y="28" font-size="12" fill="#9b9082">Cinémathèque</text>
+    <rect x="4" y="48" width="512" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="20" y="80" font-family="Fraunces, 'Fraunces Variable', serif" font-size="18" font-weight="600" fill="#f3ece1">Enrich from tmdb</text>
+    <text x="492" y="78" font-size="14" fill="#9b9082" text-anchor="end">✕</text>
+    <rect x="20" y="96" width="480" height="32" rx="2" fill="#15110e" stroke="#e8a33d"/>
+    <text x="32" y="117" font-size="14" fill="#f3ece1">Black Dynamite</text>
+    <rect x="20" y="136" width="1" height="92" fill="#2a2622"/>
+    <text x="29" y="152" font-size="14" fill="#f3ece1">You marked tmdb as “None of these match” for this video.</text>
+    <text x="29" y="172" font-size="12" fill="#9b9082">Searching again clears that verdict once tmdb returns matches.</text>
+    <rect x="29.5" y="188.5" width="130" height="25" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="94.5" y="205" font-size="12" fill="#e8a33d" text-anchor="middle">Search tmdb again</text>
+
+    <text x="16" y="284" font-size="12" fill="#9b9082">After a retry that found nothing — the verdict stands</text>
+    <rect x="4" y="300" width="512" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="20" y="332" font-family="Fraunces, 'Fraunces Variable', serif" font-size="18" font-weight="600" fill="#f3ece1">Enrich from tmdb</text>
+    <text x="492" y="330" font-size="14" fill="#9b9082" text-anchor="end">✕</text>
+    <rect x="20" y="348" width="480" height="32" rx="2" fill="#15110e" stroke="#e8a33d"/>
+    <text x="32" y="369" font-size="14" fill="#f3ece1">Black Dynamite 2009</text>
+    <rect x="20" y="388" width="1" height="92" fill="#2a2622"/>
+    <text x="29" y="404" font-size="14" fill="#f3ece1">You marked tmdb as “None of these match” for this video.</text>
+    <text x="29" y="424" font-size="12" fill="#9b9082">No matches for "Black Dynamite 2009" — the dismissal stands.</text>
+    <rect x="29.5" y="440.5" width="130" height="25" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="94.5" y="457" font-size="12" fill="#e8a33d" text-anchor="middle">Search tmdb again</text>
+  </g>
+
+  <!-- Broadcast -->
+  <g transform="translate(560,16)" font-family="'Share Tech Mono', monospace">
+    <rect width="520" height="528" fill="#060814"/>
+    <text x="16" y="28" font-size="12" fill="#6f7da6">Broadcast</text>
+    <rect x="4" y="48" width="512" height="196" fill="#0b0f22" stroke="#1a2240"/>
+    <text x="20" y="80" font-family="VT323, monospace" font-size="22" fill="#dfe9ff" letter-spacing="0.4">ENRICH FROM TMDB<tspan fill="#36e0d0">▮</tspan></text>
+    <text x="492" y="78" font-size="14" fill="#6f7da6" text-anchor="end">✕</text>
+    <rect x="20" y="96" width="480" height="32" fill="#0b0f22" stroke="#36e0d0"/>
+    <text x="32" y="117" font-size="14" fill="#dfe9ff">Black Dynamite</text>
+    <rect x="20" y="136" width="1" height="92" fill="#1a2240"/>
+    <text x="29" y="152" font-size="13" fill="#dfe9ff">You marked tmdb as “None of these match” for this video.</text>
+    <text x="29" y="172" font-size="12" fill="#6f7da6">Searching again clears that verdict once tmdb returns matches.</text>
+    <rect x="29.5" y="188.5" width="140" height="25" fill="none" stroke="#36e0d0"/>
+    <text x="99.5" y="205" font-size="12" fill="#36e0d0" text-anchor="middle">Search tmdb again</text>
+  </g>
+
+  <!-- Brutalist -->
+  <g transform="translate(1104,16)" font-family="'Spline Sans Mono', 'Spline Sans Mono Variable', monospace">
+    <rect width="520" height="528" fill="#0a0a0a"/>
+    <text x="16" y="28" font-size="12" fill="#8a8a8a">Brutalist</text>
+    <rect x="4" y="48" width="512" height="212" fill="#0e0e0e" stroke="#333333"/>
+    <text x="20" y="80" font-size="18" font-weight="600" fill="#fafafa" letter-spacing="0.4">ENRICH FROM TMDB</text>
+    <text x="492" y="78" font-size="14" fill="#8a8a8a" text-anchor="end">✕</text>
+    <rect x="20" y="96" width="480" height="32" fill="#0e0e0e" stroke="#d6ff3f"/>
+    <text x="32" y="117" font-size="14" fill="#fafafa">Black Dynamite</text>
+    <rect x="20" y="136" width="1" height="108" fill="#333333"/>
+    <text x="29" y="152" font-size="14" fill="#fafafa">You marked tmdb as “None of these match” for</text>
+    <text x="29" y="170" font-size="14" fill="#fafafa">this video.</text>
+    <text x="29" y="190" font-size="12" fill="#8a8a8a">Searching again clears that verdict once tmdb</text>
+    <text x="29" y="206" font-size="12" fill="#8a8a8a">returns matches.</text>
+    <rect x="29.5" y="214.5" width="146" height="25" fill="none" stroke="#d6ff3f"/>
+    <text x="102.5" y="231" font-size="12" fill="#d6ff3f" text-anchor="middle">Search tmdb again</text>
+    <text x="16" y="300" font-size="12" fill="#8a8a8a">Brutalist's wider mono face wraps the notice at 512 px —</text>
+    <text x="16" y="318" font-size="12" fill="#8a8a8a">measured live; the dialog does not overflow.</text>
+  </g>
+</svg>

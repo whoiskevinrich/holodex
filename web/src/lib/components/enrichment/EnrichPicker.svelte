@@ -9,6 +9,7 @@
 	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
 	import { SLOT_CLASS, showThumb, slotShape } from '$lib/candidateImage';
 	import { autoApplyPick } from '$lib/autoApply';
+	import { ApiError } from '$lib/api';
 	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '$lib/types';
 
 	let {
@@ -32,10 +33,13 @@
 		provider: string;
 		/** `searched` (ADR-095 D6) is what the provider actually asked upstream, in issue
 		 *  order — only the video resolver returns it; the person/studio/film callers'
-		 *  `{ candidates }` still satisfies this shape unchanged. */
+		 *  `{ candidates }` still satisfies this shape unchanged. `retry` (HOLODEX-467) is
+		 *  "Search {provider} again" past a dismissal; a caller that drops it (the queue,
+		 *  which undismisses before it ever opens a picker) never reaches that state. */
 		resolve: (
 			provider: string,
-			query: string
+			query: string,
+			retry?: boolean
 		) => Promise<{ candidates: EnrichCandidate[]; searched?: string[] }>;
 		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
 		dismiss: (provider: string) => Promise<unknown>;
@@ -76,6 +80,12 @@
 	let loading = $state(false);
 	let applying = $state(false);
 	let dismissing = $state(false);
+	// The owner already said "None of these match" for this provider (HOLODEX-467):
+	// /resolve answered 409. Typing no longer searches; only "Search {provider} again"
+	// (or Enter) does, with retry, and a result with candidates ends the state.
+	// `retryMiss` is the query a retry found nothing for — the dismissal still stands.
+	let dismissed = $state(false);
+	let retryMiss = $state('');
 	let error = $state('');
 	let input = $state<HTMLInputElement | null>(null);
 	let dialogEl = $state<HTMLElement | null>(null);
@@ -132,11 +142,23 @@
 		showAll = false;
 		open = {};
 		failed = {};
+		retryMiss = '';
 		if (q.length < 2) {
 			candidates = [];
 			return;
 		}
+		// Dismissed: every plain search would 409 again — wait for the explicit retry.
+		if (dismissed) return;
 		timer = setTimeout(() => void search(q), 300);
+	}
+
+	// "Search {provider} again" (HOLODEX-467): never auto-applies — the last match this
+	// provider offered was rejected, so it doesn't get to pick for the owner either.
+	function retrySearch() {
+		const q = query.trim();
+		if (q.length < 2 || loading) return;
+		clearTimeout(timer);
+		void search(q, false, true);
 	}
 
 	// Guards against the unstaggered initial auto-search racing a user-typed one: if
@@ -144,14 +166,20 @@
 	// (now-stale) response must neither clobber the newer candidate list nor auto-apply
 	// a match for an abandoned query.
 	let searchId = 0;
-	async function search(q: string, auto = false) {
+	async function search(q: string, auto = false, retry = false) {
 		const id = ++searchId;
 		loading = true;
 		error = '';
 		try {
-			const res = await resolve(provider, q);
+			const res = await resolve(provider, q, retry);
 			if (id !== searchId) return;
 			candidates = res.candidates ?? [];
+			// A retry with candidates cleared the dismissal server-side; one without left it.
+			if (retry) {
+				dismissed = candidates.length === 0;
+				// Only when the box still says what was searched — an edit mid-flight cleared it.
+				retryMiss = dismissed && q === query.trim() ? q : '';
+			}
 			searched = res.searched ?? []; // same stale-response guard as candidates
 			showAll = false;
 			open = collisionOpen(candidates); // same-label rows start open (handoff FR4)
@@ -165,7 +193,11 @@
 			if (pick) await confirm(pick);
 		} catch (e) {
 			if (id !== searchId) return;
-			error = toMessage(e);
+			// 409 on /resolve is only ever the RD4 dismissal: a state, not an error. A retry
+			// that failed any other way (rate-limited, provider down) left it standing too.
+			const conflict = e instanceof ApiError && e.status === 409;
+			dismissed = conflict || (retry && dismissed);
+			error = conflict ? '' : toMessage(e);
 			candidates = [];
 			open = {};
 			failed = {};
@@ -214,7 +246,8 @@
 			focusOption(0);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			void confirm(candidates[active]);
+			if (dismissed) retrySearch();
+			else void confirm(candidates[active]);
 		}
 	}
 
@@ -298,21 +331,48 @@
 			class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
 		/>
 
-		<p class="mt-2 text-xs text-muted" aria-live="polite">
-			{#if loading}
-				Searching {provider}…
-			{:else if error}
-				<span class="text-warn">{error}</span>
-			{:else if query.trim().length < 2}
-				Type at least two characters to search.
-			{:else if candidates.length}
-				{candidates.length} match{candidates.length === 1 ? '' : 'es'} — {candidates.length > 1
-					? 'Tab or ↑/↓ to choose, then '
-					: ''}click or press Enter to apply
-			{:else}
-				No matches for "{query.trim()}".
+		<!-- Dismissed (HOLODEX-467): the same live line carries the notice, so the state
+		     change is announced; the rule is `border-rule`, not warn — it's a verdict the
+		     owner recorded, not an error. The button sits outside the live line. Focus
+		     stays in the search box; Enter there is the button. -->
+		<div class="mt-2 {dismissed ? 'border-l border-rule pl-2' : ''}">
+			<p class={dismissed ? 'text-sm text-ink' : 'text-xs text-muted'} aria-live="polite">
+				{#if dismissed}
+					You marked {provider} as “None of these match” for this {entityType}.
+				{:else if loading}
+					Searching {provider}…
+				{:else if error}
+					<span class="text-warn">{error}</span>
+				{:else if query.trim().length < 2}
+					Type at least two characters to search.
+				{:else if candidates.length}
+					{candidates.length} match{candidates.length === 1 ? '' : 'es'} — {candidates.length > 1
+						? 'Tab or ↑/↓ to choose, then '
+						: ''}click or press Enter to apply
+				{:else}
+					No matches for "{query.trim()}".
+				{/if}
+			</p>
+			{#if dismissed}
+				<p class="mt-0.5 mb-2 text-xs text-muted" aria-live="polite">
+					{#if error}
+						<span class="text-warn">{error}</span>
+					{:else if retryMiss}
+						No matches for "{retryMiss}" — the dismissal stands.
+					{:else}
+						Searching again clears that verdict once {provider} returns matches.
+					{/if}
+				</p>
+				<button
+					type="button"
+					onclick={retrySearch}
+					disabled={loading || query.trim().length < 2}
+					class="btn-accent btn-row px-2 py-1"
+				>
+					{loading ? `Searching ${provider}…` : `Search ${provider} again`}
+				</button>
 			{/if}
-		</p>
+		</div>
 
 		<!-- "Searched …" (ADR-095 D6, HOLODEX-369): what the provider actually asked
 		     upstream, in the same slot in every state — its own <p>, never inside the

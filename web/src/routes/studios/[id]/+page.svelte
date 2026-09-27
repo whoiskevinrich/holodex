@@ -598,7 +598,7 @@
 		entityType="studio"
 		entityName={studio?.name ?? ''}
 		provider={pickerProvider}
-		resolve={(prov, q) => api.enrichStudioResolve(id, prov, q)}
+		resolve={(prov, q, retry) => api.enrichStudioResolve(id, prov, q, retry)}
 		apply={(prov, extId) => api.enrichStudioApply(id, prov, extId)}
 		dismiss={(prov) => api.enrichDismiss('studio', id, prov)}
 		autoApply={!pickerRematch}

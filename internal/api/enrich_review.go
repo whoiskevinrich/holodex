@@ -287,17 +287,36 @@ func (h *Handlers) providerError(w http.ResponseWriter, op, provider string, err
 	writeError(w, http.StatusBadGateway, msg)
 }
 
-// enrichDismissedCheck writes 409 and returns false when (entityType, id, provider)
+// enrichDismissedCheck writes 409 and returns ok=false when (entityType, id, provider)
 // carries a durable "not matched" verdict (RD4) — blocks /resolve from re-asking a
 // provider the owner already rejected, until an explicit undismiss ("Try again").
-func (h *Handlers) enrichDismissedCheck(w http.ResponseWriter, r *http.Request, entityType string, id int64, provider string) bool {
+// retry is the picker's "Search {provider} again" (HOLODEX-467): it lets a dismissed
+// pair through and reports dismissed=true so the caller can clear the verdict with
+// clearDismissalOnMatch once the search actually finds something.
+func (h *Handlers) enrichDismissedCheck(w http.ResponseWriter, r *http.Request, entityType string, id int64, provider string, retry bool) (dismissed, ok bool) {
 	dismissed, err := h.repo.EnrichmentDismissed(r.Context(), entityType, id, provider)
 	if err != nil {
 		h.fail(w, "check enrichment dismissal", err)
-		return false
+		return false, false
 	}
-	if dismissed {
+	if dismissed && !retry {
 		writeError(w, http.StatusConflict, "provider dismissed for this entity — undismiss to try again")
+		return true, false
+	}
+	return dismissed, true
+}
+
+// clearDismissalOnMatch clears a dismissal a retry search let through, but only when
+// that search returned candidates (HOLODEX-467): a zero-result retry leaves the owner's
+// "None of these match" verdict standing, since the picker only offers that action
+// over a non-empty list and a cleared verdict could not be put back. Returns false
+// (having written a 500) when the clear fails.
+func (h *Handlers) clearDismissalOnMatch(w http.ResponseWriter, r *http.Request, entityType string, id int64, provider string, dismissed bool, candidates int) bool {
+	if !dismissed || candidates == 0 {
+		return true
+	}
+	if err := h.repo.UndismissEnrichment(r.Context(), entityType, id, provider); err != nil {
+		h.fail(w, "undismiss enrichment", err)
 		return false
 	}
 	return true

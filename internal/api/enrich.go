@@ -232,6 +232,7 @@ func (h *Handlers) enrichResolve(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider string `json:"provider"`
 		Query    string `json:"query"`
+		Retry    bool   `json:"retry"` // HOLODEX-467: search past a dismissal
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -240,12 +241,16 @@ func (h *Handlers) enrichResolve(w http.ResponseWriter, r *http.Request) {
 		h.personLookupError(w, err)
 		return
 	}
-	if !h.enrichDismissedCheck(w, r, model.EnrichEntityPerson, id, body.Provider) {
+	dismissed, ok := h.enrichDismissedCheck(w, r, model.EnrichEntityPerson, id, body.Provider, body.Retry)
+	if !ok {
 		return
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityPerson, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.providerError(w, "enrich resolve failed", body.Provider, err, "provider lookup failed")
+		return
+	}
+	if !h.clearDismissalOnMatch(w, r, model.EnrichEntityPerson, id, body.Provider, dismissed, len(res.Candidates)) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})
@@ -331,6 +336,7 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider string `json:"provider"`
 		Query    string `json:"query"`
+		Retry    bool   `json:"retry"` // HOLODEX-467: search past a dismissal
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -340,7 +346,8 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
-	if !h.enrichDismissedCheck(w, r, model.EnrichEntityVideo, id, body.Provider) {
+	dismissed, ok := h.enrichDismissedCheck(w, r, model.EnrichEntityVideo, id, body.Provider, body.Retry)
+	if !ok {
 		return
 	}
 	// query_source (ADR-095 D4): re-render this provider's query from the same
@@ -356,6 +363,9 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, resolved, body.Query, querySource))
 	if err != nil {
 		h.providerError(w, "video enrich resolve failed", body.Provider, err, "provider lookup failed")
+		return
+	}
+	if !h.clearDismissalOnMatch(w, r, model.EnrichEntityVideo, id, body.Provider, dismissed, len(res.Candidates)) {
 		return
 	}
 	// ResolveResult marshals as {"candidates": […], "searched": […]} — searched
@@ -454,6 +464,7 @@ func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider string `json:"provider"`
 		Query    string `json:"query"`
+		Retry    bool   `json:"retry"` // HOLODEX-467: search past a dismissal
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -462,12 +473,16 @@ func (h *Handlers) enrichStudioResolve(w http.ResponseWriter, r *http.Request) {
 		h.studioLookupError(w, err)
 		return
 	}
-	if !h.enrichDismissedCheck(w, r, model.EnrichEntityStudio, id, body.Provider) {
+	dismissed, ok := h.enrichDismissedCheck(w, r, model.EnrichEntityStudio, id, body.Provider, body.Retry)
+	if !ok {
 		return
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityStudio, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.providerError(w, "studio enrich resolve failed", body.Provider, err, "provider lookup failed")
+		return
+	}
+	if !h.clearDismissalOnMatch(w, r, model.EnrichEntityStudio, id, body.Provider, dismissed, len(res.Candidates)) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})

@@ -322,6 +322,57 @@ func TestEnrichDismissUndismiss(t *testing.T) {
 	}
 }
 
+// The picker's "Search {provider} again" (HOLODEX-467) resolves with retry:true: it
+// searches past a dismissal, and clears it only when that search returns candidates —
+// a zero-result retry leaves the verdict standing. Person, studio and video (the video
+// handler is shaped differently: query_source, searched[]); the fixture has no film provider.
+func TestEnrichResolveRetryClearsDismissalOnlyOnMatch(t *testing.T) {
+	srv, r, pid, sid, vid, _ := reviewServer(t, "s3cret")
+	ctx := context.Background()
+	for _, tc := range []struct {
+		kind, path, match string
+		id                int64
+	}{
+		{model.EnrichEntityPerson, "/people/", "miyazaki", pid},
+		{model.EnrichEntityStudio, "/studios/", "ghibli", sid},
+		{model.EnrichEntityVideo, "/media/", "miyazaki", vid},
+	} {
+		base := srv.URL + "/api/v1" + tc.path + itoa(tc.id) + "/enrich"
+		if code, _ := doJSONTok(t, http.MethodPost, base+"/fake/dismiss", "s3cret"); code != http.StatusOK {
+			t.Fatalf("%s dismiss = %d, want 200", tc.kind, code)
+		}
+		dismissed := func() bool {
+			d, err := r.EnrichmentDismissed(ctx, tc.kind, tc.id, "fake")
+			if err != nil {
+				t.Fatalf("%s EnrichmentDismissed: %v", tc.kind, err)
+			}
+			return d
+		}
+
+		code, body := postTok(t, base+"/resolve", "s3cret", map[string]any{"provider": "fake", "query": "zzz-nothing", "retry": true})
+		if code != http.StatusOK {
+			t.Fatalf("%s zero-result retry = %d, want 200", tc.kind, code)
+		}
+		if c, _ := body["candidates"].([]any); len(c) != 0 {
+			t.Fatalf("%s zero-result retry candidates = %v, want none", tc.kind, c)
+		}
+		if !dismissed() {
+			t.Errorf("%s zero-result retry cleared the dismissal; it must stand", tc.kind)
+		}
+
+		code, body = postTok(t, base+"/resolve", "s3cret", map[string]any{"provider": "fake", "query": tc.match, "retry": true})
+		if code != http.StatusOK {
+			t.Fatalf("%s matching retry = %d, want 200", tc.kind, code)
+		}
+		if c, _ := body["candidates"].([]any); len(c) == 0 {
+			t.Fatalf("%s matching retry returned no candidates", tc.kind)
+		}
+		if dismissed() {
+			t.Errorf("%s matching retry left the dismissal in place", tc.kind)
+		}
+	}
+}
+
 // doJSONTok sends a bodiless request with the admin token and decodes a JSON body
 // (empty map on 204 / no body).
 func doJSONTok(t *testing.T, method, url, token string) (int, map[string]any) {
