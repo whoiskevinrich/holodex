@@ -12,6 +12,10 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are trimmed to match.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
+approved:
+  design:
+    on: 2026-09-27
+    at: ffb4ba25
 release_note: Owners can add an Overview to a video that has none, from the page or from Write metadata to file.
 ---
 
@@ -37,16 +41,15 @@ empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-tru
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Kevin signs off on the handoff + ADR-113, then `/implement` opens the Draft PR
-2. [ ] [—] Backend: `resolver.Options.Offer`, registry `OfferWhenEmpty` on `overview`, `getMedia` passes it for the owner only, before `markWriteTargets`
-3. [ ] [—] Frontend: the **+ Add overview** pill and Custom pre-selected in `SourceEditModal` when no source has a value
-4. [ ] [—] Testing strategy, then a security review (D3 is an owner/visitor gate on the response)
+1. [ ] [backend] `resolver.Options.Offer`, registry `OfferWhenEmpty` on `overview`, `getMedia` passes it for the owner only, before `markWriteTargets`
+2. [ ] [frontend] The **+ Add overview** pill and Custom pre-selected in `SourceEditModal` when no source has a value; QA all three skins
+3. [ ] [testing] Testing strategy, then [security] review (D3 is an owner/visitor gate on the response)
 
 ## Session log — newest first
 
 ### 2026-09-27 · session
-- skills: handoff
+- skills: handoff, implement
 - Mocked the empty-Overview affordance (A/B/C); Kevin picked B (dashed **+ Add overview** pill → existing Edit Overview dialog) and Overview-only scope with an ADR for per-field adoption. Found the cause: the resolver drops empty undecided replace fields, so neither the page nor the writeback dialog had a row. Wrote ADR-113, spec F36 P1-5, and the handoff + three-skin SVG. Linked HOLODEX-304 as the rollout backlog.
-- handoff: Design phase settled and pushed, but the design and ADR-113 are not yet signed off. Next: Kevin reviews `docs/design/overview-add-handoff.md` + ADR-113, then `/implement` opens the Draft PR.
+- handoff: Crossed into build: design signed off at ffb4ba25 and the Draft PR is open. Start at Up next #1, the backend `resolver.Options.Offer` + registry `OfferWhenEmpty` on `overview`.
 
 ## Dropped — newest first (the reason is the point)
