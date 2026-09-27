@@ -261,8 +261,7 @@ func TestMergeTagsXML(t *testing.T) {
 		"<Name>ARTIST</Name><String>Prior Artist</String>", // untouched tag survives
 		"<Name>PART_NUMBER</Name><String>3</String>",       // targeted Tag survives
 		"<TargetTypeValue>30</TargetTypeValue>",            // its Targets survive
-		"<Name>GENRE</Name><String>Drama</String>",         // new values written
-		"<Name>GENRE</Name><String>Thriller</String>",      // multi-value
+		"<Name>GENRE</Name><String>Drama, Thriller</String>", // multi-value → one comma-joined Simple (HOLODEX-464)
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("merged document missing %q:\n%s", want, got)

@@ -21,6 +21,15 @@ type FieldWrite struct {
 	IsImage bool     // when true, Values[0] is an https:// URL to download+embed as cover art
 }
 
+// fileValue is the single string a text field is stored as on file. Container
+// genre/artist tags are one comma-delimited value, not a list — the reader
+// splits it back apart (metadata.splitMulti) — and every backend must write that
+// same shape: exiftool keeps only the LAST of repeated -TAG=VALUE assignments to
+// a non-list tag, which silently cut MP4 genres to one (HOLODEX-464).
+func fileValue(f FieldWrite) string {
+	return strings.Join(f.Values, ", ")
+}
+
 // WriteBatch embeds all tag values into the file at path in a single tool
 // invocation (ADR-041 §file-safety). The write tool is chosen by extension:
 //
@@ -89,8 +98,8 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 		return fmt.Errorf("writeback copy: %w", err)
 	}
 
-	// One -TAG=VALUE per value for multi-valued fields (genres). -m suppresses
-	// minor-error exits so exiftool writes to imperfect-but-valid user files.
+	// -m suppresses minor-error exits so exiftool writes to imperfect-but-valid
+	// user files.
 	args := make([]string, 0, len(fields)*2+3)
 	for _, f := range fields {
 		if f.IsImage {
@@ -103,9 +112,7 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 			// exiftool binary-write syntax: -TAG<=filepath reads the file content
 			args = append(args, fmt.Sprintf("-%s<=%s", f.TagName, imgPath))
 		} else {
-			for _, v := range f.Values {
-				args = append(args, fmt.Sprintf("-%s=%s", f.TagName, v))
-			}
+			args = append(args, fmt.Sprintf("-%s=%s", f.TagName, fileValue(f)))
 		}
 	}
 	args = append(args, "-m", "-overwrite_original", tmp)
@@ -250,7 +257,7 @@ func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntri
 			continue
 		}
 		key := ffmpegMetadataKey(f.TagName)
-		args = append(args, "-metadata", key+"="+strings.Join(f.Values, ", "))
+		args = append(args, "-metadata", key+"="+fileValue(f))
 	}
 	for i, ie := range imgEntries {
 		args = append(args,
@@ -370,9 +377,9 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 // TAGS element rather than merging into it, so passing only the current batch
 // would erase every tag an earlier batch had written. Simple elements whose
 // Name matches an incoming field are dropped in favour of the new values;
-// everything else is carried through verbatim. Multi-value fields (genres)
-// produce one <Simple> per value, and names are uppercased per Matroska
-// convention. An empty existing document yields a fresh single-Tag document.
+// everything else is carried through verbatim. Each field is one <Simple>
+// holding fileValue (multi-value genres comma-joined, as the ffmpeg path writes
+// them), and names are uppercased per Matroska convention. An empty existing document yields a fresh single-Tag document.
 func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 	var doc mkvTagsDoc
 	if existing != "" {
@@ -434,17 +441,14 @@ func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 	return sb.String(), nil
 }
 
-// writeSimples renders one <Simple> element per value.
+// writeSimples renders one <Simple> element per field.
 func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 	for _, f := range fields {
-		name := strings.ToUpper(f.TagName)
-		for _, v := range f.Values {
-			sb.WriteString("<Simple><Name>")
-			sb.WriteString(name)
-			sb.WriteString("</Name><String>")
-			sb.WriteString(xmlEscape(v))
-			sb.WriteString("</String></Simple>\n")
-		}
+		sb.WriteString("<Simple><Name>")
+		sb.WriteString(strings.ToUpper(f.TagName))
+		sb.WriteString("</Name><String>")
+		sb.WriteString(xmlEscape(fileValue(f)))
+		sb.WriteString("</String></Simple>\n")
 	}
 }
 
