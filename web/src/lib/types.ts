@@ -166,6 +166,11 @@ export interface Tag {
 	// the /tags list (ListTags batch-attaches it, same as parent_tag_id) and
 	// the tag-detail read.
 	writeback_enabled?: boolean;
+	// Membership on the media detail's video.tags only (HOLODEX-401, ADR-111 D4): `written`
+	// = in the video's genres write set; `on_file` = in the file's recorded tags, absent
+	// while those are unknown. Drives the owner chip's on-file glyph.
+	written?: boolean;
+	on_file?: boolean;
 }
 
 // Category groups tags for browsing without merging or altering them
@@ -279,6 +284,9 @@ export interface ResolvedValue {
 	sources: string[]; // contributing namespaces, e.g. ["tmdb","file"], ["manual"]
 	manual?: boolean; // owner-added value
 	no_write?: boolean; // shown but excluded from the file write
+	// The genres (tag set) row only (HOLODEX-401, ADR-111 D3): is this value in the file's
+	// recorded tags? Absent while those are unknown.
+	on_file?: boolean;
 }
 
 // ResolvedField is one canonical field merged from all configured sources (F27/F30).
@@ -330,6 +338,9 @@ export interface ResolvedField {
 	// the video's current container (e.g. "QuickTime:Artist"), absent/empty when the
 	// container has no writeback mapping for this canonical. Video-only.
 	write_target?: string;
+	// The genres (tag set) row only (HOLODEX-401, ADR-111 D3): the file's recorded tags a
+	// write would drop, in file spelling. Present only when the file's tags are known.
+	file_only?: string[];
 }
 
 // F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field

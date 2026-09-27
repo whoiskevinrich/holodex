@@ -25,6 +25,7 @@
 	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import {
 		fileCandidateValue,
+		isTagSetRow,
 		isWritable,
 		needsWriteback,
 		resolveSelection,
@@ -41,6 +42,7 @@
 		savesDecisionOnly,
 		stacksCandidates,
 		stagedValue,
+		tagSetDiff,
 		willWrite
 	} from '$lib/writebackCockpit';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
@@ -127,7 +129,8 @@
 	// back (ADR-093). Everything else is listed but inert until the owner acts: a cockpit row
 	// writes once a chip is picked (willWrite) — a poster tile included, whose write triggers
 	// the server-side download + cover-art embed. Merge rows have nothing to decide here (no
-	// decision model, RD1; tags as a set is HOLODEX-401), so they are read-only.
+	// decision model, RD1), so they are read-only — except the tag set row (HOLODEX-401), which
+	// writes the applied tags whenever the file lags; the tags themselves are curated on the page.
 	// svelte-ignore state_referenced_locally — fields prop is stable for the dialog's lifetime
 	const rows = $state<Row[]>(fields.map(seedRow));
 
@@ -190,6 +193,8 @@
 	// it behind the disclosure would let the footer promise a write the owner cannot see.
 	// The header's "· {n} out of sync" is therefore a lower bound on this group, never more.
 	function leadRow(row: Row): boolean {
+		// The tag set row leads whenever it writes — an unread file (in_sync unknown) included.
+		if (isTagSetRow(row.field)) return rowWillWrite(row);
 		if (!isCockpitRow(row.field)) return needsWriteback(row.field);
 		return !!row.field.decision?.standing && rowClass(row.field, row.originalValue) === 'write';
 	}
@@ -294,11 +299,11 @@
 		// the system-only rows (rowDecisionOnly: unmapped, or re-pointed at the file value).
 		const decisionRows = rows.filter((r) => isCockpitRow(r.field) && (rowWillWrite(r) || rowDecisionOnly(r)));
 
-		// Every written row is a cockpit row (willWrite), so each writes exactly its staged
-		// value — a replace field is one value.
+		// A cockpit row writes exactly its staged value — a replace field is one value. The tag
+		// set row sends its applied set (the server recomputes it anyway, ADR-075 RD9).
 		const fields = checkedRows.map((r) => ({
 			field: r.field.canonical,
-			values: [rowValue(r)].filter((v) => v.length > 0),
+			values: isTagSetRow(r.field) ? r.field.values : [rowValue(r)].filter((v) => v.length > 0),
 			source: r.field.winning_source ?? ''
 		}));
 
@@ -491,10 +496,56 @@
 	{/if}
 {/snippet}
 
+<!-- The tag set row's body (HOLODEX-401, docs/design/tag-set-writeback-handoff.md §1): the applied
+     tags against the file's, as static chips — on file · will add · will drop — then one summary
+     line. Nothing here is a control: tags are curated on the page, and the row writes on open. -->
+{#snippet tagSetBody(field: ResolvedField)}
+	{@const diff = tagSetDiff(field)}
+	{@const n = diff.applied.length}
+	{@const drops = diff.willDrop}
+	<ul role="list" aria-label="Tags to write" class="flex flex-wrap gap-1.5">
+		{#if diff.known}
+			{#each diff.onFile as name (name)}
+				<li class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink wrap-anywhere">
+					{name} <span class="text-[0.65rem] text-muted">on file</span>
+				</li>
+			{/each}
+			{#each diff.willAdd as name (name)}
+				<li class="rounded-full border border-dashed border-accent bg-surface-2 px-2.5 py-1 text-sm text-ink wrap-anywhere">
+					{name} <span class="text-[0.65rem] text-accent">+ will add</span>
+				</li>
+			{/each}
+			{#each drops as name (name)}
+				<li class="rounded-full border border-dashed border-warn px-2.5 py-1 text-sm text-muted wrap-anywhere">
+					<span class="line-through">{name}</span> <span class="text-[0.65rem] text-warn">− will drop</span>
+				</li>
+			{/each}
+		{:else}
+			{#each diff.applied as name (name)}
+				<li class="rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink wrap-anywhere">{name}</li>
+			{/each}
+		{/if}
+	</ul>
+	<p class="mt-1 text-xs text-muted">
+		{#if !diff.known}
+			Not read from this file yet — writes the {n} applied tag{n === 1 ? '' : 's'}.
+		{:else if n === 0}
+			Clears the file's tags.
+		{:else}
+			Writes the {n} applied tag{n === 1 ? '' : 's'}.
+			{#if drops.length > 0}
+				<span class="text-ink">{drops.join(', ')}</span>
+				{drops.length === 1 ? 'is' : 'are'} on the file but won't be written.
+			{/if}
+		{/if}
+	</p>
+{/snippet}
+
 {#snippet fieldRow(row: Row)}
 				{@const writable = isWritable(row.field)}
 				{@const tag = sourceTag(row.field.winning_source)}
 				{@const cockpit = isCockpitRow(row.field)}
+				{@const tagSet = isTagSetRow(row.field)}
 				{@const fileVal = fileCandidateValue(row.field)}
 				<!-- matchesFile drives both the "matches the file" line and the gutter's non-checkable
 				     "=" tier (R4.3). Calls the same rowMatchesFile() used by submit()'s filter, rather
@@ -520,7 +571,8 @@
 					     information. Which data CAN reach the file is on the header line (→ tag, or
 					     "no file tag for this container"), independent of the gutter. -->
 					<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-						{#if !cockpit}
+						<!-- A writable tag set row takes the ↧ / = glyphs below like a cockpit row. -->
+						{#if !cockpit && !(tagSet && writable)}
 							<svg
 								class="h-4 w-4 text-muted"
 								viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"
@@ -633,9 +685,11 @@
 								<span class="text-ink">{rowValue(row) || '—'}</span>
 								<span>— matches the file</span>
 							</p>
+						{:else if tagSet}
+							{@render tagSetBody(row.field)}
 						{:else}
-							<!-- Merge (multi) row: no decision model (RD1), so nothing to decide and nothing
-							     written from here — tags as a set is HOLODEX-401. Read-only. -->
+							<!-- Merge (multi) row other than tags: no decision model (RD1), so nothing to
+							     decide and nothing written from here. Read-only. -->
 							<p class="text-xs text-muted">
 								<span class="text-ink">{row.value || '—'}</span>
 								{#if row.field.candidates !== undefined && fileVal !== row.value}

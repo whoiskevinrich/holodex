@@ -821,6 +821,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 					h.log.Warn("genre writeback items for detail", "id", id, "err", gerr)
 				} else {
 					resolved = applyGenreWriteback(resolved, field, items)
+					// HOLODEX-401 (ADR-111): the write set against the file's recorded tags.
+					resolved = h.stampTagSetSync(r.Context(), resolved, field, v)
 				}
 			}
 			// HOLODEX-216: last mutation of `resolved` before the response is built, so

@@ -355,44 +355,25 @@ func (q *Queue) withTagKeyFilter(ctx context.Context, job *repo.WritebackJob, v 
 // tagKeeper decides which file tag-key values survive a genres write: those that
 // resolve — the way the scanner resolves a tag name (the name key, then aliases
 // and merged-away names) — to a tag in the written set. Resolution happens up
-// front so the returned func is a plain set lookup.
+// front so the returned func is a plain set lookup. The rule is
+// repo.TagIdentityKeys — shared with the on-file read-back (ADR-111 D2).
 func (q *Queue) tagKeeper(ctx context.Context, written []string, present map[string][]string) (func(string) bool, error) {
-	keys := make(map[string]bool, len(written))
-	ids := make(map[int64]bool, len(written))
-	for _, w := range written {
-		keys[tagNameKey(w)] = true
-		id, ok, err := q.repo.LookupEntityIDByName(ctx, model.EntityTag, w)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			ids[id] = true
-		}
-	}
-	kept := map[string]bool{}
+	names := slices.Clone(written)
 	for _, values := range present {
-		for _, v := range values {
-			k := tagNameKey(v)
-			if keys[k] || kept[k] {
-				kept[k] = true
-				continue
-			}
-			id, ok, err := q.repo.LookupEntityIDByName(ctx, model.EntityTag, v)
-			if err != nil {
-				return nil, err
-			}
-			if ok && ids[id] {
-				kept[k] = true
-			}
-		}
+		names = append(names, values...)
 	}
-	return func(v string) bool { return kept[tagNameKey(v)] }, nil
-}
-
-// tagNameKey mirrors the repo's tag name key (nameKeyExpr for tags: lowercased,
-// trimmed, spaces removed) so equal-keyed values match without a lookup.
-func tagNameKey(s string) string {
-	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), " ", "")
+	ident, err := q.repo.TagIdentityKeys(ctx, names)
+	if err != nil {
+		return nil, err
+	}
+	want := make(map[string]bool, len(written))
+	for _, w := range written {
+		want[ident[repo.TagNameKey(w)]] = true
+	}
+	return func(v string) bool {
+		id, ok := ident[repo.TagNameKey(v)]
+		return ok && want[id]
+	}, nil
 }
 
 // snapshotBeforeWrite records each mapped field's current on-disk value under
