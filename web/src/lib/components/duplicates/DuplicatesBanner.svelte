@@ -7,7 +7,9 @@
 	import { activity } from '$lib/activity.svelte';
 	import type { EntityKind } from '$lib/types';
 
-	let { entityType }: { entityType: EntityKind } = $props();
+	// `inline` renders it as a " · N duplicates" link inside a list's count line (F73:
+	// the toolbar count line absorbs it, so it no longer stacks above the data).
+	let { entityType, inline = false }: { entityType: EntityKind; inline?: boolean } = $props();
 
 	const isOwner = $derived(activity.effectiveOwner);
 	const plural: Record<EntityKind, string> = { person: 'people', studio: 'studios', tag: 'tags', film: 'films' };
@@ -29,7 +31,11 @@
 	});
 </script>
 
-{#if isOwner && count > 0}
+{#if isOwner && count > 0 && inline}
+	{' · '}<a class="text-accent hover:underline" href={`/owner/duplicates?type=${entityType}`}
+		>{count} possible duplicate {noun}</a
+	>
+{:else if isOwner && count > 0}
 	<div
 		role="status"
 		aria-live="polite"

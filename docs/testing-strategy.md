@@ -3380,6 +3380,43 @@ dev instance. They're numbered for the PR's QA list:
    selected, and the A–Z index appears.
 9. `[human]` **Three skins:** the handoff's QA checklist, items 1–6.
 
+**Live QA pass, 2026-09-27 (`backend-amv`, 201 videos, Cinémathèque):**
+- **Item 1: pass.** A nav click on **Media** from `/?resolution=4K` gives a bare `/` with no chips.
+- **Item 2: pass, after a fix.** Filter to SD, scroll to 600px, open a video, press Back: the chip,
+  the filter and `scrollY` 600 are all restored.
+  - Back to an entry on the *same* page first failed. SvelteKit's `replaceState` is shallow, so
+    the history entry records the page URL the list was originally loaded at, and a pop to it
+    fires no navigation and no `afterNavigate`.
+  - `ListController.listen()` now re-reads the address bar on `popstate`. That case is
+    unit-tested in `listController.test.ts`.
+- **Item 4: pass.** `/people?sort=count` with A–Z saved shows "Videos — most", leaves
+  `holodex:sort:people` as `name`, and a nav click returns A–Z.
+- **Items 6–7: pass.**
+  - Popover (1280px): non-modal, focus lands on the first field, Escape closes it and keeps the
+    filter.
+  - Sheet (375px): `aria-modal`, Tab wraps, Done returns focus.
+  - In the harness tab the sheet's 150ms slide-out never finished, because the pane's document
+    is `hidden` and every animation freezes at `currentTime` 0. That's a harness artifact, not a
+    defect.
+- **Phone budget measured at 375px:**
+  - Media owner worst case: select 200px, then Filters·2 54px, then `⋯` 32px ending at 351px.
+  - Chips row 20px; first card 140px below `main`.
+  - People toolbar 34px tall: the view toggle's 1px border wraps its 32px cells.
+  - A–Z rail: fixed, 432px tall, 21px clear of the rows.
+  - No horizontal overflow on any page.
+- **A regression found in the migration, and fixed.** The Media grid never loaded on some
+  arrivals.
+  - The controller replaces its state object when owner capabilities resolve. That re-ran the load
+    effect, whose cleanup cancelled the pending load, and the "same signature" guard then skipped
+    rescheduling it.
+  - The effect now tracks the signature as a primitive `$derived` (`activeQs`), so an equal
+    string never re-runs it.
+- **Not covered:**
+  - Films (films are disabled on `backend-amv`; use `backend-films`).
+  - Studios and People with real rows (the AMV testbed has 0 people and 1 studio).
+  - Item 3, the removal exit.
+  - Item 5, two tabs.
+
 ### 20.4 Mutation checks to run once the code exists
 
 Each should turn a named test red. Record the results here, as §19 does.

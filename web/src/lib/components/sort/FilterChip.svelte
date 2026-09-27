@@ -1,7 +1,7 @@
 <script lang="ts">
 	// One active filter or entity scope under the list toolbar (F73). Chips are the only
 	// visible sign that a list is narrowed, so each one names itself and removes in one tap.
-	// Same look as FacetFilter's chip; long values (a mapped-facet string) truncate at 12rem
+	// The retired FacetFilter chip's look; long values (a mapped-facet string) truncate at 12rem
 	// with the full text in the tooltip.
 	let {
 		label,

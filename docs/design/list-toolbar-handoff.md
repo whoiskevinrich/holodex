@@ -223,6 +223,21 @@ in `⋯`. Visitors on Media have no `⋯`, so the reroll takes its slot: 208 + 3
 6. `[smoke]` HOLODEX-473 regression: pick Completeness on People, then Name. Only one is ever
    selected, and the A–Z index appears.
 
+## Built differently from this handoff
+
+Recorded at build time (2026-09-27) so the sign-off diff is honest.
+
+- **Decision 2, partly.** `DuplicatesBanner` folds into the count line (`inline`). The
+  `SweepStatusLine` does not.
+  - It isn't a "needs a refresh" count. It's a long, temporary report on a background sweep, with
+    progress, links and Dismiss, and it renders only while a sweep runs or just after one.
+  - Folding it in would turn the count line into a paragraph, so it stays its own line below the
+    toolbar, and only while active.
+- **People merge select mode** has no toolbar slot. "Merge people…" is in `⋯`. While you're
+  selecting, the count line's place shows the hint, "Merge N selected" and Cancel.
+- **Tags manage mode** is entered from `⋯` ("Manage tags"). Its bar gained a **Done** button to
+  exit.
+
 ## Decisions made in this handoff (beyond the spec) — confirm at `/implement`
 
 1. The `⋯` always sits at the far right of the toolbar row. Media's owner actions (Save as

@@ -10,7 +10,6 @@ source selection, read-only auto-registered field rows, and the promote-to-canon
 | `ClaimFieldEditor.svelte` | Inline editor behind an auto-registered row's "Attach to…" pill: picks the canonical field a provider key attaches to (F49), with the per-provider checklist and the outcome preview. |
 | `CurationChip.svelte` | One value chip in a curated field: value + provenance + (owner) inline edit/remove/"don't write" toggle. Radio mode takes an optional `placeholder` for an empty value (default `—`; the writeback dialog passes `not read back` for an ADR-093 baseline chip). |
 | `CurationFieldRow.svelte` | One curated field row: renders value chips plus an owner "+ Add" affordance; entity-generic since F37 (video/person). |
-| `FacetFilter.svelte` | Typeahead multi-select for a facet (people or tags), filtering the pre-fetched option list client-side. |
 | `MappedFacets.svelte` | Loads the mapped-facet list and lets the browse page bind selected values per canonical facet. |
 | `PromoteFieldEditor.svelte` | Shared inline editor driving promote/edit/de-promote of a non-canonical field (label/render/group/order). |
 | `PromotedFieldEdit.svelte` | Owner-only Edit/Remove-promotion affordance on an already-promoted field row; opens `PromoteFieldEditor` in edit mode. |

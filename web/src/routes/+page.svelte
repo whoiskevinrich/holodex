@@ -1,76 +1,55 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { beforeNavigate, goto, replaceState } from '$app/navigation';
+	import { tick } from 'svelte';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
-	import { DEFAULT_SORT, SORT_ORDERS, filtersToParams, mappedFromParams, paramsToFilters } from '$lib/filters';
+	import { filtersToParams } from '$lib/filters';
 	import { toMessage, videoCount } from '$lib/format';
-	import type { MediaFilters, Resolution, SortOrder, Tag, Video } from '$lib/types';
+	import type { Facet, MediaFilters, Resolution, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
-	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
+	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import FilterPanel from '$lib/components/sort/FilterPanel.svelte';
+	import FilterChip from '$lib/components/sort/FilterChip.svelte';
 	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
-	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
-	import { readFilters, writeFilters, validateString } from '$lib/filterPreference';
+	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
-	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
+	import { mediaSchema, type MediaQuery } from '$lib/listState';
+	import { listController } from '$lib/listController.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
 
-	// Initialize filter state from the URL once, so shared links reproduce it
-	// (F4.7). SPA-only (ssr=false), so `location` is always available here.
-	// SP5 precedence: any query string at all (shared/deep link, or our own synced
-	// URL on a reload) wins outright; a pristine `/` restores the filter set this
-	// browser last showed, saved as the same shareable query string so it goes
-	// through exactly the paramsToFilters validation a link would. `restored` makes
-	// the first-load effect below sync the URL to match, since on this path the URL
-	// doesn't already reflect the initial filters.
-	const savedQs = location.search ? '' : (readFilters('media', validateString) ?? '');
-	const restored = savedQs !== '';
-	const initParams = new URLSearchParams(restored ? savedQs : location.search);
-	const init = paramsToFilters(initParams);
+	// Sort + filters follow the F73 list contract (ADR-114), held by ListController: the
+	// sort is sticky (localStorage) and in the URL; filters and entity scope live in the URL
+	// only, so a plain nav click opens the whole library, and Back or a shared link
+	// reproduces exactly what was on screen. Every change below goes through `list`.
+	const list = listController(mediaSchema, '/');
+	const query = $derived(list.state.query);
+	const sortBy = $derived(list.state.sort);
+	function setQuery(patch: Partial<MediaQuery>) {
+		list.setQuery({ ...list.state.query, ...patch });
+	}
+
 	// Seeds the shared nav box (not local state, NS4 — there's no page-owned text
 	// input anymore) so a "View all N in Videos" deep link (NS1) pre-fills it.
-	if (init.q) navSearch.query = init.q;
+	if (list.state.query.q) navSearch.query = list.state.query.q;
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (+layout.svelte owns that match, keyed off
 	// the URL) — otherwise the box is previewing another type via the overlay panel
 	// and this grid stays unfiltered rather than fighting it.
 	const q = $derived(navSearch.inPlace ? navSearch.query : '');
-	let resolution = $state<Resolution>(init.resolution ?? 'All');
-	let durationMin = $state<number | ''>(init.duration_min ?? '');
-	let durationMax = $state<number | ''>(init.duration_max ?? '');
-	let yearMin = $state<number | ''>(init.year_min ?? '');
-	let yearMax = $state<number | ''>(init.year_max ?? '');
-	let personIDs = $state<number[]>(init.person ?? []);
-	let tagIDs = $state<number[]>(init.tag ?? []);
-	let studioIDs = $state<number[]>(init.studio_id ?? []);
-	let categoryIDs = $state<number[]>(init.category ?? []);
-	// SP1 sort precedence: a sort in the URL (shared/deep link) wins; otherwise the
-	// per-page saved preference; otherwise the default. An invalid URL value is
-	// ignored so a crafted ?sort=bogus can't wedge the control.
-	const urlSort = initParams.get('sort');
-	let sort = $state<SortOrder>(
-		urlSort && SORT_ORDERS.includes(urlSort as SortOrder)
-			? (urlSort as SortOrder)
-			: readSort('media', SORT_ORDERS, DEFAULT_SORT)
-	);
-	// Remember the choice for next visit (SP1). Restoring 'random' re-enters random
-	// with a fresh session seed (a new shuffle), per spec.
+	// The nav box owns the text; mirror it into the list query so the URL carries it. Only
+	// while the box is in place: otherwise `q` is '' by definition, and mirroring that would
+	// strip a deep link's ?q= before the layout marks the search in-place.
 	$effect(() => {
-		writeSort('media', sort);
+		if (!navSearch.inPlace) return;
+		const next = q || undefined;
+		if (next !== list.state.query.q) setQuery({ q: next });
 	});
-	let mapped = $state<Record<string, string>>({}); // configurable mapped-field filters (F20.5)
-	// Missing-facet filter (F55.6): canonical facet keys, AND semantics. Owner-only —
-	// currentFilters() strips this from the actual request for a non-owner, so a
-	// transient pre-capabilities-load state can't fire a doomed 401.
-	let missingFacetIDs = $state<string[]>(init.missing_facet ?? []);
-	const missingFacet = createMissingFacetOptions('video');
 
 	let videos = $state<Video[]>([]);
 	let total = $state(0);
@@ -79,83 +58,127 @@
 	let loadingMore = $state(false);
 	let error = $state('');
 
-	// Facet options for the tag autocomplete (F4.2), fetched once. People/Studios/Categories
-	// no longer have facet controls on this page — person/studio_id/category still
-	// round-trip through the URL/filters for shareable links and the REST/MCP API
-	// contract, just without an on-page picker.
-	let tagOptions = $state<Tag[]>([]);
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	$effect(() => list.setOwner(isOwner));
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the
-	// owner can toggle it off. Per-browser preference; defaults on.
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	// owner can toggle it off (⋯ menu). Per-browser preference; defaults on.
 	const RECENT_KEY = 'holodex:show-recently-added';
-	// ssr=false (see above), so localStorage is available at init — seed the saved
-	// preference directly instead of true-then-onMount (avoids a show→hide flash).
+	// ssr=false, so localStorage is available at init — seed the saved preference directly
+	// instead of true-then-onMount (avoids a show→hide flash).
 	let showRecent = $state(localStorage.getItem(RECENT_KEY) !== '0');
 	function toggleRecent() {
 		showRecent = !showRecent;
 		localStorage.setItem(RECENT_KEY, showRecent ? '1' : '0');
 	}
 
-	onMount(() => {
-		api.listTags('count').then((r) => (tagOptions = r.items ?? [])).catch(() => {});
-	});
-
-	// Missing-facet options (F55.6): owner-gated, so only fetched once effectiveOwner
-	// actually resolves true (capabilities load async — see activity.svelte.ts).
-	$effect(() => {
-		missingFacet.ensureFetched(isOwner);
-	});
-
 	const hasMore = $derived(videos.length < total);
-
-	// Completeness sort/missing-facet filter are owner-only (the server 401s a
-	// non-owner request using either, ADR-081 §Access control). Gate both here
-	// rather than resetting the underlying state, so a transient pre-capabilities-
-	// load isOwner=false doesn't clobber a URL/localStorage-restored preference —
-	// it just self-heals into the real request once caps resolve.
-	const isCompletenessSort = $derived(sort === 'completeness_asc' || sort === 'completeness_desc');
 
 	function currentFilters(): MediaFilters {
 		return {
+			...query,
 			q: q || undefined,
-			resolution,
-			duration_min: durationMin || undefined,
-			duration_max: durationMax || undefined,
-			year_min: yearMin || undefined,
-			year_max: yearMax || undefined,
-			person: personIDs,
-			tag: tagIDs,
-			studio_id: studioIDs,
-			category: categoryIDs,
-			sort: isOwner || !isCompletenessSort ? sort : DEFAULT_SORT,
+			sort: sortBy,
 			// Seed rides the API request (not the shareable URL) so paged "Load more"
 			// tiles under one shuffle (ADR-045). Only sent for the random sort.
-			seed: sort === 'random' ? shuffleSeed.value : undefined,
-			mapped,
-			missing_facet: isOwner ? missingFacetIDs : undefined,
+			seed: sortBy === 'random' ? shuffleSeed.value : undefined,
 			limit: PAGE_SIZE
 		};
 	}
 
 	// The shareable param set (no paging) doubles as the "any filter active?" check.
 	const activeParams = $derived(filtersToParams(currentFilters(), false));
-	const hasFilters = $derived(activeParams.toString() !== '');
+	// The signature as a primitive: the load effect below tracks this, not activeParams,
+	// because the controller replaces its state object whenever it re-resolves (owner
+	// capabilities arriving, a same-URL arrival). An equal string doesn't propagate, so the
+	// effect never re-runs — and never cancels its own pending load — on a no-op change.
+	const activeQs = $derived(activeParams.toString());
+	const hasFilters = $derived(activeQs !== '');
 
-	// Remember the filter set for the next pristine visit (SP5). The search text stays
-	// out (the nav box owns it, NS4) and so does the sort (it has its own SP1 key) —
-	// everything else is the shareable string as-is.
+	// ---- Chips: every active filter and entity scope, removable in one tap (F73 R3/R5) --
+
+	// Mapped-facet labels arrive with the facet list (MappedFacets' onfacets).
+	let facets = $state<Facet[]>([]);
+	// Entity scope (?person/tag/studio_id/category_id) arrives only from entity-page links,
+	// so its names are looked up; an unknown id still gets a removable chip.
+	let scopeNames = $state<Record<string, string>>({});
+	const SCOPES = [
+		{ key: 'person', label: 'Person', load: (id: number) => api.getPerson(id).then((r) => r.person.display_name ?? r.person.name) },
+		{ key: 'studio_id', label: 'Studio', load: (id: number) => api.getStudio(id).then((r) => r.studio.name) },
+		{ key: 'tag', label: 'Tag', load: (id: number) => api.getTag(id).then((r) => r.tag.name) },
+		{ key: 'category', label: 'Category', load: (id: number) => api.getCategory(id).then((r) => r.category.name) }
+	] as const;
 	$effect(() => {
-		const p = new URLSearchParams(activeParams);
-		p.delete('q');
-		p.delete('sort');
-		writeFilters('media', p.toString());
+		for (const s of SCOPES) {
+			for (const id of (query[s.key] as number[] | undefined) ?? []) {
+				const k = `${s.key}:${id}`;
+				if (k in scopeNames) continue;
+				scopeNames[k] = '…';
+				s.load(id)
+					.then((name) => (scopeNames[k] = name))
+					.catch(() => (scopeNames[k] = 'unknown'));
+			}
+		}
 	});
 
-	// Save as playlist (F69 P0-8, design handoff §4 placement A): the whole result set
-	// for the current filters + sort becomes a playlist, snapshotted server-side from
-	// the same shareable string. No filter = the whole library in this sort. A random
-	// sort sends its seed too, so the playlist is the shuffle on screen (spec P0-3).
+	interface Chip {
+		/** Stable identity for the keyed each — labels can repeat ("Person: …" while loading). */
+		id: string;
+		label: string;
+		kind: 'filter' | 'scope';
+		remove: () => void;
+	}
+	const range = (a?: number, b?: number, unit = '') =>
+		a && b ? `${a}–${b}${unit}` : a ? `≥ ${a}${unit}` : `≤ ${b}${unit}`;
+	const activeChips = $derived.by<Chip[]>(() => {
+		const out: Chip[] = [];
+		for (const s of SCOPES) {
+			for (const id of (query[s.key] as number[] | undefined) ?? []) {
+				out.push({
+					id: `${s.key}:${id}`,
+					label: `${s.label}: ${scopeNames[`${s.key}:${id}`] ?? '…'}`,
+					kind: 'scope',
+					remove: () => setQuery({ [s.key]: ((query[s.key] as number[]) ?? []).filter((x) => x !== id) })
+				});
+			}
+		}
+		if (query.resolution && query.resolution !== 'All')
+			out.push({ id: 'resolution', label: query.resolution, kind: 'filter', remove: () => setQuery({ resolution: 'All' }) });
+		if (query.duration_min || query.duration_max)
+			out.push({
+				id: 'duration',
+				label: `Duration ${range(query.duration_min, query.duration_max, ' min')}`,
+				kind: 'filter',
+				remove: () => setQuery({ duration_min: undefined, duration_max: undefined })
+			});
+		if (query.year_min || query.year_max)
+			out.push({
+				id: 'year',
+				label: range(query.year_min, query.year_max),
+				kind: 'filter',
+				remove: () => setQuery({ year_min: undefined, year_max: undefined })
+			});
+		for (const [canonical, value] of Object.entries(query.mapped ?? {})) {
+			if (!value) continue;
+			const label = facets.find((f) => f.canonical === canonical)?.label ?? canonical;
+			out.push({
+				id: `mapped:${canonical}`,
+				label: `${label}: ${value}`,
+				kind: 'filter',
+				remove: () => setQuery({ mapped: { ...query.mapped, [canonical]: '' } })
+			});
+		}
+		return out;
+	});
+	// The Filters button counts what its panel holds — not entity scope, which has no field.
+	const filterCount = $derived(activeChips.filter((c) => c.kind === 'filter').length);
+
+	const num = (v: string) => (v === '' ? undefined : Number(v) || undefined);
+
+	// Save as playlist (F69 P0-8): the whole result set for the current filters + sort
+	// becomes a playlist, snapshotted server-side from the same shareable string. No filter
+	// = the whole library in this sort. A random sort sends its seed too, so the playlist is
+	// the shuffle on screen (spec P0-3). Opened from the ⋯ page-actions menu.
 	let saveOpen = $state(false);
 	let saveName = $state('');
 	let saveInput = $state<HTMLInputElement | null>(null);
@@ -179,10 +202,10 @@
 		if (!name || saveBusy) return;
 		saveBusy = true;
 		saveError = '';
-		const q = new URLSearchParams(activeParams);
-		if (sort === 'random') q.set('seed', String(shuffleSeed.value));
+		const qs = new URLSearchParams(activeParams);
+		if (sortBy === 'random') qs.set('seed', String(shuffleSeed.value));
 		try {
-			const res = await api.createPlaylist({ name, from_query: q.toString() });
+			const res = await api.createPlaylist({ name, from_query: qs.toString() });
 			await goto(`/playlists/${res.playlist.id}`);
 		} catch (err) {
 			saveError = toMessage(err);
@@ -247,28 +270,18 @@
 	// from a detail page with the same filters (QW4 / ADR-032). Seeds synchronously so
 	// the content height is correct and scroll can be restored without a re-fetch flash.
 	let firstLoad = true;
-	// The last filter signature we actually loaded. Guards against reloading when the
-	// effect re-runs but the filters didn't truly change — e.g. MappedFacets loading
-	// rewrites `mapped` to an equivalent value (which would otherwise clobber a restored
-	// page with a fresh page-0 fetch). Also trims a redundant fetch on every grid mount.
+	// The last filter signature we actually loaded, so an effect re-run with no real
+	// change (e.g. an equivalent query object) never clobbers a restored page.
 	let lastQs: string | null = null;
 
-	// Reading activeParams tracks every filter var, so this re-runs on any change:
-	// sync the URL and reload from page 0 (debounced for the text query, F4.1).
+	// Reading activeQs tracks every filter, so this re-runs on any real change and reloads
+	// from page 0 (debounced for the text query, F4.1). The URL is already synced by the
+	// list controller.
 	$effect(() => {
-		const qs = activeParams.toString();
+		const qs = activeQs;
 
 		if (firstLoad) {
 			firstLoad = false;
-			// On mount the URL already reflects the initial filters, so don't touch
-			// history here — unless the filters came from the sticky key (SP5), where the
-			// URL is still a bare `/` and needs to catch up so a reload or copied link
-			// reproduces what's on screen. Deferred a macrotask: on a hard load this
-			// effect runs during the router's own async initialize(), before it flags
-			// itself started, and replaceState throws until it has. Then try the browse
-			// cache (QW4): if we're returning to the grid with the same filters, seed
-			// synchronously and skip the page-0 fetch.
-			if (restored && qs) setTimeout(() => replaceState(`/?${qs}`, {}), 0);
 			const cached = browseCache.take(qs);
 			if (cached) {
 				videos = cached.videos;
@@ -281,10 +294,6 @@
 				return;
 			}
 		} else if (qs !== lastQs) {
-			// Real filter/sort change: sync the URL via SvelteKit's router (not raw
-			// history.replaceState, which wipes the router state and breaks back-nav),
-			// and show the new result set from the top.
-			replaceState(qs ? `/?${qs}` : '/', {});
 			window.scrollTo(0, 0);
 		}
 
@@ -300,7 +309,7 @@
 	// in-memory grid/scroll cache. A filter change invalidates it via the key.
 	beforeNavigate(() => {
 		browseCache.save({
-			key: activeParams.toString(),
+			key: activeQs,
 			videos,
 			total,
 			offset,
@@ -308,17 +317,10 @@
 		});
 	});
 
+	// Clear every filter, scope and the search text. The sort is a preference and stays.
 	function clearAll() {
 		navSearch.query = '';
-		resolution = 'All';
-		durationMin = durationMax = yearMin = yearMax = '';
-		personIDs = [];
-		tagIDs = [];
-		studioIDs = [];
-		categoryIDs = [];
-		sort = DEFAULT_SORT;
-		mapped = {};
-		missingFacetIDs = [];
+		list.setQuery(mediaSchema.parseQuery(new URLSearchParams()));
 	}
 
 	// Keyboard navigation (F12.5): `/` focuses search, arrow keys move between grid
@@ -332,8 +334,8 @@
 
 	function onKeydown(e: KeyboardEvent) {
 		// Respect a handler closer to the event target that already claimed this key
-		// (e.g. the nav search panel's own roving-tabindex rows, HOLODEX-249) — this
-		// listener only owns arrow keys when nothing else does.
+		// (e.g. the nav search panel's own roving-tabindex rows, HOLODEX-249, or the
+		// Filters panel's own Escape) — this listener only owns keys nothing else claimed.
 		if (e.defaultPrevented) return;
 		const target = e.target as HTMLElement | null;
 		const typing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT';
@@ -376,127 +378,123 @@
 		window.addEventListener('keydown', onKeydown);
 		return () => window.removeEventListener('keydown', onKeydown);
 	});
+
+	const actions = $derived(
+		isOwner
+			? [
+					{ label: 'Save as playlist…', onselect: openSave },
+					{ label: `${showRecent ? 'Hide' : 'Show'} “Recently Added”`, onselect: toggleRecent }
+				]
+			: []
+	);
+	const numberInput =
+		'w-20 rounded-theme border border-rule bg-bg px-2 py-1.5 text-sm text-ink focus:border-accent focus:outline-none';
 </script>
 
 <section class="space-y-5">
+	<ListToolbar
+		reroll={sortBy === 'random' ? rerollMedia : undefined}
+		{actions}
+		chipCount={activeChips.length}
+		onclear={clearAll}
+	>
+		{#snippet sort()}
+			<SortDropdown compact owner={isOwner} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet filters()}
+			<FilterPanel count={filterCount} resultLabel={loading ? '' : videoCount(total)} onclear={clearAll}>
+				<div>
+					<span class="mb-1 block text-xs text-muted">Resolution</span>
+					<div class="flex overflow-hidden rounded-theme border border-rule text-sm" role="group" aria-label="Resolution">
+						{#each RESOLUTIONS as r (r)}
+							<button
+								type="button"
+								aria-pressed={(query.resolution ?? 'All') === r}
+								onclick={() => setQuery({ resolution: r })}
+								class="px-3 py-1 {(query.resolution ?? 'All') === r
+									? 'bg-accent text-accent-ink'
+									: 'text-muted hover:text-ink'}"
+							>
+								{r}
+							</button>
+						{/each}
+					</div>
+				</div>
+				<div>
+					<span class="mb-1 block text-xs text-muted">Year</span>
+					<div class="flex items-center gap-2">
+						<input type="number" aria-label="Year from" placeholder="from" class={numberInput}
+							value={query.year_min ?? ''} oninput={(e) => setQuery({ year_min: num(e.currentTarget.value) })} />
+						<span class="text-xs text-muted">to</span>
+						<input type="number" aria-label="Year to" placeholder="to" class={numberInput}
+							value={query.year_max ?? ''} oninput={(e) => setQuery({ year_max: num(e.currentTarget.value) })} />
+					</div>
+				</div>
+				<div>
+					<span class="mb-1 block text-xs text-muted">Duration (min)</span>
+					<div class="flex items-center gap-2">
+						<input type="number" min="0" aria-label="Minimum duration in minutes" placeholder="min" class={numberInput}
+							value={query.duration_min ?? ''} oninput={(e) => setQuery({ duration_min: num(e.currentTarget.value) })} />
+						<span class="text-xs text-muted">to</span>
+						<input type="number" min="0" aria-label="Maximum duration in minutes" placeholder="max" class={numberInput}
+							value={query.duration_max ?? ''} oninput={(e) => setQuery({ duration_max: num(e.currentTarget.value) })} />
+					</div>
+				</div>
+				<MappedFacets
+					bind:mapped={() => query.mapped ?? {}, (m) => setQuery({ mapped: m })}
+					onfacets={(f) => (facets = f)}
+				/>
+			</FilterPanel>
+		{/snippet}
+		{#snippet view()}
+			<DensitySlider />
+		{/snippet}
+		{#snippet chips()}
+			{#each activeChips as c (c.id)}
+				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
+			{/each}
+		{/snippet}
+		{#snippet count()}
+			{loading ? 'Loading…' : videoCount(total)}
+		{/snippet}
+	</ListToolbar>
+
+	{#if saveOpen}
+		<form onsubmit={submitSave} class="flex flex-wrap items-center gap-2">
+			<input
+				bind:this={saveInput}
+				bind:value={saveName}
+				type="text"
+				placeholder="Playlist name"
+				aria-label="Playlist name"
+				maxlength="200"
+				class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+			/>
+			<button type="submit" disabled={saveBusy} class="btn-accent px-3 py-2 text-sm">Save</button>
+			<button type="button" onclick={closeSave} disabled={saveBusy} class="btn-quiet px-3 py-2 text-sm">Cancel</button>
+			{#if saveError}
+				<p class="basis-full text-sm text-warn">{saveError}</p>
+			{/if}
+		</form>
+	{/if}
+
 	<!-- Recently Added shelf (F12.3): the default landing view only; hidden once
 	     the user filters/sorts so results stay the focus. Sliced from the grid's
-	     newest-first page, so it costs no extra request. -->
+	     newest-first page, so it costs no extra request. Below the toolbar (F73), so the
+	     toolbar sits in the same place on every list page. -->
 	{#if !hasFilters && showRecent}
 		<RecentlyAddedShelf {videos} />
 	{/if}
-
-	<div class="flex flex-wrap items-end gap-3">
-		<div>
-			<span class="mb-1 block text-xs text-muted">Resolution</span>
-			<div class="flex overflow-hidden rounded-theme border border-rule">
-				{#each RESOLUTIONS as r (r)}
-					<button
-						onclick={() => (resolution = r)}
-						class={`px-3 py-2 text-sm ${resolution === r ? 'bg-accent text-accent-ink' : 'bg-surface text-muted hover:text-ink'}`}
-					>
-						{r}
-					</button>
-				{/each}
-			</div>
-		</div>
-
-		<div>
-			<span class="mb-1 block text-xs text-muted">Duration (min)</span>
-			<div class="flex items-center gap-1">
-				<input type="number" min="0" bind:value={durationMin} placeholder="min"
-					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
-				<span class="text-muted">–</span>
-				<input type="number" min="0" bind:value={durationMax} placeholder="max"
-					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
-			</div>
-		</div>
-
-		<div>
-			<span class="mb-1 block text-xs text-muted">Year</span>
-			<div class="flex items-center gap-1">
-				<input type="number" bind:value={yearMin} placeholder="from"
-					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
-				<span class="text-muted">–</span>
-				<input type="number" bind:value={yearMax} placeholder="to"
-					class="w-20 rounded-theme border border-rule bg-surface px-2 py-2 text-sm text-ink" />
-			</div>
-		</div>
-
-		<FacetFilter label="Tags" items={tagOptions} bind:selected={tagIDs} />
-
-		{#if isOwner}
-			<FacetFilter
-				label="Missing"
-				items={missingFacet.options.map((f) => ({ id: f.canonical, name: f.label, video_count: f.missing_count }))}
-				bind:selected={missingFacetIDs}
-			/>
-		{/if}
-
-		<DensitySlider label="Density" />
-
-		<MappedFacets
-			bind:mapped
-			onfacets={(facets) =>
-				(mapped = {
-					...mapped,
-					...mappedFromParams(initParams, facets.map((f) => f.canonical))
-				})}
-		/>
-
-		<div class="flex items-end gap-2">
-			<SortDropdown bind:sort owner={isOwner} />
-			{#if sort === 'random'}
-				<SortReroll onreroll={rerollMedia} />
-			{/if}
-		</div>
-
-		{#if hasFilters}
-			<button onclick={clearAll} class="rounded-theme border border-rule px-3 py-2 text-sm text-muted hover:text-ink">
-				Clear filters
-			</button>
-		{/if}
-
-		{#if isOwner}
-			{#if saveOpen}
-				<form onsubmit={submitSave} class="flex flex-wrap items-center gap-2">
-					<input
-						bind:this={saveInput}
-						bind:value={saveName}
-						type="text"
-						placeholder="Playlist name"
-						aria-label="Playlist name"
-						maxlength="200"
-						class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-					/>
-					<button type="submit" disabled={saveBusy} class="btn-accent px-3 py-2 text-sm">Save</button>
-					<button type="button" onclick={closeSave} disabled={saveBusy} class="btn-quiet px-3 py-2 text-sm">Cancel</button>
-					{#if saveError}
-						<p class="basis-full text-sm text-warn">{saveError}</p>
-					{/if}
-				</form>
-			{:else}
-				<button type="button" onclick={openSave} class="btn-quiet px-3 py-2 text-sm">Save as playlist</button>
-			{/if}
-		{/if}
-	</div>
-
-	<div class="flex items-center justify-between text-sm text-muted">
-		<span>{loading ? 'Loading…' : videoCount(total)}</span>
-		{#if isOwner && !hasFilters}
-			<button
-				onclick={toggleRecent}
-				class="rounded-theme border border-rule px-2 py-1 text-xs text-muted hover:text-ink"
-			>
-				{showRecent ? 'Hide' : 'Show'} “Recently Added”
-			</button>
-		{/if}
-	</div>
 
 	{#if error}
 		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{error}</p>
 	{:else}
 		<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
+		{#if hasFilters && !loading && videos.length === 0}
+			<div class="flex justify-center">
+				<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
+			</div>
+		{/if}
 		{#if hasMore}
 			<div class="flex justify-center pt-2">
 				<button
