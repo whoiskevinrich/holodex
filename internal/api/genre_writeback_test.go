@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"holodex/internal/model"
 	"holodex/internal/repo"
 	"holodex/internal/writeback"
+	"holodex/internal/writequeue"
 )
 
 // genreWritebackServer wires a real repo + a `genres` mapping (mirroring
@@ -135,6 +137,108 @@ func TestGenreWritebackValues(t *testing.T) {
 	}
 	if len(values) != 4 {
 		t.Errorf("values = %v, want exactly 4 (Animal, Dog, German Shepherd, Action)", values)
+	}
+}
+
+// ADR-110 D1: a tag with writeback turned off is UI-only, so it is dropped from
+// the raw resolved side too — not just from the attached-tag side — or it would
+// reach Genre again through the provider/file genre value.
+func TestGenreWritebackValues_IgnoredTagDroppedFromRawSide(t *testing.T) {
+	h, _, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+	tag, err := r.AttachTagToVideo(ctx, vid, "Action")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.SetTagWritebackEnabled(ctx, tag.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
+		"genres": {"Action", "Drama"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	values, err := h.GenreWritebackValues(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 1 || values[0] != "Drama" {
+		t.Errorf("values = %v, want [Drama] — the ignored Action must not arrive via the raw side", values)
+	}
+}
+
+// Tag-key fields are the write worker's own derived writes (ADR-110 D3); a
+// client naming one is refused before anything is written.
+func TestWritebackEndpoint_RejectsTagKeyField(t *testing.T) {
+	_, srv, _, vid, written := genreWritebackServer(t)
+	body, _ := json.Marshal(map[string]any{
+		"fields": []map[string]any{{"field": writeback.TagKeyFieldPrefix + "Keywords", "values": []string{"x"}}},
+	})
+	resp, err := http.Post(srv.URL+"/api/v1/media/"+itoa(vid)+"/writeback", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest || len(*written) != 0 {
+		t.Errorf("status = %d, written = %+v; want 400 and nothing written", resp.StatusCode, *written)
+	}
+}
+
+// Only the server-computed genres entry reaches the queue: a second, client-sent
+// empty genres entry must not enqueue a Genre delete beside it.
+func TestWritebackEndpoint_DuplicateGenresEntryIgnored(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	vid, err := r.UpsertVideo(ctx, &model.Video{FilePath: "/m/dup.mkv", FileSize: 1, Title: "D", Container: "Matroska",
+		FileMtime: time.Now().UTC().Truncate(time.Second), Tags: []model.Tag{{Name: "Drama"}}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var batches [][]writeback.FieldWrite
+	q := writequeue.New(r, func(_ context.Context, _ string, fs []writeback.FieldWrite) error {
+		mu.Lock()
+		defer mu.Unlock()
+		batches = append(batches, fs)
+		return nil
+	}, log, 1, "")
+	qctx, cancel := context.WithCancel(ctx)
+	t.Cleanup(cancel)
+	q.Start(qctx)
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	body, _ := json.Marshal(map[string]any{"fields": []map[string]any{
+		{"field": "genres", "values": []string{"x"}},
+		{"field": "genres", "values": []string{}},
+	}})
+	resp, err := http.Post(srv.URL+"/api/v1/media/"+itoa(vid)+"/writeback", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", resp.StatusCode)
+	}
+	waitQueueDrained(t, r)
+	mu.Lock()
+	defer mu.Unlock()
+	for _, b := range batches {
+		for _, f := range b {
+			if f.TagName == "Genre" && f.Delete {
+				t.Errorf("a duplicate genres entry enqueued a Genre delete: %+v", b)
+			}
+		}
 	}
 }
 

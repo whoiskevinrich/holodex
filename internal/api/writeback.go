@@ -194,6 +194,14 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "fields required")
 		return
 	}
+	// Tag-key fields are the worker's own derived writes and their reverts
+	// (ADR-110 D3) — never something a client names.
+	for _, f := range body.Fields {
+		if strings.HasPrefix(f.Field, writeback.TagKeyFieldPrefix) {
+			writeError(w, http.StatusBadRequest, "unknown field "+f.Field)
+			return
+		}
+	}
 
 	v, extra, err := h.repo.GetVideo(r.Context(), id)
 	if err != nil {
@@ -218,15 +226,19 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, "compute genre writeback values", gerr)
 			return
 		}
-		if len(values) == 0 {
-			// No attached tags and no resolved genre value: nothing to write for
-			// this field. Drop the entry outright rather than leaving it with an
-			// empty Values — the "each field entry requires field and values"
-			// guards below would otherwise reject the whole batch over a
-			// legitimately-empty genres union, not just skip that one field.
-			body.Fields = append(body.Fields[:i], body.Fields[i+1:]...)
-		} else {
+		switch {
+		case len(values) > 0:
 			body.Fields[i].Values = values
+		case h.writeQueue != nil:
+			// An empty union still writes (ADR-110): the worker deletes Genre and
+			// filters the other tag keys, so a video whose tags were all removed or
+			// ignored ends with none on file.
+			body.Fields[i].Values = nil
+		default:
+			// Legacy synchronous path: no tag-key filter there, so an empty union
+			// is nothing to write. Drop the entry rather than leave it with empty
+			// Values, which the guards below would reject as a malformed batch.
+			body.Fields = append(body.Fields[:i], body.Fields[i+1:]...)
 		}
 		break
 	}
@@ -236,13 +248,21 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	// the worker so the request returns immediately and writes are throttled.
 	if h.writeQueue != nil {
 		jobFields := make([]writequeue.JobField, 0, len(body.Fields))
+		seenGenres := false
 		for _, f := range body.Fields {
-			if f.Field == "" || len(f.Values) == 0 {
+			// Only the first genres entry was server-computed above (empty means
+			// clear); a later one is client data and would race it for Genre.
+			isGenres := f.Field == "genres"
+			if isGenres && seenGenres {
+				continue
+			}
+			seenGenres = seenGenres || isGenres
+			if f.Field == "" || (len(f.Values) == 0 && !isGenres) {
 				writeError(w, http.StatusBadRequest, "each field entry requires field and values")
 				return
 			}
 			cleaned := enrich.SanitizeValues(f.Values)
-			if len(cleaned) == 0 {
+			if len(cleaned) == 0 && !isGenres {
 				continue
 			}
 			jobFields = append(jobFields, writequeue.JobField{Field: f.Field, Values: cleaned, Source: f.Source})

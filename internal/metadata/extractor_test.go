@@ -56,6 +56,28 @@ func TestMapExiftool(t *testing.T) {
 // localizable SimpleTag carries a language code ("-und", "-eng", …). Before the
 // fix these bypassed classification: Title stayed empty (filename-stem fallback)
 // and People/Tags were empty while the values sat in Extra (issue #63).
+// exiftool returns a Matroska list-type tag (KEYWORDS) as a JSON array. Each
+// element is a tag of its own — not one "[Drama Heist]" tag (HOLODEX-465).
+func TestMapExiftoolListValuedTagKey(t *testing.T) {
+	ex := mapExiftool(map[string]any{
+		"Genre":    "Drama",
+		"Keywords": []any{"Drama", "Heist, Crime"},
+	})
+	want := map[string]bool{"Drama": true, "Heist": true, "Crime": true}
+	got := map[string]bool{}
+	for _, tag := range ex.Tags {
+		got[tag] = true
+	}
+	if len(got) != len(want) {
+		t.Fatalf("tags = %q, want %v", ex.Tags, want)
+	}
+	for tag := range want {
+		if !got[tag] {
+			t.Errorf("tags = %q, missing %q", ex.Tags, tag)
+		}
+	}
+}
+
 func TestMapExiftoolMatroskaLangSuffix(t *testing.T) {
 	raw := map[string]any{
 		"Title-und":        "Some Title",

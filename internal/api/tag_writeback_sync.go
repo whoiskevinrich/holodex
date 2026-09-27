@@ -175,9 +175,8 @@ func (h *Handlers) syncTagWriteback(ctx context.Context, videoIDs []int64, batch
 		if err != nil {
 			return 0, err
 		}
-		if len(values) == 0 {
-			continue // nothing to write for this video
-		}
+		// An empty union still enqueues (ADR-110): it is exactly the video whose
+		// only tags were just turned off, and the job must clear them from the file.
 		jobs = append(jobs, writequeue.BatchJob{
 			VideoID: videoID,
 			Fields:  []writequeue.JobField{{Field: "genres", Values: values, Source: fieldsource.Manual}},

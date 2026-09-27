@@ -98,8 +98,14 @@ func (h *Handlers) genreWritebackItemsFrom(ctx context.Context, videoID int64, r
 	if err != nil {
 		return nil, err
 	}
+	// An ignored tag is UI-only (ADR-110 D1): drop it from the raw side as well,
+	// or it reaches Genre again through the file's own genre value.
+	ignored, err := h.repo.WritebackDisabledTagSet(ctx, values)
+	if err != nil {
+		return nil, err
+	}
 	for _, item := range rf.Items {
-		if denied[item.Value] {
+		if denied[item.Value] || ignored[item.Value] {
 			continue
 		}
 		k := resolver.NormKey(item.Value)

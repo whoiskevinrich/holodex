@@ -12,7 +12,7 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are trimmed to match.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
+release_note: Writing tags back to a file now makes its tags match Holodex — tags you removed or turned off for writeback are also cleared from Keywords and Category, so a rescan no longer brings them back, and MP4 taglines no longer turn into tags. # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
@@ -28,7 +28,7 @@ Done means after any genres writeback, every tag key the scanner reads (Genre, G
 Category, Categories) holds only the UI's tags minus ignored ones. Ignored tags are UI-only and survive
 rescans, and the MP4 tagline no longer leaks into tags (folds in HOLODEX-466).
 
-**Design package:** [spec § Amendment](../specs/tag-writeback-exclusion.md#amendment--the-file-tag-contract-holodex-465) · [ADR-110](../architecture/ADR-110-tag-writeback-file-contract.md) · no UI (no handoff) · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec § Amendment](../specs/tag-writeback-exclusion.md#amendment--the-file-tag-contract-holodex-465) · [ADR-110](../architecture/ADR-110-tag-writeback-file-contract.md) · no UI (no handoff) · [testing-strategy § file tag contract](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -42,10 +42,10 @@ rescans, and the MP4 tagline no longer leaks into tags (folds in HOLODEX-466).
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/ADR-*`
 - [~] design `design-handoff` → `docs/design/**` — no UI surface; until: HOLODEX-401 builds the dialog tags row
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**`
 - [~] frontend → `web/src/**` — backend-only; the UI shows whatever tags the scanner reads
-- [ ] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] testing `testing-strategy`
+- [x] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -62,14 +62,9 @@ rescans, and the MP4 tagline no longer leaks into tags (folds in HOLODEX-466).
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Probe exiftool write names for Keywords/Category/Genres on MP4+MKV and the MP4 tagline target (ADR-110 D2/D5) — `internal/writeback/tags.go`
-2. [ ] [backend] Delete-capable FieldWrite on all three writers (exiftool `-TAG=`, ffmpeg `key=`, mkvpropedit drop Simple) — `internal/writeback/writeback.go`
-3. [ ] [backend] Filter extra tag keys inside the genres job, matched via the name spine; ignored names off the raw side (D1/D2) — `internal/writequeue/writequeue.go`
-4. [ ] [backend] Snapshot/audit/revert keyed by tag name for derived keys (D3) — `internal/writeback/snapshot.go`
-5. [ ] [backend] On success, flip file→manual links for ignored tags (D4) — `internal/repo/video_tags.go`
-6. [ ] [testing] Integration round trips per spec § Amendment checkboxes + testing-strategy row — `internal/writeback/`
-7. [ ] [security] /security-review (file I/O + new key deletion) — `internal/writeback/`
-8. [ ] [—] On merge, sweep HOLODEX-466 to Done by hand (folded in; CI only moves 465)
+1. [ ] [—] Mark PR #397 ready once CI is green; on merge sweep HOLODEX-466 to Done by hand (CI only moves 465) — `docs/plans/HOLODEX-465.md`
+2. [ ] [backend] Verify an mkvmerge-written MKV (TagLanguage=und → `Keywords-und`?) is caught by ReadTagKeys — needs MKVToolNix — `internal/writeback/tagkeys.go`
+3. [ ] [backend] Snapshot keys derived writes by bare name: two groups holding one key share a prior value on revert — `internal/writeback/snapshot.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,9 +77,10 @@ rescans, and the MP4 tagline no longer leaks into tags (folds in HOLODEX-466).
 -->
 
 ### 2026-09-26 · session
-- skills: implement
+- skills: implement, code-review, security-review
 - decisions (owner): filter extra tag keys (not clear/mirror); attach/detach never write the file; fold HOLODEX-466 in; ignored tags are UI-only — removed from file, kept on the video
-- handoff: Spec amendment + ADR-110 written and pushed, awaiting Kevin's read of them before crossing to build — then start at up-next #1, the exiftool key-name probe.
+- build: probe found MP4 Keywords lives in the `Keys` group (write back under the reported Group:Name); round-trip test found the scanner reading MKV list-valued Keywords as one `[Drama Heist]` tag (fixed, D7); empty unions now clear the file (D6)
+- handoff: All gates settled — ADR-110 D1–D7 built and tested (unit + real-file integration on MKV and MP4), security review clean; next move is marking PR #397 ready and merging, then sweeping HOLODEX-466 by hand.
 
 ## Dropped — newest first (the reason is the point)
 

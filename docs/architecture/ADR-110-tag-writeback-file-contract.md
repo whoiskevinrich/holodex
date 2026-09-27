@@ -42,9 +42,13 @@ drops the names of ignored tags.** Without that, an ignored tag reaches Genre ag
 **D2 — Extra tag keys are written as derived fields of the genres write, in the same batch.** When a batch
 carries `genres`, the writer does four things:
 
-1. It reads the file's current values for the container's *extra tag keys*. That is a per-container table
-   kept next to `formatMap`: `Genres, Keywords, Category, Categories` under their writable names, which
-   are verified by an integration probe.
+1. It reads the file's current values for the *extra tag keys* (`writeback.ExtraTagKeys`: `Genres, Keywords,
+   Category, Categories`) with `exiftool -G1 -a`, and writes each back under the name exiftool reported. A
+   probe on generated clips (2026-09-26) showed why no fixed per-container table works. On MP4, exiftool
+   files Keywords under the **`Keys`** group and Category under `ItemList`, so `-ItemList:Keywords=` misses
+   the Keywords tag entirely. So on exiftool containers the write name is the reported `Group:Name`. On
+   Matroska/WebM it is the bare name, since ffmpeg and mkvpropedit address tags by name, and ffmpeg's
+   `-metadata Keywords=` matches regardless of case.
 2. For each key present on the file, it keeps only the values that match the written set.
 3. It adds one `FieldWrite` per key whose value changed. A key with nothing left gets a **delete**
    `FieldWrite`:
@@ -65,6 +69,10 @@ while the job waits in the queue.
 the mapping file and the writeback dialog, for keys the owner never edits directly. They exist only as a side
 effect of `genres`, so they're modelled as one.
 
+A derived write travels as a job field named `tagkey:<name>`. A job payload is data (security C2), so the
+worker accepts that shape only when `ValidTagKeyName` allows it: an extra tag key, grouped only on
+exiftool containers, with a plain group name. The HTTP API refuses a client-sent `tagkey:` field outright.
+
 **D3 — Snapshot, audit and revert are keyed by write key for the derived fields.**
 - `ReadCurrentValues` also returns the prior value of each extra tag key it's about to change, keyed by
   **tag name**.
@@ -72,7 +80,8 @@ effect of `genres`, so they're modelled as one.
 - Revert restores those rows **by tag name**. They skip the `formatMap` lookup, which only knows Genre.
 
 The rule "a prior value of `""` isn't reverted" can't bite here, because D2 never writes a key that
-wasn't already on the file.
+wasn't already on the file. A revert job skips the D2 filter: it restores the tag keys it snapshotted as
+fields of its own, and filtering them against the restored Genre would undo the undo.
 
 **D4 — Ignored tags leave the file but stay on the video.** When a genres write succeeds, the writer updates
 the job's video: every link with `source='file'` to a tag whose `writeback_enabled = 0` becomes
@@ -85,15 +94,34 @@ one-way on purpose: the tag has become a Holodex-owned tag and is no longer a fa
 
 **D5 — The MP4 tagline moves out of Keywords (HOLODEX-466).** `formatMap["MP4"]["tagline"]` moves from
 `QuickTime:Keywords` to a key outside `tagKeys`, chosen the way RD8 chose edition's key: by writing and
-reading back generated clips. The candidate is `QuickTime:Description`. `UnreadableWriteTargets["tagline"]`
+reading back generated clips. That probe settled on `QuickTime:Description`: exiftool files it as
+`ItemList:Description` and reads it back as `Description`, which is not a tag key. `UnreadableWriteTargets["tagline"]`
 stays, because tagline has no `file:` source to read back (a separate gap, not this ADR's). Only its wording
 changes.
 
+**D6 — An empty written set clears the file.** A genres job with no values deletes Genre instead of being
+dropped as "nothing to write". Both enqueuers used to skip an empty union: the writeback dialog dropped the
+field, and the tag sync skipped the video. But an empty union is exactly the video whose only tags were
+just turned off, and skipping it left the ignored tags on the file for good. The legacy synchronous handler
+path (unused in production, where the queue is always wired) keeps dropping it, because it has no filter.
+
+A Genre delete on a file that has no Genre, with nothing else to filter, is not written at all. On
+Matroska it would otherwise be a full remux for nothing.
+
+**D7 — The scanner reads a list-valued tag key as separate tags.** exiftool returns Matroska `KEYWORDS` as
+a JSON **array**, and `metadata.ToString` rendered it with `%v`. So Keywords `Drama, Heist` became a single
+tag named `[Drama Heist]`. The round-trip test for D2 found this. It predates this ADR, but rule 2 ("tags
+from the file appear in the UI") needs it fixed. `ToString` now joins an array with `", "`, the form
+writeback stores a multi-value field in and `SplitMulti` undoes.
+
 ## Consequences
 
-- **The file matches the UI after any writeback.** This applies to every path that writes genres: the
-  per-video dialog, the tag sync, merge propagation and the studio cascade. It is also what makes HOLODEX-401's
-  per-tag "on file" markers possible to build.
+- **The file matches the UI after any genres writeback.** Two paths write genres: the per-video writeback
+  dialog and the tag sync. Merge propagation and the film cascade write only people and studios. This is
+  also what makes HOLODEX-401's per-tag "on file" markers possible to build.
+- **MKV files with Keywords correct themselves on the next rescan.** A bracketed tag link like
+  `[Drama Heist]` came from the file, so the rescan replaces it with `Drama` and `Heist`. The bracketed
+  tag itself is left with no videos, for the owner to delete.
 - **Holodex now edits keys other tools own**, but only by removing values the owner removed from the UI. It
   never adds to them and never clears a key outright unless that key holds nothing canonical. A value another
   tool put in Keywords that the owner also has as a tag is left in place.

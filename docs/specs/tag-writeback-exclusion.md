@@ -246,12 +246,22 @@ each filtered key as well as Genre, so undoing a genres writeback restores Keywo
 
 **The MP4 tagline leaves Keywords (HOLODEX-466).** The MP4 `tagline` write target moves from
 `QuickTime:Keywords` to a key the reader doesn't treat as tags. The candidate is
-`QuickTime:Description`, chosen by a write-then-read probe on generated clips the way ADR-096 RD8
-chose edition's key. Matroska keeps `Subtitle`.
+`QuickTime:Description`, confirmed by a write-then-read probe on generated clips the way ADR-096
+RD8 chose edition's key. Matroska keeps `Subtitle`.
 - [ ] Writing a tagline containing commas to an MP4 and rescanning adds no tags.
 
-**Triggers are unchanged.** Only an explicit writeback writes the file: the per-video dialog, the
-tag sync, merge propagation, and the studio cascade. Attaching or detaching a tag does **not**
+**An empty written set clears the file.** A video whose tags were all removed or ignored still gets
+its genres job: Genre is deleted and the other keys are filtered to nothing. Both the dialog and the
+tag sync used to skip that video as "nothing to write".
+- [ ] Turning writeback off for a video's only tag and syncing removes that tag from the file.
+
+**The scanner reads a list-valued key as separate tags.** exiftool returns Matroska Keywords as a
+list, which the scanner used to read as one tag named like `[Drama Heist]`. Found by the round-trip
+test; rule 2 needs it fixed.
+- [ ] An MKV with Keywords `Drama, Heist` reads back as the tags `Drama` and `Heist`.
+
+**Triggers are unchanged.** Only an explicit writeback writes the file: the per-video dialog and the
+tag sync, the only two paths that write genres. Attaching or detaching a tag does **not**
 write the file (owner decision, 2026-09-26). Known and accepted: a tag detached in the UI but still
 on the file comes back if a rescan runs before the next writeback.
 
