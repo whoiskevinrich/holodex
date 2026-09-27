@@ -41,15 +41,15 @@ ADR-099 D4's boot hook only) · [spec note](../specs/entity-completeness-score.m
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Run /implement to open the PR (all gates settled; infra posture has no design sign-off)
+1. [ ] [—] Squash-merge #401 on Kevin's ping; CI moves HOLODEX-469 to Done (branch-keyed, no children)
 2. [ ] [—] After deploy: restart twice; the second boot must NOT log "completeness inputs changed", and the first owner People load is instant
 3. [ ] [—] Batch the per-video genre-writeback lookups in `completenessForVideos` → HOLODEX-470
 
 ## Session log — newest first
 
 ### 2026-09-27 · session
-- skills: code-review high --fix, handoff
+- skills: code-review high --fix, handoff, implement
 - Diagnosed the post-restart People-list stall from prod aggregates (every entity re-scored in one ~8 s synchronous drain); filed HOLODEX-469 + follow-up HOLODEX-470; ADR-112 D1 boot fingerprint (executable + mappings + sources) and D2 background boot drain with request-path skip; spec + testing-strategy notes.
-- handoff: Fix built and tested, all four gates settled — next move is /implement to open the PR, then verify on prod with two restarts.
+- handoff: Crossed into build (no approve gates in the infra posture) and every gate is settled; PR #401 marked ready. Next: squash-merge on Kevin's ping, then verify on prod with two restarts.
 
 ## Dropped — newest first (the reason is the point)
