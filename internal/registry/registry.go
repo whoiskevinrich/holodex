@@ -63,6 +63,11 @@ type FieldDef struct {
 	// loader rejects a provider-namespaced source for it at load time — "no provider
 	// source" is enforced, not merely left out of the example.
 	FileOnly bool
+	// OfferWhenEmpty marks a replace field the resolver keeps for the owner even when no
+	// layer supplies a value and no decision stands (ADR-113 D2), so the owner has a
+	// row to type a Custom value into. Set it only in the change that designs the
+	// field's empty state; an unflagged field is still dropped from resolved[].
+	OfferWhenEmpty bool
 }
 
 // EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
@@ -102,11 +107,12 @@ var KnownFields = []FieldDef{
 		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
-		Canonical:   "overview",
-		Label:       "Overview",
-		Display:     "long_text",
-		Description: "Plot summary or description. Trimmed to ≤4000 chars at a sentence boundary.",
-		Criticality: CriticalityNiceToHave,
+		Canonical:      "overview",
+		Label:          "Overview",
+		Display:        "long_text",
+		Description:    "Plot summary or description. Trimmed to ≤4000 chars at a sentence boundary.",
+		Criticality:    CriticalityNiceToHave,
+		OfferWhenEmpty: true, // ADR-113 first adopter (HOLODEX-471): the rail's "+ Add overview"
 	},
 	{
 		Canonical:   "tagline",
@@ -454,3 +460,8 @@ func Lookup(canonical string) FieldDef {
 	}
 	return FieldDef{Canonical: k, Label: label}
 }
+
+// OffersWhenEmpty reports whether a canonical field is offered to the owner when
+// empty (FieldDef.OfferWhenEmpty, ADR-113). It is shaped to be passed directly as
+// resolver.Options.Offer.
+func OffersWhenEmpty(canonical string) bool { return Lookup(canonical).OfferWhenEmpty }

@@ -193,6 +193,13 @@ type Options struct {
 	// provider-sourced image_url field — every production caller must set this
 	// once enrichment is wired; leaving it nil fails closed, not open.
 	ImageURLAllowed func(provider, rawURL string) bool
+
+	// Offer names the replace fields kept in the output when they would otherwise be
+	// dropped for having no value, no standing decision and no film candidate
+	// (ADR-113 D1). An offered field keeps the undecided shape replaceMarkers builds
+	// (file candidate "", non-standing decision), which is the owner's File "No value"
+	// + Custom row. nil offers nothing. Callers set it only for the owner (D3).
+	Offer func(canonical string) bool
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
@@ -349,10 +356,13 @@ func ResolveFields(
 			// (so attaching a film never silently overwrites Album/Title), but that
 			// means items is empty until the owner explicitly decides it — dropping
 			// the field here would hide the only chip that lets them do so. Other
-			// undecided empty fields (no file/provider/film value at all) still drop.
+			// undecided empty fields (no file/provider/film value at all) still drop,
+			// unless the caller offers the field to the owner (ADR-113 D1).
 			_, decided := opts.lookup(f.Canonical)
-			hasFilmCand := !f.Multi && !f.Merge && hasFilmCandidate(enrichment, filmNS, f.Canonical)
-			if !decided && !hasFilmCand {
+			replace := !f.Multi && !f.Merge
+			hasFilmCand := replace && hasFilmCandidate(enrichment, filmNS, f.Canonical)
+			offered := replace && opts.Offer != nil && opts.Offer(f.Canonical)
+			if !decided && !hasFilmCand && !offered {
 				continue
 			}
 		}
