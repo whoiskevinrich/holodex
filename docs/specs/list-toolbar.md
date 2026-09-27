@@ -5,17 +5,17 @@
 **Owner**: Project owner
 **Date**: 2026-09-27
 
-**Amends**: [`sort-persistence.md`](sort-persistence.md) — SP1's precedence rules. Media's "URL →
+**Amends**: [`sort-persistence.md`](sort-persistence.md) — SP1's precedence rules; **supersedes
+SP5** (sticky filters). Media's "URL →
 saved → default" rule becomes the rule for **every** list page, and "People / Tags have no URL sort
 state" is withdrawn. See [Amendments to sort-persistence](#amendments-to-sort-persistence).
 **Supersedes in part**: [`entity-completeness-handoff.md`](../design/entity-completeness-handoff.md)
 §9 is *reinstated*. Completeness is a sort entry, as that handoff specified, not the separate
 `CompletenessSortToggle` that People and Studios actually built.
 
-**New ADR required**: the **list-state model**, meaning which list state lives in the URL, in
-localStorage, or in the session, and how arrival, Back and redirects restore it. It is
-cross-cutting (five pages, one contract), so it gets an ADR, not a spec paragraph. Number it with
-`node scripts/adr-claims.mjs` at `/architecture` time.
+**ADR**: [ADR-114 — list-state model](../architecture/ADR-114-list-state-model.md). It decides
+which list state lives in the URL, in localStorage or in the session, and how arrival, Back and
+removal exits restore it.
 
 **Design handoff required**: `docs/design/list-toolbar-handoff.md`, with committed SVG mockups
 (desktop + 375px, all three skins, owner + visitor).
@@ -230,15 +230,18 @@ as every other filter.
 **R8. Redirects after actions return to the list you came from.**
 - When an action sends you to a list page, you return to the list URL (sort and filters) you left
   from in this tab, if you came from that list. Otherwise you get the bare list.
-- This covers deleting an entity from its detail page and merging people.
-- The mechanism (history, or a per-tab `sessionStorage` "last list URL") is the ADR's call, but
-  it must be **per tab**.
+- Mechanism: [ADR-114](../architecture/ADR-114-list-state-model.md) D4.
+  - The exit is `history.back()` when you arrived from within the app, otherwise the bare list.
+    This generalises the media-delete exit from HOLODEX-41. It's per tab by construction.
+  - Merges that keep you on the page reload in place, so they need no redirect.
 
 *Acceptance:*
-- [ ] Given People is filtered and sorted, when I open a person, merge them and get redirected,
-      then People comes back with the same filters and sort.
-- [ ] Given I opened a person from a deep link in a new tab, when I delete them, then I land on
-      bare `/people`.
+- [ ] Given Media is filtered and sorted, when I open a video and delete it, then Media comes back
+      with the same filters, sort and scroll.
+- [ ] Given I opened a video from a deep link in a new tab, when I delete it, then I land on the
+      bare `/`.
+- [ ] Given People is filtered, when I merge people from the list, then the list reloads with the
+      same filters and sort.
 - [ ] Two tabs on different People views each return to their own view.
 
 **R9. Mobile A–Z index.** Below the small-screen breakpoint, the People A–Z jump bar becomes a
@@ -284,6 +287,13 @@ note is added there.
   into `?sort=`, with the default omitted.
 - **"Selecting a sort … writes the preference"** stays, and gets the R7 corollary: arriving by
   URL never writes.
+- **SP5 (per-page sticky filters, HOLODEX-25) is superseded.**
+  - SP5 existed because Back from a detail page lost People and Studios filters, which lived only
+    in component state. R7 solves the same problem through the URL: the Back entry carries the
+    filters.
+  - The `holodex:filters:*` keys stop being read in this release. HOLODEX-474 deletes them.
+  - SP5's knock-on fix, the `listScroll` snapshot, stays. It is re-keyed on the list's URL query
+    string (see ADR-114).
 - SP2 (seed) and SP3 (seeded Media ordering, ADR-045) are unchanged.
 
 ## Success Metrics
@@ -313,8 +323,8 @@ seeded instance (the HOLODEX-342 stress fixture) and then in production.
   when the page has ≤ 3 filters? → design handoff.
 - **[design] Where does density go?** It's a view setting on Media and on People's Poster view.
   Should it sit inside the View slot's menu or beside it? → design handoff.
-- **[engineering] Redirect mechanism for R8.** `history.back()` when the previous entry is the
-  list, or a per-tab `sessionStorage` last-list URL? → ADR.
+- ~~**[engineering] Redirect mechanism for R8.**~~ Resolved by ADR-114 D4: `history.back()` when
+  in-app, otherwise the bare list.
 - **[engineering] Which entity pages link to Media with a scope param today?** R5 assumes Person,
   Studio and Tag detail pages do; any that don't need the link added. → frontend gate, non-blocking.
 
