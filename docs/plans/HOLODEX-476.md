@@ -18,7 +18,7 @@ either one comes up in Cinémathèque, and every UI change is QA'd once, not thr
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` → `docs/specs/**` — amend F67 (`instance-skin.md`) to the `{cinematheque, custom}` domain
+- [x] spec `write-spec` → `docs/specs/**` — F67 `instance-skin.md` amended: RD11–RD12, story 9, R17–R23, OQ4 (the Appearance tab with one skin); superseded lines marked *(amended, ADR-115)*
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102)
 - [ ] design `design-handoff` → `docs/design/**` — the Appearance tab without skin cards (ADR-115 D5), mockup as SVG
 - [ ] backend → `{cmd,internal,providers}/**` — `shippedThemes`, `skinPalettes` / `?skin=` collapse, `defaultSkin` merge, tests
@@ -28,12 +28,16 @@ either one comes up in Cinémathèque, and every UI change is QA'd once, not thr
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Spec: amend F67 `instance-skin.md` (domain, R2/R13, API example `{"theme":"broadcast"}`)
-2. [ ] [—] Design: Appearance tab with Cinémathèque + Custom only; SVG mockup in `docs/design/`
-3. [ ] [—] `/implement`, then backend, frontend, geometry harness, and `site/` + README + `configuration.md` §Appearance
-4. [ ] [—] On merge: close HOLODEX-460 as obsolete; the release note says retired-skin instances become Cinémathèque
+1. [ ] [—] Design: answer F67 OQ4 — the Appearance tab with one skin (plus Custom when configured); SVG mockup in `docs/design/`, Cinémathèque only
+2. [ ] [—] `/implement`, then backend (R17/R18/R21), frontend (R19–R21), geometry harness (R22), and docs (R23)
+3. [ ] [—] On merge: close HOLODEX-460 as obsolete; the release note says retired-skin instances become Cinémathèque
 
 ## Session log — newest first
+
+### 2026-09-27 · session (spec)
+- skills: write-spec
+- Amended F67 in place instead of starting a new spec. Added an amendment banner, RD11–RD12, story 9, and R17–R23: the allowlist, the silent fallback, removing the skins from the bundle, the Appearance tab, the `?skin=` collapse, the geometry harness and operator docs. Added OQ4 (what the tab shows with one skin). Superseded lines are marked, not deleted. `themePayload` already falls back to Cinémathèque without logging, so R18 needs no backend work.
+- handoff: The spec gate is settled; next is the design handoff for F67 OQ4 (the Appearance tab with one skin), mocked in Cinémathèque only.
 
 ### 2026-09-27 · session
 - skills: product-brainstorming, architecture

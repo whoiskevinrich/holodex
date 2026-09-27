@@ -10,6 +10,14 @@ operator setting and one config block, no new subsystem
 `/owner` selects one of the three shipped skins or an owner-defined **custom palette** declared in
 `holodex.yaml`. The selection persists **server-side** and ships to every viewer.
 
+> **Amended 2026-09-27 by [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (epic
+> [HOLODEX-476](https://whoiskevinrich.atlassian.net/browse/HOLODEX-476)).** Broadcast and
+> Brutalist are retired, so **Cinémathèque is the only shipped skin**. The selectable set is
+> `{cinematheque, custom}`. The settings store, `/capabilities.theme`, the paint cache and the
+> custom palette are unchanged. The new requirements are
+> [R17–R23](#amendment--one-shipped-skin-adr-115-holodex-476). Lines elsewhere that no longer hold
+> are marked *(amended, ADR-115)*; the rest of the document records how F67 shipped.
+
 **Epic**: [HOLODEX-425](https://whoiskevinrich.atlassian.net/browse/HOLODEX-425) ·
 stories [426](https://whoiskevinrich.atlassian.net/browse/HOLODEX-426) settings store + `/capabilities` ·
 [427](https://whoiskevinrich.atlassian.net/browse/HOLODEX-427) Appearance tab + picker removal ·
@@ -61,6 +69,8 @@ keeps "Cinémathèque, but with my accent" a fork-the-CSS job.
    HOLODEX-324 class of bug by hand.
 4. **Zero regression for the three shipped skins.** Cinémathèque stays the default; the
    three-skin QA rule and every `[data-theme]` flourish keep working unchanged.
+   *(Amended, ADR-115: zero regression for **Cinémathèque**, the only shipped skin. QA covers
+   Cinémathèque plus the custom palette.)*
 
 ## Non-Goals
 
@@ -80,7 +90,7 @@ keeps "Cinémathèque, but with my accent" a fork-the-CSS job.
   Inputs are hex colors only.
 - **A base other than Cinémathèque in v1** — Broadcast and Brutalist carry hand-tuned tokens and
   literal-color flourishes that may not survive derivation; widen only after the derivation gate
-  (R11) passes for them.
+  (R11) passes for them. *(Amended, ADR-115: permanent, since no other base exists.)*
 
 ## Resolved Decisions
 
@@ -99,6 +109,8 @@ not re-litigate them.
 | RD8 | **A `localStorage` *paint cache* is allowed; it is never authoritative.** | No `localStorage` at all. | Avoids a Cinémathèque flash on cold load of a non-default instance; the server value always overwrites it, so the preference model stays gone. |
 | RD9 | **`base` is `cinematheque` only in v1.** | Any of the three. | See Non-Goals; widen after R11 passes for another base. |
 | RD10 | **When the row is absent the instance skin is `cinematheque`.** | — | Unchanged default; zero-config instances look exactly as today. |
+| RD11 | **Cinémathèque is the only shipped skin; Broadcast and Brutalist are removed** (ADR-115, 2026-09-27). | Freeze them (selectable but unsupported), or change only the agent instructions. | Once the skin became instance identity, only one skin is ever visible, but the other two still tripled QA, kept three token mirrors and a `.skin-card` fence alive, and their geometry cells rotted unnoticed (HOLODEX-460). Colour variety stays through the custom palette. |
+| RD12 | **A stored retired id reads as `cinematheque`. No data migration.** | A migration that rewrites or deletes the row. | `settings` has no CHECK constraint, `themePayload` already falls back on unknown ids, and the next owner selection overwrites the row. It's the same posture as a stored `custom` whose config is gone (story 8). |
 
 ## User Stories
 
@@ -121,7 +133,10 @@ not re-litigate them.
 **Edge / error**
 7. As the owner, if `theme.custom` is malformed I want the block treated as absent (with a log
    line), so the Appearance tab simply shows three cards and the instance falls back to the stored
-   shipped skin.
+   shipped skin. *(Amended, ADR-115: the tab shows only the Cinémathèque card, and the instance is
+   Cinémathèque.)*
+9. *(Added, ADR-115.)* As the owner of an instance that was set to Broadcast or Brutalist, I want
+   it to come up in Cinémathèque after upgrading, with nothing broken and nothing for me to fix.
 8. As the owner, if the stored skin is `custom` and I later remove `theme.custom` from config, I
    want the instance to fall back to the base skin (Cinémathèque) and the tab to show the stored
    value as unavailable, so a config edit never leaves the site unstyled.
@@ -138,6 +153,7 @@ updated_at TEXT NOT NULL)`; repo exposes `GetSetting(key) (string, bool, error)`
 
 **R2 — Owner-gated skin setting.** `PUT /admin/theme` with body
 `{"theme": "cinematheque"|"broadcast"|"brutalist"|"custom"}` stores `theme.active`.
+*(Amended, ADR-115: the accepted values are `"cinematheque"|"custom"`; see R17.)*
 - [ ] Visitor → the `requireOwner` failure (401/403 as today); no write.
 - [ ] Unknown value → 400; `"custom"` when `theme.custom` is not configured → 400 with a message
       naming the missing config; no write in either case.
@@ -170,6 +186,8 @@ applying it. The active card is marked (`aria-pressed`/radio semantics per the d
 - [ ] Owner-only route (visitor is redirected/denied like the other `/owner` tabs).
 - [ ] Tokens only; the cards' per-skin rendering uses scoped `data-theme` on the card, never
       hardcoded values.
+
+*(Amended, ADR-115: the cards are Cinémathèque, plus Custom when one is configured; see R20.)*
 
 **R6 — Header picker removed.** The skin picker in `web/src/routes/+layout.svelte` is deleted; no
 viewer-facing skin control remains anywhere.
@@ -228,7 +246,8 @@ is still applied (RD7).
 
 **R13 — Three-skin QA rule widened.** `.claude/rules/frontend-theming.md` and
 `docs/design/theming.md` add "and the custom override, when one is configured" to the QA rule and
-document RD6 (inline primaries over the base) as the mechanism.
+document RD6 (inline primaries over the base) as the mechanism. *(Amended, ADR-115: the rule is
+now "QA Cinémathèque plus the custom palette". This landed with ADR-115's first push.)*
 
 **R14 — Configuration docs.** `docs/reference/configuration.md` gains an `## Appearance` section
 (the `theme.custom` block, restart-to-apply, the WARN behaviour, the Appearance tab as the
@@ -249,11 +268,76 @@ block** (story 8), instead of silently showing Cinémathèque as active.
 - **In-app palette editor** (L2) — the settings store (R1) and `/capabilities.theme.custom` shape
   are designed so an editor would *write* the same five primaries to a `theme.custom` setting row
   that overrides YAML; nothing in v1 should assume the palette is YAML-only.
-- **More bases** — R10/R11 are written per base; Broadcast/Brutalist become eligible when they
-  pass R11.
+- ~~**More bases** — R10/R11 are written per base; Broadcast/Brutalist become eligible when they
+  pass R11.~~ *(Withdrawn, ADR-115: the only base is Cinémathèque. A new skin needs a new ADR.)*
 - **PWA manifest `theme_color` / `background_color` from the active skin** (F51 cross-over).
 - **Other operator settings migrating to the `settings` table** (e.g. `card_layout`) — out of
   scope; the table is generic on purpose but v1 stores exactly one key.
+
+### Amendment — one shipped skin (ADR-115, HOLODEX-476)
+
+These are P0 for HOLODEX-476. They narrow R2, R5 and R9–R10 and leave R1, R3, R4, R6–R8 and
+R11–R12 as they stand.
+
+**R17 — The shipped set is `cinematheque`.** `shippedThemes` (`internal/api/theme.go`), `THEMES` /
+`THEME_LABELS` (`web/src/lib/theme.svelte.ts`) and `ShippedTheme` (`web/src/lib/types.ts`) each
+name exactly one id. `ThemeCustom.base` stays typed to it.
+- [ ] `PUT /admin/theme {"theme":"broadcast"}` and `{"theme":"brutalist"}` → 400, with no write,
+      exactly like any unknown id.
+- [ ] `PUT /admin/theme {"theme":"cinematheque"}` and `{"theme":"custom"}` (when configured)
+      behave as R2.
+
+**R18 — Retired ids degrade silently (RD12, story 9).**
+- [ ] With `settings['theme.active'] = 'broadcast'` (or `'brutalist'`), `/capabilities.theme.active`
+      is `"cinematheque"` and `custom` is as configured. The row is not rewritten by a read.
+- [ ] A paint cache (`holodex-theme-cache`) holding a retired id applies `data-theme="cinematheque"`
+      before `/capabilities` returns. It never applies a `data-theme` value that no CSS block
+      matches.
+- [ ] Neither case logs above `DEBUG`. It's an expected upgrade state, not an operator error.
+
+**R19 — The retired skins leave the bundle.**
+- [ ] `web/src/app.css` has no `broadcast` / `brutalist` selectors. That includes their token
+      blocks, the scanline and CRT atmosphere, the `.video-frame` and `.portrait-frame` scanline
+      washes, `.skin-title` uppercase and the `▮` caret, and the Brutalist `reel` counter (its
+      `counter-reset` / `counter-increment` too, even though they're unconditional).
+      `@keyframes reel-rise` stays, because it's the shared grid animation.
+- [ ] The VT323, Share Tech Mono and Spline Sans Mono imports and their `@fontsource` deps are
+      gone (`package.json` and the lockfile).
+- [ ] `rg -i 'broadcast|brutalist' web/src internal cmd` matches only tests asserting that R17
+      rejects the retired ids. `RelatedShelf`'s borrowing of `.video-grid` is either
+      re-justified (the `data-layout` sizing) or dropped, and its comment and
+      `video/CLAUDE.md:54` are updated in the same commit.
+- [ ] Cinémathèque renders unchanged: the tokens, fonts, grain, vignette and letterbox bars match
+      `main` in computed style.
+
+**R20 — The Appearance tab lists what can actually be selected.** It shows the Cinémathèque card,
+plus the custom card when `/capabilities.theme.custom` is non-null. The studio-halo toggle
+(HOLODEX-463) stays. The `.skin-card` selector fence in `app.css` goes, because no card renders a
+skin other than the page's. Simplify the Cinémathèque letterbox rules it doubled up.
+- [ ] With no custom palette configured the tab still renders, and still hosts the halo toggle.
+      What the lone skin section shows is Open Question 4.
+- [ ] Roving tabindex and radio semantics still hold with one or two cards.
+
+**R21 — The per-skin image parameter collapses (ADR-115 D4).** `skinPalettes`
+(`internal/personimage/placeholder.go`) becomes one Cinémathèque palette. The SPA stops appending
+`?skin=` (in `PersonImageFrame`, `PersonGallery`, `PersonGalleryModal`, `PersonImageViewer`,
+`CropEditor`, and the `api.ts` builders), and `cmd/holodex`'s `defaultSkin` merges into
+`api.ThemeDefault`.
+- [ ] A request that still carries `?skin=broadcast` returns 200 with the Cinémathèque placeholder.
+      Stale cached URLs keep working.
+- [ ] Placeholder bytes for Cinémathèque match `main`.
+
+**R22 — The geometry harness loses its skin axis.** `web/geometry` drops `SKINS`, the `--skin`
+flag, and the obsolete `localStorage 'holodex-theme'` write that caused HOLODEX-460. The matrix is
+one skin × the viewport widths. The report fixtures stop using retired skin names as cell labels.
+- [ ] A full harness run has zero errored cells. Close HOLODEX-460 as obsolete.
+
+**R23 — Operator-facing docs match.** `docs/reference/configuration.md` §Appearance says one
+skin plus an optional custom palette, including the malformed-block line ("boots with three
+skins"). `README.md` drops the three-skin screenshot table. `site/` drops the skin switcher, and the
+retired-skin screenshots in `site/screenshots/` and `docs/assets/screenshots/` are deleted.
+- [ ] The release note says an instance set to Broadcast or Brutalist becomes Cinémathèque on
+      upgrade, and that the custom palette is how to recolour it.
 
 ## Behavior detail
 
@@ -288,14 +372,16 @@ DROP TABLE settings;
 ```
 
 One key in v1: `theme.active`. Values are the four skin ids. No FK, no enum constraint in SQL —
-validation is at the handler (R2) so the set can grow without a migration.
+validation is at the handler (R2) so the set can grow without a migration. *(Amended, ADR-115:
+new writes are `cinematheque` or `custom`. A row that already holds a retired id is left as is
+and read as `cinematheque` (RD12), so the schema doesn't change.)*
 
 ## API
 
 | Method | Path | Gate | Body / response |
 |---|---|---|---|
 | `GET` | `/capabilities` | none | `…, "theme": { "active": "custom", "custom": { "name": "Rich Archive", "base": "cinematheque", "tokens": { "bg": "#0b0a0c", "ink": "#efe9e0", "accent": "#c0483f", "muted": "#9a9188", "warn": "#e2603f" } } }` — `custom` is `null` when not configured |
-| `PUT` | `/admin/theme` | owner | `{ "theme": "broadcast" }` → `200 { "theme": {…} }`; `400` unknown value / `custom` without config |
+| `PUT` | `/admin/theme` | owner | `{ "theme": "cinematheque" }` → `200 { "theme": {…} }`; `400` unknown or retired value (`broadcast`, `brutalist`) / `custom` without config *(amended, ADR-115)* |
 
 No `GET /admin/theme` — `/capabilities` already carries the value for everyone.
 
@@ -343,6 +429,11 @@ verification outcomes, not funnels.
    expressible purely in CSS (`oklch(from …)` with a step function) or needs the server to emit
    the two ink tokens alongside the five primaries. If the latter, `tokens` in `/capabilities`
    grows by two derived keys; the config surface does not change.
+4. **[design, blocking HOLODEX-476 frontend]** *(Added, ADR-115.)* With no custom palette
+   configured, what does the Appearance tab's skin section show? It could be a single,
+   already-selected Cinémathèque card, or a Cinémathèque preview plus a pointer to `theme.custom`
+   in `holodex.yaml`, or no skin section at all (only the halo toggle). And with a palette, is
+   it still a two-card radio, or a "use custom palette" switch? The design handoff decides.
 
 ## Timeline / routing
 
@@ -358,3 +449,9 @@ skin-as-identity, supersedes ADR-021 in part) · **design handoff** (S2) · **te
 (R1–R3 handler/repo tests, R11 computed-style gate, R12 contrast unit test, the QA matrix) ·
 **security review** (new owner-gated write; YAML → CSS custom-property surface is hex-only by
 construction — R9).
+
+**Amendment (HOLODEX-476, branch `HOLODEX-476-retire-extra-skins`).** R17, R18 and R21 are the
+backend. R19, R20 and R21's SPA half are the frontend, and R20 waits on the design handoff for
+Open Question 4. R22 is the testing-strategy gate, and it rewrites `docs/testing-strategy.md`
+§12's "three skins × widths" matrix. R23 goes in the same PR. The security review is expected to
+be n/a, because `PUT /admin/theme` only narrows and no perimeter changes.
