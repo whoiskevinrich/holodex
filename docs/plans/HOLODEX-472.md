@@ -76,6 +76,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 7. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
 8. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
 9. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
+10. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
