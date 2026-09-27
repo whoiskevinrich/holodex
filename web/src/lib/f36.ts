@@ -28,6 +28,13 @@ export function isReplaceField(field: ResolvedField): boolean {
 	return !field.multi;
 }
 
+// isTagSetRow: the genres row — the video's tag set, the one merge field the writeback dialog
+// writes (HOLODEX-401, ADR-111). It has no decision: the applied set IS the standing choice, and
+// its `in_sync` is the server's set comparison against the file's recorded tags.
+export function isTagSetRow(field: ResolvedField): boolean {
+	return !isReplaceField(field) && field.canonical === 'genres';
+}
+
 // decidedSource is the field's currently-pinned source. An absent decision is the implicit
 // baseline default (file-first, RD4), so an undecided field reports the baseline key.
 export function decidedSource(field: ResolvedField, baselineKey = 'file'): DecisionSource {
@@ -230,9 +237,10 @@ export function isWritable(field: ResolvedField): boolean {
 // pre-checked, because the button writes *decisions*. Also requires isWritable — a decided value
 // with no file-tag mapping for the container must never auto-check into a write that can only
 // silently drop it (HOLODEX-216); it still lists, just unchecked and disabled, like any other
-// unwritable row.
+// unwritable row. The tag set row (isTagSetRow) is the one merge field that counts: its
+// `in_sync` is a set comparison with the file (HOLODEX-401, ADR-111 D3).
 export function needsWriteback(field: ResolvedField): boolean {
-	return isReplaceField(field) && outOfSync(field) && isWritable(field);
+	return (isReplaceField(field) || isTagSetRow(field)) && outOfSync(field) && isWritable(field);
 }
 
 // outOfSyncCount is the aggregate the header surfaces as "Write decisions to file · {n} out of

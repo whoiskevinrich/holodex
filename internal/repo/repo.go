@@ -174,6 +174,9 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	if err := replaceAssociations(ctx, tx, id, v.Tags, extra); err != nil {
 		return 0, err
 	}
+	if err := recordFileTags(ctx, tx, id, v.Tags); err != nil {
+		return 0, err
+	}
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit upsert: %w", err)
 	}

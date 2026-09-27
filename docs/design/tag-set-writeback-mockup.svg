@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 640" width="760" height="640" font-family="Inter, system-ui, sans-serif">
+  <title>Tag set writeback (HOLODEX-401) — dialog Tags row states and owner on-file chip glyphs (2B)</title>
+  <!-- Cinémathèque skin tokens: bg #0c0a09 · surface #15110e · surface-2 #181310 · ink #f3ece1 ·
+       muted #9b9082 · rule #2a2622 · accent #e8a33d · warn #e2603f. Type at real sizes:
+       chip text-sm 14px, label text-xs 12px, suffix 0.65rem ≈ 10.4px. -->
+  <rect width="760" height="640" fill="#0c0a09"/>
+
+  <text x="24" y="32" fill="#9b9082" font-size="12">1 · Writeback dialog — Tags row, file lags (in_sync: false) → written on open</text>
+  <rect x="16" y="44" width="728" height="132" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <!-- gutter: arrow into bar (will be written) -->
+  <g stroke="#e8a33d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(32,62) scale(0.667)">
+    <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/>
+  </g>
+  <text x="60" y="72" fill="#9b9082" font-size="12" font-weight="500">Tags</text>
+  <text x="92" y="72" fill="#9b9082" font-size="10.4">·tag</text>
+  <text x="116" y="72" fill="#9b9082" font-size="10.4">→ QuickTime:Genre</text>
+  <!-- on file chips -->
+  <rect x="60" y="84" width="112" height="28" rx="14" fill="#181310" stroke="#2a2622"/>
+  <text x="74" y="103" fill="#f3ece1" font-size="14">drama</text>
+  <text x="120" y="103" fill="#9b9082" font-size="10.4">on file</text>
+  <rect x="180" y="84" width="104" height="28" rx="14" fill="#181310" stroke="#2a2622"/>
+  <text x="194" y="103" fill="#f3ece1" font-size="14">heist</text>
+  <text x="232" y="103" fill="#9b9082" font-size="10.4">on file</text>
+  <!-- will add -->
+  <rect x="292" y="84" width="122" height="28" rx="14" fill="#181310" stroke="#e8a33d" stroke-dasharray="4 3"/>
+  <text x="306" y="103" fill="#f3ece1" font-size="14">crime</text>
+  <text x="352" y="103" fill="#e8a33d" font-size="10.4">+ will add</text>
+  <!-- will drop -->
+  <rect x="422" y="84" width="118" height="28" rx="14" fill="none" stroke="#e2603f" stroke-dasharray="4 3"/>
+  <text x="436" y="103" fill="#9b9082" font-size="14" text-decoration="line-through">Noir</text>
+  <line x1="436" y1="98" x2="466" y2="98" stroke="#9b9082"/>
+  <text x="474" y="103" fill="#e2603f" font-size="10.4">− will drop</text>
+  <text x="60" y="136" fill="#9b9082" font-size="12">Writes the 3 applied tags. <tspan fill="#f3ece1">Noir</tspan> is on the file but won't be written.</text>
+  <text x="60" y="160" fill="#9b9082" font-size="10.4">Order: on file · will add · will drop. No checkbox, no per-chip control — Cancel is the opt-out.</text>
+
+  <text x="24" y="206" fill="#9b9082" font-size="12">2 · Tags row, after the write (in_sync: true)</text>
+  <rect x="16" y="218" width="728" height="56" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <g stroke="#9b9082" stroke-width="2" fill="none" stroke-linecap="round" transform="translate(32,236) scale(0.667)">
+    <path d="M6 9h12M6 15h12"/>
+  </g>
+  <text x="60" y="244" fill="#9b9082" font-size="12" font-weight="500">Tags</text>
+  <text x="92" y="244" fill="#9b9082" font-size="10.4">·tag  → QuickTime:Genre</text>
+  <text x="60" y="264" fill="#f3ece1" font-size="12">drama, heist, crime <tspan fill="#9b9082">— matches the file</tspan></text>
+
+  <text x="24" y="304" fill="#9b9082" font-size="12">3 · Tags row, file tags never recorded (in_sync omitted) → written on open</text>
+  <rect x="16" y="316" width="728" height="84" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <g stroke="#e8a33d" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(32,334) scale(0.667)">
+    <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/>
+  </g>
+  <text x="60" y="344" fill="#9b9082" font-size="12" font-weight="500">Tags</text>
+  <text x="92" y="344" fill="#9b9082" font-size="10.4">·tag  → QuickTime:Genre</text>
+  <rect x="60" y="354" width="64" height="28" rx="14" fill="#181310" stroke="#2a2622"/>
+  <text x="74" y="373" fill="#f3ece1" font-size="14">drama</text>
+  <rect x="132" y="354" width="58" height="28" rx="14" fill="#181310" stroke="#2a2622"/>
+  <text x="146" y="373" fill="#f3ece1" font-size="14">heist</text>
+  <text x="200" y="373" fill="#9b9082" font-size="12">Not read from this file yet — writes the 2 applied tags.</text>
+
+  <text x="24" y="432" fill="#9b9082" font-size="12">4 · Media page, owner view — Tags section, one glyph per chip (2B); replaces the ·source suffix</text>
+  <rect x="16" y="444" width="728" height="84" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <!-- file-check -->
+  <rect x="32" y="462" width="96" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+  <g stroke="#9b9082" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(42,469)">
+    <path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M5.5 10l2 2 3-4"/>
+  </g>
+  <text x="62" y="482" fill="#f3ece1" font-size="14">drama</text><text x="108" y="482" fill="#9b9082" font-size="14">×</text>
+  <rect x="136" y="462" width="90" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+  <g stroke="#9b9082" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(146,469)">
+    <path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M5.5 10l2 2 3-4"/>
+  </g>
+  <text x="166" y="482" fill="#f3ece1" font-size="14">heist</text><text x="206" y="482" fill="#9b9082" font-size="14">×</text>
+  <!-- file-plus -->
+  <rect x="234" y="462" width="94" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+  <g stroke="#e8a33d" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(244,469)">
+    <path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M8 7.5v5M5.5 10h5"/>
+  </g>
+  <text x="264" y="482" fill="#f3ece1" font-size="14">crime</text><text x="308" y="482" fill="#9b9082" font-size="14">×</text>
+  <!-- file-minus -->
+  <rect x="336" y="462" width="84" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+  <g stroke="#e2603f" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(346,469)">
+    <path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M5.5 10h5"/>
+  </g>
+  <text x="366" y="482" fill="#f3ece1" font-size="14">noir</text><text x="400" y="482" fill="#9b9082" font-size="14">×</text>
+  <!-- file-off -->
+  <rect x="428" y="462" width="104" height="30" rx="15" fill="#181310" stroke="#2a2622"/>
+  <g stroke="#9b9082" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round" transform="translate(438,469)">
+    <path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z"/><path d="M1 1l14 14"/>
+  </g>
+  <text x="458" y="482" fill="#f3ece1" font-size="14">favorite</text><text x="512" y="482" fill="#9b9082" font-size="14">×</text>
+  <text x="32" y="514" fill="#9b9082" font-size="10.4">on file · on file · not on file yet (accent) · on file, will be removed (warn) · Holodex only (muted). No glyph while the file is unread.</text>
+
+  <text x="24" y="560" fill="#9b9082" font-size="12">5 · Visitor view — unchanged plain link chips, no glyph</text>
+  <rect x="16" y="572" width="728" height="52" rx="6" fill="#15110e" stroke="#2a2622"/>
+  <rect x="32" y="584" width="64" height="28" rx="14" fill="#181310" stroke="#2a2622"/><text x="46" y="603" fill="#f3ece1" font-size="14">drama</text>
+  <rect x="104" y="584" width="58" height="28" rx="14" fill="#181310" stroke="#2a2622"/><text x="118" y="603" fill="#f3ece1" font-size="14">heist</text>
+  <rect x="170" y="584" width="62" height="28" rx="14" fill="#181310" stroke="#2a2622"/><text x="184" y="603" fill="#f3ece1" font-size="14">crime</text>
+</svg>
