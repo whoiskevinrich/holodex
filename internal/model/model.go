@@ -257,6 +257,11 @@ type Tag struct {
 	// Affects only that one output, never creation/search/attachment.
 	// Populated on the tag-detail read (GetTag).
 	WritebackEnabled bool `json:"writeback_enabled"`
+	// Written / OnFile are this tag's membership in the video's genres write set and
+	// in the file's recorded tag set (HOLODEX-401, ADR-111 D4). Populated only on the
+	// media detail's video.tags; OnFile stays nil while the file's tags are unknown.
+	Written *bool `json:"written,omitempty"`
+	OnFile  *bool `json:"on_file,omitempty"`
 }
 
 // Category groups tags for browsing without merging or altering them

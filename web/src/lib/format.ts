@@ -129,8 +129,11 @@ export function providerFromWinningSource(winningSource?: string): string {
 	const ns = (winningSource ?? '').split(':')[0];
 	// `computed` (F45, ADR-063) is a derived-field provenance namespace, not a provider:
 	// guard it here too so a "computed:age" winner can never resolve to a phantom "computed"
-	// provider bubble anywhere it slips past the caller's own f.computed branch.
-	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' ? '' : ns;
+	// provider bubble anywhere it slips past the caller's own f.computed branch. `tag` is the
+	// genres write-set row's namespace (tag:genres, HOLODEX-401) — the video's own tags.
+	return ns === 'record' || ns === 'file' || ns === 'manual' || ns === 'computed' || ns === 'tag'
+		? ''
+		: ns;
 }
 
 // calculatedFrom builds the transitive provenance phrase for a computed field (F45,

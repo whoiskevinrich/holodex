@@ -7,11 +7,12 @@
 import {
 	fileCandidateValue,
 	isReplaceField,
+	isTagSetRow,
 	isWritable,
 	resolveSelection,
 	type SourceChip
 } from './f36';
-import type { ResolvedField } from './types';
+import type { ResolvedField, ResolvedValue } from './types';
 
 // StagedPick is a row's local, uncommitted selection: the chip key plus the Custom literal
 // (only meaningful when key === 'custom').
@@ -22,7 +23,8 @@ export interface StagedPick {
 
 // isCockpitRow is true for the rows that get a chooser: every replace field — text (chip
 // row / stacked rows) and image_url (image tiles, HOLODEX-403 / ADR-101 D3). Merge rows
-// never carry a decision (RD1) and stay read-only (HOLODEX-401).
+// never carry a decision (RD1) and get no chooser; the tag set row among them still writes
+// (isTagSetRow, HOLODEX-401 — its applied set is curated on the page, not here).
 export function isCockpitRow(field: ResolvedField): boolean {
 	return isReplaceField(field);
 }
@@ -68,6 +70,9 @@ export type RowClass = 'write' | 'matches' | 'unwritable';
 // can never read as matching — there is no file value to match.
 export function rowClass(field: ResolvedField, value: string): RowClass {
 	if (!isWritable(field)) return 'unwritable';
+	// The tag set row has no per-value candidates; the server's set comparison is the verdict,
+	// and an unknown one (file tags never recorded) writes, like any unverifiable decision.
+	if (isTagSetRow(field)) return field.in_sync === true ? 'matches' : 'write';
 	if (field.candidates !== undefined && value.trim() === fileCandidateValue(field).trim()) {
 		return 'matches';
 	}
@@ -125,14 +130,17 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 // standing before the dialog opened, or `touched` (the owner picked a chip in this dialog;
 // picking IS the confirm). An undecided row the owner never touched is never written and never
 // decided, so opening the dialog and pressing Write can only ever sync decisions the owner
-// actually made. A non-cockpit row (image_url, merge) has no decision to make — no chooser yet
-// (HOLODEX-403 / HOLODEX-401) and, for merge fields, no decision model at all (RD1) — so it is
-// never written from the dialog. There is no checkbox anywhere: deciding is the check action.
+// actually made. A merge row has no decision model at all (RD1) and is never written from the
+// dialog — except the tag set row, whose applied set is its standing decision (HOLODEX-401).
+// There is no checkbox anywhere: deciding is the check action.
 export function willWrite(
 	field: ResolvedField,
 	value: string,
 	opts: { staged: StagedPick; touched: boolean }
 ): boolean {
+	// The tag set row (HOLODEX-401): the applied set is the standing decision, so it writes
+	// whenever the file lags or is unread — no pick, no checkbox; Cancel is the opt-out.
+	if (isTagSetRow(field)) return rowClass(field, value) === 'write';
 	if (!isCockpitRow(field)) return false;
 	if (rowClass(field, value) !== 'write') return false;
 	if (isBlankCustom(opts.staged)) return false;
@@ -159,4 +167,27 @@ export function savesDecisionOnly(
 	if (!isCockpitRow(field) || !opts.touched || isBlankCustom(opts.staged)) return false;
 	if (willWrite(field, value, opts)) return false;
 	return needsDecision(field, chips, opts.staged);
+}
+
+// TagSetDiff is the tag set row's chip model (HOLODEX-401, handoff §1): the write set split by
+// the server's per-item `on_file`, plus the file-only tags a write drops. `known` is false while
+// the file's tags were never recorded — then every applied tag is listed plainly in `applied`.
+export interface TagSetDiff {
+	known: boolean;
+	applied: string[];
+	onFile: string[];
+	willAdd: string[];
+	willDrop: string[];
+}
+
+export function tagSetDiff(field: ResolvedField): TagSetDiff {
+	const items: ResolvedValue[] = field.items ?? field.values.map((value) => ({ value, sources: [] }));
+	const known = field.in_sync !== undefined;
+	return {
+		known,
+		applied: items.map((i) => i.value),
+		onFile: known ? items.filter((i) => i.on_file === true).map((i) => i.value) : [],
+		willAdd: known ? items.filter((i) => i.on_file !== true).map((i) => i.value) : [],
+		willDrop: known ? (field.file_only ?? []) : []
+	};
 }

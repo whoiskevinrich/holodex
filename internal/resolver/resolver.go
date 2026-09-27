@@ -40,6 +40,9 @@ type ResolvedValue struct {
 	Sources []string `json:"sources"`            // contributing namespaces, e.g. ["tmdb","file"]
 	Manual  bool     `json:"manual,omitempty"`   // owner-added value
 	NoWrite bool     `json:"no_write,omitempty"` // shown but excluded from file write
+	// OnFile is set on the genres write-set row only (HOLODEX-401, ADR-111 D3):
+	// whether this value is in the file's recorded tag set; nil when that is unknown.
+	OnFile *bool `json:"on_file,omitempty"`
 }
 
 // ResolvedField is one canonical field resolved for one video. Values holds the
@@ -105,6 +108,12 @@ type ResolvedField struct {
 	// resolver has no container (ADR-052 keeps it entity-agnostic), so this is
 	// never resolver-set — like Promoted, the API layer stamps it after resolve.
 	WriteTarget string `json:"write_target,omitempty"`
+
+	// FileOnly lists the file's recorded tags a genres write would drop — on the
+	// file, not in the write set — in file spelling (HOLODEX-401, ADR-111 D3). Set
+	// on the genres row only, never by the resolver; the API stamps it alongside a
+	// set-valued InSync.
+	FileOnly []string `json:"file_only,omitempty"`
 }
 
 // FieldDecision is the per-field source-of-truth marker on a replace field (F36,
