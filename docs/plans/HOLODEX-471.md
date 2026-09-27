@@ -15,7 +15,7 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 approved:
   design:
     on: 2026-09-27
-    at: ffb4ba25
+    at: 0fa47d93                # re-confirmed after the post-QA handoff wording fix
 release_note: Owners can add an Overview to a video that has none, from the page or from Write metadata to file.
 ---
 
@@ -41,7 +41,7 @@ empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-tru
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] Re-confirm the design sign-off: handoff behaviour 4 was corrected after QA (the empty writeback row sits in the `=` tier, not ○) — `docs/design/overview-add-handoff.md`
+1. [ ] [—] Squash-merge #402 on Kevin's ping with a Conventional `--subject`; CI moves HOLODEX-471 to Done
 
 ## Session log — newest first
 
@@ -51,6 +51,6 @@ empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-tru
 - Backend: `ResolveFields` keeps an empty replace field when `opts.Offer` names it; `getMedia` sets `Offer = registry.OffersWhenEmpty` for the owner only. `ResolveForContainer` skips valueless fields, so `markWriteTargets` asks where an offered row's value would land (ADR-113 D1 amended). code-review high found that this also stamped blank-pinned rows; fixed and mutation-tested.
 - Frontend: the **+ Add overview** pill (the "+ Set part" idiom) and `startsOnCustom` in f36.ts (vitest). `SourceEditModal` focuses the Custom textarea after ConfirmDialog's initial focus. Live QA on backend-amv: the pill, Custom checked and focused, the empty-save validation line, and a save that replaces the pill with the text. In the writeback row, picking Custom gives "Will be written → QuickTime:Comment / Write 1 field to file". Pill tokens were checked in all three skins. code-review high: 4 findings, no code change.
 - Testing strategy §19 (risks, tests, live QA, standing gaps); the owner-gate mutations were run both ways. Security review: no findings.
-- handoff: Every gate is settled on Draft PR #402. The one hold is Kevin's re-confirm of the design sign-off (handoff behaviour 4 wording, corrected after QA), then the PR can be marked ready.
+- handoff: Every gate is settled and Kevin re-confirmed the design sign-off at 0fa47d93. PR #402 is marked ready. Next: squash-merge on Kevin's ping.
 
 ## Dropped — newest first (the reason is the point)
