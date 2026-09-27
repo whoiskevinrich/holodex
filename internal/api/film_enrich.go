@@ -28,6 +28,7 @@ func (h *Handlers) filmEnrichResolve(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Provider string `json:"provider"`
 		Query    string `json:"query"`
+		Retry    bool   `json:"retry"` // HOLODEX-467: search past a dismissal
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -36,12 +37,16 @@ func (h *Handlers) filmEnrichResolve(w http.ResponseWriter, r *http.Request) {
 		h.filmLookupError(w, err)
 		return
 	}
-	if !h.enrichDismissedCheck(w, r, model.EnrichEntityFilm, id, body.Provider) {
+	dismissed, ok := h.enrichDismissedCheck(w, r, model.EnrichEntityFilm, id, body.Provider, body.Retry)
+	if !ok {
 		return
 	}
 	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityFilm, enrich.Hint{Query: body.Query})
 	if err != nil {
 		h.providerError(w, "film enrich resolve failed", body.Provider, err, "provider lookup failed")
+		return
+	}
+	if !h.clearDismissalOnMatch(w, r, model.EnrichEntityFilm, id, body.Provider, dismissed, len(res.Candidates)) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"candidates": res.Candidates})

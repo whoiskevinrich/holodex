@@ -219,6 +219,20 @@ volume of unambiguous confirmations, not the occasional real judgment call.
   - Given the owner dismisses all candidates for `(person:42, tmdb)`, When the queue reloads,
     Then that provider chip reads "not matched," is excluded from "needs review" counts, and
     reopening `EnrichPicker` for it does **not** re-run `/resolve` until "Try again" is clicked.
+  - **Amended 2026-09-27 (HOLODEX-467).** The detail pages never got their "Try again": a
+    reopened picker printed the raw 409 and every search 409'd. `EnrichPicker` itself now owns
+    the detail-page half. On a 409 from `/resolve` it shows a dismissed notice ("You marked
+    {provider} as "None of these match" for this {kind}.") with a **Search {provider} again**
+    button; while dismissed, typing does not search, and Enter in the box is the button. The
+    button resolves with `retry: true`, which never auto-applies (RD1 is off for it) and
+    **clears the dismissal only when the search returns candidates** — a zero-result retry says
+    "the dismissal stands" and leaves the verdict, because "None of these match" is only offered
+    over a non-empty list and a cleared verdict could not be restored.
+    Handoff: [enrich-picker-undismiss-handoff.md](../design/enrich-picker-undismiss-handoff.md).
+  - Given `(video:7, tmdb)` is dismissed, When the owner reopens its picker, Then the dismissed
+    notice shows and no further `/resolve` fires until "Search tmdb again" or Enter; When that
+    retry returns zero candidates, Then the dismissal stands; When it returns candidates, Then
+    the list shows (not auto-applied) and the dismissal is gone.
 - **P0-5 — Refresh bypass (RD7).** `EnrichProviderChips`'s primary action becomes **Refresh**
   once a provider is linked, calling `apply()` directly with the stored `external_id`; "Re-match"
   and "Clear" move to the ⋯ overflow.
@@ -291,6 +305,10 @@ POST   /people|studios|media/{id}/enrich/refresh-all               → 200 {resu
 
 Existing `enrich/resolve` and `enrich` (apply) are unchanged; `/resolve`'s response gains the
 optional `profile_url` field on each candidate (P1-1).
+
+**`retry` on `/resolve` (HOLODEX-467).** The request body takes an optional `retry: true` on all
+four kinds (people, studios, media, films). A dismissed pair answers `409` without it; with it the
+search runs, and the dismissal is deleted only when the response carries at least one candidate.
 
 **`written_back` (HOLODEX-370).** Dismiss, and `DELETE /media/{id}/enrich/{provider}` (clear, now
 `200 {written_back}` for media only), report whether any `file_writebacks` audit row on the video

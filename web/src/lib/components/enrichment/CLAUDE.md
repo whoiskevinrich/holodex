@@ -26,6 +26,15 @@ HOLODEX-386). Same rule as `entity/CLAUDE.md` "Frame follows source aspect"; rec
 because the picker is where it was decided the second time. Handoff:
 `docs/design/candidates-image-handoff.md`.
 
+### A dismissed provider is a picker state, and a retry clears it only on a match
+
+`/resolve` 409 = the RD4 "None of these match" dismissal. `EnrichPicker` renders it as a notice
+with **Search {provider} again**, never as an error line; while dismissed, typing doesn't search.
+The retry sends `retry: true`, never auto-applies, and the server clears the dismissal **only when
+candidates come back** — a verdict cleared by an empty search could not be re-recorded, since
+"None of these match" needs a list. Don't "simplify" this into a client-side undismiss-then-search.
+Handoff: `docs/design/enrich-picker-undismiss-handoff.md` (HOLODEX-467).
+
 ### The candidate slot's box is kind-shaped, always 60 px tall, never `aspect-*`
 
 `EnrichPicker` takes a required `entityType` and draws the slot from

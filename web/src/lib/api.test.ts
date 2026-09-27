@@ -312,6 +312,24 @@ describe('film enrichment clients (F59)', () => {
 		);
 	});
 
+	it('enrich*Resolve sends retry only when set (HOLODEX-467)', async () => {
+		let fetchMock = stub(200, { candidates: [] });
+		await api.enrichVideoResolve(7, 'tmdb', 'clip');
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/media/7/enrich/resolve',
+			expect.objectContaining({ body: JSON.stringify({ provider: 'tmdb', query: 'clip' }) })
+		);
+
+		fetchMock = stub(200, { candidates: [] });
+		await api.enrichFilmResolve(12, 'tmdb', 'clip', true);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/12/enrich/resolve',
+			expect.objectContaining({
+				body: JSON.stringify({ provider: 'tmdb', query: 'clip', retry: true })
+			})
+		);
+	});
+
 	it('enrichDismiss/enrichRefresh route films through the generic kind dispatch', async () => {
 		let fetchMock = stub(204);
 		await api.enrichDismiss('film', 12, 'tmdb');
