@@ -105,7 +105,6 @@ type Handlers struct {
 	personImageDir      string
 	personImageMaxBytes int64
 	personImageMaxDim   int
-	defaultSkin         string
 
 	// Studio images (F51, ADR-079; generalizes HOLODEX-130/ADR-057's single logo cache
 	// to icon/logo/poster). studioImageDir is the on-disk root; the bounds guard
@@ -139,9 +138,6 @@ type Handlers struct {
 	// cardLayout is the operator's preferred card aspect ratio ("wide" or "poster"),
 	// surfaced via /capabilities so all visitors see a consistent grid presentation.
 	cardLayout string
-	// customTheme is the owner's configured palette (F67 S3); nil until config wires it.
-	// Read by themePayload for /capabilities and PUT /admin/theme.
-	customTheme *ThemeCustom
 
 	// filmsEnabled gates the Films entity (F56, ADR-085); default false. Surfaced
 	// via /capabilities so the SPA knows whether to render films routes/nav at all.
@@ -225,14 +221,12 @@ func (h *Handlers) SetExtraction(orch *extract.Orchestrator, batch *extract.Batc
 func (h *Handlers) SetSweep(s *enrich.SweepRunner) { h.sweep = s }
 
 // SetPersonImages wires per-person image storage (F25, ADR-038): the on-disk root,
-// the upload bounds, and the default skin used when a placeholder is served without
-// a ?skin= query. An empty dir leaves the public serving endpoint working (it falls
-// back to placeholders) but uploads fail closed. Called once at startup.
-func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int, defaultSkin string) {
+// and the upload bounds. An empty dir leaves the public serving endpoint working (it
+// falls back to placeholders) but uploads fail closed. Called once at startup.
+func (h *Handlers) SetPersonImages(dir string, maxBytes int64, maxDim int) {
 	h.personImageDir = dir
 	h.personImageMaxBytes = maxBytes
 	h.personImageMaxDim = maxDim
-	h.defaultSkin = defaultSkin
 }
 
 // SetStudioImages wires studio image storage (F51, ADR-079): the on-disk root, the
@@ -417,7 +411,6 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/admin/activity/failures/dismiss", h.adminDismissJobFailures)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
-		r.Put("/admin/theme", h.adminSetTheme)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
 		r.Post("/admin/extract-all", h.adminExtractAll)
 		// Entity refresh sweep — one background pass per kind (F67, ADR-103 D8).

@@ -22,26 +22,26 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 - [x] spec `write-spec` → `docs/specs/**` — F67 `instance-skin.md` amended to retire itself: RD11–RD12, story 9, R17–R23; OQ4 withdrawn; superseded lines marked *(amended, ADR-115)*
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102 D1/D3–D6)
 - [~] design `design-handoff` → `docs/design/**` — skipped: the epic deletes `/owner/appearance` and adds no UI, so there's nothing to mock up. R20's acceptance covers the tab bar with one tab fewer. Kevin chose this scope on 2026-09-27 — until: any removal leaves a visible gap that needs a new layout
-- [ ] backend → `{cmd,internal,providers}/**` — R17, R18, R21: delete `internal/theme`, `theme.go` and its route, `/capabilities.theme` and `ThemeCustom`; collapse `skinPalettes`/`?skin=`; tests
+- [x] backend → `{cmd,internal,providers}/**` — R17/R18/R21: `internal/theme` and `internal/api/theme.go` deleted (route, `/capabilities.theme`, config block gone); one Cinémathèque placeholder palette, `?skin=` ignored, `defaultSkin` dropped; tests for the removed route, a stale `?skin=` URL and a leftover `theme.custom` block
 - [ ] frontend → `web/src/**` — R19–R21: `app.css` down to `:root` Cinémathèque, drop fonts and deps, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites, update component CLAUDE.md lines
 - [ ] testing `testing-strategy` — R22: rewrite §12's geometry matrix, retire the F67 rows (R11/R12), drop `web/geometry` `SKINS` (closes HOLODEX-460)
 - [ ] security `security-review` — expected n/a (an owner-gated write is removed; nothing is added)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] R17/R18/R21: delete `internal/theme`, `internal/api/theme.go` and its route, and `ThemeCustom`; collapse `skinPalettes`/`?skin=` — `internal/`, `cmd/holodex`
-2. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
-3. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
-4. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
-5. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
+1. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
+2. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
+3. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
+4. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
 
 ### 2026-09-28 · session
-- skills: handoff, implement
+- skills: handoff, implement, code-review
 - Merged `origin/main` (#403, list toolbar) in at `5706c31b`. The only conflict was the ADR index, where both rows were kept in order (114, 115). Settled the design gate as `[~]`, because the epic deletes a tab and adds no UI. Rewrote Up next as the build queue and authored the release note.
 - Crossed into build. The design phase is settled, and there was no sign-off to ask for because design is `[~]`. The branch was already current with `origin/main`. Opened Draft PR #404, removed `fp:ready-to-build`, and moved the epic to In Progress by hand, since jira-sync skips epics. Before merge, decide whether the squash subject should be `feat(theming)!:` (breaking: `theme.custom` is removed) or plain `feat`.
-- handoff: Crossed into build with no sign-off needed (design skipped); draft PR #404 open. Start at backend R17/R18/R21 — delete `internal/theme` and `internal/api/theme.go`, and collapse `skinPalettes`/`?skin=`.
+- Backend landed (R17/R18/R21): `internal/theme`, `internal/api/theme.go`, the `/admin/theme` route, `/capabilities.theme` and the `theme:` config block are deleted. The placeholder uses one Cinémathèque palette and ignores `?skin=`. New tests cover the removed route, the stale `?skin=` URL and a leftover `theme.custom` block. `go test ./...` is green. `/code-review high --fix` folded `authServerH` away. Until the frontend commit, the Appearance tab's PUT gets a 404; the SPA bootstrap is safe because it reads `caps?.theme`.
+- handoff: Backend is done and green; start frontend R19–R21 — move the Cinémathèque tokens to `:root`, delete `theme.svelte.ts` and `/owner/appearance`, and drop the `?skin=` call sites and `api.setTheme`.
 
 ### 2026-09-27 · session (palette too)
 - skills: product-brainstorming, architecture, write-spec

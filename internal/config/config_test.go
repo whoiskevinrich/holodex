@@ -74,6 +74,24 @@ func TestLoadPrecedence(t *testing.T) {
 	}
 }
 
+// A holodex.yaml written before ADR-115 still carries the retired `theme.custom`
+// block (spec F67 R18). It must load cleanly — the key is simply unknown now — and
+// the keys around it must still apply. Guards against strict decoding being added.
+func TestLoadIgnoresRetiredThemeBlock(t *testing.T) {
+	yamlPath := filepath.Join(t.TempDir(), "holodex.yaml")
+	body := "port: 9000\ntheme:\n  custom:\n    name: Old\n    base: cinematheque\n    bg: \"#0b0a0c\"\n    ink: \"#efe9e0\"\n    accent: \"#c0483f\"\n    muted: \"#9a9188\"\n    warn: \"#e2603f\"\nscan_workers: 8\n"
+	if err := os.WriteFile(yamlPath, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(yamlPath)
+	if err != nil {
+		t.Fatalf("retired theme block must not fail the load: %v", err)
+	}
+	if cfg.Port != 9000 || cfg.ScanWorkers != 8 {
+		t.Errorf("keys around the retired block not applied: port=%d scan_workers=%d", cfg.Port, cfg.ScanWorkers)
+	}
+}
+
 func TestApplyOverridesPrecedence(t *testing.T) {
 	// Env sets PORT; a CLI override must win (CLI > env, F9.5).
 	t.Setenv("PORT", "7000")

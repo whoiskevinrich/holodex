@@ -55,42 +55,26 @@ func shoulderWidth(bucket string) float64 {
 	}
 }
 
-// skinPalette is the concrete subset of an ADR-021 skin's tokens the placeholder
-// needs. Colors are resolved SERVER-SIDE (not CSS `var(--…)`) because the SVG is
-// served standalone via <img src> — an isolated document that does NOT inherit the
-// page's [data-theme] variables, so a bare var() would render as un-themed black.
-// The `?skin=` query param the handler passes drives the lookup. Keep these in sync
-// with the SKIN TOKENS block in web/src/app.css.
-type skinPalette struct {
+// palette is the concrete subset of the Cinémathèque tokens the placeholder needs.
+// Colors are resolved SERVER-SIDE (not CSS `var(--…)`) because the SVG is served
+// standalone via <img src> — an isolated document that does NOT inherit the page's
+// token variables, so a bare var() would render as un-themed black. Keep these in
+// sync with the token block in web/src/app.css (ADR-115: one look).
+var palette = struct {
 	surface2 string // --surface-2: silhouette field
 	muted    string // --muted: the head/torso fill
 	accent   string // --accent: baseline flourish
 	rule     string // --rule: frame border
-}
-
-var skinPalettes = map[string]skinPalette{
-	"cinematheque": {surface2: "#181310", muted: "#9b9082", accent: "#e8a33d", rule: "#2a2622"},
-	"broadcast":    {surface2: "#0a0e1f", muted: "#6f7da6", accent: "#36e0d0", rule: "#1a2240"},
-	"brutalist":    {surface2: "#111111", muted: "#8a8a8a", accent: "#d6ff3f", rule: "#333333"},
-}
-
-// paletteFor resolves a skin name to its palette, defaulting to Cinémathèque (the
-// app default, ADR-021) for an empty or unknown skin.
-func paletteFor(skin string) skinPalette {
-	if p, ok := skinPalettes[strings.ToLower(strings.TrimSpace(skin))]; ok {
-		return p
-	}
-	return skinPalettes["cinematheque"]
-}
+}{surface2: "#181310", muted: "#9b9082", accent: "#e8a33d", rule: "#2a2622"}
 
 // Placeholder builds a deterministic, themed SVG silhouette for an empty role
-// (ADR-038 F25). It is pure (same inputs → identical bytes) and resolves concrete
-// per-skin colors from `skin` (see skinPalette) so the empty state is correctly
-// themed even though the SVG is served standalone via <img>. The silhouette is
-// role-shaped: a centered head+torso scaled to the role's aspect box, with a subtle
-// accent baseline so it reads as "person, no photo yet".
-func Placeholder(skin, role, genderBucket string) []byte {
-	pal := paletteFor(skin)
+// (ADR-038 F25). It is pure (same inputs → identical bytes) and uses the concrete
+// Cinémathèque colors (see palette) so the empty state is correctly themed even
+// though the SVG is served standalone via <img>. The silhouette is role-shaped: a
+// centered head+torso scaled to the role's aspect box, with a subtle accent
+// baseline so it reads as "person, no photo yet".
+func Placeholder(role, genderBucket string) []byte {
+	pal := palette
 	w, h := placeholderDims(role)
 	bucket := GenderBucket(genderBucket)
 

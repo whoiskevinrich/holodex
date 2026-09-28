@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -18,17 +19,7 @@ import (
 
 // authServer builds a server whose admin surface is gated by token (empty = open)
 // and bound as exposed/loopback, exercising the F21.7 gate (ADR-030).
-// authServer is authServerH without the Handlers, for the many tests that never
-// need to wire anything after construction.
 func authServer(t *testing.T, token string, exposed bool) (*httptest.Server, *repo.Repo) {
-	t.Helper()
-	srv, r, _ := authServerH(t, token, exposed)
-	return srv, r
-}
-
-// authServerH builds a gated test server on a temp DB and returns the Handlers too,
-// so a test can wire optional collaborators (e.g. SetCustomTheme) the way main.go does.
-func authServerH(t *testing.T, token string, exposed bool) (*httptest.Server, *repo.Repo, *api.Handlers) {
 	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
@@ -45,7 +36,7 @@ func authServerH(t *testing.T, token string, exposed bool) (*httptest.Server, *r
 
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
-	return srv, r, h
+	return srv, r
 }
 
 // getTok issues GET url with an optional owner token, returning status + decoded body.
@@ -128,6 +119,23 @@ func TestCapabilities(t *testing.T) {
 	_, body = getJSON(t, gated.URL+"/api/v1/capabilities")
 	if body["owner"] != false || body["auth_required"] != true {
 		t.Errorf("gated (no header) caps = %v, want owner=false auth_required=true", body)
+	}
+}
+
+// Cinémathèque is the only look (ADR-115, spec F67 R17): /capabilities carries no
+// theme, and the retired owner write is gone — not merely refused — even for an owner.
+func TestThemeRetired(t *testing.T) {
+	srv, r := authServer(t, "", false)
+	_, body := getJSON(t, srv.URL+"/api/v1/capabilities")
+	if _, ok := body["theme"]; ok {
+		t.Errorf("capabilities still carries theme: %v", body["theme"])
+	}
+	code, _ := reqTokBody(t, http.MethodPut, srv.URL+"/api/v1/admin/theme", "", map[string]string{"theme": "cinematheque"})
+	if code != http.StatusNotFound && code != http.StatusMethodNotAllowed {
+		t.Errorf("PUT /admin/theme = %d, want 404/405 (route removed)", code)
+	}
+	if _, ok, err := r.GetSetting(context.Background(), "theme.active"); err != nil || ok {
+		t.Errorf("theme.active written (ok=%v, err=%v); the retired route must write nothing", ok, err)
 	}
 }
 

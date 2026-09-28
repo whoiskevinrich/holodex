@@ -41,7 +41,7 @@ func videoPosterServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 		t.Fatal(err)
 	}
 	h := api.NewHandlers(r, log, &stubThumbs{enabled: false}, thumbDir, nil, nil)
-	h.SetPersonImages(filepath.Join(dir, "person-images"), 10<<20, 2000, "cinematheque")
+	h.SetPersonImages(filepath.Join(dir, "person-images"), 10<<20, 2000)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 	return srv, r, thumbDir
