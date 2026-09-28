@@ -25,16 +25,15 @@ image** via `make test-image`.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` HOLODEX-486 — cross into build
-2. [ ] [backend] Add `mkvtoolnix` to the runtime stage; guard Title `Delete` → `--delete title` — `Dockerfile`, `internal/writeback/writeback.go`
-3. [ ] [testing] `make test-image` + run it; testing-strategy row — `Makefile`, `scripts/`
-4. [ ] [security] `/security-review`
+1. [ ] [backend] Add `mkvtoolnix` to the runtime stage; guard Title `Delete` → `--delete title` — `Dockerfile`, `internal/writeback/writeback.go`
+2. [ ] [testing] `make test-image` + run it; testing-strategy row — `Makefile`, `scripts/`
+3. [ ] [security] `/security-review`
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-28 · session
-- skills: architecture
-- handoff: ADR-117 written (bundle mkvtoolnix, no switch, verify inside the built image); next is /implement, then Dockerfile + D5 guard + make test-image.
+- skills: architecture, implement
+- handoff: Crossed into build: architecture (ADR-117) settled, no approve gate in the infra posture; draft PR open. Start at the Dockerfile + D5 Title-Delete guard.
 
 ## Dropped — newest first (the reason is the point)
 
