@@ -246,6 +246,31 @@ func TestBuildFFmpegArgs_ReplacesCoverOfOtherFormat(t *testing.T) {
 	}
 }
 
+// TestCoverDeleteArgs is HOLODEX-485, the mkvpropedit twin of HOLODEX-484:
+// writing cover.jpg deletes every same-role cover (any extension or case) by
+// UID, so the file keeps exactly one cover. Fonts and small_cover.* survive,
+// and so does a name ffmpeg couldn't select — UIDs have no such limit.
+func TestCoverDeleteArgs(t *testing.T) {
+	atts := []mkvAttachment{
+		{11, "Arial.ttf"},
+		{22, "cover.webp"},
+		{33, "small_cover.jpg"},
+		{44, "COVER.PNG"},
+		{55, "cover.j'pg"}, // unselectable by ffmpeg, but a UID reaches it
+		{0, "cover.png"},   // no UID reported → select by exact name
+		{66, "cover.jpg"},
+	}
+	got := strings.Join(coverDeleteArgs(atts, "cover.jpg"), " ")
+	want := "--delete-attachment =22 --delete-attachment =44 --delete-attachment =55" +
+		" --delete-attachment name:cover.png --delete-attachment =66"
+	if got != want {
+		t.Errorf("coverDeleteArgs = %q, want %q", got, want)
+	}
+	if got := coverDeleteArgs([]mkvAttachment{{11, "Arial.ttf"}}, "cover.jpg"); got != nil {
+		t.Errorf("no cover in the file must delete nothing, got %q", got)
+	}
+}
+
 // TestBuildFFmpegArgs_KeepsNonCoverAttachments pins that a cover write keeps a
 // subtitle font (and other cover roles) byte-for-byte and never relabels it: the
 // new cover's metadata must land past every attachment -map 0 carries over.
@@ -258,7 +283,7 @@ func TestBuildFFmpegArgs_KeepsNonCoverAttachments(t *testing.T) {
 		{"attachment", "cover.webp"},
 		{"video", "small_cover.jpg"}, // an attached pic: not a t: stream, and not this role
 		{"attachment", "OpenSans.otf"},
-		{"attachment", "cover:x.jpg"}, // unsafe for -map m: — kept, and counted
+		{"attachment", "cover.j'pg"}, // cover role, but unsafe for -map m: — kept, and counted
 	}
 	args := buildFFmpegArgs("/m/a.mkv", "/m/a.mkv.new", "matroska", nil, entries, existing)
 	joined := strings.Join(args, " ")
@@ -266,7 +291,7 @@ func TestBuildFFmpegArgs_KeepsNonCoverAttachments(t *testing.T) {
 	if want := "-map 0 -map -0:m:filename:cover.webp -c copy"; !strings.Contains(joined, want) {
 		t.Errorf("expected %q in args, got %q", want, joined)
 	}
-	for _, kept := range []string{"Arial.ttf", "OpenSans.otf", "small_cover.jpg", "cover:x.jpg"} {
+	for _, kept := range []string{"Arial.ttf", "OpenSans.otf", "small_cover.jpg", "cover.j'pg"} {
 		if strings.Contains(joined, "-0:m:filename:"+kept) {
 			t.Errorf("%s must survive a cover write, got %q", kept, joined)
 		}
