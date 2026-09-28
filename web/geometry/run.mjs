@@ -52,7 +52,7 @@ if (values.help) {
 	process.exit(0);
 }
 
-const problems = validate();
+const problems = validate(ASSERTIONS, WIDTHS.map((w) => w.key));
 if (problems.length > 0) {
 	console.error('the assertion table is malformed:\n  ' + problems.join('\n  '));
 	process.exit(2);
@@ -152,11 +152,17 @@ function plan() {
 
 const { targets, upfront } = plan();
 
+/** Whether a target runs in a cell: every width unless the assertion names its `widths`. */
+function inCell(t, cell) {
+	return !t.assertion.widths || t.assertion.widths.includes(cell.widthKey);
+}
+
 if (values.list) {
 	for (const t of targets) console.log(`${t.assertion.key.padEnd(40)} ${t.url.padEnd(16)} ${t.label}`);
 	for (const u of upfront) console.log(`${u.assertion.key.padEnd(40)} ${u.status.padEnd(16)} ${u.detail}`);
 	console.log(
-		`\n${targets.length} page-assertions × ${cells.length} cells = ${targets.length * cells.length} checks`
+		`\n${targets.length} page-assertions over ${cells.length} cells = ` +
+			`${targets.reduce((n, t) => n + cells.filter((c) => inCell(t, c)).length, 0)} checks`
 	);
 	process.exit(0);
 }
@@ -281,7 +287,11 @@ try {
 		const { context, page } = await open(browser, cell);
 		process.stderr.write(`  ${cell.key} …`);
 		try {
-			for (const [url, group] of byUrl) {
+			for (const [url, all] of byUrl) {
+				// An assertion with `widths` exists only at those widths; elsewhere it is not
+				// measured at all (never a vacuous pass).
+				const group = all.filter((t) => inCell(t, cell));
+				if (group.length === 0) continue;
 				const resting = group.filter((t) => !t.assertion.prepare?.length);
 				const prepared = group.filter((t) => t.assertion.prepare?.length);
 

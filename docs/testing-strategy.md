@@ -3356,6 +3356,23 @@ New assertions, all skins × all widths:
 The last three are gated to `phone`. Per §12.2 a gate that can't fail at a width must not run
 there, or it passes vacuously.
 
+**As built and run (2026-09-27).** The phone width and the list-page `urls` landed as planned, with
+six assertions: the five above plus `az-rail-on-phone` (exactly one rail below `sm`). The rail check
+is a `gutterRight ≥ 26` bound on the rows rather than a rect intersection, and "first row near top"
+is the new `mainTop` measure, so the site header's wrap can't move it. The matrix is now
+**Cinémathèque × four widths**. Since F67 (ADR-102) the skin comes from `/capabilities`, so the
+harness's localStorage init can't select another skin, and ADR-115 retires them anyway. The first
+full run spent 8 of its 12 cells timing out on `data-theme`.
+
+In the four Cinémathèque cells:
+
+- **All six F73 assertions pass.**
+- The phone width surfaced **no new detail-page failures**, so no tickets were needed.
+- Only two kinds of check did not pass:
+  - HOLODEX-357's chip heights, already filed and reported as known-open;
+  - the nine Enrich-picker checks, which could not run because `enrich-stub` couldn't bind `:9100`
+    (another repo's process held it). That is a setup gap, not a finding.
+
 ### 20.3 Live QA: behaviour no harness here can drive
 
 `web/` has no component-test harness (§16), and the geometry harness measures a page but doesn't
