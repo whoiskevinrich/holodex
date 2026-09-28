@@ -266,15 +266,17 @@
 					{/if}
 				</div>
 				{#if onhalo && url && fit !== 'cover'}
-					<!-- Halo knob (HOLODEX-463, design option A): one switch, saved for the
-					     palette being viewed, which the trailing word names. -->
+					<!-- Halo knob (HOLODEX-463, design option A): one switch, saved for
+					     PALETTE_MODE. Cinémathèque is the only look (ADR-115), so the label no
+					     longer names the mode (HOLODEX-482). -->
 					<button
 						type="button"
 						role="switch"
 						aria-checked={haloOn}
 						onclick={toggleHalo}
 						disabled={savingHalo}
-						title={`Glow behind the ${label.toLowerCase()} on ${PALETTE_MODE} palettes`}
+						aria-label={`Halo behind the ${label.toLowerCase()}`}
+						title={`Glow behind the ${label.toLowerCase()}`}
 						class="flex items-center gap-1.5 py-0.5 text-xs {haloOn ? 'text-accent' : 'text-muted hover:text-ink'}"
 					>
 						<span
@@ -287,7 +289,7 @@
 									: 'left-px bg-muted'}"
 							></span>
 						</span>
-						Halo <span class="text-muted">· {PALETTE_MODE}</span>
+						Halo
 					</button>
 				{/if}
 			{/if}

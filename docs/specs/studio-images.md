@@ -241,12 +241,15 @@ owner's choice.
 - **H2 — Per studio, per role.** Logo, icon and poster each have their own choice.
 - **H3 — Per palette mode.** The choice is saved separately for a **dark** palette and a **light**
   one. Holodex has no light mode. A palette counts as light when it is a custom palette (ADR-102)
-  whose `--bg` has relative luminance above 0.179. Every shipped skin is dark.
+  whose `--bg` has relative luminance above 0.179. Every shipped skin is dark. *Amended by
+  ADR-115:* the custom palette is retired, so the mode is always dark; a saved light choice is
+  kept but never glows, and H4's light branch is dormant.
 - **H4 — Inverted on light.** On a light palette the halo glows black. On a dark palette it glows
   in `--logo-plate`, as before.
 - **H5 — Owner control.** Each filled, contained slot on `/studios/{id}` shows the owner one
-  `Halo · <mode>` switch. It saves for the palette being viewed and leaves the other mode's choice
-  as it was. Visitors see the result but never the switch.
+  `Halo` switch. It saves for the palette being viewed and leaves the other mode's choice
+  as it was. Visitors see the result but never the switch. Since Cinémathèque is the only look
+  (ADR-115) that mode is always dark, so the label no longer names it (HOLODEX-482).
 - **H6 — Follows the image everywhere.** The choice applies on:
   - the Studio page slots;
   - the /studios list row and the Film/Media studio link card (`StudioLogoBox` uses the choice
