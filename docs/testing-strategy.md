@@ -3434,6 +3434,24 @@ dev instance. They're numbered for the PR's QA list:
   - Item 3, the removal exit.
   - Item 5, two tabs.
 
+**Live QA pass, 2026-09-28 (`backend-stress`, films enabled, Cinémathèque).** This covers the
+four gaps above.
+- **Item 3: pass.** Starting from `/?sort=title_asc&resolution=FHD` scrolled to 500, open
+  `/media/9008` and Move to Trash. The exit lands on the same URL, still at y 500.
+  - The pass found that the D4 helper `exitAfterRemoval` had no caller: Media still hand-rolled
+    the branch, which ADR-114 D4 forbids. It now calls the helper, and Media delete is the only
+    exit that leaves a page.
+  - One defect, which predates F73: the restored `browseCache` snapshot still shows the trashed
+    card → HOLODEX-478.
+- **Item 5: pass.** Tab 1 on `/people?sort=count` at y 400 and tab 2 on `/people?sort=name` at
+  y 800 each open a person, then press Back. Each returns to its own sort and scroll, and
+  `holodex:sort:people` stays `name`.
+- **Films: pass.** 117 rows; sorts are Name and Random. A nav click restores the saved Random,
+  the reroll reshuffles, and choosing Name leaves a bare `/films`.
+- **Studios: pass.** 119 rows. Choosing "Videos — most" writes `?sort=count` and the saved sort;
+  there is no Filters button, because the Missing filter was dropped.
+- **People with rows: pass**, covered by item 5; the A–Z index renders under Name.
+
 ### 20.4 Mutation checks to run once the code exists
 
 Each should turn a named test red. Record the results here, as §19 does.
@@ -3466,6 +3484,23 @@ asynchronously, so for a moment an owner parses as a visitor. Rewriting the URL 
 
 The page-level mutants (the `$effect` storage write, the `ml-auto` spacer) wait for the toolbar
 components and the page migration.
+
+**Page-level mutation pass, 2026-09-28.** Both of these mutants survive the automated suites,
+and the plan above predicted otherwise for each.
+
+| Mutant | Result |
+|---|---|
+| `$effect(() => chooseSort(…))` added to the `listController` factory, so arriving writes storage | **Survives all 41 unit tests.** `$effect` is a no-op under this repo's Vitest, so the factory is out of reach. Caught only by live item 4: arriving at `/people?sort=count` flipped `holodex:sort:people` to `count`. The gap belongs with HOLODEX-475, the browser harness for navigation behaviour. |
+| `ml-auto` replaced with a 40px spacer | **Survives** `list-toolbar-single-row` and `list-page-no-horizontal-overflow` at `phone`. |
+
+Why the spacer survives: the row can't wrap by construction. The sort wrapper is `min-w-0`, so any
+pressure shrinks the select instead of wrapping the row. In the Media worst case the select went
+from 200px to 177px, and the `⋯` still ends at 351px. The label wasn't clipped yet, so at this
+width the mutant is close to harmless.
+
+The real risk is a squeezed, truncated sort label. A row-height bound can't see that, and a
+label-clip bound would need a per-page width floor. That's not worth adding while no page is
+within 20px of clipping.
 
 ### 20.5 Standing gaps
 

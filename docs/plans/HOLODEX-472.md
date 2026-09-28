@@ -68,12 +68,12 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
 1. [ ] [—] ADR-115 (Cinémathèque only, HOLODEX-476): once on main, drop three-skin QA from handoff/§20 and re-measure the label budget in Archivo — `docs/design/list-toolbar-handoff.md`
-2. [ ] [testing] Finish live QA: Films on backend-films, People/Studios with rows, §20.3 items 3 and 5 (items 1, 2, 4, 6, 7 passed), then the §20.4 mutation checks; record results in §20 — `docs/testing-strategy.md`
-3. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
-4. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
-5. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
-6. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
-7. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
+2. [ ] [frontend] Coin "list toolbar" and "scope chip" in the UI vocabulary — `docs/reference/ui-vocabulary.md`
+3. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
+4. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
+5. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
+6. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
+7. [ ] [—] Trashed video lingers in the restored Media snapshot (predates F73) → HOLODEX-478
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -88,7 +88,7 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
 - skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement, testing-strategy, code-review
 - decisions: bug fixed inside the redesign; Missing filter dropped (it's a work queue); Media entity filters only as scope chips; Tags type = tabs; filters URL-only, sort sticky; desktop Filters = popover, density inline. SP5 sticky filters superseded; R8 reuses HOLODEX-41's `history.back()`.
-- handoff: Geometry harness extended (phone width, list pages, 6 F73 assertions) and cut to Cinémathèque × 4 widths; all F73 assertions pass, no new phone failures (§20.2). Filters sheet contains scroll (owner picked B: `touch-none` backdrop + `overscroll-contain`, no document lock). Next: finish live QA (item 2); item 1 waits on ADR-115 reaching main.
+- handoff: Live QA finished on backend-stress: removal exit (now via the shared `exitAfterRemoval`), two tabs, Films, Studios and People all pass; both page mutants survive the automated suites and are recorded in §20.4. Ghost card spun out to HOLODEX-478. Next: UI-vocabulary terms (item 2); item 1 waits on ADR-115 reaching main.
 
 ## Divergences from the approved design (signed off at c99b221, amended 5ffff2f)
 
