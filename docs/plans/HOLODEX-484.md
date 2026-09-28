@@ -16,20 +16,20 @@ real output attachment index.
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` → `docs/specs/**`. Skipped deliberately: this is a bug fix restoring HOLODEX-413's intended "a cover writeback replaces the existing cover". No requirement changes.
+- [~] spec `write-spec` → `docs/specs/**`. Skipped deliberately: this is a bug fix restoring HOLODEX-413's intended "a cover writeback replaces the existing cover". No requirement changes.
 - [x] backend → `{cmd,internal,providers}/**`. `probeStreams` (ffprobe) feeds `buildFFmpegArgs`, which drops every same-role `cover.*` by exact probed name and indexes the new attachment at kept + i.
 - [x] testing `testing-strategy`. Two unit tests plus a real-ffmpeg integration test (`cover.webp` + font), with a row in `docs/testing-strategy.md`.
 
 ## Up next — ordered (position = priority)
 
 1. [ ] [—] Merge the PR after CI; HOLODEX-484 moves to Done via jira-sync
-2. [ ] [backend] HOLODEX-485: the same same-role cover replace on the mkvpropedit path (spun out, Relates)
+2. [ ] [backend] Same-role cover replace on the mkvpropedit path → HOLODEX-485
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-28 · session
-- skills: code-review
-- handoff: Fixed and tested (unit + integration reproduce the field error without the fix); PR opened ready — next is merge after CI, then HOLODEX-485 for the mkvpropedit path.
+- skills: code-review, handoff
+- handoff: Fixed and tested (unit + integration reproduce the field error without the fix); origin/main merged in, PR opened ready — next is merge after CI, then HOLODEX-485 for the mkvpropedit path.
 
 ## Dropped — newest first (the reason is the point)
 
