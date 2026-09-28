@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema + design: see the Flightplan plugin's own README and ADR-001 (in the plugin repo).
 key: HOLODEX-475                 # the tracker key; must match the branch key regex
-status: in-progress                 # DERIVED from the Gates below — nothing settled is todo, some movement
+status: in-review                   # chore posture = zero gate rows, so deriveStatus() returns null and this stored value is read; DERIVED from the Gates below — nothing settled is todo, some movement
                              # is in-progress, all settled with a release_note is in-review. Only
                              # `done` and `released` are read from here (a merge and a release are
                              # facts the checklist can't see). Any other value is ignored, so this
@@ -69,7 +69,7 @@ scenario has been shown to fail against a planted mutant. Spun out of HOLODEX-47
 
 ### 2026-09-28 · nav harness built, mutation-proven
 - skills: code-review, handoff
-- handoff: `npm --prefix web run nav` passes 6/6 on the stress fixture and catches all six planted mutants (§20.6). origin/main is merged in, and the PR is open as ready. Next move: squash-merge once CI is green.
+- handoff: `npm --prefix web run nav` passes 6/6 on the stress fixture and catches all six planted mutants (§20.6). origin/main is merged in, CI was all green, and the PR is ready. Stored status is set to in-review because a `chore` roster has no rows to derive from (Flightplan gap). Next move: squash-merge #409.
 
 ## Dropped — newest first (the reason is the point)
 
