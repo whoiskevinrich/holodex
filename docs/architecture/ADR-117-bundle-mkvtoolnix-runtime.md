@@ -1,12 +1,14 @@
-# ADR-117: Bundle MKVToolNix in the runtime image; MKV writeback edits tags in place
+# ADR-117: Bundle MKVToolNix in a trixie runtime image; MKV writeback edits tags in place
 
 **Status:** Proposed
 **Date:** 2026-09-28
 **Deciders:** Project owner
 
-**Amends:** [ADR-007](ADR-007-docker-structure.md) §Consequences, which calls `mkvtoolnix`
-"test-only — the runtime image does not need it … Phase 3 writeback tooling is a separate future
-ADR." This is that ADR.
+**Amends:** [ADR-007](ADR-007-docker-structure.md) in two places. First, its Consequences call
+`mkvtoolnix` "test-only — the runtime image does not need it … Phase 3 writeback tooling is a
+separate future ADR." This is that ADR. Second, it moves the runtime base from
+`debian:bookworm-slim` to `debian:trixie-slim` (D1b). ADR-007's reason for choosing Debian over
+Alpine is unchanged.
 **Extends:** [ADR-041](ADR-041-metadata-writeback.md) §file-safety (copy → write → rename), which is
 unchanged. Only the tool that performs the *write* step for Matroska changes.
 **Spec:** [phase-3-enrichment](../specs/phase-3-enrichment.md) F17.2 already names mkvpropedit as the
@@ -54,8 +56,37 @@ GUI).
 ### D1 — The runtime image installs `mkvtoolnix`
 
 The runtime stage adds `mkvtoolnix` to its existing `apt-get install --no-install-recommends` line
-beside `ffmpeg` and `libimage-exiftool-perl`, from the same Debian bookworm archive, so it gets
-security updates the same way (rebuild the image).
+beside `ffmpeg` and `libimage-exiftool-perl`, from the same Debian archive, so it gets security
+updates the same way (rebuild the image).
+
+### D1b — …on a `debian:trixie-slim` base, because bookworm's exiftool can't read what mkvpropedit writes
+
+D4's in-image run caught this on the first attempt. When the new Tags element doesn't fit in the old
+slot, mkvpropedit voids the old one and **appends the new Tags after the Clusters and Cues**. That is
+valid Matroska, and it's reachable through the SeekHead: ffprobe reads it. But **exiftool 12.57**
+(bookworm's, and bookworm-backports ships the same) stops parsing at the first Cluster. On bookworm,
+every MKV tag write therefore read back as *no tags*. `in_sync` would flip to out-of-sync, and the
+next rescan would drop the file's tags. The genre/edition/part round trips failed on Matroska only,
+and a host-installed exiftool 13 had hidden it.
+
+Measured 2026-09-28 on a 68 MB file whose Tags mkvpropedit had moved to the end:
+
+| exiftool | Source | Reads the relocated Tags |
+|---|---|---|
+| 12.57 | bookworm, bookworm-backports | **no** |
+| 13.25 | **trixie** | yes |
+| 13.59 | upstream | yes (0.28 s, so it follows the SeekHead rather than scanning) |
+
+The runtime base therefore moves to **Debian 13 (trixie)**, which is current stable; bookworm is
+oldstable. It ships exiftool 13.25, ffmpeg 7.1 and mkvtoolnix 92, all Debian-maintained. The
+alternative was to stay on bookworm and install a pinned upstream exiftool tarball. That keeps
+ffmpeg 5.1 but makes us the maintainer of exiftool updates, and exiftool jumps a major version
+either way. The builder stages don't change: the Go binary is static (`CGO_ENABLED=0`), so the
+builder's Debian release doesn't matter.
+
+Moving the base also moves **ffmpeg 5.1 → 7.1** for thumbnails, extraction and both remux paths.
+D4 covers that: `make test-image` runs `writeback`, `thumbnail` and `metadata` inside the image.
+All three pass on trixie. On bookworm with mkvtoolnix, four MKV round trips fail.
 
 ### D2 — No switch, flag or config: tool detection stays the selector
 
@@ -96,12 +127,16 @@ is present.
 ### D4 — Verify against the built image, because CI doesn't run integration tests
 
 `ci.yml` has its `-tags integration` job commented out. So the verification that counts runs the
-writeback integration suite **inside the built runtime image**:
+test suites of every package that shells out to a media tool (`writeback`, `thumbnail`, `metadata`)
+**inside the built runtime image**:
 
-- `make test-image` builds the image and compiles the integration tests into a static test binary
-  (`CGO_ENABLED=0 go test -c -tags integration`).
-- It runs that binary in the image with the source mounted. Every tool the tests shell out to is
-  then the image's own: ffmpeg 5.1, exiftool, MKVToolNix.
+- `make test-image` builds the image and compiles each package's tests (with `-tags integration`)
+  into a static test binary (`CGO_ENABLED=0 go test -c`).
+- It runs each binary in the image with the source mounted. Every tool the tests shell out to is
+  then the image's own: ffmpeg 7.1, exiftool 13.25, MKVToolNix 92.
+
+D1b is the proof that this gate matters. The same code was green against host tools and would
+have broken readback in production.
 
 With MKVToolNix present, the existing genre/edition/part round-trip tests exercise the mkvpropedit
 backend for MKV, and HOLODEX-484/485's cover tests exercise both backends explicitly. Run it before
@@ -122,14 +157,24 @@ panicking.
   library is MKV-heavy (subtitled AMVs with font attachments), which is exactly what a remux handles
   worst.
 - **Install MKVToolNix from the upstream `mkvtoolnix.download` apt repo** (a newer version).
-  Rejected: it adds a third-party signing key and repo to the image for no feature we need. Debian's
-  v74 supports everything used here (`-J` identification, `=UID` selectors, `--tags global:`).
+  Rejected: it adds a third-party signing key and repo to the image for no feature we need.
+  Debian's version supports everything used here (`-J` identification, `=UID` selectors,
+  `--tags global:`).
+- **Stay on bookworm; install a pinned upstream exiftool tarball** (D1b). Rejected by the owner in
+  favour of trixie: all packages stay Debian-maintained, and bookworm is oldstable.
+- **Make the extractor run `exiftool -ee` on Matroska** so it finds late Tags. Rejected: it parses
+  every cluster of every file at scan time, which costs too much on a multi-GB library.
 - **Static upstream AppImage/binaries.** Rejected: no Debian security updates, and an extra download
   step in the build.
 
 ## Consequences
 
-- The image grows by about 37 MB, on top of ADR-007's ~180 MB estimate.
+- The image grows from ~206 MB to **~260 MB** (measured). About 37 MB is MKVToolNix; the rest is
+  trixie's larger ffmpeg 7.1 and its libraries.
+- ffmpeg 5.1 → 7.1 and exiftool 12.57 → 13.25 change under extraction and thumbnails as well as
+  writeback. The in-image suites pass, and the app boots and reports healthy on the new base.
+  Library-wide effects are still possible (a rescan could surface keys that newer exiftool reads
+  differently) and would show up as `in_sync` or tag churn on the canary (ADR-070).
 - The MKV write path in production changes for the first time since writeback shipped. The
   `test-image` run in D4 is the gate for that. Rollback is D2's package removal.
 - MKVToolNix joins ffmpeg and exiftool as a parser of untrusted media inside the container. It runs
