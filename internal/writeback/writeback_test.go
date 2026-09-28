@@ -3,6 +3,7 @@ package writeback
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,7 +178,7 @@ func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
 		"batch including image": {withImage, []ffmpegImgEntry{{"Poster", "/tmp/poster.jpg", "image/jpeg"}}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", tc.fields, tc.imgEntries)
+			args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", tc.fields, tc.imgEntries, nil)
 			joined := strings.Join(args, " ")
 			for _, want := range []string{"-map 0", "-map_metadata 0"} {
 				if !strings.Contains(joined, want) {
@@ -200,7 +201,8 @@ func TestBuildFFmpegArgs_AlwaysMapsAllStreams(t *testing.T) {
 // whatever cover is already there.
 func TestBuildFFmpegArgs_ReplacesExistingCover(t *testing.T) {
 	entries := []ffmpegImgEntry{{"cover.jpg", "/tmp/holodex-cover-1.png", "image/png"}}
-	args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", nil, entries)
+	existing := []probedStream{{"video", ""}, {"attachment", "cover.jpg"}}
+	args := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska", nil, entries, existing)
 	joined := strings.Join(args, " ")
 
 	for _, want := range []string{
@@ -214,9 +216,71 @@ func TestBuildFFmpegArgs_ReplacesExistingCover(t *testing.T) {
 	}
 
 	textOnly := buildFFmpegArgs("/media/clip.mkv", "/media/clip.mkv.holodex-new", "matroska",
-		[]FieldWrite{{TagName: "Title", Values: []string{"T"}}}, nil)
+		[]FieldWrite{{TagName: "Title", Values: []string{"T"}}}, nil, existing)
 	if joined := strings.Join(textOnly, " "); strings.Contains(joined, "-map -0") {
 		t.Errorf("text-only batch must not exclude any stream, got %q", joined)
+	}
+}
+
+// TestBuildFFmpegArgs_ReplacesCoverOfOtherFormat is HOLODEX-484: a file whose
+// cover is cover.webp (or COVER.PNG) must lose it when cover.jpg is written, or
+// it survives as output attachment t:0, soaks up the new cover's mimetype and
+// filename, and leaves the real new attachment unlabelled — which the matroska
+// muxer refuses ("Attachment stream 1 has no mimetype tag").
+func TestBuildFFmpegArgs_ReplacesCoverOfOtherFormat(t *testing.T) {
+	entries := []ffmpegImgEntry{{"cover.jpg", "/tmp/holodex-cover-1.jpg", "image/jpeg"}}
+	for _, existingName := range []string{"cover.webp", "cover.png", "COVER.PNG", "cover.jpg"} {
+		t.Run(existingName, func(t *testing.T) {
+			existing := []probedStream{{"video", ""}, {"audio", ""}, {"attachment", existingName}}
+			joined := strings.Join(buildFFmpegArgs("/m/a.mkv", "/m/a.mkv.new", "matroska", nil, entries, existing), " ")
+			for _, want := range []string{
+				"-map 0 -map -0:m:filename:" + existingName + " -c copy",
+				"-metadata:s:t:0 mimetype=image/jpeg",
+				"-metadata:s:t:0 filename=cover.jpg",
+			} {
+				if !strings.Contains(joined, want) {
+					t.Errorf("expected %q in args, got %q", want, joined)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildFFmpegArgs_KeepsNonCoverAttachments pins that a cover write keeps a
+// subtitle font (and other cover roles) byte-for-byte and never relabels it: the
+// new cover's metadata must land past every attachment -map 0 carries over.
+func TestBuildFFmpegArgs_KeepsNonCoverAttachments(t *testing.T) {
+	entries := []ffmpegImgEntry{{"cover.jpg", "/tmp/holodex-cover-1.jpg", "image/jpeg"}}
+	existing := []probedStream{
+		{"video", ""},
+		{"subtitle", ""},
+		{"attachment", "Arial.ttf"},
+		{"attachment", "cover.webp"},
+		{"video", "small_cover.jpg"}, // an attached pic: not a t: stream, and not this role
+		{"attachment", "OpenSans.otf"},
+		{"attachment", "cover:x.jpg"}, // unsafe for -map m: — kept, and counted
+	}
+	args := buildFFmpegArgs("/m/a.mkv", "/m/a.mkv.new", "matroska", nil, entries, existing)
+	joined := strings.Join(args, " ")
+
+	if want := "-map 0 -map -0:m:filename:cover.webp -c copy"; !strings.Contains(joined, want) {
+		t.Errorf("expected %q in args, got %q", want, joined)
+	}
+	for _, kept := range []string{"Arial.ttf", "OpenSans.otf", "small_cover.jpg", "cover:x.jpg"} {
+		if strings.Contains(joined, "-0:m:filename:"+kept) {
+			t.Errorf("%s must survive a cover write, got %q", kept, joined)
+		}
+	}
+	// Three attachments survive as t:0–t:2, so the new cover is t:3.
+	for _, want := range []string{"-metadata:s:t:3 mimetype=image/jpeg", "-metadata:s:t:3 filename=cover.jpg"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %q in args, got %q", want, joined)
+		}
+	}
+	for _, i := range []int{0, 1, 2} {
+		if strings.Contains(joined, fmt.Sprintf("-metadata:s:t:%d ", i)) {
+			t.Errorf("kept attachment t:%d must not be relabelled, got %q", i, joined)
+		}
 	}
 }
 
