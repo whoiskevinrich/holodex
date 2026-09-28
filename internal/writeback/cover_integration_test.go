@@ -1,15 +1,16 @@
 //go:build integration
 
-// Integration test for the ffmpeg cover writeback (HOLODEX-484) against the
-// real ffmpeg + ffprobe binaries. Run with:
+// Integration tests for the MKV cover writeback against the real binaries, on
+// both write paths: ffmpeg (HOLODEX-484) and mkvpropedit (HOLODEX-485). Run with:
 //
 //	go test -tags integration ./internal/writeback/
 //
 // A Matroska file whose cover is cover.webp, beside a subtitle font, used to
-// fail the remux with "Attachment stream N has no mimetype tag": the new
-// cover's labels were addressed at t:0, which was the copied cover.webp. This
-// pins that the write succeeds, leaves exactly one cover (the new cover.jpg,
-// labelled image/jpeg) and keeps the font untouched.
+// fail the ffmpeg remux with "Attachment stream N has no mimetype tag" (the new
+// cover's labels landed on the copied cover.webp at t:0), and to end up with
+// two covers on the mkvpropedit path (only an exact cover.jpg was deleted).
+// Both paths must leave exactly one cover — the new cover.jpg, labelled
+// image/jpeg — and keep the font untouched.
 package writeback
 
 import (
@@ -22,11 +23,27 @@ import (
 )
 
 func TestWriteMKVWithFFmpeg_ReplacesOtherFormatCoverKeepsFont(t *testing.T) {
-	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+	requireCoverTools(t)
+	testReplacesOtherFormatCover(t, writeMKVWithFFmpeg)
+}
+
+func TestWriteMKVWithMkvpropedit_ReplacesOtherFormatCoverKeepsFont(t *testing.T) {
+	requireCoverTools(t, "mkvpropedit", "mkvmerge")
+	testReplacesOtherFormatCover(t, writeMKVWithMkvpropedit)
+}
+
+// requireCoverTools skips unless ffmpeg/ffprobe (fixture + read-back) and any
+// extra tools the write path under test shells out to are on PATH.
+func requireCoverTools(t *testing.T, extra ...string) {
+	t.Helper()
+	for _, tool := range append([]string{"ffmpeg", "ffprobe"}, extra...) {
 		if _, err := exec.LookPath(tool); err != nil {
 			t.Skipf("%s not on PATH", tool)
 		}
 	}
+}
+
+func testReplacesOtherFormatCover(t *testing.T, write func(context.Context, string, []FieldWrite) error) {
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
@@ -43,6 +60,7 @@ func TestWriteMKVWithFFmpeg_ReplacesOtherFormatCoverKeepsFont(t *testing.T) {
 	if err := os.WriteFile(font, []byte("not really a font"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// filename= is explicit: on Windows ffmpeg keeps -attach's full path as the name.
 	run("-f", "lavfi", "-i", "testsrc=duration=1:size=64x64:rate=5",
 		"-attach", font, "-metadata:s:t:0", "mimetype=application/x-truetype-font", "-metadata:s:t:0", "filename=font.ttf",
 		"-attach", oldCover, "-metadata:s:t:1", "mimetype=image/webp", "-metadata:s:t:1", "filename=cover.webp",
@@ -54,7 +72,7 @@ func TestWriteMKVWithFFmpeg_ReplacesOtherFormatCoverKeepsFont(t *testing.T) {
 	}
 	withImageFetcher(t, func(context.Context, string) ([]byte, error) { return jpeg, nil })
 
-	err = writeMKVWithFFmpeg(context.Background(), clip, []FieldWrite{
+	err = write(context.Background(), clip, []FieldWrite{
 		{TagName: "cover.jpg", Values: []string{"https://cdn.example.com/poster.jpg"}, IsImage: true},
 	})
 	if err != nil {

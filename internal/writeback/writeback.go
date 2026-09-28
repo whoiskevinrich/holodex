@@ -92,10 +92,12 @@ func Write(ctx context.Context, path, tagName string, values []string) error {
 // global TAGS element rather than merging into it, so the existing tags have to
 // be read back and folded in. Without mkvextract we cannot do that merge, and
 // ffmpeg (which carries tags forward via -map_metadata 0) is the safe choice.
+// mkvmerge lists the attachments a cover write replaces; all three ship together.
 func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error {
 	_, propErr := exec.LookPath("mkvpropedit")
 	_, extrErr := exec.LookPath("mkvextract")
-	if propErr == nil && extrErr == nil {
+	_, mergeErr := exec.LookPath("mkvmerge")
+	if propErr == nil && extrErr == nil && mergeErr == nil {
 		return writeMKVWithMkvpropedit(ctx, path, fields)
 	}
 	return writeMKVWithFFmpeg(ctx, path, fields)
@@ -218,16 +220,20 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		}
 		defer cleanup()
 
-		// Remove any existing attachment with this name (ignore exit code — it
-		// may not exist; mkvpropedit exits 2 for warnings).
-		exec.CommandContext(ctx, "mkvpropedit", tmp, "--delete-attachment", "name:"+f.TagName).Run() //nolint:errcheck
-
-		// Add the new attachment.
-		addOut, addErr := exec.CommandContext(ctx, "mkvpropedit", tmp,
+		// Replace every cover in the same role (cover.webp too, not just an exact
+		// cover.jpg — HOLODEX-485), then add the new one, in one invocation.
+		existing, err := listMKVAttachments(ctx, tmp)
+		if err != nil {
+			_ = os.Remove(tmp)
+			return err
+		}
+		coverArgs := append([]string{tmp}, coverDeleteArgs(existing, f.TagName)...)
+		coverArgs = append(coverArgs,
 			"--attachment-name", f.TagName,
 			"--attachment-mime-type", coverMIME(imgPath),
 			"--add-attachment", imgPath,
-		).CombinedOutput()
+		)
+		addOut, addErr := exec.CommandContext(ctx, "mkvpropedit", coverArgs...).CombinedOutput()
 		if addErr != nil {
 			_ = os.Remove(tmp)
 			return fmt.Errorf("writeback mkvpropedit cover art: %w — %s", addErr, strings.TrimSpace(string(addOut)))
@@ -239,6 +245,66 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		return fmt.Errorf("writeback rename: %w", err)
 	}
 	return nil
+}
+
+// mkvAttachment is one Matroska attachment as mkvmerge -J reports it.
+type mkvAttachment struct {
+	uid      uint64
+	fileName string
+}
+
+// listMKVAttachments reads the file's attachments with mkvmerge (shipped with
+// mkvpropedit in every MKVToolNix package) so a cover write can find the
+// same-role covers to replace.
+func listMKVAttachments(ctx context.Context, path string) ([]mkvAttachment, error) {
+	// Exit 1 is warnings only — the identification JSON is still complete, and
+	// refusing it would fail a cover write the old blind delete let through.
+	out, err := exec.CommandContext(ctx, "mkvmerge", "-J", path).Output()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		err = nil
+	}
+	if err != nil {
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("writeback mkvmerge: %w — %s", err, strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return nil, fmt.Errorf("writeback mkvmerge: %w", err)
+	}
+	var doc struct {
+		Attachments []struct {
+			FileName   string `json:"file_name"`
+			Properties struct {
+				UID uint64 `json:"uid"`
+			} `json:"properties"`
+		} `json:"attachments"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		return nil, fmt.Errorf("writeback mkvmerge: %w", err)
+	}
+	atts := make([]mkvAttachment, len(doc.Attachments))
+	for i, a := range doc.Attachments {
+		atts[i] = mkvAttachment{a.Properties.UID, a.FileName}
+	}
+	return atts, nil
+}
+
+// coverDeleteArgs returns mkvpropedit --delete-attachment actions for every
+// attachment in tagName's cover role. Selecting by UID (=N) is exact — no name
+// parsing, and no position shift as earlier deletes in the same run land. An
+// mkvmerge that reports no UID falls back to the exact name.
+func coverDeleteArgs(atts []mkvAttachment, tagName string) []string {
+	var args []string
+	for _, a := range atts {
+		if !sameCoverRole(a.fileName, tagName) {
+			continue
+		}
+		sel := fmt.Sprintf("=%d", a.uid)
+		if a.uid == 0 {
+			sel = "name:" + a.fileName
+		}
+		args = append(args, "--delete-attachment", sel)
+	}
+	return args
 }
 
 // ffmpegImgEntry is a downloaded image field ready to attach via ffmpeg.
@@ -277,7 +343,7 @@ func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntri
 	dropped := map[string]bool{}
 	keptAttachments := 0
 	for _, s := range existing {
-		replaced := slices.ContainsFunc(imgEntries, func(ie ffmpegImgEntry) bool {
+		replaced := ffmpegSpecifierSafe(s.filename) && slices.ContainsFunc(imgEntries, func(ie ffmpegImgEntry) bool {
 			return sameCoverRole(s.filename, ie.tagName)
 		})
 		switch {
@@ -311,14 +377,18 @@ func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntri
 
 // sameCoverRole reports whether an existing attachment filename fills the same
 // cover role as tagName: equal stems, case-insensitively (cover.webp vs
-// cover.jpg). An empty filename never matches, nor does one ffmpeg's stream
-// specifier tokenizer would mangle (':', '\', quotes): its -map -0:m:filename:
-// exclusion could silently miss, leaving the new cover's labels on the wrong
-// stream again — better to keep that old cover than to break the remux.
+// cover.jpg). An empty filename never matches.
 func sameCoverRole(filename, tagName string) bool {
 	stem := func(n string) string { return strings.TrimSuffix(n, filepath.Ext(n)) }
-	return filename != "" && !strings.ContainsAny(filename, `:\'"`) &&
-		strings.EqualFold(stem(filename), stem(tagName))
+	return filename != "" && strings.EqualFold(stem(filename), stem(tagName))
+}
+
+// ffmpegSpecifierSafe reports whether ffmpeg's stream-specifier tokenizer takes
+// filename verbatim in -map -0:m:filename:NAME. One with ':', '\' or a quote
+// could silently miss, leaving the new cover's labels on the wrong stream again
+// — better to keep that old cover than to break the remux.
+func ffmpegSpecifierSafe(filename string) bool {
+	return !strings.ContainsAny(filename, `:\'"`)
 }
 
 // probedStream is one input stream as ffprobe reports it: its type (an
