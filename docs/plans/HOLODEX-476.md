@@ -29,8 +29,7 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Mark PR #404 ready (`/handoff` §9) — every gate is settled; squash with `feat(theming)!: make Cinémathèque the only look` (owner chose breaking, 2026-09-28)
-2. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
+1. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
 
@@ -42,7 +41,8 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 - Frontend landed (R19–R21, `d5f0c12d`): `app.css` is one `:root` Cinémathèque token block with no skin, palette or `data-theme` selectors. The three retired fonts and their deps are gone. `theme.svelte.ts`, the theme types, `api.setTheme`, `/owner/appearance` and `?skin=` are removed. Found that the halo's `mode` came from the theme store, so `halo.ts` now exports a fixed dark `PALETTE_MODE`, and behaviour and copy are unchanged. Verified live on backend-amv: computed styles on the browse grid match the pre-change baseline token for token (grain, vignette, 9px letterbox bars, Fraunces/Archivo, 70 cards). `/owner/appearance` is a 404, the tab bar wraps at 375px without scrolling, `PUT /admin/theme` gives 404 and `/capabilities` has no `theme`. `/code-review high --fix` caught that the geometry harness waited on `data-theme` (fixed). Two things were filed rather than changed: HOLODEX-482 (halo modes, copy/ADR) and HOLODEX-483 (chip char cap).
 - Testing landed (R22, `ceecf89d`): the geometry harness has no skin axis. `SKINS`, `--skin` and `goto`'s skin param are gone, cells are keyed by width, and the report fixtures were renamed. `/code-review high --fix` made an unknown flag exit 2 rather than throw an exit 1, so a stale `--skin` now reads as a usage error, not a regression. testing-strategy §12 describes the four-width matrix. §13 is marked retired, listing the deleted F67 tests and the ones that now guard leftover state, plus the computed-style baseline-diff method used for R19. Dated run records elsewhere stay as history (ADR-115). The harness was not run live: this worktree has no stress fixture and no `backend-stress` profile.
 - Docs landed (R23, `46768520`): configuration.md §Appearance now says there's one look and nothing to configure, and explains upgrades. The `theme:` block is gone from `holodex.yaml.example`, and the README no longer has its three-skin table. The landing page lost its switcher, the skins section (Kevin chose option A, removing it), the nav link, the script and the retired fonts; it was verified over HTTP at 1280 and 375px with no horizontal scroll. The eight retired screenshots are deleted and the testdata comments fixed. Security review found nothing. Kevin chose a breaking squash subject (`feat(theming)!:`).
-- handoff: Every gate is settled with a release note; next is marking PR #404 ready (`/handoff` §9), then squash-merge with `feat(theming)!: make Cinémathèque the only look` and close HOLODEX-460.
+- Merged `origin/main` again (`27bf8c1c`, ADR-116 row conflict; both kept) and marked PR #404 ready at Kevin's request; auto-merge (squash, `feat(theming)!: make Cinémathèque the only look`) is set to land it once CI passes.
+- handoff: PR #404 is ready and set to squash-merge on green CI; after it lands, move HOLODEX-476 to Done by hand (jira-sync skips epics) and close HOLODEX-460 as obsolete.
 
 ### 2026-09-27 · session (palette too)
 - skills: product-brainstorming, architecture, write-spec
