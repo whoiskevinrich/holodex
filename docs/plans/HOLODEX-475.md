@@ -3,7 +3,7 @@
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
 # Schema + design: see the Flightplan plugin's own README and ADR-001 (in the plugin repo).
 key: HOLODEX-475                 # the tracker key; must match the branch key regex
-status: in-review                   # chore posture = zero gate rows, so deriveStatus() returns null and this stored value is read; DERIVED from the Gates below — nothing settled is todo, some movement
+status: todo                 # DERIVED from the Gates below — nothing settled is todo, some movement
                              # is in-progress, all settled with a release_note is in-review. Only
                              # `done` and `released` are read from here (a merge and a release are
                              # facts the checklist can't see). Any other value is ignored, so this
