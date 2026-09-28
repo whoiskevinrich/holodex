@@ -3378,6 +3378,10 @@ In the four Cinémathèque cells:
 navigate between pages. So risks 2 and 6, plus the sheet's focus behaviour, are live checks on a
 dev instance. They're numbered for the PR's QA list:
 
+> **Items 1–5 are now automated (HOLODEX-475).** `npm --prefix web run nav` drives them in
+> Playwright against the stress fixture. See §20.6. They stay listed here because the live pass
+> below is their original record. Items 6–9 are still live checks.
+
 1. `[agent]` **Same-route nav clears filters (risk 2).** On `/people?sort=count&…` with a filter,
    click **People** in the nav. The URL becomes `?sort=count` and no filter is applied.
 2. `[agent]` **Back restores (risk 6).** Filter Media to 4K, scroll, open a video, press Back. The
@@ -3489,7 +3493,7 @@ and the plan above predicted otherwise for each.
 
 | Mutant | Result |
 |---|---|
-| `$effect(() => chooseSort(…))` added to the `listController` factory, so arriving writes storage | **Survives all 41 unit tests.** `$effect` is a no-op under this repo's Vitest, so the factory is out of reach. Caught only by live item 4: arriving at `/people?sort=count` flipped `holodex:sort:people` to `count`. The gap belongs with HOLODEX-475, the browser harness for navigation behaviour. |
+| `$effect(() => chooseSort(…))` added to the `listController` factory, so arriving writes storage | **Survives all 41 unit tests.** `$effect` is a no-op under this repo's Vitest, so the factory is out of reach. Caught only by live item 4: arriving at `/people?sort=count` flipped `holodex:sort:people` to `count`. The gap belongs with HOLODEX-475, the browser harness for navigation behaviour. **Now caught** by `shared-link-writes-nothing` (§20.6). |
 | `ml-auto` replaced with a 40px spacer | **Survives** `list-toolbar-single-row` and `list-page-no-horizontal-overflow` at `phone`. |
 
 Why the spacer survives: the row can't wrap by construction. The sort wrapper is `min-w-0`, so any
@@ -3503,10 +3507,40 @@ within 20px of clipping.
 
 ### 20.5 Standing gaps
 
-- **Risk 2 is live-QA only.** SvelteKit reusing the component on a same-route navigation is
-  exactly what a pure unit test can't reproduce. A navigation harness (Playwright driving
-  nav → filter → nav) would close it. It doesn't exist yet, and building one is beyond this epic:
-  **HOLODEX-475**.
+- ~~**Risk 2 is live-QA only.**~~ Closed by HOLODEX-475 (§20.6). SvelteKit reusing the
+  component on a same-route navigation is exactly what a pure unit test can't reproduce, so a
+  Playwright harness now drives it.
 - **Focus order and the sheet's focus trap** are live-QA only, for the §16 harness reason.
 - **Colour and contrast** of chips on Brutalist's `#d6ff3f` accent use the §5 computed-style
   method, not the geometry harness (§12.2).
+
+### 20.6 Browser: the navigation harness (HOLODEX-475)
+
+`web/geometry/nav.mjs` (`npm --prefix web run nav`) automates §20.3 items 1–5, the part of
+ADR-114 that only exists across a navigation. It sits beside the geometry harness and reuses its
+`open`/`goto`/`settle`. Each scenario runs in a fresh browser context at 1440px. It drives the real
+nav links, cards, sort select and Trash dialog, and asserts on the URL,
+`localStorage['holodex:sort:*']` and `scrollY`. The Trash `DELETE` is answered `204` inside the
+browser (`page.route`), so the removal exits run end to end and the fixture never changes. The
+scenario table is in `web/geometry/README.md`.
+
+**It isn't in CI**, like the geometry run: it needs a seeded fixture and two dev servers. Run it
+when you touch `listState.ts`, `listController.svelte.ts`, a list page's scroll/snapshot code, or
+a detail page's removal exit.
+
+**Mutation pass, 2026-09-28 (stress fixture, 183 videos, 164 people).** First, the clean tree
+passed 6/6 on two consecutive runs. Then each mutant was applied alone:
+
+| Mutant | Caught by |
+|---|---|
+| `$effect(() => chooseSort(…))` in the `listController` factory (the §20.4 survivor) | `shared-link-writes-nothing`: storage went `name` → `count` on arrival. Also `two-tabs-independent` |
+| `afterNavigate` no longer re-parses (read the URL once) | `same-route-nav-clears-filters` (chip survived), `shared-link-writes-nothing` (nav click didn't restore A–Z) |
+| `exitAfterRemoval` always `goto(listHref)` | `removal-exit-in-app`: landed on `/`, not `/?resolution=FHD` |
+| `exitAfterRemoval` always `history.back()` | `removal-exit-direct`: landed on the list, not a bare `/` |
+| People's `listScroll` restore scrolls to 0 | `two-tabs-independent`: `scrollY` 0, expected 400 |
+| Media's `browseCache` restore disabled | `back-restores-filter-sort-scroll`: `scrollY` 0, expected 600 |
+
+One result that isn't a gap: pointing only Media's cached `scrollTo(cached.scrollY)` at 0
+**survives**. SvelteKit's own scroll restoration puts the page back, because the cache has
+already seeded the grid to full height. The outcome the owner sees is still right, so the
+scenario asserts that outcome, not the line.

@@ -138,5 +138,37 @@ All in [`browser.mjs`](browser.mjs), and every one of them was a real hazard:
 | [`browser.mjs`](browser.mjs) | Playwright: the run matrix, page preparation, the probe. |
 | [`report.mjs`](report.mjs) | Failure output and the exit code. |
 | [`run.mjs`](run.mjs) | CLI: validate, plan, preflight, measure, report. |
+| [`nav.mjs`](nav.mjs) | The navigation harness (below). It's separate from the geometry run. |
 
 The pure halves are unit-tested under `npm run test` (vitest) — no browser, no server.
+
+## The navigation harness (HOLODEX-475)
+
+The geometry run measures one page at a time. It never moves between pages, so the
+list-state behaviour that only exists across a navigation (ADR-114) needs a second script:
+
+```bash
+npm --prefix web run nav                          # same prerequisites as above, steps 0–2
+npm --prefix web run nav -- --list                # the scenarios, and the QA item each replaces
+npm --prefix web run nav -- --only two-tabs-independent --headed
+```
+
+Each scenario gets a fresh context, drives nav → filter → detail → Back, and asserts on the
+URL, `localStorage['holodex:sort:*']` and `scrollY`:
+
+| Scenario | Replaces | Fails when |
+|---|---|---|
+| `same-route-nav-clears-filters` | §20.3 item 1 | A list reads the URL once, so a nav click keeps stale filters (D2). Checked on Media and Tags. |
+| `shared-link-writes-nothing` | item 4 | Arriving by `?sort=` writes the saved sort (D3), or a nav click doesn't return to it. |
+| `back-restores-filter-sort-scroll` | item 2 | Back from a detail page loses the filter, the sort or the scroll. |
+| `removal-exit-in-app` / `-direct` | item 3 | Trashing a video doesn't go Back to the list it came from, or a cold-opened one doesn't land on a bare `/` (D4). |
+| `two-tabs-independent` | item 5 | Two tabs on different People views don't each return to their own sort and scroll. |
+
+Nothing here reads the manifest. Any default-open owner library with a screenful of videos
+and people will do, and the Media filter is whichever resolution matches the most videos.
+The Trash `DELETE` is answered `204` inside the browser, so the removal scenarios never
+change the fixture.
+
+Exit codes follow the geometry run: `0` all pass, `1` a scenario failed, `2` it could not run
+(preflight, or a timeout before a verdict). The mutants each scenario catches are listed in
+testing-strategy §20.4.
