@@ -4,7 +4,7 @@ key: HOLODEX-476
 status: in-progress
 profile: full
 depends-on: []
-release_note:
+release_note: Holodex now has a single look, Cinémathèque — the Broadcast and Brutalist skins, the custom palette (theme.custom) and the Owner › Appearance tab are gone, and instances that used them now render in Cinémathèque.
 ---
 
 # HOLODEX-476 · Cinémathèque is the only look — retire the extra skins, the custom palette and the Appearance tab
@@ -21,7 +21,7 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 
 - [x] spec `write-spec` → `docs/specs/**` — F67 `instance-skin.md` amended to retire itself: RD11–RD12, story 9, R17–R23; OQ4 withdrawn; superseded lines marked *(amended, ADR-115)*
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102 D1/D3–D6)
-- [ ] design `design-handoff` → `docs/design/**` — proposed **deliberate skip**: the change deletes a tab and adds no UI, and R20's acceptance covers the tab bar
+- [~] design `design-handoff` → `docs/design/**` — skipped: the epic deletes `/owner/appearance` and adds no UI, so there's nothing to mock up. R20's acceptance covers the tab bar with one tab fewer. Kevin chose this scope on 2026-09-27 — until: any removal leaves a visible gap that needs a new layout
 - [ ] backend → `{cmd,internal,providers}/**` — R17, R18, R21: delete `internal/theme`, `theme.go` and its route, `/capabilities.theme` and `ThemeCustom`; collapse `skinPalettes`/`?skin=`; tests
 - [ ] frontend → `web/src/**` — R19–R21: `app.css` down to `:root` Cinémathèque, drop fonts and deps, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites, update component CLAUDE.md lines
 - [ ] testing `testing-strategy` — R22: rewrite §12's geometry matrix, retire the F67 rows (R11/R12), drop `web/geometry` `SKINS` (closes HOLODEX-460)
@@ -29,11 +29,19 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/handoff`: record the design gate as a deliberate skip, with the reason above
-2. [ ] [—] `/implement`, then backend (R17/R18/R21), frontend (R19–R21), geometry harness (R22), and docs (R23)
-3. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
+1. [ ] [—] `/implement` — open the Draft PR; the design phase is settled (ADR-115, F67 R17–R23, design skipped)
+2. [ ] [backend] R17/R18/R21: delete `internal/theme`, `internal/api/theme.go` and its route, and `ThemeCustom`; collapse `skinPalettes`/`?skin=` — `internal/`, `cmd/holodex`
+3. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
+4. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
+5. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
+6. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
+
+### 2026-09-28 · session
+- skills: handoff
+- Merged `origin/main` (#403, list toolbar) in at `5706c31b`. The only conflict was the ADR index, where both rows were kept in order (114, 115). Settled the design gate as `[~]`, because the epic deletes a tab and adds no UI. Rewrote Up next as the build queue and authored the release note.
+- handoff: The design phase is settled (ADR-115, F67 amended, design skipped) and the epic carries `fp:ready-to-build`; the next move is `/implement` to open the Draft PR, then backend R17/R18/R21.
 
 ### 2026-09-27 · session (palette too)
 - skills: product-brainstorming, architecture, write-spec
