@@ -33,7 +33,7 @@ Every list page (Media, People, Studios, Films, Tags) draws sort, filters and vi
 HOLODEX-473. On a phone, data starts after the title, one toolbar row and at most one chip row.
 List state follows ADR-114: the URL holds what you see, and storage holds only preferences.
 
-**Design package:** [spec F73](../specs/list-toolbar.md) · [ADR-114](../architecture/ADR-114-list-state-model.md) · [handoff + 3 SVGs](../design/list-toolbar-handoff.md) · testing-strategy § (not yet written)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F73](../specs/list-toolbar.md) · [ADR-114](../architecture/ADR-114-list-state-model.md) · [handoff + 3 SVGs](../design/list-toolbar-handoff.md) · [testing-strategy §20](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -48,8 +48,8 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 - [x] architecture `architecture` → `docs/architecture/ADR-*`
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — every param already exists on the list APIs; frontend-only — until: `q`/`type` need server support on an entity list
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy`
+- [x] frontend → `web/src/**`
+- [x] testing `testing-strategy`
 - [~] security `security-review` — no auth, access or infra change; list state is client-side and public params only — until: a new endpoint or param is added
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,9 +67,9 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] ADR-115 (Cinémathèque only, HOLODEX-476): once on main, drop three-skin QA from handoff/§20 and re-measure the label budget in Archivo — `docs/design/list-toolbar-handoff.md`
-2. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review on ready, Done on merge → HOLODEX-473
-3. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits) → HOLODEX-475
+1. [ ] [—] Hand-sweep child HOLODEX-473 with the epic: In Review now (PR ready), Done on merge → HOLODEX-473
+2. [ ] [—] Drop F73's three-skin QA and "widest skin" label budget once ADR-115 lands (whichever epic merges second) → HOLODEX-476
+3. [ ] [—] Navigation behaviour harness (same-route nav, Back, removal exits; the factory `$effect` mutant) → HOLODEX-475
 4. [ ] [—] Purge legacy `holodex:filters:*` keys → HOLODEX-474  ⛔ blocked on production confirming F73
 5. [ ] [—] Fast follow: `listScroll` survives a full reload (sessionStorage on the D5 key; not in F73 scope) → HOLODEX-477  ⛔ blocked on this epic merging
 6. [ ] [—] Trashed video lingers in the restored Media snapshot (predates F73) → HOLODEX-478
@@ -83,6 +83,11 @@ List state follows ADR-114: the URL holds what you see, and storage holds only p
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-09-28 · live QA, UI vocabulary, build signed off
+- skills: code-review, handoff
+- decisions: Filters sheet contains scroll (B: `touch-none` + `overscroll-contain`, no document lock); geometry harness runs Cinémathèque × 4 widths; the owner compared the build to the approved mockups and confirmed a match.
+- handoff: All gates settled; the owner confirmed the build matches the approved design; PR #403 is marked ready (In Review). Next: move HOLODEX-473 to In Review now and to Done with the epic on merge.
 
 ### 2026-09-27 · brainstorm → spec F73, ADR-114, design handoff
 - skills: product-brainstorming, write-spec, architecture, design-handoff, handoff, implement, testing-strategy, code-review
