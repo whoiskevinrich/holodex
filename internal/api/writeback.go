@@ -350,6 +350,10 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.writeback(r.Context(), v.FilePath, batchFields); err != nil {
 		h.log.Warn("writeback batch failed", "id", id, "fields", len(mapped), "err", err)
+		if errors.Is(err, writeback.ErrFragmentedMP4) {
+			writeError(w, http.StatusUnprocessableEntity, err.Error())
+			return
+		}
 		h.fail(w, "write to file", err)
 		return
 	}

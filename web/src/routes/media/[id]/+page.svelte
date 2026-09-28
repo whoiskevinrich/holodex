@@ -2081,10 +2081,23 @@
 							     "retry" a write that isn't the one failing. -->
 
 							<p class="flex flex-wrap items-center gap-2 text-xs text-warn" aria-live="polite">
-								<span
-									>{writebackStatus.error ||
-										"Couldn't write to the file — it may be locked or read-only."}</span
-								>
+								{#if writebackStatus.error?.startsWith('writeback_unsupported_container')}
+									<!-- HOLODEX-479: a fragmented MP4 is refused before exiftool runs, and
+									     Retry fails the same way until the file itself is remuxed — so say
+									     what the file needs, not the raw refusal string. -->
+									<span
+										>This file is a fragmented MP4, which can't be tagged in place. Remux it,
+										replace the file, then retry:
+										<code class="font-mono text-ink wrap-anywhere"
+											>ffmpeg -i in.mp4 -map 0 -c copy -movflags +faststart out.mp4</code
+										></span
+									>
+								{:else}
+									<span
+										>{writebackStatus.error ||
+											"Couldn't write to the file — it may be locked or read-only."}</span
+									>
+								{/if}
 								<button
 									onclick={retryWriteback}
 									disabled={writebackAction !== null}
