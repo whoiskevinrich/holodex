@@ -45,8 +45,8 @@ into place. HOLODEX-479's refusal remains only as the fallback for when the remu
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-28 · session
-- skills: architecture
-- handoff: Design done and pushed (ADR-116 + spec R3.7a; remux-on-write confirmed by experiment, and XMP needs -TagsFromFile). HOLODEX-481 folded in as Won't Do. Next: owner reviews ADR-116, then `/implement HOLODEX-480`.
+- skills: architecture, implement
+- handoff: Crossed into build (the posture has no approve gate; the owner said "implement" after reviewing ADR-116); draft PR open. Start at Up next #1: remux branch in `writeExiftoolBatch`.
 
 ## Dropped — newest first (the reason is the point)
 
