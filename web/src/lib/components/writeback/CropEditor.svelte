@@ -6,7 +6,6 @@
 	// uploaded as the core-role image — so what you frame is exactly what's stored, no
 	// server-side crop geometry needed. The gallery original is untouched.
 	import { api } from '$lib/api';
-	import { theme } from '$lib/theme.svelte';
 	import { toMessage } from '$lib/format';
 	import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from '$lib/cropGeometry';
 	import type { CoreRole, PersonImage } from '$lib/types';
@@ -37,7 +36,7 @@
 	};
 
 	const src = $derived(
-		api.personGalleryImageURL(personId, image.id, { version: image.version, skin: theme.current })
+		api.personGalleryImageURL(personId, image.id, { version: image.version })
 	);
 
 	let zoom = $state(1);
@@ -225,7 +224,7 @@
 			/>
 			<!-- Rule-of-thirds guide: fixed to the frame (does NOT move with the image), so
 			     the owner can align the subject on the thirds while panning/zooming under it.
-			     Lines use the ink token (light in every skin) at low opacity; non-interactive. -->
+			     Lines use the (light) ink token at low opacity; non-interactive. -->
 			<div class="pointer-events-none absolute inset-0" aria-hidden="true">
 				<div class="absolute inset-y-0 left-1/3 w-px bg-ink/40"></div>
 				<div class="absolute inset-y-0 left-2/3 w-px bg-ink/40"></div>

@@ -1015,8 +1015,8 @@
 	}
 
 	// Hide the full-viewport atmosphere overlay (.app-atmosphere::after, z-40) while a
-	// video plays so the scan/vignette flourishes don't sit on top of the picture —
-	// worst in Broadcast. Pure-CSS-gated: we only toggle the class; app.css owns the rule.
+	// video plays so the grain/vignette flourishes don't sit on top of the picture.
+	// Pure-CSS-gated: we only toggle the class; app.css owns the rule.
 	function setPlaying(on: boolean) {
 		document.body?.classList.toggle('is-playing', on);
 	}
@@ -1799,7 +1799,7 @@
 								     The dim variant is `bg-bg` (an opaque token), NOT VideoCard's
 								     `bg-black/70`: VideoCard sits over a video thumbnail, this sits over the
 								     light `bg-logo-plate` poster, and 30% of that plate bleeding through drags
-								     text-muted to a measured 2.4-3.1:1 across the three skins -- an AA failure
+								     text-muted to a measured ~2.9:1 in Cinémathèque -- an AA failure
 								     on 10px text. Opaque restores it, and costs nothing visually since the
 								     translucency was never doing work over a poster. -->
 								{@const editable = isOwner && !f.is_full_film}

@@ -45,7 +45,7 @@
 <div class="group relative block">
 	<a href={`/media/${video.id}`} class="block">
 		<!-- Cover image with background-generation fallback (ADR-009). `.video-frame`
-		     carries the per-skin flourishes (letterbox, scanlines, index counter) from
+		     carries the flourishes (letterbox bars) from
 		     app.css; the <img> sits beneath them (their z-index is 1). -->
 		<div
 			class="video-frame flex items-center justify-center transition group-hover:border-accent {!loaded &&

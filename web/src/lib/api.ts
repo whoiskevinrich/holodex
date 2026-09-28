@@ -64,9 +64,7 @@ import type {
 	FieldPromotionRequest,
 	FieldPromotionView,
 	FieldTarget,
-	PromotionEntityType,
-	ThemeCapability,
-	ThemeId
+	PromotionEntityType
 } from './types';
 
 const BASE = '/api/v1';
@@ -352,34 +350,15 @@ export const api = {
 	deleteVideoPoster: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/media/${id}/poster`),
 
 	// Person images (F25, ADR-038). Reads are public; a filled role serves the real
-	// JPEG, an empty one a themed placeholder (the server reads the active skin from
-	// ?skin= and the person's gender). Always pass the active skin; pass version for
-	// the immutable cache-bust after a replace.
-	personImageURL: (
-		id: number,
-		role: PersonImageRole,
-		opts?: { version?: number; skin?: string }
-	): string => {
-		const q = new URLSearchParams();
-		if (opts?.skin) q.set('skin', opts.skin);
-		if (opts?.version) q.set('v', String(opts.version));
-		const s = q.toString();
-		return `${BASE}/people/${id}/image/${role}${s ? `?${s}` : ''}`;
-	},
+	// JPEG, an empty one a themed placeholder (the server picks the silhouette from the
+	// person's gender). Pass version for the immutable cache-bust after a replace.
+	personImageURL: (id: number, role: PersonImageRole, opts?: { version?: number }): string =>
+		`${BASE}/people/${id}/image/${role}${opts?.version ? `?v=${opts.version}` : ''}`,
 
 	// A specific gallery image by id, version-stamped for the immutable cache. Mirrors
-	// personImageURL's opts so callers don't hand-append the skin/version query.
-	personGalleryImageURL: (
-		id: number,
-		imageId: number,
-		opts?: { version?: number; skin?: string }
-	): string => {
-		const q = new URLSearchParams();
-		if (opts?.skin) q.set('skin', opts.skin);
-		if (opts?.version) q.set('v', String(opts.version));
-		const s = q.toString();
-		return `${BASE}/people/${id}/images/${imageId}${s ? `?${s}` : ''}`;
-	},
+	// personImageURL's opts so callers don't hand-append the version query.
+	personGalleryImageURL: (id: number, imageId: number, opts?: { version?: number }): string =>
+		`${BASE}/people/${id}/images/${imageId}${opts?.version ? `?v=${opts.version}` : ''}`,
 
 	// Owner-gated mutations (ADR-030). Upload posts a multipart {image, role};
 	// 409 surfaces "gallery is full" via uploadAuthed's error. allowOverCap lets the
@@ -725,13 +704,6 @@ export const api = {
 	reloadConfig: async (): Promise<{ fields: number }> => {
 		const body = await sendAuthed<{ fields?: number }>('POST', `/admin/reload-config`);
 		return { fields: Number(body.fields ?? 0) };
-	},
-
-	// Instance skin (F67, ADR-102 D3). Owner-only; the value every viewer then gets
-	// in capabilities.theme. 400 for an unknown id or "custom" with no palette configured.
-	setTheme: async (theme: ThemeId): Promise<ThemeCapability> => {
-		const body = await sendAuthed<{ theme: ThemeCapability }>('PUT', `/admin/theme`, { theme });
-		return body.theme;
 	},
 
 	// Metadata source plugins — People enrichment (F22). All owner-gated.

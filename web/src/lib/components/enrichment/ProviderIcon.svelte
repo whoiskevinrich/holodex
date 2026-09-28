@@ -3,7 +3,7 @@
 	// when one is cached, else a themed monogram (the provider's initial) on the shared
 	// logo plate — the same fallback the studios list uses (HOLODEX-126). This component
 	// owns only the icon-or-monogram presentation; the caller supplies the served
-	// icon_url (from the providers store). Tokens only, so it reads on all three skins.
+	// icon_url (from the providers store). Tokens only.
 	// Consumed by the provenance badge, enrich controls, and website label
 	// (HOLODEX-135/136/137).
 	import { monogram } from '$lib/format';

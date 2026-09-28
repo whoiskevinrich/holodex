@@ -78,7 +78,7 @@
 	>
 		<svg viewBox="0 0 20 20" class={size === 'card' ? 'h-3.5 w-3.5' : 'h-3 w-3'} aria-hidden="true">
 			<!-- Track is `muted`, not `rule`: on the card the ring sits on a bg-black/70 chip
-			     over a poster, where every skin's rule is too close to the chip to read. -->
+			     over a poster, where the rule token is too close to the chip to read. -->
 			<circle cx="10" cy="10" r="7" class="fill-none stroke-muted" stroke-width="3" />
 			{#if busy}
 				<!-- A fixed quarter lap, spun by app.css (reduced-motion: held still and dimmed). -->

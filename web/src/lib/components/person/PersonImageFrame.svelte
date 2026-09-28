@@ -6,7 +6,6 @@
 	// just keeps the framed well — never a broken-image glyph. The caller supplies the
 	// aspect/size via `frameClass` (e.g. "portrait-frame--1x1 w-20").
 	import { api } from '$lib/api';
-	import { theme } from '$lib/theme.svelte';
 	import type { PersonImageRole } from '$lib/types';
 
 	let {
@@ -37,8 +36,8 @@
 	// The URL re-derives when the skin flips so the placeholder re-themes live.
 	const src = $derived(
 		imageId === undefined
-			? api.personImageURL(personId, role, { version, skin: theme.current })
-			: api.personGalleryImageURL(personId, imageId, { version, skin: theme.current })
+			? api.personImageURL(personId, role, { version })
+			: api.personGalleryImageURL(personId, imageId, { version })
 	);
 	const altText = $derived(alt ?? name);
 

@@ -56,9 +56,7 @@ export function matrix(skins = SKINS, widths = WIDTHS) {
  * through it.
  *
  * The init script runs before the app's own scripts on every navigation, which is the
- * only way to have the persisted preferences already correct on first paint: the skin
- * is read by `theme.init()` during hydration, and poking `data-theme` afterwards would
- * leave `PersonImageFrame`'s `?skin=` image URLs on the previous skin.
+ * only way to have the persisted preferences already correct on first paint.
  *
  * @param {import('playwright').Browser} browser
  * @param {{skin: string, width: number, height: number}} cell
@@ -116,11 +114,9 @@ export async function goto(page, url, skin) {
 		.catch(() => null);
 	await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
 	await capabilities;
-	// Hydration has run and applied the persisted skin. Until this is true the DOM is
-	// the static shell from app.html, which always claims `cinematheque`.
-	await page.waitForFunction((want) => document.documentElement.dataset.theme === want, skin, {
-		timeout: 15000
-	});
+	// No `data-theme` wait: Cinémathèque is the only look and nothing sets the attribute
+	// any more (ADR-115). The capabilities wait above plus the Loading… wait below are
+	// what establish that hydration has run.
 	// AsyncState swaps the entire subtree for a "Loading…" paragraph, so a selector
 	// query before the data lands matches nothing and reads as a stale selector.
 	await page

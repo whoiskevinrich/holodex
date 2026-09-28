@@ -51,8 +51,8 @@ reaches. Prose lives beside the CSS in `app.css`; ADR/spec context is HOLODEX-33
   is a sibling of that `<article>`, not a descendant — which also drops it out of the
   article's `space-y-6` rhythm.
 - `RelatedShelf` is **not** a `VideoGrid`. It is a `flex … overflow-x-auto` scroller with
-  fixed-width cards that borrows the `.video-grid` class only to reset the Brutalist `reel`
-  counter and inherit `data-layout` sizing. There is no `stageAligned` prop to pass; the
+  fixed-width cards that borrows the `.video-grid` class for what app.css scopes to it —
+  the letterbox bars, `data-layout` sizing and the staggered load animation. There is no `stageAligned` prop to pass; the
   class has to go on directly, and `width: fit-content` against `overflow-x: auto` is not
   the same layout as against a grid — it was verified live for HOLODEX-363 and is; re-verify if
   the scroller's card sizing or wrapping changes.

@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Shuffle-again control shown beside the sort picker while "Random" is active
-	// (spec sort-persistence SP4). Tokens only, so it reads in all three skins.
+	// (spec sort-persistence SP4). Tokens only.
 	let { onreroll }: { onreroll: () => void } = $props();
 </script>
 

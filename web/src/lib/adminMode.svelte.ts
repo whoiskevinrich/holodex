@@ -1,12 +1,12 @@
 // Admin Mode (F29). A per-device view preference that hides ALL owner-only
 // controls and data for a faithful "visitor view", letting the owner QA the
-// public surface (across all three skins) and declutter their own browsing.
+// public surface and declutter their own browsing.
 //
 // Presentation only: toggling never touches the admin token, capabilities, or
 // any server authorization — the owner gate (ADR-030) stays the sole authority.
 // The effective owner gate across the app is `activity.isOwner && adminMode.enabled`.
 //
-// Mirrors theme.svelte.ts: persisted to localStorage, default ON (so gaining
+// Persisted to localStorage, default ON (so gaining
 // admin visibly does something and controls don't stay hidden after unlock).
 const KEY = 'holodex-admin-mode';
 

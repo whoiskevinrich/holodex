@@ -42,6 +42,4 @@ load-bearing:
 - **QA Cinémathèque — and only Cinémathèque.** When verifying any UI change, render and eyeball
   **Cinémathèque**. Check that the accent reads on its background, that decorative elements don't
   collide, that fonts load offline, and that the loading/empty/error/grid states are all themed.
-  Until HOLODEX-476 removes them from the code, the Appearance tab may still offer Broadcast,
-  Brutalist or a custom palette. Ignore them, don't switch to them, and don't fix regressions
-  that only show there.
+  There is nothing to switch: the tokens sit in `:root` and nothing sets `data-theme`.

@@ -35,8 +35,10 @@ export function isImageRow(field: ResolvedField): boolean {
 }
 
 // CHIP_VALUE_MAX_CHARS: the longest candidate a CurationChip shows whole. The chip's value span
-// is `max-w-[14rem] truncate` at text-xs; 32 characters is what fits in the widest skin font
-// (Broadcast's mono), so a value past it is guaranteed clipped somewhere.
+// is `max-w-[14rem] truncate` at text-xs; 32 characters was what fit in the widest font the
+// chips ever used (a retired monospace skin, ADR-115). Archivo fits more, so 32 is now
+// conservative: a value past it may fit, but one within it never clips. Kept, because
+// raising it changes which rows the writeback dialog stacks (HOLODEX-434).
 export const CHIP_VALUE_MAX_CHARS = 32;
 
 // stacksCandidates: the writeback dialog renders this cockpit row as stacked full-width radio

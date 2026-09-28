@@ -740,31 +740,6 @@ export interface Capabilities {
 	// public_playlists is the count of visibility=public playlists (F69 OQ1): a visitor's
 	// Playlists nav item hides when it is 0. Owner-only counts are never in here.
 	public_playlists: number;
-	// theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical for
-	// every viewer. The SPA applies it on arrival and keeps no preference of its own.
-	theme: ThemeCapability;
-}
-
-// The three skins built into app.css (ADR-021) plus the owner's custom palette id.
-export type ShippedTheme = 'cinematheque' | 'broadcast' | 'brutalist';
-export type ThemeId = ShippedTheme | 'custom';
-
-// ThemeCustom is the owner's palette from holodex.yaml `theme.custom` (F67 R9): a
-// base skin for fonts/radius/flourishes plus five hex primaries the SPA sets as inline
-// custom properties on <html> (ADR-102 D4). Null until an operator configures one.
-export interface ThemeCustom {
-	name: string;
-	base: ShippedTheme;
-	tokens: Record<'bg' | 'ink' | 'accent' | 'muted' | 'warn', string>;
-	// contrast is the server's boot-time WCAG check of the four load-bearing pairs
-	// (F67 R12), shown on the Appearance card (R15). Absent in a paint cache written
-	// by an older build, hence optional.
-	contrast?: { pair: string; ratio: number; pass: boolean }[];
-}
-
-export interface ThemeCapability {
-	active: ThemeId;
-	custom: ThemeCustom | null;
 }
 
 // Metadata source plugins — People enrichment (F22, ADR-033).

@@ -6,15 +6,11 @@
 [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)
 
 Holodex has **one look: Cinémathèque** (dark). There is nothing to choose.
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (HOLODEX-476) retires Broadcast,
+[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (HOLODEX-476) retired Broadcast,
 Brutalist, the custom palette (`theme.custom`), the instance-skin setting and the **Owner ›
-Appearance** tab. When it lands, the Cinémathèque tokens live in `:root` and nothing sets
-`data-theme`. Until then that machinery is still in the code but unsupported. Don't QA, extend or
-propose it, and don't switch the instance away from Cinémathèque.
-
-**While the palette code still exists:** `internal/theme` mirrors the `[data-palette='custom']`
-derivation block in `app.css`, and `TestDeriveMatchesCinematheque` gates both. If a change forces
-you to touch one, touch the other. HOLODEX-476 deletes both.
+Appearance** tab. The tokens live in one `:root` block in `web/src/app.css`, and nothing sets
+`data-theme`. The one mirror left is `internal/personimage/placeholder.go`, which copies four
+tokens for the standalone placeholder SVG — change them there too.
 
 ## Design tokens (the contract)
 
@@ -45,8 +41,8 @@ mapped Tailwind utilities, never a literal palette.
 | **Cinémathèque** | Fraunces / Archivo | `#0c0a09` warm-black + film grain + vignette | `#e8a33d` ember | letterbox bars on cards |
 
 Broadcast (VT323 / Share Tech Mono, cyan, scanlines) and Brutalist (Spline Sans Mono,
-acid-lime, zero radii) are **retired** by ADR-115. They're recorded here only so you recognise
-leftover CSS while HOLODEX-476 removes it.
+acid-lime, zero radii) were **retired** by ADR-115 and removed in HOLODEX-476, along with their
+fonts. They're named here only so older docs that mention them make sense.
 
 ## Shared hook classes (the skin owns the look)
 
@@ -74,9 +70,6 @@ falls to 2.9:1 against `--surface` in Cinémathèque.
 Instead the *affordance* is withdrawn — the border drops, or the accent demotes to neutral —
 so the label stays at full token contrast (4.7:1 or better).
 
-Do not add a `transition` on `color`/`border-color` to these: an Appearance-tab pick swaps the
-underlying tokens at runtime, which makes the swap animate and can leave the control stuck
-on the previous palette's colour.
 
 ## Adding a skin
 
@@ -86,8 +79,6 @@ supersedes ADR-115.
 
 ## QA checklist (every UI change)
 
-Render and eyeball **Cinémathèque**. Don't QA Broadcast, Brutalist or a custom palette, and don't
-fix regressions that only show in them. Until HOLODEX-476 lands, the Appearance cards render flourishes inside a
-`.skin-card` fence (`app.css`, the two-branch `.video-frame` selectors), so a new `.video-frame`
-flourish must keep both branches. Confirm: fonts load (offline), the accent reads on `--accent`
-fills, no decorative-element collisions, and the grid/empty/loading/error states are all themed.
+Render and eyeball **Cinémathèque** — the only look. Confirm: fonts load (offline), the accent
+reads on `--accent` fills, no decorative-element collisions, and the grid/empty/loading/error
+states are all themed.

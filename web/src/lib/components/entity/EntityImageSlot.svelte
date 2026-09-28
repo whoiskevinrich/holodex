@@ -15,8 +15,7 @@
 	// (e.g. the Film detail header) — just the image frame plus small owner overlay buttons
 	// (pencil = replace, × = remove) in the frame's corners, instead of a dedicated section.
 	import { toMessage, monogram } from '$lib/format';
-	import { haloClass } from '$lib/halo';
-	import { theme } from '$lib/theme.svelte';
+	import { PALETTE_MODE, haloClass } from '$lib/halo';
 	import type { HaloMode } from '$lib/types';
 
 	let {
@@ -60,7 +59,7 @@
 		onhalo?: (mode: HaloMode, on: boolean) => Promise<unknown>;
 	} = $props();
 
-	const haloOn = $derived(halo?.includes(theme.mode) ?? false);
+	const haloOn = $derived(halo?.includes(PALETTE_MODE) ?? false);
 	const imgHalo = $derived(fit === 'cover' ? '' : halo ? haloClass(halo) : 'logo-halo');
 	let savingHalo = $state(false);
 
@@ -69,7 +68,7 @@
 		savingHalo = true;
 		error = '';
 		try {
-			await onhalo(theme.mode, !haloOn);
+			await onhalo(PALETTE_MODE, !haloOn);
 		} catch (err) {
 			error = toMessage(err);
 		} finally {
@@ -275,7 +274,7 @@
 						aria-checked={haloOn}
 						onclick={toggleHalo}
 						disabled={savingHalo}
-						title={`Glow behind the ${label.toLowerCase()} on ${theme.mode} palettes`}
+						title={`Glow behind the ${label.toLowerCase()} on ${PALETTE_MODE} palettes`}
 						class="flex items-center gap-1.5 py-0.5 text-xs {haloOn ? 'text-accent' : 'text-muted hover:text-ink'}"
 					>
 						<span
@@ -288,7 +287,7 @@
 									: 'left-px bg-muted'}"
 							></span>
 						</span>
-						Halo <span class="text-muted">· {theme.mode}</span>
+						Halo <span class="text-muted">· {PALETTE_MODE}</span>
 					</button>
 				{/if}
 			{/if}
