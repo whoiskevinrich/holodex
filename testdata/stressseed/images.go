@@ -220,8 +220,8 @@ var imagePalette = []imageVariant{
 		plate: color.NRGBA{R: 250, G: 249, B: 244, A: 255},
 		ink:   color.NRGBA{R: 60, G: 58, B: 52, A: 255}},
 
-	// The opposite failure, and on this app the more dangerous one. All three skins
-	// are dark grounds (verified: every one computes a near-black body background),
+	// The opposite failure, and on this app the more dangerous one. The page is a
+	// dark ground (verified: Cinémathèque computes a near-black body background),
 	// so a black plate does not read as broken — it reads as absent. An image that
 	// disappears into the page is harder to notice than one that shouts, which is
 	// why this rung is not merely `bright` inverted.
@@ -258,7 +258,7 @@ var imagePalette = []imageVariant{
 	// is honestly hard to tell from `black`; it is kept there anyway so one rung key
 	// means one thing on every kind, which is what lets a fix be checked across them.
 	//
-	// Note the failure is quieter than it sounds. Every skin is a dark ground, so the
+	// Note the failure is quieter than it sounds. The page is a dark ground, so the
 	// plate does not glare — a transparent logo mostly *vanishes*, leaving its mark
 	// floating. Look for the missing plate, not for a black box.
 	{key: "alpha", value: "transparent PNG, flattened to black by the JPEG re-encode",

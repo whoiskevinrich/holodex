@@ -41,7 +41,7 @@ const bulkPrefix = "stress bulk"
 const categoriesTable = "categories"
 
 // imageNeutral is the breadth pool's image: correctly framed, correctly sized,
-// mid-tone against every skin. It is declared here rather than in imagePalette
+// mid-tone against the dark page. It is declared here rather than in imagePalette
 // because it is the opposite of a rung — the palette exists to break things, and
 // this exists to break nothing, so that a slow grid is attributable to the number
 // of tiles rather than to what is in them.

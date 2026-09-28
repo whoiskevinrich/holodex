@@ -309,37 +309,26 @@ This is an operator setting: all visitors see the same layout. It is applied as 
 
 **`wide` (16:9)** — the default. Thumbnails are wider than tall, matching the natural shape of most video. Frame-grab thumbnails always look correct in this mode.
 
-**`poster` (2:3)** — portrait orientation, like a DVD or film poster. Works best when your files have embedded poster art (from a rip or a tool like MakeMKV) so the cover image fills the tall card naturally. Frame-grab thumbnails will be letterboxed in this mode. The Cinémathèque skin's letterbox bars are suppressed automatically in poster mode.
+**`poster` (2:3)** — portrait orientation, like a DVD or film poster. Works best when your files have embedded poster art (from a rip or a tool like MakeMKV) so the cover image fills the tall card naturally. Frame-grab thumbnails will be letterboxed in this mode. The cards' letterbox bars are suppressed automatically in poster mode.
 
 > **Related settings:** `thumbnail_width` controls the pixel width of the stored image; `card_layout` controls the display shape. Both are independent — changing `card_layout` does not regenerate thumbnails.
 
 ## Appearance
 
-The **skin** is instance identity ([ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)): the owner picks it once on **Owner › Appearance** and every viewer sees it. That choice is *not* a config key — it is a library-owned setting stored in the database (it travels with `/data` and survives a restore; a backup that omits the database does not reproduce the instance's appearance). Three skins ship: Cinémathèque (default), Broadcast, Brutalist.
+Holodex has one look, **Cinémathèque**: a dark film-archive editorial style set in Fraunces and
+Archivo, with a warm grain and vignette, an ember accent, and letterbox bars on the cards. There is
+nothing to configure. There are no alternative skins, no custom palette, and no Owner ›
+Appearance tab ([ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)). The fonts are
+bundled, so the look works offline.
 
-What config declares is an optional **custom palette** the Appearance tab can then select:
+**Upgrading from a release that had skins.** Broadcast, Brutalist and the `theme.custom` palette
+were removed. Nothing needs cleaning up, and every instance now renders in Cinémathèque:
 
-| `holodex.yaml` key | Env var | Default | Description |
-|--------------------|---------|---------|-------------|
-| `theme.custom` | — (YAML only) | none | An owner-defined palette: a base skin plus five colours. Restart to apply. |
+- A `theme:` block left in `holodex.yaml` is ignored. Holodex doesn't reject unknown keys, so the
+  server boots normally. You can delete the block whenever convenient.
+- The skin choice stored in the database (`theme.active`) is no longer read. It stays in the
+  `settings` table and is harmless.
 
-```yaml
-theme:
-  custom:
-    name: "Rich Archive"   # label on the Appearance card (1–40 characters)
-    base: cinematheque     # fonts, radius and flourishes come from the base; v1: cinematheque only
-    bg:     "#0b0a0c"      # page background
-    ink:    "#efe9e0"      # primary text
-    accent: "#c0483f"      # primary / active colour
-    muted:  "#9a9188"      # secondary text
-    warn:   "#e2603f"      # error / attention — keep it distinct from accent
-```
-
-- **Five colours, nothing else.** Every other token (surfaces, rules, the ink that sits on an accent or warn fill, the logo plate) is derived from these in CSS, so a palette cannot produce an unreadable fill/ink pair by hand. Colours are `#rgb` or `#rrggbb` only.
-- **Restart to apply.** `holodex.yaml` is read at boot; `/admin/reload-config` does not reload it. After a restart the palette appears as a fourth card on Owner › Appearance — it becomes the instance skin only when you pick it there.
-- **A malformed block is ignored, never fatal.** One log line names the offending key and the server boots with three skins.
-- **Low contrast is a warning, not a refusal.** At boot the server checks four pairs against WCAG AA (4.5:1) — `ink` on `bg`, `muted` on `bg`, the derived ink on `accent`, the derived ink on `warn` — and logs `theme.custom contrast below AA` for each failing pair. The palette is still applied; the Appearance card shows the same result under the palette's name.
-- If the stored choice is the custom palette and the block is later removed, the instance falls back to Cinémathèque and the choice is kept, so restoring the block restores the skin.
 
 ## Films
 

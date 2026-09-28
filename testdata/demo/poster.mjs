@@ -1,8 +1,7 @@
 // Generated key-art for the demo corpus. Each item gets a deterministic 16:9
 // "still" — flat cinematic background + an abstract motif + the title — rendered
-// as SVG and rasterized to JPEG by sharp (see generate.mjs). Posters are
-// skin-independent: they are the embedded cover art the app extracts (ADR-009
-// Tier 1), so they look identical across all three UI skins.
+// as SVG and rasterized to JPEG by sharp (see generate.mjs). Posters are the
+// embedded cover art the app extracts (ADR-009 Tier 1), not styled by the UI.
 
 const PALETTES = [
 	{ bg: '#11132b', glow: '#222a5e', accent: '#ffd166', ink: '#f4f1ff' },

@@ -8,7 +8,7 @@ titles, cast, genres, resolution, and dates read straight from the tags already 
 files. No naming conventions, no manual database, no internet connection, no telemetry. Just
 a fast, good-looking web library you run yourself.
 
-![Holodex library grid — Cinémathèque skin](docs/assets/screenshots/grid-cinematheque.png)
+![Holodex library grid — Cinémathèque](docs/assets/screenshots/grid-cinematheque.png)
 
 ## Highlights
 
@@ -28,23 +28,20 @@ a fast, good-looking web library you run yourself.
   filmography.
 - **Plays in the browser.** Inline HTML5 player with HTTP Range seeking; a raw-metadata panel
   shows exactly what each file's encoder embedded.
-- **Three switchable skins.** All dark, all offline (fonts bundled, no CDN), all WCAG AA.
+- **One considered look.** Cinémathèque: dark, offline (fonts bundled, no CDN), WCAG AA.
 - **Self-hosted & portable.** A single pure-Go binary; one multi-arch image (`amd64` + `arm64`)
   for NAS and ARM home servers.
 
-## Three switchable skins
+## The look: Cinémathèque
 
-The UI is built on semantic design tokens, so the entire look swaps from the header with zero
-restyling ([ADR-021](docs/architecture/ADR-021-frontend-theming-and-skins.md)).
+A refined film-archive editorial style: Fraunces serif, a warm grain and vignette, an ember
+accent, and letterbox bars on the cards. It is built on semantic design tokens
+([ADR-021](docs/architecture/ADR-021-frontend-theming-and-skins.md)), and it is the one look
+Holodex ships ([ADR-115](docs/architecture/ADR-115-cinematheque-only-skin.md)).
 
-| Cinémathèque | Broadcast | Brutalist |
-|:---:|:---:|:---:|
-| ![Cinémathèque](docs/assets/screenshots/grid-cinematheque.png) | ![Broadcast](docs/assets/screenshots/grid-broadcast.png) | ![Brutalist](docs/assets/screenshots/grid-brutalist.png) |
-| Refined film-archive — Fraunces serif, warm grain + vignette, ember accent, letterbox bars | Retro-futurist CRT — VT323 bitmap, scanlines, cyan accent, `▮` caret | Raw catalog — Spline Mono, hairline grid, acid-lime, `01/02` index counters |
+Every video detail page carries it through:
 
-Every video detail page carries the skin through, too:
-
-![Detail page — Cinémathèque skin](docs/assets/screenshots/detail-cinematheque.png)
+![Detail page — Cinémathèque](docs/assets/screenshots/detail-cinematheque.png)
 
 ## Quick start (self-host)
 
@@ -130,7 +127,7 @@ The real files are gitignored:
 ### Try it without a library
 
 A generator produces a deterministic, IP-free demo library (curated titles, generated
-key-art, every resolution bucket) so you can see a populated grid and all three skins with no
+key-art, every resolution bucket) so you can see a populated grid with no
 real footage — see [`testdata/demo/`](testdata/demo/) and
 [the spec](docs/specs/showcase-demo-corpus.md):
 
