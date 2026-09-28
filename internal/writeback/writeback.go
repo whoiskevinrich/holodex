@@ -2,6 +2,7 @@ package writeback
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -253,19 +254,39 @@ type ffmpegImgEntry struct{ tagName, localPath, mime string }
 // entirely — a writeback that only touched text fields would silently erase
 // any existing embedded poster.
 //
-// When the batch writes a cover, the existing attachment of the same name is
-// excluded (-map -0:m:filename:NAME) so the new one replaces it rather than
-// stacking beside it — the same delete-then-add the mkvpropedit path does.
+// When the batch writes a cover, every existing stream in the same cover role
+// is excluded (-map -0:m:filename:NAME) so the new one replaces it rather than
+// stacking beside it. The role is the filename stem, case-insensitively: writing
+// cover.jpg drops cover.webp and COVER.PNG too (players pick a cover by that
+// naming convention, so two would be ambiguous), while fonts and other roles
+// (small_cover.*) survive (HOLODEX-484).
 // This also matters for recovery: ffmpeg exposes image attachments as
 // attached-pic video streams and refuses to copy one it cannot decode
 // ("dimensions not set"), so an undecodable cover blocks every writeback on
 // that file until a cover writeback drops it.
-func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntries []ffmpegImgEntry) []string {
+//
+// existing is the input's streams as probeStreams reports them. -metadata:s:t:N
+// addresses OUTPUT attachment streams, and the ones copied by -map 0 come first,
+// so the i-th new attachment sits at (surviving copied attachments + i).
+func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntries []ffmpegImgEntry, existing []probedStream) []string {
 	// -y: overwrite output; -map 0: keep every stream; -map_metadata 0: carry
 	// existing container tags forward (unlisted -metadata keys are untouched).
 	args := []string{"-y", "-i", path, "-map", "0"}
-	for _, ie := range imgEntries {
-		args = append(args, "-map", "-0:m:filename:"+ie.tagName)
+	// One classification drives both the drop and the count, so they cannot
+	// disagree: a stream is either excluded by name or counted if it is a t:.
+	dropped := map[string]bool{}
+	keptAttachments := 0
+	for _, s := range existing {
+		replaced := slices.ContainsFunc(imgEntries, func(ie ffmpegImgEntry) bool {
+			return sameCoverRole(s.filename, ie.tagName)
+		})
+		switch {
+		case replaced && !dropped[s.filename]:
+			dropped[s.filename] = true
+			args = append(args, "-map", "-0:m:filename:"+s.filename)
+		case !replaced && s.codecType == "attachment":
+			keptAttachments++
+		}
 	}
 	args = append(args, "-c", "copy", "-map_metadata", "0", "-f", format)
 
@@ -277,14 +298,65 @@ func buildFFmpegArgs(path, newPath, format string, fields []FieldWrite, imgEntri
 		args = append(args, "-metadata", key+"="+fileValue(f))
 	}
 	for i, ie := range imgEntries {
+		spec := fmt.Sprintf("-metadata:s:t:%d", keptAttachments+i)
 		args = append(args,
 			"-attach", ie.localPath,
-			fmt.Sprintf("-metadata:s:t:%d", i), "mimetype="+ie.mime,
-			fmt.Sprintf("-metadata:s:t:%d", i), "filename="+ie.tagName,
+			spec, "mimetype="+ie.mime,
+			spec, "filename="+ie.tagName,
 		)
 	}
 	args = append(args, newPath)
 	return args
+}
+
+// sameCoverRole reports whether an existing attachment filename fills the same
+// cover role as tagName: equal stems, case-insensitively (cover.webp vs
+// cover.jpg). An empty filename never matches, nor does one ffmpeg's stream
+// specifier tokenizer would mangle (':', '\', quotes): its -map -0:m:filename:
+// exclusion could silently miss, leaving the new cover's labels on the wrong
+// stream again — better to keep that old cover than to break the remux.
+func sameCoverRole(filename, tagName string) bool {
+	stem := func(n string) string { return strings.TrimSuffix(n, filepath.Ext(n)) }
+	return filename != "" && !strings.ContainsAny(filename, `:\'"`) &&
+		strings.EqualFold(stem(filename), stem(tagName))
+}
+
+// probedStream is one input stream as ffprobe reports it: its type (an
+// "attachment", or "video" for an image attachment ffmpeg exposes as an
+// attached pic) and its Matroska attachment filename, if any.
+type probedStream struct{ codecType, filename string }
+
+// probeStreams lists the file's streams so buildFFmpegArgs can find the covers
+// to replace and index the new attachment past the ones it keeps.
+func probeStreams(ctx context.Context, path string) ([]probedStream, error) {
+	out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error",
+		"-show_entries", "stream=codec_type:stream_tags=filename", "-of", "json", path).Output()
+	if err != nil {
+		if isNotFound(err) {
+			return nil, fmt.Errorf("writeback: ffprobe not found — install MKVToolNix or ffmpeg")
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("writeback ffprobe: %w — %s", err, strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return nil, fmt.Errorf("writeback ffprobe: %w", err)
+	}
+	var doc struct {
+		Streams []struct {
+			CodecType string `json:"codec_type"`
+			Tags      struct {
+				Filename string `json:"filename"`
+			} `json:"tags"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		return nil, fmt.Errorf("writeback ffprobe: %w", err)
+	}
+	streams := make([]probedStream, len(doc.Streams))
+	for i, s := range doc.Streams {
+		streams[i] = probedStream{s.CodecType, s.Tags.Filename}
+	}
+	return streams, nil
 }
 
 // writeMKVWithFFmpeg remuxes the file with updated tags using ffmpeg (-c copy
@@ -319,7 +391,17 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 		imgEntries = append(imgEntries, ffmpegImgEntry{f.TagName, imgPath, coverMIME(imgPath)})
 	}
 
-	args := buildFFmpegArgs(path, newPath, format, fields, imgEntries)
+	// Only a cover write needs the input's streams: a text-only remux keeps
+	// every attachment and adds none.
+	var existing []probedStream
+	if len(imgEntries) > 0 {
+		var err error
+		if existing, err = probeStreams(ctx, path); err != nil {
+			return err
+		}
+	}
+
+	args := buildFFmpegArgs(path, newPath, format, fields, imgEntries, existing)
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
