@@ -182,8 +182,18 @@ on `moof` it refuses with `writeback.ErrFragmentedMP4`, whose message starts wit
 `writeback_queue.error`; the R3.2 detail line keys on the code prefix and renders plain words plus
 `ffmpeg -i in.mp4 -map 0 -c copy -movflags +faststart out.mp4`. Retry stays — once the operator
 has replaced the file with the remux, it succeeds. The legacy synchronous path answers **422** with
-the same message instead of the generic 500. Auto-remuxing (HOLODEX-480) and flagging fragmented
-files at scan time (HOLODEX-481) are deferred.
+the same message instead of the generic 500.
+
+**R3.7a — Remux on write (HOLODEX-480, [ADR-116](../architecture/ADR-116-remux-fragmented-mp4-on-write.md)).**
+The refusal above becomes the *fallback*. A fragmented `.mp4`/`.m4v`/`.mov` is remuxed with a
+stream copy into the job's own `.holodex-tmp`, with every tag restored from the original
+(`-TagsFromFile`, because the remux drops XMP). The batch is then written and the result renamed
+into place, all inside the same queued job. The owner sees an ordinary successful write, with no
+warning, no extra step, and no new status. The file comes out progressive (`+faststart`), and the
+container still matches the extension. `ErrFragmentedMP4` and its detail line only appear when the
+remux can't run (no ffmpeg) or fails, and then the message carries ffmpeg's reason. A scan-time
+flag and warning (HOLODEX-481) and a background remux sweep were both rejected: Holodex fixes the
+file only when the owner writes to it.
 
 ### R4 — The dialog is a pre-flight confirm step
 
