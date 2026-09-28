@@ -238,9 +238,6 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		// FilmsEnabled gates the Films entity (F56, ADR-085); the SPA renders no
 		// films routes/nav when false.
 		FilmsEnabled bool `json:"films_enabled"`
-		// Theme is the instance skin (F67, ADR-102 D1): the owner's choice, identical
-		// for every viewer; the SPA applies it on arrival and never keeps a preference.
-		Theme ThemePayload `json:"theme"`
 		// PublicPlaylists is the count of visibility=public playlists (F69, spec
 		// P0-5): the SPA hides the Playlists nav item from a visitor when it is 0.
 		// Identical for owner and visitor — the owner's nav shows regardless.
@@ -252,7 +249,6 @@ func (h *Handlers) capabilities(w http.ResponseWriter, r *http.Request) {
 		CardLayout:               h.cardLayout,
 		PersonGalleryMax:         h.repo.GalleryCapValue(),
 		FilmsEnabled:             h.filmsEnabled,
-		Theme:                    h.themePayload(r.Context()),
 		PublicPlaylists:          h.publicPlaylistCount(r),
 	})
 }

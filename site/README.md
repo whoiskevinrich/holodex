@@ -1,8 +1,8 @@
 # Holodex landing page
 
 A single self-contained marketing page (`index.html`) — no build step, no framework. Its
-hero swaps the **real** product screenshots (grid + detail) between the three skins, tinted
-with each skin's actual accent, mirroring the in-app token swap ([ADR-021](../docs/architecture/ADR-021-frontend-theming-and-skins.md)).
+hero shows the **real** product screenshots (grid + detail) in Cinémathèque, the one look
+Holodex ships ([ADR-115](../docs/architecture/ADR-115-cinematheque-only-skin.md)).
 
 Screenshots in `screenshots/` are captured from the [demo corpus](../docs/specs/showcase-demo-corpus.md)
 (copies of `docs/assets/screenshots/`).

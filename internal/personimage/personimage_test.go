@@ -283,48 +283,32 @@ func TestGenderBucket(t *testing.T) {
 
 func TestPlaceholderResolution(t *testing.T) {
 	// Pure + deterministic: identical inputs → identical bytes.
-	a := Placeholder("cinematheque", model.PersonImageHeadshot, "male")
-	b := Placeholder("cinematheque", model.PersonImageHeadshot, "male")
+	a := Placeholder(model.PersonImageHeadshot, "male")
+	b := Placeholder(model.PersonImageHeadshot, "male")
 	if !bytes.Equal(a, b) {
 		t.Error("Placeholder is not deterministic for identical inputs")
 	}
 
-	// Themed with CONCRETE per-skin colors resolved server-side (ADR-038): the SVG is
-	// served standalone via <img>, an isolated document that can't read the page's
-	// CSS variables, so bare var(--…) would render un-themed black. Each skin's accent
-	// must appear; switching skins must change the bytes; an unknown skin defaults to
-	// Cinémathèque.
+	// Themed with CONCRETE Cinémathèque colors resolved server-side (ADR-038, ADR-115):
+	// the SVG is served standalone via <img>, an isolated document that can't read the
+	// page's CSS variables, so bare var(--…) would render un-themed black.
 	if strings.Contains(string(a), "var(--") {
 		t.Error("placeholder must not rely on CSS var() — it is served standalone via <img>")
 	}
-	cine := string(Placeholder("cinematheque", model.PersonImageHeadshot, "male"))
-	broad := string(Placeholder("broadcast", model.PersonImageHeadshot, "male"))
-	brut := string(Placeholder("brutalist", model.PersonImageHeadshot, "male"))
-	if !strings.Contains(cine, "#e8a33d") {
-		t.Error("cinematheque placeholder should carry the ember accent #e8a33d")
-	}
-	if !strings.Contains(broad, "#36e0d0") {
-		t.Error("broadcast placeholder should carry the cyan accent #36e0d0")
-	}
-	if !strings.Contains(brut, "#d6ff3f") {
-		t.Error("brutalist placeholder should carry the lime accent #d6ff3f")
-	}
-	if cine == broad || cine == brut {
-		t.Error("placeholder should differ per skin")
-	}
-	if Placeholder("nonsense-skin", model.PersonImageHeadshot, "male") == nil ||
-		!bytes.Equal(Placeholder("nonsense-skin", model.PersonImageHeadshot, "male"), []byte(cine)) {
-		t.Error("unknown skin should default to cinematheque")
+	for _, c := range []string{"#181310", "#9b9082", "#e8a33d", "#2a2622"} {
+		if !strings.Contains(string(a), c) {
+			t.Errorf("placeholder should carry the Cinémathèque token %s", c)
+		}
 	}
 
 	// Role-shaped viewBox: square headshot, wide banner, tall poster.
-	if !strings.Contains(string(Placeholder("", model.PersonImageHeadshot, "")), "viewBox=\"0 0 400 400\"") {
+	if !strings.Contains(string(Placeholder(model.PersonImageHeadshot, "")), "viewBox=\"0 0 400 400\"") {
 		t.Error("headshot should be 1:1 (400x400)")
 	}
-	if !strings.Contains(string(Placeholder("", model.PersonImageBanner, "")), "viewBox=\"0 0 1600 900\"") {
+	if !strings.Contains(string(Placeholder(model.PersonImageBanner, "")), "viewBox=\"0 0 1600 900\"") {
 		t.Error("banner should be 16:9 (1600x900)")
 	}
-	if !strings.Contains(string(Placeholder("", model.PersonImagePoster, "")), "viewBox=\"0 0 400 600\"") {
+	if !strings.Contains(string(Placeholder(model.PersonImagePoster, "")), "viewBox=\"0 0 400 600\"") {
 		t.Error("poster should be 2:3 (400x600)")
 	}
 }

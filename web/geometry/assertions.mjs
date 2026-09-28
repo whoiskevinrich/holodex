@@ -269,7 +269,7 @@ export const ASSERTIONS = [
 			'A 600-character searched entry pushing the document sideways. Every rendered ' +
 			'entry is `truncate`d with the full string in `title`; if either the inline line ' +
 			'or an <li> loses that, the fixed-position dialog cannot contain it and the ' +
-			'page scrolls horizontally in every skin.',
+			'page scrolls horizontally at that width.',
 		...stressedPicker,
 		selector: ':document',
 		measure: 'overflowX',
@@ -382,7 +382,7 @@ export const ASSERTIONS = [
 	// the whole triplet lands on page one. (`/?q=` would be the natural address, but
 	// that deep link renders "No videos match" today — HOLODEX-404.) What the harness
 	// can express is presence and box size per element; the two-rect checks the
-	// design handoff asks for (badge vs duration, badge vs Brutalist reel counter)
+	// design handoff asks for (badge vs duration)
 	// need a metric the probe does not have and were measured by hand instead
 	// (docs/design/media-parts-handoff.md §3, worklog HOLODEX-389).
 	{
@@ -403,9 +403,9 @@ export const ASSERTIONS = [
 		key: 'part-badge-is-a-real-box',
 		finds:
 			'A part badge collapsed or inflated: it shares the duration badge\'s text-xs + ' +
-			'py-0.5 treatment, so its box is the duration badge\'s box on every skin — a ' +
+			'py-0.5 treatment, so its box is the duration badge\'s box — a ' +
 			'height outside that band means the two no longer read as a pair along the ' +
-			'bottom edge, or a skin override reached one and not the other.',
+			'bottom edge, or a style override reached one and not the other.',
 		urls: ['/?sort=title_asc'],
 		selector: '.video-grid .part-badge',
 		measure: 'height',

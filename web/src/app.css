@@ -1,17 +1,14 @@
 /* Fonts bundled offline via @fontsource (no runtime CDN — ADR-007 self-hosting). */
 @import '@fontsource-variable/fraunces';
 @import '@fontsource-variable/archivo';
-@import '@fontsource-variable/spline-sans-mono';
-@import '@fontsource/vt323';
-@import '@fontsource/share-tech-mono';
 
 @import 'tailwindcss';
 
 /*
  * THEME MAP (Tailwind v4 CSS-first config — ADR-025, supersedes tailwind.config.ts).
  * `inline` is load-bearing: it makes the generated utilities emit `var(--bg)` etc.
- * *directly* rather than a resolved snapshot, so they track the live per-skin value
- * when `[data-theme]` flips at runtime. Values live in the SKIN TOKENS block below.
+ * *directly* rather than a resolved snapshot, so every utility reads the one token
+ * source. Values live in the TOKENS block below.
  */
 @theme inline {
 	--color-bg: var(--bg);
@@ -28,7 +25,7 @@
 	--color-logo-plate-ink: var(--logo-plate-ink);
 	--font-display: var(--font-display);
 	--font-ui: var(--font-ui);
-	/* System mono stack for identifiers (the record spelling on the "In files as" line, F60) — every skin inherits it. */
+	/* System mono stack for identifiers (the record spelling on the "In files as" line, F60). */
 	--font-mono: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
 	--radius-theme: var(--radius);
 }
@@ -40,7 +37,7 @@
    field's value a screen-width from its label.
 
    A plain `@theme`, not the `inline` block above: this is a constant, not an alias for
-   a per-skin `var(--x)`, and `inline` would resolve it into the utility *without*
+   a token `var(--x)`, and `inline` would resolve it into the utility *without*
    emitting `--container-stage` as a custom property — leaving `var(--container-stage)`
    undefined for any future calc() or component rule. Verified: under `inline` the
    variable did not appear on `:root`. */
@@ -93,18 +90,16 @@
 }
 
 /*
- * SKIN TOKENS (ADR-021, docs/design/theming.md)
- * Every visual difference between skins lives here as CSS custom properties.
- * Components reference these only through semantic Tailwind classes
- * (bg-bg, text-ink, text-accent, font-display, rounded-theme, …) or the
- * decorative hook classes below — never a hardcoded color/font/radius.
+ * TOKENS (ADR-021 §1–§4, ADR-115, docs/design/theming.md)
+ * Cinémathèque is the only look — refined film-archive editorial. Components reference
+ * these only through semantic Tailwind classes (bg-bg, text-ink, text-accent,
+ * font-display, rounded-theme, …) or the decorative hook classes below — never a
+ * hardcoded color/font/radius — so a look change stays an edit to this one block.
+ * internal/personimage/placeholder.go mirrors surface-2/muted/accent/rule for the
+ * standalone placeholder SVG; change them there too.
  */
 :root {
 	color-scheme: dark;
-}
-
-/* ---- Skin 1: Cinémathèque (default) — refined film-archive editorial ---- */
-[data-theme='cinematheque'] {
 	--bg: #0c0a09;
 	--surface: #15110e;
 	--surface-2: #181310;
@@ -114,82 +109,14 @@
 	--accent: #e8a33d;
 	--accent-ink: #1a1206;
 	--warn: #e2603f; /* distinct from the gold accent — error/attention only */
-	--warn-ink: #170e08; /* warm near-black ink on a solid --warn fill (destructive CTA) — a light ink cannot pass AA here: even pure white only reaches 3.51:1 against this warn's luminance, so this goes dark like --logo-plate-ink below rather than light like the other two skins' warn-ink. 5.42:1 (HOLODEX-324, was #fdf1ee at 3.18:1) */
-	--logo-plate: #e9e0d0; /* light neutral plate for arbitrary brand logos (F38) — most are drawn for light bg; keeps black/white PNGs legible on the dark skin */
+	--warn-ink: #170e08; /* warm near-black ink on a solid --warn fill (destructive CTA) — a light ink cannot pass AA here: even pure white only reaches 3.51:1 against this warn's luminance, so this goes dark like --logo-plate-ink below. 5.42:1 (HOLODEX-324, was #fdf1ee at 3.18:1) */
+	--logo-plate: #e9e0d0; /* light neutral plate for arbitrary brand logos (F38) — most are drawn for light bg; keeps black/white PNGs legible on the dark palette */
 	--logo-plate-ink: #2a2018; /* warm near-black for the monogram fallback on the plate (HOLODEX-126) */
 	--font-display: 'Fraunces Variable', serif;
 	--font-ui: 'Archivo Variable', sans-serif;
 	--radius: 2px;
-}
-
-/* ---- Skin 2: Broadcast / VHS — retro-futurist CRT ---- */
-[data-theme='broadcast'] {
-	--bg: #060814;
-	--surface: #0b0f22;
-	--surface-2: #0a0e1f;
-	--ink: #dfe9ff;
-	--muted: #6f7da6;
-	--rule: #1a2240;
-	--accent: #36e0d0;
-	--accent-ink: #04121a;
-	--warn: #ff6f61; /* coral red — reads as alert against the cyan accent */
-	--warn-ink: #0a0610; /* dark ink reads on the lighter coral fill */
-	--logo-plate: #e4ebf8; /* light neutral plate for arbitrary brand logos (F38) */
-	--logo-plate-ink: #1a2240; /* dark navy for the monogram fallback on the plate (HOLODEX-126) */
-	--font-display: 'VT323', monospace;
-	--font-ui: 'Share Tech Mono', monospace;
-	--radius: 0px;
-}
-
-/* ---- Skin 3: Brutalist terminal — raw utilitarian catalog ---- */
-[data-theme='brutalist'] {
-	--bg: #0a0a0a;
-	--surface: #0e0e0e;
-	--surface-2: #111111;
-	--ink: #fafafa;
-	--muted: #8a8a8a;
-	--rule: #333333;
-	--accent: #d6ff3f;
-	--accent-ink: #0a0a0a;
-	--warn: #ff5e3a; /* hot red-orange — distinct from the lime accent */
-	--warn-ink: #0a0a0a; /* near-black ink reads on the hot red-orange fill */
-	--logo-plate: #f0f0f0; /* light neutral plate for arbitrary brand logos (F38) */
-	--logo-plate-ink: #1a1a1a; /* near-black for the monogram fallback on the plate (HOLODEX-126) */
-	--font-display: 'Spline Sans Mono Variable', monospace;
-	--font-ui: 'Spline Sans Mono Variable', monospace;
-	--radius: 0px;
-}
-
-/* ---- Custom palette (F67, ADR-102 D4) — derived tokens ----
-   Active only where the SPA (or an Appearance card) sets data-palette="custom" next to
-   the base skin's data-theme and the five primaries (--bg --ink --accent --muted --warn)
-   as inline custom properties. Every pair-partner token is derived from them here, so a
-   palette cannot recreate the HOLODEX-324 class of contrast bug by hand. Inert without
-   the attribute: the three shipped blocks above render exactly as before.
-
-   MIRROR: internal/theme/theme.go Derive() replicates this block for the boot-time
-   contrast WARN, and TestDeriveMatchesCinematheque gates both against the hand-tuned
-   Cinémathèque values (ΔE*ab ≤ 2). Change a percentage here, change it there. */
-[data-palette='custom'] {
-	--surface: color-mix(in oklab, var(--bg), var(--ink) 4.5%);
-	--surface-2: color-mix(in oklab, var(--bg), var(--ink) 6%);
-	--rule: color-mix(in oklab, var(--bg), var(--ink) 15.5%);
-	/* Ink on a fill: the fill tinted toward the background, then deepened toward black —
-	   a near-black that keeps the fill's hue. */
-	--accent-ink: color-mix(in oklab, color-mix(in oklab, var(--accent), var(--bg) 84%), black 23%);
-	--warn-ink: color-mix(in oklab, color-mix(in oklab, var(--warn), var(--bg) 84%), black 23%);
-	--logo-plate: color-mix(in oklab, color-mix(in oklab, var(--ink), var(--bg) 3%), var(--accent) 7%);
-	--logo-plate-ink: color-mix(in oklab, var(--surface-2), var(--accent) 11%);
-}
-
-/* ---- Logo halo colour (HOLODEX-463, ADR-109) ----
-   The studio image halo glows in the plate colour on a dark palette and inverts to black
-   on a light one (a light custom palette; theme.svelte.ts sets data-mode from --bg). */
-:root {
+	/* Studio image halo colour (HOLODEX-463, ADR-109): glows in the plate colour. */
 	--logo-halo: var(--logo-plate);
-}
-:root[data-mode='light'] {
-	--logo-halo: #000000;
 }
 
 @layer base {
@@ -213,10 +140,9 @@
 
 @layer components {
 	/*
-	 * Decorative atmosphere — applied to <body> and gated per skin. Pure CSS;
-	 * no per-component markup branches. Components add `.video-frame` to the
-	 * 16:9 thumbnail wrapper and the skin owns the flourishes (letterbox bars,
-	 * scanlines, index counters).
+	 * Decorative atmosphere — applied to <body>. Pure CSS; no per-component markup
+	 * branches. Components add `.video-frame` to the 16:9 thumbnail wrapper and this
+	 * file owns the flourishes (grain, vignette, letterbox bars).
 	 */
 	.app-atmosphere::after {
 		content: '';
@@ -227,7 +153,7 @@
 	}
 	/* While a media video is playing, drop the atmosphere so the picture is clean.
 	   Toggled by the media detail page via `.is-playing` on <body>. `display: none`
-	   (not opacity) so the Broadcast vignette/scanlines fully clear, all skins together. */
+	   (not opacity) so the grain and vignette fully clear. */
 	.app-atmosphere.is-playing::after {
 		display: none;
 	}
@@ -357,19 +283,10 @@
 		font-weight: 500;
 	}
 
-	/* Cinémathèque: film grain + vignette. */
-	[data-theme='cinematheque'] .app-atmosphere::after {
+	/* Film grain + vignette. */
+	.app-atmosphere::after {
 		box-shadow: inset 0 0 240px 40px rgba(0, 0, 0, 0.6);
 		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-	}
-	/* Broadcast: scanlines + CRT vignette. */
-	[data-theme='broadcast'] .app-atmosphere::after {
-		background-image: repeating-linear-gradient(
-			0deg,
-			transparent 0 2px,
-			rgba(0, 0, 0, 0.13) 2px 4px
-		);
-		box-shadow: inset 0 0 200px 30px rgba(0, 0, 0, 0.65);
 	}
 
 	/* ---- Reusable thumbnail frame (themed flourishes via pseudo-elements) ---- */
@@ -381,18 +298,10 @@
 		border: 1px solid var(--rule);
 		border-radius: var(--radius);
 	}
-	/* Skin flourishes on .video-frame come in two branches so a preview tile inside
-	   a `.skin-card` (the Appearance tab, F67) takes the *card's* skin, not the page's:
-	   the page-level rule is fenced with `:not(.skin-card *)`, and a `.skin-card[data-
-	   theme='X']` branch re-applies it inside a card of that skin. A plain descendant
-	   selector would match through <html data-theme> into every card. Tokens need no
-	   fence — nearest ancestor already wins for custom properties. */
-	/* Cinémathèque: letterbox bars. Suppressed in poster mode — fixed-height bars
-	   read as widescreen chrome and look wrong on portrait cards. */
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
-	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before,
-	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	/* Letterbox bars. Suppressed in poster mode — fixed-height bars read as widescreen
+	   chrome and look wrong on portrait cards. */
+	.video-grid:not([data-layout='poster']) .video-frame::before,
+	.video-grid:not([data-layout='poster']) .video-frame::after {
 		content: '';
 		position: absolute;
 		left: 0;
@@ -401,32 +310,17 @@
 		background: #000;
 		z-index: 1;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::before,
-	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::before {
+	.video-grid:not([data-layout='poster']) .video-frame::before {
 		top: 0;
 	}
-	[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame:not(.skin-card *)::after,
-	.skin-card[data-theme='cinematheque'] .video-grid:not([data-layout='poster']) .video-frame::after {
+	.video-grid:not([data-layout='poster']) .video-frame::after {
 		bottom: 0;
-	}
-	/* Broadcast: scanline wash over each still. */
-	[data-theme='broadcast'] .video-frame:not(.skin-card *)::after,
-	.skin-card[data-theme='broadcast'] .video-frame::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		background: repeating-linear-gradient(
-			0deg,
-			transparent 0 3px,
-			rgba(54, 224, 208, 0.06) 3px 4px
-		);
 	}
 
 	/* ---- Poster card layout (card_layout: poster in holodex.yaml) ----
 	   Switches the video grid from 16:9 (wide) to 2:3 (poster), suited to film
-	   libraries with poster-format cover art. The Cinémathèque letterbox bars
-	   are suppressed by their own rules (above) via :not([data-layout='poster']). */
+	   libraries with poster-format cover art. The letterbox bars are suppressed
+	   by their own rules (above) via :not([data-layout='poster']). */
 	.video-grid[data-layout='poster'] .video-frame {
 		aspect-ratio: 2 / 3;
 	}
@@ -476,7 +370,7 @@
 	   Aspect-locked well for the three person-image ratios, parallel to
 	   .video-frame. The base owns the shared mechanics (token background,
 	   overflow clip, object-fit:cover on the child); the modifiers only set the
-	   ratio. Skin flourishes attach here under [data-theme] — never per-component. */
+	   ratio. Flourishes attach here in this file — never per-component. */
 	.portrait-frame {
 		position: relative;
 		overflow: hidden;
@@ -534,10 +428,9 @@
 	   for a soft edge into the rest of the photo. Flat, not `%`-scaled: the overhang it protects
 	   is a fixed px value regardless of viewport width, so nothing here needs to grow with the
 	   frame. (Named "fade", not "scrim" — that word is already taken by the unrelated
-	   edit-button backdrop treatment in +page.svelte.) `::before` so it doesn't collide with the
-	   broadcast scanline `::after` below — painting order still puts it above the `<img>`
-	   (a positioned pseudo-element always paints after a non-positioned in-flow one) and below
-	   that scanline wash. */
+	   edit-button backdrop treatment in +page.svelte.) Painting order puts this positioned
+	   `::before` above the `<img>` (a positioned pseudo-element always paints after a
+	   non-positioned in-flow one). */
 	.portrait-frame--banner::before {
 		content: '';
 		position: absolute;
@@ -614,18 +507,6 @@
 			transform: translateY(var(--banner-shift, -14%));
 		}
 	}
-	/* Broadcast: faint scanline wash, mirroring .video-frame. */
-	[data-theme='broadcast'] .portrait-frame::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		pointer-events: none;
-		background: repeating-linear-gradient(
-			0deg,
-			transparent 0 3px,
-			rgba(54, 224, 208, 0.06) 3px 4px
-		);
-	}
 
 	/* ---- Media lift: bring-to-front + nudge on hover ----
 	   Born as the person hero's hover (F25 / HOLODEX-302): the banner, poster, and headshot
@@ -665,23 +546,21 @@
 
 	/* ---- Logo halo: a light glow behind a brand mark ----
 	   Studio logos and icons are arbitrary PNGs, often a dark mark on a transparent ground
-	   drawn for a light page; on the dark skins a bare logo (HOLODEX-411 dropped the plate)
+	   drawn for a light page; on the dark palette a bare logo (HOLODEX-411 dropped the plate)
 	   can vanish into the row. A drop-shadow in the plate colour follows the mark's own
 	   silhouette — a thin light outline plus a soft glow — so it reads without putting a box
 	   behind it (owner ask, HOLODEX-432; strength picked from a six-step live comparison —
 	   1+3 was the weakest at which a dark wordmark fully resolved, 1+3+6 the owner's pick,
 	   2+8 read as a blurry aura). On the icon plate the halo is plate-on-plate and
 	   simply disappears, so the one image element carries it in both roles. Token-driven:
-	   `--logo-plate` is light in every shipped skin and derived for the custom palette. */
+	   the glow is `--logo-halo`, the light `--logo-plate`. */
 	/* HOLODEX-463 (ADR-109): on studio images the halo is the owner's per-role choice,
-	   default off, saved separately for a dark and a light palette. The component emits
-	   `.halo-dark` / `.halo-light` for the modes it is on for; only the one matching
-	   <html data-mode> (theme.svelte.ts) glows. `.logo-halo` stays the unconditional hook
-	   for non-studio callers (the film poster slot). The glow is `--logo-halo`: the light
-	   plate on a dark palette, black on a light one. */
+	   default off, stored per palette mode. Cinémathèque is the only look and it is dark
+	   (ADR-115), so only `.halo-dark` ever glows; `.halo-light` is still emitted for a
+	   saved light choice and deliberately matches nothing. `.logo-halo` stays the
+	   unconditional hook for non-studio callers (the film poster slot). */
 	.logo-halo,
-	:root:not([data-mode='light']) .halo-dark,
-	:root[data-mode='light'] .halo-light {
+	.halo-dark {
 		filter: drop-shadow(0 0 1px var(--logo-halo)) drop-shadow(0 0 3px var(--logo-halo))
 			drop-shadow(0 0 6px var(--logo-halo));
 	}
@@ -742,7 +621,7 @@
 
 	/* ---- Crop-editor preview frame (F25, ADR-038) ----
 	   Aspect-locked well like .portrait-frame, but deliberately NOT a .portrait-frame:
-	   (1) no skin ::after flourish — scanlines/grain must never sit over the image you
+	   (1) no ::after flourish — nothing decorative may sit over the image you
 	   are framing; (2) object-fit:contain so the WHOLE original is visible to crop,
 	   not a pre-cropped cover view. The editor's own transform handles pan/zoom. */
 	.crop-frame {
@@ -773,47 +652,12 @@
 		object-fit: contain;
 	}
 
-	/* Display headings honor the skin's display face + casing. */
+	/* Display headings use the display face. */
 	.skin-title {
 		font-family: var(--font-display);
 	}
-	[data-theme='broadcast'] .skin-title,
-	[data-theme='brutalist'] .skin-title {
-		text-transform: uppercase;
-		letter-spacing: 0.02em;
-	}
-	/* Broadcast caret flourish after titles. */
-	[data-theme='broadcast'] .skin-title::after {
-		content: '▮';
-		color: var(--accent);
-		margin-left: 2px;
-	}
 
-	/* Brutalist: catalog index numbers on cards via a pure-CSS counter. */
-	.video-grid {
-		counter-reset: reel;
-	}
-	.video-frame {
-		counter-increment: reel;
-	}
-	[data-theme='brutalist'] .video-frame:not(.skin-card *)::before,
-	.skin-card[data-theme='brutalist'] .video-frame::before {
-		content: counter(reel, decimal-leading-zero);
-		position: absolute;
-		left: 0.45rem;
-		bottom: 0.35rem; /* bottom-left: avoids the top-left resolution badge */
-		z-index: 1;
-		font-size: 0.6rem;
-		color: var(--muted);
-	}
-	/* HOLODEX-389: the part badge takes the poster's one free corner, which is the
-	   counter's. A fact outranks a flourish, so on a card that has a part the counter
-	   steps up to sit above the badge instead of being covered by it. */
-	[data-theme='brutalist'] .video-frame:has(> .part-badge)::before {
-		bottom: 2.1rem;
-	}
-
-	/* Staggered fade-up on grid load (skins share the motion; Cinémathèque most pronounced).
+	/* Staggered fade-up on grid load.
 	   .people-poster-grid (F55) shares this table rather than a second copy. */
 	@media (prefers-reduced-motion: no-preference) {
 		.video-grid > *,
@@ -866,7 +710,7 @@
 	}
 
 	/* Live activity dot (F21.5): pulses while background work is in progress. Uses
-	   bg-accent, so each skin's accent flows through automatically; motion is
+	   bg-accent, so the accent token flows through automatically; motion is
 	   opt-in per reduced-motion, like the grid/shimmer animations above. */
 	@media (prefers-reduced-motion: no-preference) {
 		.activity-dot {

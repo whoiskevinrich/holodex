@@ -29,10 +29,9 @@
 				<a {href} class="text-ink hover:text-accent">{title}</a>
 			{/if}
 		</h2>
-		<!-- .video-grid resets the Brutalist `reel` counter (app.css) so the catalog
-		     numbering restarts at 01 per shelf instead of continuing from the page.
-		     data-layout mirrors VideoGrid.svelte so poster/wide card sizing (app.css
-		     .video-grid[data-layout=...]) applies here too. -->
+		<!-- .video-grid is what app.css scopes the letterbox bars, poster/wide card
+		     sizing (.video-grid[data-layout=...]) and the staggered load animation to;
+		     data-layout mirrors VideoGrid.svelte so they apply here too. -->
 		<div class="video-grid flex gap-4 overflow-x-auto pb-2" data-layout={activity.cardLayout}>
 			{#each items as video (video.id)}
 				<div

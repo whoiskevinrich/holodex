@@ -2,21 +2,13 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { api, ApiError, ENRICH_ENTITY_BASE } from './api';
 import { runEnrichRefresh, runEnrichRefreshAll } from './enrichRefresh';
 
-// Person image serving URLs (F25, ADR-038). The frontend always appends the active
-// skin (so the backend's empty-slot placeholder matches the current skin) and the
-// `?v=` cache-buster only when a version is known — a replaced core slot gets a new
-// version and so a new, non-cached URL.
+// Person image serving URLs (F25, ADR-038). The only query is the `?v=` cache-buster,
+// appended when a version is known — a replaced core slot gets a new version and so a
+// new, non-cached URL. There is no `?skin=` any more: Cinémathèque is the only look
+// (ADR-115), so the empty-slot placeholder never varies.
 describe('personImageURL', () => {
-	it('builds skin + version query params', () => {
-		expect(api.personImageURL(7, 'headshot', { skin: 'broadcast', version: 42 })).toBe(
-			'/api/v1/people/7/image/headshot?skin=broadcast&v=42'
-		);
-	});
-
-	it('omits v when no version is given', () => {
-		expect(api.personImageURL(3, 'banner', { skin: 'cinematheque' })).toBe(
-			'/api/v1/people/3/image/banner?skin=cinematheque'
-		);
+	it('stamps the version', () => {
+		expect(api.personImageURL(7, 'headshot', { version: 42 })).toBe('/api/v1/people/7/image/headshot?v=42');
 	});
 
 	it('omits the query entirely with no opts', () => {
@@ -24,17 +16,13 @@ describe('personImageURL', () => {
 	});
 
 	it('omits v when version is 0 (an unfilled slot)', () => {
-		expect(api.personImageURL(1, 'headshot', { skin: 'brutalist', version: 0 })).toBe(
-			'/api/v1/people/1/image/headshot?skin=brutalist'
-		);
+		expect(api.personImageURL(1, 'headshot', { version: 0 })).toBe('/api/v1/people/1/image/headshot');
 	});
 });
 
 describe('personGalleryImageURL', () => {
-	it('stamps version and skin when present', () => {
-		expect(api.personGalleryImageURL(5, 88, { version: 88, skin: 'broadcast' })).toBe(
-			'/api/v1/people/5/images/88?skin=broadcast&v=88'
-		);
+	it('stamps the version when present', () => {
+		expect(api.personGalleryImageURL(5, 88, { version: 88 })).toBe('/api/v1/people/5/images/88?v=88');
 	});
 
 	it('omits the query when no opts', () => {

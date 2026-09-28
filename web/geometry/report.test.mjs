@@ -22,7 +22,7 @@ describe('render', () => {
 					assertion,
 					url: '/media/104',
 					label: 'people/25 (video 104, /media/104)',
-					cell: 'brutalist/narrow',
+					cell: 'narrow',
 					status: 'fail',
 					detail: '3/25 elements have width outside >= 40',
 					offenders: [{ index: 7, value: 31.5, tag: 'div.portrait-frame', text: 'Ada Lovelace' }]
@@ -33,15 +33,15 @@ describe('render', () => {
 		expect(out).toContain('/media/104');
 		expect(out).toContain('people/25');
 		expect(out).toContain('li.curation-chip .portrait-frame--2x3');
-		expect(out).toContain('brutalist/narrow');
+		expect(out).toContain('narrow');
 		expect(out).toContain('= 31.5');
 		expect(out).toContain('want >= 40');
 		expect(out).toContain('Ada Lovelace');
 	});
 
 	it('collapses a passing assertion to a single line', () => {
-		const pass = { assertion, url: '/media/104', label: 'people/25', cell: 'broadcast/wide', status: 'pass', detail: 'ok' };
-		const out = render([pass, { ...pass, cell: 'brutalist/wide' }], stats);
+		const pass = { assertion, url: '/media/104', label: 'people/25', cell: 'wide', status: 'pass', detail: 'ok' };
+		const out = render([pass, { ...pass, cell: 'lg' }], stats);
 		expect(out.split('\n').filter((l) => l.includes('person-tiles-stay-legible'))).toHaveLength(1);
 		expect(out).toContain('2 checks');
 	});
@@ -62,7 +62,7 @@ describe('render', () => {
 					assertion: { ...assertion, blockedBy: 'HOLODEX-354' },
 					url: '/people',
 					label: '/people',
-					cell: 'broadcast/wide',
+					cell: 'wide',
 					status: 'blocked',
 					detail: 'matched 2064 elements, want <= 200'
 				}
@@ -91,7 +91,7 @@ describe('summary and exit code', () => {
 		expect(line).toContain('1 failed');
 		expect(line).toContain('1 known-open');
 		expect(line).toContain('1 skipped');
-		expect(line).toContain('6 skin/width cells');
+		expect(line).toContain('6 width cells');
 	});
 
 	// A narrowed run's tally is identical to a full run that found no stale marker, so

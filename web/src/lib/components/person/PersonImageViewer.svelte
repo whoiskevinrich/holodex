@@ -7,7 +7,6 @@
 	// this component — see PersonGalleryModal.svelte for why. Tokens only; QA 3 skins.
 	import { onMount, tick } from 'svelte';
 	import { api } from '$lib/api';
-	import { theme } from '$lib/theme.svelte';
 	import type { PersonImage } from '$lib/types';
 
 	let {
@@ -70,10 +69,7 @@
 	}
 
 	function src(img: PersonImage): string {
-		return api.personGalleryImageURL(personId, img.id, {
-			version: img.version,
-			skin: theme.current
-		});
+		return api.personGalleryImageURL(personId, img.id, { version: img.version });
 	}
 </script>
 

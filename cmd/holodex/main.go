@@ -38,7 +38,6 @@ import (
 	"holodex/internal/refresh"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
-	"holodex/internal/theme"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
@@ -117,11 +116,6 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 // version is the build identifier surfaced in the activity read-model (F21.1).
 // Overridable via -ldflags "-X main.version=...".
 var version = "dev"
-
-// defaultSkin is the app's default theme (ADR-021), used as the placeholder skin
-// label when a person-image request omits ?skin=. The placeholder is token-driven
-// so it re-themes via the page's [data-theme] regardless; this is just the label.
-const defaultSkin = "cinematheque"
 
 func run(configPath string, migrateOnly bool, overrides config.Overrides) error {
 	startedAt := time.Now()
@@ -386,7 +380,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		return err
 	})
 
-	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension, defaultSkin)
+	handlers.SetPersonImages(cfg.PersonImagePath, cfg.PersonImageMaxBytes, cfg.PersonImageMaxDimension)
 	// Studio images (F51, ADR-079). No backfill needed here: migration 0036 already
 	// carried forward every pre-existing studio_logos row into studio_images(role=
 	// 'logo') as part of the schema change itself, unlike ADR-057's original derived-
@@ -433,22 +427,6 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	}
 	handlers.SetAuth(auth, exposedBind)
 	handlers.SetCardLayout(cfg.CardLayout)
-	// Custom palette (F67, ADR-102 D5): a malformed block is logged and treated as
-	// absent; a low-contrast one is applied with a WARN per failing pair.
-	if tc := cfg.Theme.Custom; tc != nil {
-		custom, err := theme.Parse(theme.Input(*tc)) // same fields, same order; a conversion, not a copy
-		if err != nil {
-			log.Warn("theme.custom ignored", "err", err)
-		} else {
-			for _, p := range theme.Contrast(custom) {
-				if !p.Pass {
-					log.Warn("theme.custom contrast below AA", "pair", p.Name, "ratio", p.Ratio, "min", theme.AAText)
-				}
-			}
-			handlers.SetCustomTheme(custom)
-			log.Info("custom palette configured", "name", custom.Name, "base", custom.Base)
-		}
-	}
 	handlers.SetFilmsEnabled(cfg.FilmsEnabled)
 	handlers.SetDefaultSource(cfg.DefaultSource)
 	handlers.SetProviderTrustOrder(cfg.ProviderTrustOrder)

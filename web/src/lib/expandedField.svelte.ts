@@ -1,5 +1,5 @@
 // F56.9 — at most one SourceBadge expanded across a detail page at a time. A module-level
-// singleton (mirrors adminMode.svelte.ts/theme.svelte.ts) rather than a page-owned
+// singleton (mirrors adminMode.svelte.ts) rather than a page-owned
 // PopoverMenu instance, because SourceBadge's prop contract (field/decide/baselineKey only,
 // per the two-tier field editing design handoff) doesn't thread an expand/collapse callback
 // through three separate detail pages (Video/Person/Studio) — every SourceBadge instance

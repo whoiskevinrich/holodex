@@ -42,7 +42,7 @@ func personImageServerCfg(t *testing.T, token string, maxBytes int64) (*httptest
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
-	h.SetPersonImages(filepath.Join(dir, "person-images"), maxBytes, 2000, "cinematheque")
+	h.SetPersonImages(filepath.Join(dir, "person-images"), maxBytes, 2000)
 	h.SetAuth(api.NewAuth(token), false)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
@@ -133,6 +133,20 @@ func TestServePersonImage(t *testing.T) {
 	}
 	if ct := resp.Header.Get("Content-Type"); ct[:9] != "image/svg" {
 		t.Errorf("placeholder content-type = %q, want svg", ct)
+	}
+	plain, _ := io.ReadAll(resp.Body)
+
+	// A stale ?skin= on a cached URL (retired skins, ADR-115 / spec F67 R21) still
+	// serves 200 and the same Cinémathèque bytes — the parameter is ignored.
+	stale, err := http.Get(base + "/image/headshot?skin=broadcast")
+	if err != nil {
+		t.Fatalf("get stale-skin placeholder: %v", err)
+	}
+	defer stale.Body.Close()
+	staleBody, _ := io.ReadAll(stale.Body)
+	if stale.StatusCode != http.StatusOK || !bytes.Equal(staleBody, plain) {
+		t.Errorf("?skin=broadcast: code %d, same bytes %v; want 200 and the default placeholder",
+			stale.StatusCode, bytes.Equal(staleBody, plain))
 	}
 
 	// Upload a headshot → the role now serves the real JPEG.

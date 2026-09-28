@@ -405,7 +405,7 @@ var ladder = []dimension{
 		key:    "part",
 		entity: kindVideo,
 		block:  1000,
-		finds:  "the bottom-left card badge against the duration badge and the Brutalist reel counter, the header pill after edition, queue rows that name a video by title alone",
+		finds:  "the bottom-left card badge against the duration badge, the header pill after edition, queue rows that name a video by title alone",
 		// HOLODEX-389. Every rung keeps the baseline title on purpose (ownsTitle with
 		// the text axis at baseline): three files of one media are an identical
 		// triplet on every list surface until the badge tells them apart, and that
@@ -525,7 +525,7 @@ var ladder = []dimension{
 		// The one kind whose slots are object-contain, which makes it the only place
 		// the `alpha` rung shows something `black` does not: a flattened transparent
 		// logo is a plate that does not fill its well rather than an image that does.
-		// Against these three dark skins it reads as a logo that half-disappeared, not
+		// Against the dark page it reads as a logo that half-disappeared, not
 		// as an obvious black box — which is the harder failure to notice.
 		rungs: images(imagePalette...),
 	},

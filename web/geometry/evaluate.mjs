@@ -81,7 +81,7 @@ export function evaluate(a, probe) {
  * reconcileBlocked decides, per assertion, whether a `blockedBy` marker is now a lie.
  *
  * It is a whole-assertion question: `no-horizontal-page-overflow` covers 33 pages in
- * six cells, and while the bug is open most of those still pass. Only when *nothing*
+ * every width cell, and while the bug is open most of those still pass. Only when *nothing*
  * is left failing is the bug actually fixed — at which point the stale marker would
  * quietly disarm the assertion against the next regression, so it is reported as news
  * and fails the run.
@@ -89,7 +89,7 @@ export function evaluate(a, probe) {
  * Returns the results plus one synthetic entry per newly-passing assertion, rather
  * than rewriting the passes, so the report keeps saying how many checks actually ran.
  *
- * `complete` is what makes the answer trustworthy. A `--skin`/`--width` run measures a
+ * `complete` is what makes the answer trustworthy. A `--width` run measures a
  * slice of the matrix, and a bug that reproduces only at `narrow` is absent from a
  * `--width wide` run for reasons that have nothing to do with it being fixed. Retiring
  * a marker on that evidence would disarm the assertion against a bug that is still

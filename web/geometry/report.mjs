@@ -15,7 +15,7 @@ import { describeBound, failed } from './evaluate.mjs';
  * @property {import('./assertions.mjs').Assertion} assertion
  * @property {string} url
  * @property {string} label  The manifest coordinate, or the literal URL for a list page.
- * @property {string} cell   e.g. "brutalist/narrow".
+ * @property {string} cell   the width key, e.g. "narrow".
  * @property {string} status
  * @property {string} detail
  * @property {{index: number, value: number, tag: string, text: string}[]} [offenders]
@@ -107,7 +107,7 @@ export function summary(results, stats) {
 		tally.skipped ? `${tally.skipped} skipped` : ''
 	].filter(Boolean);
 	const secs = (stats.elapsedMs / 1000).toFixed(1);
-	const line = `${parts.join(', ')}  —  ${stats.pages} page loads across ${stats.cells} skin/width cells in ${secs}s`;
+	const line = `${parts.join(', ')}  —  ${stats.pages} page loads across ${stats.cells} width cells in ${secs}s`;
 	// A narrowed run cannot retire a `blockedBy` marker (see reconcileBlocked), and its
 	// tally is indistinguishable from a full run that found none stale. Say which it was,
 	// rather than letting the absence of a NEWS line read as evidence.

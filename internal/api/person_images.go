@@ -101,17 +101,14 @@ func (h *Handlers) servePersonImageFile(w http.ResponseWriter, r *http.Request, 
 	serveEntityImageFile(w, r, path, err)
 }
 
-// servePlaceholder writes the themed placeholder SVG for an empty role. The skin
-// comes from ?skin= (defaulting to the app default); the gender bucket from the
-// person's enriched "gender" field (neutral when absent). It is not cached
-// aggressively — a later upload fills the slot and the role URL then resolves to the
-// real file — so a short cache keeps the empty state cheap without pinning it.
+// servePlaceholder writes the themed placeholder SVG for an empty role. The gender
+// bucket comes from the person's enriched "gender" field (neutral when absent). A
+// `?skin=` left on an older cached URL is ignored — there is one look (ADR-115). It is
+// not cached aggressively — a later upload fills the slot and the role URL then
+// resolves to the real file — so a short cache keeps the empty state cheap without
+// pinning it.
 func (h *Handlers) servePlaceholder(w http.ResponseWriter, r *http.Request, personID int64, role string) {
-	skin := strings.TrimSpace(r.URL.Query().Get("skin"))
-	if skin == "" {
-		skin = h.defaultSkin
-	}
-	svg := personimage.Placeholder(skin, role, h.personGender(r, personID))
+	svg := personimage.Placeholder(role, h.personGender(r, personID))
 	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "public, max-age=300")

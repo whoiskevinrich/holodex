@@ -9,7 +9,6 @@
 	// rather than closing both at once. Tokens only; QA 3 skins.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
-	import { theme } from '$lib/theme.svelte';
 	import type { PersonImage } from '$lib/types';
 
 	let {
@@ -56,10 +55,7 @@
 	}
 
 	function thumbSrc(img: PersonImage): string {
-		return api.personGalleryImageURL(personId, img.id, {
-			version: img.version,
-			skin: theme.current
-		});
+		return api.personGalleryImageURL(personId, img.id, { version: img.version });
 	}
 </script>
 

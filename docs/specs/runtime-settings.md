@@ -130,7 +130,7 @@ per person"). Only registered keys are writable.
 A fourth `/owner` tab, **Settings**, reads `GET /admin/settings` and renders one control per registry
 entry from its schema (today: a number input for the gallery cap, showing default + bounds, with a
 "Reset to default" affordance calling `DELETE`). Token-themed only (no hardcoded palette/radii);
-loading / error / saved states themed; **QA all three skins** (Cinémathèque, Broadcast, Brutalist).
+loading / error / saved states themed; **QA Cinémathèque** (the only skin, ADR-115).
 
 - **Given** the owner edits the cap and saves, **then** the new value is shown as effective and a
   subsequent person page reflects it (the `/capabilities` value updates).
@@ -164,7 +164,7 @@ loading / error / saved states themed; **QA all three skins** (Cinémathèque, B
 6. Reading the effective cap on the gallery-insert path and `/capabilities` performs **no** new
    per-call DB read (in-memory field remains the read path).
 7. An instance with only config (no override row) is byte-for-byte behaviorally identical to pre-F41.
-8. The Settings tab renders with tokens only across all three skins in loading/error/saved states.
+8. The Settings tab renders with tokens only in Cinémathèque (ADR-115) in loading/error/saved states.
 
 ---
 
@@ -180,7 +180,7 @@ loading / error / saved states themed; **QA all three skins** (Cinémathèque, B
 - **API** — owner-gating (`401` unauth) on GET/PUT/DELETE; `PUT` returns the new effective value;
   `DELETE` resets; `/capabilities` reflects the change.
 - **SPA** — Settings tab reads the registry schema and renders the control; save/reset/validation-error
-  paths; three-skin QA.
+  paths; Cinémathèque QA (ADR-115).
 - **Backward compat** — golden: config-only instance produces identical behavior to pre-F41.
 
 ---

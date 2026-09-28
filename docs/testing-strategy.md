@@ -2476,8 +2476,9 @@ go run ./testdata/stressseed        # seed; writes data/stress/manifest.json
 npm --prefix web run geometry       # from the root; a failed preflight leaves you here
 ```
 
-Three skins × three viewport widths (1440, 1024 and 768) — 765 checks over ~640 page loads
-in ~2½ min at the current table. Exit 0 means every invariant holds; 2 means it could not run
+Four viewport widths (1440, 1024, 768 and a 375px `phone`), one cell each. There is no skin
+axis: Cinémathèque is the only look (ADR-115, HOLODEX-476). (Before ADR-115 the matrix was
+three skins × three widths: 765 checks over ~640 page loads in ~2½ min.) Exit 0 means every invariant holds; 2 means it could not run
 (a prerequisite, including the server dying mid-run — §12.5). Full reference:
 `web/geometry/README.md`.
 
@@ -2491,16 +2492,15 @@ The loop it exists to serve:
 1. The owner looks at the fixture and describes a problem in plain language — *"media 902
    has twelve people and the headshots are unusably small."*
 2. The agent resolves `902` through `data/stress/manifest.json`, measures the actual
-   geometry across all three skins, and confirms the complaint.
+   geometry at every width, and confirms the complaint.
 3. The finding is written back as an assertion about **the property, not the page** — *any
    page where `people >= 10`* — which fails until fixed and keeps failing if it regresses.
 
 Step 3 is the whole value. One entry in `web/geometry/assertions.mjs` covers the `people`
-rungs at 10/25/50 *and* the `filmcast` rungs at 10/25/50 in six skin/width cells — 36
-checks — and picks up an 80-person rung the day one is added, unedited. A screenshot diff
+rungs at 10/25/50 *and* the `filmcast` rungs at 10/25/50 in every width cell, and picks up an 80-person rung the day one is added, unedited. A screenshot diff
 would pin one page, need byte-stable images, and go red on every restyle. It is also the
 only technique available: browser screenshots time out on Holodex (see §5), which is why
-computed-style verification was already this repo's three-skin QA method.
+computed-style verification was already this repo's QA method.
 
 ### 12.2 When to add an assertion
 
@@ -2635,52 +2635,49 @@ outlives its marker is the same failure one level up.
   (libuv 1.52.1): the full matrix completed, 738 passed / 0 errored, exit 0 — the harness's
   first green full run.
 
-## 13. Instance skin and custom palette (F67, ADR-102)
+## 13. Instance skin and custom palette (F67, ADR-102) — retired by ADR-115
 
-The skin became a server-held, library-owned setting with a derived custom palette
-([spec](specs/instance-skin.md), [handoff](design/instance-skin-handoff.md)). What is asserted
-where:
+**Retired 2026-09-28 (HOLODEX-476, [ADR-115](architecture/ADR-115-cinematheque-only-skin.md),
+[spec F67 R17–R23](specs/instance-skin.md)).** Cinémathèque is the only look, and nothing chooses
+it. The code these tests covered is deleted, and the tests went with it:
+- `internal/theme` and its R11 gate `TestDeriveMatchesCinematheque` (ΔE\*ab ≤ 2) plus the R12
+  contrast and `Parse` tests
+- `internal/api/theme_test.go` (`PUT /admin/theme` and `/capabilities.theme`)
+- the SPA's `theme.test.ts` (paint cache, `select()`, inline primaries)
+- the Appearance-card agent checks and the manual CSS ↔ Go cross-check
+
+The §13 standing gaps (the unautomated cross-check, and no derivation test for other bases) are
+closed by deletion. What is asserted now is that nothing depends on the retired machinery, and
+that leftover state from before ADR-115 is harmless:
 
 **Unit — Go**
-- `internal/theme`: **`TestDeriveMatchesCinematheque` is the R11 gate** — Cinémathèque
-  re-expressed as its five primaries, pushed through the same oklab `color-mix()` rules as
-  `app.css`'s `[data-palette='custom']` block, must land within ΔE\*ab ≤ 2 of every hand-tuned
-  token (compared as painted 8-bit sRGB). It fails when either copy of the percentages drifts.
-  Also: contrast known values (white/black = 21, HOLODEX-324's warn pair ≈ 5.42), a
-  deliberately low `muted` is flagged, and `Parse` rejects a missing name, an unsupported base,
-  a missing colour, CSS text and `rgb()` — the hex-only rule that keeps owner strings out of CSS.
-- `internal/repo`: `settings` round-trip, upsert, empty key.
-- `internal/api`: default theme for owner and visitor; `PUT /admin/theme` visitor 401 / unknown
-  400 / `custom` without a palette 400 / empty 400, rejected writes leave capabilities untouched,
-  a set is what a visitor then receives; stored `custom` with no palette reports the default and
-  leaves the row; with a palette wired, `custom` is selectable and capabilities carries name,
-  base, five normalised tokens and four contrast pairs.
+- `internal/api` `TestThemeRetired` (R17): `/capabilities` carries no `theme`, and
+  `PUT /admin/theme` returns 404/405 and writes no `theme.active` row.
+- `internal/api` `TestServePersonImage` (R21): a stale `?skin=broadcast` placeholder URL returns
+  200 with the same bytes as the bare URL.
+- `internal/personimage` `TestPlaceholderResolution` (R21): the placeholder carries the four
+  Cinémathèque tokens it mirrors from `app.css` and never a `var(--…)`.
+- `internal/config` `TestLoadIgnoresRetiredThemeBlock` (R18): a `holodex.yaml` that still has a
+  `theme.custom` block loads, and the keys around it still apply. This guards against strict
+  decoding being turned on later.
+- `internal/repo` `TestSettingsRoundTrip`: the `settings` store survives for ADR-112, with
+  neutral fixture keys.
 
-**Unit — SPA (`theme.test.ts`)**
-- Server value applied to `<html>` (`data-theme`, `data-palette`, the five inline primaries) with
-  no preference key; switching back clears every inline property; the paint cache is applied
-  before capabilities and always overwritten by the server; a corrupt/blocked cache and a cached
-  palette with missing tokens are ignored; `select()` refuses `custom` locally when none is
-  configured, applies optimistically, and reverts on a rejected `PUT`.
+**Unit — SPA**
+- `api.test.ts`: person-image URLs carry only `?v=`, never `?skin=` (R21).
+- `halo.test.ts`: `PALETTE_MODE` is `dark` — the studio halo's mode is fixed, since only a custom
+  palette could ever be light (HOLODEX-482 tracks collapsing the per-mode storage).
 
-**Agent (live, per the handoff's numbered checklist)** — cards render in *their* tokens and
-flourishes (the `.skin-card` fence in `app.css` is what makes the page skin not bleed into a
-card; probe `::before`/`::after` `content` on a tile inside each card and on one outside);
-click → `PUT` → visitor reload; keyboard roving; forced 403 → revert + alert; phone two-up;
-no header picker. **The CSS ↔ Go cross-check for R11** is a browser probe: put a palette on
-`<html>` with `data-palette="custom"`, read the computed derived tokens, and compare to
-`internal/theme.Derive` — the Go test proves the rule, the probe proves the browser agrees.
+**Agent (live, HOLODEX-476)** — R19's "renders unchanged" is a computed-style baseline diff. Before
+the CSS change, snapshot the browse grid's tokens, `.app-atmosphere::after` (grain + vignette),
+the first `.video-frame::before/::after` (9px letterbox bars), `.skin-title` typography and body
+font. Repeat after, and require zero differences. Also check: `<html>` has no `data-theme`,
+`data-mode` or inline style; only Fraunces and Archivo load; `/owner/appearance` is a 404; the
+owner tab bar wraps with no horizontal scroll at 375px.
 
-**Human** — 3.1–3.4 in the handoff; the load-bearing one is that a custom palette re-tints the
-whole page while keeping Cinémathèque's fonts and sprocket edges, and clicking back returns
-everything to stock.
-
-**Standing gaps**
-- The CSS ↔ Go cross-check is manual. Automating it needs a browser in CI (the §12 harness could
-  carry one derivation assertion against the stress fixture); not done — one palette, one base.
-- `base` other than Cinémathèque is refused by `Parse`, so nothing tests derivation on Broadcast
-  or Brutalist; widening `allowedBases` must add each skin's primaries + hand-tuned tokens to
-  the gate first.
+**Standing gap**
+- The person-image `?skin=` removal was not exercised on a live person page (the AMV testbed has
+  no people). It is covered by the unit tests above.
 
 ## 14. Video playlists (F69, ADR-104)
 

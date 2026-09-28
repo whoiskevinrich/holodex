@@ -557,7 +557,7 @@
 				{@const toFile = rowWillWrite(row)}
 				{@const toSystem = rowDecisionOnly(row)}
 				<!-- No dimming for an unchecked row: the group heading above already says these are
-				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1 on every skin.
+				     undecided, and `opacity` on a `text-muted` label lands at ~2.2:1.
 				     The checkbox carries the state; the label stays legible. -->
 				<div class="flex items-start gap-3">
 					<!-- Gutter glyph = what Write will do to this row. There is no checkbox anywhere;

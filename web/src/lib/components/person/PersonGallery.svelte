@@ -5,9 +5,8 @@
 	// on hover/focus — set-as-{headshot|banner|poster} (via the crop editor), delete, and
 	// keyboard move-left/right reorder. The gallery cap (PERSON_GALLERY_MAX, default 20)
 	// disables the Add tile with an informational note and offers an explicit "Add anyway"
-	// over-cap upload (the server enforces both). Tokens only; QA all three skins.
+	// over-cap upload (the server enforces both). Tokens only.
 	import { api } from '$lib/api';
-	import { theme } from '$lib/theme.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
 	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
@@ -80,7 +79,7 @@
 	}
 
 	function thumbSrc(img: PersonImage): string {
-		return api.personGalleryImageURL(personId, img.id, { version: img.version, skin: theme.current });
+		return api.personGalleryImageURL(personId, img.id, { version: img.version });
 	}
 
 	// Open the file picker; overCap=true marks the batch as an explicit over-cap add.

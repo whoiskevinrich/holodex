@@ -4,7 +4,7 @@
 //   npm --prefix web run geometry -- <flags>     (from the repository root; no cd)
 //
 // Measures the running stress fixture against the invariants in `assertions.mjs`,
-// across three skins and three viewport widths, and exits non-zero when one is broken.
+// across four viewport widths, and exits non-zero when one is broken.
 //
 // Prerequisites; 1–4 are checked before anything is measured:
 //   1. `npx playwright install chromium`   — once per machine; `npm ci` does not do it
@@ -22,21 +22,28 @@ import { parseArgs } from 'node:util';
 import { ASSERTIONS, validate } from './assertions.mjs';
 import { load, select, describe } from './manifest.mjs';
 import { evaluate, reconcileBlocked } from './evaluate.mjs';
-import { matrix, open, goto, prepare, probe, launch, SKINS, WIDTHS } from './browser.mjs';
+import { matrix, open, goto, prepare, probe, launch, WIDTHS } from './browser.mjs';
 import { render, exitCode } from './report.mjs';
 
-const { values } = parseArgs({
-	options: {
-		base: { type: 'string', default: 'http://localhost:5173' },
-		manifest: { type: 'string' },
-		only: { type: 'string', multiple: true, default: [] },
-		skin: { type: 'string', multiple: true, default: [] },
-		width: { type: 'string', multiple: true, default: [] },
-		headed: { type: 'boolean', default: false },
-		list: { type: 'boolean', default: false },
-		help: { type: 'boolean', default: false }
-	}
-});
+// An unknown flag (e.g. the retired `--skin`, ADR-115) is a usage error: exit 2, the
+// "could not run" code, not an uncaught throw that exits 1 and reads as a broken invariant.
+let values;
+try {
+	({ values } = parseArgs({
+		options: {
+			base: { type: 'string', default: 'http://localhost:5173' },
+			manifest: { type: 'string' },
+			only: { type: 'string', multiple: true, default: [] },
+			width: { type: 'string', multiple: true, default: [] },
+			headed: { type: 'boolean', default: false },
+			list: { type: 'boolean', default: false },
+			help: { type: 'boolean', default: false }
+		}
+	}));
+} catch (err) {
+	console.error(`${/** @type {Error} */ (err).message}\nrun with --help for the flags`);
+	process.exit(2);
+}
 
 if (values.help) {
 	console.log(`geometry — layout invariants against the stress fixture (HOLODEX-349)
@@ -44,7 +51,6 @@ if (values.help) {
   --base <url>       app under test           (default http://localhost:5173)
   --manifest <path>  seed manifest            (default ../../data/stress/manifest.json)
   --only <key>       run one assertion; repeatable
-  --skin <name>      restrict skins: ${SKINS.join(', ')}; repeatable
   --width <key>      restrict widths: ${WIDTHS.map((w) => w.key).join(', ')}; repeatable
   --headed           watch it run
   --list             print the plan and exit without measuring
@@ -63,12 +69,9 @@ if (problems.length > 0) {
 // otherwise measure half the matrix and report a clean pass over it, which is a worse
 // outcome than any failure. Checking each list against its own vocabulary catches that,
 // where a "did anything survive the filter?" test does not — one good value hides an
-// arbitrary number of bad ones. (For --skin the alternative is also slow and opaque:
-// every page would spend 15s waiting for `data-theme` to equal a value the app can
-// never set.)
+// arbitrary number of bad ones.
 const known = [
 	{ flag: '--only', given: values.only, vocabulary: ASSERTIONS.map((a) => a.key) },
-	{ flag: '--skin', given: values.skin, vocabulary: SKINS },
 	{ flag: '--width', given: values.width, vocabulary: WIDTHS.map((w) => w.key) }
 ];
 for (const { flag, given, vocabulary } of known) {
@@ -94,13 +97,10 @@ const assertions = values.only.length
 	? ASSERTIONS.filter((a) => values.only.includes(a.key))
 	: ASSERTIONS;
 
-const cells = matrix(
-	values.skin.length ? values.skin : SKINS,
-	values.width.length ? WIDTHS.filter((w) => values.width.includes(w.key)) : WIDTHS
-);
+const cells = matrix(values.width.length ? WIDTHS.filter((w) => values.width.includes(w.key)) : WIDTHS);
 
 // A narrowed matrix cannot retire a `blockedBy` marker: see reconcileBlocked.
-const wholeMatrix = values.skin.length === 0 && values.width.length === 0;
+const wholeMatrix = values.width.length === 0;
 
 /**
  * plan resolves each assertion to the pages it applies to.
@@ -341,13 +341,13 @@ if (gone) {
  *
  * @param {import('playwright').Page} page
  * @param {string} url
- * @param {{key: string, skin: string}} cell
+ * @param {{key: string}} cell
  * @param {{assertion: any, url: string, label: string}[]} group
  * @param {string[]} preparations
  */
 async function visit(page, url, cell, group, preparations) {
 	try {
-		await goto(page, `${values.base}${url}`, cell.skin);
+		await goto(page, `${values.base}${url}`);
 		await prepare(page, preparations);
 	} catch (err) {
 		const message = /** @type {Error} */ (err).message;

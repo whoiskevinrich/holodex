@@ -2,7 +2,6 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { theme } from '$lib/theme.svelte';
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
@@ -45,17 +44,8 @@
 		if (pageScope) navSearch.activeTab = pageScope;
 	});
 
-	// The instance skin is the owner's choice for every viewer (ADR-102 D1): apply
-	// it whenever capabilities (re)load. No viewer preference exists any more.
+	// Load persisted UI state on mount.
 	$effect(() => {
-		// Guarded: a backend older than F67 serves no `theme` (preview-testbed mismatch).
-		if (activity.caps?.theme) theme.applyServer(activity.caps.theme);
-	});
-
-	// Paint-cache the skin + load search history on mount (F67: the skin itself is
-	// instance identity and arrives with capabilities below).
-	$effect(() => {
-		theme.init();
 		adminMode.init();
 		searchHistory.init();
 	});
