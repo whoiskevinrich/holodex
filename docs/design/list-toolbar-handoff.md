@@ -236,3 +236,26 @@ in `⋯`. Visitors on Media have no `⋯`, so the reroll takes its slot: 208 + 3
 5. Media's Recently Added shelf moves below the toolbar.
 6. Below `sm`, on pages with a `⋯`, "Shuffle again" moves into the `⋯` menu, because the 375px
    width budget can't fit it inline (see Responsive).
+
+## Amendments approved 2026-09-27
+
+The owner chose these from visual comparisons (approved vs built vs alternatives) after the
+build found gaps in this handoff, and approved them as built. The worklog's Divergences table
+records how each was reached.
+
+- **D1, which replaces decision 2 for the sweep status.** `SweepStatusLine` isn't a count, so it
+  doesn't fold into the count line. It's always one line under it, shown only during or just after
+  a sweep:
+  - The counts truncate, with the full text in a tooltip.
+  - **Details** and **Dismiss** stay pinned at the end.
+  - A failure count also stays pinned, in `text-warn`, so the ellipsis never hides it.
+  - `DuplicatesBanner` still folds into the count line as decision 2 says.
+- **D2, People merge select mode.** Entered from `⋯` → "Merge people…". While selecting, the
+  toolbar row becomes a mode bar, "N selected · Merge · Cancel", with Merge disabled below two. The
+  hint takes the count line's place. This is `ListToolbar`'s `mode` snippet.
+- **D3, Tags manage mode.** Entered from `⋯` → "Manage tags". It uses the same mode bar:
+  "Managing · N selected · Merge… · ⋯ · Done".
+  - Once two or more are picked, the bar's `⋯` holds Add to / Remove from category, Turn off /
+    Turn on writeback, and Sync writeback now.
+  - The writeback items are withheld while a bulk write runs.
+  - Hints and warnings take the count line's place.
