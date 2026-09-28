@@ -29,19 +29,19 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` — open the Draft PR; the design phase is settled (ADR-115, F67 R17–R23, design skipped)
-2. [ ] [backend] R17/R18/R21: delete `internal/theme`, `internal/api/theme.go` and its route, and `ThemeCustom`; collapse `skinPalettes`/`?skin=` — `internal/`, `cmd/holodex`
-3. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
-4. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
-5. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
-6. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
+1. [ ] [backend] R17/R18/R21: delete `internal/theme`, `internal/api/theme.go` and its route, and `ThemeCustom`; collapse `skinPalettes`/`?skin=` — `internal/`, `cmd/holodex`
+2. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
+3. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
+4. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
+5. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
 
 ### 2026-09-28 · session
-- skills: handoff
+- skills: handoff, implement
 - Merged `origin/main` (#403, list toolbar) in at `5706c31b`. The only conflict was the ADR index, where both rows were kept in order (114, 115). Settled the design gate as `[~]`, because the epic deletes a tab and adds no UI. Rewrote Up next as the build queue and authored the release note.
-- handoff: The design phase is settled (ADR-115, F67 amended, design skipped) and the epic carries `fp:ready-to-build`; the next move is `/implement` to open the Draft PR, then backend R17/R18/R21.
+- Crossed into build. The design phase is settled, and there was no sign-off to ask for because design is `[~]`. The branch was already current with `origin/main`. Opened Draft PR #404, removed `fp:ready-to-build`, and moved the epic to In Progress by hand, since jira-sync skips epics. Before merge, decide whether the squash subject should be `feat(theming)!:` (breaking: `theme.custom` is removed) or plain `feat`.
+- handoff: Crossed into build with no sign-off needed (design skipped); draft PR #404 open. Start at backend R17/R18/R21 — delete `internal/theme` and `internal/api/theme.go`, and collapse `skinPalettes`/`?skin=`.
 
 ### 2026-09-27 · session (palette too)
 - skills: product-brainstorming, architecture, write-spec
