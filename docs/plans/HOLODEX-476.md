@@ -23,16 +23,15 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-115 (supersedes in part ADR-021 and ADR-102 D1/D3–D6)
 - [~] design `design-handoff` → `docs/design/**` — skipped: the epic deletes `/owner/appearance` and adds no UI, so there's nothing to mock up. R20's acceptance covers the tab bar with one tab fewer. Kevin chose this scope on 2026-09-27 — until: any removal leaves a visible gap that needs a new layout
 - [x] backend → `{cmd,internal,providers}/**` — R17/R18/R21: `internal/theme` and `internal/api/theme.go` deleted (route, `/capabilities.theme`, config block gone); one Cinémathèque placeholder palette, `?skin=` ignored, `defaultSkin` dropped; tests for the removed route, a stale `?skin=` URL and a leftover `theme.custom` block
-- [ ] frontend → `web/src/**` — R19–R21: `app.css` down to `:root` Cinémathèque, drop fonts and deps, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites, update component CLAUDE.md lines
+- [x] frontend → `web/src/**` — R19–R21 (`d5f0c12d`): tokens in one `:root` block, retired skins/palette/`.skin-card` fence and three fonts gone; `theme.svelte.ts`, `/owner/appearance`, `api.setTheme` and `?skin=` removed; halo reads a fixed dark `PALETTE_MODE`. Browse-grid computed styles match the pre-change baseline token for token; `npm run check` 0 errors, 499 unit tests green
 - [ ] testing `testing-strategy` — R22: rewrite §12's geometry matrix, retire the F67 rows (R11/R12), drop `web/geometry` `SKINS` (closes HOLODEX-460)
 - [ ] security `security-review` — expected n/a (an owner-gated write is removed; nothing is added)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] R19–R21: move the tokens to `:root`, drop fonts, delete `theme.svelte.ts`, `/owner/appearance` and the `?skin=` call sites — `web/src/`
-2. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
-3. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
-4. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
+1. [ ] [testing] R22: drop the harness skin axis, rewrite §12, retire the F67 rows — `web/geometry/`, `docs/testing-strategy.md`
+2. [ ] [—] R23 docs: `holodex.yaml.example`, `configuration.md` §Appearance, `README.md`, `site/`, screenshots
+3. [ ] [—] On merge: close HOLODEX-460 as obsolete. The release note says every instance renders in Cinémathèque, and the Appearance tab and `theme.custom` are gone.
 
 ## Session log — newest first
 
@@ -41,7 +40,8 @@ set to any of them comes up in Cinémathèque with nothing to fix, and every UI 
 - Merged `origin/main` (#403, list toolbar) in at `5706c31b`. The only conflict was the ADR index, where both rows were kept in order (114, 115). Settled the design gate as `[~]`, because the epic deletes a tab and adds no UI. Rewrote Up next as the build queue and authored the release note.
 - Crossed into build. The design phase is settled, and there was no sign-off to ask for because design is `[~]`. The branch was already current with `origin/main`. Opened Draft PR #404, removed `fp:ready-to-build`, and moved the epic to In Progress by hand, since jira-sync skips epics. Before merge, decide whether the squash subject should be `feat(theming)!:` (breaking: `theme.custom` is removed) or plain `feat`.
 - Backend landed (R17/R18/R21): `internal/theme`, `internal/api/theme.go`, the `/admin/theme` route, `/capabilities.theme` and the `theme:` config block are deleted. The placeholder uses one Cinémathèque palette and ignores `?skin=`. New tests cover the removed route, the stale `?skin=` URL and a leftover `theme.custom` block. `go test ./...` is green. `/code-review high --fix` folded `authServerH` away. Until the frontend commit, the Appearance tab's PUT gets a 404; the SPA bootstrap is safe because it reads `caps?.theme`.
-- handoff: Backend is done and green; start frontend R19–R21 — move the Cinémathèque tokens to `:root`, delete `theme.svelte.ts` and `/owner/appearance`, and drop the `?skin=` call sites and `api.setTheme`.
+- Frontend landed (R19–R21, `d5f0c12d`): `app.css` is one `:root` Cinémathèque token block with no skin, palette or `data-theme` selectors. The three retired fonts and their deps are gone. `theme.svelte.ts`, the theme types, `api.setTheme`, `/owner/appearance` and `?skin=` are removed. Found that the halo's `mode` came from the theme store, so `halo.ts` now exports a fixed dark `PALETTE_MODE`, and behaviour and copy are unchanged. Verified live on backend-amv: computed styles on the browse grid match the pre-change baseline token for token (grain, vignette, 9px letterbox bars, Fraunces/Archivo, 70 cards). `/owner/appearance` is a 404, the tab bar wraps at 375px without scrolling, `PUT /admin/theme` gives 404 and `/capabilities` has no `theme`. `/code-review high --fix` caught that the geometry harness waited on `data-theme` (fixed). Two things were filed rather than changed: HOLODEX-482 (halo modes, copy/ADR) and HOLODEX-483 (chip char cap).
+- handoff: Backend and frontend are done and verified; start testing R22 — drop the geometry harness's skin axis (`SKINS`, `--skin`, `goto`'s unused `skin` param), rewrite testing-strategy §12 and retire the F67 R11/R12 rows.
 
 ### 2026-09-27 · session (palette too)
 - skills: product-brainstorming, architecture, write-spec
