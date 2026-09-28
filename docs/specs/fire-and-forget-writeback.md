@@ -173,6 +173,18 @@ job's worth of truth at a time.
 
 **R3.6** Retry and Dismiss are owner-gated endpoints.
 
+**R3.7** A failure the file itself causes — one every retry would repeat — names what the file needs
+rather than echoing a tool's exit status (HOLODEX-479). The first such case is a **fragmented MP4**
+(`.mp4`/`.m4v`/`.mov` with a top-level `moof` box): ExifTool's QuickTime writer cannot write these.
+Before exiftool runs (and before the temp copy is made) the writer walks the top-level box headers;
+on `moof` it refuses with `writeback.ErrFragmentedMP4`, whose message starts with the stable code
+`writeback_unsupported_container` and carries the remux command. That string is what lands in
+`writeback_queue.error`; the R3.2 detail line keys on the code prefix and renders plain words plus
+`ffmpeg -i in.mp4 -map 0 -c copy -movflags +faststart out.mp4`. Retry stays — once the operator
+has replaced the file with the remux, it succeeds. The legacy synchronous path answers **422** with
+the same message instead of the generic 500. Auto-remuxing (HOLODEX-480) and flagging fragmented
+files at scan time (HOLODEX-481) are deferred.
+
 ### R4 — The dialog is a pre-flight confirm step
 
 **R4.1** Row content is unchanged: destination tag (`→ write_target`), the `was:` current file
