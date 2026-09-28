@@ -5,7 +5,7 @@ Sort and display controls shared across the browse/people/tags index pages.
 | File | Purpose |
 |---|---|
 | `ListToolbar.svelte` | The one list toolbar (F73, `docs/design/list-toolbar-handoff.md`): layout only, no state. One row that never wraps — `[sort] [reroll?] [filters?] ··ml-auto·· [view?] [⋯?]` — then the chips row and the `aria-live` count line. Below `sm`, `reroll` moves into ⋯ when the page has one (375 px budget). State lives in `$lib/listState` (ADR-114). |
-| `FilterPanel.svelte` | Filters slot: `FiltersButton` + one panel shown two ways — a non-modal popover from `sm` up, a modal bottom sheet (focus trap, Done / Clear all / live count) below. Fields apply live; no Apply button. |
+| `FilterPanel.svelte` | Filters slot: `FiltersButton` + one panel shown two ways — a non-modal popover from `sm` up, a modal bottom sheet (focus trap, Done / Clear all / live count) below. Fields apply live; no Apply button. The sheet **contains** scroll rather than locking the document (owner's pick): `touch-none` on the backdrop, `overscroll-contain` on the sheet — don't add a `<html>` overflow lock. |
 | `FiltersButton.svelte` | "Filters · n" trigger; below `sm` a funnel + count. Accent when any filter is active. |
 | `FilterChip.svelte` | One removable active-filter or entity-scope chip (`kind`), label truncated at 12rem. |
 | `PageActions.svelte` | The owner ⋯ page-actions menu (Merge people, Manage tags, Save as playlist…); `compactOnly` items show below `sm` only. |

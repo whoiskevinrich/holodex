@@ -65,7 +65,10 @@
 
 	{#if open}
 		{#if !wide.current}
-			<div class="fixed inset-0 z-40 bg-bg/70" role="presentation" onclick={() => close()}></div>
+			<!-- Scroll containment, no document lock (owner's pick, HOLODEX-472): touch-none keeps
+			     a drag on the backdrop off the list behind (a tap still closes), and the sheet's
+			     overscroll-contain stops a flick past its end chaining into the page. -->
+			<div class="fixed inset-0 z-40 touch-none bg-bg/70" role="presentation" onclick={() => close()}></div>
 		{/if}
 		<div
 			bind:this={panel}
@@ -79,7 +82,7 @@
 			transition:fly={{ y: 400, duration: wide.current || prefersReducedMotion.current ? 0 : 150 }}
 			class={wide.current
 				? 'absolute left-0 top-full z-20 mt-1 w-80 rounded-theme border border-rule bg-surface p-4 shadow-lg'
-				: 'fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto border-t border-rule bg-surface p-4'}
+				: 'fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto overscroll-contain border-t border-rule bg-surface p-4'}
 		>
 			{#if !wide.current}
 				<div class="mb-4 flex items-center justify-between">
