@@ -5,79 +5,47 @@
 	import { activity } from '$lib/activity.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { toMessage, filterByName } from '$lib/format';
-	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Studio } from '$lib/types';
-	import SortToggle from '$lib/components/sort/SortToggle.svelte';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
-	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
+	import type { Studio } from '$lib/types';
+	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
 	import StudioListRow from '$lib/components/entity/StudioListRow.svelte';
-	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
+	import AlphaIndex from '$lib/components/entity/AlphaIndex.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
-	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
-	import { readEntityFilters, writeEntityFilters, type CompletenessDir } from '$lib/filterPreference';
+	import { ENTITY_SORTS, studiosSchema } from '$lib/listState';
+	import { listController } from '$lib/listController.svelte';
 
-	// Studio index (F38, ADR-053) — the People/Tags list pattern, minus the merge-selection
-	// mode (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the
-	// StudioLinkCard logo box in front of the name). Same sort + A–Z jump-nav + scroll-restore
-	// behavior.
+	// Studio index (F38, ADR-053) — the People list pattern, minus the merge-selection mode
+	// (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the
+	// StudioLinkCard logo box in front of the name). Controls are the F73 list toolbar; the
+	// sort is one value — completeness is an owner-only entry in it, never a second control
+	// (HOLODEX-473) — held by ListController per ADR-114.
+	const list = listController(studiosSchema, '/studios');
 	let studios = $state<Studio[]>([]);
-	let sort = $state<PeopleTagSort>(readSort('studios', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
 	let loadError = $state('');
 
-	$effect(() => {
-		writeSort('studios', sort);
-	});
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	$effect(() => list.setOwner(isOwner));
+	const sortBy = $derived(list.state.sort);
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (Studios) — otherwise it's previewing another
 	// type via the overlay panel and this grid stays unfiltered.
 	const q = $derived(navSearch.inPlace ? navSearch.query : '');
 
-	// Completeness sort (F55.5) — owner-only, a separate control/state from `sort`
-	// (see CompletenessSortToggle) since PeopleTagSort is shared with the
-	// (out-of-scope) Tags page. Declared here (ahead of `sorted` below) so it's
-	// initialized before that derived's first read. Restored, together with the
-	// missing-facet selection below, from the page's sticky filter key (SP5).
-	const savedFilters = readEntityFilters('studios');
-	let completenessDir = $state<CompletenessDir>(savedFilters.completeness);
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
-	// The direction the page is actually showing: a restored value in a non-owner
-	// state (Admin mode off) must not suppress the shuffle or hide the A–Z bar while
-	// the toggle that could clear it isn't rendered — the request already drops it.
-	const completeness = $derived(isOwner ? completenessDir : '');
-
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2) —
 	// a separate $derived from `displayed` so a keystroke's filter pass doesn't also
-	// re-shuffle. NS3: filterByName over the already-fetched list, no new fetch.
-	// completeness overrides the client-side random shuffle — the server has already
-	// ordered `studios` by score in that case.
-	const sorted = $derived(!completeness && sort === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
+	// re-shuffle. NS3: filterByName over the already-fetched list, no new fetch. A
+	// completeness sort is ordered by the server.
+	const sorted = $derived(sortBy === 'random' ? seededShuffle(studios, shuffleSeed.value) : studios);
 	const displayed = $derived(filterByName(sorted, q));
+	const showIndex = $derived(sortBy === 'name' && !q.trim());
 
-	// Missing-facet filter (F55.6) — owner-only, AND semantics across selections.
-	// `missingFacetFetched` is a plain (non-reactive) guard, not `$state` — the facet
-	// list can legitimately come back empty ([] length 0), and re-assigning a fresh
-	// empty array on every response is itself a $state write, so gating on
-	// `.length === 0` would refire the fetch forever and hammer the server.
-	let missingFacetIDs = $state<string[]>(savedFilters.missing_facet);
-	const missingFacet = createMissingFacetOptions('studio');
-	$effect(() => {
-		missingFacet.ensureFetched(isOwner);
-	});
-	// Persist the filter pair per page (SP5).
-	$effect(() => {
-		writeEntityFilters('studios', { completeness: completenessDir, missing_facet: missingFacetIDs });
-	});
-	function effectiveSort(): PeopleTagSort | 'completeness_asc' | 'completeness_desc' {
-		return completenessDir ? (`completeness_${completenessDir}` as const) : sort;
-	}
-
-	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const letterAnchors = $derived(computeLetterAnchors(studios.map((s) => s.name)));
 	function jumpTo(letter: string) {
 		const el = document.getElementById(`sl-${letter}`);
@@ -90,11 +58,8 @@
 	function reload() {
 		loading = true;
 		loadError = '';
-		// Owner-gated: never send the completeness sort/filter for a non-owner (a
-		// transient pre-capabilities-load isOwner=false just falls back to the plain
-		// sort, and self-heals into the real request once caps resolve).
 		api
-			.listStudios(isOwner ? effectiveSort() : sort, undefined, isOwner ? missingFacetIDs : undefined)
+			.listStudios(sortBy)
 			.then((res) => (studios = res.items ?? []))
 			.catch((err) => {
 				loadError = toMessage(err);
@@ -104,49 +69,40 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = listScroll.take('studios', scrollKey());
+					const snap = listScroll.take('studios', list.key);
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
 	}
 
-	function scrollKey(): string {
-		return `${isOwner ? effectiveSort() : sort}|${isOwner ? missingFacetIDs.join(',') : ''}`;
-	}
-
 	$effect(() => {
-		void sort; void completenessDir; void missingFacetIDs; // re-run on any sort/filter change
+		void sortBy; // re-run on a sort change (the controller already withholds owner-only sorts)
 		reload();
 	});
 
 	beforeNavigate(() => {
-		listScroll.save('studios', { key: scrollKey(), scrollY: window.scrollY });
+		listScroll.save('studios', { key: list.key, scrollY: window.scrollY });
 	});
 </script>
 
 <section class="space-y-4">
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
-		<div class="flex flex-wrap items-center gap-2">
-			{#if !completeness && sort === 'random'}
-				<SortReroll onreroll={() => shuffleSeed.reroll()} />
-			{/if}
-			<SortToggle bind:sort />
-			{#if isOwner}
-				<CompletenessSortToggle bind:dir={completenessDir} />
-				<FacetFilter
-					label="Missing"
-					items={missingFacet.options.map((f) => ({ id: f.canonical, name: f.label, video_count: f.missing_count }))}
-					bind:selected={missingFacetIDs}
-				/>
-			{/if}
-		</div>
-	</div>
+	<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
 
-	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle. -->
+	<ListToolbar reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}>
+		{#snippet sort()}
+			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet count()}
+			{#if !loading && !loadError}{studios.length} {studios.length === 1 ? 'studio' : 'studios'}{/if}<DuplicatesBanner
+				entityType="studio"
+				inline
+			/>
+		{/snippet}
+	</ListToolbar>
+
+	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle.
+	     Shown only while a sweep runs or just finished, so it isn't a standing row. -->
 	<SweepStatusLine kind="studio" onfinished={reload} />
-
-	<DuplicatesBanner entityType="studio" />
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
@@ -157,32 +113,13 @@
 	{:else if displayed.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No studios match “{q.trim()}”.</p>
 	{:else}
-		{#if !completeness && sort === 'name' && !q.trim()}
-			<nav
-				aria-label="Jump to letter"
-				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"
-			>
-				{#each ALPHABET as L (L)}
-					{#if L in letterAnchors}
-						<button
-							onclick={() => jumpTo(L)}
-							aria-label={`Jump to ${L === '#' ? 'non-alphabetic names' : L}`}
-							class="rounded-theme px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-accent"
-						>
-							{L}
-						</button>
-					{:else}
-						<span class="px-1.5 py-0.5 text-xs text-muted opacity-30" aria-hidden="true">{L}</span>
-					{/if}
-				{/each}
-			</nav>
+		{#if showIndex}
+			<AlphaIndex anchors={letterAnchors} onjump={jumpTo} />
 		{/if}
-		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 {showIndex ? 'pr-5 sm:pr-0' : ''}">
 			{#each displayed as s, i (s.id)}
 				<li
-					id={sort === 'name' && !q.trim() && letterAnchors[firstLetter(s.name)] === i
-						? `sl-${firstLetter(s.name)}`
-						: undefined}
+					id={showIndex && letterAnchors[firstLetter(s.name)] === i ? `sl-${firstLetter(s.name)}` : undefined}
 					class="scroll-mt-16"
 				>
 					<StudioListRow studio={s} eager={i < 6} />

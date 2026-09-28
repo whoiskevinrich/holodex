@@ -21,7 +21,7 @@
  */
 
 /** The metrics an assertion may bound. Anything else is a typo, and is refused. */
-export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize', 'gutterRight'];
+export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize', 'gutterRight', 'mainTop'];
 
 /**
  * within reports whether a value satisfies a {min, max} bound, and how it reads when

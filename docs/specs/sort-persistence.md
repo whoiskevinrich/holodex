@@ -123,6 +123,10 @@ independently per page.
   page's existing default (Media `added_desc`, People `name`, Tags `name`). A corrupt
   storage value never throws into the UI and never blocks rendering. *(This makes removing
   a sort option in future forward-safe — a stale saved value just falls back to default.)*
+> **Amended by [F73 — list toolbar](list-toolbar.md#amendments-to-sort-persistence).** The
+> "URL wins" rule below now applies to every list page, the "People / Tags: no URL sort state"
+> clause is withdrawn, and arriving by URL never writes the saved preference.
+
 - **Media precedence (URL wins).** Media's sort already lives in the URL for
   shareability. Precedence on load: **URL `sort` param → saved localStorage value →
   default.** A `sort` present in the URL (e.g. a shared/deep link) always wins; the saved
@@ -266,6 +270,11 @@ three skins.
 - [ ] Random option and re-roll are keyboard-operable and screen-reader-labeled.
 
 #### SP5 — Per-page sticky filters (client-only) — added 2026-09-21, HOLODEX-25
+
+> **Superseded by [F73 — list toolbar](list-toolbar.md#amendments-to-sort-persistence) and
+> ADR-114.** Filters now live only in the URL, and Back restores them from the history entry. The
+> `holodex:filters:*` keys are ignored from F73 on and deleted by HOLODEX-474. Kept below as
+> history.
 
 SP1 remembers each page's **sort**; the **filters** beside it still reset on every mount
 (reload, or ← Back from a detail page), so an owner mid-curation re-picks the same

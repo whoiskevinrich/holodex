@@ -104,6 +104,30 @@ canonical column is never written by a display decision.
 → [entity-identity-card-handoff.md §4](../design/entity-identity-card-handoff.md);
 [ADR-096](../architecture/ADR-096-entity-identity-card.md) D5
 
+**List toolbar.** The one row every list page (Media, People, Studios, Films, Tags) puts above its
+data: `[Sort] [Reroll?] [Filters?] ··· [View?] [⋯?]`. It never wraps, and an empty slot renders
+nothing. Active filters sit under it as a one-line chips row, then the `aria-live` count line.
+- It holds sort, filters and view state for the list. Page-level actions (Merge people, Manage
+  tags, Save as playlist) go in `⋯`, never as extra buttons.
+- A select or manage mode replaces the row in place: the **mode bar**, via its `mode` slot. The
+  mode bar never stacks above the row.
+- Below `sm` the controls go icon-only, Filters becomes a bottom sheet, and the A–Z index becomes
+  a right-edge rail.
+
+→ `sort/ListToolbar.svelte`; [list-toolbar-handoff.md](../design/list-toolbar-handoff.md);
+state model [ADR-114](../architecture/ADR-114-list-state-model.md)
+
+**Scope chip.** A chip in the list toolbar's chips row that narrows a list to one entity, e.g.
+"Studio: Foo" or "Tag: bar". It's reached from that entity's own page, not picked from a filter
+field.
+- It shares the chips row with filter chips but is a separate `kind` on `FilterChip`. It carries
+  the entity's name and a ✕, and removing it widens the list back.
+- It is how Media narrows by person, tag, studio or category (the `person`, `tag`, `studio_id`
+  and `category` params, spec R5). No entity picker is added to the Filters panel.
+- It lives in the URL like every filter (ADR-114), so it survives Back and is never saved.
+
+→ `sort/FilterChip.svelte`; [list-toolbar.md](../specs/list-toolbar.md)
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.
@@ -171,6 +195,8 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "Don't truncate strings in the writeback dialogue; for items that would be truncated stack the options — when the strings are truncated I can't verify the correctness between options" (2026-09-19) | **chip row → stacked rows**, keyed on the candidate, not the field | `stacksCandidates` in `writebackCockpit.ts`: the stacked list (`SourceRadioList`) is no longer reserved for `long_text` — any cockpit row with a candidate over `CHIP_VALUE_MAX_CHARS` (32, the widest skin font's fit in a chip) stacks, so every candidate is readable whole; a chip never carries a value the owner has to compare — HOLODEX-434 |
 | "a hover event for entities that has an overlay with an image, if it's available and some quick details with clickable links" (2026-09-16) | **hover card** | a preview beside the link, not a tooltip and not a dialog: the link keeps navigating, the card is `role="group"` with real links inside, and it is hidden under `pointer: coarse` because a hover affordance is never the only path |
 | "I'm not seeing the hover card" — said on a Cast tile that the spec had excluded (2026-09-20) | **hover card** on a surface that already shows the face | the exclusion argued the image is redundant; the tile still lacks age, counts, aliases and the ring, so the tiles became a v1 surface via one more mount, not a second pattern |
+| "the people list page sorting and filtering controls differ from the media list page … the mobile sort experience has a wall of toggles before any data" (2026-09-27) | **list toolbar** | one shared row on all five list pages instead of per-page control stacks: sort is a single dropdown value (so two sorts can never both be on — HOLODEX-473), and filters collapse behind a Filters button. On a phone the only thing above the data is one row and one chip row (F73) |
+| "Tags, collection, and studio can all be filtered by using the entity-level search" — then "chip from entity page" (2026-09-27) | **scope chip** | Media gets no entity picker. Narrowing by person, tag, studio or category arrives as a chip from that entity's page. The Filters panel keeps the value filters (resolution, duration, year) plus the mapped facets such as Collection (spec R5) |
 | "Add a toggle on the Studio page the owner can turn on or off … for each image type … independently saved between light and dark settings" (2026-09-26) | **a knob**, owner-set and per value (studio + image role + palette mode) | a display choice, not a field: no provenance, no `SourceBadge`, no decision row. One switch per slot saves for the palette being viewed (ADR-109 D6); "light" is a custom palette with a bright `--bg`, since Holodex has no light mode |
 
 ## Saying it

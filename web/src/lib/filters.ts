@@ -22,8 +22,8 @@ export const MEDIA_SORTS: readonly { value: SortOrder; label: string; ownerOnly?
 	{ value: 'resolution_desc', label: 'Resolution — highest' },
 	{ value: 'resolution_asc', label: 'Resolution — lowest' },
 	{ value: 'random', label: 'Random' },
-	{ value: 'completeness_desc', label: 'Completeness — most complete', ownerOnly: true },
-	{ value: 'completeness_asc', label: 'Completeness — least complete', ownerOnly: true }
+	{ value: 'completeness_desc', label: 'Completeness — most', ownerOnly: true },
+	{ value: 'completeness_asc', label: 'Completeness — least', ownerOnly: true }
 ];
 
 export const SORT_ORDERS: readonly SortOrder[] = MEDIA_SORTS.map((s) => s.value);

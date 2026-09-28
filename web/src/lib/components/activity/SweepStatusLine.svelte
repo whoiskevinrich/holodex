@@ -32,37 +32,51 @@
 	const batchHref = $derived(done ? `/owner/status?batch=${encodeURIComponent(done.batch_id)}` : '');
 
 	const n = (v: number) => v.toLocaleString();
+
+	// One line, always (F73 divergence D1, chosen by the owner): the counts truncate with
+	// an ellipsis and the full text in the tooltip, while Details (and Dismiss) stay pinned
+	// at the end so the ellipsis can never swallow them — and so is a failure count, in warn,
+	// because a failure must never hide inside the ellipsis. The full report is System Activity.
+	const runningText = $derived(
+		running
+			? `Refreshing ${n(running.done)} of ${n(running.total)} · linked ${n(running.linked)}` +
+					(running.needs_review ? ` · ${n(running.needs_review)} need review` : '')
+			: ''
+	);
+	const doneText = $derived(
+		done && !done.error
+			? `Refreshed ${n(done.total)} ${plural} in ${formatDurMs(done.duration_ms)} · linked ${n(done.linked)}` +
+					(done.needs_review ? ` · ${n(done.needs_review)} need review` : '') +
+					(done.skipped
+						? ` · skipped ${n(done.skipped)}` +
+							(done.skipped_providers.length ? ` (${skippedText(done.skipped_providers)})` : '')
+						: '') +
+					(done.stale_skipped ? ` · ${n(done.stale_skipped)} recently refreshed` : '')
+			: ''
+	);
 </script>
 
 {#if isOwner}
 	{#if running}
-		<p class="text-sm text-muted" role="status" aria-live="polite">
-			Refreshing {plural} in the background — {n(running.done)} of {n(running.total)}
-			{' · '}linked {n(running.linked)}{#if running.needs_review}{' · '}{n(running.needs_review)} need review{/if}{#if running.failed}{' · '}<span
-					class="text-warn">{n(running.failed)} failed</span
-				>{/if}. You can leave this page.
+		<p class="flex min-w-0 items-baseline gap-1 text-sm text-muted" role="status" aria-live="polite">
+			<span class="min-w-0 truncate" title={runningText}>{runningText}</span>
+			{#if running.failed}<span class="shrink-0 text-warn">· {n(running.failed)} failed</span>{/if}
+			<a href="/owner/status" class="shrink-0 text-accent hover:underline">· Details</a>
 		</p>
 	{:else if done?.error}
-		<p class="text-sm text-warn" role="alert">
-			Couldn't refresh {plural}: {done.error}. Try again from
-			<a href="/owner/status" class="text-accent hover:underline">System Activity</a>.
+		<p class="flex min-w-0 items-baseline gap-1 text-sm text-warn" role="alert">
+			<span class="min-w-0 truncate" title={done.error}>Couldn't refresh {plural}: {done.error}</span>
+			<a href="/owner/status" class="shrink-0 text-accent hover:underline">· Details</a>
 		</p>
 	{:else if done}
-		<p class="text-sm text-muted wrap-anywhere" role="status" aria-live="polite">
-			Refreshed {n(done.total)} {plural} in {formatDurMs(done.duration_ms)} —
-			<a href={batchHref} class="text-accent hover:underline">Linked {n(done.linked)}</a
-			>{#if done.needs_review}{' · '}<a href={batchHref} class="text-accent hover:underline"
-					>{n(done.needs_review)} need review</a
-				>{/if}{#if done.failed}{' · '}<span class="text-warn">{n(done.failed)} failed</span
-				>{/if}{#if done.skipped}{' · '}Skipped {n(done.skipped)}{#if done.skipped_providers.length}
-					({skippedText(done.skipped_providers)}){/if}{/if}{#if done.stale_skipped}{' · '}{n(
-					done.stale_skipped
-				)} recently refreshed{/if}{' · '}<a href={batchHref} class="text-accent hover:underline"
-				>View in System Activity</a
-			>{' · '}<button
+		<p class="flex min-w-0 items-baseline gap-1 text-sm text-muted" role="status" aria-live="polite">
+			<span class="min-w-0 truncate" title={doneText}>{doneText}</span>
+			{#if done.failed}<span class="shrink-0 text-warn">· {n(done.failed)} failed</span>{/if}
+			<a href={batchHref} class="shrink-0 text-accent hover:underline">· Details</a>
+			<button
 				type="button"
 				onclick={() => (dismissedBatch = done.batch_id)}
-				class="text-muted hover:underline">Dismiss</button
+				class="shrink-0 text-muted hover:underline">· Dismiss</button
 			>
 		</p>
 	{/if}
