@@ -39,7 +39,8 @@ func fileValue(f FieldWrite) string {
 //
 //   - .mkv / .mka / .mks / .webm → mkvpropedit if available, else ffmpeg
 //   - everything else             → exiftool (a fragmented .mp4/.m4v/.mov is
-//     refused first with ErrFragmentedMP4 — exiftool can't write it)
+//     remuxed into the temp copy first, since exiftool can't write it; when
+//     that's impossible the write fails with ErrFragmentedMP4 — ADR-116)
 //
 // Every backend merges: a tag named in fields is replaced with the incoming
 // values, and every other tag, attachment, and stream on the file is preserved.
@@ -102,17 +103,21 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 // writeExiftoolBatch writes all fields in one exiftool invocation. Text fields
 // use -TAG=VALUE; image fields use -TAG<=file (binary read from a temp download).
 func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) error {
-	if err := checkNotFragmented(path); err != nil {
-		return err
-	}
 	tmp := path + ".holodex-tmp"
-	if err := copyFile(path, tmp); err != nil {
-		return fmt.Errorf("writeback copy: %w", err)
+	remuxed, err := stageTemp(ctx, path, tmp)
+	if err != nil {
+		return err
 	}
 
 	// -m suppresses minor-error exits so exiftool writes to imperfect-but-valid
 	// user files.
-	args := make([]string, 0, len(fields)*2+3)
+	args := make([]string, 0, len(fields)*2+6)
+	if remuxed {
+		// ADR-116 D2: the remux drops XMP (where edition lives), so restore every
+		// tag from the original first; the batch's assignments below, processed
+		// after it, override. Still one exiftool invocation per batch.
+		args = append(args, "-TagsFromFile", path, "-all:all")
+	}
 	for _, f := range fields {
 		if f.IsImage {
 			imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
