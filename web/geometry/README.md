@@ -1,7 +1,7 @@
 # Geometry assertion harness (HOLODEX-349)
 
 Layout invariants, measured in a real browser against the [stress
-fixture](../../testdata/stressseed/README.md), in Cinémathèque across four viewport widths.
+fixture](../../testdata/stressseed/README.md), across four viewport widths.
 
 ```bash
 # 0. once per machine — `npm ci` installs no browser binaries (playwright ships no
@@ -49,7 +49,7 @@ expect: { min: 40 }
 ```
 
 That one entry covers the `people` rungs at 10/25/50 **and** the `filmcast` rungs at
-10/25/50, in six skin/width combinations — 36 checks — and it picks up an 80-person rung
+10/25/50, at every width — six pages × four cells — and it picks up an 80-person rung
 the day somebody adds one, without being edited. A screenshot diff would have pinned one
 page, needed byte-stable images, and gone red on every restyle. It is also the only
 technique available here: browser screenshots time out on Holodex, so `getBoundingClientRect`
@@ -105,13 +105,11 @@ pass, and scoring staleness per page produced 101 false alarms before it was cor
 
 ## The run matrix
 
-Cinémathèque × four widths (1440, 1024, 768 and a 375px `phone`, added for F73's list
-toolbar, HOLODEX-472) = four cells.
+Four widths (1440, 1024, 768 and a 375px `phone`, added for F73's list toolbar,
+HOLODEX-472) = four cells, keyed by width alone.
 
-One skin: since F67 (ADR-102) the skin is instance-wide and arrives in `/capabilities`,
-so the harness's localStorage init script cannot select another — the last three-skin run
-spent eight of its twelve cells timing out on `data-theme` — and ADR-115 retires the
-other skins. Widths matter because column counts are width-derived (`density.svelte.ts`) and `.stage-grid`
+There is no skin axis: Cinémathèque is the only look (ADR-115, HOLODEX-476), so nothing
+selects or awaits one. Widths matter because column counts are width-derived (`density.svelte.ts`) and `.stage-grid`
 collapses to one column below `lg`. Below `sm` (the `phone` cell) the list toolbar changes
 shape: icon-only controls, the Filters sheet, the right-edge A–Z rail.
 
@@ -123,8 +121,6 @@ All in [`browser.mjs`](browser.mjs), and every one of them was a real hazard:
   every grid child 8px for up to a quarter second; the animation is gated on
   `prefers-reduced-motion: no-preference`, so emulating the preference removes the race
   rather than sleeping through it.
-- **The skin is awaited, not set.** It is the instance's, served in `/capabilities` (F67),
-  so the run waits for hydration to put it on `data-theme` before measuring.
 - **`/capabilities` is awaited.** Owner-gated surfaces — the whole metadata list, the chip
   row — mount only after it answers, so measuring before it does reports an empty visitor
   page.

@@ -2,23 +2,20 @@
 //
 // Everything that can go wrong with automated measurement on this app is handled in
 // one place here, because each of these was a real hazard rather than a precaution:
-// the skin only applies after hydration, the grid mount animation offsets every rect
+// the app only settles after hydration, the grid mount animation offsets every rect
 // by 8px for a quarter second, the metadata fold clips its rows to zero height, and
 // column counts come from a localStorage density preference and a resize listener.
 
 import { chromium } from 'playwright';
 
 /**
- * The run matrix. Cinémathèque only: since F67 (ADR-102) the skin is instance-wide,
- * served in `/capabilities`, so a localStorage init script can no longer select
- * another one — every Broadcast and Brutalist cell timed out waiting for its
- * `data-theme` (HOLODEX-472's run) — and ADR-115 retires those skins anyway.
+ * The run matrix: one cell per viewport width. There is no skin axis — Cinémathèque
+ * is the only look (ADR-115, HOLODEX-476), so a cell is just a width.
  *
  * Several widths because the app's column counts are width-derived (`density.svelte.ts`)
  * and `.stage-grid` collapses from two columns to one below 1024px, so a single width
  * would leave half the layout unmeasured.
  */
-export const SKINS = ['cinematheque'];
 export const WIDTHS = [
 	{ key: 'wide', width: 1440, height: 900 },
 	// The `lg` breakpoint edge: the narrowest width at which stage-grid is still two
@@ -35,15 +32,9 @@ export const WIDTHS = [
 	{ key: 'phone', width: 375, height: 812 }
 ];
 
-/** @returns {{key: string, skin: string, widthKey: string, width: number, height: number}[]} */
-export function matrix(skins = SKINS, widths = WIDTHS) {
-	const out = [];
-	for (const skin of skins) {
-		for (const w of widths) {
-			out.push({ key: `${skin}/${w.key}`, skin, widthKey: w.key, width: w.width, height: w.height });
-		}
-	}
-	return out;
+/** @returns {{key: string, widthKey: string, width: number, height: number}[]} */
+export function matrix(widths = WIDTHS) {
+	return widths.map((w) => ({ key: w.key, widthKey: w.key, width: w.width, height: w.height }));
 }
 
 /**
@@ -59,7 +50,7 @@ export function matrix(skins = SKINS, widths = WIDTHS) {
  * only way to have the persisted preferences already correct on first paint.
  *
  * @param {import('playwright').Browser} browser
- * @param {{skin: string, width: number, height: number}} cell
+ * @param {{width: number, height: number}} cell
  */
 export async function open(browser, cell) {
 	const context = await browser.newContext({
@@ -102,9 +93,8 @@ export async function open(browser, cell) {
  *
  * @param {import('playwright').Page} page
  * @param {string} url
- * @param {string} skin
  */
-export async function goto(page, url, skin) {
+export async function goto(page, url) {
 	// Registered before the navigation, or the response can land before the wait
 	// starts. Owner-gated surfaces — the whole metadata list, the chip row — mount only
 	// once `/capabilities` has answered, so measuring before it does silently reports an

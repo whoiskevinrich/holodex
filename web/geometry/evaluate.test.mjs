@@ -175,7 +175,7 @@ describe('reconcileBlocked', () => {
 		expect(reconcileBlocked([r(plain, 'pass')])).toHaveLength(1);
 	});
 
-	// A --skin/--width slice is not evidence a bug is fixed: it may simply not have
+	// A --width slice is not evidence a bug is fixed: it may simply not have
 	// measured the cell the bug lives in. Retiring a marker on that would disarm the
 	// assertion against a bug that is still open, so a narrowed run declines to answer.
 	it('refuses to retire a marker on a narrowed run', () => {
