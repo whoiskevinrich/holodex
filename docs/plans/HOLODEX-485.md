@@ -28,7 +28,7 @@ invocation. Spun out of HOLODEX-484 (Relates).
 
 ### 2026-09-28 · session
 - skills: code-review, handoff
-- handoff: Fixed and tested. Both cover paths pass integration in a Debian container (ffmpeg 5.1.9, mkvpropedit v74), and the mkvpropedit test fails without the fix. PR opened ready; next is merge after CI.
+- handoff: Fixed and tested. Both cover paths pass integration in a Debian container (ffmpeg 5.1.9, mkvpropedit v74), and the mkvpropedit test fails without the fix. origin/main merged, PR opened ready; next is merge after CI.
 
 ## Dropped — newest first (the reason is the point)
 
