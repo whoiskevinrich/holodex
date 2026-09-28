@@ -69,7 +69,7 @@ scenario has been shown to fail against a planted mutant. Spun out of HOLODEX-47
 
 ### 2026-09-28 · nav harness built, mutation-proven
 - skills: code-review, handoff
-- handoff: `npm --prefix web run nav` passes 6/6 on the stress fixture and catches all six planted mutants (§20.6). Next move: merge the PR.
+- handoff: `npm --prefix web run nav` passes 6/6 on the stress fixture and catches all six planted mutants (§20.6). origin/main is merged in, and the PR is open as ready. Next move: squash-merge once CI is green.
 
 ## Dropped — newest first (the reason is the point)
 
