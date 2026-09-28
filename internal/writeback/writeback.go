@@ -38,7 +38,8 @@ func fileValue(f FieldWrite) string {
 // invocation (ADR-041 §file-safety). The write tool is chosen by extension:
 //
 //   - .mkv / .mka / .mks / .webm → mkvpropedit if available, else ffmpeg
-//   - everything else             → exiftool
+//   - everything else             → exiftool (a fragmented .mp4/.m4v/.mov is
+//     refused first with ErrFragmentedMP4 — exiftool can't write it)
 //
 // Every backend merges: a tag named in fields is replaced with the incoming
 // values, and every other tag, attachment, and stream on the file is preserved.
@@ -101,6 +102,9 @@ func writeMKVBatch(ctx context.Context, path string, fields []FieldWrite) error 
 // writeExiftoolBatch writes all fields in one exiftool invocation. Text fields
 // use -TAG=VALUE; image fields use -TAG<=file (binary read from a temp download).
 func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) error {
+	if err := checkNotFragmented(path); err != nil {
+		return err
+	}
 	tmp := path + ".holodex-tmp"
 	if err := copyFile(path, tmp); err != nil {
 		return fmt.Errorf("writeback copy: %w", err)
