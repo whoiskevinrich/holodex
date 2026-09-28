@@ -28,15 +28,26 @@ import { METRICS } from './evaluate.mjs';
  * @property {string[]} [prepare]    Named page preparations to run before measuring.
  * @property {string} selector       CSS selector, or `:document` for the page itself.
  * @property {'each'|'count'} [applies]  Default `each`.
- * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'} [measure]
+ * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'|'mainTop'} [measure]
  *   Required for `each`; ignored for `count`.
  * @property {{min?: number, max?: number}} expect
+ * @property {string[]} [widths]    Width keys to run at (browser.mjs WIDTHS). Default: every
+ *   width. For an invariant that only exists at one width — the phone-only layout — so it
+ *   is never measured, and vacuously passed, where the layout does not apply.
  * @property {number} [atLeast]      Minimum matches before the assertion means anything.
  *   Default 1. Set 0 only when an empty page is genuinely one of the valid states.
  * @property {string} [blockedBy]    Ticket key for a bug that is filed and not yet
  *   fixed. The assertion still runs; a failure is reported but does not fail the run,
  *   and a *pass* is reported as news — the marker has gone stale.
  */
+
+/** The five list pages at rest (F73), and their worst toolbar states. */
+const LIST_PAGES = ['/', '/people', '/studios', '/films', '/tags?type=categories'];
+const LIST_WORST = [
+	'/?sort=resolution_desc&resolution=4K&year_min=2015&duration_min=1',
+	'/people?sort=completeness_asc',
+	'/people?sort=random'
+];
 
 /**
  * The one prepared state the stressed-caption assertions share (HOLODEX-372): the
@@ -424,6 +435,85 @@ export const ASSERTIONS = [
 		selector: '.part-pill',
 		measure: 'height',
 		expect: { min: 18, max: 26 }
+	},
+
+	// --- One list toolbar (F73, HOLODEX-472; testing-strategy §20.2). The list pages are
+	// literal URLs: ADR-114 puts every toolbar state in the URL, so the worst cases are
+	// addressable. The Media worst case is the longest sort label plus a filter count plus
+	// three chips; People's owner row carries the Owner optgroup (its widest option sets
+	// the select's width) and, on Random, the reroll that moves into ⋯ on a phone.
+	{
+		key: 'list-toolbar-single-row',
+		finds:
+			'The list toolbar wrapped to a second row: a sort label over the 20-character ' +
+			'budget (a native select is as wide as its widest option), a new slot, or a ' +
+			'spacer element eating a gap the 375px budget does not have (design handoff, ' +
+			'Responsive).',
+		urls: [...LIST_PAGES, ...LIST_WORST],
+		selector: '[data-list-toolbar]',
+		measure: 'height',
+		expect: { max: 40 }
+	},
+
+	{
+		key: 'list-page-no-horizontal-overflow',
+		finds:
+			'A list page scrolling sideways — the toolbar, the chips row or the A–Z rail ' +
+			'pushing the document past the viewport (HOLODEX-436 came back).',
+		urls: [...LIST_PAGES, ...LIST_WORST],
+		selector: ':document',
+		measure: 'overflowX',
+		expect: { max: 0 }
+	},
+
+	{
+		key: 'list-chips-one-line-phone',
+		finds:
+			'Active-filter chips wrapping onto a second row on a phone, where they should ' +
+			'scroll sideways in one line — the wall of controls above the data, back.',
+		urls: [LIST_WORST[0]],
+		widths: ['phone'],
+		selector: '[data-list-chips]',
+		measure: 'height',
+		expect: { max: 28 }
+	},
+
+	{
+		key: 'list-first-row-near-top-phone',
+		finds:
+			'Something new stacked above a list on a phone: F73 allows the title, one toolbar ' +
+			'row, one chip row and the count line before the first row of data, which fits ' +
+			'in 200px of <main>. Media is measured sorted, so the Recently Added shelf (itself ' +
+			'data) stays out of it.',
+		urls: ['/?sort=title_asc', '/people', '/studios'],
+		widths: ['phone'],
+		selector: ':is(.video-grid > :first-child, main ul > li.scroll-mt-16:first-child)',
+		measure: 'mainTop',
+		expect: { max: 200 }
+	},
+
+	{
+		key: 'az-rail-on-phone',
+		finds:
+			'The A–Z index missing on a phone, or rendered twice — below `sm` it is one fixed ' +
+			'rail on the right edge, never the wrapping sticky bar above the rows.',
+		urls: ['/people', '/studios'],
+		widths: ['phone'],
+		selector: 'nav[aria-label="Jump to letter"].fixed',
+		applies: 'count',
+		expect: { min: 1, max: 1 }
+	},
+
+	{
+		key: 'az-rail-clear-of-rows',
+		finds:
+			'The A–Z rail covering row content you can tap: the rail sits 4px in from the ' +
+			'right edge and is ~21px wide, so every row must keep 26px clear (`pr-5` below `sm`).',
+		urls: ['/people', '/studios'],
+		widths: ['phone'],
+		selector: 'main ul > li.scroll-mt-16',
+		measure: 'gutterRight',
+		expect: { min: 26 }
 	}
 ];
 
@@ -435,9 +525,10 @@ export const ASSERTIONS = [
  * select no pages and quietly contribute nothing. Both are much cheaper to catch here.
  *
  * @param {Assertion[]} list
+ * @param {string[]} [widthKeys]  The run matrix's width keys, to check `widths` against.
  * @returns {string[]} problems, empty when the table is sound
  */
-export function validate(list = ASSERTIONS) {
+export function validate(list = ASSERTIONS, widthKeys) {
 	const problems = [];
 	const seen = new Set();
 	for (const [i, a] of list.entries()) {
@@ -447,6 +538,12 @@ export function validate(list = ASSERTIONS) {
 		seen.add(a.key);
 
 		if (!a.finds) problems.push(`${at}: missing "finds" — say what breaking this looks like`);
+		if (a.widths && widthKeys) {
+			const unknown = a.widths.filter((w) => !widthKeys.includes(w));
+			if (unknown.length || a.widths.length === 0) {
+				problems.push(`${at}: widths must be a non-empty subset of ${widthKeys.join(', ')}, got ${JSON.stringify(a.widths)}`);
+			}
+		}
 		if (!a.selector) problems.push(`${at}: missing selector`);
 		if (Boolean(a.when) === Boolean(a.urls)) {
 			problems.push(`${at}: needs exactly one of "when" (manifest-addressed pages) or "urls" (literal pages)`);

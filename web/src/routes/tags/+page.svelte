@@ -7,9 +7,13 @@
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { toMessage, videoCount, tagCount, filterByName } from '$lib/format';
 	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
-	import { PEOPLE_TAG_SORTS, type Category, type EntityRef, type PeopleTagSort, type Tag } from '$lib/types';
-	import SortToggle from '$lib/components/sort/SortToggle.svelte';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import type { Category, EntityRef, Tag } from '$lib/types';
+	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
+	import PageActions from '$lib/components/sort/PageActions.svelte';
+	import { segmentedToggleClass } from '$lib/components/sort/segmentedToggle';
+	import { TAG_SORTS, tagsSchema, type TagType } from '$lib/listState';
+	import { listController } from '$lib/listController.svelte';
 	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
 	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
@@ -18,35 +22,34 @@
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import { dismissable } from '$lib/actions/dismissable';
 	import { PopoverMenu } from '$lib/actions/popoverMenu.svelte';
-	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
-	import { readFilters, writeFilters, validateOneOf } from '$lib/filterPreference';
+	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
 
 	let tags = $state<Tag[]>([]);
 	let categories = $state<Category[]>([]);
-	let sort = $state<PeopleTagSort>(readSort('tags', PEOPLE_TAG_SORTS, 'name'));
+	// Sort and the All/Tags/Categories type are one F73 list state (ADR-114): sort sticky +
+	// in the URL, type in the URL only (`?type=`), both held by ListController.
+	const list = listController(tagsSchema, '/tags');
+	const sortBy = $derived(list.state.sort);
 	let loading = $state(true);
 
 	// Unified type filter (HOLODEX-240) + search (now driven by the shared nav box,
 	// NS2/NS3/HOLODEX-249) — filters client-side against the already-loaded, unpaged
 	// tag+category lists (personal-library scale, no dedicated search endpoint — same
-	// posture EntityPicker/FacetFilter already take). The type filter is sticky per
-	// page (SP5), a sibling of holodex:sort:tags.
-	const TYPE_FILTERS = ['all', 'tags', 'categories'] as const;
-	let typeFilter = $state<(typeof TYPE_FILTERS)[number]>(
-		readFilters('tags', validateOneOf(TYPE_FILTERS)) ?? 'all'
-	);
-	$effect(() => {
-		writeFilters('tags', typeFilter);
-	});
+	// posture EntityPicker already takes). The type filter is a URL-only
+	// query (ADR-114 D1), rendered as tabs under the title (F73 R4).
+	const typeFilter = $derived(list.state.query.type);
+	const TYPE_TABS: { value: TagType; label: string }[] = [
+		{ value: 'all', label: 'All' },
+		{ value: 'tags', label: 'Tags' },
+		{ value: 'categories', label: 'Categories' }
+	];
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (Tags) — otherwise it's previewing another
 	// type via the overlay panel.
 	const query = $derived(navSearch.inPlace ? navSearch.query : '');
-	// SortToggle's own cls() helper, duplicated verbatim (it isn't exported) — same
-	// segmented-control shell reused for this second, independent toggle.
-	const typeCls = (active: boolean) =>
-		active ? 'bg-accent px-3 py-1 text-accent-ink' : 'px-3 py-1 text-muted hover:text-ink';
+	// The create form's Tag/Category switch uses the shared segmented-control classes.
+	const typeCls = segmentedToggleClass;
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
@@ -140,23 +143,17 @@
 	// tag's id rather than an edited existing one.
 	let createResult = $state<{ tagId: number; nearMiss: EntityRef } | null>(null);
 
-	// Persist the chosen sort per page (SP1).
-	$effect(() => {
-		writeSort('tags', sort);
-	});
-
-	// Scroll restoration (HOLODEX-248, ADR-032): keyed on everything that changes which
-	// pills are visible/where — sort, the type filter, and the search query — so a
-	// mismatch on any of them safely skips the restore instead of landing on a
-	// no-longer-matching scroll offset. On the first load only; later reloads (rename,
-	// merge, category edits) stay put.
-	const scrollKey = $derived(`${sort}:${typeFilter}:${query}`);
+	// Scroll restoration (HOLODEX-248, ADR-032): keyed on the canonical list view (sort +
+	// type, ADR-114 D5) plus the search query — everything that changes which pills are
+	// visible/where — so a mismatch safely skips the restore. On the first load only; later
+	// reloads (rename, merge, category edits) stay put.
+	const scrollKey = $derived(`${list.key}:${query}`);
 	let firstLoad = true;
 
 	function reload() {
 		loading = true;
 		api
-			.listTags(sort)
+			.listTags(sortBy)
 			.then((res) => (tags = res.items ?? []))
 			.finally(() => {
 				loading = false;
@@ -179,7 +176,7 @@
 	}
 
 	$effect(() => {
-		void sort; // re-run on sort change
+		void sortBy; // re-run on sort change
 		reload();
 	});
 
@@ -191,7 +188,7 @@
 
 	// "Random" shuffles the name-ordered list client-side with the session seed, so
 	// the order holds across re-renders and reshuffles only on reroll/new session.
-	const shuffled = $derived(sort === 'random' ? seededShuffle(tags, shuffleSeed.value) : tags);
+	const shuffled = $derived(sortBy === 'random' ? seededShuffle(tags, shuffleSeed.value) : tags);
 	const displayed = $derived(filterByName(shuffled, query));
 	const displayedCategories = $derived(filterByName(categories, query));
 	const showTags = $derived(typeFilter !== 'categories');
@@ -206,6 +203,18 @@
 				? 'No categories yet.'
 				: 'No tags or categories indexed yet.'
 	);
+
+	const manageActions = $derived([
+		{ label: 'Add to category…', onselect: bulkAddToCategory },
+		{ label: 'Remove from category…', onselect: bulkRemoveFromCategory },
+		...(bulkBusy
+			? []
+			: [
+					{ label: 'Turn off writeback', onselect: () => bulkSetWriteback(false) },
+					{ label: 'Turn on writeback', onselect: () => bulkSetWriteback(true) },
+					{ label: 'Sync writeback now…', onselect: () => (bulkSyncOpen = true) }
+				])
+	]);
 
 	function exitManage() {
 		manage = false;
@@ -543,34 +552,48 @@
 		</div>
 	{/snippet}
 
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h1 class="skin-title text-2xl font-semibold text-ink">Tags</h1>
-		<div class="flex items-center gap-2">
-			{#if isOwner}
-				<button
-					onclick={() => (manage ? exitManage() : (manage = true))}
-					class="rounded-theme border px-3 py-1 text-sm {manage
-						? 'border-accent text-accent'
-						: 'border-rule text-ink hover:bg-surface-2'}"
-				>
-					{manage ? 'Done' : 'Manage tags'}
-				</button>
-			{/if}
-			{#if sort === 'random'}
-				<SortReroll onreroll={() => shuffleSeed.reroll()} />
-			{/if}
-			<SortToggle bind:sort />
-			<!-- All/Tags/Categories filter (HOLODEX-240) — SortToggle's own shell, reused
-			     as-is (no radiogroup semantics; SortToggle itself uses none). -->
-			<div class="flex overflow-hidden rounded-theme border border-rule text-sm">
-				<button onclick={() => (typeFilter = 'all')} class={typeCls(typeFilter === 'all')}>All</button>
-				<button onclick={() => (typeFilter = 'tags')} class={typeCls(typeFilter === 'tags')}>Tags</button>
-				<button onclick={() => (typeFilter = 'categories')} class={typeCls(typeFilter === 'categories')}>
-					Categories
-				</button>
-			</div>
-		</div>
+	<h1 class="skin-title text-2xl font-semibold text-ink">Tags</h1>
+
+	<!-- All/Tags/Categories (HOLODEX-240) picks which list you're looking at, so it's
+	     page-level tabs under the title, not a toolbar control (F73 R4). -->
+	<div role="tablist" aria-label="Show" class="flex gap-6 border-b border-rule text-sm">
+		{#each TYPE_TABS as t (t.value)}
+			<button
+				role="tab"
+				aria-selected={typeFilter === t.value}
+				aria-controls="tags-panel"
+				tabindex={typeFilter === t.value ? 0 : -1}
+				onclick={() => list.setQuery({ type: t.value })}
+				onkeydown={(e) => {
+					const i = TYPE_TABS.findIndex((x) => x.value === typeFilter);
+					const to = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -9;
+					if (to === -9) return;
+					e.preventDefault();
+					const next = TYPE_TABS[(to + TYPE_TABS.length) % TYPE_TABS.length];
+					// currentTarget is null once dispatch ends, so take the tablist now.
+					const tablist = (e.currentTarget as HTMLElement).parentElement;
+					list.setQuery({ type: next.value });
+					tick().then(() => tablist?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus());
+				}}
+				class="-mb-px border-b-2 pb-2 {typeFilter === t.value
+					? 'border-accent text-ink'
+					: 'border-transparent text-muted hover:text-ink'}"
+			>
+				{t.label}
+			</button>
+		{/each}
 	</div>
+
+	<ListToolbar
+		reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}
+		actions={isOwner && !manage ? [{ label: 'Manage tags', onselect: () => (manage = true) }] : []}
+		mode={manage ? manageBar : undefined}
+		count={manage ? manageHint : undefined}
+	>
+		{#snippet sort()}
+			<SortDropdown compact options={TAG_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+	</ListToolbar>
 
 	{#if query.trim()}
 		<p class="text-xs text-muted" aria-live="polite">
@@ -584,65 +607,31 @@
 
 	<DuplicatesBanner entityType="tag" />
 
-	{#if manage}
-		<!-- Merge bar: select 2+ pills, then choose the surviving name. Mirrors /people's
-		     multi-select semantics, pill-adapted (F43 §4). -->
-		<div
-			class="flex flex-wrap items-center gap-3 rounded-theme border border-rule bg-surface px-3 py-2"
+	<!-- Manage mode (F73 D3, the owner's pick): the toolbar row becomes the mode bar —
+	     the same pattern as /people's select mode — and the hint plus any warnings take the
+	     count line's place. Bulk category/writeback actions (HOLODEX-239: on and off both
+	     offered, never one combined toggle) live in the bar's ⋯ once two or more are picked. -->
+	{#snippet manageBar()}
+		<span class="min-w-0 flex-1 truncate text-sm text-ink" aria-live="polite">Managing · {selectedIds.length} selected</span>
+		<button
+			onclick={openChoose}
+			class="h-8 shrink-0 rounded-theme border border-accent px-3 text-sm text-accent hover:bg-surface-2"
 		>
-			<span class="text-sm text-muted">
-				{selectedIds.length} selected — select two or more, then merge; or use a tag’s ⋯ menu to
-				rename, alias, or merge into another.
-			</span>
-			<button
-				onclick={openChoose}
-				class="rounded-theme border border-accent px-3 py-1 text-sm text-accent hover:bg-surface-2"
-			>
-				Merge…
-			</button>
-			{#if selectedIds.length >= 2}
-				<button onclick={bulkAddToCategory} class="btn-ghost px-3 py-1 text-sm">Add to category…</button>
-				<button onclick={bulkRemoveFromCategory} class="btn-ghost px-3 py-1 text-sm">
-					Remove from category…
-				</button>
-			{/if}
-			{#if selectHint}
-				<span class="text-sm text-warn" role="status">{selectHint}</span>
-			{/if}
-			{#if catPickerHint}
-				<span class="text-sm text-warn" role="status">{catPickerHint}</span>
-			{/if}
-			{#if selectedIds.length >= 2}
-				<!-- Writeback bulk actions (HOLODEX-239): on/off always both visible —
-				     never a single combined toggle, since the selection can be mixed-state. -->
-				<button
-					onclick={() => bulkSetWriteback(false)}
-					disabled={bulkBusy}
-					class="btn-ghost px-3 py-1 text-sm"
-				>
-					Turn off writeback
-				</button>
-				<button
-					onclick={() => bulkSetWriteback(true)}
-					disabled={bulkBusy}
-					class="btn-ghost px-3 py-1 text-sm"
-				>
-					Turn on writeback
-				</button>
-				<button
-					onclick={() => (bulkSyncOpen = true)}
-					disabled={bulkBusy}
-					class="btn-accent px-3 py-1 text-sm"
-				>
-					Sync writeback now
-				</button>
-				{#if bulkError}
-					<span class="text-sm text-warn" role="status">{bulkError}</span>
-				{/if}
-			{/if}
-		</div>
-	{/if}
+			Merge…
+		</button>
+		{#if selectedIds.length >= 2}
+			<PageActions items={manageActions} label="More actions for the selected tags" />
+		{/if}
+		<button onclick={exitManage} class="btn-ghost h-8 shrink-0 px-3 text-sm">Done</button>
+	{/snippet}
+	{#snippet manageHint()}
+		Select two or more, then merge; or use a tag’s ⋯ menu to rename, alias, or merge into another.
+		{#if selectHint}<span class="text-warn">{selectHint}</span>{/if}
+		{#if catPickerHint}<span class="text-warn">{catPickerHint}</span>{/if}
+		{#if bulkError}<span class="text-warn">{bulkError}</span>{/if}
+	{/snippet}
 
+	<div id="tags-panel" role="tabpanel">
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else}
@@ -1034,6 +1023,7 @@
 			</p>
 		{/if}
 	{/if}
+	</div>
 </section>
 
 <!-- "Keep which name?" — choose the surviving tag when merging a multi-select (mirrors

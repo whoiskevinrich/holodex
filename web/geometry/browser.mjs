@@ -9,16 +9,16 @@
 import { chromium } from 'playwright';
 
 /**
- * The run matrix. Three skins because the skins are not a re-paint — each changes
- * `--radius`, and each changes the display font, so text metrics and therefore
- * wrapping differ (`web/src/app.css`). Broadcast additionally appends a `▮` glyph to
- * every `.skin-title`, which widens headings.
+ * The run matrix. Cinémathèque only: since F67 (ADR-102) the skin is instance-wide,
+ * served in `/capabilities`, so a localStorage init script can no longer select
+ * another one — every Broadcast and Brutalist cell timed out waiting for its
+ * `data-theme` (HOLODEX-472's run) — and ADR-115 retires those skins anyway.
  *
- * Two widths because the app's column counts are width-derived (`density.svelte.ts`)
+ * Several widths because the app's column counts are width-derived (`density.svelte.ts`)
  * and `.stage-grid` collapses from two columns to one below 1024px, so a single width
  * would leave half the layout unmeasured.
  */
-export const SKINS = ['cinematheque', 'broadcast', 'brutalist'];
+export const SKINS = ['cinematheque'];
 export const WIDTHS = [
 	{ key: 'wide', width: 1440, height: 900 },
 	// The `lg` breakpoint edge: the narrowest width at which stage-grid is still two
@@ -28,15 +28,19 @@ export const WIDTHS = [
 	// is one column, so neither could fail. An assertion that cannot fail on the matrix is
 	// the vacuous pass §12.2 of the testing strategy warns about.
 	{ key: 'lg', width: 1024, height: 768 },
-	{ key: 'narrow', width: 768, height: 1024 }
+	{ key: 'narrow', width: 768, height: 1024 },
+	// A phone (F73, HOLODEX-472): below Tailwind's `sm`, where the list toolbar collapses
+	// to icons, the Filters panel becomes a sheet and the A–Z index a right-edge rail. The
+	// list-toolbar width budget (design handoff, Responsive) only exists here.
+	{ key: 'phone', width: 375, height: 812 }
 ];
 
-/** @returns {{key: string, skin: string, width: number, height: number}[]} */
+/** @returns {{key: string, skin: string, widthKey: string, width: number, height: number}[]} */
 export function matrix(skins = SKINS, widths = WIDTHS) {
 	const out = [];
 	for (const skin of skins) {
 		for (const w of widths) {
-			out.push({ key: `${skin}/${w.key}`, skin, width: w.width, height: w.height });
+			out.push({ key: `${skin}/${w.key}`, skin, widthKey: w.key, width: w.width, height: w.height });
 		}
 	}
 	return out;
@@ -66,9 +70,8 @@ export async function open(browser, cell) {
 		deviceScaleFactor: 1
 	});
 	await context.addInitScript(
-		({ skin }) => {
+		() => {
 			try {
-				localStorage.setItem('holodex-theme', skin);
 				// Owner view. The stress profile configures no ADMIN_TOKEN, so the server
 				// is default-open (ADR-030) and every request is already an owner — but
 				// this flag is a separate, persisted *presentation* switch, and half the
@@ -82,8 +85,7 @@ export async function open(browser, cell) {
 				// A context with storage disabled still renders; it just renders the
 				// defaults. Better a measured default than a crashed run.
 			}
-		},
-		{ skin: cell.skin }
+		}
 	);
 	const page = await context.newPage();
 	// Hover transforms `.person-hero-media` and `.poster-card`, which would move the
@@ -308,6 +310,9 @@ export async function probe(page, selector) {
 	}
 	try {
 		return await page.evaluate((sel) => {
+			// `mainTop` is measured from the top of <main>, not the viewport, so the site
+			// header's height (which wraps below md) never moves the number.
+			const mainTopEdge = document.querySelector('main')?.getBoundingClientRect().top ?? null;
 			const nodes =
 				sel === ':document'
 					? [document.documentElement]
@@ -341,6 +346,7 @@ export async function probe(page, selector) {
 					overflowY: measurableY ? el.scrollHeight - el.clientHeight : null,
 					// window.innerWidth, not clientWidth: it is the width placeCard clamps against.
 					gutterRight: Math.round((window.innerWidth - rect.right) * 100) / 100,
+					mainTop: mainTopEdge === null ? null : Math.round((rect.top - mainTopEdge) * 100) / 100,
 					fontSize: parseFloat(style.fontSize) || 0,
 					visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',
 					text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60)

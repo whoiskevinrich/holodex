@@ -2,6 +2,7 @@
 	import { tick, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { afterNavigate, goto } from '$app/navigation';
+	import { exitAfterRemoval } from '$lib/listState';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
@@ -505,12 +506,8 @@
 			// The item is gone — return to wherever it was opened from (a filtered list, a
 			// person's filmography, a studio page) rather than always resetting to the
 			// unfiltered browse root (HOLODEX-41). Falls back to '/' when there's no in-app
-			// history to pop (direct link / new tab).
-			if (cameFromInApp) {
-				history.back();
-			} else {
-				goto('/');
-			}
+			// history to pop (direct link / new tab). ADR-114 D4's shared exit.
+			exitAfterRemoval(cameFromInApp, '/');
 		} catch (e) {
 			deleteError = toMessage(e);
 			deleteBusy = false; // keep the dialog open so the message is visible

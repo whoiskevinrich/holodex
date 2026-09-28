@@ -5,36 +5,37 @@
 	import { activity } from '$lib/activity.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { toMessage, filterByName } from '$lib/format';
-	import { PEOPLE_TAG_SORTS, type PeopleTagSort, type Person } from '$lib/types';
-	import SortToggle from '$lib/components/sort/SortToggle.svelte';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import type { Person } from '$lib/types';
+	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
 	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
 	import PersonPosterGrid from '$lib/components/person/PersonPosterGrid.svelte';
 	import PersonViewToggle from '$lib/components/person/PersonViewToggle.svelte';
 	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
-	import CompletenessSortToggle from '$lib/components/entity/CompletenessSortToggle.svelte';
+	import AlphaIndex from '$lib/components/entity/AlphaIndex.svelte';
 	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
-	import FacetFilter from '$lib/components/curation/FacetFilter.svelte';
 	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
 	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
 	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
-	import { readEntityFilters, writeEntityFilters, type CompletenessDir } from '$lib/filterPreference';
 	import { seededShuffle } from '$lib/shuffle';
+	import { ENTITY_SORTS, peopleSchema } from '$lib/listState';
+	import { listController } from '$lib/listController.svelte';
 	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
-	import { createMissingFacetOptions } from '$lib/missingFacetOptions.svelte';
 
+	// People index. Controls are the F73 list toolbar; the sort is one value held by
+	// ListController (ADR-114) — completeness is an owner-only entry in it, never a second
+	// control, which is what let two sorts show as active at once (HOLODEX-473).
+	const list = listController(peopleSchema, '/people');
 	let people = $state<Person[]>([]);
-	let sort = $state<PeopleTagSort>(readSort('people', PEOPLE_TAG_SORTS, 'name'));
 	let loading = $state(true);
 	let loadError = $state('');
 
-	// Persist the chosen sort per page (SP1).
-	$effect(() => {
-		writeSort('people', sort);
-	});
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	$effect(() => list.setOwner(isOwner));
+	const sortBy = $derived(list.state.sort);
 
 	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own
 	// holodex:sort:people, same validated-read/fallback-on-corrupt shape.
@@ -48,61 +49,25 @@
 	// type via the overlay panel and this grid stays unfiltered.
 	const q = $derived(navSearch.inPlace ? navSearch.query : '');
 
-	// Completeness sort (F55.5) — owner-only, a separate control/state from `sort`
-	// (see CompletenessSortToggle) since PeopleTagSort is shared with the
-	// (out-of-scope) Tags page. Declared here (ahead of `sorted` below) so it's
-	// initialized before that derived's first read. Restored, together with the
-	// missing-facet selection below, from the page's sticky filter key (SP5) — a
-	// sibling of holodex:sort:people with the same validated-read/fallback shape.
-	const savedFilters = readEntityFilters('people');
-	let completenessDir = $state<CompletenessDir>(savedFilters.completeness);
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
-	// The direction the page is actually showing: a restored value in a non-owner
-	// state (Admin mode off) must not suppress the shuffle or hide the A–Z bar while
-	// the toggle that could clear it isn't rendered — the request already drops it.
-	const completeness = $derived(isOwner ? completenessDir : '');
-
 	// "Random" shuffles the name-ordered list client-side with the session seed (SP2,
 	// ADR-045) — stable across re-renders, reshuffled only on reroll/new session (kept
 	// a separate $derived from `displayed` so a keystroke's filter pass doesn't also
-	// re-shuffle). The A–Z jump-nav stays tied to sort==='name' with no active filter,
-	// where `displayed` equals `people` (NS3: filterByName over the already-fetched
-	// list, no new fetch).
-	// completeness overrides the client-side random shuffle — the server has already
-	// ordered `people` by score in that case.
-	const sorted = $derived(!completeness && sort === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
+	// re-shuffle). A completeness sort is ordered by the server. The A–Z index stays tied
+	// to the name sort with no active search (NS3: filterByName over the fetched list).
+	const sorted = $derived(sortBy === 'random' ? seededShuffle(people, shuffleSeed.value) : people);
 	const displayed = $derived(filterByName(sorted, q));
+	const showIndex = $derived(sortBy === 'name' && !q.trim());
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into (the choose-survivor step lives in MergeCanonicalDialog).
-	// See [[ADR-036]].
+	// See [[ADR-036]]. Entered from the toolbar's ⋯ page-actions menu.
 	let selecting = $state(false);
 	let selectedIds = $state<number[]>([]);
 	let choosing = $state(false); // the "Keep which name?" dialog is open
 
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
-	// Missing-facet filter (F55.6) — owner-only, AND semantics across selections.
-	// `missingFacetFetched` is a plain (non-reactive) guard, not `$state` — the person
-	// facet list can legitimately come back empty ([] length 0), and re-assigning a
-	// fresh empty array on every response is itself a $state write, so gating on
-	// `.length === 0` would refire the fetch forever and hammer the server.
-	let missingFacetIDs = $state<string[]>(savedFilters.missing_facet);
-	const missingFacet = createMissingFacetOptions('person');
-	$effect(() => {
-		missingFacet.ensureFetched(isOwner);
-	});
-	// Persist the filter pair per page (SP5).
-	$effect(() => {
-		writeEntityFilters('people', { completeness: completenessDir, missing_facet: missingFacetIDs });
-	});
-	function effectiveSort(): PeopleTagSort | 'completeness_asc' | 'completeness_desc' {
-		return completenessDir ? (`completeness_${completenessDir}` as const) : sort;
-	}
-
-	// A–Z jump-navigation (alphabetical sort only): a sticky letter bar that scrolls to
-	// the first person under each letter. Logic lives in $lib/peopleNav (unit-tested).
-	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+	// A–Z jump-navigation (alphabetical sort only). Logic lives in $lib/peopleNav.
 	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.display_name ?? p.name)));
 	function jumpTo(letter: string) {
 		const el = document.getElementById(`pl-${letter}`);
@@ -119,11 +84,8 @@
 	function reload() {
 		loading = true;
 		loadError = '';
-		// Owner-gated: never send the completeness sort/filter for a non-owner (a
-		// transient pre-capabilities-load isOwner=false just falls back to the plain
-		// sort, and self-heals into the real request once caps resolve).
 		api
-			.listPeople(isOwner ? effectiveSort() : sort, undefined, isOwner ? missingFacetIDs : undefined)
+			.listPeople(sortBy)
 			.then((res) => (people = res.items ?? []))
 			.catch((err) => {
 				// Surface a failed fetch instead of masking it as the empty "no people" state.
@@ -134,25 +96,21 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = listScroll.take('people', scrollKey());
+					const snap = listScroll.take('people', list.key);
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
 	}
 
-	function scrollKey(): string {
-		return `${isOwner ? effectiveSort() : sort}|${isOwner ? missingFacetIDs.join(',') : ''}`;
-	}
-
 	$effect(() => {
-		void sort; void completenessDir; void missingFacetIDs; // re-run on any sort/filter change
+		void sortBy; // re-run on a sort change (the controller already withholds owner-only sorts)
 		reload();
 	});
 
 	// Stash the scroll offset on the way out (e.g. opening a person) so ← Back restores
-	// where the list was. Keyed by the effective sort/filter; a change invalidates it.
+	// where the list was. Keyed by the canonical view (ADR-114 D5); a change invalidates it.
 	beforeNavigate(() => {
-		listScroll.save('people', { key: scrollKey(), scrollY: window.scrollY });
+		listScroll.save('people', { key: list.key, scrollY: window.scrollY });
 	});
 
 	function toggle(id: number) {
@@ -177,60 +135,50 @@
 </script>
 
 <section class="space-y-4">
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h1 class="skin-title text-2xl font-semibold text-ink">People</h1>
-		<div class="flex flex-wrap items-center gap-2">
-			{#if isOwner}
-				{#if selecting}
-					<button
-						onclick={() => (choosing = true)}
-						disabled={selectedIds.length < 2}
-						class="rounded-theme bg-accent px-3 py-1 text-sm font-semibold text-accent-ink disabled:opacity-60"
-					>
-						Merge {selectedIds.length || ''} selected
-					</button>
-					<button
-						onclick={cancelSelect}
-						class="rounded-theme border border-rule px-3 py-1 text-sm text-ink hover:bg-surface-2"
-					>
-						Cancel
-					</button>
-				{:else}
-					<button
-						onclick={startSelect}
-						class="rounded-theme border border-rule px-3 py-1 text-sm text-ink hover:bg-surface-2"
-					>
-						Merge people…
-					</button>
-				{/if}
-			{/if}
-			{#if !completeness && sort === 'random'}
-				<SortReroll onreroll={() => shuffleSeed.reroll()} />
-			{/if}
-			<SortToggle bind:sort />
-			{#if isOwner}
-				<CompletenessSortToggle bind:dir={completenessDir} />
-				<FacetFilter
-					label="Missing"
-					items={missingFacet.options.map((f) => ({ id: f.canonical, name: f.label, video_count: f.missing_count }))}
-					bind:selected={missingFacetIDs}
-				/>
-			{/if}
+	<h1 class="skin-title text-2xl font-semibold text-ink">People</h1>
+
+	<ListToolbar
+		reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}
+		actions={isOwner && !selecting ? [{ label: 'Merge people…', onselect: startSelect }] : []}
+		count={selecting ? selectHint : countLine}
+		mode={selecting ? selectBar : undefined}
+	>
+		{#snippet sort()}
+			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet view()}
 			<PersonViewToggle bind:view={activeView} />
 			{#if activeView === 'poster'}
 				<DensitySlider />
 			{/if}
-		</div>
-	</div>
+		{/snippet}
+	</ListToolbar>
 
-	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle. -->
+	{#snippet countLine()}
+		{#if !loading && !loadError}{people.length} {people.length === 1 ? 'person' : 'people'}{/if}<DuplicatesBanner
+			entityType="person"
+			inline
+		/>
+	{/snippet}
+
+	<!-- Select mode (F73 D2, the owner's pick): the toolbar row becomes the mode bar, and
+	     the hint takes the count line's place. -->
+	{#snippet selectBar()}
+		<span class="min-w-0 flex-1 truncate text-sm text-ink" aria-live="polite">{selectedIds.length} selected</span>
+		<button
+			onclick={() => (choosing = true)}
+			disabled={selectedIds.length < 2}
+			class="h-8 shrink-0 rounded-theme bg-accent px-3 text-sm font-semibold text-accent-ink disabled:opacity-60"
+		>
+			Merge
+		</button>
+		<button onclick={cancelSelect} class="btn-ghost h-8 shrink-0 px-3 text-sm">Cancel</button>
+	{/snippet}
+	{#snippet selectHint()}Select two or more people, then choose which name to keep.{/snippet}
+
+	<!-- Entity refresh sweep (F66 RD10): this kind only; reloads once on running->idle.
+	     Shown only while a sweep runs or just finished, so it isn't a standing row. -->
 	<SweepStatusLine kind="person" onfinished={reload} />
-
-	<DuplicatesBanner entityType="person" />
-
-	{#if selecting}
-		<p class="text-sm text-muted">Select two or more people, then choose which name to keep.</p>
-	{/if}
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
@@ -243,25 +191,8 @@
 	{:else if activeView === 'poster'}
 		<PersonPosterGrid people={displayed} />
 	{:else}
-		{#if !completeness && sort === 'name' && !q.trim()}
-			<nav
-				aria-label="Jump to letter"
-				class="sticky top-0 z-10 -mx-1 flex flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur"
-			>
-				{#each ALPHABET as L (L)}
-					{#if L in letterAnchors}
-						<button
-							onclick={() => jumpTo(L)}
-							aria-label={`Jump to ${L === '#' ? 'non-alphabetic names' : L}`}
-							class="rounded-theme px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-accent"
-						>
-							{L}
-						</button>
-					{:else}
-						<span class="px-1.5 py-0.5 text-xs text-muted opacity-30" aria-hidden="true">{L}</span>
-					{/if}
-				{/each}
-			</nav>
+		{#if showIndex}
+			<AlphaIndex anchors={letterAnchors} onjump={jumpTo} />
 		{/if}
 		<!-- Shared row body for both modes — the only difference between select mode and
 		     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
@@ -288,10 +219,10 @@
 			{/if}
 			<span class="text-xs text-muted">{p.video_count}</span>
 		{/snippet}
-		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 {showIndex ? 'pr-5 sm:pr-0' : ''}">
 			{#each displayed as p, i (p.id)}
 				<li
-					id={sort === 'name' && !q.trim() && letterAnchors[firstLetter(p.display_name ?? p.name)] === i
+					id={showIndex && letterAnchors[firstLetter(p.display_name ?? p.name)] === i
 						? `pl-${firstLetter(p.display_name ?? p.name)}`
 						: undefined}
 					class="scroll-mt-16"

@@ -1,7 +1,7 @@
 # Geometry assertion harness (HOLODEX-349)
 
 Layout invariants, measured in a real browser against the [stress
-fixture](../../testdata/stressseed/README.md), across three skins and three viewport widths.
+fixture](../../testdata/stressseed/README.md), in Cinémathèque across four viewport widths.
 
 ```bash
 # 0. once per machine — `npm ci` installs no browser binaries (playwright ships no
@@ -19,7 +19,7 @@ go run ./testdata/stressseed
 npm --prefix web run geometry
 npm --prefix web run geometry -- --list             # what would be measured, and where
 npm --prefix web run geometry -- --only person-tiles-stay-legible
-npm --prefix web run geometry -- --skin brutalist --width narrow --headed
+npm --prefix web run geometry -- --width phone --headed
 ```
 
 Exit code 0 means every invariant holds. Anything else names what broke and where.
@@ -68,7 +68,8 @@ adding.
 | `when(entry)` | Selects pages by their manifest coordinate. **Write the property, not the id.** |
 | `urls` | …or literal pages, for surfaces the manifest does not address (the list pages). Exactly one of `when` / `urls`. |
 | `selector` | CSS, or `:document` for the page itself. |
-| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` · `gutterRight` (viewport right edge − element right edge) |
+| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` · `gutterRight` (viewport right edge − element right edge) · `mainTop` (element top − `<main>` top, so the site header's wrap never moves it) |
+| `widths` | Width keys to run at (`wide`, `lg`, `narrow`, `phone`). Default: all. For an invariant that only exists at one width — the phone-only list layout — so it is never measured, and never vacuously passed, where that layout doesn't apply. |
 | `expect` | `{ min }`, `{ max }`, or both. Inclusive. |
 | `applies` | `each` (default) bounds every match; `count` bounds how many matched. |
 | `atLeast` | Matches required before the assertion means anything. Default 1. |
@@ -104,12 +105,15 @@ pass, and scoring staleness per page produced 101 false alarms before it was cor
 
 ## The run matrix
 
-Three skins × two widths = six cells, ~45 seconds for the current table.
+Cinémathèque × four widths (1440, 1024, 768 and a 375px `phone`, added for F73's list
+toolbar, HOLODEX-472) = four cells.
 
-Skins are not a re-paint: each changes `--radius` and the display font, so text metrics
-and wrapping differ, and Broadcast appends a `▮` glyph to every `.skin-title`. Widths
-matter because column counts are width-derived (`density.svelte.ts`) and `.stage-grid`
-collapses to one column below `lg`.
+One skin: since F67 (ADR-102) the skin is instance-wide and arrives in `/capabilities`,
+so the harness's localStorage init script cannot select another — the last three-skin run
+spent eight of its twelve cells timing out on `data-theme` — and ADR-115 retires the
+other skins. Widths matter because column counts are width-derived (`density.svelte.ts`) and `.stage-grid`
+collapses to one column below `lg`. Below `sm` (the `phone` cell) the list toolbar changes
+shape: icon-only controls, the Filters sheet, the right-edge A–Z rail.
 
 ## What holds the page still
 
@@ -119,9 +123,8 @@ All in [`browser.mjs`](browser.mjs), and every one of them was a real hazard:
   every grid child 8px for up to a quarter second; the animation is gated on
   `prefers-reduced-motion: no-preference`, so emulating the preference removes the race
   rather than sleeping through it.
-- **The skin is set before the page loads,** via an init script writing `localStorage`.
-  Poking `data-theme` after hydration would leave `PersonImageFrame`'s `?skin=` image URLs
-  on the previous skin.
+- **The skin is awaited, not set.** It is the instance's, served in `/capabilities` (F67),
+  so the run waits for hydration to put it on `data-theme` before measuring.
 - **`/capabilities` is awaited.** Owner-gated surfaces — the whole metadata list, the chip
   row — mount only after it answers, so measuring before it does reports an empty visitor
   page.

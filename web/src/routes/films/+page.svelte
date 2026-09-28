@@ -5,27 +5,24 @@
 	import { toMessage, monogram } from '$lib/format';
 	import type { Film } from '$lib/types';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { readSort, writeSort, shuffleSeed } from '$lib/sortPreference.svelte';
+	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import { seededShuffle } from '$lib/shuffle';
-	import { segmentedToggleClass, segmentedToggleWrapperClass } from '$lib/components/sort/segmentedToggle';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
+	import { FILM_SORTS, filmsSchema } from '$lib/listState';
+	import { listController } from '$lib/listController.svelte';
+	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
 
 	// Films index (F56, design handoff §1): poster-forward grid, closer to the
 	// media-browse density than the People/Studio logo-well rows — a film's default
 	// image IS the portrait poster. No A–Z jump bar and no "Most videos" sort in v1
-	// (ListFilms has no server-side count sort); only name/random, same mechanism as
-	// Studio's sort-preference persistence + seeded client shuffle.
-	type FilmSort = 'name' | 'random';
+	// (ListFilms has no server-side count sort); only name/random. Sort state follows the
+	// F73 list contract (ADR-114): URL + saved preference, via ListController.
+	const list = listController(filmsSchema, '/films');
 	let films = $state<Film[]>([]);
-	let sort = $state<FilmSort>(readSort('films', ['name', 'random'] as const, 'name'));
 	let loading = $state(true);
 	let loadError = $state('');
 
-	$effect(() => {
-		writeSort('films', sort);
-	});
-
-	const displayed = $derived(sort === 'random' ? seededShuffle(films, shuffleSeed.value) : films);
+	const displayed = $derived(list.state.sort === 'random' ? seededShuffle(films, shuffleSeed.value) : films);
 
 	let firstLoad = true;
 	function reload() {
@@ -42,7 +39,7 @@
 				loading = false;
 				if (firstLoad) {
 					firstLoad = false;
-					const snap = listScroll.take('films', sort);
+					const snap = listScroll.take('films', list.key);
 					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
 				}
 			});
@@ -54,7 +51,7 @@
 	onMount(reload);
 
 	beforeNavigate(() => {
-		listScroll.save('films', { key: sort, scrollY: window.scrollY });
+		listScroll.save('films', { key: list.key, scrollY: window.scrollY });
 	});
 
 	function sceneCountLabel(f: Film): string {
@@ -64,20 +61,16 @@
 </script>
 
 <section class="space-y-4">
-	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h1 class="skin-title text-2xl font-semibold text-ink">Films</h1>
-		<div class="flex items-center gap-2">
-			{#if sort === 'random'}
-				<SortReroll onreroll={() => shuffleSeed.reroll()} />
-			{/if}
-			<div class={segmentedToggleWrapperClass}>
-				<button onclick={() => (sort = 'name')} class={segmentedToggleClass(sort === 'name')}>A–Z</button>
-				<button onclick={() => (sort = 'random')} class={segmentedToggleClass(sort === 'random')}
-					>Random</button
-				>
-			</div>
-		</div>
-	</div>
+	<h1 class="skin-title text-2xl font-semibold text-ink">Films</h1>
+
+	<ListToolbar reroll={list.state.sort === 'random' ? () => shuffleSeed.reroll() : undefined}>
+		{#snippet sort()}
+			<SortDropdown compact options={FILM_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet count()}
+			{#if !loading && !loadError}{films.length} {films.length === 1 ? 'film' : 'films'}{/if}
+		{/snippet}
+	</ListToolbar>
 
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
