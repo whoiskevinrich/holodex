@@ -32,21 +32,19 @@ into place. HOLODEX-479's refusal remains only as the fallback for when the remu
 
 - [x] spec `write-spec` → `docs/specs/**` — outside the `infra` posture, kept because it carries work: R3.7a amends HOLODEX-479's R3.7
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-116 (Proposed), which extends ADR-041's copy step
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] backend → `{cmd,internal,providers}/**` — `stageTemp` remux, `-TagsFromFile` restore, temp re-check, ErrFragmentedMP4 fallback; a cancelled job isn't mislabelled as needing a remux
+- [x] testing `testing-strategy` — remux-on-write integration for .mp4 (with XMP Edition grafted onto the fixture) and .mov (brand kept); fallback test asserts the wrapped ffmpeg reason
+- [x] security `security-review` — no findings ≥8; hardened anyway with a forced `mov` demuxer and `-protocol_whitelist file`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Remux branch in `writeExiftoolBatch`, `-TagsFromFile`, temp re-check, ErrFragmentedMP4 fallback (ADR-116 D1–D4) — `internal/writeback/fragments.go`
-2. [ ] [testing] fMP4 integration (tags kept, no moof, mp4/mov preserved) + XMP graft fixture + ffmpeg-failure fallback — `internal/writeback/fragments_test.go`
-3. [ ] [security] `/security-review` of the new ffmpeg exec over user files — `internal/writeback/`
+1. [ ] [—] Merge PR #406 after CI; HOLODEX-480 moves to Done via jira-sync — `docs/plans/HOLODEX-480.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-28 · session
-- skills: architecture, implement
-- handoff: Crossed into build (the posture has no approve gate; the owner said "implement" after reviewing ADR-116); draft PR open. Start at Up next #1: remux branch in `writeExiftoolBatch`.
+- skills: architecture, implement, code-review, security-review
+- handoff: Built and all gates settled (remux-on-write with tag restore, tests on mp4/mov and XMP, security review clean); PR #406 marked ready — next is merge once CI is green.
 
 ## Dropped — newest first (the reason is the point)
 
