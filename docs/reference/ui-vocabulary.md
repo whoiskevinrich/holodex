@@ -140,6 +140,14 @@ image's own footprint, such as a poster tile among real poster tiles, the Person
 for a missing value is drift, not a ghost slot.
 → `.claude/rules/frontend-theming.md`; HOLODEX-490
 
+**Attached chip.** What a relationship picker shows at its top for each entity already attached:
+a `rounded-full` chip with the name and a muted `×`, and the `×` *is* the detach. It's shared by
+`PersonPicker` (People) and `StudioPicker` (Studio, under a **Linked now** label ruled off from the
+source chips). It's not a candidate chip: candidates are sources, and "none" is never one, so
+there's no "No studio" chip, remove button or footer action.
+→ `web/src/lib/components/entity/CLAUDE.md` "Relationship pickers";
+[studio-detach-handoff.md](../design/studio-detach-handoff.md); HOLODEX-493
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.
@@ -211,6 +219,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "Tags, collection, and studio can all be filtered by using the entity-level search" — then "chip from entity page" (2026-09-27) | **scope chip** | Media gets no entity picker. Narrowing by person, tag, studio or category arrives as a chip from that entity's page. The Filters panel keeps the value filters (resolution, duration, year) plus the mapped facets such as Collection (spec R5) |
 | "Add a toggle on the Studio page the owner can turn on or off … for each image type … independently saved between light and dark settings" (2026-09-26) | **a knob**, owner-set and per value (studio + image role + palette mode) | a display choice, not a field: no provenance, no `SourceBadge`, no decision row. One switch per slot saves for the palette being viewed (ADR-109 D6); "light" is a custom palette with a bright `--bg`, since Holodex has no light mode |
 | "the '+ Add overview' chip is inconsistent with the other '+ Add …' chips on the page" (2026-09-29) | **text CTA** (vs. **ghost slot**) | every missing-value affordance is `btn-quiet text-sm`, so "+ Add overview" and "+ Set part" stop being dashed accent pills. A dashed placeholder is only for an empty image slot. The rule sits in `frontend-theming.md` so it loads at edit time — HOLODEX-490 |
+| "the owner should be able to detach the studio … in the 'Change studio' modal" (2026-09-29) | **attached chip** | the studio picker gets PersonPicker's attached-chip idiom (a Linked now chip whose × detaches) rather than a Remove button of its own. Needs a new "resolve to no studio" decision, which is ADR territory — HOLODEX-493 |
 
 ## Saying it
 

@@ -30,6 +30,22 @@ into another, and the shared video-list body for an entity's detail page.
 | `SearchResultsPanel.svelte` | Grouped/tabbed search results (NS1/NS5, HOLODEX-249) — the All/People/Videos/Studios/Tags tab row + capped result rows, roving tabindex. Shared by the nav box's live-typing dropdown (`variant="dropdown"`) and `/search`'s page body (`variant="page"`), per "reuse, don't fork." Spans video results too, not just person/studio/tag. `showResults=false` (NS2) renders only the tab row — used while a scoped page (Media/People/Studios/Tags) is filtering its own grid in place, so the owner can still tap another tab to preview it without the results body doubling what the page is already showing. **F68:** people rows carry `personId`, and in the `page` variant only the row is wrapped in `person/PersonLinkChip` (the row's own `<a>` — option role, roving tabindex, handlers — untouched inside); the `dropdown` variant never mounts a card (RD6, popover-in-popover). |
 ## Rules
 
+### Relationship pickers: attached chips on top, the chip's × is the detach
+
+`PersonPicker` and `StudioPicker` are siblings on the same media page, so they must stay one idiom
+(HOLODEX-493, [studio-detach-handoff.md](../../../../../docs/design/studio-detach-handoff.md)):
+
+- What's attached renders **at the top** of the picker as **attached chips**, using the markup
+  `PersonPicker` uses (`rounded-full border-rule bg-surface-2 px-2 py-0.5 text-xs text-ink`, name
+  `max-w-[10rem] truncate`, a muted `×` button that turns accent on hover and shows `…` while busy).
+- **Removing a chip is the detach.** Don't add a separate Remove button, a footer action, a
+  "None"/"No studio" candidate chip or a confirm step. The candidate chips are *sources*, and
+  "none" isn't one.
+- A single-value picker (`StudioPicker`) labels the section **Linked now** and rules it off
+  (`border-rule`) from the source chips below, because the two chip rows look alike. A multi-value
+  picker needs neither.
+- A change to the chip's size, target or glyph lands in **both** pickers in the same change.
+
 - **`NameEditControl`'s `trailing` slot is for content that never needs to wrap** (a flag row, a
   short badge). Its at-rest heading row is deliberately `flex` *without* `flex-wrap` — HOLODEX-356:
   the name breaks words and the pencil stays docked — so anything in that slot can only take width
