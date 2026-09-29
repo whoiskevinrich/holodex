@@ -128,6 +128,18 @@ field.
 
 → `sort/FilterChip.svelte`; [list-toolbar.md](../specs/list-toolbar.md)
 
+**Text CTA.** The owner's affordance for a value that isn't there yet. It's `btn-quiet px-3 py-1.5
+text-sm`, labelled `+ Add <noun>` (or `+ Set <noun>` for a single scalar), muted, and never accent.
+It's the same on every surface whatever shape the value takes once filled. On the media page that
+covers Overview, Part, Tags, Playlists, Films, People and Studio.
+→ `.claude/rules/frontend-theming.md`; HOLODEX-490
+
+**Ghost slot.** The one exception to the text CTA: an empty *image* slot drawn dashed at the
+image's own footprint, such as a poster tile among real poster tiles, the Person banner band or
+`EntityImageSlot`. An image reserves layout, but text and pills don't, so a dashed pill standing in
+for a missing value is drift, not a ghost slot.
+→ `.claude/rules/frontend-theming.md`; HOLODEX-490
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.
@@ -198,6 +210,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "the people list page sorting and filtering controls differ from the media list page … the mobile sort experience has a wall of toggles before any data" (2026-09-27) | **list toolbar** | one shared row on all five list pages instead of per-page control stacks: sort is a single dropdown value (so two sorts can never both be on — HOLODEX-473), and filters collapse behind a Filters button. On a phone the only thing above the data is one row and one chip row (F73) |
 | "Tags, collection, and studio can all be filtered by using the entity-level search" — then "chip from entity page" (2026-09-27) | **scope chip** | Media gets no entity picker. Narrowing by person, tag, studio or category arrives as a chip from that entity's page. The Filters panel keeps the value filters (resolution, duration, year) plus the mapped facets such as Collection (spec R5) |
 | "Add a toggle on the Studio page the owner can turn on or off … for each image type … independently saved between light and dark settings" (2026-09-26) | **a knob**, owner-set and per value (studio + image role + palette mode) | a display choice, not a field: no provenance, no `SourceBadge`, no decision row. One switch per slot saves for the palette being viewed (ADR-109 D6); "light" is a custom palette with a bright `--bg`, since Holodex has no light mode |
+| "the '+ Add overview' chip is inconsistent with the other '+ Add …' chips on the page" (2026-09-29) | **text CTA** (vs. **ghost slot**) | every missing-value affordance is `btn-quiet text-sm`, so "+ Add overview" and "+ Set part" stop being dashed accent pills. A dashed placeholder is only for an empty image slot. The rule sits in `frontend-theming.md` so it loads at edit time — HOLODEX-490 |
 
 ## Saying it
 
