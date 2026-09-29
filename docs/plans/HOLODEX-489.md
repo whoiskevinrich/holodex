@@ -28,19 +28,21 @@ spec [field-source-of-truth.md §Sync state](../specs/field-source-of-truth.md)
 - [x] spec `write-spec` → `docs/specs/**` — two bullets under §Sync state (the ledger witness for gap fields, and owner visibility)
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-119 (Proposed); extends ADR-093/101; rejects an implicit read-back source
 - [x] design `design-handoff` → `docs/design/**` — handoff + SVG; hint A and diagnostics A picked by the owner 2026-09-28; signed off via `/implement` the same day
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**` — `Options.ReadbackGaps` + ledger witness in `replaceMarkers`; `GET /owner/readback-gaps`; reload-config `readback_gaps`; owner-only `readback_gap` on the detail read
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
-- [ ] security `security-review` — new owner-gated read endpoint exposing mapping config
+- [x] security `security-review` — no findings: the new route is in the `requireOwner` group, `readback_gap` is stamped only when `authorized`, and visitors see only the changed `in_sync` boolean
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] `Options.ReadbackGaps` set + ledger witness in `replaceMarkers` for gap fields — `internal/resolver/resolver.go`
-2. [ ] [backend] `GET /owner/readback-gaps`, reload-config `readback_gaps`, per-field `readback_gap` on the owner detail read — `internal/api`
-3. [ ] [frontend] Dialog hint line (`WritebackFormDialog.svelte`) + Mapping checks block and toast (`routes/owner/status`)
-4. [ ] [testing] Resolver table (gap × decided × ledger row), API 401/200, `writebackCockpit` hint predicate; `docs/testing-strategy.md` row
+1. [ ] [frontend] Dialog hint line (`WritebackFormDialog.svelte`) + Mapping checks block and toast (`routes/owner/status`)
+2. [ ] [testing] `writebackCockpit` hint predicate (Vitest), live QA per handoff §6; `docs/testing-strategy.md` row (Go tests are already in: resolver table, writeback spellings, API 401/200 + detail)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-09-29 · session
+- skills: code-review, security-review
+- handoff: Backend is done and tested, including a mutation check on the detail wiring, and the security review found nothing. Next is the frontend: the dialog hint, then Mapping checks on System Activity.
 
 ### 2026-09-28 · session
 - skills: architecture, design-handoff, implement
