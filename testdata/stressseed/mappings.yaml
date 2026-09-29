@@ -63,6 +63,16 @@ fields:
     sources:
       - file:Album
 
+  # --- Edition (F60, HOLODEX-492). Registered so the fixture can exercise the
+  # edition UI — the media header's "+ Set edition", the edition pill and the
+  # #field-edition landing all need the field to exist (unmapped, its decision
+  # PUT 404s). The seeder writes no Edition tag, so every video starts empty;
+  # sources match the operator's example mapping.
+  - canonical: edition
+    sources:
+      - Edition
+      - filename:edition
+
   # --- Part (HOLODEX-389). The part ladder writes the ordinal as the container
   # tag; the filename candidate is listed so the field's chip row has the same
   # shape as the operator's, but the seeder never produces one (no scanner, D1).
