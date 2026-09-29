@@ -44,6 +44,16 @@ visitor/owner control gate in `routes/CLAUDE.md`).
 
 ### The pill
 
+> **Superseded 2026-09-29 (HOLODEX-490).** The CTA is now the page's **text CTA**,
+> `btn-quiet px-3 py-1.5 text-sm` "+ Add overview", like "+ Add tag" and "+ Add person". The dashed
+> pill below was the only accent, sub-24 px add affordance in the rail, and "+ Set part" has moved
+> to the text CTA too. Placement, behaviour and the pencil are unchanged. The rule (text CTA
+> everywhere, dashed only for an empty image slot) is `.claude/rules/frontend-theming.md`, and the
+> terms are in `docs/reference/ui-vocabulary.md`. The "12 px plus icon" below never shipped; the
+> label uses a literal "+" like its siblings.
+>
+> ![Text CTA vs ghost slot](add-affordance-text-cta-mockup.svg)
+
 This is the **+ Set part** idiom, reused as-is:
 `rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid`,
 a 12 px plus icon, and the label **Add overview**. It's a `<button>`, and it sits where the body text

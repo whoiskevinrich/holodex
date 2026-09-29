@@ -39,6 +39,22 @@ load-bearing:
   instead (drop the border, demote accent to neutral) and leave the label at full contrast;
   the `.btn-*` classes already do this. Quick check:
   `rg 'text-muted[^"]*disabled:opacity' web/src --glob '*.svelte'` should be empty.
+- **An owner "add / set" affordance for a missing value is the text CTA:**
+  `btn-quiet px-3 py-1.5 text-sm`, labelled `+ Add <noun>` (or `+ Set <noun>` for a single
+  scalar), and never accent. This holds whatever the value will look like once filled (prose, a pill,
+  a chip, a card), because copying the nearest idiom is how drift starts. HOLODEX-471 copied
+  "+ Set part"'s dashed pill for "+ Add overview", and HOLODEX-490 unified them. **The only
+  exception is the ghost slot**: an empty *image* slot drawn at the image's own footprint
+  (`border-dashed border-rule`, muted, accent on hover). Examples are the poster tile among real
+  poster tiles in the Films and People grids, the Person banner band and `EntityImageSlot`. An image
+  has a fixed footprint worth reserving, but text doesn't. An empty poster *grid* drops back to the
+  text CTA. Don't invent a dashed pill, dashed chip or accent link for a missing value. (Dashed
+  *status* encodings, such as pending chips or "not in your library" cast chips, aren't add
+  affordances and aren't covered.) Terms: *text CTA* and *ghost slot* in
+  `docs/reference/ui-vocabulary.md`. Quick check: every hit of
+  `rg '\+ (Add|Set) ' web/src --glob '*.svelte'` is a `btn-quiet` text CTA or an image ghost slot.
+  One known holdout remains: the film page's `+ Set edition` scene-row pill. It's a follow-up, not a
+  precedent.
 - **QA Cinémathèque — and only Cinémathèque.** When verifying any UI change, render and eyeball
   **Cinémathèque**. Check that the accent reads on its background, that decorative elements don't
   collide, that fonts load offline, and that the loading/empty/error/grid states are all themed.

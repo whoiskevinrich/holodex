@@ -1559,10 +1559,10 @@
 								/>
 								{#if partError}<span class="text-xs text-warn">{partError}</span>{/if}
 							{:else}
-								<button
-									type="button"
-									class="shrink-0 rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
-									onclick={startPart}>+ Set part</button
+								<!-- The page's one "+ Add …" text CTA (HOLODEX-490, frontend-theming rule), not
+								     a dashed pill: a dashed ghost is reserved for an empty image slot. -->
+								<button type="button" class="btn-quiet shrink-0 px-3 py-1.5 text-sm" onclick={startPart}
+									>+ Set part</button
 								>
 							{/if}
 						{/if}
@@ -1662,13 +1662,13 @@
 							{/if}
 						{:else if isOwner}
 							<!-- HOLODEX-471 (ADR-113): no source has an overview, so the owner-offered
-							     empty row lands here. The "+ Set part" pill idiom; opens the same
-							     dialog as the pencil, which starts on Custom when nothing is on offer. -->
+							     empty row lands here. The same text CTA as "+ Add tag" (HOLODEX-490
+							     replaced the handoff's dashed pill); opens the same dialog as the pencil,
+							     which starts on Custom when nothing is on offer. -->
 							<button
 								type="button"
 								onclick={() => (overviewEditOpen = true)}
-								class="rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent hover:border-solid"
-								>+ Add overview</button
+								class="btn-quiet px-3 py-1.5 text-sm">+ Add overview</button
 							>
 						{/if}
 					</section>
