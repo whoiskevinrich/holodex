@@ -1,4 +1,4 @@
-.PHONY: run build test vet test-go test-scripts test-integration tidy fixtures web-dev web-build docker
+.PHONY: run build test vet test-go test-scripts test-integration test-image tidy fixtures web-dev web-build docker
 
 run:
 	go run ./cmd/holodex
@@ -35,6 +35,25 @@ test-scripts:
 
 test-integration:
 	go test -tags integration $(GO_PKGS)
+
+# The packages that shell out to the media tools, tested INSIDE the built runtime image
+# (ADR-117 D4), so ffmpeg, exiftool and MKVToolNix are the image's own versions, not the
+# host's. It exists because a host-green run hid a real break: bookworm's exiftool 12.57
+# couldn't read tags mkvpropedit had moved past the clusters. CI doesn't run integration
+# tests (HOLODEX-487), so run this before any release that changes the Dockerfile or these
+# packages. Each test binary is static and built for the image's OS; the source is mounted
+# so the tests' relative paths resolve.
+IMAGE_TEST_PKGS := writeback thumbnail metadata
+
+test-image:
+	docker build -t holodex:test-image .
+	for p in $(IMAGE_TEST_PKGS); do \
+		CGO_ENABLED=0 GOOS=linux go test -c -tags integration -o .test-image/$$p.test ./internal/$$p || exit 1; \
+	done
+	for p in $(IMAGE_TEST_PKGS); do \
+		MSYS_NO_PATHCONV=1 docker run --rm --entrypoint /src/.test-image/$$p.test \
+			-v "$(CURDIR):/src" -w /src/internal/$$p holodex:test-image -test.v || exit 1; \
+	done
 
 tidy:
 	go mod tidy
