@@ -29,20 +29,20 @@ spec [field-source-of-truth.md §Sync state](../specs/field-source-of-truth.md)
 - [x] architecture `architecture` → `docs/architecture/ADR-*` — ADR-119 (Proposed); extends ADR-093/101; rejects an implicit read-back source
 - [x] design `design-handoff` → `docs/design/**` — handoff + SVG; hint A and diagnostics A picked by the owner 2026-09-28; signed off via `/implement` the same day
 - [x] backend → `{cmd,internal,providers}/**` — `Options.ReadbackGaps` + ledger witness in `replaceMarkers`; `GET /owner/readback-gaps`; reload-config `readback_gaps`; owner-only `readback_gap` on the detail read
-- [/] frontend → `web/src/**` — dialog hint (`readbackHint`) + System Activity Mapping checks + reload toast, live-QA'd; held for the owner's build-vs-mockup look (handoff §3d)
+- [x] frontend → `web/src/**` — dialog hint (`readbackHint`), System Activity Mapping checks and the reload toast, live-QA'd; the owner confirmed the build matches the mockup 2026-09-29 (handoff §3d)
 - [x] testing `testing-strategy` — Go resolver/writeback/API tests (API mutation-checked), `readbackHint` Vitest, live QA on :9310; row in `docs/testing-strategy.md`
 - [x] security `security-review` — no findings: the new route is in the `requireOwner` group, `readback_gap` is stamped only when `authorized`, and visitors see only the changed `in_sync` boolean
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner compares the built dialog hint + Mapping checks against `docs/design/readback-gap-mockup.svg`; on a yes, tick frontend and mark PR #416 ready
-2. [ ] [—] On merge, watch `:edge`: a written title/release date should read `=` in the dialog
+1. [ ] [—] Merge PR #416 after CI (squash, Conventional subject); HOLODEX-489 moves to Done via jira-sync
+2. [ ] [—] On `:edge`, a written title or release date should read `=` in the dialog, and System Activity should list the live gaps
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-29 · session
 - skills: code-review, security-review
-- handoff: Backend and frontend are built and QA'd live: the hint renders in `--muted`, one write brings the row to `=`, and Mapping checks updates on reload. The only thing held is the owner's build-vs-mockup look; after a yes, mark PR #416 ready.
+- handoff: Every gate is settled. The owner confirmed the build matches the mockup, after one fix that keeps "not read back" on a written gap row, and PR #416 is marked ready. Next is the merge after CI.
 
 ### 2026-09-28 · session
 - skills: architecture, design-handoff, implement
