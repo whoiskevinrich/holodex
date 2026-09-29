@@ -172,6 +172,14 @@ and a value wider than the row wraps inside the pill. Visitors and owners see th
 
 ### 3b. Set edition — the missing-value affordance
 
+> **Superseded 2026-09-29 (HOLODEX-491):** the link's look is now the **text CTA**,
+> `btn-quiet shrink-0 px-3 py-1.5 text-sm`, not the dashed 10 px accent pill described below. The
+> old pill was below the 24 px target size, and it was the last dashed missing-value pill after
+> HOLODEX-490. The slot, the deep link, the owner gate and the wrap-beneath-the-title behaviour are
+> unchanged. Measured on a 497 px rail, a long title wraps (row 78 px, was 67 px) and a short one sits
+> inline (50 px). Rule: `.claude/rules/frontend-theming.md`. The dashed `+ Set edition` in
+> `entity-identity-card-mockup.svg` and `entity-identity-card-edition-as-built.svg` is historical.
+
 When `edition` is empty **and** the viewer is the owner, the pill slot shows a dashed link:
 `rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent`, text
 **+ Set edition**, `href="/media/{id}#field-edition"` (built as spec RD11's bare hash — landing on
@@ -210,6 +218,15 @@ components and supersedes them where they differ. "Director's Edition" on both p
 | A · write | The `Write decisions to file…` dialog line: `Edition · custom → Edition, was: —`. | No helper line under the row (owner ruling, §2c). |
 | B · owner | Full film rows: the pill sits **directly beside the file's title**, resolution and `Write to file…` stay right-aligned; `+ Set edition` dashed link in that same slot on a file with none. **Never truncated:** the title group wraps, so a long pill drops beneath the title and a value wider than the row wraps inside the pill. Mixed states share one row shape. | Pill moved from the resolution side to the title side, and the 18ch truncation dropped (owner rulings 2026-09-14): the edition is a property of *this file*, so it travels with the file's name, whole. |
 | B · visitor | Same pill, beside the title; no link, no `Write to file…`. | As above. |
+
+> **Amended 2026-09-29 (HOLODEX-491, owner ask: "add the edition chip to the Media Details page …
+> near the '+ Set part' chip").** Panel A's header is no longer display-only for an *empty* edition.
+> The owner gets a **`+ Set edition`** text CTA in the pill's slot, before `+ Set part`. It uses the
+> same inline editor: click, type, Enter saves a manual decision; Escape or blur cancels; one slot
+> open at a time. Once set, it's the read-only pill again, and changing a set edition still goes
+> through the Metadata row. The CTA is offered only when the instance registers `edition` as a
+> curatable completeness facet (it's mapping-dependent; unmapped, the decision PUT 404s), the same
+> source the `#field-edition` landing trusts. Visitors see no change.
 
 Not visible in the figure but part of the same build: `edition` is an **optional** completeness
 facet — listed so the landing row can be built, never scored, never queued (owner ruling, since on
