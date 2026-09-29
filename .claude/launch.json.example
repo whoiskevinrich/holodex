@@ -32,7 +32,15 @@
     "enrich-stub serves every fake provider that registry names — ten personas on one",
     "node process, addressed by URL path. Start it alongside backend-stress to reach",
     "the enrichment stress profile. It binds the same port as provider-tmdb, so again:",
-    "one or the other."
+    "one or the other.",
+    "",
+    "backend-stress-9300 + web-9300 are the same stress pair on ports outside a Windows",
+    "excluded range: Hyper-V/WinNAT can reserve TCP 7781-7880, and then :7800 fails to",
+    "bind (`netsh interface ipv4 show excludedportrange protocol=tcp` lists it). Vite on",
+    ":5174 proxies /api to :9300 via HOLODEX_API_PORT (web/vite.config). It shares",
+    "./data/stress with backend-stress but not its port, so nothing stops both running:",
+    "start one stress backend only — two processes on one SQLite file defeat the single",
+    "writer. HOLODEX-492."
   ],
   "version": "0.0.1",
   "configurations": [
@@ -72,6 +80,30 @@
         "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
         "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
       }
+    },
+    {
+      "name": "backend-stress-9300",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/holodex", "--host", "127.0.0.1", "--port", "9300"],
+      "port": 9300,
+      "autoPort": false,
+      "env": {
+        "DATA_PATH": "./data/stress",
+        "MEDIA_PATH": "./data/stress/media",
+        "FILMS_ENABLED": "true",
+        "THUMBNAIL_ENABLED": "false",
+        "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
+        "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
+      }
+    },
+    {
+      "name": "web-9300",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5174", "--strictPort"],
+      "cwd": "web",
+      "port": 5174,
+      "autoPort": false,
+      "env": { "HOLODEX_API_PORT": "9300" }
     },
     {
       "name": "enrich-stub",
