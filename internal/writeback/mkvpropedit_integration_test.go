@@ -35,6 +35,53 @@ func TestWriteMKVWithMkvpropedit_DeletesTitle(t *testing.T) {
 	}
 }
 
+// HOLODEX-488: every ffmpeg-muxed MKV carries per-track tags (DURATION,
+// ENCODER under a TrackUID target). mkvpropedit's --tags global: refused the
+// merged document wholesale ("No changes were made.", exit 0), so tag fields
+// were silently dropped while the write reported success. The trigger needs a
+// file with track Tags but no untargeted Tag (the merge then appends one after
+// them); +bitexact drops ffmpeg's global ENCODER Tag to get exactly that.
+func TestWriteMKVWithMkvpropedit_WritesTagsBesidePerTrackTags(t *testing.T) {
+	requireCoverTools(t, "mkvpropedit", "mkvextract", "mkvmerge")
+	clip := filepath.Join(t.TempDir(), "clip.mkv")
+	if out, err := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+		"-i", "testsrc=duration=1:size=64x64:rate=5", "-c:v", "mjpeg",
+		"-fflags", "+bitexact", clip).CombinedOutput(); err != nil {
+		t.Skipf("could not synthesize clip: %v: %s", err, out)
+	}
+	if before := extractTags(t, clip); !strings.Contains(before, "<TrackUID>") || strings.Contains(before, "<Targets />") {
+		t.Fatalf("fixture needs track tags and no untargeted Tag to reproduce the bug:\n%s", before)
+	}
+
+	err := writeMKVWithMkvpropedit(context.Background(), clip, []FieldWrite{
+		{TagName: "PUBLISHER", Values: []string{"Example Studio"}},
+		{TagName: "Genre", Values: []string{"Drama"}},
+	})
+	if err != nil {
+		t.Fatalf("tag write: %v", err)
+	}
+
+	after := extractTags(t, clip)
+	for _, want := range []string{
+		"<String>Example Studio</String>",
+		"<String>Drama</String>",
+		"<TrackUID>", // the per-track Tags survive the all: replace
+	} {
+		if !strings.Contains(after, want) {
+			t.Errorf("tags after write missing %q:\n%s", want, after)
+		}
+	}
+}
+
+func extractTags(t *testing.T, path string) string {
+	t.Helper()
+	out, err := exec.Command("mkvextract", path, "tags").Output()
+	if err != nil {
+		t.Fatalf("mkvextract tags: %v", err)
+	}
+	return string(out)
+}
+
 func probeTitle(t *testing.T, path string) string {
 	t.Helper()
 	out, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "format_tags=title",
