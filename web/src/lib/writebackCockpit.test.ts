@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { CHIP_VALUE_MAX_CHARS, isCockpitRow, isImageRow, isUnverifiable, needsDecision, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
+import { CHIP_VALUE_MAX_CHARS, isCockpitRow, isImageRow, isUnverifiable, needsDecision, readbackHint, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -129,6 +129,24 @@ describe('isUnverifiable', () => {
 		expect(isUnverifiable(field({ in_sync: true }))).toBe(false);
 		expect(isUnverifiable(field({ in_sync: undefined, write_target: undefined }))).toBe(false);
 		expect(isUnverifiable(field({ in_sync: undefined, display: 'image_url' }))).toBe(true);
+	});
+});
+
+describe('readbackHint', () => {
+	const gap = { write_tag: 'Year', add_one_of: ['Year'] };
+	const decided = { source: 'provider:tmdb', standing: true } as const;
+	it('shows on a decided read-back gap Holodex has never written (ADR-119 D4)', () => {
+		expect(readbackHint(field({ in_sync: undefined, decision: decided, readback_gap: gap }))).toEqual({
+			tag: 'Year',
+			keys: ['Year']
+		});
+	});
+	it('is absent once the ledger witnesses the row, on an undecided row, and without a gap', () => {
+		expect(readbackHint(field({ in_sync: true, decision: decided, readback_gap: gap }))).toBeNull();
+		expect(readbackHint(field({ in_sync: false, decision: decided, readback_gap: gap }))).toBeNull();
+		expect(readbackHint(field({ in_sync: undefined, decision: { source: 'file', standing: false }, readback_gap: gap }))).toBeNull();
+		expect(readbackHint(field({ in_sync: undefined, decision: decided }))).toBeNull();
+		expect(readbackHint(field({ in_sync: undefined, decision: decided, readback_gap: gap, write_target: undefined }))).toBeNull();
 	});
 });
 

@@ -334,6 +334,10 @@ export interface ResolvedField {
 	// mirrors registry.FieldDef.EntityKind. CurationFieldRow's "+ Add" opens the
 	// entity-search LinkPicker instead of a bare text input when this is set.
 	entity_kind?: 'person' | 'studio' | '';
+	// readback_gap (ADR-119 D4) — owner reads only: writeback writes this field's tag but
+	// the mapping cannot read it back, so its sync is witnessed by the write ledger. Names
+	// the tag this container writes and the `file:` source keys that would read it back.
+	readback_gap?: ReadbackGapHint;
 	// write_target (HOLODEX-216) — the destination file tag this field maps to for
 	// the video's current container (e.g. "QuickTime:Artist"), absent/empty when the
 	// container has no writeback mapping for this canonical. Video-only.
@@ -341,6 +345,19 @@ export interface ResolvedField {
 	// The genres (tag set) row only (HOLODEX-401, ADR-111 D3): the file's recorded tags a
 	// write would drop, in file spelling. Present only when the file's tags are known.
 	file_only?: string[];
+}
+
+// ReadbackGapHint is a resolved field's read-back gap (ADR-119 D4).
+export interface ReadbackGapHint {
+	write_tag: string;
+	add_one_of: string[];
+}
+
+// ReadbackGap is one row of GET /owner/readback-gaps — System Activity's Mapping checks
+// (ADR-119 D4). write_tag is container-agnostic ("Year", or "Year / Date" when containers
+// differ).
+export interface ReadbackGap extends ReadbackGapHint {
+	canonical: string;
 }
 
 // F36 — Per-field source-of-truth decisions (ADR-051). A standing, per-item, per-field

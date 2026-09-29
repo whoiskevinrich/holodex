@@ -37,6 +37,7 @@
 		isCockpitRow,
 		isImageRow,
 		isUnverifiable,
+		readbackHint,
 		needsDecision,
 		rowClass,
 		savesDecisionOnly,
@@ -493,6 +494,18 @@
 				onstage={() => onStaged(row)}
 			/>
 		</div>
+	{/if}
+	<!-- ADR-119 D4: a decided read-back gap Holodex has never written names the mapping fix.
+	     Setup guidance, not a warning — text-muted, no icon — and gone once the first write
+	     lets the ledger witness the row. Narrows HOLODEX-400's no-line rule for this case. -->
+	{@const hint = readbackHint(row.field)}
+	{#if hint}
+		<p class="mt-1.5 text-xs text-muted">
+			Holodex can't read {hint.tag} back yet. After this write it'll track what it wrote; to check
+			the file itself, add{hint.keys.length > 1 ? ' one of' : ''}{' '}{#each hint.keys as key, i (key)}{i > 0 ? ', ' : ''}<code
+					class="rounded-theme bg-surface-2 px-1 text-ink">{key}</code
+				>{/each}{` to ${row.field.canonical}'s sources.`}
+		</p>
 	{/if}
 {/snippet}
 
