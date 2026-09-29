@@ -5,7 +5,8 @@
 // `beforeNavigate` survives and is restored on return — but only while the view's KEY
 // still matches (the filter/sort signature unchanged); a key change invalidates it.
 // One-shot: `take` clears the snapshot, so each navigate-away must re-save and a snapshot
-// can't be reused across visits. Session-scoped: a full reload starts empty.
+// can't be reused across visits. The single slot is session-scoped: a full reload starts
+// empty. The registry's scroll-only slots survive a reload via sessionStorage (ADR-118).
 //
 // Two shapes ride on the same mechanics:
 //  - createNavSnapshot(): a single slot, for a view with exactly one caller (the browse
@@ -45,19 +46,51 @@ export function createNavSnapshot<T extends Keyed>() {
 // (e.g. 'people', 'studios', or `person:${personId}`). Each id owns its own slot, so one
 // list saving/taking never disturbs another's, unlike a single createNavSnapshot()
 // instance reused across pages.
-export function createNavSnapshotRegistry<T extends Keyed>() {
+//
+// Each slot is mirrored to sessionStorage under `${namespace}:${id}` so it outlives a full
+// reload — a ForwardAuth re-auth redirect, a new deploy's chunk-hash fallback, a discarded
+// tab (ADR-118, HOLODEX-477). sessionStorage is per tab, like the history it restores
+// against. The in-memory Map stays the fallback when storage is missing or throws; the
+// one-shot and stale-on-mismatch semantics are the same either way.
+export function createNavSnapshotRegistry<T extends Keyed>(namespace: string) {
 	const slots = new Map<string, T>();
+	const storageKey = (id: string) => `${namespace}:${id}`;
+	function readStored(id: string): T | undefined {
+		try {
+			const raw = sessionStorage.getItem(storageKey(id));
+			return raw == null ? undefined : (JSON.parse(raw) as T);
+		} catch {
+			// No storage, or a corrupt value — nothing to restore.
+			return undefined;
+		}
+	}
+	function removeStored(id: string) {
+		try {
+			sessionStorage.removeItem(storageKey(id));
+		} catch {
+			// Unavailable storage holds nothing to remove.
+		}
+	}
 	return {
 		save(id: string, s: T) {
 			slots.set(id, s);
+			try {
+				sessionStorage.setItem(storageKey(id), JSON.stringify(s));
+			} catch {
+				// Storage full/unavailable — the memory slot still covers SPA navigation. Drop
+				// any older stored slot so a reload can't restore it in place of this one.
+				removeStored(id);
+			}
 		},
 		take(id: string, key: string): T | null {
-			const s = slots.get(id);
+			const s = slots.get(id) ?? readStored(id);
 			slots.delete(id);
+			removeStored(id);
 			return s && s.key === key ? s : null;
 		},
 		clear(id: string) {
 			slots.delete(id);
+			removeStored(id);
 		}
 	};
 }

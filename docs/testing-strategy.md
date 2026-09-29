@@ -3545,3 +3545,23 @@ One result that isn't a gap: pointing only Media's cached `scrollTo(cached.scrol
 **survives**. SvelteKit's own scroll restoration puts the page back, because the cache has
 already seeded the grid to full height. The outcome the owner sees is still right, so the
 scenario asserts that outcome, not the line.
+
+## 21. List scroll survives a full reload (HOLODEX-477, ADR-118)
+
+**Unit (`web/src/lib/navSnapshot.test.ts`).** A reload is simulated as a fresh
+`createNavSnapshotRegistry` over the same `sessionStorage` stub. Cases: restore after reload;
+one-shot across a reload (the stored slot is removed on `take`); stale-on-mismatch still clears;
+ids stay isolated; `clear` removes the stored slot; a corrupt stored value restores nothing; a
+throwing or missing `sessionStorage` falls back to the memory slot.
+
+**Browser (`back-after-reload-restores-scroll` in the §20.6 nav harness).** People → scroll 600
+→ open a person → `page.reload()` → Back, and assert `scrollY` 600. The reload waits for
+`networkidle`: pressing Back before the reloaded page hydrates is not a thing a user can do, and
+without the wait the check races hydration.
+
+**Mutation pass, 2026-09-28.** Dropping the storage read in `take`
+(`slots.get(id) ?? readStored(id)` → `slots.get(id)`) fails the harness scenario (`scrollY` 0,
+expected 600) and three unit cases. The clean tree passed the full harness 7/7 on two runs.
+
+**Accepted gap.** The Media grid (`browseCache`) still starts at the top after a reload; it
+carries the loaded page set and stays in memory (ADR-118 Consequences).

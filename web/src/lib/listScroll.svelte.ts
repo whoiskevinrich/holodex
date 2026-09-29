@@ -13,4 +13,4 @@ export interface ListScrollSnapshot extends Keyed {
 	scrollY: number;
 }
 
-export const listScroll = createNavSnapshotRegistry<ListScrollSnapshot>();
+export const listScroll = createNavSnapshotRegistry<ListScrollSnapshot>('holodex:listScroll');
