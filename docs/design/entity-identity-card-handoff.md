@@ -172,6 +172,14 @@ and a value wider than the row wraps inside the pill. Visitors and owners see th
 
 ### 3b. Set edition — the missing-value affordance
 
+> **Superseded 2026-09-29 (HOLODEX-491):** the link's look is now the **text CTA**,
+> `btn-quiet shrink-0 px-3 py-1.5 text-sm`, not the dashed 10 px accent pill described below. The
+> old pill was below the 24 px target size, and it was the last dashed missing-value pill after
+> HOLODEX-490. The slot, the deep link, the owner gate and the wrap-beneath-the-title behaviour are
+> unchanged. Measured on a 497 px rail, a long title wraps (row 78 px, was 67 px) and a short one sits
+> inline (50 px). Rule: `.claude/rules/frontend-theming.md`. The dashed `+ Set edition` in
+> `entity-identity-card-mockup.svg` and `entity-identity-card-edition-as-built.svg` is historical.
+
 When `edition` is empty **and** the viewer is the owner, the pill slot shows a dashed link:
 `rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent`, text
 **+ Set edition**, `href="/media/{id}#field-edition"` (built as spec RD11's bare hash — landing on

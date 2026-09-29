@@ -53,8 +53,9 @@ load-bearing:
   affordances and aren't covered.) Terms: *text CTA* and *ghost slot* in
   `docs/reference/ui-vocabulary.md`. Quick check: every hit of
   `rg '\+ (Add|Set) ' web/src --glob '*.svelte'` is a `btn-quiet` text CTA or an image ghost slot.
-  One known holdout remains: the film page's `+ Set edition` scene-row pill. It's a follow-up, not a
-  precedent.
+  That holds in a dense row too. The film page's `+ Set edition` scene-row link (HOLODEX-491) takes
+  the full size, and in a row too narrow for it, it wraps beneath the title like the value it stands
+  in for. A ghost tile's label uses the CTA's verb ("Add film", not "Attach film").
 - **QA Cinémathèque — and only Cinémathèque.** When verifying any UI change, render and eyeball
   **Cinémathèque**. Check that the accent reads on its background, that decorative elements don't
   collide, that fonts load offline, and that the loading/empty/error/grid states are all themed.

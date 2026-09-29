@@ -1855,11 +1855,14 @@
 								<li class="w-20 shrink-0">
 									<button
 										type="button"
+										aria-haspopup="dialog"
 										onclick={() => (filmAttachOpen = true)}
 										class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
 									>
 										<span class="text-2xl leading-none">+</span>
-										<span class="text-xs">Attach film</span>
+										<!-- "Add", not "Attach": the same affordance as the empty "+ Add film" CTA
+										     and PersonPicker's "Add person" tile, at tile density (HOLODEX-328 §1). -->
+										<span class="text-xs">Add film</span>
 									</button>
 								</li>
 							{/if}
@@ -1873,7 +1876,7 @@
 					<!-- Matches PersonPicker's empty-grid CTA exactly (btn-quiet, same size): the two
 					     are the same affordance for the same kind of nothing and must not look like two
 					     different ones, which is what the old dashed-box-vs-text-link split did. -->
-					<button type="button" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
+					<button type="button" aria-haspopup="dialog" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
 						+ Add film
 					</button>
 				{/snippet}

@@ -82,6 +82,9 @@ no stray wrapping `<div>` or gap appears for a visitor on a video with no film a
   is unchanged from the pre-reorder version — only the container went from CSS Grid
   (`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6`) to a flex-wrap row, adapting the shrink-wrap
   convention already used by `FilmsRow.svelte`.
+  > **Superseded 2026-09-29 (HOLODEX-491):** the "Attach film" wording here and in *Edge cases*
+  > is gone. HOLODEX-328 renamed the empty CTA "+ Add film", and the dashed tile now reads "Add
+  > film" to match it and PersonPicker's "Add person" tile, the same affordance at tile density.
 
 ### 2. Rejected during iteration
 

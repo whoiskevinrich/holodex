@@ -857,8 +857,9 @@
 										<!-- Title + edition travel together (F60 RD6/RD11, handoff §3 as built): the
 										     edition is a property of this file, so its pill sits directly beside the
 										     title rather than out by the resolution pill. Read-only here; empty + owner
-										     offers the dashed "+ Set edition" deep link — the media page lands with the
-										     field's badge expanded, one curation mount for the whole app. Visitors see
+										     offers the "+ Set edition" text CTA (HOLODEX-491, frontend-theming rule), a deep
+										     link — the media page lands with the field's badge expanded, one curation
+										     mount for the whole app. Visitors see
 										     an empty slot. -->
 										<!-- The title group wraps on its own (owner ruling, same rule as the media
 										     header): the pill is never truncated — it drops beneath the title when the
@@ -877,12 +878,11 @@
 											{:else if isOwner}
 												<a
 													href={`/media/${fv.video.id}#field-edition`}
-													class="shrink-0 rounded-full border border-dashed border-muted px-1.5 py-0.5 text-[10px] text-accent hover:border-solid"
-													>+ Set edition</a
+													class="btn-quiet shrink-0 px-3 py-1.5 text-sm">+ Set edition</a
 												>
 											{/if}
 											<!-- Part (HOLODEX-389 RD9) after edition, and deliberately no "+ Set part"
-											     twin of the link above: most files have no part and never will, so a dashed
+											     twin of the link above: most files have no part and never will, so a
 											     link on every row would be chrome for a rare fact — part is set from the
 											     media page's Metadata row (design handoff §3). -->
 											{#if fv.video.part}
