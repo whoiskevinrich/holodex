@@ -98,6 +98,9 @@ Same slot, same class, same read-only rule as the edition pill (F60 handoff §2,
 - `partValue` is derived exactly as `editionValue`
   (`resolved.find(f => f.canonical === 'part')?.values[0]?.trim() ?? ''`).
 - Visitor and owner render the same pill (parity); no pencil, no badge, no link.
+- > **Superseded 2026-09-29 (HOLODEX-490):** the `+ Set part` button's look is now the page's
+  > **text CTA**, `btn-quiet px-3 py-1.5 text-sm`, not the dashed accent pill described below. The
+  > slot, the in-place input and the behaviour are unchanged. Rule: `.claude/rules/frontend-theming.md`.
 - **No part + owner (ruled 2026-09-16, twice):** the slot renders a dashed `+ Set part`
   **button** (`rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent`,
   the film page's `+ Set edition` look) that swaps in place for an inline input (`w-28`,

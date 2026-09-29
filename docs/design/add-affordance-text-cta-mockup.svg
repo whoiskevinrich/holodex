@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 430" width="760" height="430" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif">
+  <title>HOLODEX-490: text CTA vs ghost slot on the media detail page</title>
+  <rect width="760" height="430" fill="#0c0a09"/>
+  <style>
+    .h{font-size:12px;letter-spacing:.72px;fill:#9b9082}
+    .cta{font-size:14px;fill:#9b9082}
+    .pill{font-size:12px;fill:#e8a33d}
+    .cap{font-size:12px;fill:#f3ece1}
+    .note{font-size:11px;fill:#9b9082}
+  </style>
+
+  <text x="24" y="30" class="cap" font-weight="600">Before</text>
+  <text x="404" y="30" class="cap" font-weight="600">After (HOLODEX-490): one text CTA</text>
+
+  <!-- before -->
+  <g transform="translate(24,56)">
+    <text x="0" y="12" class="h">OVERVIEW</text>
+    <rect x="0" y="22" width="104" height="18" rx="9" fill="none" stroke="#9b9082" stroke-dasharray="3 2"/>
+    <text x="8" y="35" class="pill">+ Add overview</text>
+    <text x="0" y="72" class="h">TAGS</text>
+    <text x="0" y="98" class="cta">+ Add tag</text>
+    <text x="0" y="132" class="h">PLAYLISTS</text>
+    <text x="0" y="158" class="cta">+ Add to playlist</text>
+    <text x="0" y="192" class="cta">+ Add film</text>
+    <text x="0" y="222" class="cta">+ Add person</text>
+    <text x="120" y="35" class="note">dashed accent pill, 18px tall</text>
+  </g>
+
+  <!-- after -->
+  <g transform="translate(404,56)">
+    <text x="0" y="12" class="h">OVERVIEW</text>
+    <text x="0" y="38" class="cta">+ Add overview</text>
+    <text x="0" y="72" class="h">TAGS</text>
+    <text x="0" y="98" class="cta">+ Add tag</text>
+    <text x="0" y="132" class="h">PLAYLISTS</text>
+    <text x="0" y="158" class="cta">+ Add to playlist</text>
+    <text x="0" y="192" class="cta">+ Add film</text>
+    <text x="0" y="222" class="cta">+ Add person</text>
+    <text x="124" y="38" class="note">btn-quiet text-sm, 32px tall</text>
+  </g>
+
+  <line x1="24" y1="300" x2="736" y2="300" stroke="#2a2622"/>
+
+  <text x="24" y="324" class="cap" font-weight="600">Header part slot</text>
+  <text x="24" y="356" font-family="Fraunces, Georgia, serif" font-size="22" fill="#f3ece1">Title</text>
+  <rect x="86" y="341" width="92" height="20" rx="10" fill="#15110e" stroke="#2a2622"/>
+  <text x="94" y="355" font-size="12" fill="#9b9082">Director's cut</text>
+  <text x="190" y="356" class="cta">+ Set part</text>
+  <text x="24" y="386" class="note">Was a dashed accent pill, now the same text CTA.</text>
+
+  <text x="404" y="324" class="cap" font-weight="600">The only ghost slot: an empty image slot</text>
+  <rect x="404" y="334" width="40" height="60" rx="2" fill="#2a2622"/>
+  <rect x="452" y="334" width="40" height="60" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="3 2"/>
+  <text x="472" y="364" font-size="16" fill="#9b9082" text-anchor="middle">+</text>
+  <text x="472" y="382" font-size="10" fill="#9b9082" text-anchor="middle">Add</text>
+  <text x="504" y="356" class="note">A poster tile among real poster tiles.</text>
+  <text x="504" y="372" class="note">An empty grid falls back to the text CTA.</text>
+  <text x="504" y="388" class="note">Also: Person banner, EntityImageSlot.</text>
+</svg>
