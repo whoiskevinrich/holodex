@@ -76,7 +76,7 @@ returns to the saved offset even after the document reloaded in between (re-auth
 
 ### 2026-09-28 · session
 - skills: code-review, handoff
-- handoff: listScroll now survives a reload via sessionStorage (ADR-118); unit + nav harness green and mutation-checked — PR is ready, next move is Kevin's merge.
+- handoff: listScroll now survives a reload via sessionStorage (ADR-118); unit + nav harness green and mutation-checked; origin/main (ADR-117) merged in — PR is ready, next move is Kevin's merge.
 
 ## Dropped — newest first (the reason is the point)
 
