@@ -411,6 +411,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/admin/activity/failures/dismiss", h.adminDismissJobFailures)
 		r.Post("/admin/rescan", h.adminRescan)
 		r.Post("/admin/reload-config", h.adminReloadConfig)
+		// Mapping checks on System Activity — the live read-back gaps (ADR-119 D4).
+		r.Get("/owner/readback-gaps", h.ownerReadbackGaps)
 		// Filename extraction — library-wide batch trigger (F48.5b, ADR-067).
 		r.Post("/admin/extract-all", h.adminExtractAll)
 		// Entity refresh sweep — one background pass per kind (F67, ADR-103 D8).
@@ -803,6 +805,13 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			} else {
 				opts.LastWritten = written
 			}
+			// ADR-119 D2: the text fields the ledger witnesses too — computed over the
+			// same field list the resolve uses, so the startup WARN and in_sync agree.
+			gaps := writeback.ReadbackGaps(mfields)
+			opts.ReadbackGaps = make(map[string]bool, len(gaps))
+			for _, g := range gaps {
+				opts.ReadbackGaps[g.Canonical] = true
+			}
 			// ADR-113 D3: only the owner is offered empty fields (the "+ Add overview" row),
 			// so a visitor's resolved[] is unchanged. Resolved before markWriteTargets
 			// below, so an offered row is writable in the dialog.
@@ -835,6 +844,11 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// append (as an earlier draft did) leaves append-only rows permanently
 			// unwritable in the dialog regardless of whether they actually have a mapping.
 			h.markWriteTargets(resolved, v.Container)
+			// ADR-119 D4: the owner's dialog names the read-back key to add. After
+			// markWriteTargets, so the hint names the tag THIS container writes.
+			if authorized {
+				markReadbackGaps(resolved, gaps)
+			}
 			// The summary's `part` (HOLODEX-389) rides the same model.Video the lists
 			// stamp, so the detail's `video` object carries it too rather than only
 			// the resolved[] row — one field, present on every payload of the type.
@@ -1139,11 +1153,16 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 	// it is the moment the warning is most actionable. Logged only once every reload
 	// above has succeeded, so the advice never accompanies a reload the operator was
 	// told had failed.
-	writeback.LogReadbackGaps(h.log, h.mappings.Current().Fields())
+	fields := h.mappings.Current().Fields()
+	writeback.LogReadbackGaps(h.log, fields)
 	if h.cache != nil {
 		_ = h.cache.InvalidatePrefix(r.Context(), facetCachePrefix)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "reloaded", "fields": len(h.mappings.Current().Fields())})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":        "reloaded",
+		"fields":        len(fields),
+		"readback_gaps": len(writeback.ReadbackGaps(fields)), // ADR-119 D4: the reload toast's count
+	})
 }
 
 const facetCachePrefix = "facet:"

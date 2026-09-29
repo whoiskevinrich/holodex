@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { activity } from '$lib/activity.svelte';
 	import { api, startSession, ReauthError } from '$lib/api';
-	import type { JobRun, JobDigest, SweepKind } from '$lib/types';
+	import type { JobRun, JobDigest, ReadbackGap, SweepKind } from '$lib/types';
 	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
 	import StatusCard from '$lib/components/activity/StatusCard.svelte';
 	import JobHistory from '$lib/components/activity/JobHistory.svelte';
@@ -212,13 +212,37 @@
 		busy = true;
 		try {
 			const r = await api.reloadConfig();
-			showToast(`Config reloaded — ${r.fields} fields.`);
+			const g = r.readbackGaps;
+			showToast(
+				g > 0
+					? `Config reloaded — ${r.fields} fields · ${g} ${g === 1 ? "field can't" : "fields can't"} be read back`
+					: `Config reloaded — ${r.fields} fields.`
+			);
+			loadGaps();
 		} catch (e) {
 			showToast(toMessage(e));
 		} finally {
 			busy = false;
 		}
 	}
+
+	// Mapping checks (ADR-119 D4): the fields writeback writes but the mapping can't read
+	// back. Owner-gated like the Actions; loaded once the owner view is known, and again
+	// after a reload so fixing the mapping clears the block without a page reload. A failed
+	// read leaves the block absent — it is advice, never worth an error on this page.
+	let readbackGaps = $state<ReadbackGap[]>([]);
+	let gapsLoaded = false;
+	async function loadGaps() {
+		gapsLoaded = true;
+		try {
+			readbackGaps = await api.readbackGaps();
+		} catch {
+			readbackGaps = [];
+		}
+	}
+	$effect(() => {
+		if (isOwner && !gapsLoaded) loadGaps();
+	});
 </script>
 
 <section class="space-y-6">
@@ -373,6 +397,34 @@
 					{/if}
 					{#if toast}<span class="text-sm text-muted">{toast}</span>{/if}
 				</div>
+				{#if readbackGaps.length > 0}
+					<section aria-labelledby="mapping-checks" class="border-t border-rule pt-2">
+						<h3 id="mapping-checks" class="text-sm text-ink">Mapping checks</h3>
+						<p class="mt-1 text-xs text-muted">
+							Written to the file but not read back, so their sync is tracked from Holodex's own writes:
+						</p>
+						<ul class="mt-1.5 space-y-1">
+							{#each readbackGaps as gap (gap.canonical)}
+								<li class="text-sm text-ink wrap-anywhere">
+									{gap.canonical}
+									<span class="text-xs text-muted">{`→ ${gap.write_tag} · add ${gap.add_one_of.length > 1 ? 'one of ' : ''}`}</span
+									>{#each gap.add_one_of as key, i (key)}{i > 0 ? ', ' : ''}<code
+											class="rounded-theme bg-surface-2 px-1 text-xs text-ink">{key}</code
+										>{/each}
+								</li>
+							{/each}
+						</ul>
+						<p class="mt-1.5 text-xs text-muted">
+							in metadata-mappings.yaml, then reload config.
+							<a
+								class="text-accent hover:underline"
+								href="https://github.com/whoiskevinrich/holodex/blob/main/docs/reference/canonical-fields.md#writeback-round-trip"
+								target="_blank"
+								rel="noreferrer">Why this matters</a
+							>
+						</p>
+					</section>
+				{/if}
 			</div>
 		{/if}
 	{/if}

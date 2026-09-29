@@ -1,0 +1,67 @@
+<svg width="900" height="560" viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Archivo, Segoe UI, Helvetica, Arial, sans-serif">
+<title>Read-back gap: ledger-witnessed rows, the dialog hint, and System Activity mapping checks (HOLODEX-489)</title>
+<desc>Three panels in the Cinémathèque look. 1: the writeback dialog after title and release date were written once. Both rows show the equals-sign gutter ("matches the file"), and the header reads 0 out of sync. 2: a decided release-date row that Holodex has never written. The file chip reads "not read back" and the gutter shows the will-write arrow. One muted hint line under the chips says Holodex can't read Year back yet, will track what it writes after this write, and that adding Year to release_date's sources lets it check the file itself. 3: System Activity. Next to the Rescan library and Reload config buttons, the reload toast reads "Config reloaded — 42 fields · 2 fields can't be read back". A Mapping checks block lists release_date → Year (add Year) and title → Title (add Title).</desc>
+<rect width="900" height="560" fill="#0c0a09"/>
+<text x="24" y="28" font-size="12" fill="#9b9082">READ-BACK GAP · HOLODEX-489 · ADR-119</text>
+
+<!-- 1 ledger-witnessed rows -->
+<text x="24" y="54" font-size="12" fill="#9b9082">1 · Writeback dialog after one write (ledger witness, D1)</text>
+<rect x="24" y="64" width="416" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="40" y="88" font-size="12" fill="#9b9082">Write to file · 0 out of sync</text>
+<line x1="40" y1="100" x2="424" y2="100" stroke="#2a2622"/>
+<text x="46" y="122" font-size="14" fill="#e8a33d">=</text>
+<text x="68" y="122" font-size="14" fill="#f3ece1">Title</text>
+<text x="108" y="122" font-size="12" fill="#9b9082">→ Title</text>
+<rect x="68" y="132" width="150" height="24" rx="12" fill="#181310" stroke="#2a2622"/>
+<text x="80" y="149" font-size="13" fill="#f3ece1">Dune: Part Two <tspan fill="#9b9082" font-size="12">·file</tspan></text>
+<rect x="224" y="132" width="160" height="24" rx="12" fill="#181310" stroke="#e8a33d"/>
+<text x="236" y="149" font-size="13" fill="#e8a33d">Dune: Part Two <tspan fill="#9b9082" font-size="12">·tmdb</tspan></text>
+<line x1="40" y1="170" x2="424" y2="170" stroke="#2a2622"/>
+<text x="46" y="192" font-size="14" fill="#e8a33d">=</text>
+<text x="68" y="192" font-size="14" fill="#f3ece1">Release date</text>
+<text x="158" y="192" font-size="12" fill="#9b9082">→ Year</text>
+<rect x="68" y="202" width="140" height="24" rx="12" fill="#181310" stroke="#2a2622"/>
+<text x="80" y="219" font-size="13" fill="#9b9082" font-style="italic">not read back</text>
+<rect x="214" y="202" width="140" height="24" rx="12" fill="#181310" stroke="#e8a33d"/>
+<text x="226" y="219" font-size="13" fill="#e8a33d">2024-02-27 <tspan fill="#9b9082" font-size="12">·tmdb</tspan></text>
+<text x="68" y="246" font-size="12" fill="#9b9082">Before: both rows led as ↧ and rewrote on every open.</text>
+
+<!-- 2 dialog hint -->
+<text x="460" y="54" font-size="12" fill="#9b9082">2 · Decided, never written by Holodex (hint, D4)</text>
+<rect x="460" y="64" width="416" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="476" y="88" font-size="12" fill="#9b9082">Write to file</text>
+<line x1="476" y1="100" x2="860" y2="100" stroke="#2a2622"/>
+<text x="480" y="122" font-size="14" fill="#e8a33d">↧</text>
+<text x="504" y="122" font-size="14" fill="#f3ece1">Release date</text>
+<text x="594" y="122" font-size="12" fill="#9b9082">→ Year</text>
+<rect x="504" y="132" width="140" height="24" rx="12" fill="#181310" stroke="#2a2622"/>
+<text x="516" y="149" font-size="13" fill="#9b9082" font-style="italic">not read back</text>
+<rect x="650" y="132" width="140" height="24" rx="12" fill="#181310" stroke="#e8a33d"/>
+<text x="662" y="149" font-size="13" fill="#e8a33d">2024-02-27 <tspan fill="#9b9082" font-size="12">·tmdb</tspan></text>
+<text x="504" y="178" font-size="12" fill="#9b9082">Holodex can't read Year back yet. After this write it'll</text>
+<text x="504" y="194" font-size="12" fill="#9b9082">track what it wrote; to check the file itself, add</text>
+<rect x="504" y="200" width="34" height="18" rx="2" fill="#181310"/>
+<text x="508" y="213" font-size="12" fill="#f3ece1" font-family="Consolas, monospace">Year</text>
+<text x="542" y="213" font-size="12" fill="#9b9082">to release_date's sources.</text>
+<text x="504" y="244" font-size="12" fill="#9b9082">text-muted, never --warn · gone after the first write</text>
+
+<!-- 3 system activity -->
+<text x="24" y="296" font-size="12" fill="#9b9082">3 · System Activity: Mapping checks beside Reload config (D4)</text>
+<rect x="24" y="306" width="852" height="228" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="40" y="322" width="118" height="30" rx="2" fill="#e8a33d"/>
+<text x="54" y="342" font-size="14" font-weight="600" fill="#1a1206">Rescan library</text>
+<rect x="166" y="322" width="112" height="30" rx="2" fill="none" stroke="#2a2622"/>
+<text x="180" y="342" font-size="14" fill="#f3ece1">Reload config</text>
+<rect x="40" y="364" width="400" height="28" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="52" y="383" font-size="13" fill="#f3ece1">Config reloaded — 42 fields · 2 fields can't be read back</text>
+<line x1="40" y1="406" x2="860" y2="406" stroke="#2a2622"/>
+<text x="40" y="428" font-size="14" fill="#f3ece1">Mapping checks</text>
+<text x="40" y="448" font-size="12" fill="#9b9082">Written to the file but not read back, so their sync is tracked from Holodex's own writes:</text>
+<text x="40" y="474" font-size="13" fill="#f3ece1">release_date <tspan fill="#9b9082" font-size="12">→ Year · add</tspan></text>
+<rect x="212" y="461" width="34" height="18" rx="2" fill="#181310"/>
+<text x="216" y="474" font-size="12" fill="#f3ece1" font-family="Consolas, monospace">Year</text>
+<text x="40" y="498" font-size="13" fill="#f3ece1">title <tspan fill="#9b9082" font-size="12">→ Title · add</tspan></text>
+<rect x="152" y="485" width="38" height="18" rx="2" fill="#181310"/>
+<text x="156" y="498" font-size="12" fill="#f3ece1" font-family="Consolas, monospace">Title</text>
+<text x="40" y="522" font-size="12" fill="#9b9082">in metadata-mappings.yaml, then reload config. <tspan fill="#e8a33d">Why this matters</tspan></text>
+</svg>

@@ -40,6 +40,7 @@ import type {
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	ReadbackGap,
 	RefreshAllResult,
 	RefreshReport,
 	RelatedResponse,
@@ -701,10 +702,12 @@ export const api = {
 	},
 
 	// Reload metadata-mappings.yaml + metadata-sources.yaml without a restart (F20.10/F22.2d).
-	reloadConfig: async (): Promise<{ fields: number }> => {
-		const body = await sendAuthed<{ fields?: number }>('POST', `/admin/reload-config`);
-		return { fields: Number(body.fields ?? 0) };
+	reloadConfig: async (): Promise<{ fields: number; readbackGaps: number }> => {
+		const body = await sendAuthed<{ fields?: number; readback_gaps?: number }>('POST', `/admin/reload-config`);
+		return { fields: Number(body.fields ?? 0), readbackGaps: Number(body.readback_gaps ?? 0) };
 	},
+	// Mapping checks (ADR-119 D4): the live mapping's writeback read-back gaps. Owner-gated.
+	readbackGaps: () => getAuthed<ReadbackGap[]>(`/owner/readback-gaps`),
 
 	// Metadata source plugins — People enrichment (F22). All owner-gated.
 	enrichSources: () => getAuthed<{ sources: EnrichSource[] }>(`/enrich/sources`),

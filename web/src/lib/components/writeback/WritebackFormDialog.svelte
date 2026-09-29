@@ -37,6 +37,7 @@
 		isCockpitRow,
 		isImageRow,
 		isUnverifiable,
+		readbackHint,
 		needsDecision,
 		rowClass,
 		savesDecisionOnly,
@@ -441,7 +442,9 @@
 	     the file is empty when it is merely unknown; the gutter still reads "will be written"
 	     — the write happens, it just cannot be confirmed later. No warning line: this is a
 	     property of the mapping (the server logs which read-back key to add), not of the row. -->
-	{@const unverifiable = isUnverifiable(row.field)}
+	<!-- ADR-119: a ledger-witnessed gap row is no longer unverifiable, but its file tag is still
+	     not read — the chip keeps saying so rather than claiming the file is empty. -->
+	{@const notReadBack = isUnverifiable(row.field) || !!row.field.readback_gap}
 	{#if isImageRow(row.field)}
 		<!-- Image tiles (HOLODEX-403, ADR-101 D3): one per candidate, no Custom opener (a pasted
 		     URL cannot pass the asset-host allowlist) — though a manual literal that already
@@ -476,7 +479,7 @@
 				bind:stagedKey={row.stagedKey}
 				bind:stagedCustomValue={row.stagedCustomValue}
 				disabled={busy}
-				baselinePlaceholder={unverifiable ? 'Not read back from this file' : 'No value'}
+				baselinePlaceholder={notReadBack ? 'Not read back from this file' : 'No value'}
 				onstage={() => onStaged(row)}
 			/>
 		</div>
@@ -489,10 +492,22 @@
 				bind:stagedKey={row.stagedKey}
 				bind:stagedCustomValue={row.stagedCustomValue}
 				disabled={busy}
-				baselinePlaceholder={unverifiable ? 'not read back' : undefined}
+				baselinePlaceholder={notReadBack ? 'not read back' : undefined}
 				onstage={() => onStaged(row)}
 			/>
 		</div>
+	{/if}
+	<!-- ADR-119 D4: a decided read-back gap Holodex has never written names the mapping fix.
+	     Setup guidance, not a warning — text-muted, no icon — and gone once the first write
+	     lets the ledger witness the row. Narrows HOLODEX-400's no-line rule for this case. -->
+	{@const hint = readbackHint(row.field)}
+	{#if hint}
+		<p class="mt-1.5 text-xs text-muted">
+			Holodex can't read {hint.tag} back yet. After this write it'll track what it wrote; to check
+			the file itself, add{hint.keys.length > 1 ? ' one of' : ''}{' '}{#each hint.keys as key, i (key)}{i > 0 ? ', ' : ''}<code
+					class="rounded-theme bg-surface-2 px-1 text-ink">{key}</code
+				>{/each}{` to ${row.field.canonical}'s sources.`}
+		</p>
 	{/if}
 {/snippet}
 

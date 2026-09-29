@@ -129,6 +129,46 @@ func (h *Handlers) markWriteTargets(fields []resolver.ResolvedField, container s
 	}
 }
 
+// markReadbackGaps stamps the owner's dialog hint (ADR-119 D4) on each gap field
+// this container can write. Runs after markWriteTargets: a row with no WriteTarget is
+// unwritable here, so there is no written tag to read back and nothing to hint.
+func markReadbackGaps(fields []resolver.ResolvedField, gaps []writeback.ReadbackGap) {
+	byCanonical := make(map[string]writeback.ReadbackGap, len(gaps))
+	for _, g := range gaps {
+		byCanonical[g.Canonical] = g
+	}
+	for i, f := range fields {
+		if g, ok := byCanonical[f.Canonical]; ok && f.WriteTarget != "" {
+			fields[i].ReadbackGap = &resolver.ReadbackGapHint{
+				WriteTag: writeback.TagDisplayName(f.WriteTarget),
+				AddOneOf: g.AddOneOf,
+			}
+		}
+	}
+}
+
+// readbackGapView is one row of GET /owner/readback-gaps (ADR-119 D4).
+type readbackGapView struct {
+	Canonical string   `json:"canonical"`
+	WriteTag  string   `json:"write_tag"`
+	AddOneOf  []string `json:"add_one_of"`
+}
+
+// ownerReadbackGaps lists the live mapping's read-back gaps for System Activity's
+// Mapping checks — the same set the startup WARN logs. Container-agnostic, so a
+// field written under different tag names reads "Year / Date".
+func (h *Handlers) ownerReadbackGaps(w http.ResponseWriter, r *http.Request) {
+	var gaps []writeback.ReadbackGap
+	if h.mappings != nil { // no mapping loaded → nothing written, nothing to read back
+		gaps = writeback.ReadbackGaps(h.mappings.Current().Fields())
+	}
+	out := make([]readbackGapView, len(gaps))
+	for i, g := range gaps {
+		out[i] = readbackGapView{Canonical: g.Canonical, WriteTag: strings.Join(g.WriteTags, " / "), AddOneOf: g.AddOneOf}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 // writebackBatchStatus reports aggregate counts (pending/running/done/failed)
 // across every job enqueued under batchID (ADR-077 D3) — the progress signal
 // the tag-scoped manual-sync dialog polls.

@@ -39,6 +39,34 @@ func TestReadbackGaps_DetectsWrongTag(t *testing.T) {
 	}
 }
 
+// TestReadbackGaps_HintSpellings pins ADR-119 D4's owner-facing spellings: AddOneOf
+// keeps the written tag's own spelling where it reads back as the key ("Year", not
+// "year"), falls back to the folded key where it doesn't (PART_NUMBER reads back as
+// PartNumber, so the hint says "partnumber"), and WriteTags drops the exiftool group
+// prefix and dedupes across containers ("QuickTime:Year" and "Year" are one "Year").
+func TestReadbackGaps_HintSpellings(t *testing.T) {
+	gaps := ReadbackGaps([]mapping.Field{
+		{Canonical: "release_date", ParsedSources: []mapping.Source{{Namespace: "tmdb", Key: "release_date"}}},
+		{Canonical: "part", ParsedSources: []mapping.Source{{Namespace: "filename", Key: "part"}}},
+	})
+	if len(gaps) != 2 {
+		t.Fatalf("want two gaps, got %+v", gaps)
+	}
+	part, date := gaps[0], gaps[1] // sorted by canonical
+	if got := strings.Join(date.AddOneOf, ","); got != "Year" {
+		t.Errorf("release_date AddOneOf = %q, want Year", got)
+	}
+	if got := strings.Join(date.WriteTags, ","); got != "Year" {
+		t.Errorf("release_date WriteTags = %q, want Year (QuickTime: prefix dropped, deduped)", got)
+	}
+	if got := strings.Join(part.AddOneOf, ","); got != "DiskNumber,partnumber" {
+		t.Errorf("part AddOneOf = %q, want DiskNumber,partnumber", got)
+	}
+	if got := strings.Join(part.WriteTags, ","); got != "DiskNumber,PART_NUMBER" {
+		t.Errorf("part WriteTags = %q, want DiskNumber,PART_NUMBER", got)
+	}
+}
+
 // TestReadbackGaps_TitleReadsThroughTheFileTitleAlias covers the one canonical whose
 // read location is not extra_metadata: writeback writes `Title` / `QuickTime:Title`, the
 // extractor folds that into videos.title, and only `file:title` addresses it
