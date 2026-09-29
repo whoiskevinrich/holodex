@@ -8,7 +8,7 @@ depends-on: [HOLODEX-490]    # stacked on its branch: the rule this amends lands
 approved:
   design:
     on: 2026-09-29
-    at: 4084de07
+    at: bc04db6c
 release_note: A media page now offers "+ Set edition" beside "+ Set part" when a file has no edition yet. On a film page, the "+ Set edition" link on a full-film file is readable and easy to hit, and the media page's add-a-film tile reads "Add film" like its neighbours.
 ---
 
@@ -27,11 +27,10 @@ the empty "+ Add film" CTA; and the media page header offers "+ Set edition" bes
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Re-confirm the design sign-off (the header slot was added after 4084de07)
-2. [ ] [—] Merge #417 (HOLODEX-490) first, then merge main into this branch and mark this PR ready
+1. [ ] [—] Merge #417 (HOLODEX-490) first, then merge main into this branch and mark this PR ready
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-29 · session
 - skills: code-review, implement
-- handoff: Crossed into build (design signed off at 4084de07, Draft PR #418), then added the owner's header "+ Set edition" beside "+ Set part" on a shared, facet-gated slot editor. Code-review skipped the identifier-derived CTA copy and the pre-existing blur-clears-error behaviour. Start at Up next item 1: re-confirm the sign-off for the header addition.
+- handoff: Crossed into build (design signed off at 4084de07, Draft PR #418), then added the owner's header "+ Set edition" beside "+ Set part" on a shared, facet-gated slot editor. Code-review skipped the identifier-derived CTA copy and the pre-existing blur-clears-error behaviour. You re-confirmed the design at bc04db6c. Start at Up next item 1: merge #417, bring main in, mark #418 ready.
