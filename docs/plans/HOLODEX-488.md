@@ -30,7 +30,7 @@ production path).
 
 ### 2026-09-28 · session
 - skills: code-review, handoff
-- handoff: Fixed and verified in the runtime image. The trigger is a file with track Tags and no untargeted Tag, which `+bitexact` reproduces. The review skipped three findings: `mergeTagsXML` also stripping same-named track Simples (pre-existing design), the no-op check matching an English locale string, and no direct test of the no-op error. Next is the merge.
+- handoff: Fixed and verified in the runtime image. The trigger is a file with track Tags and no untargeted Tag, which `+bitexact` reproduces. The review skipped three findings: `mergeTagsXML` also stripping same-named track Simples (pre-existing design), the no-op check matching an English locale string, and no direct test of the no-op error. origin/main (8d8ce859) is merged in and the branch is pushed; the next move is opening the PR and merging after CI.
 
 ## Dropped — newest first (the reason is the point)
 
