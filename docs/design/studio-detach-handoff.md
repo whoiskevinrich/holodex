@@ -5,8 +5,8 @@ linked studio and a `detach` callback). No new component.
 **Sibling it must match**: `entity/PersonPicker.svelte`'s attached-people list (HOLODEX-272).
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
 [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
-**Backend dependency**: a "resolve to no studio" decision does not exist yet. An ADR is pending
-(see [Backend contract](#backend-contract-for-the-adr)).
+**Backend dependency**: a "resolve to no studio" decision, settled by
+[ADR-120](../architecture/ADR-120-none-field-decision.md) (a `none` source; writeback removes the tag).
 **Mockup**: ![Studio detach: Linked now chip, busy, after-detach page, reopened picker](studio-detach-mockup.svg)
 **Jira**: [HOLODEX-493](https://whoiskevinrich.atlassian.net/browse/HOLODEX-493) (story)
 
@@ -105,7 +105,8 @@ owners losing track.
 ## Backend contract (for the ADR)
 
 The frontend calls a page-supplied `detach(): Promise<{ ok: true } | { conflict: VideoCollisionRef }>`,
-the same shape as `decide`. What it hits is the ADR's call. Today:
+the same shape as `decide`. [ADR-120](../architecture/ADR-120-none-field-decision.md) settles it:
+`PUT …/fields/studio/decision` with `source: "none"`. The gaps it closed were:
 
 - `PUT /media/{id}/fields/studio/decision` with `source: manual, manual_value: ""` is **refused**
   (`internal/api/decisions.go:53`).
@@ -114,9 +115,9 @@ the same shape as `decide`. What it hits is the ADR's call. Today:
 - The resolver already drops an empty manual value (`internal/resolver/resolver.go:580`), so a
   standing "cleared" decision resolves to no studio with no resolver change.
 
-The ADR must decide: (1) the decision shape, e.g. a `cleared` source or an allowed empty manual value;
-(2) how `video_studios`, which is derived from the file layer, reflects the detach before writeback;
-(3) what writeback does with it (remove the tag); (4) whether other replace fields may use it.
+ADR-120's answers, in order: (1) a `none` source (D1); (2) `video_studios` unlinks at decision
+time through the existing relink (D3); (3) writeback removes the tag via an explicit `clear`
+(D4); (4) other replace fields opt in through an allowlist, never identity keys or images (D2).
 
 ## The rule this sets (anti-divergence)
 
