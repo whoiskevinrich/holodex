@@ -4,11 +4,11 @@
 key: HOLODEX-491
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: ui                  # a UX consistency fix, plus one owner affordance (header "+ Set edition")
-depends-on: [HOLODEX-490]    # stacked on its branch: the rule this amends lands with #417
+depends-on: [HOLODEX-490]    # merged (#417 → 11c7b7da); this branch was rebased onto main
 approved:
   design:
     on: 2026-09-29
-    at: bc04db6c
+    at: 7fcc32a8                # bc04db6c before the rebase onto main (#417 squash-merged); same tree
 release_note: A media page now offers "+ Set edition" beside "+ Set part" when a file has no edition yet. On a film page, the "+ Set edition" link on a full-film file is readable and easy to hit, and the media page's add-a-film tile reads "Add film" like its neighbours.
 ---
 
@@ -27,10 +27,11 @@ the empty "+ Add film" CTA; and the media page header offers "+ Set edition" bes
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Merge #417 (HOLODEX-490) first, then merge main into this branch and mark this PR ready
+1. [ ] [—] Mark #418 ready once CI is green on the rebased branch, then merge
+2. [ ] [—] Sweep HOLODEX-490 to Done if jira-sync didn't (the squash merge should fire it)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-29 · session
 - skills: code-review, implement
-- handoff: Crossed into build (design signed off at 4084de07, Draft PR #418), then added the owner's header "+ Set edition" beside "+ Set part" on a shared, facet-gated slot editor. Code-review skipped the identifier-derived CTA copy and the pre-existing blur-clears-error behaviour. You re-confirmed the design at bc04db6c. Start at Up next item 1: merge #417, bring main in, mark #418 ready.
+- handoff: Crossed into build (design signed off at 4084de07, Draft PR #418), then added the owner's header "+ Set edition" beside "+ Set part" on a shared, facet-gated slot editor. Code-review skipped the identifier-derived CTA copy and the pre-existing blur-clears-error behaviour. You re-confirmed the design at bc04db6c (7fcc32a8 after the rebase). #417 is squash-merged, and this branch was rebased onto main at your request and force-pushed with lease. Start at Up next item 1: mark #418 ready once CI is green.
