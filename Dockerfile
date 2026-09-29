@@ -22,10 +22,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -tags production -o /out/holodex ./cmd/holodex
 
 # --- Stage 3: runtime ---
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ffmpeg \
       libimage-exiftool-perl \
+      mkvtoolnix \
       ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=backend /out/holodex /usr/local/bin/holodex

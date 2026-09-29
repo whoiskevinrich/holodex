@@ -84,3 +84,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# make test-image: static writeback test binary run inside the built image (ADR-117 D4)
+/.test-image/

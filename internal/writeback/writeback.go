@@ -163,6 +163,9 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 	for _, f := range fields {
 		if f.IsImage {
 			imgFields = append(imgFields, f)
+		} else if strings.EqualFold(f.TagName, "Title") && f.Delete {
+			// An ADR-110 delete carries no Values (ADR-117 D5).
+			args = append(args, "--edit", "info", "--delete", "title")
 		} else if strings.EqualFold(f.TagName, "Title") {
 			args = append(args, "--edit", "info", "--set", "title="+f.Values[0])
 		} else {
@@ -626,7 +629,7 @@ func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 			continue
 		}
 		sb.WriteString("<Simple><Name>")
-		sb.WriteString(strings.ToUpper(f.TagName))
+		sb.WriteString(xmlEscape(strings.ToUpper(f.TagName)))
 		sb.WriteString("</Name><String>")
 		sb.WriteString(xmlEscape(fileValue(f)))
 		sb.WriteString("</String></Simple>\n")

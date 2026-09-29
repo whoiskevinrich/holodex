@@ -141,6 +141,7 @@ MEDIA_PATH=$(pwd)/library go run ../../cmd/holodex
 ```bash
 go test ./...                    # backend unit (fast, no external binaries)
 go test -tags integration ./...  # backend integration (needs ffmpeg, exiftool, mkvtoolnix)
+make test-image                  # writeback integration inside the built runtime image (Docker only)
 cd web && npm test               # frontend unit (vitest)
 ```
 
