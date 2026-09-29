@@ -5,6 +5,10 @@ key: HOLODEX-490
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: ui                  # a UX consistency fix; behaviour unchanged
 depends-on: []
+approved:
+  design:
+    on: 2026-09-29
+    at: 1e23dc97
 release_note: On a media page, "+ Add overview" and "+ Set part" now look like the page's other "+ Add …" actions instead of small dashed orange pills, and they're easier to hit.
 ---
 
@@ -29,5 +33,5 @@ Relates to HOLODEX-471.
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-29 · session
-- skills: design-critique, code-review
-- handoff: The critique found that "+ Add overview" had copied "+ Set part"'s dashed accent pill. You chose to unify both onto the btn-quiet text CTA and to document the rule in frontend-theming.md plus ui-vocabulary.md. Code-review skipped two findings: the Set-part input is 22px against the 32px button, which makes a small row jump; and the film-page holdouts, which are spun off.
+- skills: design-critique, code-review, implement
+- handoff: Crossed into build: design was signed off at 1e23dc97, and the PR is open. The critique had unified "+ Add overview" and "+ Set part" onto the btn-quiet text CTA, with the rule in frontend-theming.md and ui-vocabulary.md. Code-review skipped the Set-part input height jump (22 vs 32px) and the film-page holdouts, which are spun off. Start at Up next item 1: merge after CI.
