@@ -5,6 +5,10 @@ key: HOLODEX-491
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: ui                  # a UX consistency fix; behaviour unchanged
 depends-on: [HOLODEX-490]    # stacked on its branch: the rule this amends lands with #417
+approved:
+  design:
+    on: 2026-09-29
+    at: 4084de07
 release_note: On a film page, the "+ Set edition" link on a full-film file is now readable and easy to hit, and the media page's add-a-film tile reads "Add film" like its neighbours.
 ---
 
@@ -27,5 +31,5 @@ and the empty "+ Add film" CTA. Spun off from HOLODEX-490 (Relates).
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-09-29 · session
-- skills: code-review
-- handoff: "+ Set edition" is now the full-size text CTA; the dense row wraps exactly as before, so there's no rule fork. The ghost tile says "Add film". This branch is stacked on HOLODEX-490, so its PR stays Draft until #417 merges.
+- skills: code-review, implement
+- handoff: Crossed into build: design signed off at 4084de07, and the Draft PR is open. "+ Set edition" is the full-size text CTA and the ghost tile says "Add film". The branch is stacked on HOLODEX-490, so start at Up next item 1: merge #417, bring main in, mark this PR ready.
