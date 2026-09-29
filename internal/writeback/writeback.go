@@ -48,7 +48,7 @@ func fileValue(f FieldWrite) string {
 // How that is achieved differs per tool — exiftool by construction (-TAG=VALUE
 // touches only named tags), ffmpeg via -map 0 -map_metadata 0, mkvpropedit by
 // reading the existing tags back and splicing them (mergeTagsXML) because
-// --tags global: replaces the whole element. A new or edited backend must
+// --tags all: replaces the whole element. A new or edited backend must
 // uphold this contract; both tools that default to wholesale replacement have
 // silently destroyed metadata here before.
 //
@@ -89,7 +89,7 @@ func Write(ctx context.Context, path, tagName string, values []string) error {
 // falling back to ffmpeg remux (already a required project dependency).
 //
 // The mkvpropedit path needs mkvextract too: mkvpropedit replaces the whole
-// global TAGS element rather than merging into it, so the existing tags have to
+// TAGS element rather than merging into it, so the existing tags have to
 // be read back and folded in. Without mkvextract we cannot do that merge, and
 // ffmpeg (which carries tags forward via -map_metadata 0) is the safe choice.
 // mkvmerge lists the attachments a cover write replaces; all three ship together.
@@ -173,7 +173,7 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		}
 	}
 
-	// --tags global: replaces the entire TAGS element, so read what the file
+	// --tags all: replaces the entire TAGS element, so read what the file
 	// already carries and merge our fields into it. Both steps only touch the
 	// original, so they run before the copy — a failure here then costs one cheap
 	// subprocess rather than a discarded full-file copy.
@@ -200,7 +200,10 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 				_ = os.Remove(tmp)
 				return fmt.Errorf("writeback: write tags XML: %w", err)
 			}
-			args = append(args, "--tags", "global:"+xmlPath)
+			// all:, not global: — the merged document carries the file's
+			// TrackUID-targeted Tags through, and mkvpropedit rejects a global:
+			// document holding any of them wholesale (HOLODEX-488).
+			args = append(args, "--tags", "all:"+xmlPath)
 		}
 		args = append(args, tmp)
 
@@ -210,6 +213,14 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 		if err != nil {
 			_ = os.Remove(tmp)
 			return fmt.Errorf("writeback mkvpropedit: %w — %s", err, strings.TrimSpace(string(out)))
+		}
+		// mkvpropedit reports a refused tag document by exiting 0 with this line;
+		// recording it as success strands the item out of sync with no error. A
+		// tag document always rewrites the element, so only it is checked — a
+		// Title-only edit can legitimately be a no-op.
+		if len(xmlTags) > 0 && strings.Contains(string(out), "No changes were made") {
+			_ = os.Remove(tmp)
+			return fmt.Errorf("writeback mkvpropedit: no changes were made — %s", strings.TrimSpace(string(out)))
 		}
 	}
 
@@ -545,8 +556,9 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 }
 
 // mergeTagsXML folds fields into an existing Matroska tags document, rendering
-// the result for mkvpropedit's --tags global:. That option REPLACES the whole
-// TAGS element rather than merging into it, so passing only the current batch
+// the result for mkvpropedit's --tags all:. That option REPLACES the whole
+// TAGS element — per-track Tags included, hence carrying them through — rather
+// than merging into it, so passing only the current batch
 // would erase every tag an earlier batch had written. Simple elements whose
 // Name matches an incoming field are dropped in favour of the new values;
 // everything else is carried through verbatim. Each field is one <Simple>
