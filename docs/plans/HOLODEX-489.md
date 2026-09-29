@@ -9,7 +9,7 @@ release_note: A title or release date that Holodex writes to a file but can't re
 approved:
   design:
     on: 2026-09-28
-    at: b29d3e75
+    at: 624c452e  # re-confirmed 2026-09-29: only main's #417 design files changed (was b29d3e75)
 ---
 
 # HOLODEX-489 · Read-back gap: ledger witness + owner-visible gap
