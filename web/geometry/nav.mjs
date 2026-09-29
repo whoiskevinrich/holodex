@@ -279,6 +279,21 @@ const SCENARIOS = [
 			const saved = await sortKeys(page);
 			expect(Object.keys(saved).length === 0, `two linked tabs wrote the saved sort: ${JSON.stringify(saved)}`);
 		}
+	},
+	{
+		key: 'back-after-reload-restores-scroll',
+		qa: 'HOLODEX-477 · ADR-118',
+		run: async ({ page }) => {
+			// A full reload on the detail page (a re-auth redirect, a deploy) empties JS memory;
+			// the scroll snapshot has to come back from sessionStorage.
+			await goto(page, `${base}/people`);
+			await scrollTo(page, 600);
+			await openVisible(page, PERSON_ROW, /^\/people\/\d+$/);
+			// Wait for the reloaded page to hydrate, as a user sees it before pressing Back.
+			await page.reload({ waitUntil: 'networkidle' });
+			await settle(page);
+			await backTo(page, '/people', 600);
+		}
 	}
 ];
 
