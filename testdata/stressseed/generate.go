@@ -550,7 +550,7 @@ func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, 
 		Duration:  600,
 		Width:     1920,
 		Height:    1080,
-		Container: "mp4",
+		Container: "MP4", // the extractor's normalised name, which writeback keys its tags on
 		IndexedAt: now,
 		FileMtime: now,
 	}, extra)

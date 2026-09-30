@@ -17,6 +17,7 @@ import (
 	"holodex/internal/mapping"
 	"holodex/internal/model"
 	"holodex/internal/repo"
+	"holodex/internal/writeback"
 )
 
 // As with claim_test.go, Go ignores directories named testdata when matching
@@ -632,6 +633,33 @@ func TestGenerate_DerivedLinksAreWrittenToTheFileLayer(t *testing.T) {
 					e.ID, e.Dimension, e.Variant, want.count, want.field.canonical, got, want.field.fileKey)
 			}
 		}
+	}
+}
+
+// Writeback keys its tag table on the extractor's normalised container name
+// ("MP4", "Matroska"), so a fixture video seeded under any other spelling has no
+// write target for any field and the writeback dialog can't be QA'd against it
+// (HOLODEX-498).
+func TestGenerate_VideosCarryAWritableContainer(t *testing.T) {
+	_, database := seed(t)
+
+	rows, err := database.Query(`SELECT id, container FROM videos`)
+	if err != nil {
+		t.Fatalf("query containers: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var container string
+		if err := rows.Scan(&id, &container); err != nil {
+			t.Fatalf("scan container: %v", err)
+		}
+		if _, ok := writeback.TagForField("title", container); !ok {
+			t.Errorf("media %d has container %q, which writeback has no tag table for", id, container)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate containers: %v", err)
 	}
 }
 
