@@ -6,7 +6,8 @@ linked studio and a `detach` callback). No new component.
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
 [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
 **Backend dependency**: a "resolve to no studio" decision, settled by
-[ADR-120](../architecture/ADR-120-none-field-decision.md) (a `none` source; writeback removes the tag).
+[ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md) (a manual decision with no value,
+recorded by an explicit `clear`; writeback removes the tag).
 **Mockup**: ![Studio detach: Linked now chip, busy, after-detach page, reopened picker](studio-detach-mockup.svg)
 **Jira**: [HOLODEX-493](https://whoiskevinrich.atlassian.net/browse/HOLODEX-493) (story)
 
@@ -105,17 +106,19 @@ owners losing track.
 ## Backend contract (for the ADR)
 
 The frontend calls a page-supplied `detach(): Promise<{ ok: true } | { conflict: VideoCollisionRef }>`,
-the same shape as `decide`. [ADR-120](../architecture/ADR-120-none-field-decision.md) settles it:
-`PUT …/fields/studio/decision` with `source: "none"`. The gaps it closed were:
+the same shape as `decide`. [ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md) settles it:
+`PUT …/fields/studio/decision` with `{ "source": "manual", "clear": true }`. The gaps it closed were:
 
 - `PUT /media/{id}/fields/studio/decision` with `source: manual, manual_value: ""` is **refused**
-  (`internal/api/decisions.go:53`).
+  (`internal/api/decisions.go:53`). It stays refused without `clear`, as a guard against an
+  empty Custom submit.
 - `DELETE …/decision` **reverts to the file value**, the opposite of detach when the file has a
   studio tag.
 - The resolver already drops an empty manual value (`internal/resolver/resolver.go:580`), so a
   standing "cleared" decision resolves to no studio with no resolver change.
 
-ADR-120's answers, in order: (1) a `none` source (D1); (2) `video_studios` unlinks at decision
+ADR-120's answers, in order: (1) the owner is the source (`manual`) and the value is empty, written
+only by an explicit `clear` (D1); (2) `video_studios` unlinks at decision
 time through the existing relink (D3); (3) writeback removes the tag via an explicit `clear`
 (D4); (4) other replace fields opt in through an allowlist, never identity keys or images (D2).
 
