@@ -299,6 +299,41 @@ An unmarked but *empty* database is claimed rather than refused — starting the
 trap with no upside. Re-running with a different `-seed` is refused too: half a fixture
 from each seed is reproducible from neither.
 
+## The replace-studio variant
+
+The fixture maps `studio` as `multi: true` so the studios ladder can render N studios. That
+makes studio a merge field, and the decision API refuses merge fields, so on the canonical
+fixture you can't exercise any **studio decision**: a StudioPicker change, a clear (HOLODEX-493,
+ADR-120), or the film-studio cascade. For those, serve the variant:
+
+- **Mapping.** [`mappings-replace-studio.yaml`](mappings-replace-studio.yaml) is `mappings.yaml`
+  with one change: `studio` is a replace field reading `Publisher` then `Label`, so a clear has two
+  tags to delete. `mappings_variant_test.go` fails if anything else drifts. Like every test here it
+  is invisible to CI (see Notes), so run `go test ./testdata/stressseed` after editing either
+  mapping.
+- **Data: a copy, never the original.** On boot the server re-derives `video_studios` from the
+  resolved field. Under the variant, every multi-studio video would collapse to its first studio,
+  so serving `./data/stress` would quietly rewrite the ladder. After seeding, with **no** stress
+  backend running (the database is WAL, so a live copy can tear), take a fresh copy:
+
+  ```bash
+  rm -rf data/stress-replace && cp -r data/stress data/stress-replace
+  ```
+
+  Recopy after every reseed, and whenever you want to discard a QA session's decisions. The copy
+  never follows the fixture on its own.
+
+- **Profile.** `backend-stress-replace-9300` in `.claude/launch.json.example` serves the copy with
+  the variant mapping, and pairs with `web-9300`. One stress backend at a time: it shares port
+  9300 with `backend-stress-9300`.
+
+To try a clear on a mixed-studio film, give one scene of a film another studio first (a normal
+studio decision); the seeded films carry one studio each.
+
+**Known gap (HOLODEX-498):** the seeder writes container `mp4` where the extractor writes `MP4`,
+so no fixture video gets a write target and the writeback dialog shows every row unwritable.
+Decisions, links and the film cascade work; the file write is what can't be exercised here.
+
 ## Why `MEDIA_PATH` points at an empty directory
 
 `backend-stress` sets `MEDIA_PATH=./data/stress/media`. Seeded rows have no files behind

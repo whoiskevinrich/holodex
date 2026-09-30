@@ -1,0 +1,134 @@
+# Replace-studio VARIANT of the stress fixture's mapping (HOLODEX-497). NOT a template.
+#
+# Identical to mappings.yaml except the studio block, and mappings_variant_test.go fails if
+# anything else drifts. The fixture maps studio `multi: true` so its studios ladder can render
+# N studios. That makes studio a merge field, and the decision API refuses merge fields, so the
+# canonical fixture can't exercise any studio decision: a StudioPicker change, a clear
+# (HOLODEX-493, ADR-120), or the film-studio cascade.
+#
+# Served by the `backend-stress-replace-9300` profile over a COPY of the seeded data
+# (./data/stress-replace). Never point it at ./data/stress: on boot the server re-derives
+# video_studios from the resolved field, so every multi-studio video there would collapse to
+# its first studio. See README "The replace-studio variant".
+#
+# ---------------------------------------------------------------------------------------------
+# Metadata field mapping for the HOLODEX-342 stress fixture. NOT a template.
+#
+# The fixture owns its mapping rather than borrowing the operator's, because the
+# mapping is not a setting here — it is part of the fixture's contract.
+#
+# Two facts force it. First, the mapping decides which file tag carries the cast,
+# and the server re-derives video_people from the file layer on every boot
+# (ADR-072); a fixture seeded against a different mapping than the one serving it
+# has its links wiped rather than read (see filelayer.go). Second, `studio` is a
+# REPLACE field in an ordinary mapping, so the resolver returns exactly one value
+# and a "5 studios" rung would silently collapse to 1 — the fixture would state a
+# cardinality in its manifest that the page never renders.
+#
+# So: `backend-stress` and the seeder both read THIS file, it is committed, and
+# the studios ladder is expressible because `studio` declares `multi: true` here.
+# That is a legitimate configuration (video_studios has been many-to-many since
+# migration 0017, and the media detail page renders the list), not a fiction — it
+# is simply not the shape either of the operator's own profiles happens to use.
+#
+# Keep the relationship half of this file boring. It exists to make relationships
+# resolvable, not to exercise mapping features. The provider namespaces at the
+# bottom are the one deliberate exception (HOLODEX-348).
+
+fields:
+  # --- Title. The text ladder writes videos.title directly, which `file:title`
+  # aliases, so browse cards and the detail page both show the tortured string.
+  - canonical: title
+    browse: true
+    sources:
+      - file:title
+
+  - canonical: overview
+    sources:
+      - file:Comment
+
+  # --- Cast. `multi: true` is what makes a 50-person rung resolve to 50 names;
+  # the seeder writes one `Cast` row per person (never a joined string) so a name
+  # containing a separator cannot fracture into two people.
+  - canonical: actors
+    multi: true
+    sources:
+      - file:Cast
+
+  - canonical: director
+    multi: true
+    sources:
+      - file:Director
+
+  # --- Studio. `multi: true` is load-bearing: without it the resolver's replace
+  # path takes firstNonEmpty and every studios rung above 1 collapses to 1.
+  - canonical: studio
+    # VARIANT: a REPLACE field (no `multi`), and Label as a second file source, so the
+    # decision API accepts studio decisions and a clear has two tags to delete.
+    sources:
+      - file:Publisher
+      - file:Label
+
+  - canonical: genres
+    multi: true
+    filterable: true
+    sources:
+      - file:Genre
+
+  - canonical: collection
+    sources:
+      - file:Album
+
+  # --- Edition (F60, HOLODEX-492). Registered so the fixture can exercise the
+  # edition UI — the media header's "+ Set edition", the edition pill and the
+  # #field-edition landing all need the field to exist (unmapped, its decision
+  # PUT 404s). The seeder writes no Edition tag, so every video starts empty;
+  # sources match the operator's example mapping.
+  - canonical: edition
+    sources:
+      - Edition
+      - filename:edition
+
+  # --- Part (HOLODEX-389). The part ladder writes the ordinal as the container
+  # tag; the filename candidate is listed so the field's chip row has the same
+  # shape as the operator's, but the seeder never produces one (no scanner, D1).
+  - canonical: part
+    sources:
+      - PartNumber
+      - DiskNumber
+      - filename:part
+
+  # --- Provider namespaces (HOLODEX-348) -----------------------------------
+  # A VIDEO's field set comes from this file, so a provider only becomes a
+  # competing candidate on the media page if `<name>:<field>` appears in that
+  # field's `sources:` list. (A person's does not: personScalarFields is a
+  # hardcoded Go list and personProviders unions every provider that has a stored
+  # row, so the person page grows chips from the rows alone.) These two fields are
+  # the video surface's half of that, and they are chosen to avoid confounding an
+  # existing axis: the ladder already tortures `title` and `overview` for text and
+  # `studio`/`actors`/`genres` for cardinality, so conflicting on any of those
+  # would leave a failure un-attributable (D3).
+  #
+  # Neither may be `multi: true`: replaceMarkers only builds a candidate list for
+  # a replace field, so a merge field has no chip row at all.
+  #
+  # `file:` first, and kept, for two reasons — it is the baseline chip the five
+  # providers are voting against, and loadFileField hard-refuses a field whose
+  # sources are provider-only.
+  - canonical: original_language
+    sources:
+      - file:Language
+      - alpha:original_language
+      - bravo:original_language
+      - charlie:original_language
+      - delta:original_language
+      - stress-provider-with-a-very-long-name-40:original_language
+
+  - canonical: tagline
+    sources:
+      - file:Tagline
+      - alpha:tagline
+      - bravo:tagline
+      - charlie:tagline
+      - delta:tagline
+      - stress-provider-with-a-very-long-name-40:tagline
