@@ -26,10 +26,10 @@ nothing is ever written in its place.
 - [x] spec `write-spec` → `docs/specs/**`. F74 `docs/specs/studio-clear.md`. The owner decided that a mixed-studio film clears only the matching videos, and approved the behaviour for a stale film dialog.
 - [x] architecture `architecture` → `docs/architecture/ADR-*`. ADR-120, owner-reviewed: a cleared field is `manual` with an empty value via an explicit `clear`, not a `none` source. Films go through the ADR-087 cascade (D6). D4 deletes every tag the field reads from, with names checked by a strict `ValidClearTagName`.
 - [x] design `design-handoff` → `docs/design/**`. Owner picked A1 (PersonPicker's attached chip) over the logo-row and "No studio" variants. Handoff and `studio-detach-mockup.svg` cover the Media and Film surfaces, and the anti-divergence rule is in `entity/CLAUDE.md` and `ui-vocabulary.md`.
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy`. The §22 plan is written. The tests themselves land with the build.
-- [/] security `security-review`. The design-branch review found no vulnerabilities and produced D4's strict tag validator. The implementation PR needs its own review against D4.
+- [x] backend → `{cmd,internal,providers}/**`. `7ea487b` + `b7e9eb7`. Decision PUT `clear` + `{studio}` allowlist, cascade `clear` + `studio_id`, HTTP writeback `clear` against a stored cleared decision, a `Clear` job expanding to bare-name deletes held to `ValidClearTagName` in the worker, `markWriteTargets` cleared-row exception, first-non-empty snapshot. D4 was amended during the build: deletes are bare, because a probe showed an `XMP:Label` survives a `QuickTime:`-qualified delete.
+- [x] frontend → `web/src/**`. `422b3dc`. The Linked now chip in `StudioPicker` and `FilmStudioCascadeDialog`, through one new `AttachedChip` also adopted by `PersonPicker`. The cockpit writes a clear via `writeEntry`, and after a clear the lone `·file` chip shows as the undo. Live QA passed in Cinémathèque on a scratch copy of the stress fixture. The owner compared the build with the approved mockup and confirmed it matches (2026-09-29).
+- [x] testing `testing-strategy`. §22, as built. Go unit, API and queue tests all green; six of six mutations caught. Real-file clears pass inside the built image on MP4/exiftool, MKV/mkvpropedit and MKV/ffmpeg, XMP included. Vitest: 519 pass. Standing gaps (mp3/flac fixtures, end-to-end revert) are recorded in §22.4.
+- [x] security `security-review`. The design review produced D4's strict validator. The implementation review found no vulnerabilities: every route is owner-gated, no request value reaches an exec argument or picks a tag, and a clear requires a stored cleared decision on an allowlisted field.
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -37,13 +37,8 @@ nothing is ever written in its place.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] `ValidClearTagName` + table test (§22.2); `JobField.Clear` → deletes in `buildBatch` — `internal/writeback/tagkeys.go`, `internal/writequeue/writequeue.go`
-2. [ ] [backend] Decision PUT `clear` + `{studio}` allowlist; `markWriteTargets` cleared-row exception; HTTP writeback `clear` — `internal/api/decisions.go`, `internal/api/writeback.go`
-3. [ ] [backend] Film cascade `clear` + `studio_id` scoping, building `Clear` jobs — `internal/api/film_studio_cascade.go`
-4. [ ] [testing] Per-container clear proof under `make test-image` (§22.4) — `internal/writeback/studio_clear_integration_test.go`
-5. [ ] [frontend] `isCleared`, `sourceChips`, cockpit `clear`, `api.setFieldDecision` — `web/src/lib/f36.ts`, `web/src/lib/writebackCockpit.ts`, `web/src/lib/api.ts`
-6. [ ] [frontend] Linked now chip in `StudioPicker` and `FilmStudioCascadeDialog` — `web/src/lib/components/entity/StudioPicker.svelte`
-7. [ ] [security] `/security-review` on the implementation diff, focused on D4
+1. [ ] [—] Merge PR #420 once CI is green (squash, Conventional subject); jira-sync then moves HOLODEX-493 to Done
+2. [ ] [frontend] Spec P1-2, optional: name the studio in the film results step ("Cleared Acme from 2 parts") — `web/src/lib/components/film/FilmStudioCascadeDialog.svelte`
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -56,8 +51,8 @@ nothing is ever written in its place.
 -->
 
 ### 2026-09-29 · session
-- skills: design-critique, design-handoff, architecture, write-spec, testing-strategy, security-review, handoff, implement
-- handoff: Crossed into build. Design was signed off at 49437119 (the merge of main, which resolved two append-only table conflicts with the owner's OK), and the draft PR is open. Spun out HOLODEX-494/495/496 and flightplan#46. Start at Up next item 1: `ValidClearTagName` and the `Clear` job.
+- skills: design-critique, design-handoff, architecture, write-spec, testing-strategy, security-review, handoff, implement, code-review
+- handoff: Built and settled. Design signed off at 49437119, the owner confirmed the build matches the mockup, and all seven gates are closed. The backend, bare-delete fix and frontend (7ea487b, b7e9eb7, 422b3dc) are pushed, with the real-file clear proven in the image and the implementation security review clean. PR #420 is marked ready. Spun out HOLODEX-494/495/496 and flightplan#46. Start at Up next item 1: merge #420 once CI is green.
 
 ## Dropped — newest first (the reason is the point)
 
