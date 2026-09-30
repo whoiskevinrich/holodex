@@ -1,7 +1,9 @@
 # Design Handoff: Detach a video's studio (HOLODEX-493)
 
 **Surfaces**: `entity/StudioPicker.svelte` (one new section), `media/[id]/+page.svelte` (passes the
-linked studio and a `detach` callback). No new component.
+linked studio and a `detach` callback), and `film/FilmStudioCascadeDialog.svelte` (the same section,
+committing a cascade clear; see [The film page](#the-film-page-same-chip-cascade-commit)). No new
+component.
 **Sibling it must match**: `entity/PersonPicker.svelte`'s attached-people list (HOLODEX-272).
 **Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
 [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
@@ -102,6 +104,23 @@ owners losing track.
 - **Visitor**: nothing changes. The modal is owner-only.
 - **Studio resolved but not linked** (`studioField.values` present, `studios` empty): no Linked now
   section. There's nothing linked to detach, and a pick from the chips still works.
+
+## The film page: same chip, cascade commit
+
+The film page's studio pencil opens `film/FilmStudioCascadeDialog`, whose picker step already mirrors
+`StudioPicker`. It gets the **same Linked now section** (same markup, same rule-off, per the
+anti-divergence rule below). The chips are the film's studios, the union over its videos. What
+differs is what a `×` commits and what happens after:
+
+| | Media (`StudioPicker`) | Film (`FilmStudioCascadeDialog`) |
+|---|---|---|
+| `×` commits | a clear on one video | a cascade clear across the film's videos (ADR-120 D6) |
+| After success | closes; focus to `+ Add studio` | goes to the dialog's **existing results step** (Enqueued / Collision / Error), then `WritebackBatchDialog` for write progress. It doesn't close, because the write has already started |
+| Writeback | later, from the cockpit | immediate, in the cascade's batch |
+| Empty state after | `+ Add studio` text CTA | today's owner-only "No studio set" line plus the pencil (unchanged here; it predates the text-CTA rule and is a known holdout, like "+ Set edition") |
+
+**Open for the spec:** on a film whose videos carry *different* studios there's one chip per studio.
+Should a chip's `×` clear only the videos carrying that studio, or every video in the film?
 
 ## Backend contract (for the ADR)
 

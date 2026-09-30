@@ -100,8 +100,17 @@ all of these hold:
 `release_date` is also in the key and feeds the film year sync, so it stays out until someone asks
 for it and the year sync says what "no date" means.
 
-Only the media endpoint gets `clear`. Person/studio/film entity endpoints don't: an entity's own
-record has no file tag to suppress, so blanking a value there is a rename question, not this one.
+Two endpoints accept `clear`, and they are the two places an owner sets a video's studio:
+
+- the media decision PUT (one video, D1), and
+- the **film-studio cascade**, `POST /films/{id}/studio/cascade` (every video attached to the film,
+  ADR-087; see D6). It already parses its body with the same `decodeDecisionBody`, so `clear` is
+  validated once for both.
+
+The entity *record* endpoints (person/studio/film fields, `record|manual|provider`) don't get it: an
+entity's own record has no file tag to suppress, so blanking a value there is a rename question,
+not this one. A film's studio is not one of those record fields. It's the union of its videos'
+studios (`FilmStudios`), so clearing it means clearing theirs.
 
 ### D3. `video_studios` follows the decision immediately, not after writeback
 
@@ -154,7 +163,36 @@ same HOLODEX-270 check and returns the same `{conflict}` shape. `StudioPicker` a
 verdict for any `decide` result, and the handoff reuses it for detach. There is no bypass for "only
 removing".
 
-### D6. Wire and SPA
+### D6. Clearing a film's studio: the same decision per video, but writeback is immediate
+
+Clearing on the film page is D1 applied to each attached video by the existing cascade
+(`cascadeFilmStudio`, ADR-087). Everything about the **decision** is identical to the media page:
+
+- each video gets a standing `manual` + `''` decision via `decideStudioForVideo`;
+- the collision gate runs per video (D5), and ADR-087's best-effort holds: a collision or error
+  excludes only that video;
+- each video's links are removed (D3), so the film page's studio union empties as the videos clear.
+
+The **writeback** differs, and only in timing:
+
+| | Media page | Film page |
+|---|---|---|
+| Decision | one video | every attached video, best-effort |
+| Writeback | none at decision time; the owner writes later from the cockpit (ADR-091) | enqueued **in the same request**, one shared `batchID` (ADR-087 decide-then-enqueue), then handed to `WritebackBatchDialog` |
+| Job shape | cockpit sends `{field, clear: true}` | cascade builds `JobField{Field: "studio", Clear: true}` |
+
+**The cascade must build a `Clear` job, not `Values: names`.** On a clear, `names` is empty.
+`buildBatch` silently skips an empty non-genres field, so the job would write nothing while the
+cascade reported the video as `enqueued`. That would be a false success on the one surface that
+promises the write. D4's "HTTP `clear` only against a standing cleared decision" holds trivially
+here, because the cascade sets that decision for each video before building its job.
+
+**Open for the spec:** when a film's videos carry *different* studios, the film page shows one chip
+per studio. Whether a chip's `×` clears only the videos carrying that studio or every video in the
+film is a product question for HOLODEX-493's spec. The decision mechanics above are the same
+either way. Only the set of video ids the cascade walks differs.
+
+### D7. Wire and SPA
 
 - `DecisionSource` in `web/src/lib/types.ts` is **unchanged**.
 - `api.setFieldDecision` gains an optional `clear`.
@@ -221,6 +259,10 @@ standing cleared decision, keeps deletion something the owner decided.
    standing cleared decision; per-container studio delete tests under `make test-image`.
 3. [ ] SPA: `isCleared` in `$lib/f36`; `sourceChips` emits no empty Custom chip; the cockpit sends
    `clear`; `StudioPicker` attached-chip detach per the handoff.
+3b. [ ] Film cascade (D6): accept `clear`; build `JobField{Clear: true}` per cleared video. Test:
+   a cleared cascade enqueues a tag delete (not an empty-values job) for every non-colliding
+   video, and a colliding one is excluded as today. `FilmStudioCascadeDialog` gets the same
+   attached-chip detach, handing off to `WritebackBatchDialog` as today.
 4. [ ] Spec + testing-strategy for HOLODEX-493; `/security-review` (a new owner mutation that can
    delete file tags).
 5. [ ] Follow-up HOLODEX-495 (not this epic): let `Revert` use `Clear` for a tag the original write

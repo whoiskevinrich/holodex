@@ -32,8 +32,9 @@ into another, and the shared video-list body for an entity's detail page.
 
 ### Relationship pickers: attached chips on top, the chip's × is the detach
 
-`PersonPicker` and `StudioPicker` are siblings on the same media page, so they must stay one idiom
-(HOLODEX-493, [studio-detach-handoff.md](../../../../../docs/design/studio-detach-handoff.md)):
+`PersonPicker` and `StudioPicker` are siblings on the same media page, and
+`film/FilmStudioCascadeDialog` mirrors `StudioPicker` on the film page, so all three must stay one
+idiom (HOLODEX-493, [studio-detach-handoff.md](../../../../../docs/design/studio-detach-handoff.md)):
 
 - What's attached renders **at the top** of the picker as **attached chips**, using the markup
   `PersonPicker` uses (`rounded-full border-rule bg-surface-2 px-2 py-0.5 text-xs text-ink`, name
@@ -41,10 +42,11 @@ into another, and the shared video-list body for an entity's detail page.
 - **Removing a chip is the detach.** Don't add a separate Remove button, a footer action, a
   "None"/"No studio" candidate chip or a confirm step. The candidate chips are *sources*, and
   "none" isn't one.
-- A single-value picker (`StudioPicker`) labels the section **Linked now** and rules it off
-  (`border-rule`) from the source chips below, because the two chip rows look alike. A multi-value
-  picker needs neither.
-- A change to the chip's size, target or glyph lands in **both** pickers in the same change.
+- A studio picker (`StudioPicker`, `FilmStudioCascadeDialog`) labels the section **Linked now** and
+  rules it off (`border-rule`) from the source chips below, because the two chip rows look alike.
+  `PersonPicker` needs neither.
+- What a `×` *commits* may differ (one video vs. the film cascade); what it *looks like* may not.
+- A change to the chip's size, target or glyph lands in **all three** in the same change.
 
 - **`NameEditControl`'s `trailing` slot is for content that never needs to wrap** (a flag row, a
   short badge). Its at-rest heading row is deliberately `flex` *without* `flex-wrap` — HOLODEX-356:

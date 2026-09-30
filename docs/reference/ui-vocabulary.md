@@ -142,8 +142,8 @@ for a missing value is drift, not a ghost slot.
 
 **Attached chip.** What a relationship picker shows at its top for each entity already attached:
 a `rounded-full` chip with the name and a muted `×`, and the `×` *is* the detach. It's shared by
-`PersonPicker` (People) and `StudioPicker` (Studio, under a **Linked now** label ruled off from the
-source chips). It's not a candidate chip: candidates are sources, and "none" is never one, so
+`PersonPicker` (People), `StudioPicker` (Studio) and the film page's `FilmStudioCascadeDialog` (the
+last two under a **Linked now** label ruled off from the source chips). It's not a candidate chip: candidates are sources, and "none" is never one, so
 there's no "No studio" chip, remove button or footer action.
 → `web/src/lib/components/entity/CLAUDE.md` "Relationship pickers";
 [studio-detach-handoff.md](../design/studio-detach-handoff.md); HOLODEX-493
