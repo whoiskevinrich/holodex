@@ -40,7 +40,15 @@
     ":5174 proxies /api to :9300 via HOLODEX_API_PORT (web/vite.config). It shares",
     "./data/stress with backend-stress but not its port, so nothing stops both running:",
     "start one stress backend only — two processes on one SQLite file defeat the single",
-    "writer. HOLODEX-492."
+    "writer. HOLODEX-492.",
+    "",
+    "backend-stress-replace-9300 serves the fixture with studio as a REPLACE field",
+    "(testdata/stressseed/mappings-replace-studio.yaml), the only way to exercise studio",
+    "decisions — a change, a clear, the film cascade — since the canonical mapping makes studio",
+    "multi. It serves a COPY: with no stress backend running, `rm -rf data/stress-replace &&",
+    "cp -r data/stress data/stress-replace`, and recopy after every reseed. Never point it at",
+    "./data/stress, because boot re-derives video_studios and would collapse the ladder's",
+    "multi-studio videos. Pairs with web-9300. HOLODEX-497."
   ],
   "version": "0.0.1",
   "configurations": [
@@ -94,6 +102,21 @@
         "THUMBNAIL_ENABLED": "false",
         "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
         "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
+      }
+    },
+    {
+      "name": "backend-stress-replace-9300",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/holodex", "--host", "127.0.0.1", "--port", "9300"],
+      "port": 9300,
+      "autoPort": false,
+      "env": {
+        "DATA_PATH": "./data/stress-replace",
+        "MEDIA_PATH": "./data/stress-replace/media",
+        "FILMS_ENABLED": "true",
+        "THUMBNAIL_ENABLED": "false",
+        "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
+        "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings-replace-studio.yaml"
       }
     },
     {
