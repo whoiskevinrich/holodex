@@ -261,6 +261,11 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 - **Provider sidecars** (`providers/tmdb`) talk to core over HTTP only and must not import
   `internal/*`; `_`-prefixed enrichment keys are internal contracts — details in
   `.claude/rules/provider-sidecar.md` (loads when you touch `providers/`).
+- **The dev environment never emits audio.** `web/src/lib/devSilence.ts` pins every media
+  element to volume 0 under the Vite dev server — never remove or bypass it. It does **not**
+  cover the SPA the Go backend serves (a production build), so drive playback only through the
+  dev server (`web` / `web-9300`), never a backend port. Volume 0, not `muted`, keeps the
+  autoplay policy honest.
 
 ## Conventions
 
