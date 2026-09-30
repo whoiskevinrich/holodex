@@ -187,10 +187,13 @@ cascade reported the video as `enqueued`. That would be a false success on the o
 promises the write. D4's "HTTP `clear` only against a standing cleared decision" holds trivially
 here, because the cascade sets that decision for each video before building its job.
 
-**Open for the spec:** when a film's videos carry *different* studios, the film page shows one chip
-per studio. Whether a chip's `×` clears only the videos carrying that studio or every video in the
-film is a product question for HOLODEX-493's spec. The decision mechanics above are the same
-either way. Only the set of video ids the cascade walks differs.
+**Scope on a mixed-studio film: matching videos only** (owner decision 2026-09-29,
+[F74 spec](../specs/studio-clear.md) R5). The film page shows one chip per studio in the union, and a
+chip's `×` clears only the videos carrying *that* studio. A cascade `clear` therefore requires a
+`studio_id`, and the handler walks `VideoIDsForFilm` ∩ the videos linked to that studio in
+`video_studios`. `studio_id` without `clear` is a 400: a *change* still sets every video, as
+ADR-087 does. The per-video decision mechanics above are unchanged; only the set of video ids
+differs.
 
 ### D7. Wire and SPA
 

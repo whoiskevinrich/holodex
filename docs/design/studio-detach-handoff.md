@@ -119,8 +119,9 @@ differs is what a `×` commits and what happens after:
 | Writeback | later, from the cockpit | immediate, in the cascade's batch |
 | Empty state after | `+ Add studio` text CTA | today's owner-only "No studio set" line plus the pencil (unchanged here; it predates the text-CTA rule and is a known holdout, like "+ Set edition") |
 
-**Open for the spec:** on a film whose videos carry *different* studios there's one chip per studio.
-Should a chip's `×` clear only the videos carrying that studio, or every video in the film?
+**Mixed-studio film (decided 2026-09-29, [F74 spec](../specs/studio-clear.md) R5):** one chip per
+studio in the film's union, and a chip's `×` clears **only the videos carrying that studio**.
+Videos on another studio are untouched, and the results step lists exactly the videos cleared.
 
 ## Backend contract (for the ADR)
 
