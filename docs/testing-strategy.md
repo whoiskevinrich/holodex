@@ -3611,7 +3611,19 @@ that **deletes a replace field's tag from a file**, so most of the weight sits a
     mapping's `Label`, `Studio`, `ProductionCompany`.
   - On MP4 the same job yields `QuickTime:`-qualified names.
   - A namespaced source (`filename:studio`, `tmdb:studio`) never appears.
-  - A source name `ValidTagKeyName` rejects is dropped, not written.
+  - A source name `ValidClearTagName` rejects is dropped, not written, and is named in the job
+    detail.
+- **`internal/writeback/tagkeys_test.go`, `ValidClearTagName` table (security review 2026-09-29).**
+  - Accepts: `QuickTime:Publisher` and `QuickTime:Label` on MP4; bare `Label` on Matroska.
+  - Rejects every one of:
+    - `all`, `ALL`, `QuickTime:all`, `*`, `QuickTime:*`;
+    - `-Label`, `Label=`, `Label<x`, `La bel`;
+    - `Keys:Label:x`;
+    - a grouped name on Matroska, a bare name on MP4;
+    - `Genres` for `studio` (valid shape, but not the field's own tag);
+    - `Title` for `studio`.
+  - Mutation: widening the name regex to allow `-`, or dropping the `all` check, turns a named row
+    red.
   - `Clear` with values present is an error.
   - An empty-values `studio` job **without** `Clear` still produces nothing (today's skip is kept).
 - **`internal/api/writeback.go`, `markWriteTargets` (risk 2).**

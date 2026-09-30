@@ -171,7 +171,8 @@ Studios-list filters, and in the file.
   when the video's standing studio decision is cleared. Otherwise it's a 400, as is any other
   empty entry.
 - A clear deletes **every file tag `studio` reads from** (`Publisher`, `Label`, `Studio`,
-  `ProductionCompany`, per the live mapping and ADR-110's tag-name allowlist), not just the
+  `ProductionCompany`, per the live mapping, each passing the strict `ValidClearTagName`
+  check that never admits `all` or a wildcard), not just the
   `Publisher` write target. Otherwise a leftover `Label` would resolve the mis-parse again
   (ADR-120 D4).
 - A cleared row carries its `write_target`, the tag that will be deleted, so the cockpit offers it.
