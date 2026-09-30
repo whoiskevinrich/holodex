@@ -40,10 +40,15 @@ var UnreadableWriteTargets = map[string]string{
 
 // ReadbackGap is one replace field that writeback can write but whose mapping declares
 // no `file:` source matching the written tag. WantKeys are the source keys that would
-// close it, sorted.
+// close it, sorted, in readKey's folded form. AddOneOf is WantKeys as an owner would
+// type them — the written tag's own spelling ("Year") wherever that spelling reads back
+// as the key, else the key itself — for the UI hint (ADR-119 D4). WriteTags are the
+// tags written across containers, group prefix dropped, sorted.
 type ReadbackGap struct {
 	Canonical string
 	WantKeys  []string
+	AddOneOf  []string
+	WriteTags []string
 }
 
 // readKey normalizes a formatMap tag to the `file:` source key that reads it back: drop
@@ -55,10 +60,7 @@ type ReadbackGap struct {
 // which is also the `file:title` alias for videos.title (mapping.Source.IsFileTitle) —
 // the same key whichever way it is read.
 func readKey(tag string) string {
-	if i := strings.LastIndex(tag, ":"); i >= 0 {
-		tag = tag[i+1:]
-	}
-	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(tag)), "_", "")
+	return strings.ReplaceAll(strings.ToLower(TagDisplayName(tag)), "_", "")
 }
 
 // ReadbackGaps returns the replace fields in the mapping that writeback can write but
@@ -74,11 +76,11 @@ func readKey(tag string) string {
 // internal/metadata into Extracted.Tags/People rather than extra_metadata, so no `file:`
 // source could ever satisfy them.
 func ReadbackGaps(fields []mapping.Field) []ReadbackGap {
-	readKeys := writeTargetReadKeys()
+	targets := writeTargets()
 
 	var gaps []ReadbackGap
 	for _, f := range fields {
-		want := readKeys[f.Canonical]
+		want := targets[f.Canonical]
 		if f.Multi || f.Merge || want == nil {
 			continue
 		}
@@ -87,35 +89,71 @@ func ReadbackGaps(fields []mapping.Field) []ReadbackGap {
 		}
 		reads := false
 		for _, src := range f.ParsedSources {
-			if src.Namespace == "file" && want[readKey(src.Key)] {
+			if _, ok := want[readKey(src.Key)]; ok && src.Namespace == "file" {
 				reads = true
 				break
 			}
 		}
 		if !reads {
-			gaps = append(gaps, ReadbackGap{Canonical: f.Canonical, WantKeys: slices.Sorted(maps.Keys(want))})
+			gaps = append(gaps, newReadbackGap(f.Canonical, want))
 		}
 	}
 	slices.SortFunc(gaps, func(a, b ReadbackGap) int { return strings.Compare(a.Canonical, b.Canonical) })
 	return gaps
 }
 
-// writeTargetReadKeys inverts formatMap into canonical → the set of `file:` source keys
-// that would pick a written value back up, unioned across every container that can write
-// that canonical. Deliberately keyed the same way formatMap is (exact canonical, no case
-// folding): a canonical TagForField cannot write is not writeback-capable, so it has no
-// gap to report.
-func writeTargetReadKeys() map[string]map[string]bool {
-	out := map[string]map[string]bool{}
+// newReadbackGap builds a gap from its read key → written-tag spellings.
+func newReadbackGap(canonical string, want map[string][]string) ReadbackGap {
+	g := ReadbackGap{Canonical: canonical, WantKeys: slices.Sorted(maps.Keys(want))}
+	for _, key := range g.WantKeys {
+		add := key
+		for _, tag := range want[key] {
+			if strings.ToLower(tag) == key {
+				add = tag
+				break
+			}
+		}
+		g.AddOneOf = append(g.AddOneOf, add)
+		g.WriteTags = append(g.WriteTags, want[key]...)
+	}
+	slices.Sort(g.WriteTags)
+	g.WriteTags = slices.Compact(g.WriteTags)
+	return g
+}
+
+// writeTargets inverts formatMap into canonical → `file:` source key that would pick a
+// written value back up → the written tags (group prefix dropped, sorted) that key
+// reads, unioned across every container that can write that canonical. Deliberately
+// keyed the same way formatMap is (exact canonical, no case folding): a canonical
+// TagForField cannot write is not writeback-capable, so it has no gap to report.
+func writeTargets() map[string]map[string][]string {
+	out := map[string]map[string][]string{}
 	for _, tags := range formatMap {
 		for canonical, tag := range tags {
 			if out[canonical] == nil {
-				out[canonical] = map[string]bool{}
+				out[canonical] = map[string][]string{}
 			}
-			out[canonical][readKey(tag)] = true
+			key := readKey(tag)
+			if bare := TagDisplayName(tag); !slices.Contains(out[canonical][key], bare) {
+				out[canonical][key] = append(out[canonical][key], bare)
+			}
+		}
+	}
+	for _, byKey := range out {
+		for _, spellings := range byKey {
+			slices.Sort(spellings)
 		}
 	}
 	return out
+}
+
+// TagDisplayName drops an exiftool group prefix ("QuickTime:Year" → "Year"): the tag
+// as an owner reads it in a hint.
+func TagDisplayName(tag string) string {
+	if i := strings.LastIndex(tag, ":"); i >= 0 {
+		tag = tag[i+1:]
+	}
+	return strings.TrimSpace(tag)
 }
 
 // LogReadbackGaps warns once per gap. Called wherever a mapping becomes live — process

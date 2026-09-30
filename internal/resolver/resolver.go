@@ -97,10 +97,18 @@ type ResolvedField struct {
 	// no baseline source at all — there is then no file value to compare against, so
 	// the answer is unknown rather than "differs." Reporting nil (omitted) instead of
 	// false is what keeps a field the writeback can write but the mapping can never
-	// read back from lighting the out-of-sync pill forever.
+	// read back from lighting the out-of-sync pill forever. Image and read-back-gap
+	// fields compare against the write ledger instead of the file (ADR-101, ADR-119),
+	// and are nil only while nothing has been written.
 	Decision   *FieldDecision   `json:"decision,omitempty"`
 	InSync     *bool            `json:"in_sync,omitempty"`
 	Candidates []FieldCandidate `json:"candidates,omitempty"`
+
+	// ReadbackGap is set, on the owner's detail read only, when the field is a
+	// writeback read-back gap (ADR-119 D4): the tag this container writes and the
+	// `file:` source keys that would let Holodex read it back. The API stamps it after
+	// markWriteTargets; the resolver never sets it.
+	ReadbackGap *ReadbackGapHint `json:"readback_gap,omitempty"`
 
 	// WriteTarget names the destination file tag this field maps to for the video's
 	// current container (HOLODEX-216) — e.g. "QuickTime:Artist" — empty when the
@@ -114,6 +122,12 @@ type ResolvedField struct {
 	// on the genres row only, never by the resolver; the API stamps it alongside a
 	// set-valued InSync.
 	FileOnly []string `json:"file_only,omitempty"`
+}
+
+// ReadbackGapHint is ResolvedField.ReadbackGap's payload (ADR-119 D4).
+type ReadbackGapHint struct {
+	WriteTag string   `json:"write_tag"`
+	AddOneOf []string `json:"add_one_of"`
 }
 
 // FieldDecision is the per-field source-of-truth marker on a replace field (F36,
@@ -182,6 +196,14 @@ type Options struct {
 	// nil (the zero value) means "no ledger loaded": every decided image field reads
 	// unknown, which is exactly ADR-093's posture before this witness existed.
 	LastWritten map[string]string
+
+	// ReadbackGaps names the text fields writeback writes but the mapping cannot read
+	// back (writeback.ReadbackGaps over the same field list — ADR-119 D2, the one
+	// definition). Such a field is witnessed by LastWritten exactly as an image field
+	// is, even when some other `file:` source is declared: that source reads a
+	// different tag than the one written, so it can say nothing about the write. nil
+	// leaves every text field on the file read-back.
+	ReadbackGaps map[string]bool
 
 	// ImageURLAllowed reports whether a provider's declared image_url value's host
 	// is on that provider's asset-host allowlist (ADR-039). ResolveFields consults
@@ -387,9 +409,10 @@ func ResolveFields(
 		if !rf.Multi {
 			// The witness is consulted on the field's *declared* display, not the gated
 			// one: a provider poster degraded to text by the allowlist is still an image
-			// field whose sync the file cannot answer.
+			// field whose sync the file cannot answer. A read-back-gap text field is the
+			// same case for a different reason (ADR-119 D1).
 			var witness *ledgerWitness
-			if _, declared := LabelAndDisplay(f); declared == registry.DisplayImageURL {
+			if _, declared := LabelAndDisplay(f); declared == registry.DisplayImageURL || opts.ReadbackGaps[f.Canonical] {
 				w, ok := opts.LastWritten[f.Canonical]
 				witness = &ledgerWitness{value: w, present: ok}
 			}
@@ -797,7 +820,8 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 			marker.ManualValue = strings.TrimSpace(dec.ManualValue)
 		}
 		if witness != nil {
-			// Image field (ADR-101 D1): the file cannot be read back, the ledger can. A
+			// Image or read-back-gap field (ADR-101 D1, ADR-119 D1): the file cannot be
+			// read back, the ledger can. A
 			// newest successful write of exactly the decided value is "in sync"; a write
 			// of something else is "out of sync"; no write on record is unknown — the
 			// ADR-093 tri-state with a different witness.

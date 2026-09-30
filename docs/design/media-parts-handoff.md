@@ -101,6 +101,9 @@ Same slot, same class, same read-only rule as the edition pill (F60 handoff §2,
 - > **Superseded 2026-09-29 (HOLODEX-490):** the `+ Set part` button's look is now the page's
   > **text CTA**, `btn-quiet px-3 py-1.5 text-sm`, not the dashed accent pill described below. The
   > slot, the in-place input and the behaviour are unchanged. Rule: `.claude/rules/frontend-theming.md`.
+  > **HOLODEX-491:** the editor is now shared with a `+ Set edition` slot before it (one open at a
+  > time), and both are offered only on a curatable completeness facet — see
+  > `entity-identity-card-handoff.md`, the amendment under the as-built table.
 - **No part + owner (ruled 2026-09-16, twice):** the slot renders a dashed `+ Set part`
   **button** (`rounded-full border border-dashed border-muted px-2 py-0.5 text-xs text-accent`,
   the film page's `+ Set edition` look) that swaps in place for an inline input (`w-28`,

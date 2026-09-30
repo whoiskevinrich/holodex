@@ -106,6 +106,18 @@ export function isUnverifiable(field: ResolvedField): boolean {
 	return isCockpitRow(field) && isWritable(field) && field.in_sync === undefined;
 }
 
+// readbackHint: the dialog's muted setup line for a read-back gap (ADR-119 D4) — shown
+// only on a decided row whose sync is still unknown, i.e. a gap Holodex has never
+// written. Once written, the ledger witnesses it and the hint goes away. Returns the
+// hint's text parts, or null for no hint. An undecided row is in sync by construction
+// (the resolver's contract), so it never qualifies.
+export function readbackHint(field: ResolvedField): { tag: string; keys: string[] } | null {
+	const gap = field.readback_gap;
+	if (!gap || gap.add_one_of.length === 0) return null;
+	if (!field.decision?.standing || !isUnverifiable(field)) return null;
+	return { tag: gap.write_tag, keys: gap.add_one_of };
+}
+
 // needsDecision: must submit() call decide() for this row before enqueuing the write? True when
 // no standing decision exists (the checkbox is the commit — HOLODEX-219/273), or when the staged
 // pick differs from the committed selection (a different chip, or a different Custom literal).

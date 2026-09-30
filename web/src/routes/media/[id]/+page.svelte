@@ -265,51 +265,60 @@
 	);
 	const studioField = $derived(resolved.find((f) => f.canonical === 'studio'));
 	// Edition (F60 RD6) reads next to the title when present — a read-only pill in the header,
-	// visitors included. The Metadata row stays the curation mount (SourceBadge, deep-link
-	// landing); this is display only, the same pill the film page's Full film rows carry.
+	// visitors included, the same pill the film page's Full film rows carry. The Metadata row
+	// stays the curation mount (SourceBadge, deep-link landing); the header only offers the
+	// empty-slot "+ Set edition" editor below (HOLODEX-491).
 	const editionValue = $derived(resolved.find((f) => f.canonical === 'edition')?.values[0]?.trim() ?? '');
 	// Part (HOLODEX-389 RD9) is the same read-only pill, after edition: "which cut", then
-	// "which slice". Set from the Metadata row's chips, never here.
+	// "which slice". Changed from the Metadata row's chips; only an empty part is set here.
 	const partValue = $derived(resolved.find((f) => f.canonical === 'part')?.values[0]?.trim() ?? '');
-	// Inline "+ Set part" editor in the header pill slot (RD8 found-in-build, human QA 4.3).
-	// Enter commits a manual decision through decideField — the same call the Metadata
-	// row's Custom chip makes — so the pill and the chip row agree; Escape/blur cancels.
-	let partEditing = $state(false);
-	let partDraft = $state('');
-	let partBusy = $state(false);
-	let partError = $state('');
-	function startPart() {
-		partDraft = '';
-		partError = '';
-		partEditing = true;
+	// Inline "+ Set edition" / "+ Set part" editor in the header pill slot (part: RD8
+	// found-in-build, human QA 4.3; edition joined it in HOLODEX-491). Enter commits a manual
+	// decision through decideField — the same call the Metadata row's Custom chip makes — so
+	// the pill and the chip row agree; Escape/blur cancels. One slot open at a time.
+	type HeaderSlot = 'edition' | 'part';
+	// Only offered on a field this instance registers as curatable — the completeness facets
+	// name them, the same source deepLinkedMissing trusts. Edition is mapping-dependent: on an
+	// instance without it, the decision PUT 404s ("unknown field").
+	const slotSettable = (field: HeaderSlot) =>
+		!!completeness?.facets.some((f) => f.canonical === field && f.curatable);
+	let slotEditing = $state<HeaderSlot | null>(null);
+	let slotDraft = $state('');
+	let slotBusy = $state(false);
+	let slotError = $state('');
+	function startSlot(field: HeaderSlot) {
+		slotDraft = '';
+		slotError = '';
+		slotEditing = field;
 	}
-	function cancelPart() {
-		partEditing = false;
-		partError = '';
+	function cancelSlot() {
+		slotEditing = null;
+		slotError = '';
 	}
-	async function commitPart() {
-		const v = partDraft.trim();
-		if (!v) {
-			cancelPart();
+	async function commitSlot() {
+		const field = slotEditing;
+		const v = slotDraft.trim();
+		if (!field || !v) {
+			cancelSlot();
 			return;
 		}
-		partBusy = true;
+		slotBusy = true;
 		try {
-			await decideField('part', 'manual', v);
-			partEditing = false;
+			await decideField(field, 'manual', v);
+			slotEditing = null;
 		} catch (e) {
-			partError = toMessage(e); // stays open for a retry
+			slotError = toMessage(e); // stays open for a retry
 		} finally {
-			partBusy = false;
+			slotBusy = false;
 		}
 	}
-	function onPartKey(e: KeyboardEvent) {
+	function onSlotKey(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			void commitPart();
+			void commitSlot();
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
-			cancelPart();
+			cancelSlot();
 		}
 	}
 	const overviewField = $derived(resolved.find((f) => f.canonical === 'overview'));
@@ -1523,48 +1532,51 @@
 						</NameEditControl>
 					{/key}
 						</div>
+						<!-- Empty slot + owner: the "+ Set …" text CTA (HOLODEX-490 rule), which swaps in
+						     place for an input. Part needed this because its empty Metadata row is only the
+						     F60 deep-link landing and `optional` facets never enter the completeness queue
+						     (RD7). Owner ruling 2026-09-16, human QA 4.3: "no control near the link that
+						     is editable" — so the control sits in the slot the pill takes once set. Edition
+						     joined it on the owner's ask (HOLODEX-491), relaxing F60 RD6's display-only
+						     header for this one gesture; the Metadata row stays the full curation mount. -->
+						{#snippet slotEditor(field: HeaderSlot, label: string, width: string, numeric: boolean)}
+							{#if slotEditing === field}
+								<!-- svelte-ignore a11y_autofocus -->
+								<input
+									bind:value={slotDraft}
+									autofocus
+									inputmode={numeric ? 'numeric' : undefined}
+									aria-label={label}
+									placeholder={label}
+									disabled={slotBusy}
+									onkeydown={onSlotKey}
+									onblur={() => {
+										if (!slotBusy) cancelSlot();
+									}}
+									class="{width} shrink-0 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+								/>
+								{#if slotError}<span class="text-xs text-warn">{slotError}</span>{/if}
+							{:else}
+								<button type="button" class="btn-quiet shrink-0 px-3 py-1.5 text-sm" onclick={() => startSlot(field)}
+									>+ Set {field}</button
+								>
+							{/if}
+						{/snippet}
 						{#if editionValue}
 							<span
 								class="inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
 								>{editionValue}</span
 							>
+						{:else if isOwner && slotSettable('edition')}
+							{@render slotEditor('edition', 'Edition', 'w-40', false)}
 						{/if}
 						{#if partValue}
 							<span
 								class="part-pill inline-block max-w-full shrink-0 wrap-anywhere rounded-full border border-rule bg-surface px-2 py-0.5 text-xs text-muted"
 								>{partBadgeLabel(partValue)}</span
 							>
-						{:else if isOwner}
-							<!-- The empty Part row is the F60 deep-link landing (deepLinkedMissing) and
-							     `optional` facets never enter the completeness queue (RD7), so without this
-							     a file with no part has no route to set one. Owner ruling 2026-09-16, twice:
-							     first the film page's dashed-link idiom deep-linking to the row, then — human
-							     QA 4.3, "no control near the link that is editable" — the control itself, in
-							     the slot the pill takes once set: click, type, Enter. Same decision the chip
-							     row's Custom makes; the Metadata row remains for everything else. -->
-							{#if partEditing}
-								<!-- svelte-ignore a11y_autofocus -->
-								<input
-									bind:value={partDraft}
-									autofocus
-									inputmode="numeric"
-									aria-label="Part number"
-									placeholder="Part number"
-									disabled={partBusy}
-									onkeydown={onPartKey}
-									onblur={() => {
-										if (!partBusy) cancelPart();
-									}}
-									class="w-28 shrink-0 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
-								/>
-								{#if partError}<span class="text-xs text-warn">{partError}</span>{/if}
-							{:else}
-								<!-- The page's one "+ Add …" text CTA (HOLODEX-490, frontend-theming rule), not
-								     a dashed pill: a dashed ghost is reserved for an empty image slot. -->
-								<button type="button" class="btn-quiet shrink-0 px-3 py-1.5 text-sm" onclick={startPart}
-									>+ Set part</button
-								>
-							{/if}
+						{:else if isOwner && slotSettable('part')}
+							{@render slotEditor('part', 'Part number', 'w-28', true)}
 						{/if}
 					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">
@@ -1855,11 +1867,14 @@
 								<li class="w-20 shrink-0">
 									<button
 										type="button"
+										aria-haspopup="dialog"
 										onclick={() => (filmAttachOpen = true)}
 										class="flex aspect-[2/3] w-full flex-col items-center justify-center gap-1 rounded-theme border border-dashed border-rule text-muted hover:border-accent hover:text-accent"
 									>
 										<span class="text-2xl leading-none">+</span>
-										<span class="text-xs">Attach film</span>
+										<!-- "Add", not "Attach": the same affordance as the empty "+ Add film" CTA
+										     and PersonPicker's "Add person" tile, at tile density (HOLODEX-328 §1). -->
+										<span class="text-xs">Add film</span>
 									</button>
 								</li>
 							{/if}
@@ -1873,7 +1888,7 @@
 					<!-- Matches PersonPicker's empty-grid CTA exactly (btn-quiet, same size): the two
 					     are the same affordance for the same kind of nothing and must not look like two
 					     different ones, which is what the old dashed-box-vs-text-link split did. -->
-					<button type="button" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
+					<button type="button" aria-haspopup="dialog" onclick={() => (filmAttachOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">
 						+ Add film
 					</button>
 				{/snippet}

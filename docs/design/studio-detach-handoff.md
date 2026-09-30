@@ -117,7 +117,7 @@ differs is what a `×` commits and what happens after:
 | `×` commits | a clear on one video | a cascade clear across the film's videos (ADR-120 D6) |
 | After success | closes; focus to `+ Add studio` | goes to the dialog's **existing results step** (Enqueued / Collision / Error), then `WritebackBatchDialog` for write progress. It doesn't close, because the write has already started |
 | Writeback | later, from the cockpit | immediate, in the cascade's batch |
-| Empty state after | `+ Add studio` text CTA | today's owner-only "No studio set" line plus the pencil (unchanged here; it predates the text-CTA rule and is a known holdout, like "+ Set edition") |
+| Empty state after | `+ Add studio` text CTA | today's owner-only "No studio set" line plus the pencil (unchanged here; it predates the text-CTA rule and is a known holdout) |
 
 **Mixed-studio film (decided 2026-09-29, [F74 spec](../specs/studio-clear.md) R5):** one chip per
 studio in the film's union, and a chip's `×` clears **only the videos carrying that studio**.
