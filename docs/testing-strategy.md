@@ -3566,3 +3566,149 @@ expected 600) and three unit cases. The clean tree passed the full harness 7/7 o
 
 **Accepted gap.** The Media grid (`browseCache`) still starts at the top after a reload; it
 carries the loaded page set and stays in memory (ADR-118 Consequences).
+
+## 22. Clearing a studio from a video or a film (F74, HOLODEX-493, ADR-120)
+
+[Spec](specs/studio-clear.md) · [ADR-120](architecture/ADR-120-owner-cleared-field-decision.md) ·
+[handoff](design/studio-detach-handoff.md). A cleared field is a `manual` decision with an empty
+value, written only by an explicit `clear`, and writeback deletes the tag. This is the first feature
+that **deletes a replace field's tag from a file**, so most of the weight sits at the write end.
+
+### 22.1 Risks, ranked
+
+1. **An accidental clear.** An empty Custom submit, an empty writeback entry, or a `clear` on a field
+   off the allowlist wipes a value the owner didn't mean to lose. The guards are the existing
+   empty-manual 400, the `clear` flag, the `{studio}` allowlist, and HTTP `clear` accepted only
+   against a standing cleared decision.
+2. **A false success.** Something reports `enqueued`/written but deletes nothing. There are three
+   known routes:
+   - the film cascade building `Values: []`, which `buildBatch` silently skips;
+   - `markWriteTargets` giving the cleared row no `write_target` (ADR-113's blank-pin rule), so the
+     cockpit disables it;
+   - the clear deleting only `Publisher` while `Label`/`Studio`/`ProductionCompany` still carries the
+     mis-parse (ADR-120 D4).
+3. **Over-reach.** The film clear touches a video carrying a *different* studio (spec R5), or the
+   tag expansion deletes a tag outside the field's mapping.
+4. **Grammar confusion.** A cleared row is mistaken for a blank pin (a `file`/`provider:` pin to an
+   empty layer) or for `isBlankCustom`, and one of those starts getting the other's treatment.
+
+### 22.2 Go unit
+
+- **`internal/api/decisions_test.go`, `decodeDecisionBody` table (R1).**
+  - Accepted: `{manual, clear}`.
+  - 400: `{manual, clear, manual_value:"x"}`, `{file, clear}`, `{provider:tmdb, clear}`, `clear` on
+    `title` and on `overview` (not allowlisted), and `{manual, manual_value:""}` with no `clear`
+    (the existing guard must survive).
+- **`internal/resolver/decisions_test.go` (marker).** A standing `manual` + `''` decision over a file
+  value of `Acme`:
+  - the field is kept in `resolved[]` with `standing: true` and empty `values`;
+  - `manual_value` is omitted;
+  - `in_sync` is `false`, and `true` when the file has no studio.
+  - Contrast case: a `file` pin to an empty baseline produces the same values, but is *not*
+    reported as cleared by the Go-side helper (risk 4).
+- **`internal/writequeue/writequeue_test.go`, `buildBatch` (risks 2, 3).**
+  - `JobField{Field: studio, Clear: true}` on `Matroska` yields `Delete` for `Publisher` plus the
+    mapping's `Label`, `Studio`, `ProductionCompany`.
+  - On MP4 the same job yields `QuickTime:`-qualified names.
+  - A namespaced source (`filename:studio`, `tmdb:studio`) never appears.
+  - A source name `ValidTagKeyName` rejects is dropped, not written.
+  - `Clear` with values present is an error.
+  - An empty-values `studio` job **without** `Clear` still produces nothing (today's skip is kept).
+- **`internal/api/writeback.go`, `markWriteTargets` (risk 2).**
+  - A cleared `studio` row gets `write_target` `Publisher` (`QuickTime:Publisher` on MP4).
+  - A blank pin still gets `""`.
+  - An ADR-113 offered row keeps its target (regression).
+
+### 22.3 API integration (real repo, `httptest`)
+
+- **`decisions_collision_test.go`, media clear (R1–R3).**
+  - Two videos share title/people/date; A has no studio and B's file says `Acme`. Clearing B returns
+    `{conflict}` and stores nothing; with `override` it stores.
+  - A non-colliding clear gives `studios: []` in the detail and drops the studio page's video list
+    and count by one.
+  - A re-scan of the same file leaves it cleared.
+  - `DELETE` restores `Acme` and the link.
+  - Prune-on-empty: a studio whose only video is cleared is gone from `/studios`. This pins today's
+    ADR-053 behaviour and is **expected**, not a bug (HOLODEX-494).
+- **`film_studio_cascade_test.go`, scoped cascade clear (R5).**
+  - Film with parts 1–2 on `Acme` and part 3 on `Beta`. Clearing with `studio_id=Acme`:
+    - clears parts 1–2 and leaves part 3's decision and link untouched;
+    - the enqueued jobs carry `Clear: true` for parts 1–2 only, and nothing for part 3;
+    - results list exactly parts 1–2, and no result says `enqueued` without a `Clear` job behind it.
+  - A collider on part 2 lands under `collision` and is not enqueued.
+  - 400 cases: `studio_id` without `clear`, and `clear` without `studio_id`.
+  - A `studio_id` the film doesn't carry is a clean no-op (`batch_id: ""`).
+- **`writeback_test.go`, HTTP `clear` (R7).**
+  - `{field: studio, clear: true}` is accepted when the studio decision is cleared.
+  - 400 when it's a `manual:"Acme"` decision, when undecided, or when the field is `title`.
+  - Any other empty entry still 400s.
+  - Owner gate: a visitor POST is refused, as for every writeback route.
+
+### 22.4 Per-container file proof (`-tags integration`, run by `make test-image`)
+
+New `internal/writeback/studio_clear_integration_test.go`, run inside the built image (trixie, real
+exiftool / mkvpropedit / ffmpeg; see ADR-117). One fixture per container `studio` maps to (Matroska,
+MP4, and the rest of `formatMap`'s `studio` entries). For each:
+
+1. Write `Label=Acme` only, with no `Publisher`: the mis-parse case.
+2. Run the clear job.
+3. Re-extract, and assert no `Publisher`/`Label`/`Studio`/`ProductionCompany` and that the other
+   tags are byte-for-byte unchanged (title and genre survive).
+
+Repeat step 1 with the tag under `Publisher` and under two sources at once. MKV runs through both
+the mkvpropedit path and its ffmpeg fallback. The fallback is forced by the existing test seam, the
+same way `mkvpropedit_integration_test.go` does. **Nothing in these tests writes a literal
+placeholder.** One assertion greps the re-extracted tags for `none`, `—` and `""` values.
+
+### 22.5 SPA unit (Vitest)
+
+- **`web/src/lib/f36.test.ts`.**
+  - `isCleared` is true for `{manual, standing, manual_value absent}`, and false for a `file` blank
+    pin, for `manual:"Acme"`, and for an undecided field.
+  - `sourceChips` emits **no** chip with an empty value for a cleared decision, and still emits the
+    `·file` chip (the undo path, R6).
+- **`web/src/lib/writebackCockpit.test.ts`.**
+  - A cleared studio row is a cockpit row, `willWrite` is true while the file still has a value, and
+    its payload is `{field, clear: true}` with no `values`.
+  - `isBlankCustom` stays false for it: it's a *decided* empty, not a staged blank, so the
+    HOLODEX-400 "never send `manual:''`" rule is untouched.
+  - A cleared row whose file is already empty reads `=`.
+- **`web/src/lib/api.test.ts`.** `setFieldDecision(…, {clear: true})` sends `{source: "manual",
+  clear: true}` and no `manual_value`.
+
+### 22.6 Live QA (Cinémathèque; `web/` has no component-test harness, §16)
+
+Numbered, and tagged per the QA checklist convention:
+
+1. `[agent]` **Media Linked now chip.** The chip's computed classes equal a `PersonPicker` attached
+   chip's (R8). `×` has `aria-label` "Remove {name} from this video" and is reachable with
+   Shift+Tab from the search. After the clear, `document.activeElement` is `+ Add studio`. No
+   "None", "No studio" or empty chip exists in any state.
+2. `[agent]` **Busy and error.** Throttle the PUT: the `×` shows `…`, and chips and options are
+   inert. Force a 500: the modal stays open with `text-warn` and the chip keeps its `×`.
+3. `[agent]` **Collision.** The verdict card renders, and "Save anyway" stores the clear.
+4. `[agent]` **Cockpit.** The cleared row shows applied `—` against the file value with
+   `write_target` `Publisher`. Write it, then re-extract: the row reads `=`.
+5. `[agent]` **Film, mixed studios.** Clear one chip. The results step lists only its parts, hands
+   off to `WritebackBatchDialog`, and afterwards the film shows the other studio alone.
+6. `[human]` **Undo feel.** Clear, then pick `·file`, on the Media page. The card returns with no
+   flash of `+ Add studio` beyond one frame.
+
+### 22.7 Mutation checks to run once the code exists
+
+Each should turn a named test red:
+
+- Drop the `clear` requirement (accept an empty manual value) → the §22.2 decode table fails.
+- Build the cascade job as `Values: names` → the §22.3 cascade "no `enqueued` without `Clear`"
+  assertion fails.
+- Remove the `markWriteTargets` exception → the §22.2 write-target case fails.
+- Delete only the write target in `buildBatch` → the §22.4 `Label`-only fixture fails.
+- Drop the `studio_id` filter → the §22.3 part-3-untouched assertion fails.
+
+### 22.8 Standing gaps
+
+- The chip, focus order and busy state are live-QA only (no component harness, HOLODEX-395).
+- Prune-on-empty is pinned as *expected* behaviour here. HOLODEX-494 may reverse it, and then the
+  §22.3 prune assertion flips.
+- A revert of a clear rewrites the old value (works today). A revert of an *added* tag is still
+  skipped (HOLODEX-495).

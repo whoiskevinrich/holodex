@@ -170,11 +170,21 @@ Studios-list filters, and in the file.
 - The writeback HTTP entry accepts `{ "field": "studio", "clear": true }` with no `values`, only
   when the video's standing studio decision is cleared. Otherwise it's a 400, as is any other
   empty entry.
+- A clear deletes **every file tag `studio` reads from** (`Publisher`, `Label`, `Studio`,
+  `ProductionCompany`, per the live mapping and ADR-110's tag-name allowlist), not just the
+  `Publisher` write target. Otherwise a leftover `Label` would resolve the mis-parse again
+  (ADR-120 D4).
+- A cleared row carries its `write_target`, the tag that will be deleted, so the cockpit offers it.
+  A blank pin to an empty layer stays unwritable, as ADR-113 requires (ADR-120 D4).
 - The writeback cockpit shows a cleared row as applied `—` against the file's value and sends
   `clear`.
 - Read-back afterwards makes the field `in_sync: true`.
 
 *Acceptance:*
+- [ ] Given a file carrying the studio under `Label` (not `Publisher`), a cleared studio written
+      from the cockpit leaves neither tag, and read-back reports `in_sync: true`.
+- [ ] A cleared studio's detail row has a non-empty `write_target`, while a blank pin's row still
+      has none.
 - [ ] `clear` for a video whose studio decision isn't cleared returns 400 and writes nothing.
 - [ ] A cleared studio written from the cockpit leaves no studio tag, on every container `studio`
       has a `write_target` for in `metadata-mappings.yaml.example`, through each write path that
@@ -223,12 +233,13 @@ by adoption rates.
 
 ## Open Questions
 
-None blocking. The mixed-studio film question was decided on 2026-09-29: matching videos only (R5).
+None. Resolved on 2026-09-29:
 
-- *(non-blocking, engineering)* `studio_id` scoping reads `video_studios` at request time. If a
-  video's link changes between the dialog opening and the `×`, the cascade clears the videos
-  linked *now*. The results step shows exactly what was cleared, so a stale dialog can't silently
-  miss a video. Confirm in review that this is acceptable rather than adding a version check.
+- **Mixed-studio film:** clear only the matching videos (R5).
+- **Stale film dialog (owner-approved):** `studio_id` scoping reads `video_studios` at request time.
+  If a video's link changes between the dialog opening and the `×`, the cascade clears the videos
+  linked *at click time*. The results step lists exactly what was cleared, so a stale dialog can't
+  silently miss a video. There's no version check.
 
 ## Timeline Considerations
 

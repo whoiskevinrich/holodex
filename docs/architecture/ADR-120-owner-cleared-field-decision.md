@@ -143,6 +143,27 @@ D1:
 - **HTTP:** a writeback entry may be `{ "field": "studio", "clear": true }` with no `values`. It's
   accepted only when the video's standing decision for that field is cleared (D1), so a client can't
   delete an arbitrary tag by sending `clear`. Every other empty entry still gets the existing 400.
+- **What a clear deletes: every file tag the field reads from, not just its write target.** A
+  field *writes* one tag per container (`studio` → `Publisher`, `internal/writeback/tags.go`) but
+  *reads* from an ordered list of file tags in its mapping (`studio`: `Publisher`, `Label`, `Studio`,
+  `ProductionCompany`, first one found wins). Deleting only `Publisher` would leave a `Label` the
+  parser found, so the file layer would resolve that value again and the field would never read in
+  sync. So a `Clear` job expands, at write time, to one `Delete` for the write target plus one for
+  each un-namespaced source in the field's live mapping. Each source name is first **qualified the
+  way the write target is** (the target's group prefix: `QuickTime:Label` on MP4 because the
+  target is `QuickTime:Publisher`, bare `Label` on MKV) and then kept only if
+  `writeback.ValidTagKeyName(container, name)` accepts it. Namespaced sources (`filename:`, `tmdb:`) aren't file tags and are skipped. This is
+  the same mapping-derived, allowlist-checked tag-name path ADR-110 uses for tag keys, and it never
+  trusts a tag name from the request (security C2). A source tag that can't be deleted on some
+  container survives: read-back then shows `in_sync: false`, and the cockpit keeps the row open.
+  That's honest rather than silent.
+- **Write target:** `markWriteTargets` (`internal/api/writeback.go:107`) must stamp a cleared row
+  with the tag it would delete. Today a standing decision with no value gets an empty
+  `write_target`, which is ADR-113's deliberate "blank pin stays unwritable" rule, so the dialog
+  would disable the cleared row and the clear could never be written. The exception is narrow: a
+  standing `manual` decision with an empty value, on an allowlisted field, asks the mapper for its
+  tag. A blank pin (a `file` or `provider:` pin to a layer that happens to be empty) keeps today's
+  unwritable stamp. The two can't be confused, because `manual` + `''` was unreachable before D1.
 - **Cockpit:** a cleared row sends `clear: true` instead of `values: []`
   (`WritebackFormDialog.svelte:306` sends `[]` today and gets the 400). The row shows applied `—`
   against the file value, like any other lagging decision (applied vs. on file).
