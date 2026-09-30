@@ -34,12 +34,25 @@ type decisionBody struct {
 	Source      string `json:"source"`
 	ManualValue string `json:"manual_value"`
 	Override    bool   `json:"override"`
+	// Clear stores an owner-cleared field (ADR-120 D1): a manual decision with no
+	// value. It is the only way to store one — a bare empty manual_value is still
+	// refused, so an empty Custom submit can never clear a field.
+	Clear bool `json:"clear"`
+	// StudioID scopes a film-studio cascade clear to the film's videos linked to
+	// that studio (ADR-120 D6). Cascade-only: the single-video PUT refuses it.
+	StudioID int64 `json:"studio_id"`
 }
 
+// clearableFields is the ADR-120 D2 allowlist: the replace fields an owner may
+// clear. Never an identity key (title, external_provider_id) or an image, and a
+// field joins only once its tag delete is proven on every container it maps to.
+var clearableFields = map[string]bool{"studio": true}
+
 // decodeDecisionBody decodes and validates a decisionBody request: JSON shape,
-// source validity, and (for a manual pick) a non-empty sanitized value. Shared by
-// setFieldDecision and the film-studio cascade handler, whose request/validation
-// shapes are otherwise byte-for-byte duplicates.
+// source validity, and (for a manual pick) a non-empty sanitized value, or an
+// explicit clear. Shared by setFieldDecision and the film-studio cascade handler,
+// whose request/validation shapes are otherwise byte-for-byte duplicates. The
+// clear allowlist needs the canonical field, so callers check it (clearableFields).
 func decodeDecisionBody(w http.ResponseWriter, r *http.Request) (body decisionBody, manualValue string, ok bool) {
 	if !decodeJSON(w, r, &body) {
 		return body, "", false
@@ -47,6 +60,13 @@ func decodeDecisionBody(w http.ResponseWriter, r *http.Request) (body decisionBo
 	if !fieldsource.Valid(body.Source) {
 		writeError(w, http.StatusBadRequest, "source must be 'file', 'manual', or 'provider:<name>'")
 		return body, "", false
+	}
+	if body.Clear {
+		if body.Source != fieldsource.Manual || strings.TrimSpace(body.ManualValue) != "" {
+			writeError(w, http.StatusBadRequest, "clear takes source 'manual' and no manual_value")
+			return body, "", false
+		}
+		return body, "", true
 	}
 	if body.Source == fieldsource.Manual {
 		if manualValue = enrich.SanitizeValue(body.ManualValue); manualValue == "" {
@@ -74,6 +94,10 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if body.StudioID != 0 {
+		writeError(w, http.StatusBadRequest, "studio_id applies only to the film-studio cascade")
+		return
+	}
 
 	// Live-status gate: 404 unknown vs 409 soft-deleted (a decision must not
 	// accumulate against a trashed item), before any field/provider validation.
@@ -82,6 +106,10 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	field, ok := h.replaceField(w, canonical)
 	if !ok {
+		return
+	}
+	if body.Clear && !clearableFields[field.Canonical] {
+		writeError(w, http.StatusBadRequest, "field "+field.Canonical+" can't be cleared")
 		return
 	}
 	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityVideo, id, p) {

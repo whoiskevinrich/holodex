@@ -330,6 +330,15 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// so bulk curation can't thrash the filesystem. Survives restart; on boot it
 	// recovers crash-interrupted jobs and sweeps orphan temp files.
 	writeQ := writequeue.New(repository, writeback.WriteBatch, log, cfg.WritebackConcurrency, cfg.MediaPath)
+	// A cleared field deletes every file tag it reads from (ADR-120 D4), read from
+	// the live mapping at write time so a reload-config takes effect.
+	writeQ.SetClearSources(func(canonical string) []string {
+		f, ok := mappings.Current().ByCanonical(canonical)
+		if !ok {
+			return nil
+		}
+		return f.FileTagSources()
+	})
 	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
 		if thumbs != nil && thumbs.Enabled() {
 			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
