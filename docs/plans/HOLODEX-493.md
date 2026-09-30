@@ -5,6 +5,10 @@ key: HOLODEX-493
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: full                # a new decision shape + file-tag deletes (data model, owner mutation) and UI on two pages
 depends-on: []
+approved:
+  design:
+    on: 2026-09-29
+    at: 49437119
 release_note: You can now clear a wrongly parsed studio from a video or a film. It disappears in Holodex at once, and writing the file removes it from the file's tags.
 ---
 
@@ -33,14 +37,13 @@ nothing is ever written in its place.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Run `/implement`: sign-off on the design mockup, merge main, open the draft PR
-2. [ ] [backend] `ValidClearTagName` + table test (§22.2); `JobField.Clear` → deletes in `buildBatch` — `internal/writeback/tagkeys.go`, `internal/writequeue/writequeue.go`
-3. [ ] [backend] Decision PUT `clear` + `{studio}` allowlist; `markWriteTargets` cleared-row exception; HTTP writeback `clear` — `internal/api/decisions.go`, `internal/api/writeback.go`
-4. [ ] [backend] Film cascade `clear` + `studio_id` scoping, building `Clear` jobs — `internal/api/film_studio_cascade.go`
-5. [ ] [testing] Per-container clear proof under `make test-image` (§22.4) — `internal/writeback/studio_clear_integration_test.go`
-6. [ ] [frontend] `isCleared`, `sourceChips`, cockpit `clear`, `api.setFieldDecision` — `web/src/lib/f36.ts`, `web/src/lib/writebackCockpit.ts`, `web/src/lib/api.ts`
-7. [ ] [frontend] Linked now chip in `StudioPicker` and `FilmStudioCascadeDialog` — `web/src/lib/components/entity/StudioPicker.svelte`
-8. [ ] [security] `/security-review` on the implementation diff, focused on D4
+1. [ ] [backend] `ValidClearTagName` + table test (§22.2); `JobField.Clear` → deletes in `buildBatch` — `internal/writeback/tagkeys.go`, `internal/writequeue/writequeue.go`
+2. [ ] [backend] Decision PUT `clear` + `{studio}` allowlist; `markWriteTargets` cleared-row exception; HTTP writeback `clear` — `internal/api/decisions.go`, `internal/api/writeback.go`
+3. [ ] [backend] Film cascade `clear` + `studio_id` scoping, building `Clear` jobs — `internal/api/film_studio_cascade.go`
+4. [ ] [testing] Per-container clear proof under `make test-image` (§22.4) — `internal/writeback/studio_clear_integration_test.go`
+5. [ ] [frontend] `isCleared`, `sourceChips`, cockpit `clear`, `api.setFieldDecision` — `web/src/lib/f36.ts`, `web/src/lib/writebackCockpit.ts`, `web/src/lib/api.ts`
+6. [ ] [frontend] Linked now chip in `StudioPicker` and `FilmStudioCascadeDialog` — `web/src/lib/components/entity/StudioPicker.svelte`
+7. [ ] [security] `/security-review` on the implementation diff, focused on D4
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -53,8 +56,8 @@ nothing is ever written in its place.
 -->
 
 ### 2026-09-29 · session
-- skills: design-critique, design-handoff, architecture, write-spec, testing-strategy, security-review, handoff
-- handoff: Design settled. A1 attached chip, ADR-120 (a cleared field is `manual` with an empty value via `clear`, films through the cascade, a strict delete-tag validator), spec F74 and testing §22 are all pushed. Spun out HOLODEX-494/495/496 and flightplan#46 (IDEA capture broken, so HOLODEX-496 was filed by hand). Start at Up next item 1: `/implement`.
+- skills: design-critique, design-handoff, architecture, write-spec, testing-strategy, security-review, handoff, implement
+- handoff: Crossed into build. Design was signed off at 49437119 (the merge of main, which resolved two append-only table conflicts with the owner's OK), and the draft PR is open. Spun out HOLODEX-494/495/496 and flightplan#46. Start at Up next item 1: `ValidClearTagName` and the `Clear` job.
 
 ## Dropped — newest first (the reason is the point)
 
