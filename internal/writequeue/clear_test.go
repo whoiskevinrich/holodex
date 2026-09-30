@@ -82,13 +82,13 @@ func deletes(fs []writeback.FieldWrite) []string {
 
 var studioSrc = []string{"Publisher", "Label", "Studio", "ProductionCompany"}
 
-// A Clear deletes the write target and every mapped source tag, qualified the
-// way the target is (ADR-120 D4).
+// A Clear deletes the write target and every mapped source tag, bare on every
+// container so each is removed from whatever group holds it (ADR-120 D4).
 func TestClear_DeletesEveryStudioTag(t *testing.T) {
 	written, wb := clearHarness(t, "MP4", studioSrc, []writequeue.JobField{
 		{Field: "studio", Clear: true, Source: "manual"},
 	})
-	want := []string{"QuickTime:Publisher", "QuickTime:Label", "QuickTime:Studio", "QuickTime:ProductionCompany"}
+	want := []string{"Publisher", "Label", "Studio", "ProductionCompany"}
 	if got := deletes(written); !slices.Equal(got, want) {
 		t.Fatalf("MP4 deletes = %v, want %v", got, want)
 	}
@@ -123,7 +123,7 @@ func TestClear_NoSourcesDeletesTargetOnly(t *testing.T) {
 	written, _ := clearHarness(t, "MP4", nil, []writequeue.JobField{
 		{Field: "studio", Clear: true, Source: "manual"},
 	})
-	if got := deletes(written); !slices.Equal(got, []string{"QuickTime:Publisher"}) {
+	if got := deletes(written); !slices.Equal(got, []string{"Publisher"}) {
 		t.Fatalf("deletes = %v", got)
 	}
 }

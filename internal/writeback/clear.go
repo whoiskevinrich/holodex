@@ -54,18 +54,21 @@ func ValidClearTagName(container, canonical, tagName string, sources []string) b
 	return false
 }
 
-// ClearTagNames lists the tags to delete to clear canonical on a container:
-// its write target, then each source qualified the way the target is (MP4's
-// "QuickTime:Publisher" makes "Label" into "QuickTime:Label"; a bare target
-// keeps sources bare). Only names ValidClearTagName accepts are returned,
-// de-duplicated case-insensitively. Rejected names come back separately so the
-// caller can name them in the job detail. An unmapped field returns nothing.
+// ClearTagNames lists the tags to delete to clear canonical on a container: the
+// name part of its write target, then each source — all BARE, on every
+// container. The scanner reads a tag by bare name from any group, and exiftool
+// deletes a bare name from every group, so a bare delete removes exactly what
+// the reader would find: an MP4 whose studio sits in XMP:Label is left intact
+// by "-QuickTime:Label=" but cleared by "-Label=" (probed 2026-09-29). This is
+// deliberately unlike ADR-110's tag-key filter, which must leave other groups
+// alone. Only names ValidClearTagName accepts are returned, de-duplicated
+// case-insensitively; rejected names come back separately so the caller can
+// name them in the job detail. An unmapped field returns nothing.
 func ClearTagNames(container, canonical string, sources []string) (names, rejected []string) {
 	target, ok := TagForField(canonical, container)
 	if !ok {
 		return nil, nil
 	}
-	group, _, qualified := strings.Cut(target, ":")
 	seen := map[string]bool{}
 	add := func(n string) {
 		key := strings.ToLower(n)
@@ -79,13 +82,9 @@ func ClearTagNames(container, canonical string, sources []string) (names, reject
 			rejected = append(rejected, n)
 		}
 	}
-	add(target)
+	add(tagPart(target))
 	for _, s := range sources {
-		if qualified {
-			add(group + ":" + s)
-		} else {
-			add(s)
-		}
+		add(s)
 	}
 	return names, rejected
 }

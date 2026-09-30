@@ -57,10 +57,11 @@ func TestValidClearTagName_MappingCannotWiden(t *testing.T) {
 }
 
 func TestClearTagNames(t *testing.T) {
+	// Bare on MP4 too: exiftool deletes a bare name from every group, matching
+	// the scanner, which reads the name from any group (an XMP:Label studio).
 	names, rejected := ClearTagNames("MP4", "studio", studioSources)
-	want := []string{"QuickTime:Publisher", "QuickTime:Label", "QuickTime:Studio", "QuickTime:ProductionCompany"}
-	if !slices.Equal(names, want) || len(rejected) != 0 {
-		t.Fatalf("MP4 = %v rejected %v, want %v", names, rejected, want)
+	if !slices.Equal(names, studioSources) || len(rejected) != 0 {
+		t.Fatalf("MP4 = %v rejected %v, want %v", names, rejected, studioSources)
 	}
 
 	names, _ = ClearTagNames("Matroska", "studio", studioSources)

@@ -149,18 +149,25 @@ D1:
   `ProductionCompany`, first one found wins). Deleting only `Publisher` would leave a `Label` the
   parser found, so the file layer would resolve that value again and the field would never read in
   sync. So a `Clear` job expands, at write time, to one `Delete` for the write target plus one for
-  each un-namespaced source in the field's live mapping. Each source name is first **qualified the
-  way the write target is** (the target's group prefix: `QuickTime:Label` on MP4 because the
-  target is `QuickTime:Publisher`, bare `Label` on MKV). Namespaced sources (`filename:`, `tmdb:`)
-  aren't file tags and are skipped. No tag name ever comes from the request (security C2).
+  each un-namespaced source in the field's live mapping. **Every delete name is bare, on every
+  container**, the write target included (`Publisher`, not `QuickTime:Publisher`). The scanner reads
+  a tag by bare name from any group, and exiftool deletes a bare name from every group, so a bare
+  delete removes exactly what the reader would find. A group-qualified delete does not: an MP4
+  whose studio sits in `XMP:Label` reads as studio `Acme`, and `-QuickTime:Label=` leaves it
+  there, while `-Label=` removes it (probed 2026-09-29 during the build; the §22.4 fixtures pin
+  it). This is deliberately unlike ADR-110's tag-key filter, which qualifies names because it must
+  leave other groups' values alone. A clear wants the tag gone wherever it can be read from.
+  *(Amended during the build. The first draft of D4 qualified each source the way the write target
+  is, and the probe showed that misses XMP.)* Namespaced sources (`filename:`, `tmdb:`) aren't file
+  tags and are skipped. No tag name ever comes from the request (security C2).
 - **Every delete name passes a strict, dedicated validator,** `writeback.ValidClearTagName(container,
-  field, tagName)`. That includes the write target itself, because it's the same exec path. It is
+  field, tagName, sources)`. That includes the write target itself, because it's the same exec path. It is
   **not** ADR-110's `ValidTagKeyName`. That one is the genre tag-key allowlist (`Genres`,
   `Keywords`, `Category`, `Categories` only), so it would reject every studio source, and it must
   not be widened to fit. A name passes only when all of these hold:
-  1. **Shape.** On an exiftool container the name is `Group:Name` with group `^[A-Za-z0-9-]+$`; on
-     Matroska/WebM it's a bare `Name`. The name part matches `^[A-Za-z][A-Za-z0-9]*$`, so
-     no `-`, `=`, `<`, `>`, `:`, whitespace, `*` or `?` can reach an argument.
+  1. **Shape.** The name part matches `^[A-Za-z][A-Za-z0-9]*$`, so no `-`, `=`, `<`, `>`, `:`,
+     whitespace, `*` or `?` can reach an argument. A group prefix (`^[A-Za-z0-9-]+$`) is refused
+     outright on Matroska/WebM. `ClearTagNames` never produces one, since deletes are bare.
   2. **Never a wildcard.** The name part isn't `all`, case-insensitively. The regex already blocks
      `*`, and `all` is refused explicitly.
   3. **Membership.** The name part is the field's write-target name for that container
@@ -176,10 +183,11 @@ D1:
   checked. A rejected name is dropped from the job and named in the job_run detail, like an
   unmappable field.
 
-  A source tag that isn't deleted on some container (rejected, or absent from the group the target
-  is qualified with) survives. Read-back then shows `in_sync: false`, and the cockpit keeps the row
-  open. That's honest rather than silent. §22.4's per-container fixtures are what prove each
-  container's qualification actually removes the tag.
+  A source tag that isn't deleted on some container (rejected, or not writable there) survives.
+  Read-back then shows `in_sync: false`, and the cockpit keeps the row open. That's honest rather
+  than silent. A name the container can't hold at all, such as `Label` in MP4's QuickTime group, is
+  a harmless exiftool warning under `-m`: there's nothing there to delete. §22.4's per-container
+  fixtures are what prove each container's deletes actually remove the tag.
 - **Write target:** `markWriteTargets` (`internal/api/writeback.go:107`) must stamp a cleared row
   with the tag it would delete. Today a standing decision with no value gets an empty
   `write_target`, which is ADR-113's deliberate "blank pin stays unwritable" rule, so the dialog
