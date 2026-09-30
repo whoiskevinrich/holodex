@@ -3610,7 +3610,8 @@ that **deletes a replace field's tag from a file**, so most of the weight sits a
 - **`internal/writequeue/writequeue_test.go`, `buildBatch` (risks 2, 3).**
   - `JobField{Field: studio, Clear: true}` on `Matroska` yields `Delete` for `Publisher` plus the
     mapping's `Label`, `Studio`, `ProductionCompany`.
-  - On MP4 the same job yields `QuickTime:`-qualified names.
+  - On MP4 the same job yields the same **bare** names (ADR-120 D4 as amended). A bare delete
+    removes the tag from every group, and §22.4's `XMP:Label` fixture is why.
   - A namespaced source (`filename:studio`, `tmdb:studio`) never appears.
   - A source name `ValidClearTagName` rejects is dropped, not written, and is named in the job
     detail.
@@ -3659,35 +3660,44 @@ that **deletes a replace field's tag from a file**, so most of the weight sits a
 
 ### 22.4 Per-container file proof (`-tags integration`, run by `make test-image`)
 
-New `internal/writeback/studio_clear_integration_test.go`, run inside the built image (trixie, real
-exiftool / mkvpropedit / ffmpeg; see ADR-117). One fixture per container `studio` maps to (Matroska,
-MP4, and the rest of `formatMap`'s `studio` entries). For each:
+`internal/writeback/studio_clear_integration_test.go`, `TestStudioClear_RealFiles`. It runs inside
+the built image (trixie, real exiftool / mkvpropedit / ffmpeg; see ADR-117). It's an in-package
+test, so it calls `writeMKVWithMkvpropedit` and `writeMKVWithFFmpeg` directly, the way
+`mkvpropedit_integration_test.go` does, and proves both MKV paths. Each case:
 
-1. Write `Label=Acme` only, with no `Publisher`: the mis-parse case.
-2. Run the clear job.
-3. Re-extract, and assert no `Publisher`/`Label`/`Studio`/`ProductionCompany` and that the other
-   tags are byte-for-byte unchanged (title and genre survive).
+1. Plants studio `Acme` where the scanner would read it, plus Title `Keep Me`.
+2. Runs `ClearTagNames` + the backend's write.
+3. Asserts that exiftool reads no `Publisher`/`Label`/`Studio`/`ProductionCompany`, that Title is
+   untouched, and that no `none`/`—`/`""` placeholder reached the file.
 
-Repeat step 1 with the tag under `Publisher` and under two sources at once. MKV runs through both
-the mkvpropedit path and its ffmpeg fallback. The fallback is forced by the existing test seam, the
-same way `mkvpropedit_integration_test.go` does. **Nothing in these tests writes a literal
-placeholder.** One assertion greps the re-extracted tags for `none`, `—` and `""` values.
+The planted locations:
+- **MKV:** `PUBLISHER`, `LABEL`, `STUDIO`, and `LABEL`+`PRODUCTIONCOMPANY` together.
+- **MP4:** `QuickTime:Publisher`, `XMP:Publisher`, `XMP:Label`, and `QuickTime:Publisher`+`XMP:Label`.
+  `QuickTime:Label` and `QuickTime:Studio` aren't writable, so an MP4 can't carry those.
+
+**The XMP cases are the regression for ADR-120 D4's amendment.** A `QuickTime:`-qualified delete
+leaves `XMP:Label`, which the scanner still reads as the studio.
+
+**Gaps:**
+- mp3 and flac map `studio` too, but aren't synthesized here: they need an audio encoder in the
+  fixture.
+- The revert path (the snapshot's first-non-empty rule) isn't driven end to end.
 
 ### 22.5 SPA unit (Vitest)
 
-- **`web/src/lib/f36.test.ts`.**
-  - `isCleared` is true for `{manual, standing, manual_value absent}`, and false for a `file` blank
-    pin, for `manual:"Acme"`, and for an undecided field.
-  - `sourceChips` emits **no** chip with an empty value for a cleared decision, and still emits the
-    `·file` chip (the undo path, R6).
-- **`web/src/lib/writebackCockpit.test.ts`.**
-  - A cleared studio row is a cockpit row, `willWrite` is true while the file still has a value, and
-    its payload is `{field, clear: true}` with no `values`.
-  - `isBlankCustom` stays false for it: it's a *decided* empty, not a staged blank, so the
-    HOLODEX-400 "never send `manual:''`" rule is untouched.
-  - A cleared row whose file is already empty reads `=`.
-- **`web/src/lib/api.test.ts`.** `setFieldDecision(…, {clear: true})` sends `{source: "manual",
-  clear: true}` and no `manual_value`.
+All in **`web/src/lib/studioClear.test.ts`** (as built):
+- **`isCleared`:** true for `{manual, standing, manual_value absent}` and for a blank value; false
+  for `manual:"Acme"`, a `file` blank pin, a non-standing manual, and no decision.
+- **Chip model:** a cleared row keeps the `·file` chip (the undo path, R6). The only blank chip is
+  the standard Custom *entry* chip every field has, never a "None" or extra empty chip. The row
+  seeds onto that blank Custom, the value it was decided as.
+- **Cockpit (`writesClear`):**
+  - A cleared row writes while the file still has a value, untouched, and needs no new decision.
+  - It reads `=` once the file is empty.
+  - The payload switch (`{field, clear: true}` rather than `values: []`) is `writesClear` in
+    `WritebackFormDialog.submit()`.
+  - The HOLODEX-400 blank-Custom guard is unchanged for every other row: `isBlankCustom` is still
+    true for the seed, and only a cleared decision turns it into a write.
 
 ### 22.6 Live QA (Cinémathèque; `web/` has no component-test harness, §16)
 
@@ -3707,9 +3717,27 @@ Numbered, and tagged per the QA checklist convention:
 6. `[human]` **Undo feel.** Clear, then pick `·file`, on the Media page. The card returns with no
    flash of `+ Add studio` beyond one frame.
 
-### 22.7 Mutation checks to run once the code exists
+**Live run, 2026-09-29** (`backend-493-9300`: a scratch copy of the stress fixture with `studio` as
+a replace field over `Publisher`, `Label`):
+- **Item 1 passed.** The chip's class string is identical to `PersonPicker`'s, ink on `surface-2`
+  with a muted `×`. The `aria-label` is as specified. After the clear the modal closed, the studio
+  card was gone, and focus sat on `+ Add studio`.
+- **Undo.** Reopening gave "Add studio" with no Linked now section. That run found the lone
+  `·file` chip hidden (`StudioPicker` showed chips only when there were more than one); it now
+  shows after a clear. Clicking it restored the studio (`file` standing, `in_sync: true`).
+- **Item 5 passed.** On a film with scenes on `stress studio 001` ×2 and `QA Beta Studio` ×1,
+  clearing `stress studio 001` cleared exactly those two, focus went to "2 queued for
+  writeback", and the third kept its studio.
+- **Items 2–4 not run live.**
+  - Item 4 (cockpit) can't run on this fixture: its containers are lowercase `mp4`, so no field has
+    a write target. The API test pins the cleared row's `write_target`.
+  - Items 2 and 3 are covered by `run()`'s shared busy, error and conflict path and the API
+    collision test.
 
-Each should turn a named test red:
+### 22.7 Mutation checks
+
+**Run 2026-09-29: all six turned their named test red** (the five below plus "validator admits
+`all`" → `TestValidClearTagName`). Each should turn a named test red:
 
 - Drop the `clear` requirement (accept an empty manual value) → the §22.2 decode table fails.
 - Build the cascade job as `Values: names` → the §22.3 cascade "no `enqueued` without `Clear`"

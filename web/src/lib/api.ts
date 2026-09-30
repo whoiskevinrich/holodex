@@ -620,7 +620,12 @@ export const api = {
 	// to the film. Owner-gated. results is best-effort per video (D2) -- a collision or
 	// error on one video never blocks the others. batch_id is "" when nothing enqueued
 	// (every video collided/errored, or the film has no attached videos).
-	cascadeFilmStudio: (id: number, req: { source: DecisionSource; manual_value?: string }) =>
+	// A clear (ADR-120 D6) sends `{source: 'manual', clear: true, studio_id}` and touches only
+	// the film's videos currently linked to that studio.
+	cascadeFilmStudio: (
+		id: number,
+		req: { source: DecisionSource; manual_value?: string; clear?: boolean; studio_id?: number }
+	) =>
 		sendAuthed<{ batch_id: string; results: FilmStudioCascadeResult[] }>(
 			'POST',
 			`/films/${id}/studio/cascade`,

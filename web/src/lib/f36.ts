@@ -7,7 +7,7 @@
 // `baselineKey` — 'file' for videos (the default, so every F36 call site is untouched),
 // 'record' for persons (RD4: `·file` is factually wrong for a person). Only the key is
 // parameterized; the anchor/fold/select behavior is identical across entities.
-import type { DecisionSource, FieldCandidate, ResolvedField, ResolvedValue } from './types';
+import type { DecisionSource, FieldCandidate, FieldDecision, ResolvedField, ResolvedValue } from './types';
 
 const PROVIDER_PREFIX = 'provider:';
 
@@ -140,6 +140,17 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 		manual: true
 	});
 	return chips;
+}
+
+// isCleared reports an owner-cleared field (ADR-120 D1): a standing manual decision with no
+// value. The server omits an empty manual_value, so absent and '' both count. The one test the
+// SPA uses for "cleared" — never re-derive it inline.
+export function isCleared(decision: FieldDecision | undefined): boolean {
+	return (
+		decision?.standing === true &&
+		decision.source === 'manual' &&
+		(decision.manual_value ?? '').trim() === ''
+	);
 }
 
 // standing is true only for a real, owner-made decision. The backend always sends a populated

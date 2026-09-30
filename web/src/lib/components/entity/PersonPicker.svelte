@@ -15,6 +15,7 @@
 	import { api } from '$lib/api';
 	import { personKey, toMessage } from '$lib/format';
 	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
+	import AttachedChip from './AttachedChip.svelte';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {
@@ -265,21 +266,13 @@
 		{#if people.length}
 			<ul class="mb-3 flex flex-wrap gap-1.5">
 				{#each people as p (p.id + ':' + p.role)}
-					<li
-						class="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-ink"
-					>
-						<span class="max-w-[10rem] truncate">{p.display_name ?? p.name}</span>
-						<span class="text-muted">{roleLabel(p.role)}</span>
-						<button
-							type="button"
-							aria-label={`Remove ${p.display_name ?? p.name} (${roleLabel(p.role)})`}
-							disabled={busyKey === personKey(p)}
-							onclick={() => commitDetach(p)}
-							class="text-muted hover:text-accent disabled:cursor-default"
-						>
-							{busyKey === personKey(p) ? '…' : '×'}
-						</button>
-					</li>
+					<AttachedChip
+						label={p.display_name ?? p.name}
+						detail={roleLabel(p.role)}
+						removeLabel={`Remove ${p.display_name ?? p.name} (${roleLabel(p.role)})`}
+						busy={busyKey === personKey(p)}
+						onremove={() => commitDetach(p)}
+					/>
 				{/each}
 			</ul>
 		{/if}
