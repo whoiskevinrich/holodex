@@ -9,11 +9,12 @@
 	// same verdict-snippet mechanism NameEditControl uses for Video Title (HOLODEX-270's
 	// collision check, generalized to Studio). Known candidates (today's SourceSelect
 	// chip set) stay one click away via `sourceChips` — no regression vs today's speed.
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
-	import { sourceChips } from '$lib/f36';
+	import { isCleared, sourceChips } from '$lib/f36';
 	import type { DecisionSource, ResolvedField, Studio, VideoCollisionRef } from '$lib/types';
+	import AttachedChip from './AttachedChip.svelte';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {
@@ -24,8 +25,10 @@
 		// regardless.
 		field = { canonical: 'studio', label: 'Studio', values: [] },
 		hasStudio,
+		linked = [],
 		isOwner,
 		decide,
+		clear,
 		verdict
 	}: {
 		field?: ResolvedField;
@@ -44,12 +47,20 @@
 			source: DecisionSource,
 			manualValue?: string
 		) => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
+		// The linked studios, shown as the Linked now attached chips (HOLODEX-493). Each chip's ×
+		// calls `clear`, which stores an owner-cleared decision (ADR-120); same result shape as
+		// `decide`, so a composite-key conflict lands in the same verdict slot. No `clear`, no ×.
+		linked?: Studio[];
+		clear?: () => Promise<{ ok: true } | { conflict: VideoCollisionRef }>;
 		verdict?: Snippet<[VideoCollisionRef, () => void]>;
 	} = $props();
 
 	// Known-candidate chips (today's SourceSelect set): the baseline + one per distinct
 	// provider value, minus the trailing Custom chip — search/create replace Custom here.
 	const candidateChips = $derived(sourceChips(field, 'file').filter((c) => !c.manual));
+	// One chip is normally just the value already applied, so it stays hidden. After a clear
+	// (ADR-120) that lone ·file chip is the undo, so it shows (spec F74 R6).
+	const showChips = $derived(candidateChips.length > 1 || (isCleared(field.decision) && candidateChips.length > 0));
 
 	let open = $state(false);
 	let busyKey = $state<string | null>(null);
@@ -120,18 +131,25 @@
 		}
 	}
 
-	async function commit(key: string, source: DecisionSource, manualValue?: string) {
+	function commit(key: string, source: DecisionSource, manualValue?: string) {
+		return run(key, () => decide(source, manualValue));
+	}
+
+	// run is the one commit path for a pick and for a clear: busy state, error, conflict hand-off.
+	async function run(key: string, act: () => Promise<{ ok: true } | { conflict: VideoCollisionRef }>) {
 		if (busyKey) return;
 		busyKey = key;
 		commitError = '';
 		try {
-			const res = await decide(source, manualValue);
+			const res = await act();
+			closePicker();
 			if ('conflict' in res) {
 				conflict = res.conflict;
-				closePicker();
 				return;
 			}
-			closePicker();
+			// A clear swaps the pencil for "+ Add studio" (hasStudio flips); land focus on it.
+			await tick();
+			focusPencil();
 		} catch (e) {
 			commitError = toMessage(e);
 		} finally {
@@ -221,7 +239,26 @@
 			</h2>
 		{/snippet}
 
-		{#if candidateChips.length > 1}
+		{#if clear && linked.length}
+			<!-- Linked now (HOLODEX-493): the shared AttachedChip — the entity/CLAUDE.md
+			     "Relationship pickers" rule. The rule-off keeps it from reading as one more source
+			     chip below; × stores a cleared decision (ADR-120), never a chip. -->
+			<p class="mb-1 text-xs text-muted">Linked now</p>
+			<ul class="mb-3 flex flex-wrap gap-1.5" aria-label="Linked studio">
+				{#each linked as s (s.id)}
+					<AttachedChip
+						label={s.name}
+						removeLabel={`Remove ${s.name} from this video`}
+						busy={busyKey === `clear:${s.id}`}
+						disabled={busyKey !== null}
+						onremove={() => run(`clear:${s.id}`, clear)}
+					/>
+				{/each}
+			</ul>
+			<hr class="mb-3 border-rule" />
+		{/if}
+
+		{#if showChips}
 			<div class="mb-3 flex flex-wrap items-center gap-1.5">
 				{#each candidateChips as chip (chip.key)}
 					<button

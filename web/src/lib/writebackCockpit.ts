@@ -6,13 +6,14 @@
 // unit-tested in writebackCockpit.test.ts.
 import {
 	fileCandidateValue,
+	isCleared,
 	isReplaceField,
 	isTagSetRow,
 	isWritable,
 	resolveSelection,
 	type SourceChip
 } from './f36';
-import type { ResolvedField, ResolvedValue } from './types';
+import type { ResolvedField, ResolvedValue, WritebackRequest } from './types';
 
 // StagedPick is a row's local, uncommitted selection: the chip key plus the Custom literal
 // (only meaningful when key === 'custom').
@@ -157,13 +158,38 @@ export function willWrite(
 	if (isTagSetRow(field)) return rowClass(field, value) === 'write';
 	if (!isCockpitRow(field)) return false;
 	if (rowClass(field, value) !== 'write') return false;
-	if (isBlankCustom(opts.staged)) return false;
+	if (isBlankCustom(opts.staged) && !writesClear(field, opts.staged)) return false;
 	return !!field.decision?.standing || opts.touched;
 }
 
 // isBlankCustom: a Custom pick with nothing typed — "nothing chosen yet", never a value.
 export function isBlankCustom(staged: StagedPick): boolean {
 	return staged.key === 'custom' && staged.custom.trim() === '';
+}
+
+// writesClear: the row writes an owner-cleared field (ADR-120 D4) — its standing decision is
+// cleared and the staged pick is still that decision (the blank Custom it seeds to). Unlike a
+// blank Custom the owner merely opened, this blank IS the decided value, so it writes, as a
+// tag delete ({field, clear: true}), never as values: [].
+export function writesClear(field: ResolvedField, staged: StagedPick): boolean {
+	return isCleared(field.decision) && isBlankCustom(staged);
+}
+
+// writeEntry is the one writeback entry a written row sends: a cleared row is a tag delete
+// ({field, clear: true} — never values: [], which the server refuses); the tag set row sends
+// its applied set (the server recomputes it anyway, ADR-075 RD9); any other cockpit row sends
+// exactly its staged value — a replace field is one value.
+export function writeEntry(
+	field: ResolvedField,
+	value: string,
+	staged: StagedPick
+): WritebackRequest['fields'][number] {
+	if (writesClear(field, staged)) return { field: field.canonical, clear: true };
+	return {
+		field: field.canonical,
+		values: isTagSetRow(field) ? field.values : [value].filter((v) => v.length > 0),
+		source: field.winning_source ?? ''
+	};
 }
 
 // savesDecisionOnly: Write will record this row's pick in Holodex but write nothing to the

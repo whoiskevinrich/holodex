@@ -216,6 +216,8 @@
 	// (not just the value) so "Save anyway" resubmits the exact same decision with override.
 	let pendingStudioSource = $state<DecisionSource | null>(null);
 	let pendingStudioValue = $state<string | undefined>(undefined);
+	// The pending pick was a clear (ADR-120): "Save anyway" resubmits it as clear, never manual:''.
+	let pendingStudioClear = $state(false);
 	let studioCollisionBusy = $state(false);
 	let studioCollisionError = $state('');
 
@@ -765,6 +767,21 @@
 		if (res.conflict) {
 			pendingStudioSource = source;
 			pendingStudioValue = manualValue;
+			pendingStudioClear = false;
+			return { conflict: res.conflict };
+		}
+		await reloadDetail();
+		return { ok: true };
+	}
+
+	// Studio clear (HOLODEX-493, ADR-120): the Linked now chip's ×. A clear changes the
+	// composite key like any studio pick, so it can conflict exactly the same way.
+	async function clearStudio(): Promise<{ ok: true } | { conflict: VideoCollisionRef }> {
+		const res = await api.setFieldDecision(id, 'studio', { source: 'manual', clear: true });
+		if (res.conflict) {
+			pendingStudioSource = 'manual';
+			pendingStudioValue = undefined;
+			pendingStudioClear = true;
 			return { conflict: res.conflict };
 		}
 		await reloadDetail();
@@ -779,7 +796,11 @@
 		try {
 			await api.setFieldDecision(id, 'studio', {
 				source: pendingStudioSource,
-				...(pendingStudioSource === 'manual' ? { manual_value: pendingStudioValue ?? '' } : {}),
+				...(pendingStudioClear
+					? { clear: true }
+					: pendingStudioSource === 'manual'
+						? { manual_value: pendingStudioValue ?? '' }
+						: {}),
 				override: true
 			});
 			resolve();
@@ -1606,7 +1627,14 @@
 							<StudioLinkCard studio={s} />
 						{/each}
 						{#if isOwner}
-							<StudioPicker field={studioField} hasStudio={studios.length > 0} {isOwner} decide={decideStudio}>
+							<StudioPicker
+								field={studioField}
+								hasStudio={studios.length > 0}
+								linked={studios}
+								{isOwner}
+								decide={decideStudio}
+								clear={clearStudio}
+							>
 								{#snippet verdict(c, resolve)}
 									<CollisionOfferCard
 										video={c}

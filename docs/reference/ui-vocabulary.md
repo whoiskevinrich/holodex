@@ -140,6 +140,14 @@ image's own footprint, such as a poster tile among real poster tiles, the Person
 for a missing value is drift, not a ghost slot.
 → `.claude/rules/frontend-theming.md`; HOLODEX-490
 
+**Attached chip.** What a relationship picker shows at its top for each entity already attached:
+a `rounded-full` chip with the name and a muted `×`, and the `×` *is* the detach. It's shared by
+`PersonPicker` (People), `StudioPicker` (Studio) and the film page's `FilmStudioCascadeDialog` (the
+last two under a **Linked now** label ruled off from the source chips). It's not a candidate chip: candidates are sources, and "none" is never one, so
+there's no "No studio" chip, remove button or footer action.
+→ `web/src/lib/components/entity/CLAUDE.md` "Relationship pickers";
+[studio-detach-handoff.md](../design/studio-detach-handoff.md); HOLODEX-493
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.
@@ -178,6 +186,13 @@ cockpit for the whole record and names, per row, which destination Write will to
 → [writeback-cockpit-handoff.md](../design/writeback-cockpit-handoff.md) §"The golden record has
 two destinations"; HOLODEX-400
 
+**Cleared field.** A replace field the owner decided has *no value*. The source is still the owner
+(`manual`) and the value is empty. It's never a source of its own, and never a placeholder written
+to the file. It's recorded only by an explicit `clear` request, never inferred from an empty Custom
+submit. Writeback turns it into a tag *deletion*. In the UI it's the empty state of the field's
+control (for Studio, an empty Linked-now section), never a "None" chip.
+→ [ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md); HOLODEX-493
+
 **Baseline.** The entity's own record — the file layer for videos (`baselineKey='file'`), the
 row for persons/studios (`'record'`). Enrichment is an additive shadow over it; the resolver is
 the only merge point.
@@ -212,6 +227,8 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "Add a toggle on the Studio page the owner can turn on or off … for each image type … independently saved between light and dark settings" (2026-09-26) | **a knob**, owner-set and per value (studio + image role + palette mode) | a display choice, not a field: no provenance, no `SourceBadge`, no decision row. One switch per slot saves for the palette being viewed (ADR-109 D6); "light" is a custom palette with a bright `--bg`, since Holodex has no light mode |
 | "the '+ Add overview' chip is inconsistent with the other '+ Add …' chips on the page" (2026-09-29) | **text CTA** (vs. **ghost slot**) | every missing-value affordance is `btn-quiet text-sm`, so "+ Add overview" and "+ Set part" stop being dashed accent pills. A dashed placeholder is only for an empty image slot. The rule sits in `frontend-theming.md` so it loads at edit time — HOLODEX-490 |
 | "add the edition chip to the Media Details page. It should sit near the '+ Set part' chip" (2026-09-29) | **text CTA** in the edition pill's slot (`+ Set edition`) | the chip itself already rendered when set, so what was missing was the *affordance* for an empty one. It uses Part's inline editor (one slot open at a time) and appears only where `edition` is a curatable facet. Changing a set edition stays in the Metadata row — HOLODEX-491 |
+| "the owner should be able to detach the studio … in the 'Change studio' modal" (2026-09-29) | **attached chip** | the studio picker gets PersonPicker's attached-chip idiom (a Linked now chip whose × detaches) rather than a Remove button of its own. Needs a new "resolve to no studio" decision, which is ADR territory — HOLODEX-493 |
+| "None feels less like a decision source and more like a value … the decision source should be user with a value of none. I would never want to write 'none' back to the file, I'd just want to clear an existing value as a decision" (2026-09-29) | **cleared field** | no new decision source: a `manual` decision with an empty value, written only by an explicit `clear`. Writeback deletes the tag rather than writing anything in its place. The use case is a studio mis-parsed from the file — ADR-120 |
 
 ## Saying it
 

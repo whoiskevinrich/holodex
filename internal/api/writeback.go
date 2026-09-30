@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/enrich"
+	"holodex/internal/fieldsource"
+	"holodex/internal/model"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
@@ -112,8 +114,11 @@ func (h *Handlers) markWriteTargets(fields []resolver.ResolvedField, container s
 		// valueless field. Ask it where a value *would* land, so the dialog can write
 		// the Custom value typed into that row. Only offered rows get this: an empty
 		// row the owner blank-pinned keeps today's unwritable stamp.
-		offered := len(vals) == 0 && !f.Multi && (f.Decision == nil || !f.Decision.Standing) &&
-			registry.OffersWhenEmpty(f.Canonical)
+		// An owner-cleared row (ADR-120 D4) is written as a tag delete, so it needs
+		// its target too. A blank pin — a file/provider pin to an empty layer — is
+		// neither offered nor cleared and keeps the unwritable stamp.
+		offered := len(vals) == 0 && ((!f.Multi && (f.Decision == nil || !f.Decision.Standing) &&
+			registry.OffersWhenEmpty(f.Canonical)) || isClearedField(f))
 		if offered {
 			vals = []string{""}
 		}
@@ -167,6 +172,28 @@ func (h *Handlers) ownerReadbackGaps(w http.ResponseWriter, r *http.Request) {
 		out[i] = readbackGapView{Canonical: g.Canonical, WriteTag: strings.Join(g.WriteTags, " / "), AddOneOf: g.AddOneOf}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// fieldCleared reports whether the video's stored decision for canonical is an
+// owner-cleared one (ADR-120 D1).
+func (h *Handlers) fieldCleared(ctx context.Context, videoID int64, canonical string) (bool, error) {
+	rows, err := h.repo.DecisionsForEntity(ctx, model.EnrichEntityVideo, videoID)
+	if err != nil {
+		return false, err
+	}
+	for _, d := range rows {
+		if d.FieldKey == canonical {
+			return fieldsource.IsCleared(d.Source, d.ManualValue), nil
+		}
+	}
+	return false, nil
+}
+
+// isClearedField reports whether a resolved field carries a standing
+// owner-cleared decision on a clearable field (ADR-120 D1/D2).
+func isClearedField(f resolver.ResolvedField) bool {
+	return f.Decision != nil && f.Decision.Standing && clearableFields[f.Canonical] &&
+		fieldsource.IsCleared(f.Decision.Source, f.Decision.ManualValue)
 }
 
 // writebackBatchStatus reports aggregate counts (pending/running/done/failed)
@@ -236,6 +263,8 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 			Field  string   `json:"field"`
 			Values []string `json:"values"`
 			Source string   `json:"source"`
+			// Clear writes an owner-cleared field as a tag delete (ADR-120 D4).
+			Clear bool `json:"clear"`
 		} `json:"fields"`
 	}
 	if !decodeJSON(w, r, &body) {
@@ -247,10 +276,41 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	// Tag-key fields are the worker's own derived writes and their reverts
 	// (ADR-110 D3) — never something a client names.
+	cleared := map[string]bool{}
 	for _, f := range body.Fields {
+		if f.Clear {
+			cleared[f.Field] = true
+		}
+	}
+	for _, f := range body.Fields {
+		// A field cleared in this batch can't also be written a value in it: the
+		// delete and the write would race for the same tag.
+		if cleared[f.Field] && !f.Clear {
+			writeError(w, http.StatusBadRequest, "field "+f.Field+" is both cleared and written")
+			return
+		}
 		if strings.HasPrefix(f.Field, writeback.TagKeyFieldPrefix) {
 			writeError(w, http.StatusBadRequest, "unknown field "+f.Field)
 			return
+		}
+		// A clear deletes file tags, so it is accepted only as the write of a
+		// standing owner-cleared decision (ADR-120 D4) — checked against the stored
+		// decision, never the request — and only through the queue, whose worker
+		// holds every delete name to writeback.ValidClearTagName.
+		if f.Clear {
+			if !clearableFields[f.Field] || len(f.Values) > 0 || h.writeQueue == nil {
+				writeError(w, http.StatusBadRequest, "field "+f.Field+" can't be cleared here")
+				return
+			}
+			stored, cerr := h.fieldCleared(r.Context(), id, f.Field)
+			if cerr != nil {
+				h.fail(w, "look up cleared decision", cerr)
+				return
+			}
+			if !stored {
+				writeError(w, http.StatusBadRequest, "field "+f.Field+" has no cleared decision to write")
+				return
+			}
 		}
 	}
 
@@ -308,6 +368,10 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			seenGenres = seenGenres || isGenres
+			if f.Clear {
+				jobFields = append(jobFields, writequeue.JobField{Field: f.Field, Clear: true, Source: fieldsource.Manual})
+				continue
+			}
 			if f.Field == "" || (len(f.Values) == 0 && !isGenres) {
 				writeError(w, http.StatusBadRequest, "each field entry requires field and values")
 				return

@@ -397,6 +397,9 @@ export interface DecisionRequest {
 	source: DecisionSource;
 	manual_value?: string;
 	override?: boolean;
+	// Store an owner-cleared field (ADR-120 D1): `source: 'manual'` with no manual_value.
+	// The only way to clear — an empty manual_value alone is refused.
+	clear?: boolean;
 }
 
 // F44 (ADR-062) — the render-mode vocabulary a promotion may set (F39's five modes; no
@@ -514,11 +517,16 @@ export interface VideoWritebackStatus {
 // WritebackRequest asks the server to embed a batch of resolved field values
 // into the media file's tags in a single exiftool pass (F28, ADR-041).
 export interface WritebackRequest {
-	fields: Array<{
-		field: string;
-		values: string[];
-		source: string;
-	}>;
+	fields: Array<
+		| {
+				field: string;
+				values: string[];
+				source: string;
+		  }
+		// A cleared field is written as a tag delete (ADR-120 D4). The server accepts it only
+		// against a stored cleared decision.
+		| { field: string; clear: true }
+	>;
 }
 
 // A soft-deleted item in the owner's Trash view (F24, ADR-037). purge_at is null

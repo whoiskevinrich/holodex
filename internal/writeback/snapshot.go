@@ -55,7 +55,12 @@ func ReadCurrentValues(ctx context.Context, path string, mapped []Mapped) (map[s
 		if m.IsImage {
 			continue
 		}
-		out[m.Field] = currentTagValue(current, m.TagName)
+		// A cleared field maps to several deletes (ADR-120 D4): keep the first
+		// non-empty value, in target-then-source order, so the snapshot records
+		// the value the file actually resolved and a revert can restore it.
+		if out[m.Field] == "" {
+			out[m.Field] = currentTagValue(current, m.TagName)
+		}
 	}
 	return out, nil
 }

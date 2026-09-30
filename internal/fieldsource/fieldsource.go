@@ -55,6 +55,13 @@ func ForNamespace(ns string) string {
 	}
 }
 
+// IsCleared reports whether a decision is an owner-cleared field (ADR-120 D1):
+// a manual decision with no value. Only an explicit clear request can store
+// one, since the API refuses an empty manual value otherwise.
+func IsCleared(source, manualValue string) bool {
+	return source == Manual && strings.TrimSpace(manualValue) == ""
+}
+
 // Computed is the provenance namespace for a derived field (F45, ADR-063). It is
 // display metadata only — deliberately NOT a decision source: a computed value has
 // no underlying store to pin, so it can never be adopted. It is therefore kept out

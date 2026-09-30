@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 560" width="880" height="560" font-family="Archivo, 'Archivo Variable', system-ui, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Studio detach (HOLODEX-493): the Linked now chip in StudioPicker</title>
+  <desc id="d">Three frames in Cinémathèque. 1: the Change studio modal with the linked studio as an attached chip carrying a remove ×, above the source chips and search. 2: the same chip while the detach commits. 3: the media page after the detach: the studio slot shows the + Add studio text CTA, and reopening gives the Add studio modal with no Linked now chip.</desc>
+  <rect width="880" height="560" fill="#0c0a09"/>
+
+  <text x="24" y="34" fill="#9b9082" font-size="12">1 · At rest: studio linked (modal opened from the docked pencil)</text>
+  <g transform="translate(24,48)">
+    <rect width="400" height="250" fill="#15110e" stroke="#2a2622"/>
+    <text x="20" y="36" fill="#f3ece1" font-size="18" font-family="Fraunces, 'Fraunces Variable', Georgia, serif" font-weight="600">Change studio</text>
+    <text x="20" y="64" fill="#9b9082" font-size="12">Linked now</text>
+    <rect x="20" y="72" width="106" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="30" y="87" fill="#f3ece1" font-size="12">Acme Pictures</text>
+    <text x="112" y="87" fill="#9b9082" font-size="13">×</text>
+    <line x1="20" y1="108" x2="380" y2="108" stroke="#2a2622"/>
+    <rect x="20" y="120" width="114" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="30" y="135" fill="#9b9082" font-size="12">Acme Pictures <tspan font-size="10.4">·file</tspan></text>
+    <rect x="142" y="120" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="152" y="135" fill="#9b9082" font-size="12">ACME <tspan font-size="10.4">·tmdb</tspan></text>
+    <rect x="20" y="154" width="360" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="32" y="175" fill="#9b9082" font-size="14">Search studios by name…</text>
+    <text x="20" y="206" fill="#9b9082" font-size="12">Type at least two characters to search.</text>
+    <text x="20" y="236" fill="#9b9082" font-size="11">× hover/focus → text-accent · aria-label "Remove Acme Pictures from this video"</text>
+  </g>
+
+  <text x="456" y="34" fill="#9b9082" font-size="12">2 · Detaching (busy)</text>
+  <g transform="translate(456,48)">
+    <rect width="400" height="250" fill="#15110e" stroke="#2a2622"/>
+    <text x="20" y="36" fill="#f3ece1" font-size="18" font-family="Fraunces, 'Fraunces Variable', Georgia, serif" font-weight="600">Change studio</text>
+    <text x="20" y="64" fill="#9b9082" font-size="12">Linked now</text>
+    <rect x="20" y="72" width="106" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="30" y="87" fill="#f3ece1" font-size="12">Acme Pictures</text>
+    <text x="112" y="87" fill="#9b9082" font-size="12">…</text>
+    <line x1="20" y1="108" x2="380" y2="108" stroke="#2a2622"/>
+    <rect x="20" y="120" width="114" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="30" y="135" fill="#9b9082" font-size="12">Acme Pictures <tspan font-size="10.4">·file</tspan></text>
+    <rect x="142" y="120" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="152" y="135" fill="#9b9082" font-size="12">ACME <tspan font-size="10.4">·tmdb</tspan></text>
+    <rect x="20" y="154" width="360" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="32" y="175" fill="#9b9082" font-size="14">Search studios by name…</text>
+    <text x="20" y="206" fill="#9b9082" font-size="12">Every commit control is inert while busy (busyKey).</text>
+    <text x="20" y="236" fill="#e2603f" font-size="12">On failure: commitError below the list in text-warn.</text>
+  </g>
+
+  <text x="24" y="336" fill="#9b9082" font-size="12">3 · After detach: media page, subject column (modal closed, focus on the CTA)</text>
+  <g transform="translate(24,350)">
+    <rect width="400" height="186" fill="#0c0a09" stroke="#2a2622" stroke-dasharray="4 4"/>
+    <text x="20" y="40" fill="#f3ece1" font-size="24" font-family="Fraunces, 'Fraunces Variable', Georgia, serif" font-weight="600">Night Harbor</text>
+    <text x="20" y="64" fill="#9b9082" font-size="12">1080p · 1:42:10 · 2019</text>
+    <rect x="20" y="84" width="112" height="32" rx="2" fill="none" stroke="#e8a33d" stroke-dasharray="2 2"/>
+    <text x="32" y="105" fill="#9b9082" font-size="14">+ Add studio</text>
+    <text x="20" y="146" fill="#9b9082" font-size="11">Existing btn-quiet text CTA (HOLODEX-289/490). Dotted ring = focus-visible.</text>
+    <text x="20" y="164" fill="#9b9082" font-size="11">The file still carries the tag until "Write decisions to file".</text>
+  </g>
+
+  <text x="456" y="336" fill="#9b9082" font-size="12">3b · Reopened: Add studio (no Linked now section)</text>
+  <g transform="translate(456,350)">
+    <rect width="400" height="186" fill="#15110e" stroke="#2a2622"/>
+    <text x="20" y="36" fill="#f3ece1" font-size="18" font-family="Fraunces, 'Fraunces Variable', Georgia, serif" font-weight="600">Add studio</text>
+    <rect x="20" y="52" width="114" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="30" y="67" fill="#9b9082" font-size="12">Acme Pictures <tspan font-size="10.4">·file</tspan></text>
+    <rect x="142" y="52" width="80" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+    <text x="152" y="67" fill="#9b9082" font-size="12">ACME <tspan font-size="10.4">·tmdb</tspan></text>
+    <rect x="20" y="86" width="360" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="32" y="107" fill="#9b9082" font-size="14">Search studios by name…</text>
+    <text x="20" y="146" fill="#9b9082" font-size="11">Undo = click the ·file chip (re-decides source=file).</text>
+  </g>
+</svg>

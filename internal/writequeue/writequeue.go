@@ -46,7 +46,16 @@ type JobField struct {
 	Field  string   `json:"field"`
 	Values []string `json:"values"`
 	Source string   `json:"source"`
+	// Clear deletes the field from the file (ADR-120 D4): its write target and
+	// every file tag it reads from, each held to writeback.ValidClearTagName.
+	// Only valid with no Values — an empty-values job without Clear still writes
+	// nothing, so a sanitised-away value can never wipe a tag.
+	Clear bool `json:"clear,omitempty"`
 }
+
+// ClearSourcesFunc returns a canonical field's un-namespaced file sources from
+// the live mapping, in read order (ADR-120 D4).
+type ClearSourcesFunc func(canonical string) []string
 
 // Write-job sources whose values are already reconciled in the DB before the
 // file is touched: SourceMerge (the merge already repointed associations) and
@@ -67,6 +76,7 @@ type Queue struct {
 	repo        *repo.Repo
 	write       WriteFunc
 	postWrite   PostWriteFunc
+	clearSrc    ClearSourcesFunc
 	readTagKeys func(ctx context.Context, path, container string) (map[string][]string, error)
 	readCurrent func(ctx context.Context, path string, mapped []writeback.Mapped) (map[string]string, error)
 	log         *slog.Logger
@@ -97,6 +107,10 @@ func New(r *repo.Repo, write WriteFunc, log *slog.Logger, concurrency int, media
 
 // SetPostWrite wires the optional post-write hook (e.g. cover-art re-extract).
 func (q *Queue) SetPostWrite(fn PostWriteFunc) { q.postWrite = fn }
+
+// SetClearSources wires the live-mapping lookup a Clear job expands through.
+// Unset, a Clear deletes the write target alone.
+func (q *Queue) SetClearSources(fn ClearSourcesFunc) { q.clearSrc = fn }
 
 // Enqueue persists a batch-write job for one video and wakes a worker. fields are
 // the curated, write-enabled canonical fields (sanitized by the caller). Equivalent
@@ -264,7 +278,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 		return
 	}
 
-	mapped, unmapped := buildBatch(fields, v.Container)
+	mapped, unmapped := buildBatch(fields, v.Container, q.clearSrc)
 	writesGenres := slices.ContainsFunc(mapped, func(m writeback.Mapped) bool { return m.Field == genresField })
 	// A revert restores the tag keys it snapshotted as fields of its own; filtering
 	// them against the restored Genre would undo the undo (ADR-110 D3).
@@ -470,7 +484,12 @@ func (q *Queue) Revert(ctx context.Context, batchID string) ([]int64, error) {
 // (a derived tag-key write's revert) is written under its own tag name, but only
 // when writeback.ValidTagKeyName allows it; and a genres field with no values
 // deletes the Genre tag — the written set is empty, so the file holds no tags.
-func buildBatch(fields []JobField, container string) (mapped []writeback.Mapped, unmapped []string) {
+//
+// A Clear field (ADR-120 D4) deletes its write target and each of its live
+// mapping sources, every name held to writeback.ValidClearTagName here, in the
+// worker, whatever the API checked. A rejected name, or a Clear that carries
+// values, is named in the job detail instead of written.
+func buildBatch(fields []JobField, container string, clearSources ClearSourcesFunc) (mapped []writeback.Mapped, unmapped []string) {
 	specs := make([]writeback.FieldValues, 0, len(fields))
 	var direct []writeback.Mapped
 	for _, f := range fields {
@@ -478,6 +497,27 @@ func buildBatch(fields []JobField, container string) (mapped []writeback.Mapped,
 			continue
 		}
 		cleaned := enrich.SanitizeValues(f.Values)
+		if f.Clear {
+			if len(cleaned) > 0 {
+				unmapped = append(unmapped, f.Field)
+				continue
+			}
+			var sources []string
+			if clearSources != nil {
+				sources = clearSources(f.Field)
+			}
+			names, rejected := writeback.ClearTagNames(container, f.Field, sources)
+			for _, r := range rejected {
+				unmapped = append(unmapped, f.Field+":"+r)
+			}
+			if len(names) == 0 {
+				unmapped = append(unmapped, f.Field)
+			}
+			for _, n := range names {
+				direct = append(direct, writeback.Mapped{Field: f.Field, TagName: n, Source: f.Source, Delete: true})
+			}
+			continue
+		}
 		if name, ok := strings.CutPrefix(f.Field, writeback.TagKeyFieldPrefix); ok {
 			if !writeback.ValidTagKeyName(container, name) {
 				unmapped = append(unmapped, f.Field)

@@ -44,7 +44,8 @@
 		stacksCandidates,
 		stagedValue,
 		tagSetDiff,
-		willWrite
+		willWrite,
+		writeEntry
 	} from '$lib/writebackCockpit';
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
@@ -300,13 +301,9 @@
 		// the system-only rows (rowDecisionOnly: unmapped, or re-pointed at the file value).
 		const decisionRows = rows.filter((r) => isCockpitRow(r.field) && (rowWillWrite(r) || rowDecisionOnly(r)));
 
-		// A cockpit row writes exactly its staged value — a replace field is one value. The tag
-		// set row sends its applied set (the server recomputes it anyway, ADR-075 RD9).
-		const fields = checkedRows.map((r) => ({
-			field: r.field.canonical,
-			values: isTagSetRow(r.field) ? r.field.values : [rowValue(r)].filter((v) => v.length > 0),
-			source: r.field.winning_source ?? ''
-		}));
+		// One entry per written row (pure: writeEntry) — its staged value, the tag set row's
+		// applied set, or a cleared row's tag delete (ADR-120 D4).
+		const fields = checkedRows.map((r) => writeEntry(r.field, rowValue(r), stagedOf(r).staged));
 
 		try {
 			await Promise.all(decisionRows.map(ensureDecision));

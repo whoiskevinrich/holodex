@@ -11,6 +11,7 @@
 	import { api } from '$lib/api';
 	import { toMessage, formatYear } from '$lib/format';
 	import type { DecisionSource, FilmStudioCascadeResult, Studio } from '$lib/types';
+	import AttachedChip from '$lib/components/entity/AttachedChip.svelte';
 	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
 
 	let {
@@ -102,12 +103,18 @@
 		}
 	}
 
-	async function commit(key: string, source: DecisionSource, manualValue?: string) {
+	function commit(key: string, source: DecisionSource, manualValue?: string) {
+		return run(key, { source, manual_value: manualValue });
+	}
+
+	// run posts one cascade — a studio change (every attached video) or a clear scoped to one
+	// studio's videos (ADR-120 D6) — and shows its per-video results either way.
+	async function run(key: string, req: Parameters<typeof api.cascadeFilmStudio>[1]) {
 		if (busyKey || attachedVideoCount === 0) return;
 		busyKey = key;
 		commitError = '';
 		try {
-			const res = await api.cascadeFilmStudio(filmId, { source, manual_value: manualValue });
+			const res = await api.cascadeFilmStudio(filmId, req);
 			results = res.results;
 			batchId = res.batch_id;
 			Promise.resolve().then(() => statusLine?.focus());
@@ -178,7 +185,24 @@
 			</p>
 
 			{#if currentStudios.length}
-				<p class="mb-1.5 mt-3 text-xs text-muted">Already used in this film</p>
+				<!-- Linked now (HOLODEX-493): the shared AttachedChip, as in StudioPicker and
+				     PersonPicker (entity/CLAUDE.md "Relationship pickers"). × clears the studio from
+				     only the videos carrying it, then shows the results step like any cascade. -->
+				<p class="mb-1 mt-3 text-xs text-muted">Linked now</p>
+				<ul class="mb-3 flex flex-wrap gap-1.5" aria-label="Linked studios">
+					{#each currentStudios as s (s.id)}
+						<AttachedChip
+							label={s.name}
+							removeLabel={`Remove ${s.name} from this film's videos`}
+							busy={busyKey === `clear:${s.id}`}
+							disabled={busyKey !== null}
+							onremove={() => run(`clear:${s.id}`, { source: 'manual', clear: true, studio_id: s.id })}
+						/>
+					{/each}
+				</ul>
+				<hr class="mb-3 border-rule" />
+
+				<p class="mb-1.5 text-xs text-muted">Already used in this film</p>
 				<div class="mb-3 flex flex-wrap items-center gap-1.5">
 					{#each currentStudios as s (s.id)}
 						<button

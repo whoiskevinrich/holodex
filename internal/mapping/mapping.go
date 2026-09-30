@@ -45,6 +45,20 @@ func (s Source) IsFileTitle() bool {
 	return s.Namespace == "file" && strings.ToLower(s.Key) == "title"
 }
 
+// FileTagSources returns the raw file tag keys the field reads from, in
+// precedence order — the file-namespace sources, minus the videos.title alias,
+// which is a column rather than a tag. Clearing the field deletes these
+// (ADR-120 D4).
+func (f Field) FileTagSources() []string {
+	var out []string
+	for _, s := range f.ParsedSources {
+		if s.Namespace == "file" && !s.IsFileTitle() {
+			out = append(out, s.Key)
+		}
+	}
+	return out
+}
+
 // Field is one canonical field built from a precedence-ordered list of namespaced
 // sources. The first source with a non-empty value wins.
 type Field struct {

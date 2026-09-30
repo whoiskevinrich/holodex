@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,6 +24,23 @@ import (
 // mountFilmStudioCascade registers the cascade trigger, called from mountFilms.
 func (h *Handlers) mountFilmStudioCascade(r chi.Router) {
 	r.Post("/films/{id}/studio/cascade", h.cascadeFilmStudioHandler)
+}
+
+// videosLinkedToStudio keeps the ids currently linked to studioID in
+// video_studios, in their original order. Read at request time: a stale film
+// dialog clears the links as they stand now (owner-approved, spec F74).
+func (h *Handlers) videosLinkedToStudio(ctx context.Context, ids []int64, studioID int64) ([]int64, error) {
+	linked, err := h.repo.StudiosForVideos(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if slices.ContainsFunc(linked[id], func(s model.Studio) bool { return s.ID == studioID }) {
+			out = append(out, id)
+		}
+	}
+	return out, nil
 }
 
 // filmStudioCascadeResult is one video's outcome from a cascade run.
@@ -56,6 +74,12 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, "override is not supported for the film-studio cascade")
 		return
 	}
+	// A clear is scoped to one studio's videos (ADR-120 D6: a mixed-studio film
+	// clears only the videos carrying the chip's studio); a change sets every video.
+	if body.StudioID < 0 || body.Clear != (body.StudioID > 0) {
+		writeError(w, http.StatusBadRequest, "a cascade clear needs a studio_id, and studio_id needs clear")
+		return
+	}
 	field, ok := h.replaceField(w, "studio")
 	if !ok {
 		return
@@ -65,7 +89,7 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	batchID, results, err := h.cascadeFilmStudio(r.Context(), id, field, body.Source, manualValue)
+	batchID, results, err := h.cascadeFilmStudio(r.Context(), id, field, body.Source, manualValue, body.StudioID)
 	if err != nil {
 		if results == nil {
 			h.fail(w, "cascade film studio", err)
@@ -90,10 +114,21 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 // clean no-op: batchID is "" and results may be empty or all non-"enqueued" — never
 // an error. field is the caller's already-resolved+guarded "studio" mapping.Field
 // (cascadeFilmStudioHandler resolves it via replaceField, mirroring setFieldDecision).
-func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, field mapping.Field, source, manualValue string) (batchID string, results []filmStudioCascadeResult, err error) {
+//
+// clearStudioID > 0 makes this a clear (ADR-120 D6): only the film's videos linked
+// to that studio *now* are walked, each gets a cleared decision, and each job is a
+// Clear — never Values: names, which the worker would skip on an empty name list
+// while this reported "enqueued".
+func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, field mapping.Field, source, manualValue string, clearStudioID int64) (batchID string, results []filmStudioCascadeResult, err error) {
 	videoIDs, err := h.repo.VideoIDsForFilm(ctx, filmID)
 	if err != nil {
 		return "", nil, err
+	}
+	clearing := clearStudioID > 0
+	if clearing {
+		if videoIDs, err = h.videosLinkedToStudio(ctx, videoIDs, clearStudioID); err != nil {
+			return "", nil, err
+		}
 	}
 
 	provider := fieldsource.Provider(source)
@@ -127,10 +162,11 @@ func (h *Handlers) cascadeFilmStudio(ctx context.Context, filmID int64, field ma
 			results = append(results, filmStudioCascadeResult{VideoID: videoID, Status: "collision", Conflict: collision})
 		default:
 			results = append(results, filmStudioCascadeResult{VideoID: videoID, Status: "enqueued"})
-			jobs = append(jobs, writequeue.BatchJob{
-				VideoID: videoID,
-				Fields:  []writequeue.JobField{{Field: "studio", Values: names, Source: source}},
-			})
+			jf := writequeue.JobField{Field: "studio", Values: names, Source: source}
+			if clearing {
+				jf = writequeue.JobField{Field: "studio", Clear: true, Source: source}
+			}
+			jobs = append(jobs, writequeue.BatchJob{VideoID: videoID, Fields: []writequeue.JobField{jf}})
 		}
 	}
 
