@@ -330,9 +330,9 @@ ADR-120), or the film-studio cascade. For those, serve the variant:
 To try a clear on a mixed-studio film, give one scene of a film another studio first (a normal
 studio decision); the seeded films carry one studio each.
 
-**Known gap (HOLODEX-498):** the seeder writes container `mp4` where the extractor writes `MP4`,
-so no fixture video gets a write target and the writeback dialog shows every row unwritable.
-Decisions, links and the film cascade work; the file write is what can't be exercised here.
+Seeded videos carry the extractor's container name (`MP4`), so the writeback dialog shows write
+targets. Seeded rows have no files behind them, though, so a write itself can't land here.
+Fixtures seeded before HOLODEX-498 carry `mp4` and show every row unwritable — reseed.
 
 ## Why `MEDIA_PATH` points at an empty directory
 
