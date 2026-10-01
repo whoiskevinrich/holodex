@@ -231,6 +231,23 @@ describe('URL', () => {
 		expect(parseRunParam(new URL('http://h/media/5?from=tag%3D1&run=BAD!'))).toEqual({ from: 'tag=1' });
 	});
 
+	it('never puts the seed in a grid URL: from= and the label link carry the filter only', () => {
+		const run = startRun({
+			id: 'r9',
+			source: { ...source, query: 'person=1&tag=3&q=noir', sort: 'random', seed: 77 },
+			ids: [1],
+			mode: 'in-order',
+			seed: 1
+		});
+		const param = parseRunParam(new URL('http://h' + runHref(9, run)));
+		expect(param).toEqual({ run: 'r9', from: 'person=1&tag=3&q=noir', sort: 'random', seed: 77 });
+		// The seed rides on the /media/[id] run link only, never inside the grid's query.
+		expect(new URLSearchParams(param?.from).has('seed')).toBe(false);
+		const grid = queryLabel(param?.from ?? '');
+		expect(grid.href).toBe('/?person=1&tag=3&q=noir');
+		expect(grid.href).not.toContain('seed');
+	});
+
 	it('accepts an empty query (bare browse is "everything")', () => {
 		expect(parseRunParam(new URL('http://h/media/5?run=a1&from='))).toEqual({ run: 'a1', from: '' });
 	});

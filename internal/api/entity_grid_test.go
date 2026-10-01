@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"holodex/internal/model"
@@ -103,4 +104,39 @@ func gridIDs(t *testing.T, url string) ([]int64, int) {
 		out[i] = v.ID
 	}
 	return out, body.Total
+}
+
+// TestEntityGridTitleFilter covers §23.3's HOLODEX-501 row (RD7): the title box on an
+// entity grid folds into `q`, so /media?tag=X&q=foo is exactly the subset of tag=X whose
+// titles match, in the same order — and a matching title outside the tag stays out.
+func TestEntityGridTitleFilter(t *testing.T) {
+	srv, r, sqlDB := filmEntityServer(t)
+
+	titles := []string{"Zebra Crossing", "Plain One", "Zebra Dawn", "Plain Two", "Another Zebra"}
+	var ids []int64
+	for _, title := range titles {
+		ids = append(ids, seedPlainVideo(t, r, title))
+	}
+	tagID := seedTag(t, sqlDB, ids[0], "title-tag")
+	for _, id := range ids[1:4] { // "Another Zebra" is not in the tag
+		if _, err := sqlDB.Exec(`INSERT INTO video_tags (video_id, tag_id) VALUES (?, ?)`, id, tagID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	all, _ := gridIDs(t, fmt.Sprintf("%s/api/v1/media?tag=%d&sort=title_asc", srv.URL, tagID))
+	got, total := gridIDs(t, fmt.Sprintf("%s/api/v1/media?tag=%d&q=zebra&sort=title_asc", srv.URL, tagID))
+
+	titleOf := map[int64]string{}
+	for i, id := range ids {
+		titleOf[id] = titles[i]
+	}
+	var want []int64
+	for _, id := range all {
+		if strings.Contains(strings.ToLower(titleOf[id]), "zebra") {
+			want = append(want, id)
+		}
+	}
+	if len(want) != 2 || fmt.Sprint(got) != fmt.Sprint(want) || total != len(want) {
+		t.Errorf("tag+q = %v (total %d), want the matching subset of tag %v: %v", got, total, all, want)
+	}
 }
