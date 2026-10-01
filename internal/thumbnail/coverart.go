@@ -10,6 +10,8 @@ import (
 	_ "image/png"
 	"os"
 	"os/exec"
+
+	"holodex/internal/metadata"
 )
 
 // extractCoverArt writes a container's embedded cover image to the thumbnail-
@@ -21,8 +23,8 @@ import (
 func (m *Manager) extractCoverArt(ctx context.Context, path, thumbDst, posterDst string) (bool, error) {
 	path = absPath(path)
 	for _, tag := range []string{"-CoverArt", "-Artwork", "-Picture", "-AttachedFileData"} {
-		data, err := exec.CommandContext(ctx, m.cfg.ExiftoolPath,
-			"-b", tag, "-api", "largefilesupport=1", path).Output()
+		args := append(metadata.MatroskaSeekArgs(path), "-b", tag, "-api", "largefilesupport=1", path)
+		data, err := exec.CommandContext(ctx, m.cfg.ExiftoolPath, args...).Output()
 		if err != nil || len(data) == 0 {
 			continue // tag absent for this file, or exiftool error — try the next
 		}
