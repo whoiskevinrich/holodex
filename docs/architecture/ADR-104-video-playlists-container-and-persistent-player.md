@@ -1,6 +1,8 @@
 # ADR-104: Video playlists — a container, not an entity; membership + sort; server-side snapshot; a persistent player element; visibility as a read gate
 
-**Status:** Proposed
+**Status:** Proposed — **D3's "snapshot-only, no `frozen_query`" superseded by
+[ADR-121](ADR-121-smart-playlists-stored-query-and-runs.md)** (smart playlists store a live query); the
+snapshot producer and D1, D2, D4, D5 stand
 **Date:** 2026-09-20
 **Deciders:** Project owner
 

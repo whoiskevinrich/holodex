@@ -92,9 +92,9 @@ page under-reports the very set the owner wants to watch.
 - **RD1 — One primitive: the grid's list query.** A grid is *query-backed* when its cards come from a
   `MediaFilters` query run through `/media` (or the film-videos route, which reuses the same parser).
   Play all and Save as smart playlist read **that** query; neither knows which page it is on.
-- **RD2 — The stored query is the canonical `/media` query string**, server-canonicalised: parsed with
-  `videoFilterFromQuery`, re-serialised in a stable key order, with fetch mechanics (`limit`, `offset`,
-  `seed`) stripped. It carries a `query_version` (starts at `1`) so a future change to the filter
+- **RD2 — The stored query is the canonical `/media` query string**, server-canonicalised (ADR-121
+  D2): unknown keys rejected, re-serialised in a stable key order, with fetch mechanics (`limit`,
+  `offset`, `seed`) and `sort` stripped — sort lives only in `playlists.sort`. It carries a `query_version` (starts at `1`) so a future change to the filter
   grammar can migrate stored queries rather than reinterpret them.
 - **RD3 — Live means re-run on read.** A smart playlist has no `playlist_videos` rows. Every read
   evaluates the stored query with the same `ListVideos` call and the same `HideFullFilmVideos` posture as
@@ -119,8 +119,8 @@ page under-reports the very set the owner wants to watch.
 - **RD9 — Visibility is F69's.** `private` (default) ⇒ a visitor gets 404; `public` ⇒ the query is
   evaluated under the **visitor's** posture, exactly as `/media` would evaluate it for that visitor.
 - **RD10 — Shuffle is a playback mode, not a sort.** A run has a *mode* (`in order` | `shuffled`)
-  separate from the grid's sort. *Shuffle* evaluates the same query with the seeded `random` order
-  (ADR-045) under a seed minted at the press; the grid on screen keeps its sort. Shuffle appears
+  separate from the grid's sort. *Shuffle* fetches the same id list as *Play all* and permutes it on
+  the client under a seed minted at the press (ADR-121 D7); the grid on screen keeps its sort. Shuffle appears
   wherever *Play all* does — query-backed grids **and** F69 playlist pages. A playlist whose `sort` is
   already `random` behaves as today (F69 RD7); its *Play all* and *Shuffle* are the same action.
 - **RD11 — Toggling shuffle mid-run reorders only what hasn't played.** Played items stay as history
@@ -312,7 +312,8 @@ Base `/api/v1`; envelope as F69. Mutations under `requireOwner`; reads visibilit
 - `GET /playlists/{id}` — adds `query`, `stale_refs`, and for smart playlists evaluates live.
 - `PATCH /playlists/{id} {query}` — Edit filter's *Update*; `{play_shuffled}` — always shuffle.
 - `POST /playlists/{id}/freeze`.
-- Play all needs no new endpoint beyond an ids-only `GET /media` mode (ADR to confirm).
+- `GET /media/ids?<filter>&sort=` — the ordered id list for a grid run, gated like `GET /media`
+  (ADR-121 D7).
 
 ## UI
 
@@ -349,9 +350,10 @@ Single-owner app, no analytics — **verification outcomes**:
 
 ## Open Questions
 
-1. **[security, blocking for P0-10]** Can a stored query filter on owner-only facets (e.g.
-   `missing_facet`) such that a public smart playlist leaks owner-only knowledge to a visitor? If so,
-   strip or refuse those keys when visibility is `public`. → `/security-review`.
+1. ~~**[security, blocking for P0-10]** Can a stored query filter on owner-only facets (e.g.
+   `missing_facet`) such that a public smart playlist leaks owner-only knowledge to a visitor?~~
+   **Resolved in the model by ADR-121 D4:** yes, so a query or sort using owner-only inputs can't be
+   public (400), and the read path re-checks. `/security-review` still signs off.
 2. **[engineering, non-blocking]** Is `q` a title-only match or broader? If broader, the entity title
    box adopts `q`'s semantics (RD7 still holds — the grid and the query stay identical).
 3. **[engineering, non-blocking]** Does tag merge exist? If a tag merge path is added later, it must
@@ -368,7 +370,8 @@ Three stories under HOLODEX-16, in order:
 3. **HOLODEX-58 — smart playlists** (P0-2 *Save* half, P0-4..P0-10, P0-12). Needs the ADR and
    migration.
 
-Gates: **spec** (this document) · **ADR** (stored-query format and versioning, live evaluation, merge
-rewriting — amends ADR-104 D3 "snapshot-only producers") · **design handoff** (grid-header actions,
+Gates: **spec** (this document) · **ADR**
+([ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md): stored-query format and
+versioning, live evaluation, merge rewriting, runs — supersedes ADR-104 D3's "no `frozen_query`") · **design handoff** (grid-header actions,
 run context label, smart playlist page, browse edit mode; SVG committed) · **testing strategy** ·
 **security review** (visitor evaluation of a public live query, OQ1).
