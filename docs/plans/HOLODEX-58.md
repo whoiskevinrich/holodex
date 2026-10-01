@@ -1,0 +1,66 @@
+---
+# Flightplan worklog — one epic, one worklog, one definition of done.
+# Schema + design: see the Flightplan plugin's own README and ADR-001 (in the plugin repo).
+key: HOLODEX-58
+status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
+profile: full                # new persisted data (stored query + migration), visitor evaluation of a public query, UI on six pages
+depends-on: []
+release_note: Any video grid — browse, a person, tag, studio or film — can now be played straight through or shuffled with one press, and saved as a smart playlist that picks up newly matching videos on its own.
+---
+
+# HOLODEX-58 · Smart playlists and Play all from any query-backed video grid
+
+This is done when every video grid backed by a `/media` query (browse, person, tag, studio, film)
+offers *Play all* / *Shuffle* through the F69 next-up player, and the owner can save that grid's
+query as a smart playlist that re-runs on every open. It must never cap at 500, never show a visitor
+more than `/media` would, and never quietly broaden a stored query when an entity is merged or
+deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity grids through
+`/media`), HOLODEX-500 (Play all + Shuffle), then HOLODEX-58 (smart playlists).
+
+**Design package:** [spec F75](../specs/smart-playlists.md) · [ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md) · [handoff](../design/smart-playlists-handoff.md) + [mockup](../design/smart-playlists-mockup.svg) · [testing-strategy §23](../testing-strategy.md#23-smart-playlists-play-all-and-shuffle-f75-holodex-58--500--501-adr-121)
+
+## Gates — definition of done
+
+- [x] spec `write-spec` → `docs/specs/**`. F75 `docs/specs/smart-playlists.md` (`6a10f681`, `a3057304`). RD1–RD13: a live query re-run on read, Play all fixes the id list at the press, merges follow and deletes flag, shuffle is a playback mode, repeat starts a new pass, always-shuffle is a playlist property.
+- [x] architecture `architecture` → `docs/architecture/ADR-*`. ADR-121 (`0f52af0a`) supersedes ADR-104 D3's "no `frozen_query`" only. Its decisions: a canonical `/media` string with `query_version`, live evaluation under the reader's posture, owner-only inputs can't be public, merge rewrite inside the merge transaction, stale refs flag rather than broaden, client-held runs with a seeded Fisher–Yates.
+- [x] design `design-handoff` → `docs/design/**`. `smart-playlists-handoff.md` + `smart-playlists-mockup.svg` (`2325626f`). One *Save as playlist…* with a Smart / Snapshot toggle, a `smart` chip, and Play all / Shuffle as one split button. The owner's sign-off is **not yet recorded** here; `/implement` asks.
+- [ ] backend → `{cmd,internal,providers}/**`
+- [ ] frontend → `web/src/**`
+- [/] testing `testing-strategy`. §23 is the plan (`2fd45cf7`): ranked risks, Go/API/Vitest/harness/live-QA rows, 11 mutation checks, and 5 default decisions in §23.8 to confirm at build. It closes when the tests exist and pass.
+- [ ] security `security-review` — the visitor evaluation of a public live query (ADR-121 D3/D4) needs a design review before the read path is built, and an implementation review before merge.
+
+<!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
+     (as a fresh up-next item or its own issue — the gate itself stays settled):
+- [~] security `security-review` — until: a mutation endpoint exists (read-only slice so far) -->
+
+## Up next — ordered (position = priority)
+
+1. [ ] [—] `/implement` HOLODEX-58: sign off the design handoff + mockup, merge `origin/main`, push, open the draft PR — `docs/design/smart-playlists-handoff.md`
+2. [ ] [security] `/security-review` on ADR-121 D3/D4 (public smart playlist evaluated for a visitor) before building the read path — `docs/architecture/ADR-121-smart-playlists-stored-query-and-runs.md`
+3. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
+4. [ ] [backend] HOLODEX-501: entity grids through `/media` with paging; characterise parity before deleting the 500-capped path — `internal/api/handlers.go`
+5. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
+6. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+
+## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+<!-- One entry per session, newest at the top. PostToolUse(Skill) creates the entry + appends the
+     `- skills:` line mechanically; /handoff writes the `- handoff:` sentence the next SessionStart
+     banner echoes. Shape:
+### 2026-07-10 · what happened this session
+- skills: write-spec, architecture
+- handoff: the sentence the next session should wake up to
+-->
+
+### 2026-09-30 · session
+- skills: write-spec, architecture, design-handoff, testing-strategy, handoff
+- note: worklog hand-written by `/handoff` at the owner's request, because the SessionStart hook never scaffolded it on this branch.
+- handoff: Design phase complete. Spec F75, ADR-121, the handoff with its mockup, and testing-strategy §23 are all committed, and the branch is pushed with no PR yet. The design sign-off is still unrecorded and `fp:ready-to-build` is on the issue. Start at Up next item 1: run `/implement` to sign off the design and open the draft PR.
+
+## Dropped — newest first (the reason is the point)
+
+<!-- Up-next items decided AGAINST, moved here by /handoff when dropped (ADR-010). Done items are
+     deleted instead — git and the session log already record them; a dropped item has no other
+     record, so its reason lives here. Shape:
+- [~] [testing] <thing you decided not to do> — dropped 2026-07-29, <why>
+-->
