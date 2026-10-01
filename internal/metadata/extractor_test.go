@@ -248,3 +248,16 @@ func TestParseDate(t *testing.T) {
 		}
 	}
 }
+
+// TestMatroskaSeekArgs pins HOLODEX-506's gate: -ee for Matroska only (any
+// case), never for MP4, where it would walk every timed-metadata sample.
+func TestMatroskaSeekArgs(t *testing.T) {
+	for path, want := range map[string]bool{
+		"/m/a.mkv": true, "/m/A.MKV": true, "/m/a.webm": true, "/m/a.mka": true,
+		"/m/a.mp4": false, "/m/a.m4v": false, "/m/mkv": false,
+	} {
+		if got := len(MatroskaSeekArgs(path)) > 0; got != want {
+			t.Errorf("MatroskaSeekArgs(%q) = %v, want -ee %v", path, MatroskaSeekArgs(path), want)
+		}
+	}
+}
