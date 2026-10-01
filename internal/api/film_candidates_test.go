@@ -229,7 +229,7 @@ func TestFilmVideoCandidates(t *testing.T) {
 // through the HTTP layer (films_enabled=true, set by filmEntityServer): a
 // video attached as is_full_film must be excluded from browse (GET /media),
 // global search (GET /search), the "More with ..." shelves (GET /media/{id}
-// /related), and the person/tag/studio detail video lists, while the video's
+// /related), and the person/tag/studio grids (/media with the facet), while the video's
 // own detail page (GET /media/{id}) stays reachable.
 func TestFullFilmVideoHiddenFromListSurfaces(t *testing.T) {
 	srv, r, sqlDB := filmEntityServer(t)
@@ -345,27 +345,20 @@ func TestFullFilmVideoHiddenFromListSurfaces(t *testing.T) {
 		}
 	}
 
-	// Entity detail pages: person, tag, studio.
-	personResp, err := http.Get(srv.URL + "/api/v1/people/" + itoa(personID))
-	if err != nil {
-		t.Fatalf("get person: %v", err)
-	}
-	if ids := decodeVideoIDs(t, personResp); hasID(ids, full) {
-		t.Errorf("GET /people/%d: full-film video present, want hidden: %v", personID, ids)
-	}
-	tagResp, err := http.Get(srv.URL + "/api/v1/tags/" + itoa(tagID))
-	if err != nil {
-		t.Fatalf("get tag: %v", err)
-	}
-	if ids := decodeVideoIDs(t, tagResp); hasID(ids, full) {
-		t.Errorf("GET /tags/%d: full-film video present, want hidden: %v", tagID, ids)
-	}
-	studioResp, err := http.Get(srv.URL + "/api/v1/studios/" + itoa(studioID))
-	if err != nil {
-		t.Fatalf("get studio: %v", err)
-	}
-	if ids := decodeVideoIDs(t, studioResp); hasID(ids, full) {
-		t.Errorf("GET /studios/%d: full-film video present, want hidden: %v", studioID, ids)
+	// Entity detail grids: person, tag, studio load through /media with the facet
+	// (HOLODEX-501). The scene is the positive control, so an empty list can't pass.
+	for _, q := range []string{"person=" + itoa(personID), "tag=" + itoa(tagID), "studio_id=" + itoa(studioID)} {
+		resp, err := http.Get(srv.URL + "/api/v1/media?" + q)
+		if err != nil {
+			t.Fatalf("GET /media?%s: %v", q, err)
+		}
+		ids := decodeVideoIDs(t, resp)
+		if hasID(ids, full) {
+			t.Errorf("GET /media?%s: full-film video present, want hidden: %v", q, ids)
+		}
+		if !hasID(ids, scene) {
+			t.Errorf("GET /media?%s: scene video missing: %v", q, ids)
+		}
 	}
 
 	// The full-film video's own detail page always stays reachable.

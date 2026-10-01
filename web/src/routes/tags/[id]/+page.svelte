@@ -16,7 +16,11 @@
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
 
 	let tag = $state<Tag | null>(null);
-	let videos = $state<Video[]>([]);
+	// The grid's unfiltered count, bound up from EntityVideos (HOLODEX-501).
+	let videoTotal = $state<number | null>(null);
+	// Bumped by reloadTag so a mutation that changes the set (a merge-in, a child tag
+	// attached) re-reads the grid.
+	let gridRefresh = $state(0);
 	let loading = $state(true);
 	let error = $state('');
 
@@ -35,7 +39,6 @@
 			.getTag(current)
 			.then((res) => {
 				tag = res.tag;
-				videos = res.items ?? [];
 			})
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
@@ -49,7 +52,7 @@
 		try {
 			const res = await api.getTag(tag.id);
 			tag = res.tag;
-			videos = res.items ?? [];
+			gridRefresh++;
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
@@ -372,7 +375,10 @@
 	<EntityVideos
 		backHref="/tags"
 		backLabel="All tags"
-		{videos}
+		name={tag?.name ?? ''}
+		facet={{ tag: [id] }}
+		bind:total={videoTotal}
+		refreshKey={gridRefresh}
 		empty="No videos for this tag."
 		scrollKey={`tag:${id}`}
 	>
@@ -430,7 +436,7 @@
 					{/if}
 				</div>
 			{/if}
-			<p class="text-sm text-muted">{videoCount(videos.length)}</p>
+			{#if videoTotal != null}<p class="text-sm text-muted">{videoCount(videoTotal)}</p>{/if}
 		{/snippet}
 
 		{#snippet detail()}

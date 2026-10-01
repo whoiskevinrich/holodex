@@ -21,8 +21,9 @@ const DEBOUNCE_MS = 200;
 // — stable across dynamic segments, unlike a raw pathname) to the entity type
 // it's the in-place scope for (NS2) — the one list a page shows, and therefore
 // the one tab that drives it in place instead of opening the overlay panel.
-// person/studio/tag detail pages scope to Videos (NS6, HOLODEX-249): each embeds
-// that entity's own unpaged video list via EntityVideos.svelte. The category
+// person/studio/tag detail pages scope to Videos (NS6, HOLODEX-249): each pages
+// that entity's own video grid through /media via EntityVideos.svelte, which sends
+// the query as `q` (HOLODEX-501). The category
 // detail page (`/categories/[id]`) has no video list to filter (categories don't
 // attach to videos directly) and intentionally has no scope, same as any other
 // route not listed here.

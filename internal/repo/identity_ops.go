@@ -476,6 +476,11 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	if err := flagNearMissForName(ctx, tx, entityType, canonicalID, mergedName); err != nil {
 		return nil, err
 	}
+	// Smart playlists naming the loser follow it to the survivor (ADR-121 D5) — in this
+	// transaction, so no read can see the entity gone and the query still naming it.
+	if err := rewriteSmartPlaylistRefs(ctx, tx, entityType, canonicalID, mergedID); err != nil {
+		return nil, err
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit merge: %w", err)

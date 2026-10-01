@@ -1,46 +1,15 @@
 import { api } from '$lib/api';
 import type { PlaylistResponse } from '$lib/types';
 
-// Playlist playback context for /media/[id] (F69 P0-9, ADR-104 D4). `?playlist=<id>`
-// (+ `&seed=` for a 'random' sort) puts the page in a context: the playlist's ordered
-// ids, where the current video sits in them, and the next/previous hrefs. Pure helpers
-// here, page state on the page; the one impure piece is the per-(id, seed) fetch cache.
+// Playback plumbing shared by every run (F69 P0-9 / ADR-104 D4; F75 / ADR-121 D7): the
+// play-on-load intent, and the per-(id, seed) playlist fetch cache a playlist-source run
+// reads. The run itself (order, URL, toggles) is run.ts; the `?playlist=` URL parse,
+// href and neighbours that used to live here moved there when F69's context became a
+// run with a playlist source.
 
 export interface PlaylistParam {
 	id: number;
 	seed?: number;
-}
-
-/** The `?playlist=` (+ `&seed=`) pair from a URL, or null when the page is not in a context. */
-export function parsePlaylistParam(url: URL): PlaylistParam | null {
-	const id = Number(url.searchParams.get('playlist'));
-	if (!Number.isInteger(id) || id <= 0) return null;
-	const rawSeed = url.searchParams.get('seed');
-	const seed = rawSeed == null ? NaN : Number(rawSeed);
-	return Number.isInteger(seed) ? { id, seed } : { id };
-}
-
-/** `/media/{videoId}?playlist=…[&seed=…]` — the deep link that keeps the context. */
-export function playlistHref(videoId: number, p: PlaylistParam): string {
-	return `/media/${videoId}?playlist=${p.id}${p.seed != null ? `&seed=${p.seed}` : ''}`;
-}
-
-export interface Neighbours {
-	/** 0-based index of the current video in the order, or -1 when it is not a member. */
-	index: number;
-	prev: number | null;
-	next: number | null;
-}
-
-/** Where `videoId` sits in `ids`, and its neighbours in the playlist's order. */
-export function neighbours(ids: number[], videoId: number): Neighbours {
-	const index = ids.indexOf(videoId);
-	if (index === -1) return { index, prev: null, next: null };
-	return {
-		index,
-		prev: index > 0 ? ids[index - 1] : null,
-		next: index < ids.length - 1 ? ids[index + 1] : null
-	};
 }
 
 // Play-on-load intent (spec RD6): set by `ended`, Next, Previous and Start — never by a

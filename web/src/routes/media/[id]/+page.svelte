@@ -25,15 +25,10 @@
 	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '$lib/components/video/NextUpStrip.svelte';
 	import PlaylistPicker from '$lib/components/video/PlaylistPicker.svelte';
-	import {
-		loadPlaylist,
-		neighbours,
-		parsePlaylistParam,
-		playlistHref,
-		setPlayIntent,
-		takePlayIntent
-	} from '$lib/playlistContext';
-	import type { Playlist, PlaylistResponse } from '$lib/types';
+	import { setPlayIntent, takePlayIntent } from '$lib/playlistContext';
+	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '$lib/run';
+	import { fetchSourceIds, resolveRun, storeRun } from '$lib/runContext';
+	import type { Playlist } from '$lib/types';
 	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
 	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
 	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
@@ -1055,52 +1050,82 @@
 	// param changes, so a play state from the previous item would otherwise linger.
 	$effect(() => () => setPlaying(false));
 
-	// Playlist playback context (F69 P0-9, ADR-104 D4). `?playlist=` puts the page in a
-	// context: the playlist's order (fetched once per playlist + seed), the next-up strip
-	// under the player, `ended` → the next item, and Media Session next/previous (what
-	// gives a PiP window its ⏮ ⏭). Without the param none of this runs — behaviour is
-	// exactly today's. A 404 (unknown id, or a visitor on a private playlist) leaves
-	// `playlistCtx` null and the param inert: the video still plays, no error.
+	// Run playback (F69 P0-9 / ADR-104 D4, generalised by F75 / ADR-121 D7). `?run=` with a
+	// source — `from=<query>` for a grid's Play all, `playlist=<id>` for a playlist (and
+	// F69's older `?playlist=` links) — puts the page in a run: its play order, the
+	// next-up strip under the player, `ended` → the next item, and Media Session
+	// next/previous (what gives a PiP window its ⏮ ⏭). Without the params none of this
+	// runs — behaviour is exactly today's. An unreadable source (a visitor on a private
+	// playlist) leaves `run` null and the params inert: the video still plays, no error.
 	let videoEl = $state<HTMLVideoElement | null>(null);
-	let playlistCtx = $state<PlaylistResponse | null>(null);
-	const playlistParam = $derived(parsePlaylistParam($page.url));
+	let run = $state<Run | null>(null);
+	const runParam = $derived(parseRunParam($page.url));
 	$effect(() => {
-		const p = playlistParam;
-		// A context for another playlist is dropped at once, so a switch from
-		// ?playlist=1 to ?playlist=2 never shows 1's strip or walks 1's order under 2's
-		// param while 2 loads. A hop WITHIN the playlist keeps it mounted — no flicker.
-		// untrack: this effect keys on the param only; reading the context it writes
-		// would re-run it on its own assignment, forever.
-		const held = untrack(() => playlistCtx);
-		if (!p || (held && held.playlist.id !== p.id)) playlistCtx = null;
+		const p = runParam;
+		// A hop within the run keeps it mounted — the in-memory run is authoritative (it
+		// carries any toggles) — so no flicker. A different run is dropped at once, so its
+		// strip never shows under another's params while the new one loads. untrack: this
+		// effect keys on the params only; reading the run it writes would re-run it forever.
+		const held = untrack(() => run);
+		// An old F69 `?playlist=` link has no run id until its first hop, so it is held by
+		// source; otherwise any URL change on this page would rebuild it and drop toggles.
+		if (held && p && (p.run ? p.run === held.id : sameSource(held.source, p))) return;
+		run = null;
 		if (!p) return;
 		let cancelled = false;
-		loadPlaylist(p).then((res) => {
-			// cached per (id, seed): a hop within the same playlist resolves at once
-			if (!cancelled) playlistCtx = res;
+		resolveRun(p).then((r) => {
+			if (!cancelled) run = r;
 		});
 		return () => (cancelled = true);
 	});
-	const playlistIDs = $derived(playlistCtx?.items.map((v) => v.id) ?? []);
-	// The param every navigation out of this context carries. A 'random' playlist opened
-	// without a seed gets one minted server-side and echoed; it goes into the hrefs so
-	// the whole play-through walks that one shuffle (ADR-045) — Previous included.
-	const contextParam = $derived(
-		playlistParam && playlistCtx?.seed != null && playlistParam.seed == null
-			? { ...playlistParam, seed: playlistCtx.seed }
-			: playlistParam
-	);
-	// The one place the context navigates on its own: `ended` with a next item. A
-	// gesture (the strip's links, a media key) sets the same intent; the last item just
-	// stops, and the strip says so.
-	function onEnded() {
+
+	function updateRun(next: Run) {
+		run = next;
+		storeRun(next);
+	}
+
+	// Strip toggles (spec RD11/RD12): view state only, nothing is written to the server.
+	function toggleShuffle() {
+		if (!run || !video) return;
+		updateRun(setMode(run, video.id, run.mode === 'shuffled' ? 'in-order' : 'shuffled', newSeed()));
+	}
+	function toggleRepeat() {
+		if (run) updateRun({ ...run, repeat: !run.repeat });
+	}
+
+	function jumpTo(target: number, r: Run) {
+		setPlayIntent(target);
+		if (target === video?.id && videoEl) {
+			// A one-item repeat: the "next" item is this one, and a goto to the same URL
+			// wouldn't reload it, so restart it in place.
+			videoEl.currentTime = 0;
+			void videoEl.play().catch(() => {});
+			takePlayIntent(target);
+			return;
+		}
+		void goto(runHref(target, r));
+	}
+
+	// The one place the run navigates on its own: `ended`. With a next item it goes
+	// there; at the end of the pass it stops (the strip says so) unless repeat is on,
+	// which starts a new pass over the re-read source (spec RD12).
+	async function onEnded() {
 		setPlaying(false);
-		const p = contextParam;
-		if (!p || !playlistCtx || !video) return;
-		const { next } = neighbours(playlistIDs, video.id);
-		if (next == null) return;
-		setPlayIntent(next);
-		void goto(playlistHref(next, p));
+		const r = run;
+		const v = video;
+		if (!r || !v) return;
+		const { index, next } = neighbours(r.order, v.id);
+		if (next != null) return jumpTo(next, r);
+		if (!r.repeat || index === -1) return;
+		try {
+			const fresh = await fetchSourceIds(r.source, true);
+			const pass = nextPass(r, fresh.ids, v.id, newSeed());
+			if (run?.id !== r.id || !pass.order.length) return;
+			updateRun(pass);
+			jumpTo(pass.order[0], pass);
+		} catch {
+			// The source can't be re-read (gone private, offline): stop, as without repeat.
+		}
 	}
 	// Play-on-load: once the item the intent names is the one that has loaded — checked
 	// against the route id, never the element — play it, once. `src` is already swapped
@@ -1110,17 +1135,17 @@
 		if (loading || !video || video.id !== id || !videoEl) return;
 		if (takePlayIntent(video.id)) void videoEl.play().catch(() => {});
 	});
-	// Media Session while in a context: title metadata plus next/previous handlers,
-	// bound to the neighbours of the current item; cleared when the context ends.
+	// Media Session while in a run: title metadata plus next/previous handlers, bound to
+	// the neighbours of the current item; cleared when the run ends.
 	$effect(() => {
-		const p = contextParam;
+		const r = run;
 		const v = video;
-		if (!p || !playlistCtx || !v || loading || !('mediaSession' in navigator)) return;
+		if (!r || !v || loading || !('mediaSession' in navigator)) return;
 		const ms = navigator.mediaSession;
-		const { prev, next } = neighbours(playlistIDs, v.id);
+		const { prev, next } = neighbours(r.order, v.id);
 		const jump = (target: number) => () => {
 			setPlayIntent(target);
-			void goto(playlistHref(target, p));
+			void goto(runHref(target, r));
 		};
 		ms.metadata = new MediaMetadata({ title: v.title });
 		ms.setActionHandler('nexttrack', next == null ? null : jump(next));
@@ -1501,11 +1526,11 @@
 						</button>
 					{/if}
 				</div>
-				<!-- Next-up strip (F69, handoff §5): a sibling of the player box, never a
-				     wrapper. Stays mounted across a hop within the playlist (video is still
+				<!-- Next-up strip (F69 handoff §5, F75 handoff §3): a sibling of the player box,
+				     never a wrapper. Stays mounted across a hop within the run (video is still
 				     the previous item until the next one lands); gone on an error. -->
-				{#if contextParam && playlistCtx && video && !error}
-					<NextUpStrip playlist={playlistCtx.playlist} items={playlistCtx.items} param={contextParam} videoId={video.id} />
+				{#if run && video && !error}
+					<NextUpStrip {run} videoId={video.id} onshuffle={toggleShuffle} onrepeat={toggleRepeat} />
 				{/if}
 				{#if loading}
 					<p class="py-16 text-center text-sm text-muted">Loading…</p>

@@ -48,7 +48,10 @@
 	import { providerFromWinningSource, calculatedFrom } from '$lib/format';
 
 	let person = $state<Person | null>(null);
-	let videos = $state<Video[]>([]);
+	// The grid's unfiltered count, bound up from EntityVideos (HOLODEX-501).
+	let videoTotal = $state<number | null>(null);
+	// Bumped by reloadDetail so a mutation that changes the set (a merge-in) re-reads the grid.
+	let gridRefresh = $state(0);
 	// F37: the unified resolved view (baseline `record`, no in_sync) — same shape the media
 	// page consumes; the raw enriched[] block is retired.
 	let resolved = $state<ResolvedField[]>([]);
@@ -202,7 +205,6 @@
 
 	function applyPersonDetail(res: PersonDetailResponse) {
 		person = res.person;
-		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
 		images = res.images ?? { roles: {}, gallery: [] };
 		aliases = res.person.aliases ?? [];
@@ -247,6 +249,7 @@
 	async function reloadDetail() {
 		try {
 			applyPersonDetail(await api.getPerson(id));
+			gridRefresh++;
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
@@ -367,7 +370,7 @@
 		}
 	}
 
-	// Re-read the image set after a gallery change without refetching 500 videos.
+	// Re-read the image set after a gallery change without refetching the whole person.
 	async function reloadImages() {
 		try {
 			images = await api.getPersonImages(id);
@@ -430,7 +433,10 @@
 
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
 	<EntityVideos
-		{videos}
+		name={person?.display_name ?? person?.name ?? ''}
+		facet={{ person: [id] }}
+		bind:total={videoTotal}
+		refreshKey={gridRefresh}
 		empty="No videos for this person."
 		scrollKey={`person:${id}`}
 	>
@@ -567,7 +573,7 @@
 							renameLabel="Rename this person"
 						/>
 						<EntityVideoMeta
-							count={videos.length}
+							count={videoTotal}
 							links={externalLinks}
 							entityName={person?.name ?? ''}
 						/>

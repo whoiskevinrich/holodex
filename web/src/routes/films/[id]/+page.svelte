@@ -39,6 +39,10 @@
 	import { expandedField } from '$lib/expandedField.svelte';
 	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
+	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
+	import { sortScenes } from '$lib/filmScenes';
+	import { beginRun } from '$lib/runContext';
+	import type { RunMode } from '$lib/run';
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
@@ -251,16 +255,15 @@
 		!!film?.year && releaseDateYear > 0 && film.year !== releaseDateYear
 	);
 
-	// Unnumbered scenes sort after all numbered ones, in whatever order the API returns
-	// them (RD5 — no ordering guarantee among unnumbered scenes, so no secondary sort key).
-	const sortedScenes = $derived(
-		[...scenes].sort((a, b) => {
-			if (a.scene_number == null && b.scene_number == null) return 0;
-			if (a.scene_number == null) return 1;
-			if (b.scene_number == null) return -1;
-			return a.scene_number - b.scene_number;
-		})
-	);
+	// Scene order (RD5), shared with a Play all run over this film (F75).
+	const sortedScenes = $derived(sortScenes(scenes));
+
+	// Play all / Shuffle (F75): a run over the scenes in scene order. A film isn't a
+	// /media query, so it's its own run source and can't be saved as a smart playlist.
+	function playRun(mode: RunMode): Promise<boolean> {
+		if (!film) return Promise.resolve(false);
+		return beginRun({ kind: 'film', id: film.id, label: { kind: 'Film', name: film.name, href: `/films/${film.id}` } }, mode);
+	}
 	const sceneNumberByVideoId = $derived(new Map(scenes.map((s) => [s.video.id, s.scene_number])));
 	const sceneNumberOf = (v: Video): number | null | undefined => sceneNumberByVideoId.get(v.id);
 
@@ -937,6 +940,11 @@
 			{#if scenes.length === 0}
 				<p class="py-8 text-center text-sm text-muted">No scenes attached yet.</p>
 			{:else}
+				<!-- Count line (F75 handoff §1). -->
+				<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-3">
+					<p class="text-sm text-muted">{videoCount(scenes.length)}</p>
+					<PlaySplitButton onplay={playRun} />
+				</div>
 				<VideoGrid
 					videos={sortedScenes.map((s) => s.video)}
 					sceneNumbers={sceneNumberOf}

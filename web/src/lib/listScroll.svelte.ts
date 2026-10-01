@@ -11,6 +11,9 @@ import { createNavSnapshotRegistry, type Keyed } from '$lib/navSnapshot.svelte';
 
 export interface ListScrollSnapshot extends Keyed {
 	scrollY: number;
+	// How many items a paged list had loaded, so the restore can fetch them all before
+	// scrolling (EntityVideos, HOLODEX-501). Unpaged lists omit it.
+	loaded?: number;
 }
 
 export const listScroll = createNavSnapshotRegistry<ListScrollSnapshot>('holodex:listScroll');

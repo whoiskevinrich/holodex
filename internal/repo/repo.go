@@ -384,17 +384,27 @@ func (f VideoFilter) orderBy() (string, []any) {
 	}
 }
 
+// CountVideos is the total ListVideos reports, alone: the live item_count of a smart
+// playlist on the playlists list (ADR-121 D3) needs the count, not a page.
+func (r *Repo) CountVideos(ctx context.Context, f VideoFilter) (int, error) {
+	where, args := f.build()
+	var total int
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count videos: %w", err)
+	}
+	return total, nil
+}
+
 // ListVideos returns a page of active videos matching filter plus the total
 // match count (for pagination). Ordering follows filter.Sort, defaulting to
 // newest-indexed first (F3.4 / F12.1).
 func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, int, error) {
-	where, args := f.build()
-
-	var total int
-	if err := r.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("count videos: %w", err)
+	total, err := r.CountVideos(ctx, f)
+	if err != nil {
+		return nil, 0, err
 	}
+	where, args := f.build()
 
 	limit := f.Limit
 	if limit <= 0 {

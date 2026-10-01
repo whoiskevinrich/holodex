@@ -337,6 +337,7 @@ func (h *Handlers) controlsUnauthenticated() bool {
 // Mount registers the REST routes under the given router.
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
+	r.Get("/media/ids", h.listMediaIDs) // static segment; chi matches it ahead of {id}
 	r.Get("/media/{id}", h.getMedia)
 	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
@@ -498,11 +499,8 @@ func (h *Handlers) Mount(r chi.Router) {
 // D2/D3), so they page like every other sort. For the owner, every item also
 // carries `completeness` (F65.5) — drained first so the badge is current.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	f := h.videoFilterFromQuery(q)
-	f.HideFullFilmVideos = h.filmsEnabled
-	f.MissingFacets = q["missing_facet"]
-	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
+	if !ok {
 		return
 	}
 	isOwner := h.auth.authorized(r)
@@ -515,23 +513,77 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list media", err)
 		return
 	}
-	h.prepareThumbnails(items)
-	// Browse-title resolution (F27): any field with browse:true overwrites video.Title
-	// with the highest-precedence source (e.g. tmdb:title before file:title).
-	if h.mappings != nil {
-		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
+	if err := h.hydrateTiles(r.Context(), items, isOwner); err != nil {
+		h.fail(w, "list media", err)
+		return
 	}
-	h.applyPartsTo(r.Context(), items)
-	if isOwner {
-		if err := h.attachVideoCompleteness(r.Context(), items); err != nil {
-			h.fail(w, "list media", err)
-			return
-		}
-	}
-	redactFileMetadataForVisitors(items, isOwner)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
+}
+
+// hydrateTiles readies a page of browse rows for the grid tile: thumbnails, browse-title
+// resolution (F27: any field with browse:true overwrites video.Title with the
+// highest-precedence source, e.g. tmdb:title before file:title), parts, the owner's
+// completeness badge, and the visitor redaction. listMedia and the playlist read share
+// it so a tile renders, and redacts, identically on both (ADR-121 D3).
+func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
+	h.prepareThumbnails(items)
+	if h.mappings != nil {
+		h.applyBrowseTitles(ctx, items, h.mappings.Current().Fields())
+	}
+	h.applyPartsTo(ctx, items)
+	if isOwner {
+		if err := h.attachVideoCompleteness(ctx, items); err != nil {
+			return err
+		}
+	}
+	redactFileMetadataForVisitors(items, isOwner)
+	return nil
+}
+
+// mediaFilterFor is the one path from a browse query to the filter a browse-visible
+// read runs (ADR-121 D3): browseFilter's parse and posture, then owner-only inputs
+// refused for a visitor with 401, written to w. listMedia and GET /media/ids share it
+// so an id list can never include a video, or accept an input, the grid wouldn't.
+func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.Values) (repo.VideoFilter, bool) {
+	f := h.browseFilter(q)
+	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+		return f, false
+	}
+	return f, true
+}
+
+// browseFilter parses a browse query with videoFilterFromQuery and applies browse's
+// posture: full-film videos hidden (RD6) and the missing-facet filter. It does not gate
+// owner-only inputs — mediaFilterFor does that for a request, and the smart-playlist
+// read reports them as a stale ref instead (ADR-121 D4).
+func (h *Handlers) browseFilter(q url.Values) repo.VideoFilter {
+	f := h.videoFilterFromQuery(q)
+	f.HideFullFilmVideos = h.filmsEnabled
+	f.MissingFacets = q["missing_facet"]
+	return f
+}
+
+// listMediaIDs handles GET /media/ids (ADR-121 D7): the ordered ids of every video a
+// /media query matches, uncapped and unpaged (limit/offset are ignored), for a Play
+// all / Shuffle run over a grid. Same filter and gate as listMedia. A `random` sort
+// echoes the seed it ordered by, so the client can reproduce the grid's order.
+func (h *Handlers) listMediaIDs(w http.ResponseWriter, r *http.Request) {
+	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
+	if !ok {
+		return
+	}
+	ids, err := h.repo.ListVideoIDs(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list media ids", err)
+		return
+	}
+	body := map[string]any{"ids": ids}
+	if f.Sort == "random" {
+		body["seed"] = f.Seed
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // videoFilterFromQuery builds a VideoFilter from GET /media's query params.
@@ -1285,14 +1337,9 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.personLookupError(w, err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{PersonIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
-	if err != nil {
-		h.fail(w, "person videos", err)
-		return
-	}
+	// The person's videos are not embedded: the page loads them through GET
+	// /media?person=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.personResolve(r, id, p)
 	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
 	var completeness *resolver.Completeness
@@ -1324,7 +1371,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
 	}
 	body := map[string]any{
-		"person": p, "items": items, "total": total,
+		"person": p,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
 		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
 		"resolved":       resolved,
@@ -1377,14 +1424,8 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get tag", err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{TagIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
-	if err != nil {
-		h.fail(w, "tag videos", err)
-		return
-	}
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
-	writeJSON(w, http.StatusOK, map[string]any{"tag": t, "items": items, "total": total})
+	// Videos load through GET /media?tag=<id> with paging (ADR-121 D6, HOLODEX-501).
+	writeJSON(w, http.StatusOK, map[string]any{"tag": t})
 }
 
 func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {

@@ -279,7 +279,8 @@ persisted in `localStorage`, default on. *(Per-viewer convenience — the right 
 
 **P2-1 — Reorder.** Drag handle / move controls writing `position`; `manual` sort already honours it.
 **P2-2 — Live playlists.** A nullable `frozen_query` + *Refresh from filter*; the store needs one
-added column, nothing restructured.
+added column, nothing restructured. → Superseded by [F75 smart playlists](smart-playlists.md) (live
+re-run on read, not a manual refresh).
 **P2-3 — Cover image.** `entityimage` kind `playlist`; the playlists list gets a face.
 **P2-4 — Layout-level player.** A playback singleton in `+layout` (the Plex model): PiP + queue survive
 leaving `/media/*`, mini-player, "queue this next". Requires nothing in v1 to change shape — RD5's

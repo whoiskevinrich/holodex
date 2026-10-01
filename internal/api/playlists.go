@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -35,20 +34,48 @@ func (h *Handlers) mountPlaylistMutations(r chi.Router) {
 	r.Delete("/playlists/{id}", h.deletePlaylist)
 	r.Put("/playlists/{id}/videos/{videoId}", h.addPlaylistVideo)
 	r.Delete("/playlists/{id}/videos/{videoId}", h.removePlaylistVideo)
+	r.Post("/playlists/{id}/freeze", h.freezePlaylist)
 }
 
 func (h *Handlers) listPlaylists(w http.ResponseWriter, r *http.Request) {
-	items, err := h.repo.ListPlaylists(r.Context(), !h.auth.authorized(r))
+	isOwner := h.auth.authorized(r)
+	items, err := h.repo.ListPlaylists(r.Context(), !isOwner)
 	if err != nil {
 		h.fail(w, "list playlists", err)
 		return
+	}
+	// A smart playlist has no membership to count; its item_count is the live match
+	// count under this reader's posture, 0 while it has stale refs (ADR-121 D3).
+	for i := range items {
+		if !items[i].Smart() {
+			continue
+		}
+		f, stale, err := h.smartPlaylistFilter(r.Context(), &items[i], isOwner)
+		if err != nil {
+			h.fail(w, "list playlists", err)
+			return
+		}
+		if len(stale) > 0 {
+			continue
+		}
+		if items[i].ItemCount, err = h.repo.CountVideos(r.Context(), f); err != nil {
+			h.fail(w, "list playlists", err)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 // getPlaylist returns the playlist plus its un-trashed members in the playlist's
-// order (spec P0-4). ?seed= parameterizes a 'random' sort so one play-through
-// walks one shuffle (ADR-045); absent, a seed is minted per request.
+// order (spec P0-4), and `ids`, the whole ordered id list a run plays. ?seed=
+// parameterizes a 'random' sort so one play-through walks one shuffle (ADR-045);
+// absent, a seed is minted per request.
+//
+// A smart playlist (ADR-121 D3) is evaluated live: visibility first (a visitor on a
+// private one gets the unknown-id 404 before anything else is looked at), then the
+// stale check, then its query under this reader's posture. Its tiles page with
+// ?limit=/&offset= as /media does; `ids` is never paged. With stale refs nothing is
+// evaluated: the response carries them and no items.
 func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -68,29 +95,66 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 	if p.Sort == "random" {
 		seed = parseSeedOrRandom(r.URL.Query().Get("seed"))
 	}
-	items, err := h.repo.PlaylistVideos(r.Context(), id, p.Sort, seed)
-	if err != nil {
-		h.fail(w, "playlist videos", err)
-		return
-	}
-	// Same hydration as the browse list so the tile renders identically.
-	h.prepareThumbnails(items)
-	if h.mappings != nil {
-		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
-	}
-	h.applyPartsTo(r.Context(), items)
-	if isOwner {
-		if err := h.attachVideoCompleteness(r.Context(), items); err != nil {
-			h.fail(w, "playlist videos", err)
-			return
-		}
-	}
-	redactFileMetadataForVisitors(items, isOwner)
-	out := map[string]any{"playlist": p, "items": items, "total": len(items)}
+	out := map[string]any{"playlist": p, "stale_refs": []staleRef{}}
 	if p.Sort == "random" {
 		out["seed"] = seed
 	}
+	var items []model.Video
+	var ids []int64
+	if p.Smart() {
+		f, stale, err := h.smartPlaylistFilter(r.Context(), p, isOwner)
+		if err != nil {
+			h.fail(w, "get playlist", err)
+			return
+		}
+		if len(stale) > 0 {
+			p.ItemCount = 0
+			out["stale_refs"], out["items"], out["ids"], out["total"] = stale, []model.Video{}, []int64{}, 0
+			writeJSON(w, http.StatusOK, out)
+			return
+		}
+		f.Seed = seed
+		f.Limit = atoiDefault(r.URL.Query().Get("limit"), 50)
+		f.Offset = atoiDefault(r.URL.Query().Get("offset"), 0)
+		if isOwner {
+			h.drainCompleteness(r.Context())
+		}
+		if items, p.ItemCount, err = h.repo.ListVideos(r.Context(), f); err != nil {
+			h.fail(w, "playlist videos", err)
+			return
+		}
+		if ids, err = h.repo.ListVideoIDs(r.Context(), f); err != nil {
+			h.fail(w, "playlist videos", err)
+			return
+		}
+		out["limit"], out["offset"] = f.Limit, f.Offset
+	} else {
+		if items, err = h.repo.PlaylistVideos(r.Context(), id, p.Sort, seed); err != nil {
+			h.fail(w, "playlist videos", err)
+			return
+		}
+		ids = make([]int64, len(items))
+		for i, v := range items {
+			ids[i] = v.ID
+		}
+		p.ItemCount = len(items)
+	}
+	if err := h.hydrateTiles(r.Context(), items, isOwner); err != nil {
+		h.fail(w, "playlist videos", err)
+		return
+	}
+	out["items"], out["ids"], out["total"] = items, ids, p.ItemCount
 	writeJSON(w, http.StatusOK, out)
+}
+
+// writePlaylist answers a mutation with the playlist as the owner now sees it.
+func (h *Handlers) writePlaylist(w http.ResponseWriter, r *http.Request, id int64) {
+	p, err := h.repo.GetPlaylist(r.Context(), id, false)
+	if err != nil {
+		h.fail(w, "get playlist", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"playlist": p})
 }
 
 // playlistBody is the create/patch body. Pointer fields distinguish "absent"
@@ -103,6 +167,45 @@ type playlistBody struct {
 	// whole result set becomes the playlist's membership — the snapshot producer
 	// (ADR-104 D3). Create only.
 	FromQuery *string `json:"from_query"`
+	// Query is a browse filter query string stored as a smart playlist's live query
+	// (ADR-121 D1/D2), canonicalised on the way in. On create it makes the playlist
+	// smart; on PATCH it is Edit filter's Update, and only a smart playlist takes it.
+	Query        *string `json:"query"`
+	PlayShuffled *bool   `json:"play_shuffled"`
+}
+
+// canonicalBodyQuery canonicalises b.Query in place (ADR-121 D2), writing 400 and
+// returning false when it can't be stored. The query's own sort, if any, is returned
+// so a create can take the grid's sort from it, as from_query does.
+func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, b *playlistBody) (string, bool) {
+	q, err := parseQueryString(*b.Query)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid query")
+		return "", false
+	}
+	canon, err := h.canonicalPlaylistQuery(q)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid query: "+err.Error())
+		return "", false
+	}
+	b.Query = &canon
+	return q.Get("sort"), true
+}
+
+// checkSmartPlaylistState refuses, with 400, a playlist state a smart playlist or a
+// public one can't hold: `manual` sort on a smart playlist (no position, RD4), and
+// owner-only inputs — a completeness sort or a missing_facet query — on a public one
+// (ADR-121 D4). Called with the state a create or PATCH would leave behind.
+func checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string) bool {
+	if query != nil && sort == model.PlaylistSortManual {
+		writeError(w, http.StatusBadRequest, "a smart playlist can't use the manual sort")
+		return false
+	}
+	if visibility == model.PlaylistPublic && usesOwnerOnlyInputs(sort, query) {
+		writeError(w, http.StatusBadRequest, "a public playlist can't use owner-only filters or sorts")
+		return false
+	}
+	return true
 }
 
 // validPlaylistSort accepts every browse sort key plus 'manual' (ADR-104 D2).
@@ -145,6 +248,10 @@ func validatePlaylistFields(w http.ResponseWriter, b *playlistBody) bool {
 // filter's order, and the stored sort is the filter's — except 'random', which
 // stores 'manual' with the seeded order of this request, because "save this
 // shuffle" means the one on screen (ADR-104 D3). An explicit body sort wins.
+//
+// With query instead (ADR-121 D1), the playlist is smart: the canonical query is
+// stored, nothing is snapshotted, and the sort is the query's (random included — a
+// smart playlist re-shuffles per play-through, RD4) unless the body names one.
 func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 	var b playlistBody
 	if !decodeJSON(w, r, &b) || !validatePlaylistFields(w, &b) {
@@ -154,20 +261,31 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
+	if b.Query != nil && b.FromQuery != nil {
+		writeError(w, http.StatusBadRequest, "send query (smart) or from_query (snapshot), not both")
+		return
+	}
 	sort, visibility := "added_desc", model.PlaylistPrivate
 	if b.Visibility != nil {
 		visibility = *b.Visibility
 	}
+	if b.Query != nil {
+		querySort, ok := h.canonicalBodyQuery(w, &b)
+		if !ok {
+			return
+		}
+		if repo.ValidSort(querySort) {
+			sort = querySort
+		}
+	}
 	var ids []int64
 	if b.FromQuery != nil {
-		q, err := url.ParseQuery(strings.TrimPrefix(*b.FromQuery, "?"))
+		q, err := parseQueryString(*b.FromQuery)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid from_query")
 			return
 		}
-		f := h.videoFilterFromQuery(q)
-		f.HideFullFilmVideos = h.filmsEnabled
-		f.MissingFacets = q["missing_facet"]
+		f := h.browseFilter(q)
 		f.Limit, f.Offset = 0, 0 // the set, not a page
 		if wantsCompleteness(f.Sort, f.MissingFacets) {
 			h.drainCompleteness(r.Context()) // score before ranking, as listMedia does
@@ -187,7 +305,10 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 	if b.Sort != nil {
 		sort = *b.Sort
 	}
-	p, err := h.repo.CreatePlaylist(r.Context(), *b.Name, sort, visibility, ids)
+	if !checkSmartPlaylistState(w, sort, visibility, b.Query) {
+		return
+	}
+	p, err := h.repo.CreatePlaylist(r.Context(), *b.Name, sort, visibility, b.Query, ids)
 	if err != nil {
 		h.fail(w, "create playlist", err)
 		return
@@ -204,11 +325,15 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &b) || !validatePlaylistFields(w, &b) {
 		return
 	}
-	if b.Name == nil && b.Sort == nil && b.Visibility == nil {
+	if b.Name == nil && b.Sort == nil && b.Visibility == nil && b.Query == nil && b.PlayShuffled == nil {
 		writeError(w, http.StatusBadRequest, "nothing to update")
 		return
 	}
-	err := h.repo.UpdatePlaylist(r.Context(), id, repo.PlaylistPatch{Name: b.Name, Sort: b.Sort, Visibility: b.Visibility})
+	if b.FromQuery != nil {
+		writeError(w, http.StatusBadRequest, "from_query is create-only")
+		return
+	}
+	cur, err := h.repo.GetPlaylist(r.Context(), id, false)
 	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "playlist not found")
 		return
@@ -217,12 +342,43 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "update playlist", err)
 		return
 	}
-	p, err := h.repo.GetPlaylist(r.Context(), id, false)
+	// Check the state the patch would leave behind, so a refusal (D4) lands on
+	// whichever of query, sort or visibility arrives second.
+	sort, visibility, query := cur.Sort, cur.Visibility, cur.Query
+	if b.Query != nil {
+		if !cur.Smart() {
+			writeError(w, http.StatusBadRequest, "not a smart playlist")
+			return
+		}
+		if _, ok := h.canonicalBodyQuery(w, &b); !ok {
+			return
+		}
+		query = b.Query
+	}
+	if b.Sort != nil {
+		sort = *b.Sort
+	}
+	if b.Visibility != nil {
+		visibility = *b.Visibility
+	}
+	// A rename or always-shuffle toggle changes none of these, so it doesn't re-judge a
+	// state that predates the rule (an F69 public playlist on a completeness sort).
+	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil
+	if touchesState && !checkSmartPlaylistState(w, sort, visibility, query) {
+		return
+	}
+	err = h.repo.UpdatePlaylist(r.Context(), id, repo.PlaylistPatch{
+		Name: b.Name, Sort: b.Sort, Visibility: b.Visibility, Query: b.Query, PlayShuffled: b.PlayShuffled,
+	})
+	if errors.Is(err, repo.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "playlist not found")
+		return
+	}
 	if err != nil {
 		h.fail(w, "update playlist", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"playlist": p})
+	h.writePlaylist(w, r, id)
 }
 
 func (h *Handlers) deletePlaylist(w http.ResponseWriter, r *http.Request) {
@@ -258,16 +414,15 @@ func (h *Handlers) addPlaylistVideo(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "playlist or video not found")
 		return
 	}
+	if errors.Is(err, repo.ErrSmartPlaylist) {
+		writeError(w, http.StatusBadRequest, "a smart playlist's members come from its query")
+		return
+	}
 	if err != nil {
 		h.fail(w, "add playlist video", err)
 		return
 	}
-	p, err := h.repo.GetPlaylist(r.Context(), id, false)
-	if err != nil {
-		h.fail(w, "add playlist video", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"playlist": p})
+	h.writePlaylist(w, r, id)
 }
 
 func (h *Handlers) removePlaylistVideo(w http.ResponseWriter, r *http.Request) {
@@ -282,6 +437,10 @@ func (h *Handlers) removePlaylistVideo(w http.ResponseWriter, r *http.Request) {
 	err := h.repo.RemovePlaylistVideo(r.Context(), id, videoID)
 	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "not a member")
+		return
+	}
+	if errors.Is(err, repo.ErrSmartPlaylist) {
+		writeError(w, http.StatusBadRequest, "a smart playlist's members come from its query")
 		return
 	}
 	if err != nil {

@@ -456,3 +456,58 @@ describe('film year edit (F59)', () => {
 		await expect(api.setFilmYear(12, 0)).rejects.toBeInstanceOf(ApiError);
 	});
 });
+
+// F75 smart playlist and run clients (testing-strategy §23.4). Every one goes through
+// `redirect: 'manual'` so a lapsed ForwardAuth session is a ReauthError, not a CORS
+// failure (HOLODEX-127); this also closes §14's gap for the F69 calls they extend.
+describe('smart playlist and run clients (F75)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	function stub(body: unknown) {
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+		return fetchMock;
+	}
+
+	it('createPlaylist sends a smart query with redirect:manual', async () => {
+		const fetchMock = stub({ playlist: { id: 1 } });
+		await api.createPlaylist({ name: 'Noir', query: 'tag=3' });
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/playlists',
+			expect.objectContaining({
+				method: 'POST',
+				redirect: 'manual',
+				body: JSON.stringify({ name: 'Noir', query: 'tag=3' })
+			})
+		);
+	});
+
+	it('updatePlaylist sends query and play_shuffled with redirect:manual', async () => {
+		for (const patch of [{ query: 'tag=4' }, { play_shuffled: true }]) {
+			const fetchMock = stub({ playlist: { id: 2 } });
+			await api.updatePlaylist(2, patch);
+			expect(fetchMock).toHaveBeenCalledWith(
+				'/api/v1/playlists/2',
+				expect.objectContaining({ method: 'PATCH', redirect: 'manual', body: JSON.stringify(patch) })
+			);
+		}
+	});
+
+	it('freezePlaylist POSTs the freeze path with redirect:manual', async () => {
+		const fetchMock = stub({ playlist: { id: 3 } });
+		await api.freezePlaylist(3);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/playlists/3/freeze',
+			expect.objectContaining({ method: 'POST', redirect: 'manual' })
+		);
+	});
+
+	it('mediaIds reads /media/ids with redirect:manual, sort and seed appended', async () => {
+		const fetchMock = stub({ ids: [1, 2], seed: 7 });
+		await expect(api.mediaIds('tag=3', 'random', 7)).resolves.toEqual({ ids: [1, 2], seed: 7 });
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/media/ids?tag=3&sort=random&seed=7',
+			expect.objectContaining({ redirect: 'manual' })
+		);
+	});
+});
