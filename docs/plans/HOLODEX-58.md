@@ -28,8 +28,8 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 - [x] spec `write-spec` → `docs/specs/**`. F75 `docs/specs/smart-playlists.md` (`6a10f681`, `a3057304`). RD1–RD13: a live query re-run on read, Play all fixes the id list at the press, merges follow and deletes flag, shuffle is a playback mode, repeat starts a new pass, always-shuffle is a playlist property.
 - [x] architecture `architecture` → `docs/architecture/ADR-*`. ADR-121 (`0f52af0a`) supersedes ADR-104 D3's "no `frozen_query`" only. Its decisions: a canonical `/media` string with `query_version`, live evaluation under the reader's posture, owner-only inputs can't be public, merge rewrite inside the merge transaction, stale refs flag rather than broaden, client-held runs with a seeded Fisher–Yates.
 - [x] design `design-handoff` → `docs/design/**`. `smart-playlists-handoff.md` + `smart-playlists-mockup.svg` (`2325626f`). One *Save as playlist…* with a Smart / Snapshot toggle, a `smart` chip, and Play all / Shuffle as one split button. Owner-approved 2026-09-30 in the design session; recorded at `/implement` on the owner's confirmation, pinned to `2325626f` (no design file has changed since).
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
+- [x] backend → `{cmd,internal,providers}/**`. 501 (`/media` entity grids) and 500 (`GET /media/ids`) earlier; 58 in `58e8a648`: migration 0055, `canonicalPlaylistQuery`, the live read (visibility → stale → owner-only), the merge rewrite in `mergeEntities`' transaction, Freeze, membership/manual refusals, a shared `hydrateTiles`, `CountVideos`. Go API tests in `internal/api/smart_playlists_test.go`; two mutation checks bit.
+- [x] frontend → `web/src/**`. 500's run model and Play all ▾ earlier; 58 in `33c4d3d1`: Save as playlist… on every count line (Smart | Snapshot), the smart playlist page (chip, Edit filter, Freeze, Always shuffle, stale notice, paging), browse edit mode, the picker skipping smart playlists, runs reading `ids`, shared `Switch`. Live-QA'd on the 9300 stress pair.
 - [/] testing `testing-strategy`. §23 is the plan (`2fd45cf7`): ranked risks, Go/API/Vitest/harness/live-QA rows, 11 mutation checks, and 5 default decisions in §23.8 to confirm at build. It closes when the tests exist and pass.
 - [/] security `security-review`. The design review (2026-09-30) found no vulnerability. D4 covers every owner-only `/media` input, and the 501 change exposes nothing new, since `q` is a bound phrase-quoted FTS match and redaction and full-film hiding hold. Two build notes are folded into ADR-121: visibility before the stale check, and one `mediaFilterFor` builder. The implementation review before merge is still due.
 
@@ -40,9 +40,11 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ## Up next — ordered (position = priority)
 
 1. [ ] [testing] Owner QA of HOLODEX-500 on a decodable library: autoplay on hop, `ended` → next, repeat across a pass end, PiP survives a hop (stress fixture media can't decode) — testing-strategy §23.6 items 2, 12
-2. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read (visibility first), merge rewrite, Freeze — `internal/api/`, `internal/repo/`
-3. [ ] [security] Implementation `/security-review` of the smart-playlist read path and `/media/ids` before merge
-4. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
+2. [ ] [security] Implementation `/security-review` of the smart-playlist read path, Freeze, the merge rewrite and `/media/ids` before merge — `internal/api/smart_playlists.go`
+3. [ ] [testing] Close §23: tick its Go/API/Vitest rows against what exists, add the missing ones (e.g. pure tests for the stale-notice copy) — `docs/testing-strategy.md`
+4. [ ] [design] Owner compares the built smart-playlist UI with the approved mockup (§3d); divergences: edit flag rides `#edit_playlist=` (not `?`), save navigates instead of a toast — `docs/design/smart-playlists-mockup.svg`
+5. [ ] [architecture] ADR-121 action item 10: ADR index entry, mark ADR-104 D3's "no `frozen_query`" superseded — `docs/architecture/README.md`
+6. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -53,6 +55,10 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-01 · session
+- skills: code-review, handoff
+- handoff: HOLODEX-58's smart playlists are built end to end on Draft PR #424, backend `58e8a648` and frontend `33c4d3d1`, both green and live-QA'd on the stress pair. Next is the implementation `/security-review` (item 2), then closing §23's testing rows. Items 1 (playback QA on a real library) and 4 (comparing the build with the mockup) need the owner.
 
 ### 2026-09-30 · session
 - skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
