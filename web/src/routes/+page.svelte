@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { forgetPlaylist } from '$lib/playlistContext';
+	import SavePlaylistForm from '$lib/components/video/SavePlaylistForm.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
@@ -20,7 +22,7 @@
 	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
 	import { shuffleSeed } from '$lib/sortPreference.svelte';
 	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
-	import { mediaSchema, type MediaQuery } from '$lib/listState';
+	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '$lib/listState';
 	import { listController } from '$lib/listController.svelte';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
@@ -93,8 +95,11 @@
 	// stored source is the filter alone (ADR-121 D2: sort apart); a random grid passes its
 	// seed so the run walks the shuffle on screen, which also makes Play all and Shuffle
 	// the same action there (spec RD10).
+	// The grid's filter alone (sort apart): a run's source and a smart playlist's query.
+	const filterQuery = () => filtersToParams({ ...currentFilters(), sort: undefined }, false).toString();
+
 	function playRun(mode: RunMode): Promise<boolean> {
-		const source = filtersToParams({ ...currentFilters(), sort: undefined }, false).toString();
+		const source = filterQuery();
 		return beginRun(
 			{
 				kind: 'query',
@@ -196,44 +201,52 @@
 
 	const num = (v: string) => (v === '' ? undefined : Number(v) || undefined);
 
-	// Save as playlist (F69 P0-8): the whole result set for the current filters + sort
-	// becomes a playlist, snapshotted server-side from the same shareable string. No filter
-	// = the whole library in this sort. A random sort sends its seed too, so the playlist is
-	// the shuffle on screen (spec P0-3). Opened from the ⋯ page-actions menu.
+	// Save as playlist… (F75 handoff "Save form"; was F69 P0-8 in the ⋯ menu): the count
+	// line's form saves the current filters + sort, smart or snapshot. No filter = the
+	// whole library in this sort, a valid smart playlist ("everything, newest first").
 	let saveOpen = $state(false);
-	let saveName = $state('');
-	let saveInput = $state<HTMLInputElement | null>(null);
-	let saveBusy = $state(false);
-	let saveError = $state('');
-	async function openSave() {
-		saveName = '';
-		saveError = '';
-		saveOpen = true;
-		await tick();
-		saveInput?.focus();
+
+	// Browse edit mode (F75 handoff §5, P0-8): a smart playlist's *Edit filter* opens
+	// `/?<stored query>#edit_playlist=<id>`. The flag is UI state, so it rides the fragment:
+	// in the query string the list schema would read it as a mapped filter (a chip, and a
+	// key the server refuses on Update). The controller's first URL write drops the
+	// fragment, so it's read once here. Update replaces the stored query with the filters
+	// on screen (sort apart — it's the playlist's own).
+	const editId = Number(new URLSearchParams(location.hash.slice(1)).get('edit_playlist')) || null;
+	let editName = $state('');
+	let editWas = $state<number | null>(null);
+	let editBusy = $state(false);
+	let editError = $state('');
+	if (editId != null) {
+		api
+			.getPlaylist(editId, undefined, { limit: 1, offset: 0 })
+			.then((res) => {
+				editName = res.playlist.name;
+				editWas = res.playlist.item_count;
+			})
+			.catch((err) => (editError = toMessage(err)));
 	}
-	function closeSave() {
-		saveOpen = false;
-		saveName = '';
-		saveError = '';
-	}
-	async function submitSave(e: SubmitEvent) {
-		e.preventDefault();
-		const name = saveName.trim();
-		if (!name || saveBusy) return;
-		saveBusy = true;
-		saveError = '';
-		const qs = new URLSearchParams(activeParams);
-		if (sortBy === 'random') qs.set('seed', String(shuffleSeed.value));
+	async function updatePlaylistFilter() {
+		if (editId == null || editBusy) return;
+		editBusy = true;
+		editError = '';
 		try {
-			const res = await api.createPlaylist({ name, from_query: qs.toString() });
-			await goto(`/playlists/${res.playlist.id}`);
+			await api.updatePlaylist(editId, { query: filterQuery() });
+			forgetPlaylist(editId);
+			await goto(`/playlists/${editId}`);
 		} catch (err) {
-			saveError = toMessage(err);
+			editError = toMessage(err);
 		} finally {
-			saveBusy = false;
+			editBusy = false;
 		}
 	}
+	// Cancel returns to the playlist: Back when it's the page we came from, else a plain
+	// link (ADR-114 D4, exitAfterRemoval's rule).
+	let editFromPlaylist = false;
+	afterNavigate(({ from }) => {
+		editFromPlaylist ||= from?.url.pathname === `/playlists/${editId}`;
+	});
+	const cancelEdit = () => exitAfterRemoval(editFromPlaylist, `/playlists/${editId}`);
 
 	let debounce: ReturnType<typeof setTimeout>;
 	// loadPage(true) replaces the grid (filter change); loadPage(false) appends the
@@ -402,10 +415,7 @@
 
 	const actions = $derived(
 		isOwner
-			? [
-					{ label: 'Save as playlist…', onselect: openSave },
-					{ label: `${showRecent ? 'Hide' : 'Show'} “Recently Added”`, onselect: toggleRecent }
-				]
+			? [{ label: `${showRecent ? 'Hide' : 'Show'} “Recently Added”`, onselect: toggleRecent }]
 			: []
 	);
 	const numberInput =
@@ -413,6 +423,29 @@
 </script>
 
 <section class="space-y-5">
+	{#if editId != null && isOwner}
+		<!-- Browse edit mode (F75 handoff §5): the filters below are a smart playlist's. -->
+		<div class="flex flex-wrap items-center justify-between gap-3 rounded-theme border border-rule bg-surface px-3 py-2 text-sm">
+			<p class="flex min-w-0 flex-wrap items-baseline gap-x-2">
+				<span class="text-xs uppercase tracking-wide text-muted">Editing filter of</span>
+				<span class="max-w-[24ch] truncate text-accent" title={editName}>{editName || '…'}</span>
+				{#if !loading}
+					<span class="text-muted">
+						· {videoCount(total)} match{editWas != null ? ` (was ${editWas.toLocaleString()})` : ''}
+					</span>
+				{/if}
+			</p>
+			<div class="flex items-center gap-2">
+				<button type="button" onclick={updatePlaylistFilter} disabled={editBusy || !editName} class="btn-accent px-3 py-1.5 text-sm">
+					Update “{editName}”
+				</button>
+				<button type="button" onclick={cancelEdit} disabled={editBusy} class="btn-quiet px-3 py-1.5 text-sm">Cancel</button>
+			</div>
+			{#if editError}
+				<p class="basis-full text-sm text-warn">{editError}</p>
+			{/if}
+		</div>
+	{/if}
 	<ListToolbar
 		reroll={sortBy === 'random' ? rerollMedia : undefined}
 		{actions}
@@ -477,25 +510,6 @@
 		{/snippet}
 	</ListToolbar>
 
-	{#if saveOpen}
-		<form onsubmit={submitSave} class="flex flex-wrap items-center gap-2">
-			<input
-				bind:this={saveInput}
-				bind:value={saveName}
-				type="text"
-				placeholder="Playlist name"
-				aria-label="Playlist name"
-				maxlength="200"
-				class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-			/>
-			<button type="submit" disabled={saveBusy} class="btn-accent px-3 py-2 text-sm">Save</button>
-			<button type="button" onclick={closeSave} disabled={saveBusy} class="btn-quiet px-3 py-2 text-sm">Cancel</button>
-			{#if saveError}
-				<p class="basis-full text-sm text-warn">{saveError}</p>
-			{/if}
-		</form>
-	{/if}
-
 	<!-- Recently Added shelf (F12.3): the default landing view only; hidden once
 	     the user filters/sorts so results stay the focus. Sliced from the grid's
 	     newest-first page, so it costs no extra request. Below the toolbar (F73), so the
@@ -511,8 +525,20 @@
 		     total is the query's, never the loaded page length. -->
 		<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
 			<p class="text-sm text-muted" aria-live="polite">{loading ? 'Loading…' : videoCount(total)}</p>
-			<PlaySplitButton disabled={loading || total === 0} onplay={playRun} />
+			<div class="flex flex-wrap items-center gap-2">
+				<PlaySplitButton disabled={loading || total === 0} onplay={playRun} />
+				{#if isOwner && editId == null && !saveOpen}
+					<button type="button" onclick={() => (saveOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">Save as playlist…</button>
+				{/if}
+			</div>
 		</div>
+		{#if saveOpen}
+			<SavePlaylistForm
+				query={activeQs}
+				seed={sortBy === 'random' ? shuffleSeed.value : undefined}
+				onclose={() => (saveOpen = false)}
+			/>
+		{/if}
 		<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
 		{#if hasFilters && !loading && videos.length === 0}
 			<div class="flex justify-center">

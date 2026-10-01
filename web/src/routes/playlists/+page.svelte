@@ -126,6 +126,11 @@
 							<path d="M6.5 2.75h9.25a1.5 1.5 0 0 1 1.5 1.5V13.5" />
 						</svg>
 						<span class="flex-1 truncate">{p.name}</span>
+						<!-- F75 handoff §2: the smart marker reads for visitors too; it says
+						     what the playlist is, not who may edit it. -->
+						{#if p.query != null}
+							<PlaylistVisibilityChip smart />
+						{/if}
 						{#if isOwner}
 							<PlaylistVisibilityChip visibility={p.visibility} />
 						{/if}

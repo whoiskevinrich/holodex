@@ -29,7 +29,8 @@
 	$effect(() => {
 		api
 			.listPlaylists()
-			.then((res) => (playlists = res.items ?? []))
+			// A smart playlist's members come from its query (F75 P0-6), so it's no target.
+			.then((res) => (playlists = (res.items ?? []).filter((p) => p.query == null)))
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
 	});

@@ -301,25 +301,46 @@ export const api = {
 
 	// A playlist with its items in the playlist's order (F69). Visibility-filtered
 	// server-side: a visitor asking for a private playlist gets the same 404 as an
-	// unknown id. `seed` parameterizes a 'random' sort (ADR-045).
-	getPlaylist: (id: number, seed?: number) =>
-		get<PlaylistResponse>(`/playlists/${id}${seed != null ? `?seed=${seed}` : ''}`),
+	// unknown id. `seed` parameterizes a 'random' sort (ADR-045). A smart playlist
+	// (F75) pages its items with `page`, as /media does; `ids` is always whole.
+	getPlaylist: (id: number, seed?: number, page?: { limit: number; offset: number }) => {
+		const p = new URLSearchParams();
+		if (seed != null) p.set('seed', String(seed));
+		if (page) {
+			p.set('limit', String(page.limit));
+			p.set('offset', String(page.offset));
+		}
+		const qs = p.toString();
+		return get<PlaylistResponse>(`/playlists/${id}${qs ? `?${qs}` : ''}`);
+	},
 
 	// Every playlist the viewer may see, updated_at DESC (owner: all; visitor: public).
 	listPlaylists: () => get<{ items: Playlist[] }>(`/playlists`),
 
 	// Owner writes (F69 P0-3/P0-7/P0-8). `from_query` is the F4.7 shareable filter
-	// string: the server snapshots that whole browse result as the membership.
+	// string: the server snapshots that whole browse result as the membership. `query`
+	// (F75) instead stores the filter as a smart playlist, re-run on every read; the
+	// server canonicalises it and takes its `sort` as the playlist's.
 	createPlaylist: (body: {
 		name: string;
 		sort?: string;
 		visibility?: Playlist['visibility'];
 		from_query?: string;
+		query?: string;
 	}) => sendAuthed<{ playlist: Playlist }>('POST', `/playlists`, body),
+	// `query` is Edit filter's Update (smart playlists only).
 	updatePlaylist: (
 		id: number,
-		patch: { name?: string; sort?: string; visibility?: Playlist['visibility'] }
+		patch: {
+			name?: string;
+			sort?: string;
+			visibility?: Playlist['visibility'];
+			query?: string;
+			play_shuffled?: boolean;
+		}
 	) => sendAuthed<{ playlist: Playlist }>('PATCH', `/playlists/${id}`, patch),
+	// Turns a smart playlist into a fixed (snapshot) one holding its current result.
+	freezePlaylist: (id: number) => sendAuthed<{ playlist: Playlist }>('POST', `/playlists/${id}/freeze`),
 	deletePlaylist: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/playlists/${id}`),
 	// Membership: PUT is idempotent (adding a member again is a no-op, spec RD9).
 	addPlaylistVideo: (id: number, videoId: number) =>

@@ -45,7 +45,8 @@ export async function fetchSourceIds(source: RunSource, fresh = false): Promise<
 		if (fresh) forgetPlaylist(source.id);
 		const res = await loadPlaylist({ id: source.id, seed: source.seed });
 		if (!res) throw new Error('playlist unavailable');
-		return { ids: res.items.map((v) => v.id), seed: res.seed, name: res.playlist.name };
+		// `ids`, not `items`: a smart playlist's items are one page (F75), its ids the whole run.
+		return { ids: res.ids, seed: res.seed, name: res.playlist.name };
 	}
 	if (source.kind === 'film') {
 		const res = await api.getFilm(source.id);
@@ -115,15 +116,15 @@ export function storeRun(run: Run) {
 	saveRun(storage(), run);
 }
 
-// The next-up tile: a playlist already carries its items; a grid run fetches the one
-// video it needs, once.
+// The next-up tile: a playlist usually already carries it in its items; otherwise (a grid
+// run, or a smart playlist's item past its first page) fetch the one video, once.
 const tiles = new Map<number, Promise<Video | null>>();
 
-export function nextTile(run: Run, videoId: number): Promise<Video | null> {
+export async function nextTile(run: Run, videoId: number): Promise<Video | null> {
 	if (run.source.kind === 'playlist') {
-		return loadPlaylist({ id: run.source.id, seed: run.source.seed }).then(
-			(res) => res?.items.find((v) => v.id === videoId) ?? null
-		);
+		const res = await loadPlaylist({ id: run.source.id, seed: run.source.seed });
+		const held = res?.items.find((v) => v.id === videoId);
+		if (held) return held;
 	}
 	let pending = tiles.get(videoId);
 	if (!pending) {

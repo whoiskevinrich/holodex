@@ -10,6 +10,8 @@
 	import { beginRun, queryLabel } from '$lib/runContext';
 	import type { RunMode } from '$lib/run';
 	import PlaySplitButton from '../video/PlaySplitButton.svelte';
+	import SavePlaylistForm from '../video/SavePlaylistForm.svelte';
+	import { activity } from '$lib/activity.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
@@ -168,10 +170,19 @@
 
 	// Play all / Shuffle (F75 P0-2/P0-3/P0-11): a run over exactly the query on screen —
 	// the facet plus the title box's `q` (spec RD7) — in the grid's own order.
+	const gridQuery = $derived(filtersToParams(filters, false).toString());
 	function playRun(mode: RunMode): Promise<boolean> {
-		const query = filtersToParams(filters, false).toString();
-		return beginRun({ kind: 'query', query, label: queryLabel(query, name) }, mode);
+		return beginRun({ kind: 'query', query: gridQuery, label: queryLabel(gridQuery, name) }, mode);
 	}
+
+	// Save as playlist… (F75 P0-4), owner only: the same query, prefilled with the source's
+	// name — a person's name alone, "Tag · noir" for the rest (handoff "Save form").
+	const isOwner = $derived(activity.effectiveOwner);
+	let saveOpen = $state(false);
+	const saveName = $derived.by(() => {
+		const kind = queryLabel(gridQuery, name).kind;
+		return kind === 'Person' || kind === 'Browse' ? name : `${kind} · ${name}`;
+	});
 
 	// Stash the scroll offset on the way out (e.g. opening a video) so ← Back restores
 	// where this entity's video list was.
@@ -202,8 +213,18 @@
 			<!-- Count line (F75 handoff §1): the query's match count and Play all ▾. -->
 			<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-3">
 				<p class="text-sm text-muted">{videoCount(matched)}</p>
-				<PlaySplitButton disabled={matched === 0} onplay={playRun} />
+				<div class="flex flex-wrap items-center gap-2">
+					<PlaySplitButton disabled={matched === 0} onplay={playRun} />
+					{#if isOwner && !saveOpen}
+						<button type="button" onclick={() => (saveOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">Save as playlist…</button>
+					{/if}
+				</div>
 			</div>
+			{#if saveOpen}
+				<div class="pb-3">
+					<SavePlaylistForm query={gridQuery} defaultName={saveName} onclose={() => (saveOpen = false)} />
+				</div>
+			{/if}
 			<VideoGrid {videos} empty={emptyMessage} />
 			{#if hasMore}
 				<div class="flex justify-center pt-4">

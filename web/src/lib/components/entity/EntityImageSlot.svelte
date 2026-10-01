@@ -17,6 +17,7 @@
 	import { toMessage, monogram } from '$lib/format';
 	import { PALETTE_MODE, haloClass } from '$lib/halo';
 	import type { HaloMode } from '$lib/types';
+	import Switch from '../shared/Switch.svelte';
 
 	let {
 		entityId,
@@ -269,28 +270,14 @@
 					<!-- Halo knob (HOLODEX-463, design option A): one switch, saved for
 					     PALETTE_MODE. Cinémathèque is the only look (ADR-115), so the label no
 					     longer names the mode (HOLODEX-482). -->
-					<button
-						type="button"
-						role="switch"
-						aria-checked={haloOn}
+					<Switch
+						checked={haloOn}
 						onclick={toggleHalo}
 						disabled={savingHalo}
-						aria-label={`Halo behind the ${label.toLowerCase()}`}
+						label="Halo"
+						ariaLabel={`Halo behind the ${label.toLowerCase()}`}
 						title={`Glow behind the ${label.toLowerCase()}`}
-						class="flex items-center gap-1.5 py-0.5 text-xs {haloOn ? 'text-accent' : 'text-muted hover:text-ink'}"
-					>
-						<span
-							class="relative h-3 w-5 rounded-full border {haloOn ? 'border-accent' : 'border-muted'}"
-							aria-hidden="true"
-						>
-							<span
-								class="absolute top-px h-2 w-2 rounded-full transition-[left] {haloOn
-									? 'left-2.5 bg-accent'
-									: 'left-px bg-muted'}"
-							></span>
-						</span>
-						Halo
-					</button>
+					/>
 				{/if}
 			{/if}
 		</div>
