@@ -4056,10 +4056,10 @@ Each should turn the named test red:
 - Reshuffle `history` on toggle → the §23.4 toggle-on row.
 - Skip the first-item swap on repeat → the §23.4 `n = 2` row.
 
-### 23.8 Decisions the tests assume (confirm at implementation)
+### 23.8 Decisions the tests pin (owner-confirmed 2026-10-01)
 
-The spec and ADR are silent on these. The tests above pin the stated default, and a different
-answer changes only the named row.
+The spec and ADR were silent on these. The owner confirmed every default below on 2026-10-01, and the
+tests pin them.
 
 1. **A video's detail `playlists` list.** F69 lists the playlists a video belongs to. Does a video
    that *matches* a smart playlist list it? Default: **no**. Membership is computed, and evaluating

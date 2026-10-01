@@ -40,10 +40,9 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ## Up next — ordered (position = priority)
 
 1. [ ] [testing] Owner QA of HOLODEX-500 on a decodable library: autoplay on hop, `ended` → next, repeat across a pass end, PiP survives a hop (stress fixture media can't decode) — testing-strategy §23.6 items 2, 12
-2. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
-3. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read (visibility first), merge rewrite, Freeze — `internal/api/`, `internal/repo/`
-4. [ ] [security] Implementation `/security-review` of the smart-playlist read path and `/media/ids` before merge
-5. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
+2. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read (visibility first), merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+3. [ ] [security] Implementation `/security-review` of the smart-playlist read path and `/media/ids` before merge
+4. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -58,7 +57,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ### 2026-09-30 · session
 - skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
 - note: worklog hand-written by `/handoff` at the owner's request, because the SessionStart hook never scaffolded it on this branch.
-- handoff: Draft PR #424. HOLODEX-501 is done and live-checked. The design security review is clean and folded into ADR-121. HOLODEX-500 is built and live-checked on browse, person and playlist pages: `GET /media/ids`, the run model, the run strip toggles, and Play all ▾ on every count line and the playlist page. The film page is in too: owner decision 2026-10-01, a film is its own run source over its scenes in scene order, and it can't be saved. Next is HOLODEX-58's smart playlists (item 3). Item 1, playback QA on a real library, needs the owner.
+- handoff: Draft PR #424. HOLODEX-501 is done and live-checked. The design security review is clean and folded into ADR-121. HOLODEX-500 is built and live-checked on browse, person and playlist pages: `GET /media/ids`, the run model, the run strip toggles, and Play all ▾ on every count line and the playlist page. The film page is in too: owner decision 2026-10-01, a film is its own run source over its scenes in scene order, and it can't be saved. Next is HOLODEX-58's smart playlists (item 2); the five §23.8 test decisions are owner-confirmed. Item 1, playback QA on a real library, needs the owner.
 
 ## Dropped — newest first (the reason is the point)
 
