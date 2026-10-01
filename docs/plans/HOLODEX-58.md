@@ -31,7 +31,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 - [x] backend → `{cmd,internal,providers}/**`. 501 (`/media` entity grids) and 500 (`GET /media/ids`) earlier; 58 in `58e8a648`: migration 0055, `canonicalPlaylistQuery`, the live read (visibility → stale → owner-only), the merge rewrite in `mergeEntities`' transaction, Freeze, membership/manual refusals, a shared `hydrateTiles`, `CountVideos`. Go API tests in `internal/api/smart_playlists_test.go`; two mutation checks bit.
 - [x] frontend → `web/src/**`. 500's run model and Play all ▾ earlier; 58 in `33c4d3d1`: Save as playlist… on every count line (Smart | Snapshot), the smart playlist page (chip, Edit filter, Freeze, Always shuffle, stale notice, paging), browse edit mode, the picker skipping smart playlists, runs reading `ids`, shared `Switch`. Live-QA'd on the 9300 stress pair.
 - [/] testing `testing-strategy`. §23 is the plan (`2fd45cf7`): ranked risks, Go/API/Vitest/harness/live-QA rows, 11 mutation checks, and 5 default decisions in §23.8 to confirm at build. It closes when the tests exist and pass.
-- [/] security `security-review`. The design review (2026-09-30) found no vulnerability. D4 covers every owner-only `/media` input, and the 501 change exposes nothing new, since `q` is a bound phrase-quoted FTS match and redaction and full-film hiding hold. Two build notes are folded into ADR-121: visibility before the stale check, and one `mediaFilterFor` builder. The implementation review before merge is still due.
+- [x] security `security-review`. The design review (2026-09-30) found no vulnerability. D4 covers every owner-only `/media` input, and the 501 change exposes nothing new, since `q` is a bound phrase-quoted FTS match and redaction and full-film hiding hold. Two build notes are folded into ADR-121: visibility before the stale check, and one `mediaFilterFor` builder. Implementation review (2026-10-01, `origin/main...d2a50e15`) also clean. All new SQL is bound, and the stored query only reaches SQL through `videoFilterFromQuery`. A private id gets the unknown-id 404 before any stale or owner-only check. The owner-only check runs on the canonical string that gets stored, and again on every visitor read. The merge rewrite only swaps ids. `/media/ids` shares `mediaFilterFor` with `/media`. Freeze sits in the `requireOwner` group. The Svelte changes add no `{@html}`, and run hrefs are same-origin only. Below the bar: a public smart playlist shows visitors its `query`, and its `stale_refs` show deleted entity ids.
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -40,11 +40,9 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ## Up next — ordered (position = priority)
 
 1. [ ] [testing] Owner QA of HOLODEX-500 on a decodable library: autoplay on hop, `ended` → next, repeat across a pass end, PiP survives a hop (stress fixture media can't decode) — testing-strategy §23.6 items 2, 12
-2. [ ] [security] Implementation `/security-review` of the smart-playlist read path, Freeze, the merge rewrite and `/media/ids` before merge — `internal/api/smart_playlists.go`
-3. [ ] [testing] Close §23: tick its Go/API/Vitest rows against what exists, add the missing ones (e.g. pure tests for the stale-notice copy) — `docs/testing-strategy.md`
-4. [ ] [design] Owner compares the built smart-playlist UI with the approved mockup (§3d); divergences: edit flag rides `#edit_playlist=` (not `?`), save navigates instead of a toast — `docs/design/smart-playlists-mockup.svg`
-5. [ ] [architecture] ADR-121 action item 10: ADR index entry, mark ADR-104 D3's "no `frozen_query`" superseded — `docs/architecture/README.md`
-6. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
+2. [ ] [testing] Close §23: tick its Go/API/Vitest rows against what exists, add the missing ones (e.g. pure tests for the stale-notice copy) — `docs/testing-strategy.md`
+3. [ ] [design] Owner compares the built smart-playlist UI with the approved mockup (§3d); divergences: edit flag rides `#edit_playlist=` (not `?`), save navigates instead of a toast — `docs/design/smart-playlists-mockup.svg`
+4. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -57,8 +55,8 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 -->
 
 ### 2026-10-01 · session
-- skills: code-review, handoff
-- handoff: HOLODEX-58's smart playlists are built end to end on Draft PR #424, backend `58e8a648` and frontend `33c4d3d1`, both green and live-QA'd on the stress pair. Next is the implementation `/security-review` (item 2), then closing §23's testing rows. Items 1 (playback QA on a real library) and 4 (comparing the build with the mockup) need the owner.
+- skills: code-review, handoff, security-review
+- handoff: HOLODEX-58 is built end to end on Draft PR #424, and the implementation security review came back clean, so 6 of 7 gates are settled. Only testing remains: close §23's Go/API/Vitest rows next (item 2). Items 1 (playback QA on a real library) and 3 (comparing the build with the mockup) need the owner before the PR can be marked ready.
 
 ### 2026-09-30 · session
 - skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
