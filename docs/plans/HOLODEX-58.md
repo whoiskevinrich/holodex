@@ -5,6 +5,10 @@ key: HOLODEX-58
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: full                # new persisted data (stored query + migration), visitor evaluation of a public query, UI on six pages
 depends-on: []
+approved:
+  design:
+    on: 2026-09-30
+    at: 2325626f
 release_note: Any video grid — browse, a person, tag, studio or film — can now be played straight through or shuffled with one press, and saved as a smart playlist that picks up newly matching videos on its own.
 ---
 
@@ -23,7 +27,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 
 - [x] spec `write-spec` → `docs/specs/**`. F75 `docs/specs/smart-playlists.md` (`6a10f681`, `a3057304`). RD1–RD13: a live query re-run on read, Play all fixes the id list at the press, merges follow and deletes flag, shuffle is a playback mode, repeat starts a new pass, always-shuffle is a playlist property.
 - [x] architecture `architecture` → `docs/architecture/ADR-*`. ADR-121 (`0f52af0a`) supersedes ADR-104 D3's "no `frozen_query`" only. Its decisions: a canonical `/media` string with `query_version`, live evaluation under the reader's posture, owner-only inputs can't be public, merge rewrite inside the merge transaction, stale refs flag rather than broaden, client-held runs with a seeded Fisher–Yates.
-- [x] design `design-handoff` → `docs/design/**`. `smart-playlists-handoff.md` + `smart-playlists-mockup.svg` (`2325626f`). One *Save as playlist…* with a Smart / Snapshot toggle, a `smart` chip, and Play all / Shuffle as one split button. The owner's sign-off is **not yet recorded** here; `/implement` asks.
+- [x] design `design-handoff` → `docs/design/**`. `smart-playlists-handoff.md` + `smart-playlists-mockup.svg` (`2325626f`). One *Save as playlist…* with a Smart / Snapshot toggle, a `smart` chip, and Play all / Shuffle as one split button. Owner-approved 2026-09-30 in the design session; recorded at `/implement` on the owner's confirmation, pinned to `2325626f` (no design file has changed since).
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`. §23 is the plan (`2fd45cf7`): ranked risks, Go/API/Vitest/harness/live-QA rows, 11 mutation checks, and 5 default decisions in §23.8 to confirm at build. It closes when the tests exist and pass.
@@ -35,12 +39,11 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` HOLODEX-58: sign off the design handoff + mockup, merge `origin/main`, push, open the draft PR — `docs/design/smart-playlists-handoff.md`
-2. [ ] [security] `/security-review` on ADR-121 D3/D4 (public smart playlist evaluated for a visitor) before building the read path — `docs/architecture/ADR-121-smart-playlists-stored-query-and-runs.md`
-3. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
-4. [ ] [backend] HOLODEX-501: entity grids through `/media` with paging; characterise parity before deleting the 500-capped path — `internal/api/handlers.go`
-5. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
-6. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+1. [ ] [security] `/security-review` on ADR-121 D3/D4 (public smart playlist evaluated for a visitor) before building the read path — `docs/architecture/ADR-121-smart-playlists-stored-query-and-runs.md`
+2. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
+3. [ ] [backend] HOLODEX-501: entity grids through `/media` with paging; characterise parity before deleting the 500-capped path — `internal/api/handlers.go`
+4. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
+5. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
