@@ -414,6 +414,35 @@ func TestMergeTagsXML_NoExisting(t *testing.T) {
 	}
 }
 
+// TestMergeTagsXML_IllegalXMLChars covers HOLODEX-504: mkvextract echoes tag
+// values verbatim, control characters included, and XML 1.0 forbids those — so a
+// single form feed in any tag made the whole document unparseable and blocked
+// every writeback to the file. They are stripped on the way in and on the way out.
+func TestMergeTagsXML_IllegalXMLChars(t *testing.T) {
+	const existing = "<?xml version=\"1.0\"?>\n<Tags>\n<Tag>\n<Targets />\n" +
+		"<Simple><Name>COMMENT</Name><String>Page one\fPage two￿</String></Simple>\n" +
+		"</Tag>\n</Tags>"
+
+	got, err := mergeTagsXML(existing, []FieldWrite{
+		{TagName: "Description", Values: []string{"Bell\a and\x00 tab\tkept"}},
+	})
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+	for _, want := range []string{
+		"<Name>COMMENT</Name><String>Page onePage two</String>",
+		"<Name>DESCRIPTION</Name><String>Bell and tab\tkept</String>",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("merged document missing %q:\n%s", want, got)
+		}
+	}
+	// The output must itself round-trip, or the next writeback fails the same way.
+	if _, err := mergeTagsXML(got, nil); err != nil {
+		t.Errorf("merged document does not re-parse: %v", err)
+	}
+}
+
 func mustReadDir(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
