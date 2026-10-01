@@ -56,9 +56,9 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 -->
 
 ### 2026-09-30 · session
-- skills: write-spec, architecture, design-handoff, testing-strategy, handoff
+- skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
 - note: worklog hand-written by `/handoff` at the owner's request, because the SessionStart hook never scaffolded it on this branch.
-- handoff: Design phase complete. Spec F75, ADR-121, the handoff with its mockup, and testing-strategy §23 are all committed, and the branch is pushed with no PR yet. The design sign-off is still unrecorded and `fp:ready-to-build` is on the issue. Start at Up next item 1: run `/implement` to sign off the design and open the draft PR.
+- handoff: Crossed into build. Design signed off at 2325626f, and draft PR #424 is open. Start at Up next item 1: run `/security-review` on ADR-121 D3/D4 before the smart-playlist read path is built. HOLODEX-501 (item 3) doesn't depend on it.
 
 ## Dropped — newest first (the reason is the point)
 
