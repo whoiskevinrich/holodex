@@ -167,6 +167,32 @@ func TestGenreWritebackValues_IgnoredTagDroppedFromRawSide(t *testing.T) {
 	}
 }
 
+// F43 P0-10 (HOLODEX-507): a raw genre value that is an alias of an attached tag
+// collapses into the tag's canonical name — never written beside it.
+func TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag(t *testing.T) {
+	h, _, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+	tag, err := r.AttachTagToVideo(ctx, vid, "sci-fi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, tag.ID, "science fiction"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
+		"genres": {"Science Fiction", "Drama"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	values, err := h.GenreWritebackValues(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 2 || values[0] != "sci-fi" || values[1] != "Drama" {
+		t.Errorf("values = %v, want [sci-fi Drama] — the alias must not be written beside its tag", values)
+	}
+}
+
 // Tag-key fields are the write worker's own derived writes (ADR-110 D3); a
 // client naming one is refused before anything is written.
 func TestWritebackEndpoint_RejectsTagKeyField(t *testing.T) {

@@ -4,7 +4,7 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount, tagCount, aliasHint } from '$lib/format';
 	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
-	import type { Category, EntityRef, Tag, Video } from '$lib/types';
+	import type { Category, EntityRef, PersonAlias, Tag, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
 	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
@@ -14,8 +14,12 @@
 	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
 	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
 	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
+	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
 
 	let tag = $state<Tag | null>(null);
+	// Read from the tag payload and bound into AliasPanel (F43 RD7, HOLODEX-507), which
+	// owns add/remove/merge-in; a rename turns the old name into one, so reloadTag resets it.
+	let aliases = $state<PersonAlias[]>([]);
 	// The grid's unfiltered count, bound up from EntityVideos (HOLODEX-501).
 	let videoTotal = $state<number | null>(null);
 	// Bumped by reloadTag so a mutation that changes the set (a merge-in, a child tag
@@ -39,6 +43,7 @@
 			.getTag(current)
 			.then((res) => {
 				tag = res.tag;
+				aliases = res.tag.aliases ?? [];
 			})
 			.catch((e) => (error = toMessage(e)))
 			.finally(() => (loading = false));
@@ -52,6 +57,7 @@
 		try {
 			const res = await api.getTag(tag.id);
 			tag = res.tag;
+			aliases = res.tag.aliases ?? [];
 			gridRefresh++;
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
@@ -446,6 +452,16 @@
 			     affordances are owner-gated. -->
 			{#if tag}
 				{@const t = tag}
+				<!-- Aliases (F43 RD7, HOLODEX-507): identity reads above taxonomy, as on the
+				     film and studio pages. Rename stays on the hero's NameEditControl. -->
+				<AliasPanel
+					entityType="tag"
+					entityId={t.id}
+					entityName={t.name}
+					bind:aliases
+					{isOwner}
+					onmerged={() => reloadTag()}
+				/>
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<h2 class="text-xs uppercase tracking-wide text-muted">Hierarchy &amp; categories</h2>
 

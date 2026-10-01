@@ -1782,15 +1782,32 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		return res, fmt.Errorf("search tags: %w", err)
 	}
 	defer tr.Close()
+	seenTags := make(map[int64]struct{})
 	for tr.Next() {
 		var t model.Tag
 		if err := tr.Scan(&t.ID, &t.Name); err != nil {
 			return res, err
 		}
+		seenTags[t.ID] = struct{}{}
 		res.Tags = append(res.Tags, t)
 	}
 	if err := tr.Err(); err != nil {
 		return res, err
+	}
+	// Then alias-only tag matches (F43 P0-9, HOLODEX-507), deduped by id like people
+	// above, so a tag matching its name and an alias appears once, by its name.
+	if remaining := limit - len(res.Tags); remaining > 0 {
+		aliasHits, err := r.searchTagsByAlias(ctx, match, remaining)
+		if err != nil {
+			return res, err
+		}
+		for _, t := range aliasHits {
+			if _, dup := seenTags[t.ID]; dup {
+				continue
+			}
+			seenTags[t.ID] = struct{}{}
+			res.Tags = append(res.Tags, t)
+		}
 	}
 
 	// Studios: FTS name matches, a new entity group (F38, ADR-053).

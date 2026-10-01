@@ -1,0 +1,2 @@
+-- Down for 0056. Lowercasing tag alias text is lossy -- the original casing is not
+-- preserved anywhere -- so this cannot be reversed (same precedent as 0034 down). No-op.

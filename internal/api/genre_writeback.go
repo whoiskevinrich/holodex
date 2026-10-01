@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 
 	"holodex/internal/mapping"
@@ -78,10 +79,25 @@ func (h *Handlers) genreWritebackItemsFrom(ctx context.Context, videoID int64, r
 	if err != nil {
 		return nil, err
 	}
+	var values []string
+	if ok {
+		values = make([]string, len(rf.Items))
+		for i, item := range rf.Items {
+			values[i] = item.Value
+		}
+	}
+	// Dedup by tag identity, not spelling (F43 P0-10, HOLODEX-507): a raw value that
+	// is an alias of an attached tag collapses into that tag's canonical name instead
+	// of being written beside it. The same membership rule as the tag-set read-back.
+	ident, err := h.repo.TagIdentityKeys(ctx, append(slices.Clone(tagNames), values...))
+	if err != nil {
+		return nil, err
+	}
+	identity := func(s string) string { return ident[repo.TagNameKey(s)] }
 	seen := make(map[string]bool, len(tagNames))
 	items := make([]resolver.ResolvedValue, 0, len(tagNames))
 	for _, name := range tagNames {
-		k := resolver.NormKey(name)
+		k := identity(name)
 		if !seen[k] {
 			seen[k] = true
 			items = append(items, resolver.ResolvedValue{Value: name, Sources: []string{"tag"}})
@@ -89,10 +105,6 @@ func (h *Handlers) genreWritebackItemsFrom(ctx context.Context, videoID int64, r
 	}
 	if !ok {
 		return items, nil
-	}
-	values := make([]string, len(rf.Items))
-	for i, item := range rf.Items {
-		values[i] = item.Value
 	}
 	denied, err := h.repo.DeniedTagSet(ctx, values)
 	if err != nil {
@@ -108,7 +120,7 @@ func (h *Handlers) genreWritebackItemsFrom(ctx context.Context, videoID int64, r
 		if denied[item.Value] || ignored[item.Value] {
 			continue
 		}
-		k := resolver.NormKey(item.Value)
+		k := identity(item.Value)
 		if !seen[k] {
 			seen[k] = true
 			items = append(items, item)
