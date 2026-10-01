@@ -80,14 +80,25 @@ browse does. A smart playlist can never mean something browse wouldn't.
 
 ### D3 — Live evaluation on read, under the reader's own posture
 
-`GET /playlists/{id}` for a smart playlist:
+`GET /playlists/{id}` for a smart playlist, in this order:
 
-- **Stale check first (D5)**, then evaluate.
+- **Visibility first** (ADR-104 D5): visitor + private = 404, byte-identical to an unknown id, **before**
+  the D5 stale check and the D4 owner-only re-check. Either of those would otherwise answer a visitor
+  with `stale_refs`, confirming that a private playlist exists and echoing the ids it references
+  (security review, 2026-09-30).
+- **Stale check (D5)**, then evaluate.
 - **Tiles**: `ListVideos` with the stored filter, `playlists.sort`, and the request's paging.
   `redactFileMetadataForVisitors` and browse-title resolution apply exactly as in `listMedia`, through
   one shared helper so the two can't drift.
 - **Ordered ids** (for runs): `ListVideoIDs`, uncapped.
-- Visibility stays ADR-104 D5: visitor + private = 404, identical to unknown.
+
+**One filter builder.** `videoFilterFromQuery` deliberately leaves `HideFullFilmVideos` unset and doesn't
+read `missing_facet`; `listMedia` adds both, then gates owner-only inputs. A reader that calls only the
+parser would show full-film videos `/media` hides and would skip the owner-only check on
+`missing_facet`. So the filter-and-gate step moves into one helper, `mediaFilterFor(r, query)`, which
+parses, sets `HideFullFilmVideos` and `MissingFacets`, and refuses owner-only inputs for a visitor. It
+is the only path from a query to a `repo.VideoFilter` for `listMedia`, `GET /media/ids` (D7) and this
+smart playlist read (security review, 2026-09-30).
 
 No cache. A `ListVideoIDs` over the stress fixture's largest filter is a single indexed query; tens of
 smart playlists don't justify invalidation machinery. Revisit only with a measured slow read.
@@ -144,8 +155,9 @@ reload in a new tab re-fetches and starts a new run at the current item, without
 rule that autoplay intent is never in the URL is unchanged). F69's `?playlist=&seed=` context becomes
 a run with a playlist source, so there is **one next-up model**, not two.
 
-- **Ids**: grid runs use a new `GET /media/ids?<filter>&sort=` → `ListVideoIDs`, gated exactly like
-  `listMedia` (the owner-only check included) because it is the same query. Playlist runs use D3's
+- **Ids**: grid runs use a new `GET /media/ids?<filter>&sort=` → `ListVideoIDs`, built and gated by
+  D3's `mediaFilterFor` (the owner-only check and full-film hiding included) because it is the same
+  query. Playlist runs use D3's
   ordered ids.
 - **Shuffle is a mode, done on the client.** `order` is `ids` permuted by a seeded Fisher–Yates
   (`mulberry32(seed)`), a pure function in `web/src/lib/` with unit tests. The server's ADR-045 seeded
@@ -217,15 +229,21 @@ source makes it rebuildable (ADR-118 is the same pattern for list scroll).
    `.claude/rules/migrations.md`).
 2. [ ] `canonicalPlaylistQuery` + tests: rejects unknown keys, strips sort / fetch keys, normalisation
    is idempotent, and equal sets give equal strings.
-3. [ ] Smart playlist read path (D3) with a shared tile-hydration helper used by `listMedia`.
+3. [ ] Smart playlist read path (D3) with a shared tile-hydration helper used by `listMedia`, the
+   visibility 404 ahead of the stale and owner-only checks (handler test: a visitor on a private
+   playlist with stale refs gets the unknown-id 404), and `mediaFilterFor` as the one filter builder.
 4. [ ] Owner-only refusal (D4) at save, update, visibility and sort PATCH, plus the read-time
    re-check; handler tests in visitor mode.
 5. [ ] `rewriteSmartPlaylistRefs` called from both merge transactions; a test per merge path; a test
    that a stale id or vanished mapped key returns `stale_refs` and no items.
 6. [ ] HOLODEX-501: entity grids via `/media` with paging, title box → `q`. Check MCP and other
    readers of the embedded video lists before removing them.
-7. [ ] `GET /media/ids` (D7) behind the same gate as `listMedia`.
+7. [ ] `GET /media/ids` (D7) through `mediaFilterFor` (test: a visitor's `missing_facet` gets 401, and
+   a full-film video is absent, as on `/media`).
 8. [ ] `web/src/lib` run module: seeded permutation, toggle and repeat as pure functions with unit
    tests. `playlistContext.ts` becomes a playlist-source run.
-9. [ ] `/security-review` on D3/D4 (visitor evaluation of a public live query).
+9. [x] `/security-review` on D3/D4, design stage (2026-09-30): no vulnerability. D4 covers every
+   owner-only `/media` input (`missing_facet`, the completeness sorts). Two build notes were folded in:
+   visibility first (D3) and `mediaFilterFor` (D3, D7). An implementation review is still due before
+   merge.
 10. [ ] Update the ADR index; mark ADR-104 D3's "no `frozen_query`" as superseded here.

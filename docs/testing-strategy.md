@@ -3909,7 +3909,9 @@ playlist holds are one set in one order, and no reader sees more through a playl
 **`TestSmartPlaylistVisibility` (P0-10, D4; risk 1). Every case runs as a visitor (no token) unless
 noted:**
 - **Private:** a private smart playlist gives a 404 **byte-for-byte equal** to the unknown-id 404
-  (§14's rule, re-proved on the smart path).
+  (§14's rule, re-proved on the smart path). That includes a private playlist whose query has stale
+  refs or owner-only inputs. Visibility is checked before both, so neither `stale_refs` nor
+  `owner_only` can confirm the playlist exists (ADR-121 D3, security review 2026-09-30).
 - **Public parity:** a public smart playlist's visitor response items equal a visitor `/media` call
   with the same query, **tile JSON byte-for-byte**. That is what proves the shared redaction helper,
   not just the id set. Run it on a fixture video that carries owner-only file metadata, so a
@@ -3928,6 +3930,8 @@ noted:**
 - `missing_facet` and a completeness sort without a token give **401**, matching
   `completeness_browse_test.go:123`'s `listMedia` behaviour.
 - Owner: the ids equal `/media`'s order for every sort.
+- A full-film video `/media` hides is absent from `/media/ids` too. This proves the shared
+  `mediaFilterFor` builder (ADR-121 D3) rather than a bare `videoFilterFromQuery` call.
 - Uncapped: on the 600-video tag fixture below it returns 600 ids.
 
 **HOLODEX-501, entity grids through `/media` (P0-1, D6). Lands and is tested before 500/58:**
@@ -4045,6 +4049,8 @@ Each should turn the named test red:
 - Evaluate a stale query with the dead clause dropped → the §23.2 stale "not evaluated" assertion.
 - Hydrate smart tiles without the shared redaction helper → the §23.3 visitor tile byte-equality.
 - Serve `/media/ids` without `listMedia`'s owner gate → the §23.3 401 rows.
+- Build `/media/ids`' filter with a bare `videoFilterFromQuery` → the §23.3 full-film row.
+- Run the stale check before visibility → the §23.3 private-with-stale-refs 404 row.
 - Remove the D4 read-time re-check → the §23.3 repo-bypass row.
 - Off-by-one in Fisher–Yates → the §23.4 bias test.
 - Reshuffle `history` on toggle → the §23.4 toggle-on row.

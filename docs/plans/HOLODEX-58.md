@@ -31,7 +31,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`. §23 is the plan (`2fd45cf7`): ranked risks, Go/API/Vitest/harness/live-QA rows, 11 mutation checks, and 5 default decisions in §23.8 to confirm at build. It closes when the tests exist and pass.
-- [ ] security `security-review` — the visitor evaluation of a public live query (ADR-121 D3/D4) needs a design review before the read path is built, and an implementation review before merge.
+- [/] security `security-review`. The design review (2026-09-30) found no vulnerability. D4 covers every owner-only `/media` input, and the 501 change exposes nothing new, since `q` is a bound phrase-quoted FTS match and redaction and full-film hiding hold. Two build notes are folded into ADR-121: visibility before the stale check, and one `mediaFilterFor` builder. The implementation review before merge is still due.
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -39,11 +39,11 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [security] `/security-review` on ADR-121 D3/D4 (public smart playlist evaluated for a visitor) before building the read path — `docs/architecture/ADR-121-smart-playlists-stored-query-and-runs.md`
+1. [ ] [frontend] HOLODEX-500: `mediaFilterFor` + `GET /media/ids`, the run module (seeded shuffle, toggle, repeat), split button — `web/src/lib/`, `internal/api/`
 2. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
-3. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
-4. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
-5. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); decide whether the squash subject is `feat!` (the person/tag/studio detail payloads dropped `items`/`total`)
+3. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read (visibility first), merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+4. [ ] [security] Implementation `/security-review` of the smart-playlist read path and `/media/ids` before merge
+5. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); squash subject is `feat!` (owner decision 2026-09-30: the person/tag/studio detail payloads dropped `items`/`total`, a breaking API change)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
