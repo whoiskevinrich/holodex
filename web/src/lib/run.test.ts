@@ -204,6 +204,20 @@ describe('URL', () => {
 		expect(parseRunParam(new URL('http://h' + runHref(9, run)))).toEqual({ run: 'p1', playlist: 3, seed: 42 });
 	});
 
+	it('round-trips a film source', () => {
+		const run = startRun({
+			id: 'f1',
+			source: { kind: 'film', id: 8, label: { kind: 'Film', name: 'Noir', href: '/films/8' } },
+			ids: [1],
+			mode: 'in-order',
+			seed: 1
+		});
+		expect(parseRunParam(new URL('http://h' + runHref(9, run)))).toEqual({ run: 'f1', film: 8 });
+		expect(sameSource(run.source, { film: 8 })).toBe(true);
+		expect(sameSource(run.source, { film: 9 })).toBe(false);
+		expect(sameSource(run.source, { playlist: 8 })).toBe(false);
+	});
+
 	it('still reads an F69 ?playlist= link with no run id', () => {
 		expect(parseRunParam(new URL('http://h/media/5?playlist=3'))).toEqual({ playlist: 3 });
 		expect(parseRunParam(new URL('http://h/media/5?playlist=3&seed=42'))).toEqual({ playlist: 3, seed: 42 });

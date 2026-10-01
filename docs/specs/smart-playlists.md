@@ -191,6 +191,8 @@ endpoints stop feeding the grid. The title box sends `q` (RD7).
 **P0-2 — Grid-header actions where a query exists.** Browse, person, tag, studio and film grids show
 a count line with the *Play all* split button (everyone who can see the grid) and *Save as playlist…*
 (owner only). Browse's ⋯ *Save as playlist…* entry moves here. Search and shelves show neither.
+The film grid is its scenes, not a `/media` query, so it gets *Play all* only: a run over the scenes
+in scene order, and no *Save as playlist…* (owner decision 2026-10-01; ADR-121 D7's film source).
 - [ ] Visitor sees *Play all*, never *Save as playlist…*.
 - [ ] *Play all* is disabled when the result set is empty.
 - [ ] No action on `routes/search`, `RelatedShelf`, `RecentlyAddedShelf`.

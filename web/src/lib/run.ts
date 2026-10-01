@@ -10,10 +10,15 @@
 
 export type RunMode = 'in-order' | 'shuffled';
 
-/** What a run plays: a /media query (canonical string, no sort/paging) or a playlist. */
+/**
+ * What a run plays: a /media query (canonical string, no sort/paging), a playlist, or a
+ * film's scenes in scene order (a film's grid isn't a /media query, so it is its own
+ * source and can't be saved as a smart playlist).
+ */
 export type RunSource =
 	| { kind: 'query'; query: string; sort?: string; seed?: number; label: RunLabel }
-	| { kind: 'playlist'; id: number; seed?: number; label: RunLabel };
+	| { kind: 'playlist'; id: number; seed?: number; label: RunLabel }
+	| { kind: 'film'; id: number; seed?: undefined; label: RunLabel };
 
 /** How the strip names the source: "Person · Ana" linking to the person page. */
 export interface RunLabel {
@@ -144,6 +149,8 @@ export interface RunParam {
 	sort?: string;
 	/** A playlist source (F69's `?playlist=`). */
 	playlist?: number;
+	/** A film source: its scenes in scene order. */
+	film?: number;
 	seed?: number;
 }
 
@@ -153,14 +160,16 @@ export function parseRunParam(url: URL): RunParam | null {
 	const run = sp.get('run');
 	if (run && /^[a-z0-9]{1,16}$/.test(run)) out.run = run;
 	const playlist = Number(sp.get('playlist'));
+	const film = Number(sp.get('film'));
 	if (Number.isInteger(playlist) && playlist > 0) out.playlist = playlist;
+	else if (Number.isInteger(film) && film > 0) out.film = film;
 	else if (sp.has('from')) out.from = sp.get('from') ?? '';
 	const sort = sp.get('sort');
 	if (sort && out.from != null) out.sort = sort;
 	const rawSeed = sp.get('seed');
 	const seed = rawSeed == null ? NaN : Number(rawSeed);
 	if (Number.isInteger(seed)) out.seed = seed;
-	return out.playlist != null || out.from != null ? out : null;
+	return out.playlist != null || out.film != null || out.from != null ? out : null;
 }
 
 /** `/media/{videoId}?run=…&from=…` (or `&playlist=…`): the link that keeps the run. */
@@ -168,6 +177,7 @@ export function runHref(videoId: number, run: Run): string {
 	const p = new URLSearchParams({ run: run.id });
 	const s = run.source;
 	if (s.kind === 'playlist') p.set('playlist', String(s.id));
+	else if (s.kind === 'film') p.set('film', String(s.id));
 	else {
 		p.set('from', s.query);
 		if (s.sort) p.set('sort', s.sort);
@@ -178,7 +188,9 @@ export function runHref(videoId: number, run: Run): string {
 
 /** True when `param` names the same source as `source` (a hop or reload within a run). */
 export function sameSource(source: RunSource, param: RunParam): boolean {
-	return source.kind === 'playlist' ? source.id === param.playlist : param.from != null && source.query === param.from;
+	if (source.kind === 'playlist') return source.id === param.playlist;
+	if (source.kind === 'film') return source.id === param.film;
+	return param.from != null && source.query === param.from;
 }
 
 const ENTITY_KEYS: Record<string, [kind: string, path: string]> = {

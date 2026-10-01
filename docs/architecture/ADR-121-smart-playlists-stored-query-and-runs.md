@@ -145,7 +145,10 @@ Recently Added) don't get the actions.
 
 A **run** is `{id, source, order, mode, seed, ids, history, repeat}`:
 
-- `source`: `{kind: "query", query}` or `{kind: "playlist", id}`.
+- `source`: `{kind: "query", query}`, `{kind: "playlist", id}`, or `{kind: "film", id}`. A film's grid
+  is its scenes from `GET /films/{id}`, not a `/media` query, so a film is its own source: it plays the
+  scenes in scene order (one `sortScenes`, shared with the film page) and carries `film=<id>` in the
+  URL. It can be played and shuffled but not saved as a smart playlist (owner decision, 2026-10-01).
 - `ids`: the **source-order** id list, fetched once at the press.
 - `order`: the play order derived from `ids`.
 

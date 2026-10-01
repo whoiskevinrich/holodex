@@ -1,7 +1,8 @@
 import { goto } from '$app/navigation';
 import { api } from '$lib/api';
 import { forgetPlaylist, loadPlaylist, setPlayIntent } from '$lib/playlistContext';
-import type { PlaylistResponse, Video } from '$lib/types';
+import type { Video } from '$lib/types';
+import { sortScenes } from '$lib/filmScenes';
 import {
 	loadRun,
 	newRunId,
@@ -34,7 +35,8 @@ export { queryLabel } from '$lib/run';
 export interface SourceIds {
 	ids: number[];
 	seed?: number;
-	playlist?: PlaylistResponse;
+	/** The source's display name, when fetching it told us (a playlist or a film). */
+	name?: string;
 }
 
 /** The source's ids in source order. `fresh` re-reads a playlist past its fetch cache. */
@@ -43,17 +45,18 @@ export async function fetchSourceIds(source: RunSource, fresh = false): Promise<
 		if (fresh) forgetPlaylist(source.id);
 		const res = await loadPlaylist({ id: source.id, seed: source.seed });
 		if (!res) throw new Error('playlist unavailable');
-		return { ids: res.items.map((v) => v.id), seed: res.seed, playlist: res };
+		return { ids: res.items.map((v) => v.id), seed: res.seed, name: res.playlist.name };
+	}
+	if (source.kind === 'film') {
+		const res = await api.getFilm(source.id);
+		return { ids: sortScenes(res.scenes ?? []).map((s) => s.video.id), name: res.film.name };
 	}
 	return api.mediaIds(source.query, source.sort, source.seed);
 }
 
 function withFetched(source: RunSource, got: SourceIds): RunSource {
-	let out = got.seed != null ? { ...source, seed: got.seed } : source;
-	if (out.kind === 'playlist' && got.playlist) {
-		out = { ...out, label: { kind: '', name: got.playlist.playlist.name, href: `/playlists/${out.id}` } };
-	}
-	return out;
+	const out = got.seed != null && source.kind !== 'film' ? { ...source, seed: got.seed } : source;
+	return got.name ? { ...out, label: { ...out.label, name: got.name } } : out;
 }
 
 /**
@@ -88,7 +91,9 @@ export async function resolveRun(param: RunParam): Promise<Run | null> {
 	const source: RunSource =
 		param.playlist != null
 			? { kind: 'playlist', id: param.playlist, seed: param.seed, label: { kind: '', name: '', href: `/playlists/${param.playlist}` } }
-			: { kind: 'query', query: param.from ?? '', sort: param.sort, seed: param.seed, label: queryLabel(param.from ?? '') };
+			: param.film != null
+				? { kind: 'film', id: param.film, label: { kind: 'Film', name: '', href: `/films/${param.film}` } }
+				: { kind: 'query', query: param.from ?? '', sort: param.sort, seed: param.seed, label: queryLabel(param.from ?? '') };
 	try {
 		const got = await fetchSourceIds(source);
 		const run = startRun({
