@@ -8,6 +8,7 @@
 	import { browseCache } from '$lib/browse.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 	import { DEFAULT_SORT, filtersToParams } from '$lib/filters';
+	import { filterLabels, loadScopeNames } from '$lib/filterLabels';
 	import { beginRun, queryLabel } from '$lib/runContext';
 	import type { RunMode } from '$lib/run';
 	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
@@ -128,74 +129,14 @@
 	// Entity scope (?person/tag/studio_id/category_id) arrives only from entity-page links,
 	// so its names are looked up; an unknown id still gets a removable chip.
 	let scopeNames = $state<Record<string, string>>({});
-	const SCOPES = [
-		{ key: 'person', label: 'Person', load: (id: number) => api.getPerson(id).then((r) => r.person.display_name ?? r.person.name) },
-		{ key: 'studio_id', label: 'Studio', load: (id: number) => api.getStudio(id).then((r) => r.studio.name) },
-		{ key: 'tag', label: 'Tag', load: (id: number) => api.getTag(id).then((r) => r.tag.name) },
-		{ key: 'category', label: 'Category', load: (id: number) => api.getCategory(id).then((r) => r.category.name) }
-	] as const;
-	$effect(() => {
-		for (const s of SCOPES) {
-			for (const id of (query[s.key] as number[] | undefined) ?? []) {
-				const k = `${s.key}:${id}`;
-				if (k in scopeNames) continue;
-				scopeNames[k] = '…';
-				s.load(id)
-					.then((name) => (scopeNames[k] = name))
-					.catch(() => (scopeNames[k] = 'unknown'));
-			}
-		}
-	});
+	$effect(() => loadScopeNames(query, scopeNames));
 
-	interface Chip {
-		/** Stable identity for the keyed each — labels can repeat ("Person: …" while loading). */
-		id: string;
-		label: string;
-		kind: 'filter' | 'scope';
-		remove: () => void;
-	}
-	const range = (a?: number, b?: number, unit = '') =>
-		a && b ? `${a}–${b}${unit}` : a ? `≥ ${a}${unit}` : `≤ ${b}${unit}`;
-	const activeChips = $derived.by<Chip[]>(() => {
-		const out: Chip[] = [];
-		for (const s of SCOPES) {
-			for (const id of (query[s.key] as number[] | undefined) ?? []) {
-				out.push({
-					id: `${s.key}:${id}`,
-					label: `${s.label}: ${scopeNames[`${s.key}:${id}`] ?? '…'}`,
-					kind: 'scope',
-					remove: () => setQuery({ [s.key]: ((query[s.key] as number[]) ?? []).filter((x) => x !== id) })
-				});
-			}
-		}
-		if (query.resolution && query.resolution !== 'All')
-			out.push({ id: 'resolution', label: query.resolution, kind: 'filter', remove: () => setQuery({ resolution: 'All' }) });
-		if (query.duration_min || query.duration_max)
-			out.push({
-				id: 'duration',
-				label: `Duration ${range(query.duration_min, query.duration_max, ' min')}`,
-				kind: 'filter',
-				remove: () => setQuery({ duration_min: undefined, duration_max: undefined })
-			});
-		if (query.year_min || query.year_max)
-			out.push({
-				id: 'year',
-				label: range(query.year_min, query.year_max),
-				kind: 'filter',
-				remove: () => setQuery({ year_min: undefined, year_max: undefined })
-			});
-		for (const [canonical, value] of Object.entries(query.mapped ?? {})) {
-			if (!value) continue;
-			const label = facets.find((f) => f.canonical === canonical)?.label ?? canonical;
-			out.push({
-				id: `mapped:${canonical}`,
-				label: `${label}: ${value}`,
-				kind: 'filter',
-				remove: () => setQuery({ mapped: { ...query.mapped, [canonical]: '' } })
-			});
-		}
-		return out;
-	});
+	const activeChips = $derived(
+		filterLabels(query, scopeNames, (c) => facets.find((f) => f.canonical === c)?.label).map((l) => ({
+			...l,
+			remove: () => setQuery(l.clear)
+		}))
+	);
 	// The Filters button counts what its panel holds — not entity scope, which has no field.
 	const filterCount = $derived(activeChips.filter((c) => c.kind === 'filter').length);
 

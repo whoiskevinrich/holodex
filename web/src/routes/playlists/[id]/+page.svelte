@@ -5,6 +5,8 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount } from '$lib/format';
 	import { MEDIA_SORTS } from '$lib/filters';
+	import { filterLabels, loadScopeNames } from '$lib/filterLabels';
+	import { mediaSchema } from '$lib/listState';
 	import { forgetPlaylist } from '$lib/playlistContext';
 	import { beginRun } from '$lib/runContext';
 	import type { RunMode } from '$lib/run';
@@ -259,6 +261,23 @@
 		sort === 'manual' ? MANUAL.label : (MEDIA_SORTS.find((s) => s.value === sort)?.label ?? sort)
 	);
 	const count = $derived(videoCount(total));
+
+	// A smart playlist's filter in browse's chip words (handoff §4), so the owner can read
+	// what it matches without opening Edit filter. Mapped facets show their canonical key.
+	const filterQuery = $derived(
+		playlist?.query != null ? mediaSchema.parseQuery(new URLSearchParams(playlist.query)) : null
+	);
+	let scopeNames = $state<Record<string, string>>({});
+	$effect(() => {
+		if (filterQuery) loadScopeNames(filterQuery, scopeNames);
+	});
+	const filterSummary = $derived.by(() => {
+		if (!filterQuery || !playlist?.query) return '';
+		const parts = filterLabels(filterQuery, scopeNames).map((l) => l.label);
+		if (filterQuery.q) parts.unshift(`“${filterQuery.q}”`);
+		for (const f of new URLSearchParams(playlist.query).getAll('missing_facet')) parts.push(`Missing: ${f}`);
+		return parts.join(' · ');
+	});
 </script>
 
 <AsyncState {loading} error={error || (!playlist ? 'Not found.' : '')}>
@@ -281,7 +300,7 @@
 						<p class="text-sm text-muted">
 							{count} · {sortLabel}{#if playlist.play_shuffled}{' · '}<span class="text-xs text-accent"
 									>always shuffled</span
-								>{/if}
+								>{/if}{#if filterSummary}{' · '}<span class="text-xs">{filterSummary}</span>{/if}
 						</p>
 					</div>
 
