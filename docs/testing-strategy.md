@@ -3753,3 +3753,337 @@ a replace field over `Publisher`, `Label`):
   §22.3 prune assertion flips.
 - A revert of a clear rewrites the old value (works today). A revert of an *added* tag is still
   skipped (HOLODEX-495).
+
+## 23. Smart playlists, Play all and Shuffle (F75, HOLODEX-58 / 500 / 501, ADR-121)
+
+[Spec](specs/smart-playlists.md) · [ADR-121](architecture/ADR-121-smart-playlists-stored-query-and-runs.md) ·
+[handoff](design/smart-playlists-handoff.md). This extends §14 (F69). A smart playlist is an F69 row
+with a stored canonical `/media` query that re-runs on every read. A run (Play all / Shuffle) is
+client-held state over an id list fetched once. Two things are new here. The filter grammar is
+**persisted** for the first time. And a **public** playlist now evaluates a query for a visitor. Most
+of the weight sits on those two.
+
+The invariant behind every test below: **what the grid shows, what a run plays and what a smart
+playlist holds are one set in one order, and no reader sees more through a playlist than through
+`/media`.**
+
+### 23.1 Risks, ranked
+
+1. **A leak through a public playlist.** A visitor gets something from `GET /playlists/{id}` (or
+   `/media/ids`) that the same visitor couldn't get from `/media`. There are three routes:
+   - an owner-only input (`missing_facet`, a completeness sort) evaluated for a visitor (ADR-121 D4);
+   - the smart read hydrating tiles without `redactFileMetadataForVisitors` (D3's shared helper
+     exists to stop that drift);
+   - a private smart playlist answering a visitor with anything other than the unknown-id 404.
+2. **Silent broadening.** A stored query comes to mean *more* than it did, with nothing on screen to
+   say so. The routes:
+   - `videoFilterFromQuery` ignoring an unknown key, whether a typo at save or a mapped key that has
+     since left `metadata-mappings.yaml`;
+   - a deleted entity's clause being dropped;
+   - a merge path that forgets `rewriteSmartPlaylistRefs`.
+3. **Set disagreement.** What plays or saves isn't what's shown. The routes: the 500 cap surviving
+   on an entity grid, the title box filtering client-side instead of folding into `q` (RD7), sort
+   drifting between grid and playlist, and `HideFullFilmVideos` applied on one path only.
+4. **A broken run.** Shuffle drops or repeats an item within a pass, a toggle moves the current
+   item, repeat plays the same item back-to-back, or a reload autoplays (F69 RD6).
+5. **Grammar drift.** A later change to an *existing* filter key's meaning reinterprets every stored
+   query, because nobody bumped `query_version` (ADR-121 Consequences).
+
+### 23.2 Go unit
+
+- **`internal/api`, `canonicalPlaylistQuery` table (D2; risks 2, 5).**
+  - Strips `limit`, `offset`, `seed` and `sort`. Each one alone gives `""`, and mixed in with a
+    filter it leaves only the filter.
+  - Normalises:
+    - keys come out sorted;
+    - `person=40&person=12&person=40` → `person=12&person=40` (numeric, not lexical: `person=9&person=10`
+      keeps 9 first);
+    - empty values are dropped;
+    - the output is `url.Values.Encode`d.
+  - Idempotent: `canon(canon(x)) == canon(x)` for every row of the table.
+  - Order-insensitive: every permutation of a row's key/value pairs canonicalises to one string.
+  - Accepts `missing_facet` and every *currently* filterable mapped key.
+  - 400 on each of: an unknown key (`tagg=3`), a mapped key that isn't filterable, a mapped key
+    removed by a mappings reload in the same test, and a non-numeric id facet (`person=abc`).
+  - A bare query (no clauses) is accepted and stores `""`. That's "everything", spec Behavior detail.
+- **`internal/api`, `TestCanonicalKeysMatchFilterParser` (risk 2).** The allowlist and the parser
+  can't diverge, in the same spirit as §14's `TestValidSortMatchesOrderBy`. Both directions:
+  - every allowlisted fixed key, given a sample value, makes `videoFilterFromQuery` return a filter
+    that differs from the zero filter;
+  - a reflection walk over the filter struct finds no settable field that no allowlisted key reaches.
+  A new filter key added to the parser but not to the allowlist fails here, not in production.
+- **`internal/api`, stored-query golden (risk 5).** `testdata/smart_playlist_queries_v1.golden`
+  holds a fixed corpus of v1 query strings, each with the parsed filter serialised as JSON.
+  - A change to how any existing key parses breaks the golden.
+  - The failure message says to bump `query_version` and ship a stored-query migration, or else to
+    regenerate the golden *only* if the change is additive.
+  - This is the one test that makes ADR-121's "the grammar is persisted" consequence a guard rather
+    than a reviewer's memory.
+- **`internal/repo`, `rewriteSmartPlaylistRefs` table (D5; risk 2).** Seed four playlists: two smart,
+  one snapshot (`query NULL`), one smart that doesn't reference the merged id.
+  - Merging person 12 → 40 rewrites `person=12` to `person=40`.
+  - `person=12&person=40` collapses to `person=40` (de-dup after rewrite).
+  - **Substring safety:** merging person 1 → 40 leaves `person=12` alone. This proves the rewrite
+    parses the query rather than string-replacing it.
+  - `tag=12` is untouched by a *person* merge (key-scoped).
+  - `studio=Acme` (mapped value) is untouched by a studio-id merge.
+  - The snapshot playlist and the unrelated smart playlist keep their `updated_at` (only changed rows
+    are written).
+  - The rewritten string equals `canonicalPlaylistQuery` of itself (still canonical).
+- **`internal/repo`, merge transactions (D5).** One test per path:
+  - `MergePersonsWithAffectedVideos` in `aliases_test.go`;
+  - `MergeEntitiesWithAffectedVideos` for studios in `identity_ops_test.go`.
+  Each asserts the stored query names the survivor after commit. A forced failure later in the same
+  transaction leaves the query unchanged (rolled back with the merge, not committed ahead of it).
+- **`internal/repo`, stale check (D5).** Each of the following returns that `{key, value}` in
+  `stale_refs` and **does not call the evaluator**:
+  - a deleted tag;
+  - a deleted person;
+  - a deleted studio;
+  - a deleted category;
+  - a mapped key absent from the current filterable set.
+  The evaluator is a counted fake, so "not evaluated" is asserted directly, not inferred from an
+  empty list. The stored query string stays byte-identical.
+- **`internal/repo`, Freeze (D1).** In one transaction under `writeMu`:
+  - writes `playlist_videos` with `position` = the query's rank order;
+  - nulls `query` and `query_version` together;
+  - leaves `play_shuffled` as it was.
+  A playlist where `query` and `query_version` disagree on NULL is never written by any repo method.
+  Assert this after create, update, freeze and merge.
+- **Migration.** Up then down then up on a DB holding F69 playlists:
+  - existing rows read `query NULL`, `query_version NULL`, `play_shuffled 0`;
+  - `TestPlaylistEndpoints` passes unchanged against the migrated schema.
+
+### 23.3 API integration (real repo, `httptest`)
+
+**`internal/api/smart_playlists_test.go`, `TestSmartPlaylistEndpoints` (one server, one walk, like
+§14):**
+- **Create.**
+  - `POST {name, query}` returns 201 with `visibility: private` and the canonical `query` echoed.
+  - `sort` is taken from the body.
+  - `from_query` still produces an F69 snapshot with no `query`, so F69's `TestPlaylistSnapshot`
+    passes untouched.
+  - Visitor create → 401.
+- **Refusals (all 400):**
+  - an unknown key in `query`;
+  - `sort: manual` on create;
+  - `PATCH {sort: manual}` on a smart playlist;
+  - add or remove membership on a smart playlist id;
+  - `POST /freeze` on a snapshot playlist;
+  - a body carrying both `query` and `from_query` (§23.8 Q2).
+- **Live reads (P0-5).**
+  - After save, tag a fixture video with the query's tag: the next `GET` lists it and `item_count`
+    grows. No refresh call is made in between.
+  - Trash it: it's gone. Restore: it's back.
+  - A full-film video is hidden exactly as `/media` hides it.
+- **Parity (risk 3).** This is the core assertion. For a small fixed corpus of queries (one per
+  facet, one combined, one with `q`, the bare query) crossed with every non-`random` `MEDIA_SORTS`
+  value:
+  - the smart playlist's items across all pages equal `/media`'s items across all pages, in order;
+  - `item_count` equals `/media`'s `total`;
+  - the ordered ids equal `GET /media/ids` and equal the concatenated `/media` page ids.
+  For `random`, the same seed gives the same order on all three paths, and the echoed seed is
+  ≤ 2^53 (F69's JSON-number rule).
+- **Edit filter (P0-8).** `PATCH {query}` re-canonicalises: a non-canonical body is stored canonical.
+  Membership changes on the next read. A refused PATCH (unknown key) leaves the stored query
+  byte-identical.
+- **Freeze (P0-7).**
+  - `POST /freeze` gives `query: null` and the same ids in the same order as the read just before it.
+  - A newly matching video tagged after that does **not** appear.
+  - `PATCH {sort: manual}` is now accepted.
+  - Visitor → 401.
+- **Always shuffle (P0-12).**
+  - `PATCH {play_shuffled: true}` is owner-only (visitor 401).
+  - A visitor `GET` on a public playlist carries `play_shuffled: true`.
+  - Display `items` order is unchanged by the flag.
+  - Works on an F69 snapshot playlist too.
+- **Lists and pickers (P0-2, P0-6).**
+  - `GET /playlists` marks smart rows.
+  - The *Add to playlist* target list (whatever `PlaylistPicker` reads) excludes smart playlists.
+- **Merge and delete (P0-9), end to end through the merge endpoints.**
+  - Person merge 12 → 40: the stored query names 40, and membership equals `/media?person=40`.
+  - Same for a studio merge.
+  - Delete a referenced tag: the response is `stale_refs: [{key: "tag", value: "<id>"}]`, `items: []`,
+    and an unchanged `query`.
+
+**`TestSmartPlaylistVisibility` (P0-10, D4; risk 1). Every case runs as a visitor (no token) unless
+noted:**
+- **Private:** a private smart playlist gives a 404 **byte-for-byte equal** to the unknown-id 404
+  (§14's rule, re-proved on the smart path).
+- **Public parity:** a public smart playlist's visitor response items equal a visitor `/media` call
+  with the same query, **tile JSON byte-for-byte**. That is what proves the shared redaction helper,
+  not just the id set. Run it on a fixture video that carries owner-only file metadata, so a
+  missing redaction shows up as a diff.
+- **D4 refusals, at each entry point (all 400):**
+  - create public + `missing_facet`;
+  - `PATCH {visibility: public}` on a `missing_facet` query;
+  - `PATCH {query: …missing_facet…}` on a public playlist;
+  - `PATCH {sort: <completeness sort>}` on a public playlist.
+  The same four as owner on a *private* playlist are accepted.
+- **D4 read-time re-check:** a row written straight through the repo as public + `missing_facet`
+  (bypassing the API guard) gives a visitor `stale_refs: [{kind: "owner_only"}]` and **zero items**.
+  It never returns items.
+
+**`GET /media/ids` (D7), in `completeness_browse_test.go` beside the existing `listMedia` gate:**
+- `missing_facet` and a completeness sort without a token give **401**, matching
+  `completeness_browse_test.go:123`'s `listMedia` behaviour.
+- Owner: the ids equal `/media`'s order for every sort.
+- Uncapped: on the 600-video tag fixture below it returns 600 ids.
+
+**HOLODEX-501, entity grids through `/media` (P0-1, D6). Lands and is tested before 500/58:**
+- **Characterisation first, then removal.** While the bespoke path still exists, assert that for
+  every fixture person, tag and studio with ≤ 500 videos, the embedded list equals `/media?<facet>`
+  across pages in the same order. That makes the owner's 2026-09-30 parity check a test. It's then
+  deleted *with* the bespoke path.
+- A fixture tag with 600 videos: `/media?tag=` `total` = 600 across pages.
+- `q` on a facet: `/media?tag=X&q=foo` is the subset of `tag=X` whose titles match.
+- The MCP tools, and any other readers of the embedded entity video lists (ADR-121 action item 6),
+  keep a passing test. If none reads the lists, removing the embed is a pure deletion and the API
+  test asserts the field is gone.
+
+### 23.4 SPA unit (Vitest)
+
+- **`web/src/lib/run.test.ts`, the run module (D7; risk 4). Every function is pure, with storage
+  and fetch injected.**
+  - **`shuffle(ids, seed)`:**
+    - output is a permutation (same multiset, same length) and the input isn't mutated;
+    - same seed gives the same order;
+    - two fixed seeds give different orders on 20 ids;
+    - `[]` and `[x]` pass through unchanged.
+    - **Unbiased:** over 20 000 seeds of `[0..4]`, each value lands in each position within ±5 % of
+      uniform. This is the test that catches the classic off-by-one, `j = rand·i` instead of
+      `rand·(i+1)`.
+  - **Toggle (RD11):**
+    - on: `history` and the current item are identical before and after, and the remaining items
+      are a permutation of the remaining items before;
+    - off: the remaining items are in `ids` index order;
+    - off then on: a different order (new seed);
+    - no item in `history` reappears before the pass ends;
+    - *Previous* walks `history` in the order played, across two toggles.
+  - **Repeat (RD12):**
+    - repeat off: `ended` on the last item does nothing (F69);
+    - repeat on: the injected fetch is called again at the pass end;
+    - an id added to the source mid-pass is in the next pass;
+    - a shuffled pass gets a new seed;
+    - the new pass's first item ≠ the item that just ended, checked over many seeds;
+    - with `n = 2` that forces the swap every time;
+    - `n = 1` is §23.8 Q4;
+    - the success metric: a 3-item shuffled run walks 7 items with no back-to-back repeat.
+  - **Mode entry:**
+    - `play_shuffled` starts runs from a playlist's tiles in shuffle mode (RD13);
+    - a `random`-sorted source gives the same order for Play all and Shuffle (RD10: the server order
+      is used, no second permutation).
+  - **Persistence:**
+    - round-trip through a fake `sessionStorage`;
+    - if storage throws or is empty, the run rebuilds from the URL source (`from=` / `playlist=`)
+      **with no autoplay intent**;
+    - the seed never appears in a grid URL.
+- **`playlistContext.test.ts` → run-source tests.** F69's `?playlist=&seed=` becomes a
+  playlist-source run (D7). **Every existing assertion is ported case for case**, the
+  play-intent-consumed-once and reload-never-autoplays cases above all. Old `?playlist=` links still
+  parse. Deleting a case to make the port fit counts as a regression.
+- **`filters.test.ts`, the grid's query (RD1, RD7).** The query the grid-header actions read is
+  built by the same serialiser as the URL the grid fetched; assert equality over the existing
+  filter fixtures. On an entity page the title-box value appears as `q`. The run's `from=` equals
+  the server's canonical form for the same filters, so a reload doesn't fork the source.
+- **`api.test.ts`.** `createSmartPlaylist`, `updatePlaylist({query | play_shuffled})`,
+  `freezePlaylist` and `mediaIds` each use `redirect:'manual'`. This also closes §14's standing gap
+  for the F69 calls.
+
+### 23.5 Browser harnesses
+
+- **Geometry (§12), extended to the new surfaces.**
+  - The count line with the split button on browse, person, tag, studio and film, and the run strip
+    with its shuffle and repeat toggles.
+  - Phone width (375) and desktop.
+  - Asserted: no horizontal overflow; the split button's two halves share one row and one border
+    box; the run label truncates rather than wrapping the strip.
+- **Navigation (§20.6).**
+  - *Play all* lands on `/media/{first}?run=…`. A reload keeps the strip at the same position with
+    **no autoplay**.
+  - Back returns to the grid at its scroll position (ADR-118 interplay).
+  - The `<video>` element is the same object before and after *Next* (the dynamic half of §14's
+    element identity, muted per the dev-silence rule).
+- **`playerElement.test.ts` keeps passing.** If the run work restructures `routes/media/[id]`, the
+  one-`<video>`-outside-every-block shape still holds.
+
+### 23.6 Live QA (Cinémathèque only; numbered and tagged)
+
+Handoff QA 1–8, plus the spec's leading success metrics:
+
+1. `[smoke]` Count line + *Play all ▾* on browse, person, tag, studio and film. None on search,
+   Related or Recently Added. A visitor sees *Play all* and never *Save as playlist…*. (handoff 1, P0-2)
+2. `[smoke]` *Play all* from each of the five sources reaches the last item with zero clicks after
+   the first, using short fixture clips with the dev tab muted. (P0-3, success metric)
+3. `[agent]` Browse ⋯ no longer lists *Save as playlist…*; the count line does. (handoff 2)
+4. `[agent]` The save form defaults to Smart, and Snapshot makes an F69 playlist with no chip.
+   Smart's toast count equals the grid's count. (handoff 3, P0-4)
+5. `[agent]` Run strip toggles: `aria-pressed` flips, the current item stays put, and "· shuffled"
+   appears. (handoff 4, P1-4)
+6. `[agent]` Smart page: chip, *Edit filter* round-trips to the same grid, no *Manual order*, and
+   *Freeze* removes the chip. (handoff 5, P0-7, P0-8)
+7. `[agent]` *Always shuffle* on: the main half reads *Shuffle* and the menu offers *Play in order*.
+   A visitor on a public copy gets a shuffled run. (handoff 6, P0-12)
+8. `[agent]` Stale notice for a deleted tag; the visitor variant has no actions. (handoff 7, P0-9)
+9. `[agent]` The 600-video tag shows the same count on its page, in its Play all run (`n of 600`),
+   and in a smart playlist saved from it. (success metric)
+10. `[agent]` Shuffle on a 20-item grid, twice: two different orders, each with all 20 once. The
+    grid stays date-sorted. (P0-11)
+11. `[human]` The split button reads as one control on both variants, and the caret divider is
+    visible on the solid variant. (handoff 8)
+12. `[human]` PiP opened on item 1 is still open on item 2 of a *grid* run, not only a playlist run.
+    (P0-3, F69 P0-9)
+
+### 23.7 Mutation checks (run once the code exists)
+
+Each should turn the named test red:
+
+- Let `canonicalPlaylistQuery` pass unknown keys through → the §23.2 400 table.
+- Stop stripping `sort` → the §23.2 strip rows, and §23.3 parity (sort would live in two homes).
+- Rewrite refs by string replace → the §23.2 substring-safety row.
+- Drop the rewrite call from `MergeEntitiesWithAffectedVideos` → the §23.2 studio merge-path test.
+- Evaluate a stale query with the dead clause dropped → the §23.2 stale "not evaluated" assertion.
+- Hydrate smart tiles without the shared redaction helper → the §23.3 visitor tile byte-equality.
+- Serve `/media/ids` without `listMedia`'s owner gate → the §23.3 401 rows.
+- Remove the D4 read-time re-check → the §23.3 repo-bypass row.
+- Off-by-one in Fisher–Yates → the §23.4 bias test.
+- Reshuffle `history` on toggle → the §23.4 toggle-on row.
+- Skip the first-item swap on repeat → the §23.4 `n = 2` row.
+
+### 23.8 Decisions the tests assume (confirm at implementation)
+
+The spec and ADR are silent on these. The tests above pin the stated default, and a different
+answer changes only the named row.
+
+1. **A video's detail `playlists` list.** F69 lists the playlists a video belongs to. Does a video
+   that *matches* a smart playlist list it? Default: **no**. Membership is computed, and evaluating
+   every smart query per detail view is the cost D3 declined. The tests assert smart playlists are
+   absent from it.
+2. **`{query, from_query}` together** → 400. They mean opposite things.
+3. **`POST /freeze` on a snapshot playlist** → 400, not a no-op 200.
+4. **Repeat with one item.** RD12's "never starts with the item that just ended" can't hold. Default:
+   repeat replays it (a one-item loop). The alternative is to disable repeat at `n = 1`.
+5. **The owner reading a public playlist whose query is owner-only** (only reachable through a
+   repo-level write). D4 says the playlist reports `owner_only` "instead of returning anything".
+   The tests apply that to **every** reader, owner included, so the notice shows and the owner fixes
+   the playlist.
+
+### 23.9 Coverage targets and standing gaps
+
+**Target:** every P0 acceptance checkbox and both P1 run rows (P1-4, P1-5) trace to a named Go or
+Vitest test, or to a §23.6 item. The merge, stale and visibility rows are Go-tested, never QA-only
+(spec success metric). The run module stays pure and is fully covered under Vitest, as the
+component harness doesn't exist (HOLODEX-395).
+
+**Story split:** §23.3's HOLODEX-501 block ships with 501. §23.4's run module, `/media/ids` and
+§23.5 ship with 500. The rest ship with 58.
+
+**Gaps:**
+- `PlaySplitButton`, the save form, the run strip toggles and the smart page are live-QA only (no
+  component harness, HOLODEX-395, as in §14 and §22).
+- A run is per-tab. Two tabs running the same source aren't tested, and none is planned (D7: the run
+  is disposable view state).
+- Live-evaluation cost is unmeasured. D3 defers a cache "until a measured slow read", so add a
+  non-gating `BenchmarkSmartPlaylistRead` over the stress fixture's largest facet. That makes the
+  measurement exist before anyone argues for the cache.
+- Safari's autoplay after a run hand-off is a §14 human item, unchanged.

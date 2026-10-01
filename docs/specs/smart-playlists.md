@@ -378,5 +378,6 @@ Three stories under HOLODEX-16, in order:
 Gates: **spec** (this document) · **ADR**
 ([ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md): stored-query format and
 versioning, live evaluation, merge rewriting, runs — supersedes ADR-104 D3's "no `frozen_query`") · **design handoff** (grid-header actions,
-run context label, smart playlist page, browse edit mode; SVG committed) · **testing strategy** ·
+run context label, smart playlist page, browse edit mode; SVG committed) · **testing strategy**
+([§23](../testing-strategy.md#23-smart-playlists-play-all-and-shuffle-f75-holodex-58--500--501-adr-121)) ·
 **security review** (visitor evaluation of a public live query, OQ1).
