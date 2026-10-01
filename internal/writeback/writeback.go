@@ -561,13 +561,14 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 // than merging into it, so passing only the current batch
 // would erase every tag an earlier batch had written. Simple elements whose
 // Name matches an incoming field are dropped in favour of the new values;
-// everything else is carried through verbatim. Each field is one <Simple>
+// everything else is carried through verbatim, less any XML-illegal characters
+// (stripIllegalXML). Each field is one <Simple>
 // holding fileValue (multi-value genres comma-joined, as the ffmpeg path writes
 // them), and names are uppercased per Matroska convention. An empty existing document yields a fresh single-Tag document.
 func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 	var doc mkvTagsDoc
 	if existing != "" {
-		if err := xml.Unmarshal([]byte(existing), &doc); err != nil {
+		if err := xml.Unmarshal([]byte(stripIllegalXML(existing)), &doc); err != nil {
 			return "", fmt.Errorf("parse existing tags: %w", err)
 		}
 	}
@@ -648,7 +649,21 @@ func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 	}
 }
 
+// stripIllegalXML drops characters XML 1.0 forbids even as character references:
+// C0 controls other than tab, LF and CR, plus U+FFFE/U+FFFF. mkvextract echoes
+// tag values verbatim, so one stray form feed would otherwise make the whole
+// document unparseable (HOLODEX-504).
+func stripIllegalXML(s string) string {
+	return strings.Map(func(r rune) rune {
+		if (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0xFFFE || r == 0xFFFF {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func xmlEscape(s string) string {
+	s = stripIllegalXML(s)
 	s = strings.ReplaceAll(s, "&", "&amp;")
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
