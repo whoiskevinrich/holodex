@@ -11,8 +11,11 @@
 	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
 	import HotkeySheet from '$lib/components/shared/HotkeySheet.svelte';
 	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '$lib/actions/hotkey.svelte';
+	import { silenceMediaInDev } from '$lib/devSilence';
 
 	let { children } = $props();
+
+	$effect(silenceMediaInDev);
 
 	let searchInput = $state<HTMLInputElement | null>(null);
 	let searchFormEl = $state<HTMLFormElement | null>(null);
