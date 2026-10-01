@@ -294,15 +294,30 @@ type Category struct {
 // set with a position; Sort is any browse sort key or PlaylistSortManual, which
 // alone reads position. Visibility is a read gate (ADR-104 D5): a visitor only
 // ever sees PlaylistPublic rows. ItemCount counts un-trashed members.
+//
+// A playlist is smart iff Query is non-nil (F75, ADR-121 D1): Query is the canonical
+// /media filter string, re-run on every read, and there is no membership — the API
+// fills ItemCount from the live evaluation. PlayShuffled ("always shuffle", D8)
+// applies to any playlist.
 type Playlist struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	Sort       string `json:"sort"`
-	Visibility string `json:"visibility"`
-	ItemCount  int    `json:"item_count"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
+	ID           int64   `json:"id"`
+	Name         string  `json:"name"`
+	Sort         string  `json:"sort"`
+	Visibility   string  `json:"visibility"`
+	ItemCount    int     `json:"item_count"`
+	Query        *string `json:"query"`
+	QueryVersion *int    `json:"query_version,omitempty"`
+	PlayShuffled bool    `json:"play_shuffled"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }
+
+// Smart reports whether the playlist is a stored query rather than a membership set.
+func (p Playlist) Smart() bool { return p.Query != nil }
+
+// PlaylistQueryVersion is the stored-query grammar version (ADR-121 D2). Bump it only
+// when an existing filter key changes meaning, with a migration rewriting stored queries.
+const PlaylistQueryVersion = 1
 
 // Playlist sort/visibility vocabulary (ADR-104 D2/D5). The browse sort keys are
 // validated by repo.ValidSort; PlaylistSortManual is meaningful only where a

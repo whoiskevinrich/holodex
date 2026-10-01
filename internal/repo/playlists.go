@@ -1,10 +1,14 @@
 package repo
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 
 	"holodex/internal/model"
@@ -34,12 +38,79 @@ const liveMemberCount = `(SELECT COUNT(*) FROM playlist_videos pv
 	JOIN videos v ON v.id = pv.video_id
 	WHERE pv.playlist_id = p.id AND v.active = 1 AND v.deleted_at IS NULL)`
 
-const playlistColumns = `p.id, p.name, p.sort, p.visibility, p.created_at, p.updated_at, ` + liveMemberCount
+const playlistColumns = `p.id, p.name, p.sort, p.visibility, p.query, p.query_version, p.play_shuffled,
+	p.created_at, p.updated_at, ` + liveMemberCount
 
 func scanPlaylist(s rowScanner) (model.Playlist, error) {
 	var p model.Playlist
-	err := s.Scan(&p.ID, &p.Name, &p.Sort, &p.Visibility, &p.CreatedAt, &p.UpdatedAt, &p.ItemCount)
+	var query sql.NullString
+	var version sql.NullInt64
+	err := s.Scan(&p.ID, &p.Name, &p.Sort, &p.Visibility, &query, &version, &p.PlayShuffled,
+		&p.CreatedAt, &p.UpdatedAt, &p.ItemCount)
+	if query.Valid {
+		p.Query = &query.String
+		v := int(version.Int64)
+		p.QueryVersion = &v
+	}
 	return p, err
+}
+
+// ErrSmartPlaylist refuses a membership write to a smart playlist, which has no
+// membership (ADR-121 D1, spec P0-6).
+var ErrSmartPlaylist = errors.New("smart playlist has no membership")
+
+// PlaylistIDFacets maps each browse id facet a stored query can name to the table its
+// ids live in (ADR-121 D5): the keys a merge rewrites and the read-time stale check
+// looks up. All four tables hard-delete, so a missing row is a deleted (or merged-away)
+// entity.
+var PlaylistIDFacets = map[string]string{
+	"person":      "people",
+	"tag":         "tags",
+	"studio_id":   "studios",
+	"category_id": "categories",
+}
+
+// mergeFacetKey is the stored-query key a merge of each entity type rewrites (D5).
+// Films have no browse facet, so a film merge touches no stored query.
+var mergeFacetKey = map[string]string{
+	model.EnrichEntityPerson: "person",
+	model.EnrichEntityStudio: "studio_id",
+	model.EntityTag:          "tag",
+}
+
+// EncodePlaylistQuery is the normalising half of the canonical stored query (ADR-121
+// D2): empty values dropped, repeated values de-duplicated, id facets sorted
+// numerically and other repeated keys lexically, keys sorted by url.Values.Encode. The
+// API's canonicalPlaylistQuery validates first; the merge rewrite re-normalises with
+// this alone, so both writers produce the same string for the same set. Id values must
+// already be valid positive integers.
+func EncodePlaylistQuery(q url.Values) string {
+	out := url.Values{}
+	for key, vals := range q {
+		seen := map[string]bool{}
+		var kept []string
+		for _, v := range vals {
+			if v == "" || seen[v] {
+				continue
+			}
+			seen[v] = true
+			kept = append(kept, v)
+		}
+		if len(kept) == 0 {
+			continue
+		}
+		if _, isID := PlaylistIDFacets[key]; isID {
+			slices.SortFunc(kept, func(a, b string) int {
+				x, _ := strconv.ParseInt(a, 10, 64)
+				y, _ := strconv.ParseInt(b, 10, 64)
+				return cmp.Compare(x, y)
+			})
+		} else {
+			slices.Sort(kept)
+		}
+		out[key] = kept
+	}
+	return out.Encode()
 }
 
 // ListPlaylists returns every playlist (owner) or only the public ones (visitor),
@@ -89,9 +160,10 @@ func (r *Repo) CountPublicPlaylists(ctx context.Context) (int, error) {
 
 // CreatePlaylist creates a playlist and, when videoIDs is non-empty, its
 // membership in the same transaction with position = rank in videoIDs (the
-// snapshot producer, ADR-104 D3). Validation of name/sort/visibility is the
-// handler's; this trusts its arguments.
-func (r *Repo) CreatePlaylist(ctx context.Context, name, sort, visibility string, videoIDs []int64) (*model.Playlist, error) {
+// snapshot producer, ADR-104 D3). A non-nil query makes it a smart playlist
+// (ADR-121 D1) at the current query version; the caller passes no videoIDs then.
+// Validation of name/sort/visibility/query is the handler's; this trusts its arguments.
+func (r *Repo) CreatePlaylist(ctx context.Context, name, sort, visibility string, query *string, videoIDs []int64) (*model.Playlist, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
@@ -101,8 +173,14 @@ func (r *Repo) CreatePlaylist(ctx context.Context, name, sort, visibility string
 	}
 	defer tx.Rollback()
 
+	var version *int
+	if query != nil {
+		v := model.PlaylistQueryVersion
+		version = &v
+	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO playlists (name, sort, visibility) VALUES (?, ?, ?)`, name, sort, visibility)
+		`INSERT INTO playlists (name, sort, visibility, query, query_version) VALUES (?, ?, ?, ?, ?)`,
+		name, sort, visibility, query, version)
 	if err != nil {
 		return nil, fmt.Errorf("create playlist: %w", err)
 	}
@@ -154,8 +232,11 @@ func insertPlaylistVideos(ctx context.Context, tx *sql.Tx, playlistID int64, vid
 }
 
 // PlaylistPatch carries the optional fields UpdatePlaylist sets; nil = unchanged.
+// Query replaces a smart playlist's stored query (Edit filter → Update); the handler
+// only sends it for a playlist that is already smart.
 type PlaylistPatch struct {
-	Name, Sort, Visibility *string
+	Name, Sort, Visibility, Query *string
+	PlayShuffled                  *bool
 }
 
 // UpdatePlaylist applies patch and bumps updated_at. ErrNotFound for an unknown id.
@@ -176,6 +257,14 @@ func (r *Repo) UpdatePlaylist(ctx context.Context, id int64, patch PlaylistPatch
 	if patch.Visibility != nil {
 		sets = append(sets, "visibility = ?")
 		args = append(args, *patch.Visibility)
+	}
+	if patch.Query != nil {
+		sets = append(sets, "query = ?", "query_version = ?")
+		args = append(args, *patch.Query, model.PlaylistQueryVersion)
+	}
+	if patch.PlayShuffled != nil {
+		sets = append(sets, "play_shuffled = ?")
+		args = append(args, *patch.PlayShuffled)
 	}
 	args = append(args, id)
 	res, err := r.db.ExecContext(ctx, `UPDATE playlists SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)
@@ -211,14 +300,18 @@ func (r *Repo) AddPlaylistVideo(ctx context.Context, playlistID, videoID int64) 
 	}
 	defer tx.Rollback()
 
-	var exists int
+	var exists, smart int
 	if err := tx.QueryRowContext(ctx,
-		`SELECT (SELECT COUNT(*) FROM playlists WHERE id = ?) * (SELECT COUNT(*) FROM videos WHERE id = ?)`,
-		playlistID, videoID).Scan(&exists); err != nil {
+		`SELECT (SELECT COUNT(*) FROM playlists WHERE id = ?) * (SELECT COUNT(*) FROM videos WHERE id = ?),
+		        (SELECT COUNT(*) FROM playlists WHERE id = ? AND query IS NOT NULL)`,
+		playlistID, videoID, playlistID).Scan(&exists, &smart); err != nil {
 		return err
 	}
 	if exists == 0 {
 		return ErrNotFound
+	}
+	if smart > 0 {
+		return ErrSmartPlaylist
 	}
 	if err := insertPlaylistVideos(ctx, tx, playlistID, []int64{videoID}); err != nil {
 		return err
@@ -230,11 +323,20 @@ func (r *Repo) AddPlaylistVideo(ctx context.Context, playlistID, videoID int64) 
 	return tx.Commit()
 }
 
-// RemovePlaylistVideo drops one membership row. ErrNotFound when it was not a member.
+// RemovePlaylistVideo drops one membership row. ErrNotFound when it was not a member;
+// ErrSmartPlaylist for a smart playlist, which has no members to remove.
 func (r *Repo) RemovePlaylistVideo(ctx context.Context, playlistID, videoID int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
+	var smart int
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM playlists WHERE id = ? AND query IS NOT NULL`, playlistID).Scan(&smart); err != nil {
+		return err
+	}
+	if smart > 0 {
+		return ErrSmartPlaylist
+	}
 	res, err := r.db.ExecContext(ctx,
 		`DELETE FROM playlist_videos WHERE playlist_id = ? AND video_id = ?`, playlistID, videoID)
 	if err != nil {
@@ -308,6 +410,139 @@ func (r *Repo) PlaylistsForVideo(ctx context.Context, videoID int64, publicOnly 
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// FreezePlaylist turns a smart playlist into an ADR-104 snapshot (ADR-121 D1, spec
+// P0-7): videoIDs — the query's result in the playlist's order, evaluated by the
+// caller — become its membership with position = rank, and query/query_version are
+// nulled, in one transaction. ErrNotFound for an unknown id; ErrNotSmart if it is
+// already a snapshot (a second Freeze must not append the set again).
+func (r *Repo) FreezePlaylist(ctx context.Context, id int64, videoIDs []int64) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	res, err := tx.ExecContext(ctx,
+		`UPDATE playlists SET query = NULL, query_version = NULL,
+		        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+		 WHERE id = ? AND query IS NOT NULL`, id)
+	if err != nil {
+		return fmt.Errorf("freeze playlist: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		var exists int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM playlists WHERE id = ?`, id).Scan(&exists); err != nil {
+			return err
+		}
+		if exists == 0 {
+			return ErrNotFound
+		}
+		return ErrNotSmart
+	}
+	if err := insertPlaylistVideos(ctx, tx, id, videoIDs); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ErrNotSmart refuses a smart-only operation (Freeze, a query update) on a snapshot playlist.
+var ErrNotSmart = errors.New("not a smart playlist")
+
+// rewriteSmartPlaylistRefs follows a merge into every stored query (ADR-121 D5): each
+// smart playlist naming mergedID under the entity type's facet key is rewritten to
+// canonicalID and re-normalised. Runs inside the merge's transaction so a merge and
+// its query rewrite land together. Smart playlists number in the tens, so a scan of
+// them is cheaper than keeping a second copy of their references.
+func rewriteSmartPlaylistRefs(ctx context.Context, tx *sql.Tx, entityType string, canonicalID, mergedID int64) error {
+	key, ok := mergeFacetKey[entityType]
+	if !ok {
+		return nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT id, query FROM playlists WHERE query IS NOT NULL`)
+	if err != nil {
+		return fmt.Errorf("smart playlist refs: %w", err)
+	}
+	type change struct {
+		id    int64
+		query string
+	}
+	var changes []change
+	from, to := strconv.FormatInt(mergedID, 10), strconv.FormatInt(canonicalID, 10)
+	for rows.Next() {
+		var id int64
+		var stored string
+		if err := rows.Scan(&id, &stored); err != nil {
+			rows.Close()
+			return err
+		}
+		q, err := url.ParseQuery(stored)
+		if err != nil || !slices.Contains(q[key], from) {
+			continue // a stored query is always canonical; an unparsable one is left for the stale check
+		}
+		for i, v := range q[key] {
+			if v == from {
+				q[key][i] = to
+			}
+		}
+		changes = append(changes, change{id, EncodePlaylistQuery(q)})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, c := range changes {
+		if _, err := tx.ExecContext(ctx, `UPDATE playlists SET query = ? WHERE id = ?`, c.query, c.id); err != nil {
+			return fmt.Errorf("rewrite smart playlist %d: %w", c.id, err)
+		}
+	}
+	return nil
+}
+
+// MissingFacetIDs returns, per id facet key, the ids in refs whose entity no longer
+// exists (ADR-121 D5's read-time stale check). Keys outside PlaylistIDFacets are ignored.
+func (r *Repo) MissingFacetIDs(ctx context.Context, refs map[string][]int64) (map[string][]int64, error) {
+	missing := map[string][]int64{}
+	for key, ids := range refs {
+		table, ok := PlaylistIDFacets[key]
+		if !ok || len(ids) == 0 {
+			continue
+		}
+		args := make([]any, len(ids))
+		for i, id := range ids {
+			args[i] = id
+		}
+		rows, err := r.db.QueryContext(ctx,
+			`SELECT id FROM `+table+` WHERE id IN (`+placeholders(len(ids))+`)`, args...)
+		if err != nil {
+			return nil, fmt.Errorf("stale refs %s: %w", key, err)
+		}
+		found := map[int64]bool{}
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			found[id] = true
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		for _, id := range ids {
+			if !found[id] {
+				missing[key] = append(missing[key], id)
+			}
+		}
+	}
+	return missing, nil
 }
 
 func rowsAffectedOrNotFound(res sql.Result) error {

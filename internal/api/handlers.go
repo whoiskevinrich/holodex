@@ -513,38 +513,56 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list media", err)
 		return
 	}
-	h.prepareThumbnails(items)
-	// Browse-title resolution (F27): any field with browse:true overwrites video.Title
-	// with the highest-precedence source (e.g. tmdb:title before file:title).
-	if h.mappings != nil {
-		h.applyBrowseTitles(r.Context(), items, h.mappings.Current().Fields())
+	if err := h.hydrateTiles(r.Context(), items, isOwner); err != nil {
+		h.fail(w, "list media", err)
+		return
 	}
-	h.applyPartsTo(r.Context(), items)
-	if isOwner {
-		if err := h.attachVideoCompleteness(r.Context(), items); err != nil {
-			h.fail(w, "list media", err)
-			return
-		}
-	}
-	redactFileMetadataForVisitors(items, isOwner)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
 }
 
+// hydrateTiles readies a page of browse rows for the grid tile: thumbnails, browse-title
+// resolution (F27: any field with browse:true overwrites video.Title with the
+// highest-precedence source, e.g. tmdb:title before file:title), parts, the owner's
+// completeness badge, and the visitor redaction. listMedia and the playlist read share
+// it so a tile renders, and redacts, identically on both (ADR-121 D3).
+func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
+	h.prepareThumbnails(items)
+	if h.mappings != nil {
+		h.applyBrowseTitles(ctx, items, h.mappings.Current().Fields())
+	}
+	h.applyPartsTo(ctx, items)
+	if isOwner {
+		if err := h.attachVideoCompleteness(ctx, items); err != nil {
+			return err
+		}
+	}
+	redactFileMetadataForVisitors(items, isOwner)
+	return nil
+}
+
 // mediaFilterFor is the one path from a browse query to the filter a browse-visible
-// read runs (ADR-121 D3): it parses with videoFilterFromQuery, applies browse's posture
-// (full-film videos hidden, RD6; the missing-facet filter), and refuses owner-only inputs
-// for a visitor with 401, written to w. listMedia and GET /media/ids share it so an id
-// list can never include a video, or accept an input, the grid wouldn't.
+// read runs (ADR-121 D3): browseFilter's parse and posture, then owner-only inputs
+// refused for a visitor with 401, written to w. listMedia and GET /media/ids share it
+// so an id list can never include a video, or accept an input, the grid wouldn't.
 func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.Values) (repo.VideoFilter, bool) {
-	f := h.videoFilterFromQuery(q)
-	f.HideFullFilmVideos = h.filmsEnabled
-	f.MissingFacets = q["missing_facet"]
+	f := h.browseFilter(q)
 	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return f, false
 	}
 	return f, true
+}
+
+// browseFilter parses a browse query with videoFilterFromQuery and applies browse's
+// posture: full-film videos hidden (RD6) and the missing-facet filter. It does not gate
+// owner-only inputs — mediaFilterFor does that for a request, and the smart-playlist
+// read reports them as a stale ref instead (ADR-121 D4).
+func (h *Handlers) browseFilter(q url.Values) repo.VideoFilter {
+	f := h.videoFilterFromQuery(q)
+	f.HideFullFilmVideos = h.filmsEnabled
+	f.MissingFacets = q["missing_facet"]
+	return f
 }
 
 // listMediaIDs handles GET /media/ids (ADR-121 D7): the ordered ids of every video a

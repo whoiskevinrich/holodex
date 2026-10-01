@@ -228,16 +228,16 @@ source makes it rebuildable (ADR-118 is the same pattern for list scroll).
 
 ## Action Items
 
-1. [ ] Migration: `query`, `query_version`, `play_shuffled` on `playlists` (claim the number; see
+1. [x] Migration: `query`, `query_version`, `play_shuffled` on `playlists` (claim the number; see
    `.claude/rules/migrations.md`).
-2. [ ] `canonicalPlaylistQuery` + tests: rejects unknown keys, strips sort / fetch keys, normalisation
+2. [x] `canonicalPlaylistQuery` + tests: rejects unknown keys, strips sort / fetch keys, normalisation
    is idempotent, and equal sets give equal strings.
-3. [ ] Smart playlist read path (D3) with a shared tile-hydration helper used by `listMedia`, the
+3. [x] Smart playlist read path (D3) with a shared tile-hydration helper used by `listMedia`, the
    visibility 404 ahead of the stale and owner-only checks (handler test: a visitor on a private
    playlist with stale refs gets the unknown-id 404), and `mediaFilterFor` as the one filter builder.
-4. [ ] Owner-only refusal (D4) at save, update, visibility and sort PATCH, plus the read-time
+4. [x] Owner-only refusal (D4) at save, update, visibility and sort PATCH, plus the read-time
    re-check; handler tests in visitor mode.
-5. [ ] `rewriteSmartPlaylistRefs` called from both merge transactions; a test per merge path; a test
+5. [x] `rewriteSmartPlaylistRefs` called from both merge transactions; a test per merge path; a test
    that a stale id or vanished mapped key returns `stale_refs` and no items.
 6. [ ] HOLODEX-501: entity grids via `/media` with paging, title box → `q`. Check MCP and other
    readers of the embedded video lists before removing them.
