@@ -54,6 +54,10 @@ func TestEntityGridUncapped(t *testing.T) {
 	if len(seen) != n {
 		t.Errorf("paged through %d videos, want %d", len(seen), n)
 	}
+	// A Play all run over the same grid gets all of them in one list (ADR-121 D7).
+	if got := mediaIDs(t, fmt.Sprintf("%s/api/v1/media/ids?tag=%d", srv.URL, tagID)); len(got.IDs) != n {
+		t.Errorf("/media/ids returned %d ids, want %d", len(got.IDs), n)
+	}
 
 	// The detail payloads carry the entity, not a video list.
 	for _, path := range []string{

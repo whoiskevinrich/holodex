@@ -337,6 +337,7 @@ func (h *Handlers) controlsUnauthenticated() bool {
 // Mount registers the REST routes under the given router.
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
+	r.Get("/media/ids", h.listMediaIDs) // static segment; chi matches it ahead of {id}
 	r.Get("/media/{id}", h.getMedia)
 	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
@@ -498,11 +499,8 @@ func (h *Handlers) Mount(r chi.Router) {
 // D2/D3), so they page like every other sort. For the owner, every item also
 // carries `completeness` (F65.5) — drained first so the badge is current.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	f := h.videoFilterFromQuery(q)
-	f.HideFullFilmVideos = h.filmsEnabled
-	f.MissingFacets = q["missing_facet"]
-	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
+	if !ok {
 		return
 	}
 	isOwner := h.auth.authorized(r)
@@ -532,6 +530,42 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items, "total": total, "limit": f.Limit, "offset": f.Offset,
 	})
+}
+
+// mediaFilterFor is the one path from a browse query to the filter a browse-visible
+// read runs (ADR-121 D3): it parses with videoFilterFromQuery, applies browse's posture
+// (full-film videos hidden, RD6; the missing-facet filter), and refuses owner-only inputs
+// for a visitor with 401, written to w. listMedia and GET /media/ids share it so an id
+// list can never include a video, or accept an input, the grid wouldn't.
+func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.Values) (repo.VideoFilter, bool) {
+	f := h.videoFilterFromQuery(q)
+	f.HideFullFilmVideos = h.filmsEnabled
+	f.MissingFacets = q["missing_facet"]
+	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+		return f, false
+	}
+	return f, true
+}
+
+// listMediaIDs handles GET /media/ids (ADR-121 D7): the ordered ids of every video a
+// /media query matches, uncapped and unpaged (limit/offset are ignored), for a Play
+// all / Shuffle run over a grid. Same filter and gate as listMedia. A `random` sort
+// echoes the seed it ordered by, so the client can reproduce the grid's order.
+func (h *Handlers) listMediaIDs(w http.ResponseWriter, r *http.Request) {
+	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
+	if !ok {
+		return
+	}
+	ids, err := h.repo.ListVideoIDs(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list media ids", err)
+		return
+	}
+	body := map[string]any{"ids": ids}
+	if f.Sort == "random" {
+		body["seed"] = f.Seed
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // videoFilterFromQuery builds a VideoFilter from GET /media's query params.
