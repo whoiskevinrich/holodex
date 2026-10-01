@@ -160,7 +160,7 @@ func mediaTotal(t *testing.T, srv *httptest.Server, query string) int {
 }
 
 // TestStudioDetailPayload checks GET /studios/{id} carries resolved[] in the record
-// vocabulary with no in_sync (F38 RD5), and its videos.
+// vocabulary with no in_sync (F38 RD5), and that its videos are reachable via /media.
 func TestStudioDetailPayload(t *testing.T) {
 	srv, _, id := studioServer(t, "")
 	dec := srv.URL + "/api/v1/media/" + itoa(id) + "/fields/studio/decision"
@@ -184,7 +184,6 @@ func TestStudioDetailPayload(t *testing.T) {
 	}
 	var body struct {
 		Studio   model.Studio     `json:"studio"`
-		Items    []model.Video    `json:"items"`
 		Resolved []map[string]any `json:"resolved"`
 	}
 	if err := json.NewDecoder(r2.Body).Decode(&body); err != nil {
@@ -193,8 +192,9 @@ func TestStudioDetailPayload(t *testing.T) {
 	if body.Studio.Name != "Acme" {
 		t.Errorf("studio name = %q, want Acme", body.Studio.Name)
 	}
-	if len(body.Items) != 1 {
-		t.Errorf("studio videos = %d, want 1", len(body.Items))
+	// The videos are not embedded; the page reads /media?studio_id= (HOLODEX-501).
+	if total := mediaTotal(t, srv, "studio_id="+itoa(sid)); total != 1 {
+		t.Errorf("studio videos = %d, want 1", total)
 	}
 	// No field carries in_sync (record entity has no file), and the name field
 	// resolves in the record vocabulary.

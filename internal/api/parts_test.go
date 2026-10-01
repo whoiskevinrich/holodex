@@ -141,7 +141,8 @@ func TestListMedia_CarriesPart(t *testing.T) {
 }
 
 // TestListSurfaces_CarryPart covers the list paths that never went through
-// applyBrowseTitles at all — search and the entity page's video list — as a visitor,
+// applyBrowseTitles at all — search, plus the person page's grid, now /media with the
+// facet (HOLODEX-501) — as a visitor,
 // since the pill is visible to everyone (owner/visitor gating rule).
 func TestListSurfaces_CarryPart(t *testing.T) {
 	f := partsServer(t)
@@ -156,9 +157,10 @@ func TestListSurfaces_CarryPart(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("person id: %v (found=%v)", err, ok)
 	}
-	code, body = getJSONTok(t, f.srv.URL+"/api/v1/people/"+itoa(pid), "")
+	// The person page's grid is /media?person=<id> (HOLODEX-501).
+	code, body = getJSONTok(t, f.srv.URL+"/api/v1/media?person="+itoa(pid), "")
 	if code != 200 {
-		t.Fatalf("GET /people/{id} = %d", code)
+		t.Fatalf("GET /media?person= = %d", code)
 	}
 	items, _ := body["items"].([]any)
 	assertTriplet(t, partsByID(t, items), f)

@@ -50,7 +50,10 @@
 	// gives it something beyond `name` to curate — OR the owner has a studio-capable
 	// provider to enrich from (S3).
 	let studio = $state<Studio | null>(null);
-	let videos = $state<Video[]>([]);
+	// The grid's unfiltered count, bound up from EntityVideos (HOLODEX-501).
+	let videoTotal = $state<number | null>(null);
+	// Bumped by reloadDetail so a mutation that changes the set (a merge-in) re-reads the grid.
+	let gridRefresh = $state(0);
 	let resolved = $state<ResolvedField[]>([]);
 	// Owner-curated routing aliases (F43, ADR-061), bound into AliasPanel. A studio's name
 	// is derived identity, renamed via the hero's NameEditControl (HOLODEX-269) — the
@@ -155,7 +158,6 @@
 
 	function apply(res: StudioDetailResponse) {
 		studio = res.studio;
-		videos = res.items ?? [];
 		resolved = res.resolved ?? [];
 		aliases = res.studio.aliases ?? [];
 		skippedAliases = res.skipped_aliases ?? [];
@@ -194,6 +196,7 @@
 	async function reloadDetail() {
 		try {
 			apply(await api.getStudio(id));
+			gridRefresh++;
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
@@ -320,7 +323,9 @@
 	<EntityVideos
 		backHref="/studios"
 		backLabel="All studios"
-		{videos}
+		facet={{ studio_id: [id] }}
+		bind:total={videoTotal}
+		refreshKey={gridRefresh}
 		empty="No videos for this studio."
 		scrollKey={`studio:${id}`}
 	>
@@ -388,7 +393,7 @@
 				</div>
 			{/if}
 			<EntityVideoMeta
-				count={videos.length}
+				count={videoTotal}
 				links={externalLinks}
 				entityName={studio?.name ?? ''}
 			/>

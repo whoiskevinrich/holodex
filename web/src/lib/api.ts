@@ -417,7 +417,7 @@ export const api = {
 		get<{ items: Tag[] }>(`/tags${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
 
 	getTag: (id: number, fetchFn?: typeof fetch) =>
-		get<{ tag: Tag; items: Video[]; total: number }>(`/tags/${id}`, fetchFn),
+		get<{ tag: Tag }>(`/tags/${id}`, fetchFn),
 
 	// Tag hierarchy (F50, ADR-075 D1) — the /tags pill-menu "Set parent…"/"Clear
 	// parent" action. parentId: null clears to root. A 400 with {cycle: true}

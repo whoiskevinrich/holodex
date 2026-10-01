@@ -1285,14 +1285,9 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.personLookupError(w, err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{PersonIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
-	if err != nil {
-		h.fail(w, "person videos", err)
-		return
-	}
+	// The person's videos are not embedded: the page loads them through GET
+	// /media?person=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.personResolve(r, id, p)
 	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
 	var completeness *resolver.Completeness
@@ -1324,7 +1319,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("external links for person detail", "id", id, "err", linksErr)
 	}
 	body := map[string]any{
-		"person": p, "items": items, "total": total,
+		"person": p,
 		// F37 (P0-2): the unified resolver payload — record vocabulary, no
 		// in_sync. It supersedes the raw F22 enriched[] block, retired here.
 		"resolved":       resolved,
@@ -1377,14 +1372,8 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get tag", err)
 		return
 	}
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{TagIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
-	if err != nil {
-		h.fail(w, "tag videos", err)
-		return
-	}
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, h.auth.authorized(r))
-	writeJSON(w, http.StatusOK, map[string]any{"tag": t, "items": items, "total": total})
+	// Videos load through GET /media?tag=<id> with paging (ADR-121 D6, HOLODEX-501).
+	writeJSON(w, http.StatusOK, map[string]any{"tag": t})
 }
 
 func (h *Handlers) search(w http.ResponseWriter, r *http.Request) {

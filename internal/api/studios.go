@@ -178,14 +178,8 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setStudioImageURLs(s)
-	items, total, err := h.repo.ListVideos(r.Context(), repo.VideoFilter{StudioIDs: []int64{id}, Limit: 500, HideFullFilmVideos: h.filmsEnabled})
-	if err != nil {
-		h.fail(w, "studio videos", err)
-		return
-	}
+	// Videos load through GET /media?studio_id=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	h.applyPartsTo(r.Context(), items)
-	redactFileMetadataForVisitors(items, authorized)
 	resolved, fields := h.studioResolved(r, id, s)
 	var completeness *resolver.Completeness
 	if authorized {
@@ -214,7 +208,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("external links for studio detail", "id", id, "err", linksErr)
 	}
 	body := map[string]any{
-		"studio": s, "items": items, "total": total,
+		"studio": s,
 		"resolved":       resolved,
 		"completeness":   completeness,
 		"external_links": links,

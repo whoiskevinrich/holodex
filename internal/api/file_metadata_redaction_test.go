@@ -81,9 +81,10 @@ func TestFileMetadataRedactedAcrossVideoEndpoints(t *testing.T) {
 		{"listMedia", srv.URL + "/api/v1/media", true},
 		{"getMedia", fmt.Sprintf("%s/api/v1/media/%d", srv.URL, id), true},
 		{"getRelated", fmt.Sprintf("%s/api/v1/media/%d/related", srv.URL, id), false},
-		{"getPerson", fmt.Sprintf("%s/api/v1/people/%d", srv.URL, pid), true},
-		{"getTag", fmt.Sprintf("%s/api/v1/tags/%d", srv.URL, tid), true},
-		{"getStudio", fmt.Sprintf("%s/api/v1/studios/%d", srv.URL, sid), true},
+		// Entity pages load their grids through /media with the facet (HOLODEX-501).
+		{"personGrid", fmt.Sprintf("%s/api/v1/media?person=%d", srv.URL, pid), true},
+		{"tagGrid", fmt.Sprintf("%s/api/v1/media?tag=%d", srv.URL, tid), true},
+		{"studioGrid", fmt.Sprintf("%s/api/v1/media?studio_id=%d", srv.URL, sid), true},
 		{"search", srv.URL + "/api/v1/search?q=dune", true},
 	}
 

@@ -948,10 +948,9 @@ export interface ExtractionPreviewItem {
 	action: ExtractionResolveAction;
 }
 
+// The person's videos are not embedded; the page reads GET /media?person=<id> (HOLODEX-501).
 export interface PersonDetailResponse {
 	person: Person;
-	items: Video[];
-	total: number;
 	// F37: unified resolved view (same shape as media detail's resolved[], baseline `record`;
 	// `in_sync` is always absent — persons have no file). Supersedes the retired enriched[].
 	resolved?: ResolvedField[] | null;
@@ -967,13 +966,12 @@ export interface PersonDetailResponse {
 	skipped_aliases?: SkippedAlias[];
 }
 
-// StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio, its videos,
-// and resolved[] in the record vocabulary (in_sync always absent — studios have no
-// file). Details render only when a field beyond `name` has a value or a decision.
+// StudioDetailResponse is GET /studios/{id} (F38, ADR-053): the studio and resolved[] in
+// the record vocabulary (in_sync always absent — studios have no file). Details render
+// only when a field beyond `name` has a value or a decision. Its videos are read through
+// GET /media?studio_id=<id> (HOLODEX-501).
 export interface StudioDetailResponse {
 	studio: Studio;
-	items: Video[];
-	total: number;
 	resolved?: ResolvedField[] | null;
 	// completeness is the F55.13 per-entity breakdown panel's data, owner-gated
 	// like getMedia's enrich_queries — null for a visitor.

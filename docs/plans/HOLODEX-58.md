@@ -41,9 +41,9 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 
 1. [ ] [security] `/security-review` on ADR-121 D3/D4 (public smart playlist evaluated for a visitor) before building the read path — `docs/architecture/ADR-121-smart-playlists-stored-query-and-runs.md`
 2. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
-3. [ ] [backend] HOLODEX-501: entity grids through `/media` with paging; characterise parity before deleting the 500-capped path — `internal/api/handlers.go`
-4. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
-5. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+3. [ ] [frontend] HOLODEX-500: the run module (seeded shuffle, toggle, repeat) + `GET /media/ids` + split button — `web/src/lib/`
+4. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read, merge rewrite, Freeze — `internal/api/`, `internal/repo/`
+5. [ ] [—] On merge: sweep HOLODEX-500 and HOLODEX-501 to Done by hand (CI moves only the branch's own key); decide whether the squash subject is `feat!` (the person/tag/studio detail payloads dropped `items`/`total`)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
@@ -58,7 +58,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ### 2026-09-30 · session
 - skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
 - note: worklog hand-written by `/handoff` at the owner's request, because the SessionStart hook never scaffolded it on this branch.
-- handoff: Crossed into build. Design signed off at 2325626f, and draft PR #424 is open. Start at Up next item 1: run `/security-review` on ADR-121 D3/D4 before the smart-playlist read path is built. HOLODEX-501 (item 3) doesn't depend on it.
+- handoff: Crossed into build (design signed off at 2325626f, draft PR #424). HOLODEX-501 is built and live-checked: the person, tag and studio grids page through `/media` with no cap, and the title box is server-side `q`. Start at Up next item 1: run `/security-review` on ADR-121 D3/D4 before building the smart-playlist read path. HOLODEX-500 (item 3) doesn't depend on it.
 
 ## Dropped — newest first (the reason is the point)
 
