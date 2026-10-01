@@ -103,7 +103,7 @@ func parseQueryString(s string) (url.Values, error) {
 const (
 	staleMissing   = "missing"     // an id facet names an entity that no longer exists
 	staleUnknown   = "unknown_key" // a mapped key no longer filterable (mapping reload)
-	staleOwnerOnly = "owner_only"  // an owner-only input on a playlist a visitor is reading
+	staleOwnerOnly = "owner_only"  // an owner-only input read by a visitor, or on a public playlist
 	staleInvalid   = "invalid"     // the stored string doesn't parse (never written by canonicalPlaylistQuery)
 )
 
@@ -115,9 +115,10 @@ type staleRef struct {
 
 // smartPlaylistFilter turns a smart playlist into the filter its read runs (ADR-121 D3):
 // the stored query through browseFilter — the same parse and posture as /media — with
-// the playlist's sort. The stale check comes first (D5); then, for a visitor, any
-// owner-only input is reported as a stale ref rather than evaluated (D4). The caller has
-// already applied visibility, so a visitor never reaches this for a private playlist.
+// the playlist's sort. The stale check comes first (D5); then, for a visitor or on a
+// public playlist, any owner-only input is reported as a stale ref rather than evaluated
+// (D4). The caller has already applied visibility, so a visitor never reaches this for a
+// private playlist.
 func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, isOwner bool) (repo.VideoFilter, []staleRef, error) {
 	q, err := url.ParseQuery(*p.Query)
 	if err != nil {
@@ -146,7 +147,9 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 	}
 	f := h.browseFilter(q)
 	f.Sort = p.Sort
-	if len(stale) == 0 && !isOwner && wantsCompleteness(f.Sort, f.MissingFacets) {
+	// A public playlist reports owner_only to every reader, owner included (testing-strategy
+	// §23.8 Q5), so the owner sees the notice and fixes it; only a repo-level write gets here.
+	if len(stale) == 0 && (!isOwner || p.Visibility == model.PlaylistPublic) && wantsCompleteness(f.Sort, f.MissingFacets) {
 		stale = append(stale, staleRef{Kind: staleOwnerOnly})
 	}
 	return f, stale, nil

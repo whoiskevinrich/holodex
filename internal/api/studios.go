@@ -208,7 +208,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 		h.log.Warn("external links for studio detail", "id", id, "err", linksErr)
 	}
 	body := map[string]any{
-		"studio": s,
+		"studio":         s,
 		"resolved":       resolved,
 		"completeness":   completeness,
 		"external_links": links,
