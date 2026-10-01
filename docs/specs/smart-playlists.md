@@ -8,7 +8,9 @@ the resolver / enrichment / writeback seams **not at all**
 **Feature block**: **F75** — every video grid whose cards come from a `/media` query (browse, person,
 tag, studio, film) gets two grid-header actions: **Play all** plays the grid's current result set in
 order through the F69 next-up player without saving anything, and **Save as smart playlist** stores the
-grid's **query** (not its ids) as a playlist that re-runs whenever it is opened. The stored query **is**
+grid's **query** (not its ids) as a playlist that re-runs whenever it is opened. **Shuffle** sits beside
+*Play all* and plays the same set in a fresh random order; a run can be shuffled or un-shuffled
+mid-play, can repeat endlessly, and a playlist can be set to always play shuffled. The stored query **is**
 the canonical `filters.ts` query string, so whatever the browse filters can express — today's facets,
 and later AND/NOT ([HOLODEX-181](https://whoiskevinrich.atlassian.net/browse/HOLODEX-181)) — smart
 playlists can express with no playlist change.
@@ -63,7 +65,9 @@ page under-reports the very set the owner wants to watch.
    — same filters, same title-box text, same sort, **no cap**.
 4. **Rules arrive free.** When browse filters gain new operators (AND/NOT, HOLODEX-181), smart
    playlists can store them with zero playlist-side schema or code change.
-5. **Zero footprint on the file layer and the metadata model** (as F69): no writeback, no extraction,
+5. **Random playback without re-sorting.** Any set that can be played can be played shuffled in one
+   action, without changing how the grid is sorted, and a shuffled run can go on indefinitely.
+6. **Zero footprint on the file layer and the metadata model** (as F69): no writeback, no extraction,
    no resolver branch.
 
 ## Non-Goals
@@ -114,6 +118,22 @@ page under-reports the very set the owner wants to watch.
   in HOLODEX-501 (paged, like browse).
 - **RD9 — Visibility is F69's.** `private` (default) ⇒ a visitor gets 404; `public` ⇒ the query is
   evaluated under the **visitor's** posture, exactly as `/media` would evaluate it for that visitor.
+- **RD10 — Shuffle is a playback mode, not a sort.** A run has a *mode* (`in order` | `shuffled`)
+  separate from the grid's sort. *Shuffle* evaluates the same query with the seeded `random` order
+  (ADR-045) under a seed minted at the press; the grid on screen keeps its sort. Shuffle appears
+  wherever *Play all* does — query-backed grids **and** F69 playlist pages. A playlist whose `sort` is
+  already `random` behaves as today (F69 RD7); its *Play all* and *Shuffle* are the same action.
+- **RD11 — Toggling shuffle mid-run reorders only what hasn't played.** Played items stay as history
+  (*Previous* walks them in the order they actually played). Toggling on shuffles the remaining items
+  under a new seed; toggling off restores the remaining items to the run's source order. The current
+  item never changes on a toggle.
+- **RD12 — Repeat starts a new pass; it never loops a stale list.** With repeat on, the end of a run
+  starts a new pass: the query is re-evaluated (so a smart playlist or grid picks up new videos), and a
+  shuffled run gets a new seed. A new pass never starts with the item that just finished. Repeat off is
+  the default; F69's "stop at the last item" stays the default behaviour.
+- **RD13 — "Always shuffle" is a playlist property.** A playlist (smart or F69) can be set to play
+  shuffled: its primary play action becomes *Shuffle*, and entering a run from one of its tiles starts
+  shuffled. Its page still displays in its `sort`. The owner sets it; visitors inherit it.
 
 ## User Stories
 
@@ -124,6 +144,14 @@ page under-reports the very set the owner wants to watch.
   don't have to save a playlist just to watch a run once.
 - As the owner, I want a run to keep its order even if the library changes mid-watch so that *Next* and
   *Previous* stay predictable.
+- As the owner on a studio page sorted by date, I want to press *Shuffle* so that I get a random run
+  without losing the page's date order.
+- As the owner halfway through an in-order run, I want to switch to shuffle (and back) so that I can
+  change my mind without restarting.
+- As the owner, I want a shuffled run to keep going when it ends so that I can leave it playing like a
+  channel.
+- As the owner, I want a "random favourites" playlist to always play shuffled so that I don't have to
+  remember to press *Shuffle*.
 
 **Owner, curating**
 - As the owner on a tag page, I want to *Save as smart playlist* so that the playlist always contains
@@ -207,7 +235,28 @@ an unknown mapped-field key returns `stale_refs`; the page shows a notice with *
 - [ ] Handler test: visitor cannot open a private smart playlist (404, not 403).
 - [ ] A public smart playlist never returns a video the same visitor could not get from `/media`.
 
+**P0-11 — Shuffle (RD10).** A *Shuffle* action beside every *Play all* (query-backed grids and F69
+playlist pages). Same autoplay rules as *Play all*; the run's seed is held with the run, not put in the
+grid's URL.
+- [ ] *Shuffle* on a date-sorted grid plays a random order; the grid stays date-sorted.
+- [ ] Two presses give two different orders (different seeds); *Previous* / *Next* within one run are
+  stable.
+- [ ] The run contains exactly the grid's set — shuffle never adds, drops, or repeats an item within a
+  pass.
+
+**P0-12 — Always shuffle (RD13).** An owner toggle on a playlist's page (smart or F69). When on, the
+primary play action is *Shuffle* and runs entered from the playlist's tiles start shuffled.
+- [ ] Visitor on a public always-shuffle playlist gets a shuffled run.
+- [ ] The playlist page's display order is unchanged by the toggle.
+
 ### Nice-to-Have (P1)
+
+- **P1-4 — Shuffle toggle mid-run (RD11)** on the next-up surface. *Acceptance:* toggling never changes
+  the current item; already-played items are not replayed before the pass ends; toggling off then on
+  yields a new order.
+- **P1-5 — Repeat (RD12)** on the next-up surface, off by default. *Acceptance:* with repeat on, the
+  last item's `ended` starts a new pass with zero clicks; a video added to the set mid-pass is in the
+  next pass; the new pass never starts with the item that just ended.
 
 - **P1-1 — Live count on the playlists list** ("~N videos") without loading tiles.
 - **P1-2 — "Play all" hotkey** in the F62 map on query-backed pages.
@@ -233,6 +282,9 @@ an unknown mapped-field key returns `stale_refs`; the page shows a notice with *
   does nothing (F69 behaviour).
 - **Huge runs.** The id list for the whole library is a few hundred KB of ints at worst; the snapshot
   is ids only, never tile payloads.
+- **Run state.** A run is `{source query or playlist, mode, seed, ordered ids, played history,
+  repeat}`, all held under the run id. Shuffle, the mid-run toggle and repeat only change this state;
+  none of them writes to the server.
 - **Saving from a filter with no clauses** (bare browse) is allowed — "everything, newest first" is a
   legitimate smart playlist.
 
@@ -244,6 +296,7 @@ One append-only migration on `playlists` (number claimed at implementation, see
 ```sql
 ALTER TABLE playlists ADD COLUMN query TEXT;              -- NULL ⇒ F69 snapshot playlist
 ALTER TABLE playlists ADD COLUMN query_version INTEGER;   -- NULL iff query IS NULL
+ALTER TABLE playlists ADD COLUMN play_shuffled INTEGER NOT NULL DEFAULT 0;  -- RD13, any playlist
 ```
 
 A playlist is **smart iff `query IS NOT NULL`**; a smart playlist has no `playlist_videos` rows (P0-6).
@@ -257,18 +310,19 @@ Base `/api/v1`; envelope as F69. Mutations under `requireOwner`; reads visibilit
 - `POST /playlists {name, query}` — creates a smart playlist (F69's `{from_query}` keeps its snapshot
   meaning).
 - `GET /playlists/{id}` — adds `query`, `stale_refs`, and for smart playlists evaluates live.
-- `PATCH /playlists/{id} {query}` — Edit filter's *Update*.
+- `PATCH /playlists/{id} {query}` — Edit filter's *Update*; `{play_shuffled}` — always shuffle.
 - `POST /playlists/{id}/freeze`.
 - Play all needs no new endpoint beyond an ids-only `GET /media` mode (ADR to confirm).
 
 ## UI
 
 Two affordances and three changes:
-1. **Grid-header actions** — *Play all* · *Save as smart playlist* on query-backed grids.
+1. **Grid-header actions** — *Play all* · *Shuffle* · *Save as smart playlist* on query-backed grids;
+   *Play all* · *Shuffle* on F69 playlist pages.
 2. **Run context on `/media/[id]`** — the F69 next-up surface, labelled with the run's source
-   ("Person · ‹name›") instead of a playlist name.
+   ("Person · ‹name›") instead of a playlist name, plus the shuffle and repeat toggles (P1-4, P1-5).
 3. **Smart playlist page** — F69 detail page plus a smart marker, *Edit filter*, *Freeze*, the
-   stale-reference notice.
+   stale-reference notice, and the *Always shuffle* toggle (also on F69 playlist pages).
 4. **Playlists list** — smart marker.
 5. **Browse in edit mode** — *Update ‹name›* replacing *Save*.
 
@@ -284,6 +338,8 @@ Single-owner app, no analytics — **verification outcomes**:
 - The > 500 tag shows its full count on its page, in its Play all run, and in a smart playlist saved
   from it — all three equal `/media?tag=<id>`'s `total`.
 - A video tagged after saving appears in the smart playlist on next open.
+- *Shuffle* on a 20-item grid, run twice, gives two different orders, each containing all 20 once.
+- With repeat on, a 3-item shuffled run plays 7 items with zero clicks and no back-to-back repeat.
 - Merge and delete cases (P0-9) pass as handler tests.
 
 *Lagging (first month):*
@@ -307,8 +363,10 @@ Single-owner app, no analytics — **verification outcomes**:
 Three stories under HOLODEX-16, in order:
 
 1. **HOLODEX-501 — entity grids via `/media`** (P0-1). Landable alone; removes the cap.
-2. **HOLODEX-500 — Play all** (P0-2 *Play all* half, P0-3). Needs only P0-1 and the run context.
-3. **HOLODEX-58 — smart playlists** (P0-2 *Save* half, P0-4..P0-10). Needs the ADR and migration.
+2. **HOLODEX-500 — Play all + Shuffle** (P0-2 *Play all* half, P0-3, P0-11, P1-4, P1-5). Needs only
+   P0-1 and the run context.
+3. **HOLODEX-58 — smart playlists** (P0-2 *Save* half, P0-4..P0-10, P0-12). Needs the ADR and
+   migration.
 
 Gates: **spec** (this document) · **ADR** (stored-query format and versioning, live evaluation, merge
 rewriting — amends ADR-104 D3 "snapshot-only producers") · **design handoff** (grid-header actions,
