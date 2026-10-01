@@ -375,6 +375,7 @@
 	<EntityVideos
 		backHref="/tags"
 		backLabel="All tags"
+		name={tag?.name ?? ''}
 		facet={{ tag: [id] }}
 		bind:total={videoTotal}
 		refreshKey={gridRefresh}

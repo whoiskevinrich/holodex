@@ -1,9 +1,15 @@
 <script module lang="ts">
+	import type { Snippet } from 'svelte';
+
 	export interface PageAction {
 		label: string;
 		onselect: () => void;
 		/** Only offered below `sm`, where the toolbar has no room for it inline. */
 		compactOnly?: boolean;
+		/** A muted suffix after the label ("in order"). */
+		hint?: string;
+		/** A small leading glyph (the Shuffle icon). */
+		icon?: Snippet;
 	}
 </script>
 
@@ -15,7 +21,14 @@
 	import { dismissable } from '$lib/actions/dismissable';
 
 	// `label` names the trigger for a ⋯ that isn't the page's own (Tags' manage mode bar).
-	let { items, label = 'Page actions' }: { items: PageAction[]; label?: string } = $props();
+	// `face` + `triggerClass` replace the ⋯ button's face for a menu that hangs off
+	// another control (PlaySplitButton's caret half, F75), so there is one menu, not two.
+	let {
+		items,
+		label = 'Page actions',
+		face,
+		triggerClass = 'inline-flex h-8 w-8 items-center justify-center rounded-theme border border-rule bg-surface text-muted hover:text-ink'
+	}: { items: PageAction[]; label?: string; face?: Snippet; triggerClass?: string } = $props();
 
 	const uid = $props.id();
 	let open = $state(false);
@@ -72,9 +85,15 @@
 		aria-expanded={open}
 		aria-label={label}
 		onclick={() => (open ? close() : show())}
-		class="inline-flex h-8 w-8 items-center justify-center rounded-theme border border-rule bg-surface text-muted hover:text-ink"
+		onkeydown={(e) => {
+			if (e.key === 'ArrowDown' && !open) {
+				e.preventDefault();
+				show();
+			}
+		}}
+		class={triggerClass}
 	>
-		⋯
+		{#if face}{@render face()}{:else}⋯{/if}
 	</button>
 	{#if open}
 		<div
@@ -93,11 +112,13 @@
 						close();
 						item.onselect();
 					}}
-					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-2 {item.compactOnly
+					class="flex w-full items-center gap-2 rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface-2 {item.compactOnly
 						? 'sm:hidden'
 						: ''}"
 				>
+					{#if item.icon}{@render item.icon()}{/if}
 					{item.label}
+					{#if item.hint}<span class="text-xs text-muted">{item.hint}</span>{/if}
 				</button>
 			{/each}
 		</div>

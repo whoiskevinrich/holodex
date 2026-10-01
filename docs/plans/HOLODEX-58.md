@@ -39,7 +39,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] HOLODEX-500: `mediaFilterFor` + `GET /media/ids`, the run module (seeded shuffle, toggle, repeat), split button — `web/src/lib/`, `internal/api/`
+1. [ ] [frontend] HOLODEX-500 film page: the film grid is `getFilm` scenes, not a `/media` query, so it has no Play all yet. The owner decides how a film is a run source — `web/src/routes/films/[id]/+page.svelte`
 2. [ ] [testing] Confirm the five default decisions in testing-strategy §23.8 with the owner — `docs/testing-strategy.md`
 3. [ ] [backend] HOLODEX-58: migration, `canonicalPlaylistQuery`, live read (visibility first), merge rewrite, Freeze — `internal/api/`, `internal/repo/`
 4. [ ] [security] Implementation `/security-review` of the smart-playlist read path and `/media/ids` before merge
@@ -58,7 +58,7 @@ deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity 
 ### 2026-09-30 · session
 - skills: write-spec, architecture, design-handoff, testing-strategy, handoff, implement
 - note: worklog hand-written by `/handoff` at the owner's request, because the SessionStart hook never scaffolded it on this branch.
-- handoff: Crossed into build (design signed off at 2325626f, draft PR #424). HOLODEX-501 is built and live-checked: the person, tag and studio grids page through `/media` with no cap, and the title box is server-side `q`. Start at Up next item 1: run `/security-review` on ADR-121 D3/D4 before building the smart-playlist read path. HOLODEX-500 (item 3) doesn't depend on it.
+- handoff: Draft PR #424. HOLODEX-501 is done and live-checked. The design security review is clean and folded into ADR-121. HOLODEX-500 is built and live-checked on browse, person and playlist pages: `GET /media/ids`, the run model, the run strip toggles, and Play all ▾ on every count line and the playlist page. The only gap is the film page, which isn't a `/media` query. Start at Up next item 1: the owner decides how a film becomes a run source.
 
 ## Dropped — newest first (the reason is the point)
 

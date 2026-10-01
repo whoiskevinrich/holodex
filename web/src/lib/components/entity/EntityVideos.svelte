@@ -5,7 +5,11 @@
 	import VideoGrid from '../video/VideoGrid.svelte';
 	import { api } from '$lib/api';
 	import { listScroll } from '$lib/listScroll.svelte';
-	import { toMessage } from '$lib/format';
+	import { toMessage, videoCount } from '$lib/format';
+	import { filtersToParams } from '$lib/filters';
+	import { beginRun, queryLabel } from '$lib/runContext';
+	import type { RunMode } from '$lib/run';
+	import PlaySplitButton from '../video/PlaySplitButton.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
@@ -36,6 +40,7 @@
 	let {
 		backHref,
 		backLabel,
+		name,
 		facet,
 		refreshKey = 0,
 		total = $bindable(null),
@@ -47,6 +52,8 @@
 	}: {
 		backHref?: string;
 		backLabel?: string;
+		/** The entity's display name, for the run strip's "Person · Ana" label. */
+		name: string;
 		facet: MediaFilters;
 		refreshKey?: number;
 		total?: number | null;
@@ -159,6 +166,13 @@
 		}
 	}
 
+	// Play all / Shuffle (F75 P0-2/P0-3/P0-11): a run over exactly the query on screen —
+	// the facet plus the title box's `q` (spec RD7) — in the grid's own order.
+	function playRun(mode: RunMode): Promise<boolean> {
+		const query = filtersToParams(filters, false).toString();
+		return beginRun({ kind: 'query', query, label: queryLabel(query, name) }, mode);
+	}
+
 	// Stash the scroll offset on the way out (e.g. opening a video) so ← Back restores
 	// where this entity's video list was.
 	beforeNavigate(() => {
@@ -185,6 +199,11 @@
 		{:else}
 			<!-- A failed refresh or Load more keeps the loaded grid and says so above it. -->
 			{#if error}<p class="pb-2 text-sm text-warn">{error}</p>{/if}
+			<!-- Count line (F75 handoff §1): the query's match count and Play all ▾. -->
+			<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-3">
+				<p class="text-sm text-muted">{videoCount(matched)}</p>
+				<PlaySplitButton disabled={matched === 0} onplay={playRun} />
+			</div>
 			<VideoGrid {videos} empty={emptyMessage} />
 			{#if hasMore}
 				<div class="flex justify-center pt-4">

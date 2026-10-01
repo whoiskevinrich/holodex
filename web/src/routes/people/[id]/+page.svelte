@@ -433,6 +433,7 @@
 
 <AsyncState {loading} error={error || (!person ? 'Not found.' : '')}>
 	<EntityVideos
+		name={person?.display_name ?? person?.name ?? ''}
 		facet={{ person: [id] }}
 		bind:total={videoTotal}
 		refreshKey={gridRefresh}

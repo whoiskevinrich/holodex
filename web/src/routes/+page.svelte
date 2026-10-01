@@ -5,7 +5,10 @@
 	import { activity } from '$lib/activity.svelte';
 	import { browseCache } from '$lib/browse.svelte';
 	import { navSearch } from '$lib/navSearch.svelte';
-	import { filtersToParams } from '$lib/filters';
+	import { DEFAULT_SORT, filtersToParams } from '$lib/filters';
+	import { beginRun, queryLabel } from '$lib/runContext';
+	import type { RunMode } from '$lib/run';
+	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { Facet, MediaFilters, Resolution, Video } from '$lib/types';
 	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
@@ -84,6 +87,24 @@
 			seed: sortBy === 'random' ? shuffleSeed.value : undefined,
 			limit: PAGE_SIZE
 		};
+	}
+
+	// Play all / Shuffle (F75): a run over the grid's whole result set in its order. The
+	// stored source is the filter alone (ADR-121 D2: sort apart); a random grid passes its
+	// seed so the run walks the shuffle on screen, which also makes Play all and Shuffle
+	// the same action there (spec RD10).
+	function playRun(mode: RunMode): Promise<boolean> {
+		const source = filtersToParams({ ...currentFilters(), sort: undefined }, false).toString();
+		return beginRun(
+			{
+				kind: 'query',
+				query: source,
+				sort: sortBy === DEFAULT_SORT ? undefined : sortBy,
+				seed: sortBy === 'random' ? shuffleSeed.value : undefined,
+				label: queryLabel(source)
+			},
+			sortBy === 'random' ? 'in-order' : mode
+		);
 	}
 
 	// The shareable param set (no paging) doubles as the "any filter active?" check.
@@ -454,9 +475,6 @@
 				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
 			{/each}
 		{/snippet}
-		{#snippet count()}
-			{loading ? 'Loading…' : videoCount(total)}
-		{/snippet}
 	</ListToolbar>
 
 	{#if saveOpen}
@@ -489,6 +507,12 @@
 	{#if error}
 		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{error}</p>
 	{:else}
+		<!-- Count line (F75 handoff §1): replaces the toolbar's count, so there is one. The
+		     total is the query's, never the loaded page length. -->
+		<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+			<p class="text-sm text-muted" aria-live="polite">{loading ? 'Loading…' : videoCount(total)}</p>
+			<PlaySplitButton disabled={loading || total === 0} onplay={playRun} />
+		</div>
 		<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
 		{#if hasFilters && !loading && videos.length === 0}
 			<div class="flex justify-center">

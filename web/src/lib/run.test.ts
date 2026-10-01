@@ -4,7 +4,9 @@ import {
 	neighbours,
 	nextPass,
 	parseRunParam,
+	queryLabel,
 	runHref,
+	sameSource,
 	saveRun,
 	setMode,
 	shuffle,
@@ -82,6 +84,7 @@ describe('neighbours', () => {
 		expect(neighbours([10, 20, 30], 10)).toEqual({ index: 0, prev: null, next: 20 });
 		expect(neighbours([10, 20, 30], 30)).toEqual({ index: 2, prev: 20, next: null });
 		expect(neighbours([10, 20, 30], 99)).toEqual({ index: -1, prev: null, next: null });
+		expect(neighbours([], 10)).toEqual({ index: -1, prev: null, next: null });
 	});
 });
 
@@ -219,6 +222,32 @@ describe('URL', () => {
 	});
 });
 
+describe('queryLabel', () => {
+	it('names a single entity facet, title filter or not', () => {
+		expect(queryLabel('person=12', 'Ana')).toEqual({ kind: 'Person', name: 'Ana', href: '/people/12' });
+		expect(queryLabel('q=noir&tag=3')).toEqual({ kind: 'Tag', name: '', href: '/tags/3' });
+		expect(queryLabel('studio_id=7')).toEqual({ kind: 'Studio', name: '', href: '/studios/7' });
+	});
+
+	it('is browse for anything else, linking the query', () => {
+		expect(queryLabel('person=1&person=2')).toEqual({ kind: 'Browse', name: '', href: '/?person=1&person=2' });
+		expect(queryLabel('person=1&tag=2').kind).toBe('Browse');
+		expect(queryLabel('year_min=2010')).toEqual({ kind: 'Browse', name: '', href: '/?year_min=2010' });
+		expect(queryLabel('')).toEqual({ kind: 'Browse', name: '', href: '/' });
+	});
+});
+
+describe('sameSource', () => {
+	it('matches a playlist by id and a query by its string', () => {
+		const pl: RunSource = { kind: 'playlist', id: 3, label: { kind: '', name: 'Mix', href: '/playlists/3' } };
+		expect(sameSource(pl, { playlist: 3 })).toBe(true);
+		expect(sameSource(pl, { playlist: 4 })).toBe(false);
+		expect(sameSource(source, { from: 'tag=3' })).toBe(true);
+		expect(sameSource(source, { from: 'tag=4' })).toBe(false);
+		expect(sameSource(source, { playlist: 3 })).toBe(false);
+	});
+});
+
 describe('storage', () => {
 	function memory(): Storage {
 		const m = new Map<string, string>();
@@ -239,6 +268,19 @@ describe('storage', () => {
 		const run: Run = startRun({ id: 'r1', source, ids: ids20, mode: 'shuffled', seed: 8, repeat: true });
 		saveRun(s, run);
 		expect(loadRun(s, 'r1')).toEqual(run);
+	});
+
+	it('keeps only the five most recent runs, so a long session never fills storage', () => {
+		const s = memory();
+		for (let i = 1; i <= 8; i++) saveRun(s, startRun({ id: `r${i}`, source, ids: [i], mode: 'in-order', seed: 1 }));
+		expect(loadRun(s, 'r1')).toBeNull();
+		expect(loadRun(s, 'r3')).toBeNull();
+		for (const id of ['r4', 'r5', 'r6', 'r7', 'r8']) expect(loadRun(s, id)).not.toBeNull();
+		// Re-saving an older run (a toggle) makes it the most recent, not a casualty.
+		saveRun(s, startRun({ id: 'r4', source, ids: [4], mode: 'shuffled', seed: 2 }));
+		saveRun(s, startRun({ id: 'r9', source, ids: [9], mode: 'in-order', seed: 1 }));
+		expect(loadRun(s, 'r4')).not.toBeNull();
+		expect(loadRun(s, 'r5')).toBeNull();
 	});
 
 	it('is null for a missing or corrupt run, and survives a throwing storage', () => {

@@ -5,7 +5,10 @@
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage } from '$lib/format';
 	import { MEDIA_SORTS } from '$lib/filters';
-	import { forgetPlaylist, playlistHref, setPlayIntent } from '$lib/playlistContext';
+	import { forgetPlaylist } from '$lib/playlistContext';
+	import { beginRun } from '$lib/runContext';
+	import type { RunMode } from '$lib/run';
+	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
 	import type { Playlist, Video } from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
 	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
@@ -131,8 +134,16 @@
 		}
 	}
 
-	const first = $derived(items[0] ?? null);
-	const playParam = $derived(playlist ? { id: playlist.id, seed } : null);
+	// Play all / Shuffle start a run with this playlist as its source (F75, ADR-121 D7).
+	// A 'random' playlist already plays in a shuffled order (the seed on screen), so its
+	// two actions coincide (spec RD10): both walk that order.
+	function playRun(mode: RunMode): Promise<boolean> {
+		if (!playlist) return Promise.resolve(false);
+		return beginRun(
+			{ kind: 'playlist', id: playlist.id, seed, label: { kind: '', name: playlist.name, href: `/playlists/${playlist.id}` } },
+			playlist.sort === 'random' ? 'in-order' : mode
+		);
+	}
 	const sortLabel = $derived(
 		sort === 'manual' ? MANUAL.label : (MEDIA_SORTS.find((s) => s.value === sort)?.label ?? sort)
 	);
@@ -181,20 +192,10 @@
 							{/each}
 						</div>
 					{/if}
-					<!-- Play all: the page's one solid action. An <a> because it navigates; the
-					     click is the gesture that sets the play-on-load intent. Withdrawn (ghost
-					     look, same label) when there is nothing to play. -->
-					{#if first && playParam}
-						<a
-							href={playlistHref(first.id, playParam)}
-							onclick={() => setPlayIntent(first.id)}
-							class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink"
-						>
-							▶ Play all
-						</a>
-					{:else}
-						<span class="btn-ghost px-4 py-2 text-sm" aria-disabled="true">▶ Play all</span>
-					{/if}
+					<!-- Play all ▾ (F75 handoff §4): the page's one solid action, Shuffle in its
+					     menu. The press is the gesture that sets the play-on-load intent.
+					     Withdrawn (ghost look, same label) when there is nothing to play. -->
+					<PlaySplitButton variant="primary" disabled={items.length === 0} onplay={playRun} />
 				</div>
 			</div>
 			{#if actionError}

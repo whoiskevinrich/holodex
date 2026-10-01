@@ -176,9 +176,40 @@ export function runHref(videoId: number, run: Run): string {
 	return `/media/${videoId}?${p}`;
 }
 
+/** True when `param` names the same source as `source` (a hop or reload within a run). */
+export function sameSource(source: RunSource, param: RunParam): boolean {
+	return source.kind === 'playlist' ? source.id === param.playlist : param.from != null && source.query === param.from;
+}
+
+const ENTITY_KEYS: Record<string, [kind: string, path: string]> = {
+	person: ['Person', '/people/'],
+	tag: ['Tag', '/tags/'],
+	studio_id: ['Studio', '/studios/']
+};
+
+/**
+ * How the strip names a query source. A single entity facet (plus an optional title
+ * filter) is that entity's page; anything else is browse. `name` is the entity's
+ * display name when the caller knows it; a run rebuilt from a URL doesn't, and the strip
+ * links the kind alone.
+ */
+export function queryLabel(query: string, name = ''): RunLabel {
+	const p = new URLSearchParams(query);
+	const keys = [...new Set(p.keys())].filter((k) => k !== 'q');
+	if (keys.length === 1 && ENTITY_KEYS[keys[0]] && p.getAll(keys[0]).length === 1) {
+		const [kind, path] = ENTITY_KEYS[keys[0]];
+		return { kind, name, href: path + encodeURIComponent(p.get(keys[0]) ?? '') };
+	}
+	return { kind: 'Browse', name, href: query ? `/?${query}` : '/' };
+}
+
 // --- Storage -----------------------------------------------------------------------
 
 const KEY = 'holodex:run:';
+const INDEX = 'holodex:runs';
+// A tab keeps its most recent runs only: each one holds two id lists, and a long session
+// of Play all presses would otherwise fill sessionStorage and make every save fail.
+const KEEP = 5;
 
 /** The stored run, or null when it's missing, unreadable or storage is unavailable. */
 export function loadRun(storage: Storage | undefined, id: string): Run | null {
@@ -193,8 +224,19 @@ export function loadRun(storage: Storage | undefined, id: string): Run | null {
 }
 
 export function saveRun(storage: Storage | undefined, run: Run): void {
+	if (!storage) return;
 	try {
-		storage?.setItem(KEY + run.id, JSON.stringify(run));
+		let index: string[] = [];
+		try {
+			const parsed = JSON.parse(storage.getItem(INDEX) ?? '[]');
+			if (Array.isArray(parsed)) index = parsed.filter((x) => typeof x === 'string');
+		} catch {
+			// A corrupt index just starts over.
+		}
+		index = [...index.filter((id) => id !== run.id), run.id];
+		for (const old of index.slice(0, -KEEP)) storage.removeItem(KEY + old);
+		storage.setItem(INDEX, JSON.stringify(index.slice(-KEEP)));
+		storage.setItem(KEY + run.id, JSON.stringify(run));
 	} catch {
 		// Storage full or blocked: the run lives on in memory for this page view, and a
 		// reload rebuilds it from the URL.

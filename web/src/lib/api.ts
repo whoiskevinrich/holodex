@@ -282,6 +282,16 @@ export const api = {
 	listMedia: (f: MediaFilters = {}, fetchFn?: typeof fetch) =>
 		get<MediaListResponse>(`/media${buildQuery(f)}`, fetchFn),
 
+	// The ordered ids of every video a /media query matches, uncapped (ADR-121 D7): the
+	// source of a Play all / Shuffle run over a grid. `query` is the canonical filter
+	// string (no sort or paging); a 'random' sort echoes the seed it ordered by.
+	mediaIds: (query: string, sort?: string, seed?: number) => {
+		const p = new URLSearchParams(query);
+		if (sort) p.set('sort', sort);
+		if (seed != null) p.set('seed', String(seed));
+		return get<{ ids: number[]; seed?: number }>(`/media/ids?${p}`);
+	},
+
 	getMedia: (id: number, fetchFn?: typeof fetch) =>
 		get<MediaDetailResponse>(`/media/${id}`, fetchFn),
 
