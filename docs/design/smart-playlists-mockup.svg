@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1010" viewBox="0 0 720 1010" role="img">
+  <title>F75 smart playlists and Play all — approved mockup (2026-09-30)</title>
+  <desc>Five panels: grid header with the Play all split button and the one Save as playlist form; smart chip on the playlists list; run strip with shuffle and repeat toggles; smart playlist page with split button, always-shuffle switch, freeze link and stale-reference notice; browse in edit-filter mode.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #f3ece1; font-size: 14px; }
+    .serif { font-family: Georgia, "Times New Roman", serif; }
+    .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+    .note { font-size: 11px; fill: #5f5e5a; }
+    .m { fill: #9b9082; } .a { fill: #e8a33d; } .w { fill: #e2603f; } .ai { fill: #1a1206; }
+    .s12 { font-size: 12px; } .s11 { font-size: 11px; } .s24 { font-size: 24px; font-weight: 600; }
+    .up { font-size: 11px; letter-spacing: .6px; }
+    .ico { fill: none; stroke-width: 1.6; }
+  </style>
+  <rect width="720" height="1010" fill="#ffffff"/>
+  <defs>
+    <path id="shuf" d="M2 4h3l6 8h3M2 12h3l6-8h3M12 2l2 2-2 2M12 10l2 2-2 2"/>
+    <path id="rep" d="M3 7V5h9l-2-2M13 9v2H4l2 2"/>
+  </defs>
+
+  <!-- 1 · Grid header -->
+  <text class="ttl" x="8" y="20">1 · Grid header — browse / person / tag / studio / film: count line + Play all split button (.btn-accent) + one Save</text>
+  <rect x="8" y="28" width="704" height="196" rx="4" fill="#0c0a09"/>
+  <text class="m" x="24" y="58">1,204 videos</text>
+  <!-- split: accent outline -->
+  <rect x="420.5" y="40.5" width="96" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="434" y="61">▶ Play all</text>
+  <rect x="516.5" y="40.5" width="28" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="525" y="61">▾</text>
+  <text class="m" x="560" y="61">Save as playlist…</text>
+  <!-- open menu -->
+  <rect x="384.5" y="76.5" width="160" height="62" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="396" y="99">▶ Play all</text><text class="m s12" x="484" y="99">in order</text>
+  <rect x="385" y="108" width="159" height="28" fill="#181310"/>
+  <use href="#shuf" x="396" y="114" class="ico" stroke="#f3ece1"/>
+  <text x="418" y="127">Shuffle</text>
+  <!-- grid tiles -->
+  <rect x="24.5" y="84.5" width="80" height="50" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="112.5" y="84.5" width="80" height="50" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="200.5" y="84.5" width="80" height="50" rx="2" fill="#181310" stroke="#2a2622"/>
+  <!-- save form (opened from Save as playlist…) -->
+  <rect x="24.5" y="152.5" width="190" height="35" rx="2" fill="#15110e" stroke="#e8a33d"/>
+  <text x="36" y="175">Tag · noir</text>
+  <rect x="226.5" y="154.5" width="164" height="31" rx="2" fill="none" stroke="#2a2622"/>
+  <rect x="227" y="155" width="72" height="30" fill="#e8a33d"/>
+  <text class="ai" x="244" y="175">Smart</text><text class="m" x="312" y="175">Snapshot</text>
+  <rect x="402.5" y="154.5" width="54" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="414" y="175">Save</text>
+  <text class="m" x="472" y="175">Cancel</text>
+  <text class="m s12" x="24" y="210">Smart: updates as videos are added or tagged · Snapshot: stays as it is now</text>
+
+  <!-- 2 · Smart chip -->
+  <text class="ttl" x="8" y="248">2 · /playlists row + page title — “smart” chip, same shape as the visibility chip (border-muted)</text>
+  <rect x="8" y="256" width="704" height="70" rx="4" fill="#0c0a09"/>
+  <rect x="24.5" y="272.5" width="420" height="40" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text class="m" x="40" y="298">▤</text>
+  <text x="66" y="298">Everything noir</text>
+  <rect x="270.5" y="281.5" width="50" height="21" rx="10.5" fill="none" stroke="#9b9082"/>
+  <text class="m s12" x="281" y="296">smart</text>
+  <rect x="328.5" y="281.5" width="58" height="21" rx="10.5" fill="none" stroke="#9b9082"/>
+  <text class="m s12" x="338" y="296">private</text>
+  <text class="m s12" x="408" y="296">87</text>
+
+  <!-- 3 · Run strip -->
+  <text class="ttl" x="8" y="350">3 · /media/[id] run strip — NextUpStrip + source label + shuffle / repeat toggles (aria-pressed; shown on)</text>
+  <rect x="8" y="358" width="704" height="74" rx="4" fill="#0c0a09"/>
+  <rect x="24.5" y="374.5" width="672" height="42" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text class="m up" x="36" y="400">PLAYING FROM</text>
+  <text class="m" x="126" y="400">Person ·</text>
+  <text class="a" x="186" y="400" font-weight="500">Ada Lune</text>
+  <text class="m" x="250" y="400">· 3 of 41 · shuffled</text>
+  <rect x="384" y="383" width="44" height="24" rx="2" fill="#000"/>
+  <text class="m up" x="434" y="400">NEXT</text>
+  <text x="470" y="400">Night Train</text>
+  <rect x="548.5" y="380.5" width="30" height="30" rx="2" fill="none" stroke="#e8a33d"/>
+  <use href="#shuf" x="556" y="388" class="ico" stroke="#e8a33d"/>
+  <rect x="582.5" y="380.5" width="30" height="30" rx="2" fill="none" stroke="#e8a33d"/>
+  <use href="#rep" x="590" y="388" class="ico" stroke="#e8a33d"/>
+  <rect x="616.5" y="380.5" width="36" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text class="m" x="626" y="400">‹</text>
+  <rect x="656.5" y="380.5" width="34" height="30" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="668" y="400">›</text>
+  <text class="note" x="24" y="428" style="fill:#9b9082">(Prev / Next keep their F69 “‹ Prev” / “Next ›” labels; shortened here for width.)</text>
+
+  <!-- 4 · Smart playlist page -->
+  <text class="ttl" x="8" y="456">4 · /playlists/[id] (smart) — solid split button = the page’s one primary; always-shuffle switch; Freeze; stale notice</text>
+  <rect x="8" y="464" width="704" height="300" rx="4" fill="#0c0a09"/>
+  <text class="serif s24" x="24" y="500">Everything noir</text>
+  <text class="m" x="226" y="498">✎</text>
+  <rect x="246.5" y="484.5" width="50" height="21" rx="10.5" fill="none" stroke="#9b9082"/>
+  <text class="m s12" x="257" y="499">smart</text>
+  <text class="m" x="24" y="524">87 videos · Newest first ·</text><text class="m s12" x="196" y="524">Tag noir · 2010–2019</text>
+  <!-- right controls -->
+  <rect x="338.5" y="502.5" width="84" height="31" rx="2" fill="none" stroke="#2a2622"/>
+  <text class="m" x="350" y="523">Edit filter</text>
+  <rect x="428.5" y="502.5" width="62" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="440" y="523">Private</text>
+  <rect x="490.5" y="502.5" width="58" height="31" rx="2" fill="none" stroke="#2a2622"/>
+  <text class="m" x="502" y="523">Public</text>
+  <rect x="556" y="500" width="104" height="36" rx="2" fill="#e8a33d"/>
+  <text class="ai" x="571" y="523" font-weight="500">▶ Play all</text>
+  <rect x="660" y="500" width="30" height="36" rx="2" fill="#e8a33d"/>
+  <line x1="660" y1="500" x2="660" y2="536" stroke="#1a1206"/>
+  <text class="ai" x="669" y="523">▾</text>
+  <!-- switch + freeze -->
+  <rect x="24.5" y="550.5" width="20" height="12" rx="6" fill="none" stroke="#9b9082"/>
+  <circle cx="31" cy="556.5" r="4" fill="#9b9082"/>
+  <text class="m s12" x="52" y="561">Always shuffle</text>
+  <text class="m s12" x="150" y="561">Freeze into a fixed playlist…</text>
+  <!-- always-shuffle on variant -->
+  <text class="note" x="24" y="592" style="fill:#9b9082">Always shuffle ON → switch accent, subtitle “always shuffled”, main half becomes Shuffle, menu offers “Play in order”:</text>
+  <rect x="24.5" y="604.5" width="20" height="12" rx="6" fill="none" stroke="#e8a33d"/>
+  <circle cx="38" cy="610.5" r="4" fill="#e8a33d"/>
+  <text class="a s12" x="52" y="615">Always shuffle</text>
+  <rect x="160" y="600" width="104" height="36" rx="2" fill="#e8a33d"/>
+  <use href="#shuf" x="172" y="611" class="ico" stroke="#1a1206"/>
+  <text class="ai" x="192" y="623" font-weight="500">Shuffle</text>
+  <rect x="264" y="600" width="30" height="36" rx="2" fill="#e8a33d"/>
+  <line x1="264" y1="600" x2="264" y2="636" stroke="#1a1206"/>
+  <text class="ai" x="273" y="623">▾</text>
+  <rect x="300.5" y="600.5" width="150" height="62" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="301" y="603" width="149" height="28" fill="#181310"/>
+  <use href="#shuf" x="312" y="609" class="ico" stroke="#f3ece1"/>
+  <text x="334" y="622">Shuffle</text>
+  <text x="312" y="651">▶ Play in order</text>
+  <!-- stale notice -->
+  <rect x="24.5" y="684.5" width="672" height="58" rx="2" fill="#15110e" stroke="#e2603f"/>
+  <text class="w" x="38" y="708">This playlist refers to a tag that was deleted</text>
+  <text class="m s12" x="38" y="728">(tag #212). Nothing is shown until the filter is fixed.</text>
+  <rect x="490.5" y="697.5" width="84" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="502" y="718">Edit filter</text>
+  <text class="m" x="586" y="718">Delete playlist</text>
+
+  <!-- 5 · Browse edit mode -->
+  <text class="ttl" x="8" y="788">5 · Browse opened from “Edit filter” — edit bar above the toolbar; live match count; Update replaces Save</text>
+  <rect x="8" y="796" width="704" height="110" rx="4" fill="#0c0a09"/>
+  <rect x="24.5" y="812.5" width="672" height="42" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text class="m up" x="36" y="838">EDITING FILTER OF</text>
+  <text class="a" x="160" y="838">Everything noir</text>
+  <text class="m" x="270" y="838">· 91 videos match (was 87)</text>
+  <rect x="440.5" y="818.5" width="180" height="31" rx="2" fill="none" stroke="#e8a33d"/>
+  <text class="a" x="452" y="839">Update “Everything noir”</text>
+  <text class="m" x="634" y="839">Cancel</text>
+  <text class="m s12" x="24" y="884">[ Sort ▾ ] [ Filters ▾ ]   chips: tag noir ×  ·  year 2010–2019 ×</text>
+
+  <text class="note" x="8" y="932">Cinémathèque tokens: bg #0c0a09 · surface #15110e · surface-2 #181310 · ink #f3ece1 · muted #9b9082 · rule #2a2622 ·</text>
+  <text class="note" x="8" y="948">accent #e8a33d · accent-ink #1a1206 · warn #e2603f · radius 2px. Type at real sizes: text-sm 14px, text-xs 12px, title text-2xl 24px.</text>
+  <text class="note" x="8" y="972">Approved by the owner 2026-09-30: save option B (one Save, Smart | Snapshot), marker A (smart chip), split button on 1 and 4.</text>
+</svg>

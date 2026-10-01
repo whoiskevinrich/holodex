@@ -8,8 +8,8 @@ the resolver / enrichment / writeback seams **not at all**
 **Feature block**: **F75** — every video grid whose cards come from a `/media` query (browse, person,
 tag, studio, film) gets two grid-header actions: **Play all** plays the grid's current result set in
 order through the F69 next-up player without saving anything, and **Save as smart playlist** stores the
-grid's **query** (not its ids) as a playlist that re-runs whenever it is opened. **Shuffle** sits beside
-*Play all* and plays the same set in a fresh random order; a run can be shuffled or un-shuffled
+grid's **query** (not its ids) as a playlist that re-runs whenever it is opened. **Shuffle** sits in
+*Play all*'s split-button menu and plays the same set in a fresh random order; a run can be shuffled or un-shuffled
 mid-play, can repeat endlessly, and a playlist can be set to always play shuffled. The stored query **is**
 the canonical `filters.ts` query string, so whatever the browse filters can express — today's facets,
 and later AND/NOT ([HOLODEX-181](https://whoiskevinrich.atlassian.net/browse/HOLODEX-181)) — smart
@@ -20,6 +20,10 @@ stories [HOLODEX-58](https://whoiskevinrich.atlassian.net/browse/HOLODEX-58) (sm
 [HOLODEX-500](https://whoiskevinrich.atlassian.net/browse/HOLODEX-500) (Play all) · prerequisite
 [HOLODEX-501](https://whoiskevinrich.atlassian.net/browse/HOLODEX-501) (entity grids through `/media`,
 no 500 cap)
+
+**Design**: [smart-playlists-handoff.md](../design/smart-playlists-handoff.md) +
+[mockup](../design/smart-playlists-mockup.svg) — approved 2026-09-30: one *Save as playlist…* with a
+Smart | Snapshot toggle, a `smart` chip, Play all / Shuffle as one split button.
 
 **Supersedes**: F69 [video-playlists.md](video-playlists.md) **P2-2** (*Live playlists — a nullable
 `frozen_query` + Refresh from filter*). F69's Non-Goal "Live / refreshable playlists" stays true *of
@@ -112,8 +116,8 @@ page under-reports the very set the owner wants to watch.
   mapped-field key no longer exists, nothing is rewritten or dropped: the playlist reports the stale
   reference and its page shows a notice with *Edit filter* and *Delete*. A query is never silently
   broadened.
-- **RD7 — The title box is part of the query.** On entity pages the title filter box folds into the
-  query's `q`, so the grid is filtered server-side and Play all / Save see exactly the visible set.
+- **RD7 — The title filter is part of the query.** On entity pages the title filter (the nav search
+  box filtering in place, `navSearch.inPlace`) folds into the query's `q`, so the grid is filtered server-side and Play all / Save see exactly the visible set.
 - **RD8 — No cap.** Neither Play all nor a smart playlist truncates. The entity grids lose their 500 cap
   in HOLODEX-501 (paged, like browse).
 - **RD9 — Visibility is F69's.** `private` (default) ⇒ a visitor gets 404; `public` ⇒ the query is
@@ -185,9 +189,9 @@ endpoints stop feeding the grid. The title box sends `q` (RD7).
 - [ ] Typing in the title box narrows the grid server-side and updates the query the actions read.
 
 **P0-2 — Grid-header actions where a query exists.** Browse, person, tag, studio and film grids show
-*Play all* (everyone who can see the grid) and *Save as smart playlist* (owner only) in the grid header
-/ toolbar. Search and shelves show neither.
-- [ ] Visitor sees *Play all*, never *Save as smart playlist*.
+a count line with the *Play all* split button (everyone who can see the grid) and *Save as playlist…*
+(owner only). Browse's ⋯ *Save as playlist…* entry moves here. Search and shelves show neither.
+- [ ] Visitor sees *Play all*, never *Save as playlist…*.
 - [ ] *Play all* is disabled when the result set is empty.
 - [ ] No action on `routes/search`, `RelatedShelf`, `RecentlyAddedShelf`.
 
@@ -199,7 +203,8 @@ gets a seed (F69 RD7).
 - [ ] Tagging a new matching video mid-run does not change the run's order or length.
 - [ ] PiP opened on item 1 is still open on item 2 (F69 P0-9 element, unchanged).
 
-**P0-4 — Save as smart playlist.** Owner names it; the server canonicalises the grid's query (RD2) and
+**P0-4 — Save as smart playlist.** One *Save as playlist…* form with a **Smart | Snapshot** toggle,
+Smart by default; Snapshot is F69's `from_query`. For Smart, the owner names it; the server canonicalises the grid's query (RD2) and
 stores it with `sort` from the grid (RD4) and `visibility = private`. Toast reports the current match
 count with a link.
 - [ ] Saved query round-trips: opening *Edit filter* reproduces the same grid.
@@ -221,7 +226,7 @@ with `position` = rank, and clears the query — the playlist becomes an F69 sna
 - [ ] After Freeze, a newly matching video does **not** appear; `manual` sort becomes available.
 
 **P0-8 — Edit filter.** From a smart playlist, *Edit filter* opens browse with the stored query loaded
-and an *Update ‹name›* action in place of *Save as smart playlist*; updating replaces the stored query
+and an *Update ‹name›* action in place of *Save as playlist…*; updating replaces the stored query
 (re-canonicalised).
 - [ ] Update changes membership on next read; cancelling leaves the playlist unchanged.
 
@@ -235,8 +240,8 @@ an unknown mapped-field key returns `stale_refs`; the page shows a notice with *
 - [ ] Handler test: visitor cannot open a private smart playlist (404, not 403).
 - [ ] A public smart playlist never returns a video the same visitor could not get from `/media`.
 
-**P0-11 — Shuffle (RD10).** A *Shuffle* action beside every *Play all* (query-backed grids and F69
-playlist pages). Same autoplay rules as *Play all*; the run's seed is held with the run, not put in the
+**P0-11 — Shuffle (RD10).** *Shuffle* is the second item of every *Play all* split button
+(query-backed grids and F69 playlist pages); with *Always shuffle* on, the two swap places. Same autoplay rules as *Play all*; the run's seed is held with the run, not put in the
 grid's URL.
 - [ ] *Shuffle* on a date-sorted grid plays a random order; the grid stays date-sorted.
 - [ ] Two presses give two different orders (different seeds); *Previous* / *Next* within one run are
@@ -318,8 +323,8 @@ Base `/api/v1`; envelope as F69. Mutations under `requireOwner`; reads visibilit
 ## UI
 
 Two affordances and three changes:
-1. **Grid-header actions** — *Play all* · *Shuffle* · *Save as smart playlist* on query-backed grids;
-   *Play all* · *Shuffle* on F69 playlist pages.
+1. **Grid-header actions** — the *Play all ▾* split button (Shuffle in its menu) and *Save as
+   playlist…* (Smart | Snapshot) on query-backed grids; the split button on F69 playlist pages.
 2. **Run context on `/media/[id]`** — the F69 next-up surface, labelled with the run's source
    ("Person · ‹name›") instead of a playlist name, plus the shuffle and repeat toggles (P1-4, P1-5).
 3. **Smart playlist page** — F69 detail page plus a smart marker, *Edit filter*, *Freeze*, the
