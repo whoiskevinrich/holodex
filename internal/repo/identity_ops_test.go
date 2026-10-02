@@ -132,6 +132,35 @@ func TestSearchMatchesTagAlias(t *testing.T) {
 	}
 }
 
+// TestSearchMatchesStudioAlias (F43 P0-9, HOLODEX-508): a studio is found by an
+// alias and listed once, by its canonical name, even when its name matches too.
+func TestSearchMatchesStudioAlias(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	va, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, va, []string{"Warner Bros."}, nil); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	warner := studioIDByName(t, r, "Warner Bros.")
+	for _, a := range []string{"WB", "Warner Brothers"} {
+		if _, err := r.AddEntityAlias(ctx, model.EnrichEntityStudio, warner, a); err != nil {
+			t.Fatalf("add alias %q: %v", a, err)
+		}
+	}
+	for _, q := range []string{"WB", "warner"} {
+		res, err := r.Search(ctx, q, 10, false)
+		if err != nil {
+			t.Fatalf("search %q: %v", q, err)
+		}
+		if len(res.Studios) != 1 || res.Studios[0].ID != warner || res.Studios[0].Name != "Warner Bros." {
+			t.Errorf("search %q studios = %+v, want Warner Bros. once", q, res.Studios)
+		}
+	}
+}
+
 func TestStudioMergeSurvivesRederivation(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()

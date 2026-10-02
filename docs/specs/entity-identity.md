@@ -218,6 +218,10 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   tag appears once in the Tags group, under its canonical name.)*
   - Given tag `sci-fi` with alias `science fiction`, When a visitor searches `science fic`, Then `sci-fi`
     appears in the Tags results exactly once.
+  *(HOLODEX-508: never met for studios either — global search read `studios_fts` only. Closed for studios
+  here, the same way.)*
+  - Given studio `Warner Bros.` with alias `WB`, When a visitor searches `WB`, Then `Warner Bros.` appears in
+    the Studios results exactly once.
 - **P0-10 — Alias values collapse in genre writeback** (HOLODEX-507). When a video's raw genre values
   include an alias of a tag the video already carries, writeback emits the canonical tag once — never the
   alias beside it.

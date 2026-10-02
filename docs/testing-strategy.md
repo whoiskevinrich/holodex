@@ -982,6 +982,9 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   - *Frontend*: `AliasPanel` on `/tags/{id}` — live-QA'd on Cinémathèque against `backend-amv-9300`: add (stored
     lowercase), remove, visitor read-only chips with no controls, 375px with no horizontal overflow. No component
     harness exists for `web/` routes, so this is browser-driven only.
+- **Studio alias search (HOLODEX-508, P0-9 for studios)**: `TestSearchMatchesStudioAlias` — a studio is found by
+  an alias alone (`WB`) and listed **once, by its canonical name** when name and alias both match (`warner`).
+  Before the fix the `WB` case returned no studios.
 
 **In-app promote / override affordance (F44, HOLODEX-171, ADR-062)** — an owner-gated, DB-backed **tier-0**
 override (`field_promotions`) that materializes an auto-registered (F39) non-canonical field into a synthetic
