@@ -89,13 +89,46 @@ func TestTagAliasCRUD(t *testing.T) {
 	if a, _ := r.AliasesForEntity(ctx, model.EntityTag, scifi); len(a) != 1 {
 		t.Fatalf("tag aliases = %+v, want one (whitespace-folded)", a)
 	}
-	// The tags list carries aliases (no detail page, RD7).
+	// Tag alias text is stored lowercase (RD12), and whitespace-only is refused.
+	sf, err := r.AddEntityAlias(ctx, model.EntityTag, scifi, "  SF ")
+	if err != nil || sf.Alias != "sf" {
+		t.Errorf("add tag alias \"  SF \" = %+v, %v; want stored as \"sf\"", sf, err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, scifi, "   "); err == nil {
+		t.Error("whitespace-only tag alias accepted, want an error")
+	}
+	// The tags list carries aliases too, not only the detail read.
 	tags, err := r.ListTags(ctx, false)
 	if err != nil {
 		t.Fatalf("list tags: %v", err)
 	}
-	if len(tags) != 1 || len(tags[0].Aliases) != 1 {
-		t.Errorf("ListTags aliases = %+v, want one on the sole tag", tags)
+	if len(tags) != 1 || len(tags[0].Aliases) != 2 {
+		t.Errorf("ListTags aliases = %+v, want two on the sole tag", tags)
+	}
+}
+
+// TestSearchMatchesTagAlias (F43 P0-9, HOLODEX-507): a tag is found by an alias and
+// listed once, by its canonical name, even when its name matches too.
+func TestSearchMatchesTagAlias(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"sci-fi"}), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	scifi := tagIDByName(t, r, "sci-fi")
+	for _, a := range []string{"science fiction", "sci-fi classics"} {
+		if _, err := r.AddEntityAlias(ctx, model.EntityTag, scifi, a); err != nil {
+			t.Fatalf("add alias %q: %v", a, err)
+		}
+	}
+	for _, q := range []string{"science fic", "sci"} {
+		res, err := r.Search(ctx, q, 10, false)
+		if err != nil {
+			t.Fatalf("search %q: %v", q, err)
+		}
+		if len(res.Tags) != 1 || res.Tags[0].ID != scifi || res.Tags[0].Name != "sci-fi" {
+			t.Errorf("search %q tags = %+v, want sci-fi once", q, res.Tags)
+		}
 	}
 }
 

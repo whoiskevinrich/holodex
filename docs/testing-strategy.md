@@ -968,6 +968,19 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   **banner** (`--warn`, owner-only) deep-links the tab; the `/owner/duplicates` tab (Option-A dense rows, tags
   first, Merge/Keep-separate). Owner controls **absent from the DOM** for non-owners; tokens-only (`rg` guard empty);
   the `--warn`/`--accent` separation holds on **Brutalist**; **all 3 skins**.
+- **Tag aliases completed (HOLODEX-507, revised RD7 + RD12 + P0-10)** — the tag half the bullets above promised
+  but never delivered:
+  - *Search (P0-9 for tags)*: `TestSearchMatchesTagAlias` — a tag is found by an alias prefix and listed
+    **once, by its canonical name**, including when its name matches too (the dedup half).
+  - *Lowercase alias text (RD12)*: `TestTagAliasCRUD` — `"  SF "` stores as `sf`, a whitespace-only tag alias is
+    refused; `TestMigration0056LowercaseTagAliases` — existing tag aliases are lowercased, a studio alias keeps
+    its casing, and `entity_aliases_fts` still finds the rewritten row.
+  - *Genre writeback (P0-10)*: `TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag` — a raw genre that is an
+    alias of an attached tag is **not** written beside it (`[sci-fi Drama]`, never `[sci-fi Science Fiction
+    Drama]`). Mutation-checked: reverting the identity dedup fails it with exactly that triple.
+  - *Frontend*: `AliasPanel` on `/tags/{id}` — live-QA'd on Cinémathèque against `backend-amv-9300`: add (stored
+    lowercase), remove, visitor read-only chips with no controls, 375px with no horizontal overflow. No component
+    harness exists for `web/` routes, so this is browser-driven only.
 
 **In-app promote / override affordance (F44, HOLODEX-171, ADR-062)** — an owner-gated, DB-backed **tier-0**
 override (`field_promotions`) that materializes an auto-registered (F39) non-canonical field into a synthetic

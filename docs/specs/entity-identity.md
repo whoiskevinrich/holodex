@@ -29,6 +29,11 @@ banner + `/owner` Duplicates tab, tag-list identity actions, the editor near-mis
 canonical) and **56 near-misses** (person 8, studio 7, **tag 41**; ~⅔ internal-whitespace). These numbers set
 the P0/P1 split and the backfill safety argument.
 
+**Amendment — tag aliases completed (HOLODEX-507, 2026-10-01).** A tag detail page (`/tags/{id}`) has since
+shipped (F50 hierarchy, HOLODEX-269 rename), so RD7's "no detail page" no longer describes the product. This
+amendment revises **RD7**, adds **RD12** (tag alias text is lowercase) and **P0-10** (alias values collapse in
+genre writeback), and records that **P0-9** was never met for tags. Marked inline as *(HOLODEX-507)*.
+
 ---
 
 ## Problem Statement
@@ -62,8 +67,8 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 - **A per-field decision/curation model for Tags** (RD7). Tags get the identity spine only, not
   `BaselineSource`/source-chips — a tag is a single-field entity; its name *is* the entity. *(Why: the
   decision machinery is ceremony with no payoff for one field.)*
-- **A tag detail page** (RD7). Tag identity is operated from **light list actions** + the review queue; no
-  `/tags/{id}` page, no `·record` chips. *(Why: card decision — smallest surface that operates identity.)*
+- ~~**A tag detail page** (RD7).~~ *(HOLODEX-507: a `/tags/{id}` page now exists and hosts the alias panel —
+  see revised RD7.)* Still no `·record` chips for tags.
 - **Undo / split / un-merge** (RD8). Merge is one-way (mirrors F23); deleting an alias stops *future* routing
   but does not retroactively re-split moved associations. A dedicated un-merge is a tracked P2.
 - **Provider (external-id) identity changes.** ADR-055's id→entity invariant is untouched; this spec is the
@@ -108,7 +113,14 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   the alias is load-bearing for all three, not a studio-only quirk. (`MergePersons` already registers the alias.)
 - **RD7 — Tags: identity-only, light list actions** (ADR-061 D7 + card). Tags gain `nameKey` + aliases +
   merge + rename + shared FTS, operated from `/tags` row actions and the review queue. No decision model, no
-  detail page.
+  detail page. **Revised (HOLODEX-507):** the tag detail page that has since shipped carries the same
+  entity-generic **Aliases panel** as person / studio / film — list, add, remove, merge-in — so an alias can
+  be *seen and removed*, not only added from the list. Rename stays on the page's `NameEditControl`. Still no
+  decision model: identity-only, per ADR-061 D7 and ADR-090's tag exclusion.
+- **RD12 — Tag alias text is lowercase** (HOLODEX-507; owner policy). Tag *names* are stored lowercase
+  (migration 0034), and the same house rule now covers a tag's aliases: alias text is lowercased on write, and
+  existing tag aliases are lowercased once by migration. Person / studio / film aliases keep their casing.
+  Identity is unaffected — `alias_key` already folds case — so this changes display only, and cannot collide.
 - **RD8 — Merge is irreversible + informed confirm** (card). Both entry points show each side's video count
   and what moves before committing; merge is one-way. Undo/split is P2.
 - **RD9 — Review queue: banner → `/owner` Duplicates tab; editor near-miss = soft warning** (cards). Entity
@@ -181,6 +193,8 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 - **P0-4 — Tag alias + merge + rename (RD7).** `POST/DELETE /tags/{id}/aliases`,
   `POST /tags/{id}/merge {from_id}`, `POST /tags/{id}/rename {name}` (`requireOwner`), with alias routing at
   scan time. `/tags` list gains owner row-actions (rename, alias, merge-select). No tag detail page.
+  *(HOLODEX-507: the tag detail page also lists aliases and lets the owner remove one — revised RD7. Tag alias
+  text is stored lowercase — RD12.)*
 - **P0-5 — Exact-collision prompt, generalized (RD4/RD5).** Adding an alias or renaming to a `nameKey` that
   belongs to a **different** entity returns `409 {conflict:{id,name,count}}` (the F23 shape) for all three
   entities; the owner chooses **merge** or **keep separate** (records a keep-separate marker). Never a silent
@@ -200,6 +214,15 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 - **P0-9 — Search honors aliases for all three (extends ADR-017/036).** Global search matches any entity's
   aliases and returns that entity (once) + its media, via the shared `entity_aliases_fts` — the F23.5
   guarantee, now for studios and tags too.
+  *(HOLODEX-507: never met for tags — global search read `tags_fts` only. Closed for tags here; a matched
+  tag appears once in the Tags group, under its canonical name.)*
+  - Given tag `sci-fi` with alias `science fiction`, When a visitor searches `science fic`, Then `sci-fi`
+    appears in the Tags results exactly once.
+- **P0-10 — Alias values collapse in genre writeback** (HOLODEX-507). When a video's raw genre values
+  include an alias of a tag the video already carries, writeback emits the canonical tag once — never the
+  alias beside it.
+  - Given a video tagged `sci-fi` whose file genre reads `Science Fiction` (an alias of `sci-fi`), When genre
+    writeback runs, Then the file's genre lists `sci-fi` once and not `Science Fiction`.
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 
@@ -224,7 +247,7 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
 
 - **P2-1 — Undo / un-merge** (RD8) — reversible association moves + entity restore.
 - **P2-2 — Fuzzy detection upgrade** — edit-distance / phonetic beyond loose-key, if tag drift outpaces it.
-- **P2-3 — Tag detail page** — only if tags ever need more than list actions.
+- ~~**P2-3 — Tag detail page**~~ — shipped outside this spec; carries the Aliases panel since HOLODEX-507.
 - **P2-4 — MCP parity** — aliases/merge over MCP (rides F22.5f).
 - **P2-5 — `tag_external_ids`** — if/when tags become enrichable (ADR-055 future row); independent of this spec.
 
@@ -323,6 +346,10 @@ belongs to another entity; `401` unauthorized. Alias validation reuses F23.1 (tr
   studio page reuses it verbatim (RD6). Owner-only add/delete/merge controls.
 - **`/tags`**: the list gains owner **row actions** — rename, add-alias, and a **merge-select** mode
   ("Keep which name?" dialog, the F23 `/people` multi-select pattern). No detail page (RD7).
+- **`/tags/{id}`** *(HOLODEX-507)*: the shared `AliasPanel` in the detail column, above Hierarchy &
+  categories — alias chips (× to remove), "Add an alias", "Merge a tag in". Owner-only controls; visitors see
+  the chips read-only. Rename stays on the hero's `NameEditControl`. Mockup:
+  [tag-aliases-handoff.md](../design/tag-aliases-handoff.md).
 - **`/owner` → Duplicates tab** (F35): pairs grouped by entity (tags first), each with both names + counts +
   variation, **Merge** (informed confirm, RD8) / **Keep separate** (RD5). The **"N possible duplicates"
   banner** on each entity list links here (RD9).

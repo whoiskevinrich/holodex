@@ -130,7 +130,7 @@ func (r *Repo) RenamePerson(ctx context.Context, id int64, newName string) (conf
 // searchPeopleByAlias returns person ids/names whose any alias matches the FTS query,
 // deduped by person (a person with several matching aliases appears once). The
 // entity_type filter in the JOIN scopes the shared entity_aliases_fts to people (F43,
-// ADR-061); studio/tag alias search rides the same mirror (S3).
+// ADR-061); searchTagsByAlias rides the same mirror for tags.
 func (r *Repo) searchPeopleByAlias(ctx context.Context, match string, limit int) ([]model.Person, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT DISTINCT p.id, p.name
@@ -149,6 +149,30 @@ func (r *Repo) searchPeopleByAlias(ctx context.Context, match string, limit int)
 			return nil, err
 		}
 		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// searchTagsByAlias is searchPeopleByAlias for tags (F43 P0-9, HOLODEX-507): tag
+// ids/names whose any alias matches the FTS query, deduped by tag.
+func (r *Repo) searchTagsByAlias(ctx context.Context, match string, limit int) ([]model.Tag, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT t.id, t.name
+		FROM entity_aliases_fts f
+		JOIN entity_aliases a ON a.id = f.rowid AND a.entity_type = 'tag'
+		JOIN tags t           ON t.id = a.entity_id
+		WHERE entity_aliases_fts MATCH ? LIMIT ?`, match, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search tag aliases: %w", err)
+	}
+	defer rows.Close()
+	var out []model.Tag
+	for rows.Next() {
+		var t model.Tag
+		if err := rows.Scan(&t.ID, &t.Name); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
 	}
 	return out, rows.Err()
 }

@@ -3,8 +3,8 @@
 	// entity-generic). Owner-curated alternate names that drive search + scan routing, plus
 	// "Merge a … in…" (EntityPicker) and the homonym collision card ("never a silent merge").
 	// Rename lives on the entity's own NameEditControl now (HOLODEX-269, both person and
-	// studio) — this panel is add/remove/merge only. Reused verbatim on person + studio
-	// detail (not tag — RD7). Tokens only.
+	// studio) — this panel is add/remove/merge only. Reused verbatim on person, studio,
+	// film and tag detail (tag since HOLODEX-507, revised RD7). Tokens only.
 	import { api } from '$lib/api';
 	import { toMessage, videoCount } from '$lib/format';
 	import type { EntityKind, EntityRef, PersonAlias, SkippedAlias } from '$lib/types';
