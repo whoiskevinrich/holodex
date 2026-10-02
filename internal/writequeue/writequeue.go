@@ -394,7 +394,8 @@ func (q *Queue) tagKeeper(ctx context.Context, written []string, present map[str
 // a batch id — job.BatchID when the caller supplied one (F48.8, ADR-067,
 // migration 0027: several jobs, one per video, sharing a batch so a single
 // Revert restores all of them), otherwise one derived from the job's own id
-// (F48.9a) — not a fresh random id per attempt. That matters for crash
+// (F48.9a; unique only because migration 0057 made the queue AUTOINCREMENT,
+// HOLODEX-510) — not a fresh random id per attempt. That matters for crash
 // recovery: RecoverRunningWritebacks resets a crash-interrupted 'running' job
 // back to 'pending' and reprocesses it from scratch, and by then the file may
 // already carry the first attempt's write (a crash between a successful

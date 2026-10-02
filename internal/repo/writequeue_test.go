@@ -74,6 +74,31 @@ func TestGetWritebackJobStatus(t *testing.T) {
 	}
 }
 
+// A completed job's row is deleted, so a reissued id would make the next job's
+// id-derived snapshot batch collide with the finished one's (HOLODEX-510).
+func TestEnqueueWritebackNeverReusesAFinishedJobsID(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	videoID, err := r.UpsertVideo(ctx, sampleVideo(filepath.Join(t.TempDir(), "v.mp4"), "T", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	first, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"genres","values":["a"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := r.FinishWriteback(ctx, first, true, ""); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	second, err := r.EnqueueWriteback(ctx, videoID, `[{"field":"genres","values":["b"]}]`, "")
+	if err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if second == first {
+		t.Errorf("second job reused the finished job's id %d", first)
+	}
+}
+
 // TestGetWritebackBatchStatus covers D3's aggregation across a shared
 // batchID (HOLODEX-239, ADR-077): pending/running come from still-live
 // writeback_queue rows, done/failed from job_runs — driven directly through
