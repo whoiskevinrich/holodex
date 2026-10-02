@@ -83,10 +83,10 @@ RD12, P0-9 for tags, P0-10) · handoff [tag-aliases-handoff.md](../design/tag-al
 -->
 
 ### 2026-10-01 · design, build and QA in one session
-- skills: engineering:system-design, code-review (high --fix), handoff
+- skills: engineering:system-design, code-review (high --fix), handoff, implement
 - note: the branch got its key mid-session, so no worklog existed and the design-phase guard never fired; backend and frontend were built **before** the design sign-off. Owner approved the scope and lowercase aliases in chat, not the committed mockup.
 - note: security — no auth, access or infrastructure change (existing owner-gated endpoints, one parameterized FTS query, writeback only drops values), so no `/security-review`; the Jira `needs-security-review` label was cleared.
-- handoff: Every gate is settled and the owner signed off the mockup and the build against it; the PR is open — review and merge it.
+- handoff: Crossed into build — design signed off at df8c3b05, every gate settled, main merged in; PR open. Start at: review and merge it.
 
 ## Dropped — newest first (the reason is the point)
 
