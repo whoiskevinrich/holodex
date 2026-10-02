@@ -37,7 +37,10 @@ func ReadCurrentValues(ctx context.Context, path string, mapped []Mapped) (map[s
 		return out, nil
 	}
 
-	args := append(tagArgs, "-j", "-api", "largefilesupport=1", path)
+	// MatroskaSeekArgs: the scanner's reach, or a Genre mkvpropedit moved past the
+	// first Cluster reads as absent here while the scanner sees it (HOLODEX-505).
+	args := append(metadata.MatroskaSeekArgs(path), tagArgs...)
+	args = append(args, "-j", "-api", "largefilesupport=1", path)
 	raw, err := exec.CommandContext(ctx, "exiftool", args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("writeback read current values: %w", err)
