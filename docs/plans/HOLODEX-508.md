@@ -24,14 +24,14 @@ inline HOLODEX-507 note is extended for studios) · no ADR (completes ADR-061) �
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Open the PR (`/implement`), review and merge; CI moves HOLODEX-508 to Done
+1. [ ] [—] Review and merge PR #430; CI moves HOLODEX-508 to Done
 2. [ ] [—] Decide: should a studio (and tag) match also pull its media into Videos, as P0-9's "+ its media" reads? Pre-existing gap, not in this ticket
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-02 · fix built and tested in one session
-- skills: code-review (high --fix), handoff
+- skills: code-review (high --fix), handoff, implement
 - note: security — one parameterized read-only FTS query, no auth/access/infra change, so no `/security-review`.
-- handoff: Studio alias search is built, tested and every gate is settled; start at: open the PR with /implement and merge it.
+- handoff: Crossed into build (no approve gates in this posture); PR #430 open and marked ready. Start at: review and merge it.
 
 ## Dropped — newest first (the reason is the point)
