@@ -3,6 +3,10 @@ key: HOLODEX-512
 status: in-progress
 profile: ui                  # UX change, behavior unchanged — the media title's rename field
 depends-on: []
+approved:
+  design:
+    on: 2026-10-02
+    at: 300ef43c
 release_note: Renaming a media item with a long title now shows the whole title while you edit it. The field spans the header, wraps onto more lines as needed, and uses the title's own type.
 ---
 
@@ -26,13 +30,13 @@ to the `<input>`'s ~20ch intrinsic width. Measured: a 246px input in a 700px row
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement`: owner signs off on the committed handoff, then build.
+1. [x] [—] `/implement`: owner signs off on the committed handoff, then build.
 2. [ ] [—] Build the `multiline` field and the wrapper class; run `npm run check`; QA the handoff checklist in Cinémathèque.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-02 · critiqued the title edit, filed the bug, wrote the handoff
-- skills: design-critique, design-handoff
-- handoff: The design is committed (option B). Next is `/implement` to get sign-off on the handoff, then the build.
+- skills: design-critique, design-handoff, implement
+- handoff: Crossed into build. Design signed off at 300ef43c; draft PR open. Start at Up next item 2 (the build).
 
 ## Dropped — newest first (the reason is the point)
