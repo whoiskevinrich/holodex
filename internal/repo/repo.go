@@ -1830,6 +1830,21 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 	if err := sr.Err(); err != nil {
 		return res, err
 	}
+	// Then alias-only studio matches (F43 P0-9, HOLODEX-508), deduped by id like tags
+	// above, so a studio matching its name and an alias appears once, by its name.
+	if remaining := limit - len(res.Studios); remaining > 0 {
+		aliasHits, err := r.searchStudiosByAlias(ctx, match, remaining)
+		if err != nil {
+			return res, err
+		}
+		for _, s := range aliasHits {
+			if _, dup := seenS[s.ID]; dup {
+				continue
+			}
+			seenS[s.ID] = struct{}{}
+			res.Studios = append(res.Studios, s)
+		}
+	}
 	dispS, extraS, err := r.displayNameMatches(ctx, model.EnrichEntityStudio, "name", q, seenS, limit-len(res.Studios))
 	if err != nil {
 		return res, err
