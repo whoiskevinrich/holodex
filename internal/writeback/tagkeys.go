@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"holodex/internal/mapping"
+	"holodex/internal/metadata"
 )
 
 // ExtraTagKeys are the container keys the scanner reads tags from besides
@@ -63,7 +64,9 @@ func ValidTagKeyName(container, tagName string) bool {
 // same key can sit in more than one group, e.g. MP4 Keys:Keywords; the bare
 // name on Matroska/WebM) and split into values the way the scanner splits them.
 func ReadTagKeys(ctx context.Context, path, container string) (map[string][]string, error) {
-	args := []string{"-j", "-G1", "-a", "-api", "largefilesupport=1"}
+	// Same reach as the scanner (HOLODEX-505): a tag key this filter can't see is
+	// never trimmed, so a removed tag would return on the next rescan.
+	args := append(metadata.MatroskaSeekArgs(path), "-j", "-G1", "-a", "-api", "largefilesupport=1")
 	for _, k := range ExtraTagKeys {
 		args = append(args, "-"+k)
 	}
