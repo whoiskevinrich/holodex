@@ -209,6 +209,12 @@ func (r *Repo) AliasesForEntities(ctx context.Context, entityType string, ids []
 // already owned by another entity of this type (P0-5); an empty alias is rejected here
 // as a guard. The unique (entity_type, alias_key) constraint dedupes.
 func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, alias string) (model.EntityAlias, error) {
+	// Tag alias text is lowercase, like tag names (F43 RD12, HOLODEX-507). Merge and
+	// rename store an already-lowercase tag name, so this is the one free-text path.
+	// Normalized before the empty guard so a whitespace-only tag alias is refused.
+	if entityType == model.EntityTag {
+		alias = curationNorm(alias)
+	}
 	if alias == "" {
 		return model.EntityAlias{}, errors.New("empty alias")
 	}

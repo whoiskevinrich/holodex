@@ -1,0 +1,56 @@
+<svg width="900" height="430" viewBox="0 0 900 430" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Tag detail — Aliases panel, and alias-aware search (HOLODEX-507)</title>
+<desc>Three panels. 1: the tag detail page as the owner sees it — hero name "sci-fi" with its rename pencil and video count, then the shared Aliases panel above Hierarchy and categories: lowercase alias chips "science fiction" and "scifi", each with a remove ×, a "Merge a tag in…" button, and an "Add an alias" input. 2: the same page for a visitor — chips without ×, no merge button, no input; with no aliases the panel is not rendered at all. 3: global search for "science fic" — the Tags group lists "sci-fi" once, under its canonical name; nothing in the result says which alias matched.</desc>
+<rect width="900" height="430" fill="#f4f2ee"/>
+<text x="24" y="28" font-size="11" letter-spacing="1" fill="#8a8478">TAG ALIASES — TAG DETAIL PAGE + SEARCH</text>
+
+<rect x="24" y="44" width="420" height="366" rx="8" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="40" y="62" font-size="10" fill="#8a8478">1 · /tags/{id}, owner</text>
+<text x="40" y="84" font-size="11" fill="#8a8478">genre ›</text>
+<text x="40" y="110" font-size="22" font-weight="600" fill="#1f1d1a">sci-fi</text>
+<path d="M112 98 l8 -8 l3 3 l-8 8 h-3 z" stroke="#8a8478" stroke-width="1.2" fill="none"/>
+<text x="40" y="130" font-size="12" fill="#8a8478">212 videos</text>
+
+<rect x="40" y="146" width="388" height="150" rx="6" fill="#ffffff" stroke="#2f6fed" stroke-width="2"/>
+<text x="56" y="168" font-size="10" letter-spacing="1" fill="#8a8478">ALIASES</text>
+<rect x="306" y="155" width="108" height="22" rx="4" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="316" y="170" font-size="11" fill="#1f1d1a">Merge a tag in…</text>
+<rect x="56" y="190" width="122" height="22" rx="11" fill="#f1eee8"/>
+<text x="66" y="205" font-size="12" fill="#1f1d1a">science fiction</text>
+<text x="164" y="205" font-size="12" fill="#8a8478">×</text>
+<rect x="186" y="190" width="64" height="22" rx="11" fill="#f1eee8"/>
+<text x="196" y="205" font-size="12" fill="#1f1d1a">scifi</text>
+<text x="236" y="205" font-size="12" fill="#8a8478">×</text>
+<rect x="56" y="226" width="300" height="28" rx="4" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="66" y="244" font-size="12" fill="#a8a296">Add an alias</text>
+<rect x="364" y="226" width="50" height="28" rx="4" fill="#2f6fed"/>
+<text x="378" y="244" font-size="12" font-weight="600" fill="#ffffff">Add</text>
+<text x="56" y="280" font-size="10" fill="#2f6fed">New on this page — the existing AliasPanel, entityType="tag"</text>
+
+<rect x="40" y="308" width="388" height="86" rx="6" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="56" y="330" font-size="10" letter-spacing="1" fill="#8a8478">HIERARCHY &amp; CATEGORIES</text>
+<text x="56" y="352" font-size="11" fill="#a8a296">existing — unchanged</text>
+
+<rect x="460" y="44" width="416" height="170" rx="8" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="476" y="62" font-size="10" fill="#8a8478">2 · /tags/{id}, visitor</text>
+<rect x="476" y="76" width="384" height="84" rx="6" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="492" y="98" font-size="10" letter-spacing="1" fill="#8a8478">ALIASES</text>
+<rect x="492" y="112" width="108" height="22" rx="11" fill="#f1eee8"/>
+<text x="502" y="127" font-size="12" fill="#1f1d1a">science fiction</text>
+<rect x="608" y="112" width="50" height="22" rx="11" fill="#f1eee8"/>
+<text x="618" y="127" font-size="12" fill="#1f1d1a">scifi</text>
+<text x="476" y="182" font-size="10" fill="#8a8478">Read-only chips: no ×, no merge, no input.</text>
+<text x="476" y="198" font-size="10" fill="#8a8478">No aliases → the panel is not rendered for a visitor.</text>
+
+<rect x="460" y="230" width="416" height="180" rx="8" fill="#ffffff" stroke="#d9d4cb"/>
+<text x="476" y="248" font-size="10" fill="#8a8478">3 · global search</text>
+<rect x="476" y="260" width="384" height="30" rx="4" fill="#ffffff" stroke="#c9c3b8"/>
+<circle cx="492" cy="274" r="5" fill="none" stroke="#8a8478" stroke-width="1.4"/>
+<path d="M496 278 l4 4" stroke="#8a8478" stroke-width="1.4"/>
+<text x="508" y="279" font-size="12" fill="#1f1d1a">science fic</text>
+<text x="476" y="314" font-size="10" letter-spacing="1" fill="#8a8478">TAGS</text>
+<rect x="476" y="324" width="60" height="24" rx="12" fill="#f1eee8" stroke="#2f6fed" stroke-width="2"/>
+<text x="490" y="340" font-size="12" fill="#1f1d1a">sci-fi</text>
+<text x="476" y="374" font-size="10" fill="#2f6fed">Matched through its alias; listed once, by canonical name.</text>
+<text x="476" y="390" font-size="10" fill="#8a8478">No new UI — the results panel is unchanged.</text>
+</svg>
