@@ -25,7 +25,7 @@ inline HOLODEX-507 note is extended for studios) · no ADR (completes ADR-061) �
 ## Up next — ordered (position = priority)
 
 1. [ ] [—] Review and merge PR #430; CI moves HOLODEX-508 to Done
-2. [ ] [—] Decide: should a studio (and tag) match also pull its media into Videos, as P0-9's "+ its media" reads? Pre-existing gap, not in this ticket
+2. [ ] [—] Studio/tag matches don't pull their media into Videos (P0-9 "+ its media") → HOLODEX-511
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
