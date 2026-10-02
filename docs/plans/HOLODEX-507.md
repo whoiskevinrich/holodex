@@ -15,6 +15,10 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: "A tag's page now lists its aliases so you can add, remove or merge them, search finds a tag by any of its aliases, and tag aliases are always lowercase like tag names."  # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
+approved:
+  design:
+    on: 2026-10-01
+    at: df8c3b05
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -44,9 +48,9 @@ RD12, P0-9 for tags, P0-10) · handoff [tag-aliases-handoff.md](../design/tag-al
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [x] design `design-handoff` → `docs/design/**` — committed; owner sign-off still outstanding (no `approved:` entry)
+- [x] design `design-handoff` → `docs/design/**` — owner signed off 2026-10-01
 - [x] backend → `{cmd,internal,providers}/**`
-- [/] frontend → `web/src/**` — built and QA'd; held until the owner compares it against the approved mockup
+- [x] frontend → `web/src/**` — owner confirmed the build matches the approved mockup
 - [x] testing `testing-strategy`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -64,10 +68,9 @@ RD12, P0-9 for tags, P0-10) · handoff [tag-aliases-handoff.md](../design/tag-al
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner signs off the mockup, then compares the built panel to it; run /implement to open the Draft PR — `docs/design/tag-aliases-mockup.svg`
-2. [ ] [frontend] On a match, settle frontend; the epic then reaches in-review — `web/src/routes/tags/[id]/+page.svelte`
-3. [ ] [—] Studio alias search, the other unmet half of P0-9 → HOLODEX-508
-4. [ ] [—] Raw alias of an unattached tag is written in alias spelling → HOLODEX-509
+1. [ ] [—] Review and merge the PR; CI moves HOLODEX-507 to Done
+2. [ ] [—] Studio alias search, the other unmet half of P0-9 → HOLODEX-508
+3. [ ] [—] Raw alias of an unattached tag is written in alias spelling → HOLODEX-509
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,7 +86,7 @@ RD12, P0-9 for tags, P0-10) · handoff [tag-aliases-handoff.md](../design/tag-al
 - skills: engineering:system-design, code-review (high --fix), handoff
 - note: the branch got its key mid-session, so no worklog existed and the design-phase guard never fired; backend and frontend were built **before** the design sign-off. Owner approved the scope and lowercase aliases in chat, not the committed mockup.
 - note: security — no auth, access or infrastructure change (existing owner-gated endpoints, one parameterized FTS query, writeback only drops values), so no `/security-review`; the Jira `needs-security-review` label was cleared.
-- handoff: Spec, design, backend and tests are committed and green, and the tag-page panel was live-QA'd; next, the owner signs off the committed mockup and checks the build against it, then /implement opens the Draft PR.
+- handoff: Every gate is settled and the owner signed off the mockup and the build against it; the PR is open — review and merge it.
 
 ## Dropped — newest first (the reason is the point)
 
