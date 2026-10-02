@@ -32,10 +32,14 @@ elsewhere, and starts the id counter above every all-digit batch id still held i
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] **Merge only after PR #428 (HOLODEX-507)**, which claims migration 0056. If this lands first, prod moves to 57 and golang-migrate never runs 0056. If #428 stalls, renumber here instead.
+1. [x] [—] **Merge only after PR #428 (HOLODEX-507)**, which claims migration 0056. If this lands first, prod moves to 57 and golang-migrate never runs 0056. If #428 stalls, renumber here instead.
 2. [ ] [—] Batches that collided before this fix still mix two writes' snapshots (e.g. media #3545's 2026-10-01 genres batch). Don't trust Revert on those. Repairing them is out of scope — prod
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-02 · merged main (#428, migration 0056) and shipped
+- skills: none (merge + go test db/repo/writequeue green)
+- handoff: #428 landed with 0056, so 0057 runs after it. Main is merged in, the tests pass, and the PR is squash-merged.
 
 ### 2026-10-01 · made writeback job ids unique (migration 0057)
 - skills: code-review, handoff
