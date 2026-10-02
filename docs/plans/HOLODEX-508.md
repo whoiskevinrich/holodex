@@ -3,7 +3,7 @@ key: HOLODEX-508
 status: in-progress
 profile: backend
 depends-on: []
-release_note: ""
+release_note: "Search now finds a studio by any of its aliases, such as WB for Warner Bros., and lists it once under its own name."
 ---
 
 # HOLODEX-508 · Global search matches studio aliases
@@ -18,16 +18,20 @@ inline HOLODEX-507 note is extended for studios) · no ADR (completes ADR-061) �
 
 ## Gates — definition of done
 
-- [ ] spec `write-spec` → `docs/specs/**`
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] testing `testing-strategy`
+- [x] spec `write-spec` → `docs/specs/**` — P0-9 note + studio acceptance case in entity-identity.md
+- [x] backend → `{cmd,internal,providers}/**`
+- [x] testing `testing-strategy` — `TestSearchMatchesStudioAlias`, failed before the fix
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] `searchStudiosByAlias` + merge into the Studios block of `Search` — internal/repo/aliases.go
-2. [ ] [testing] repo test: studio found by alias, once, by canonical name — internal/repo/identity_ops_test.go
-3. [ ] [spec] close P0-9 for studios — docs/specs/entity-identity.md
+1. [ ] [—] Open the PR (`/implement`), review and merge; CI moves HOLODEX-508 to Done
+2. [ ] [—] Decide: should a studio (and tag) match also pull its media into Videos, as P0-9's "+ its media" reads? Pre-existing gap, not in this ticket
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-02 · fix built and tested in one session
+- skills: code-review (high --fix), handoff
+- note: security — one parameterized read-only FTS query, no auth/access/infra change, so no `/security-review`.
+- handoff: Studio alias search is built, tested and every gate is settled; start at: open the PR with /implement and merge it.
 
 ## Dropped — newest first (the reason is the point)
