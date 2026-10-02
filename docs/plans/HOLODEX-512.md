@@ -25,15 +25,18 @@ to the `<input>`'s ~20ch intrinsic width. Measured: a 246px input in a 700px row
 ## Gates — definition of done
 
 - [x] design `design-handoff` → `docs/design/**`. `title-edit-in-place-handoff.md` + committed SVG mockup; owner picked B in the critique.
-- [ ] frontend → `web/src/**`. `NameEditControl` `multiline` prop; media title wrapper `has-[form]:basis-full`.
-- [ ] testing `testing-strategy`. Browser QA per the handoff's checklist, plus a `docs/testing-strategy.md` row.
+- [x] frontend → `web/src/**`. `NameEditControl` `multiline` prop (grows on edit and on resize; Enter submits, IME-safe); media title wrapper `has-[form]:basis-full`. Owner confirmed the build matches the mockup.
+- [x] testing `testing-strategy`. Live QA of the handoff checklist on the stress fixture (1280px and 375px); `svelte-check` clean; row in `docs/testing-strategy.md`. No Svelte component-test harness exists.
 
 ## Up next — ordered (position = priority)
 
-1. [x] [—] `/implement`: owner signs off on the committed handoff, then build.
-2. [ ] [—] Build the `multiline` field and the wrapper class; run `npm run check`; QA the handoff checklist in Cinémathèque.
+1. [ ] [—] Sweep HOLODEX-512 to Done once PR #431 merges (CI moves it to In Review on ready and Done on merge; check that it did).
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-02 · built the in-place title editor and QA'd it
+- skills: code-review, handoff
+- handoff: Built and QA'd, and the owner confirmed it matches the mockup; every gate is settled and PR #431 is marked ready. Next: review and squash-merge.
 
 ### 2026-10-02 · critiqued the title edit, filed the bug, wrote the handoff
 - skills: design-critique, design-handoff, implement
