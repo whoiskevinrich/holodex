@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 640" width="760" height="640" font-family="Archivo, 'Segoe UI', sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 704" width="760" height="704" font-family="Archivo, 'Segoe UI', sans-serif">
   <title>Media title rename: clipped input today vs. edit in place (HOLODEX-512)</title>
-  <rect width="760" height="640" fill="#0c0a09"/>
+  <rect width="760" height="704" fill="#0c0a09"/>
 
   <!-- 1 · today -->
   <text x="24" y="34" fill="#9b9082" font-size="13">1 · Today (desktop, 700px header row): the wrapper shrinks to the input's ~20ch intrinsic width</text>
@@ -39,14 +39,16 @@
 
   <!-- 4 · B phone -->
   <text x="24" y="458" fill="#9b9082" font-size="13">4 · Phone (375px, 16px gutters): the same field, more lines; buttons below</text>
-  <rect x="24" y="472" width="343" height="112" rx="2" fill="#15110e" stroke="#e8a33d"/>
+  <rect x="24" y="472" width="343" height="176" rx="2" fill="#15110e" stroke="#e8a33d"/>
   <text x="36" y="502" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">The Extraordinarily</text>
   <text x="36" y="534" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">Long Director's Cut</text>
-  <text x="36" y="566" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">Title of a Film That…</text>
-  <rect x="24" y="594" width="54" height="30" rx="2" fill="none" stroke="#e8a33d"/>
-  <text x="36" y="614" fill="#e8a33d" font-size="14">Save</text>
-  <rect x="86" y="594" width="66" height="30" rx="2" fill="none" stroke="#2a2622"/>
-  <text x="98" y="614" fill="#f3ece1" font-size="14">Cancel</text>
+  <text x="36" y="566" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">Title of a Film That</text>
+  <text x="36" y="598" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">Goes On and On</text>
+  <text x="36" y="630" fill="#f3ece1" font-size="24" font-weight="600" font-family="Fraunces, Georgia, serif">(Remastered Edition)</text>
+  <rect x="24" y="658" width="54" height="30" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="36" y="678" fill="#e8a33d" font-size="14">Save</text>
+  <rect x="86" y="658" width="66" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="98" y="678" fill="#f3ece1" font-size="14">Cancel</text>
   <text x="400" y="500" fill="#9b9082" font-size="12">Enter saves · Esc cancels</text>
   <text x="400" y="520" fill="#9b9082" font-size="12">Shift+Enter does nothing special:</text>
   <text x="400" y="538" fill="#9b9082" font-size="12">a title is one line, so newlines</text>
