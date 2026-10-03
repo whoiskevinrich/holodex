@@ -1553,9 +1553,13 @@
 					     stealing width, and `max-w-full` + `wrap-anywhere` keep a value wider than the
 					     viewport wrapping inside the pill rather than widening the page. -->
 					<div class="flex flex-wrap items-center gap-2">
-						<div class="min-w-0 max-w-full">
+						<!-- `has-[form]:basis-full`: while the title is being edited the control takes
+						     the whole row, so its wrapping field shows the full title and the pill
+						     drops beneath it (HOLODEX-512). At rest it shrinks to fit, as above. -->
+						<div class="min-w-0 max-w-full has-[form]:basis-full">
 					{#key id}
 						<NameEditControl
+							multiline
 							id="field-title"
 							name={displayTitle}
 							{isOwner}
