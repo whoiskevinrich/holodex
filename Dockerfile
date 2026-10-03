@@ -30,8 +30,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=backend /out/holodex /usr/local/bin/holodex
+# MKVToolNix converts paths and output through the locale; under the default
+# C locale it cannot open a non-ASCII path and truncates non-ASCII output.
 ENV DATA_PATH=/data \
-    PORT=7800
+    PORT=7800 \
+    LANG=C.UTF-8
 EXPOSE 7800 7801
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s \

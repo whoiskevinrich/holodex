@@ -73,13 +73,42 @@ func TestWriteMKVWithMkvpropedit_WritesTagsBesidePerTrackTags(t *testing.T) {
 	}
 }
 
+// HOLODEX-518: written to stdout, mkvextract converts the tags document to the
+// locale's charset, and under the runtime image's non-UTF-8 locale it silently
+// stops at the first non-ASCII character (exit 0). The truncated document then
+// failed to parse ("unexpected EOF"), blocking every writeback to the file.
+// The non-ASCII file name covers the same locale on the argument side: under
+// the C locale MKVToolNix could not open such a path at all.
+func TestWriteMKVWithMkvpropedit_KeepsNonASCIITags(t *testing.T) {
+	requireCoverTools(t, "mkvpropedit", "mkvextract", "mkvmerge")
+	clip := filepath.Join(t.TempDir(), "café.mkv")
+	if out, err := exec.Command("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+		"-i", "testsrc=duration=1:size=64x64:rate=5", "-c:v", "mjpeg",
+		"-metadata", "comment=Café crème", clip).CombinedOutput(); err != nil {
+		t.Skipf("could not synthesize clip: %v: %s", err, out)
+	}
+
+	if err := writeMKVWithMkvpropedit(context.Background(), clip, []FieldWrite{
+		{TagName: "PUBLISHER", Values: []string{"Example Studio"}},
+	}); err != nil {
+		t.Fatalf("tag write: %v", err)
+	}
+
+	after := extractTags(t, clip)
+	for _, want := range []string{"<String>Café crème</String>", "<String>Example Studio</String>"} {
+		if !strings.Contains(after, want) {
+			t.Errorf("tags after write missing %q:\n%s", want, after)
+		}
+	}
+}
+
 func extractTags(t *testing.T, path string) string {
 	t.Helper()
-	out, err := exec.Command("mkvextract", path, "tags").Output()
+	out, err := existingTagsXML(context.Background(), path)
 	if err != nil {
 		t.Fatalf("mkvextract tags: %v", err)
 	}
-	return string(out)
+	return out
 }
 
 func probeTitle(t *testing.T, path string) string {

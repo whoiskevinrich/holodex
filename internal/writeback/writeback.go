@@ -542,10 +542,19 @@ type mkvSimple struct {
 }
 
 // existingTagsXML returns the file's current Matroska tags document, or "" when
-// it carries none.
+// it carries none. The document goes to a temp file, not stdout: on stdout
+// mkvextract converts to the locale's charset and, under a non-UTF-8 locale
+// (the runtime image sets none), silently stops at the first non-ASCII
+// character with exit 0 (HOLODEX-518). A file target is always UTF-8.
 func existingTagsXML(ctx context.Context, path string) (string, error) {
-	out, err := exec.CommandContext(ctx, "mkvextract", path, "tags").Output()
+	tmp, err := os.CreateTemp("", "holodex-tags-*.xml")
 	if err != nil {
+		return "", fmt.Errorf("read existing tags: %w", err)
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	if err := exec.CommandContext(ctx, "mkvextract", path, "tags", tmp.Name()).Run(); err != nil {
 		// mkvextract exits 1 for warnings (a file with no tags at all can land
 		// here) but 2+ for real errors. Only a real error is fatal — treating one
 		// as "no tags" would write a document that erases what we failed to read.
@@ -553,6 +562,10 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 		if !errors.As(err, &ee) || ee.ExitCode() >= 2 {
 			return "", fmt.Errorf("read existing tags: %w", err)
 		}
+	}
+	out, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		return "", fmt.Errorf("read existing tags: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
