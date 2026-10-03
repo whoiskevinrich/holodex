@@ -2,24 +2,22 @@ package db_test
 
 import (
 	"database/sql"
-	"regexp"
 	"sort"
 	"strconv"
 	"testing"
-
-	"holodex/internal/db/migrations"
 )
 
 // Migration 0049 (F65, ADR-099 D4): completeness_dirty is fed by triggers on
 // every table resolver.Complete reads from. This test is the enumeration the
 // ADR calls for — one write per input table, each of which must leave a dirty
-// row — and it cross-checks the table list against the migration text, so a
+// row — and it cross-checks the table list against the migrated triggers, so a
 // new input table cannot be added without extending both the trigger set and
 // this list.
 
 // completenessInputs is the exhaustive list: table → a write against it plus
 // the (entity_type, entity_id) the write must dirty. Ids refer to the fixture
-// seeded by seedCompletenessFixture (video 1, person 1, studio 1, tag 1, film 1).
+// seeded by seedCompletenessFixture (video 1, person 1, studio 1, tag 1, film 1;
+// film 2 is already linked to video 1).
 var completenessInputs = []struct {
 	table      string
 	write      string
@@ -39,6 +37,7 @@ var completenessInputs = []struct {
 	{"video_studios", `INSERT INTO video_studios (video_id, studio_id) VALUES (1, 1)`, "video", 1},
 	{"video_tags", `INSERT INTO video_tags (video_id, tag_id) VALUES (1, 1)`, "video", 1},
 	{"film_videos", `INSERT INTO film_videos (film_id, video_id, created_at) VALUES (1, 1, '2026-09-18T00:00:00Z')`, "video", 1},
+	{"films", `UPDATE films SET name = 'Renamed' WHERE id = 2`, "video", 1},
 	{"person_images", `INSERT INTO person_images (person_id, role, source, width, height, byte_size, created_at) VALUES (1, 'headshot', 'upload', 1, 1, 1, '2026-09-18T00:00:00Z')`, "person", 1},
 	{"studio_images", `INSERT INTO studio_images (studio_id, role, source, width, height, byte_size, created_at) VALUES (1, 'logo', 'upload', 1, 1, 1, '2026-09-18T00:00:00Z')`, "studio", 1},
 	{"tags", `UPDATE tags SET writeback_enabled = 0 WHERE id = 1`, "video", 1},
@@ -55,6 +54,8 @@ func seedCompletenessFixture(t *testing.T, db *sql.DB) {
 	mustExec(t, db, `INSERT INTO studios (id, name) VALUES (1, 'Acme')`)
 	mustExec(t, db, `INSERT INTO tags (id, name) VALUES (1, 'drama')`)
 	mustExec(t, db, `INSERT INTO films (id, name) VALUES (1, 'Film')`)
+	mustExec(t, db, `INSERT INTO films (id, name) VALUES (2, 'Linked Film')`)
+	mustExec(t, db, `INSERT INTO film_videos (film_id, video_id, created_at) VALUES (2, 1, '2026-09-18T00:00:00Z')`)
 	mustExec(t, db, `DELETE FROM completeness_dirty`)
 }
 
@@ -102,17 +103,85 @@ func TestMigration0049_LinkTablesDirtyBothSides(t *testing.T) {
 }
 
 // Shadow-table writes for an entity type nothing scores (a film's enrichment,
-// a tag's alias) must not leave dirty rows that exist only to be cleared.
+// a tag's alias) must not leave dirty rows that exist only to be cleared. A
+// film's overview reaches no video's resolution, so even a linked film's
+// non-name fetch dirties nothing (0058 fans out only the name inputs).
 func TestMigration0049_UnscoredEntityTypesNeverDirty(t *testing.T) {
 	db, m := openAt(t)
 	if err := m.Up(); err != nil {
 		t.Fatalf("migrate up: %v", err)
 	}
 	seedCompletenessFixture(t, db)
-	mustExec(t, db, `INSERT INTO entity_enrichment (entity_type, entity_id, provider, field_key, value, fetched_at) VALUES ('film', 1, 'tmdb', 'overview', 'x', '2026-09-18T00:00:00Z')`)
+	mustExec(t, db, `INSERT INTO entity_enrichment (entity_type, entity_id, provider, field_key, value, fetched_at) VALUES ('film', 2, 'tmdb', 'overview', 'x', '2026-09-18T00:00:00Z')`)
+	mustExec(t, db, `INSERT INTO field_source_decisions (entity_type, entity_id, field_key, source, created_at) VALUES ('film', 2, 'overview', 'manual', '2026-09-18T00:00:00Z')`)
 	mustExec(t, db, `INSERT INTO entity_aliases (entity_type, entity_id, alias) VALUES ('tag', 1, 'Drama')`)
 	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty`); n != 0 {
 		t.Errorf("unscored entity-type writes left %d dirty rows, want 0", n)
+	}
+}
+
+// Migration 0058 (HOLODEX-515, ADR-122): a film's spelling feeds its linked
+// videos' collection/title candidates, so every input DisplayNames reads — the
+// canonical name, the `name` decision, the provider's stored `title` — dirties
+// each linked video, and only those, and never a 'film' row.
+func TestMigration0058_FilmNameInputsDirtyLinkedVideos(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	mustExec(t, db, `INSERT INTO videos (id, file_path, file_size, title, duration_sec, width, height, indexed_at, file_mtime, active) VALUES (2, '/m/b.mkv', 1, 'B', 1, 1, 1, '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z', 1)`)
+	mustExec(t, db, `INSERT INTO film_videos (film_id, video_id, created_at) VALUES (2, 2, '2026-09-18T00:00:00Z')`)
+
+	writes := []struct{ name, write string }{
+		{"decision insert", `INSERT INTO field_source_decisions (entity_type, entity_id, field_key, source, manual_value, created_at) VALUES ('film', 2, 'name', 'manual', 'Spelled', '2026-09-18T00:00:00Z')`},
+		{"decision update", `UPDATE field_source_decisions SET manual_value = 'Respelled' WHERE entity_type = 'film' AND entity_id = 2`},
+		{"decision delete", `DELETE FROM field_source_decisions WHERE entity_type = 'film' AND entity_id = 2`},
+		{"provider title insert", `INSERT INTO entity_enrichment (entity_type, entity_id, provider, field_key, value, fetched_at) VALUES ('film', 2, 'tmdb', 'title', 'T', '2026-09-18T00:00:00Z')`},
+		{"provider title update", `UPDATE entity_enrichment SET value = 'T2' WHERE entity_type = 'film' AND entity_id = 2`},
+		{"provider title delete", `DELETE FROM entity_enrichment WHERE entity_type = 'film' AND entity_id = 2`},
+		{"rename", `UPDATE films SET name = 'Renamed' WHERE id = 2`},
+	}
+	for _, w := range writes {
+		t.Run(w.name, func(t *testing.T) {
+			mustExec(t, db, `DELETE FROM completeness_dirty`)
+			mustExec(t, db, w.write)
+			if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE entity_type = 'video' AND entity_id IN (1, 2)`); n != 2 {
+				t.Errorf("dirtied %d of the film's 2 videos, want 2", n)
+			}
+			if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE entity_type != 'video'`); n != 0 {
+				t.Errorf("left %d non-video dirty rows, want 0", n)
+			}
+		})
+	}
+
+	mustExec(t, db, `DELETE FROM completeness_dirty`)
+	mustExec(t, db, `UPDATE films SET name = name, year = 2001 WHERE id = 2`)
+	mustExec(t, db, `UPDATE films SET name = 'Elsewhere' WHERE id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty`); n != 0 {
+		t.Errorf("a same-name rewrite and an unlinked film's rename dirtied %d rows, want 0", n)
+	}
+}
+
+// Upgrading re-scores every film-linked video: their stored scores predate the
+// film sources.
+func TestMigration0058_DirtiesFilmLinkedVideosOnUpgrade(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Migrate(57); err != nil {
+		t.Fatalf("migrate to 57: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	if err := m.Migrate(58); err != nil {
+		t.Fatalf("migrate to 58: %v", err)
+	}
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE entity_type = 'video' AND entity_id = 1`); n != 1 {
+		t.Errorf("film-linked video dirty rows after upgrade = %d, want 1", n)
+	}
+	if err := m.Migrate(57); err != nil {
+		t.Fatalf("migrate down to 57: %v", err)
+	}
+	if n := count(t, db, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' AND (name = 'cd_films_au' OR name LIKE 'cd\_film\_%' ESCAPE '\') AND name NOT LIKE 'cd\_film\_videos\_%' ESCAPE '\'`); n != 0 {
+		t.Errorf("%d 0058 triggers survive the down migration, want 0", n)
 	}
 }
 
@@ -174,28 +243,48 @@ func TestMigration0049_EntityDeleteDropsDerivedRows(t *testing.T) {
 	}
 }
 
-// The test list above and the migration's trigger set must name the same
-// tables: this is what makes "the migration is the list" enforceable.
+// The test list above and the migrated schema's cd_* trigger set (0049,
+// extended by 0058) must name the same tables: this is what makes "the
+// migration is the list" enforceable. Reading sqlite_master after a full up —
+// not the migration text — holds every later extension (or drop) to the list.
 func TestMigration0049_TriggerSetMatchesEnumeratedInputs(t *testing.T) {
-	src, err := migrations.FS.ReadFile("0049_entity_completeness.up.sql")
-	if err != nil {
-		t.Fatal(err)
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
 	}
-	re := regexp.MustCompile(`(?m)^CREATE TRIGGER cd_\w+ AFTER (?:INSERT|UPDATE(?: OF [\w, ]+)?|DELETE) ON (\w+)`)
-	inMigration := map[string]bool{}
-	for _, m := range re.FindAllStringSubmatch(string(src), -1) {
-		inMigration[m[1]] = true
-	}
+	inMigration := completenessTriggerTables(t, db)
 	enumerated := map[string]bool{}
 	for _, tc := range completenessInputs {
 		enumerated[tc.table] = true
 	}
 	if diff := setDiff(inMigration, enumerated); len(diff) > 0 {
-		t.Errorf("tables with a 0049 trigger but no entry in completenessInputs: %v", diff)
+		t.Errorf("tables with a cd_* trigger but no entry in completenessInputs: %v", diff)
 	}
 	if diff := setDiff(enumerated, inMigration); len(diff) > 0 {
-		t.Errorf("tables enumerated in completenessInputs with no 0049 trigger: %v", diff)
+		t.Errorf("tables enumerated in completenessInputs with no cd_* trigger: %v", diff)
 	}
+}
+
+// completenessTriggerTables returns the tables carrying a live cd_* trigger.
+func completenessTriggerTables(t *testing.T, db *sql.DB) map[string]bool {
+	t.Helper()
+	rows, err := db.Query(`SELECT tbl_name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'cd\_%' ESCAPE '\'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var tbl string
+		if err := rows.Scan(&tbl); err != nil {
+			t.Fatal(err)
+		}
+		out[tbl] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func setDiff(a, b map[string]bool) []string {

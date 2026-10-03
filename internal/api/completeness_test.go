@@ -25,6 +25,13 @@ import (
 // personFields/studioFields synthesize their field list independent of YAML.
 func newCompletenessHandlers(t *testing.T) (*Handlers, *repo.Repo) {
 	t.Helper()
+	return newCompletenessHandlersWith(t, "")
+}
+
+// newCompletenessHandlersWith is newCompletenessHandlers with extra mapping
+// YAML field entries appended after the four Critical facets.
+func newCompletenessHandlersWith(t *testing.T, extraFields string) (*Handlers, *repo.Repo) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -39,7 +46,8 @@ func newCompletenessHandlers(t *testing.T) (*Handlers, *repo.Repo) {
 		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
 		"  - canonical: poster_url\n    label: Poster\n    sources: [tmdb:poster_url]\n" +
 		"  - canonical: actors\n    label: Actors\n    sources: [Artist]\n" +
-		"  - canonical: studio\n    label: Studio\n    sources: [Publisher]\n"
+		"  - canonical: studio\n    label: Studio\n    sources: [Publisher]\n" +
+		extraFields
 	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +156,39 @@ func TestCompletenessForVideos_NotApplicableExcluded(t *testing.T) {
 	f, ok := facetByCanonical(got.Facets, "actors")
 	if !ok || !f.NotApplicable {
 		t.Errorf("actors facet = %+v, want not_applicable", f)
+	}
+}
+
+// TestCompletenessForVideos_FilmSourcesCount covers HOLODEX-515: a video whose
+// Film comes only from its sole linked film (ADR-122) scores it present, the way
+// its media page shows it — and only while films are enabled.
+func TestCompletenessForVideos_FilmSourcesCount(t *testing.T) {
+	ctx := context.Background()
+	for _, enabled := range []bool{true, false} {
+		t.Run("films_enabled="+strconv.FormatBool(enabled), func(t *testing.T) {
+			h, r := newCompletenessHandlersWith(t, "  - canonical: collection\n    label: Film\n    sources: [Album]\n")
+			h.SetFilmsEnabled(enabled)
+			id := seedVideo(t, r)
+			filmID, err := r.CreateFilm(ctx, "Linked Film", 0)
+			if err != nil {
+				t.Fatalf("create film: %v", err)
+			}
+			if _, err := r.AttachFilmVideo(ctx, filmID, id, nil, false); err != nil {
+				t.Fatalf("attach film: %v", err)
+			}
+
+			out, err := h.completenessForVideos(ctx, repo.VideoFilter{})
+			if err != nil {
+				t.Fatalf("completenessForVideos: %v", err)
+			}
+			f, ok := facetByCanonical(out[0].Completeness.Facets, "collection")
+			if !ok {
+				t.Fatal("no collection facet")
+			}
+			if present := f.Tier != resolver.TierMissing; present != enabled {
+				t.Errorf("collection facet = %+v, want present=%v", f, enabled)
+			}
+		})
 	}
 }
 

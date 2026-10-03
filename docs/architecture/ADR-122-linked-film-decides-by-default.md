@@ -74,6 +74,11 @@ back to the file immediately.
   does the film picker's "Also in:". RD6 hides full-film videos from browse and the entity grids,
   so in practice a film-derived title shows on playlist tiles. Completeness, search, title sort,
   MCP and the film page's scene list still read the file title (HOLODEX-515).
+  *Amended 2026-10-02 (HOLODEX-515):* completeness now scores with the same film sources.
+  Migration 0058 adds the film's spelling inputs to ADR-099 D4's trigger set (`films.name`, the
+  film's `name` decision, and its provider `title`), each dirtying every linked video, and
+  re-dirties film-linked videos on upgrade. Search, title sort, MCP and the scene list still
+  read the file title. They need a stored resolved title and their own ADR (HOLODEX-516).
 - `TestResolveUndecided_FilmSourceNeverAutoWins` is replaced by tests covering the sole-film win,
   in-sync and out-of-sync, several films, a file decision, a manual add and detach. An API test
   covers rename, display-name decision and detach end to end.

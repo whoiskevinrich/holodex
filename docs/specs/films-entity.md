@@ -303,7 +303,8 @@ asserts and the system must remember durably, distinct from anything a rescan ca
   user story below). A standing `file`/`manual` decision, a manual add or a suppression still
   wins. A film winner that differs from the file's tag reports out of sync for writeback.
   List tiles (playlists, given RD6) and the film picker's "Also in:" use the same film value and
-  display spelling (HOLODEX-514). Completeness, search and sort do not yet (HOLODEX-515).
+  display spelling (HOLODEX-514). So does the completeness score (HOLODEX-515). Search and sort
+  do not yet (HOLODEX-516).
 - **P0-8 — Video → film attach (video detail page).** New affordance on `/media/{id}`: search
   films by name (results show name/poster/year, `EntityPickerDialog.svelte`-shaped), select
   one, optionally set a scene number, optionally mark "represents the entire film." Owner-gated.
