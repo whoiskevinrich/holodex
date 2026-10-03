@@ -30,7 +30,8 @@
 		as = 'h1',
 		editLabel,
 		placeholder,
-		editValue
+		editValue,
+		multiline = false
 	}: {
 		name: string;
 		isOwner: boolean;
@@ -73,6 +74,13 @@
 		// Title, HOLODEX request: the title's edit affordance should never be hidden). Person/
 		// Studio/Tag headers omit this and keep the docked hover reveal.
 		pencilAlwaysVisible?: boolean;
+		// Edit in place (HOLODEX-512, docs/design/title-edit-in-place-handoff.md): a wrapping
+		// textarea that grows with its text and wears `headingClass`, with Save/Cancel beneath.
+		// A long Video Title no longer scrolls inside a ~20ch single-line input. The value is
+		// still one line: Enter submits, and newlines (typed or pasted) are saved as spaces. The
+		// field fills the form, so the caller must give the control a full-width slot while
+		// editing (the media page's wrapper takes `has-[form]:basis-full`).
+		multiline?: boolean;
 	} = $props();
 
 	let editing = $state(false);
@@ -80,7 +88,7 @@
 	let error = $state('');
 	let value = $state('');
 	let conflict = $state<TConflict | null>(null);
-	let input = $state<HTMLInputElement | null>(null);
+	let input = $state<HTMLInputElement | HTMLTextAreaElement | null>(null);
 	let pencil = $state<HTMLButtonElement | null>(null);
 	let verdictRoot = $state<HTMLDivElement | null>(null);
 
@@ -122,7 +130,7 @@
 
 	async function commit(e: SubmitEvent) {
 		e.preventDefault();
-		const next = value.trim();
+		const next = (multiline ? value.replace(/\s*[\r\n]+\s*/g, ' ') : value).trim();
 		if (!next || busy) return;
 		if (next === (editValue ?? name)) {
 			closeEdit();
@@ -160,23 +168,60 @@
 		focusPencil();
 	}
 
+	// Grow the multiline field to its content so the whole value shows, with no inner scroll.
+	// Re-run on every edit and on window resize (rotation rewraps the text).
+	function grow() {
+		if (!multiline || !input) return;
+		input.style.height = 'auto';
+		// scrollHeight excludes the border, and the box is border-box.
+		input.style.height = `${input.scrollHeight + input.offsetHeight - input.clientHeight}px`;
+	}
+
+	$effect(() => {
+		void value;
+		grow();
+	});
+
+	function onFieldKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') cancelEdit();
+		// A title is one line: Enter submits rather than inserting a newline. Not while an IME
+		// is composing, where Enter confirms a candidate — Safari reports that keydown with
+		// isComposing false, so keyCode 229 is checked too.
+		else if (multiline && e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+			e.preventDefault();
+			(e.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
+		}
+	}
+
 	// `Rename this {label}` stays the default so no existing caller changes.
 	const pencilLabel = $derived(editLabel ?? `Rename this ${label}`);
 </script>
 
+<svelte:window onresize={grow} />
+
 {#if editing}
 	<form {id} onsubmit={commit} class="flex flex-wrap items-center gap-2">
-		<input
-			bind:this={input}
-			bind:value
-			type="text"
-			aria-label={pencilLabel}
-			aria-describedby={error ? 'name-edit-error' : undefined}
-			onkeydown={(e) => {
-				if (e.key === 'Escape') cancelEdit();
-			}}
-			class="min-w-0 flex-1 rounded-theme border border-rule bg-surface px-3 py-1.5 text-lg text-ink focus:border-accent focus:outline-none"
-		/>
+		{#if multiline}
+			<textarea
+				bind:this={input}
+				bind:value
+				rows="1"
+				aria-label={pencilLabel}
+				aria-describedby={error ? 'name-edit-error' : undefined}
+				onkeydown={onFieldKeydown}
+				class="min-w-0 basis-full resize-none overflow-hidden rounded-theme border border-rule bg-surface px-3 py-1.5 focus:border-accent focus:outline-none {headingClass}"
+			></textarea>
+		{:else}
+			<input
+				bind:this={input}
+				bind:value
+				type="text"
+				aria-label={pencilLabel}
+				aria-describedby={error ? 'name-edit-error' : undefined}
+				onkeydown={onFieldKeydown}
+				class="min-w-0 flex-1 rounded-theme border border-rule bg-surface px-3 py-1.5 text-lg text-ink focus:border-accent focus:outline-none"
+			/>
+		{/if}
 		<button type="submit" disabled={busy} class="btn-accent px-3 py-1.5 text-sm">
 			{busy ? 'Saving…' : 'Save'}
 		</button>
