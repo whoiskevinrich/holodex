@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -1607,6 +1608,24 @@ func decisionsFromRows(rows []repo.DecisionRow) resolver.Decisions {
 	return out
 }
 
+// filmsForVideos batch-loads a page of videos' film attachments with each film's
+// display spelling overlaid (ADR-122), so every surface names a film the way its
+// page does. A display-name failure only warns: the canonical name still serves.
+func (h *Handlers) filmsForVideos(ctx context.Context, ids []int64) (map[int64][]repo.FilmAttachment, error) {
+	byVideo, err := h.repo.FilmsForVideos(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([][]repo.FilmAttachment, 0, len(byVideo))
+	for _, fa := range byVideo {
+		groups = append(groups, fa)
+	}
+	if err := h.repo.AttachFilmDisplayNames(ctx, groups...); err != nil {
+		h.log.Warn("film display names", "err", err)
+	}
+	return byVideo, nil
+}
+
 // applyBrowseTitles resolves the highest-precedence title for each video (F27) and
 // overwrites video.Title when a provider source wins. Extra-metadata is not loaded
 // for list pages, so only file:title (already in Video.Title) and provider sources
@@ -1643,8 +1662,20 @@ func (h *Handlers) applyBrowseTitles(ctx context.Context, items []model.Video, f
 	if err != nil {
 		h.log.Warn("batch decisions for browse titles", "err", err)
 	}
+	// A full-film link decides the title by default (ADR-122), so the card shows
+	// what the media page shows. Same films_enabled gate as the detail read.
+	// Skipped unless a browse field is one injectFilmSources fills, so a mapping
+	// that browses neither pays no extra queries.
+	var batchFilms map[int64][]repo.FilmAttachment
+	if h.filmsEnabled && slices.ContainsFunc(browseFields, func(f mapping.Field) bool {
+		return f.Canonical == "title" || f.Canonical == "collection"
+	}) {
+		if batchFilms, err = h.filmsForVideos(ctx, ids); err != nil {
+			h.log.Warn("batch films for browse titles", "err", err)
+		}
+	}
 	for i := range items {
-		enr := enrichmentFromRows(batchEnrich[items[i].ID])
+		enr := injectFilmSources(enrichmentFromRows(batchEnrich[items[i].ID]), batchFilms[items[i].ID])
 		cur := curationFromRows(batchCuration[items[i].ID])
 		opts := h.resolveOptions(decisionsFromRows(batchDecisions[items[i].ID]))
 		if t, _ := resolver.BrowseTitle(&items[i], nil, enr, cur, browseFields, opts); t != "" {

@@ -422,3 +422,49 @@ func TestSearchFilmsDisabled(t *testing.T) {
 		t.Errorf("search films = %v, want empty (films_enabled=false)", body["films"])
 	}
 }
+
+// TestFilmVideoCandidatesNameOtherFilmByDisplaySpelling pins HOLODEX-514: the bulk
+// picker's "Also in:" names the other film the way its page does (F60 RD9 display
+// spelling), not by the canonical column.
+func TestFilmVideoCandidatesNameOtherFilmByDisplaySpelling(t *testing.T) {
+	srv, r, _ := filmEntityServer(t)
+	ctx := context.Background()
+
+	vid := seedPlainVideo(t, r, "attached-elsewhere")
+	filmID, err := r.CreateFilm(ctx, "Picker Film", 2024)
+	if err != nil {
+		t.Fatalf("create film: %v", err)
+	}
+	otherID, err := r.CreateFilm(ctx, "other film canonical", 2024)
+	if err != nil {
+		t.Fatalf("create other film: %v", err)
+	}
+	if _, err := r.AttachFilmVideo(ctx, otherID, vid, nil, false); err != nil {
+		t.Fatalf("attach elsewhere: %v", err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityFilm, otherID, "name", "manual", "Other Film Display"); err != nil {
+		t.Fatalf("decide display name: %v", err)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/api/v1/films/"+itoa(filmID)+"/video-candidates?unattached=false", nil)
+	req.Header.Set(api.AdminTokenHeader, "tok")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("get candidates: %v", err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Items []struct {
+			AlreadyAttached []repo.FilmAttachment `json:"already_attached"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(body.Items) != 1 || len(body.Items[0].AlreadyAttached) != 1 {
+		t.Fatalf("candidates = %+v, want one video attached to one other film", body.Items)
+	}
+	if got := body.Items[0].AlreadyAttached[0].FilmName; got != "Other Film Display" {
+		t.Errorf("already_attached film_name = %q, want display spelling %q", got, "Other Film Display")
+	}
+}
