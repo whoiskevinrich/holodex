@@ -115,19 +115,29 @@ func (r *Repo) AttachFilmPosters(ctx context.Context, films []FilmAttachment) er
 // AttachFilmDisplayNames replaces each attachment's FilmName with the film's display
 // spelling when a standing `name` decision picks one (F60 RD9), so the media page's
 // chip and the film's "collection"/"title" candidate read what the film page shows
-// (ADR-122). Like AttachFilmPosters, kept out of FilmsForVideos: only the media detail
-// read renders the name, and the cascade/picker callers read FilmID alone.
-func (r *Repo) AttachFilmDisplayNames(ctx context.Context, films []FilmAttachment) error {
-	if len(films) == 0 {
+// (ADR-122). Takes any number of attachment slices — one per video — so a page of
+// videos costs one query. Like AttachFilmPosters, kept out of FilmsForVideos: the
+// studio cascade's membership check reads FilmID alone and runs once per video.
+func (r *Repo) AttachFilmDisplayNames(ctx context.Context, groups ...[]FilmAttachment) error {
+	empty := true
+	for _, films := range groups {
+		if len(films) > 0 {
+			empty = false
+			break
+		}
+	}
+	if empty {
 		return nil
 	}
 	disp, err := r.DisplayNames(ctx, model.EnrichEntityFilm, "title")
 	if err != nil {
 		return err
 	}
-	for i := range films {
-		if name, ok := disp[films[i].FilmID]; ok {
-			films[i].FilmName = name
+	for _, films := range groups {
+		for i := range films {
+			if name, ok := disp[films[i].FilmID]; ok {
+				films[i].FilmName = name
+			}
 		}
 	}
 	return nil

@@ -37,7 +37,7 @@ func filmInjectionServer(t *testing.T) (srv *httptest.Server, h *api.Handlers, r
 	mpath := filepath.Join(dir, "metadata-mappings.yaml")
 	yaml := "fields:\n" +
 		"  - canonical: collection\n    label: Film\n    sources: [file:Album]\n" +
-		"  - canonical: title\n    sources: [file:title]\n"
+		"  - canonical: title\n    sources: [file:title]\n    browse: true\n"
 	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -219,5 +219,51 @@ func TestFilmSourceInjection_LinkedFilmDecidesByDefault(t *testing.T) {
 	}
 	if got := title(); got != "File Title" {
 		t.Errorf("after detach title = %q, want the file's %q", got, "File Title")
+	}
+}
+
+// TestFilmSourceInjection_TileTitleFollowsFilm pins HOLODEX-514: a list tile resolves
+// its browse title with the same film source as the detail page, display spelling
+// included. A playlist is the list a full-film video can still appear in (browse and
+// the entity grids hide it, RD6).
+func TestFilmSourceInjection_TileTitleFollowsFilm(t *testing.T) {
+	srv, h, r, sqlDB := filmInjectionServer(t)
+	h.SetFilmsEnabled(true)
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/full.mkv", FileSize: 1, Title: "File Title",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	filmID := seedFilm(t, sqlDB, "Test Film")
+	attachFilmVideo(t, sqlDB, filmID, vid, true)
+	if err := r.SetDecision(ctx, model.EnrichEntityFilm, filmID, "name", "manual", "Display Spelling"); err != nil {
+		t.Fatalf("decide film display name: %v", err)
+	}
+	pl, err := r.CreatePlaylist(ctx, "Films", "manual", "public", nil, []int64{vid})
+	if err != nil {
+		t.Fatalf("create playlist: %v", err)
+	}
+
+	tileTitle := func() string {
+		t.Helper()
+		_, body := getJSON(t, srv.URL+"/api/v1/playlists/"+itoa(pl.ID))
+		items, _ := body["items"].([]any)
+		if len(items) != 1 {
+			t.Fatalf("playlist items = %v, want 1", body["items"])
+		}
+		s, _ := items[0].(map[string]any)["title"].(string)
+		return s
+	}
+
+	if got := tileTitle(); got != "Display Spelling" {
+		t.Errorf("tile title = %q, want the film's display spelling %q", got, "Display Spelling")
+	}
+	h.SetFilmsEnabled(false)
+	if got := tileTitle(); got != "File Title" {
+		t.Errorf("films disabled: tile title = %q, want the file's %q", got, "File Title")
 	}
 }

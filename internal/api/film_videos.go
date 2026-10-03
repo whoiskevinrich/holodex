@@ -73,7 +73,7 @@ func (h *Handlers) filmVideoCandidates(w http.ResponseWriter, r *http.Request) {
 	for i, v := range videos {
 		ids[i] = v.ID
 	}
-	attachedByVideo, err := h.repo.FilmsForVideos(r.Context(), ids)
+	attachedByVideo, err := h.filmsForVideos(r.Context(), ids)
 	if err != nil {
 		h.fail(w, "film video candidates attachments", err)
 		return

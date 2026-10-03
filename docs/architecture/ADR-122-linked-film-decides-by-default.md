@@ -69,7 +69,11 @@ back to the file immediately.
   Neither touches the file until the owner writes back. ADR-085's asserted-link invariant is
   unchanged.
 - Only the media-detail read injects film sources, so list/browse titles (`BrowseTitle`) are
-  unaffected, as before.
+  unaffected, as before. *Amended 2026-10-02 (HOLODEX-514):* list tiles now inject too
+  (`applyBrowseTitles`, one batched `FilmsForVideos` lookup per page with display names), and so
+  does the film picker's "Also in:". RD6 hides full-film videos from browse and the entity grids,
+  so in practice a film-derived title shows on playlist tiles. Completeness, search, title sort,
+  MCP and the film page's scene list still read the file title (HOLODEX-515).
 - `TestResolveUndecided_FilmSourceNeverAutoWins` is replaced by tests covering the sole-film win,
   in-sync and out-of-sync, several films, a file decision, a manual add and detach. An API test
   covers rename, display-name decision and detach end to end.
