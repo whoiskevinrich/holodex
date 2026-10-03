@@ -299,6 +299,11 @@ type VideoFilter struct {
 	// StudioIDs matches videos linked to ALL of these studios (AND), like TagIDs —
 	// the entity-backed browse facet filter ?studio_id (F38, ADR-053).
 	StudioIDs []int64
+	// StudioIDsAny / TagIDsAny are PersonIDsAny for studios and tags: ANY-of (OR),
+	// used by global search to fold a matched studio's or tag's media into the
+	// results (F43 P0-9, HOLODEX-511). TagIDsAny is descendant-inclusive like TagIDs.
+	StudioIDsAny []int64
+	TagIDsAny    []int64
 	// CategoryIDs matches videos tagged with ANY member tag of ALL of these
 	// categories (AND across categories, OR within one category's member
 	// tags) — the browse-page "Categories" facet (HOLODEX-240, ADR-078 D2).
@@ -564,6 +569,15 @@ func (f VideoFilter) build() (string, []any) {
 	for _, sid := range f.StudioIDs {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_studios vs WHERE vs.video_id = v.id AND vs.studio_id = ?)")
 		args = append(args, sid)
+	}
+	if len(f.StudioIDsAny) > 0 {
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_studios vs WHERE vs.video_id = v.id AND vs.studio_id IN ("+placeholders(len(f.StudioIDsAny))+"))")
+		args = append(args, toAnySlice(f.StudioIDsAny)...)
+	}
+	if len(f.TagIDsAny) > 0 {
+		// Descendant-inclusive like TagIDs, over the union of every tag's subtree.
+		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN ("+tagSubtreesQuery(len(f.TagIDsAny))+"))")
+		args = append(args, toAnySlice(f.TagIDsAny)...)
 	}
 	for _, cid := range f.CategoryIDs {
 		// Category → member-tag-id expansion (ADR-078 D2/Consequences): the same
@@ -1743,38 +1757,6 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		}
 	}
 
-	// Videos: title matches first, then the media of any matched person (incl. alias
-	// matches) so searching a person's name OR alias returns their library — the merge
-	// promise (F23, ADR-036). Deduped by id, capped at limit.
-	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit, HideFullFilmVideos: filmsEnabled})
-	if err != nil {
-		return res, err
-	}
-	res.Videos = titleVids
-	if len(res.Videos) < limit && len(res.People) > 0 {
-		peopleIDs := make([]int64, len(res.People))
-		for i, p := range res.People {
-			peopleIDs[i] = p.ID
-		}
-		pvids, _, err := r.ListVideos(ctx, VideoFilter{PersonIDsAny: peopleIDs, Limit: limit, HideFullFilmVideos: filmsEnabled})
-		if err != nil {
-			return res, err
-		}
-		seenV := make(map[int64]struct{}, len(res.Videos))
-		for _, v := range res.Videos {
-			seenV[v.ID] = struct{}{}
-		}
-		for _, v := range pvids {
-			if _, dup := seenV[v.ID]; dup {
-				continue
-			}
-			res.Videos = append(res.Videos, v)
-			if len(res.Videos) >= limit {
-				break
-			}
-		}
-	}
-
 	tr, err := r.db.QueryContext(ctx, `
 		SELECT t.id, t.name FROM tags_fts f JOIN tags t ON t.id = f.rowid
 		WHERE tags_fts MATCH ? LIMIT ?`, match, limit)
@@ -1868,6 +1850,54 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		}
 		if err := er.Err(); err != nil {
 			return res, err
+		}
+	}
+
+	// Videos: title matches first, then the media of every matched entity (incl.
+	// alias matches) so searching its name OR alias returns its library — the merge
+	// promise (F23, ADR-036; F43 P0-9, HOLODEX-511). Specific → broad: person, then
+	// studio, then tag (sub-tags included, like the tag page), so a broad tag can't
+	// crowd out a person's media. Deduped by id, capped at limit.
+	titleVids, _, err := r.ListVideos(ctx, VideoFilter{Query: q, Limit: limit, HideFullFilmVideos: filmsEnabled})
+	if err != nil {
+		return res, err
+	}
+	res.Videos = titleVids
+	seenV := make(map[int64]struct{}, len(res.Videos))
+	for _, v := range res.Videos {
+		seenV[v.ID] = struct{}{}
+	}
+	var peopleIDs, studioIDs, tagIDs []int64
+	for _, p := range res.People {
+		peopleIDs = append(peopleIDs, p.ID)
+	}
+	for _, s := range res.Studios {
+		studioIDs = append(studioIDs, s.ID)
+	}
+	for _, t := range res.Tags {
+		tagIDs = append(tagIDs, t.ID)
+	}
+	for _, f := range []VideoFilter{{PersonIDsAny: peopleIDs}, {StudioIDsAny: studioIDs}, {TagIDsAny: tagIDs}} {
+		if len(res.Videos) >= limit {
+			break
+		}
+		if len(f.PersonIDsAny)+len(f.StudioIDsAny)+len(f.TagIDsAny) == 0 {
+			continue
+		}
+		f.Limit, f.HideFullFilmVideos = limit, filmsEnabled
+		more, _, err := r.ListVideos(ctx, f)
+		if err != nil {
+			return res, err
+		}
+		for _, v := range more {
+			if _, dup := seenV[v.ID]; dup {
+				continue
+			}
+			seenV[v.ID] = struct{}{}
+			res.Videos = append(res.Videos, v)
+			if len(res.Videos) >= limit {
+				break
+			}
 		}
 	}
 
