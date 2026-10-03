@@ -797,6 +797,11 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				h.log.Warn("film posters for media detail", "id", id, "err", perr)
 			}
 			setFilmAttachmentPosterURLs(fa)
+			// The film's display spelling is what decides the video's Film row
+			// (ADR-122); on failure the canonical name still serves.
+			if derr := h.repo.AttachFilmDisplayNames(r.Context(), fa); derr != nil {
+				h.log.Warn("film display names for media detail", "id", id, "err", derr)
+			}
 			// append, not assign: FilmsForVideo returns a NIL slice for a video with no
 			// attachments (its map simply has no entry), and assigning that would undo the
 			// non-nil initializer above and emit "films": null -- exactly what the comment

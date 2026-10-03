@@ -112,6 +112,27 @@ func (r *Repo) AttachFilmPosters(ctx context.Context, films []FilmAttachment) er
 	return nil
 }
 
+// AttachFilmDisplayNames replaces each attachment's FilmName with the film's display
+// spelling when a standing `name` decision picks one (F60 RD9), so the media page's
+// chip and the film's "collection"/"title" candidate read what the film page shows
+// (ADR-122). Like AttachFilmPosters, kept out of FilmsForVideos: only the media detail
+// read renders the name, and the cascade/picker callers read FilmID alone.
+func (r *Repo) AttachFilmDisplayNames(ctx context.Context, films []FilmAttachment) error {
+	if len(films) == 0 {
+		return nil
+	}
+	disp, err := r.DisplayNames(ctx, model.EnrichEntityFilm, "title")
+	if err != nil {
+		return err
+	}
+	for i := range films {
+		if name, ok := disp[films[i].FilmID]; ok {
+			films[i].FilmName = name
+		}
+	}
+	return nil
+}
+
 // ErrFilmExists is returned by CreateFilm when name+year already names a film --
 // get-or-create, not a hard failure (the returned id is the existing film's), so the
 // video→film picker's "create new" action is idempotent against a duplicate submit.

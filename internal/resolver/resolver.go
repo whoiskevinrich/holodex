@@ -367,17 +367,16 @@ func ResolveFields(
 	out := make([]ResolvedField, 0, len(fields))
 	filmNS := filmNamespaces(enrichment)
 	for _, f := range fields {
-		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f, filmNS)
 		if len(items) == 0 {
 			// A replace field with a *standing* decision stays in the output even
 			// when the decided value is empty (e.g. a blank-pin to an empty person
 			// baseline, F37 RD3) — dropping it would hide the pin and leave no
 			// control to change or clear it. Likewise, a field with an available
-			// but undecided film candidate (F56/ADR-085 §4) must stay: film sources
-			// are deliberately excluded from resolvePrecedence's default-winner walk
-			// (so attaching a film never silently overwrites Album/Title), but that
-			// means items is empty until the owner explicitly decides it — dropping
-			// the field here would hide the only chip that lets them do so. Other
+			// but undecided film candidate (F56/ADR-085 §4) must stay: a sole film
+			// wins by default (ADR-122), but two or more are ambiguous and leave
+			// items empty until the owner decides — dropping the field here would
+			// hide the only chips that let them do so. Other
 			// undecided empty fields (no file/provider/film value at all) still drop,
 			// unless the caller offers the field to the owner (ADR-113 D1).
 			_, decided := opts.lookup(f.Canonical)
@@ -517,11 +516,12 @@ func BrowseTitle(
 	opts Options,
 ) (title, source string) {
 	baseline := NewVideoBaseline(v, extra)
+	filmNS := filmNamespaces(enrichment)
 	for _, f := range fields {
 		if !f.Browse {
 			continue
 		}
-		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f)
+		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f, filmNS)
 		if len(items) > 0 {
 			return items[0].Value, winner
 		}
@@ -535,6 +535,7 @@ func resolveField(
 	fc FieldCuration,
 	opts Options,
 	f mapping.Field,
+	filmNS []string,
 ) (items []ResolvedValue, winner string) {
 	gather := func(src mapping.Source) []string {
 		if vals, ok := baseline.Baseline(src); ok {
@@ -558,7 +559,34 @@ func resolveField(
 	if dec, ok := opts.lookup(f.Canonical); ok {
 		return resolveDecided(baseline, enrichment, fc, dec, f)
 	}
-	return resolvePrecedence(gather, fc, f, orderedSources(baseline, f.ParsedSources, opts))
+	sources := orderedSources(baseline, f.ParsedSources, opts)
+	// The linked film decides by default (ADR-122, superseding ADR-085 §4's "never
+	// auto-wins"): a sole attached film offering a value goes ahead of the file, so
+	// the film entity's current name flows to the video on every read and a detach
+	// falls back to the file. Two or more films stay ambiguous — record-first, and
+	// the owner picks a chip. A manual add or suppression still beats it (gather
+	// already reads "film:" namespaces keyed by canonical).
+	if ns := soleFilmNamespace(enrichment, filmNS, f.Canonical); ns != "" {
+		sources = append([]mapping.Source{{Namespace: ns, Key: f.Canonical}}, sources...)
+	}
+	return resolvePrecedence(gather, fc, f, sources)
+}
+
+// soleFilmNamespace returns the one "film:<id>" namespace (of filmNS, collected once
+// per video by filmNamespaces) offering a non-empty value for canonical, or "" when
+// none or several do (ADR-122).
+func soleFilmNamespace(enrichment Enrichment, filmNS []string, canonical string) string {
+	sole := ""
+	for _, ns := range filmNS {
+		if firstNonEmpty(enrichment[ns][canonical]) == "" {
+			continue
+		}
+		if sole != "" {
+			return ""
+		}
+		sole = ns
+	}
+	return sole
 }
 
 // resolveDecided returns the value of the decided source for a replace field (F36):
@@ -847,6 +875,14 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		inSync = decided == fileVal
 	} else {
 		marker.Source = winnerToDecisionSource(items)
+		// A film default winner (ADR-122) is not the file's value, so it is in sync
+		// only when the file already carries it — otherwise writeback has work to do.
+		if len(items) > 0 && len(items[0].Sources) > 0 && strings.HasPrefix(items[0].Sources[0], "film:") {
+			if !fileDeclared {
+				return marker, candidates, nil
+			}
+			inSync = items[0].Value == fileVal
+		}
 	}
 	return marker, candidates, &inSync
 }

@@ -295,6 +295,13 @@ asserts and the system must remember durably, distinct from anything a rescan ca
   ADR-051) — never a direct writeback bypass. Suspended (not deleted) when
   `films_enabled=false` (see RD7 for the orphaned-claim rationale). Exact multi-film-candidate
   mechanics: ADR-085 (Open Question).
+  **Amended 2026-10-02 (ADR-122, HOLODEX-513):** the linked film *decides by default*. With no
+  standing decision, a video's **sole** attached film wins `collection`, and `title` for a
+  full-film link, over the file tag. The value is the film's current display spelling, so a
+  rename or a film display-name decision shows on the media page on the next read. Detaching
+  falls back to the file. Two or more attached films stay record-first and owner-decided (the
+  user story below). A standing `file`/`manual` decision, a manual add or a suppression still
+  wins. A film winner that differs from the file's tag reports out of sync for writeback.
 - **P0-8 — Video → film attach (video detail page).** New affordance on `/media/{id}`: search
   films by name (results show name/poster/year, `EntityPickerDialog.svelte`-shaped), select
   one, optionally set a scene number, optionally mark "represents the entire film." Owner-gated.

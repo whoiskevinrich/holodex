@@ -169,3 +169,55 @@ func TestFilmSourceInjection_SceneVsFullFilm(t *testing.T) {
 		t.Errorf("suspended full title = %q, want empty (not silently reverted to file)", got)
 	}
 }
+
+// TestFilmSourceInjection_LinkedFilmDecidesByDefault pins ADR-122 end-to-end: with no
+// video decision, the sole linked film's current name — its display spelling when one
+// is decided — is the video's title (full film), a rename flows through on the next
+// read, and a detach falls back to the file.
+func TestFilmSourceInjection_LinkedFilmDecidesByDefault(t *testing.T) {
+	srv, h, r, sqlDB := filmInjectionServer(t)
+	h.SetFilmsEnabled(true)
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/full.mkv", FileSize: 1, Title: "File Title",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	filmID := seedFilm(t, sqlDB, "Test Film")
+	attachFilmVideo(t, sqlDB, filmID, vid, true)
+
+	title := func() string {
+		t.Helper()
+		_, body := getJSON(t, srv.URL+"/api/v1/media/"+itoa(vid))
+		got, _ := resolvedValue(t, body, "title")
+		return got
+	}
+
+	if got := title(); got != "Test Film" {
+		t.Errorf("undecided title = %q, want the linked film %q", got, "Test Film")
+	}
+
+	if _, err := sqlDB.ExecContext(ctx, `UPDATE films SET name = 'Renamed Film' WHERE id = ?`, filmID); err != nil {
+		t.Fatalf("rename film: %v", err)
+	}
+	if got := title(); got != "Renamed Film" {
+		t.Errorf("after rename title = %q, want %q", got, "Renamed Film")
+	}
+
+	if err := r.SetDecision(ctx, model.EnrichEntityFilm, filmID, "name", "manual", "Display Spelling"); err != nil {
+		t.Fatalf("decide film display name: %v", err)
+	}
+	if got := title(); got != "Display Spelling" {
+		t.Errorf("after display-name decision title = %q, want %q", got, "Display Spelling")
+	}
+
+	if _, err := sqlDB.ExecContext(ctx, `DELETE FROM film_videos WHERE film_id = ?`, filmID); err != nil {
+		t.Fatalf("detach: %v", err)
+	}
+	if got := title(); got != "File Title" {
+		t.Errorf("after detach title = %q, want the file's %q", got, "File Title")
+	}
+}
