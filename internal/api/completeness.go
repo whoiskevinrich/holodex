@@ -118,6 +118,14 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 	if err != nil {
 		return nil, fmt.Errorf("facets not applicable for videos: %w", err)
 	}
+	// ADR-122: score with the same film sources the media page resolves with, or
+	// a video whose Film/Title comes from its linked film scores as missing them.
+	var filmsByVideo map[int64][]repo.FilmAttachment
+	if h.filmsEnabled {
+		if filmsByVideo, err = h.filmsForVideos(ctx, ids); err != nil {
+			return nil, fmt.Errorf("films for videos: %w", err)
+		}
+	}
 
 	m := h.mappings.Current()
 	baseFields := m.Fields()
@@ -129,7 +137,7 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 
 		fields, promoted := h.mergePromotions(ctx, model.EnrichEntityVideo, baseFields, rows)
 		fields = h.mergeClaims(ctx, model.EnrichEntityVideo, fields)
-		resolved := resolver.Resolve(&v, extraByVideo[v.ID], enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
+		resolved := resolver.Resolve(&v, extraByVideo[v.ID], injectFilmSources(enrichmentFromRows(rows), filmsByVideo[v.ID]), cur, fields, h.resolveOptions(dec))
 		h.markPromoted(resolved, promoted)
 		resolved = h.appendAutoRegistered(ctx, rows, fields, resolved)
 		// P0-10 (F50, ADR-075 RD9): same genre-writeback union getMedia applies
