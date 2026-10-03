@@ -891,6 +891,9 @@
 		try {
 			await api.detachFilmVideo(f.film_id, video.id);
 			films = films.filter((fa) => fa.film_id !== f.film_id);
+			// The linked film decides the Film/Title rows (ADR-122): re-resolve so
+			// they fall back to the file now, not on the next visit.
+			await reloadDetail();
 		} catch (e) {
 			filmRemoveError = toMessage(e);
 		} finally {

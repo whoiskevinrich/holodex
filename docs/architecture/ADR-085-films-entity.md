@@ -1,6 +1,8 @@
 # ADR-085: Films entity — asserted video links + dynamically-namespaced resolver source
 
-**Status:** Proposed
+**Status:** Proposed. **§4's "a film candidate never auto-wins" is superseded by
+[ADR-122](ADR-122-linked-film-decides-by-default.md)**: a sole linked film now decides by
+default. The rest of §4 and §1–3, §5–7 stand.
 **Date:** 2026-08-18
 **Deciders:** Project owner
 

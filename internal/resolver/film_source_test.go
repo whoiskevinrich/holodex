@@ -30,18 +30,77 @@ func TestResolveDecided_FilmSourceWins(t *testing.T) {
 	}
 }
 
-// --- Undecided: a film candidate never silently wins ------------------------------
+// --- Undecided: the sole linked film decides by default (ADR-122) ----------------
 //
-// Films have no static ParsedSources entry (by design, ADR-085 §4 Context/Q1), so
-// an undecided replace field must fall through to the file-first default and never
-// pick up a film candidate on its own — only an explicit decision reaches it.
+// ADR-122 supersedes ADR-085 §4's "never auto-wins": with no standing decision, a
+// sole attached film beats the file's Album tag, so the film entity's current name
+// is what the video shows, and the field reports out of sync until written back.
 
-func TestResolveUndecided_FilmSourceNeverAutoWins(t *testing.T) {
-	enrichment := resolver.Enrichment{"film:42": {"collection": {"Scene Test Film"}}}
-	got := resolver.Resolve(&model.Video{}, nil, enrichment, nil, collectionField(), resolver.Options{})
+var albumExtra = []model.ExtraMetadata{{SourceKey: "Album", Value: "Sunset Reel (2019)"}}
+
+func TestResolveUndecided_SoleFilmBeatsFile(t *testing.T) {
+	enrichment := resolver.Enrichment{"film:42": {"collection": {"Sunset Reel"}}}
+	got := resolver.Resolve(&model.Video{}, albumExtra, enrichment, nil, collectionField(), resolver.Options{})
 	f, ok := resolvedByCanonical(got, "collection")
-	if ok && len(f.Values) != 0 {
-		t.Fatalf("undecided field must not resolve to an unrequested film candidate: %+v", f)
+	if !ok || len(f.Values) != 1 || f.Values[0] != "Sunset Reel" {
+		t.Fatalf("sole linked film should win over the Album tag: %+v", f)
+	}
+	if f.WinningSource != "film:42:collection" {
+		t.Errorf("want winning_source film:42:collection, got %q", f.WinningSource)
+	}
+	if f.Decision == nil || f.Decision.Source != "provider:film:42" || f.Decision.Standing {
+		t.Errorf("want implicit (non-standing) provider:film:42 marker, got %+v", f.Decision)
+	}
+	if f.InSync == nil || *f.InSync {
+		t.Errorf("film value differing from the Album tag must report out of sync, got %v", f.InSync)
+	}
+}
+
+func TestResolveUndecided_SoleFilmMatchingFileIsInSync(t *testing.T) {
+	enrichment := resolver.Enrichment{"film:42": {"collection": {"Sunset Reel (2019)"}}}
+	got := resolver.Resolve(&model.Video{}, albumExtra, enrichment, nil, collectionField(), resolver.Options{})
+	f, _ := resolvedByCanonical(got, "collection")
+	if f.InSync == nil || !*f.InSync {
+		t.Errorf("film value equal to the Album tag must report in sync, got %v", f.InSync)
+	}
+}
+
+func TestResolveUndecided_SeveralFilmsStayRecordFirst(t *testing.T) {
+	enrichment := resolver.Enrichment{
+		"film:1": {"collection": {"First Film"}},
+		"film:2": {"collection": {"Second Film"}},
+	}
+	got := resolver.Resolve(&model.Video{}, albumExtra, enrichment, nil, collectionField(), resolver.Options{})
+	f, ok := resolvedByCanonical(got, "collection")
+	if !ok || len(f.Values) != 1 || f.Values[0] != "Sunset Reel (2019)" {
+		t.Fatalf("two linked films are ambiguous — the Album tag must stand: %+v", f)
+	}
+}
+
+func TestResolveDecided_FileDecisionBeatsSoleFilm(t *testing.T) {
+	enrichment := resolver.Enrichment{"film:42": {"collection": {"Sunset Reel"}}}
+	got := resolver.Resolve(&model.Video{}, albumExtra, enrichment, nil, collectionField(), decide("collection", "file", ""))
+	f, _ := resolvedByCanonical(got, "collection")
+	if len(f.Values) != 1 || f.Values[0] != "Sunset Reel (2019)" {
+		t.Fatalf("a standing file decision must still beat the linked film: %+v", f)
+	}
+}
+
+func TestResolveUndecided_ManualAddBeatsSoleFilm(t *testing.T) {
+	enrichment := resolver.Enrichment{"film:42": {"collection": {"Sunset Reel"}}}
+	cur := resolver.Curation{"collection": {Add: []string{"Owner Typed"}}}
+	got := resolver.Resolve(&model.Video{}, albumExtra, enrichment, cur, collectionField(), resolver.Options{})
+	f, _ := resolvedByCanonical(got, "collection")
+	if len(f.Values) != 1 || f.Values[0] != "Owner Typed" {
+		t.Fatalf("a manual add must still beat the linked film: %+v", f)
+	}
+}
+
+func TestResolveUndecided_DetachedFilmFallsBackToFile(t *testing.T) {
+	got := resolver.Resolve(&model.Video{}, albumExtra, resolver.Enrichment{}, nil, collectionField(), resolver.Options{})
+	f, _ := resolvedByCanonical(got, "collection")
+	if len(f.Values) != 1 || f.Values[0] != "Sunset Reel (2019)" {
+		t.Fatalf("with no film linked the Album tag must resolve: %+v", f)
 	}
 }
 
