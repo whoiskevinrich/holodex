@@ -11,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -568,7 +570,7 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 func mergeTagsXML(existing string, fields []FieldWrite) (string, error) {
 	var doc mkvTagsDoc
 	if existing != "" {
-		if err := xml.Unmarshal([]byte(stripIllegalXML(existing)), &doc); err != nil {
+		if err := xml.Unmarshal([]byte(stripIllegalCharRefs(stripIllegalXML(existing))), &doc); err != nil {
 			return "", fmt.Errorf("parse existing tags: %w", err)
 		}
 	}
@@ -655,11 +657,37 @@ func writeSimples(sb *strings.Builder, fields []FieldWrite) {
 // document unparseable (HOLODEX-504).
 func stripIllegalXML(s string) string {
 	return strings.Map(func(r rune) rune {
-		if (r < 0x20 && r != '\t' && r != '\n' && r != '\r') || r == 0xFFFE || r == 0xFFFF {
+		if illegalXMLRune(r) {
 			return -1
 		}
 		return r
 	}, s)
+}
+
+// illegalXMLRune reports whether r is outside XML 1.0's Char production.
+func illegalXMLRune(r rune) bool {
+	return (r < 0x20 && r != '\t' && r != '\n' && r != '\r') ||
+		(r >= 0xD800 && r <= 0xDFFF) || r == 0xFFFE || r == 0xFFFF || r > 0x10FFFF
+}
+
+var charRefRe = regexp.MustCompile(`&#(?:x[0-9A-Fa-f]+|[0-9]+);`)
+
+// stripIllegalCharRefs drops character references (&#12; / &#x0C;) to code
+// points XML 1.0 forbids. mkvextract escapes control characters this way, and
+// encoding/xml range-checks text after decoding references, so one would fail
+// the parse just as a raw form feed does.
+func stripIllegalCharRefs(s string) string {
+	return charRefRe.ReplaceAllStringFunc(s, func(ref string) string {
+		digits, base := ref[2:len(ref)-1], 10
+		if digits[0] == 'x' {
+			digits, base = digits[1:], 16
+		}
+		n, err := strconv.ParseUint(digits, base, 32)
+		if err != nil || illegalXMLRune(rune(n)) {
+			return ""
+		}
+		return ref
+	})
 }
 
 func xmlEscape(s string) string {
