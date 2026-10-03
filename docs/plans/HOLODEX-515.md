@@ -60,8 +60,6 @@ a stored resolved title and their own ADR.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Review + squash-merge the PR — `docs/plans/HOLODEX-515.md`
-2. [ ] [—] Search, title sort, MCP and scene lists with film values (ADR first) → HOLODEX-516
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,3 +82,5 @@ a stored resolved title and their own ADR.
      record, so its reason lives here. Shape:
 - [~] [testing] <thing you decided not to do> — dropped 2026-07-29, <why>
 -->
+
+- [~] [—] Search, title sort, MCP and scene lists with film values → HOLODEX-516 — dropped 2026-10-02, full-film videos are hidden on those surfaces and writeback converges `videos.title` (won't do)
