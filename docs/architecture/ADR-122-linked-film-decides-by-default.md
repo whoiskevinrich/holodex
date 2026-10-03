@@ -78,7 +78,12 @@ back to the file immediately.
   Migration 0058 adds the film's spelling inputs to ADR-099 D4's trigger set (`films.name`, the
   film's `name` decision, and its provider `title`), each dirtying every linked video, and
   re-dirties film-linked videos on upgrade. Search, title sort, MCP and the scene list still
-  read the file title. They need a stored resolved title and their own ADR (HOLODEX-516).
+  read the file title. *Amended 2026-10-02 (HOLODEX-516, won't do):* that is deliberate. With
+  films on, browse, global search and MCP search hide full-film videos (RD6), and only a
+  full-film link carries a film-derived title, so it never reaches them. Writing the title back
+  re-extracts it into `videos.title` and `videos_fts`. Any resolved title (provider, decision,
+  curation) is missing from those surfaces for the same reason, and fixing that would take a
+  stored resolved-title cache. That was judged not worth building.
 - `TestResolveUndecided_FilmSourceNeverAutoWins` is replaced by tests covering the sole-film win,
   in-sync and out-of-sync, several films, a file decision, a manual add and detach. An API test
   covers rename, display-name decision and detach end to end.
