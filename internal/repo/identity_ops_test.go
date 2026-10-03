@@ -2,6 +2,7 @@ package repo_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"holodex/internal/model"
@@ -158,6 +159,114 @@ func TestSearchMatchesStudioAlias(t *testing.T) {
 		if len(res.Studios) != 1 || res.Studios[0].ID != warner || res.Studios[0].Name != "Warner Bros." {
 			t.Errorf("search %q studios = %+v, want Warner Bros. once", q, res.Studios)
 		}
+	}
+}
+
+// videoIDs lists a search result's video ids in order.
+func videoIDs(vs []model.Video) []int64 {
+	out := make([]int64, len(vs))
+	for i, v := range vs {
+		out[i] = v.ID
+	}
+	return out
+}
+
+// TestSearchReturnsStudioAliasMedia (F43 P0-9, HOLODEX-511): searching a studio's
+// alias returns its videos, not only the studio.
+func TestSearchReturnsStudioAliasMedia(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	va, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, nil), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, nil), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if err := r.ReconcileVideoStudios(ctx, va, []string{"Warner Bros."}, nil); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EnrichEntityStudio, studioIDByName(t, r, "Warner Bros."), "WB"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	res, err := r.Search(ctx, "WB", 10, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if got := videoIDs(res.Videos); len(got) != 1 || got[0] != va {
+		t.Errorf("search WB videos = %v, want only [%d]", got, va)
+	}
+}
+
+// TestSearchReturnsTagAliasMedia (F43 P0-9, HOLODEX-511): searching a tag's alias
+// returns its videos, sub-tags included like the tag page (F50).
+func TestSearchReturnsTagAliasMedia(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	va, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"animal"}), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	vb, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, []string{"german shepherd"}), nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, []string{"vehicle"}), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	animal := tagIDByName(t, r, "animal")
+	if _, err := r.SetTagParent(ctx, tagIDByName(t, r, "german shepherd"), &animal); err != nil {
+		t.Fatalf("set parent: %v", err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, animal, "fauna"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	res, err := r.Search(ctx, "fauna", 10, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	got := videoIDs(res.Videos)
+	if len(got) != 2 || !slices.Contains(got, va) || !slices.Contains(got, vb) {
+		t.Errorf("search fauna videos = %v, want {%d, %d}", got, va, vb)
+	}
+}
+
+// TestSearchVideoOrdering (F43 P0-9, HOLODEX-511): videos fill specific → broad —
+// title matches, then person, studio, tag media — and the limit cuts from the end.
+func TestSearchVideoOrdering(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	seed := func(path, title string, tags []string) int64 {
+		t.Helper()
+		id, err := r.UpsertVideo(ctx, sampleVideo(path, title, nil, tags), nil)
+		if err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+		return id
+	}
+	// Seeded broad-first so a recency-ordered fill would come out reversed.
+	tag := seed("/m/t.mkv", "T", []string{"nova"})
+	studio := seed("/m/s.mkv", "S", nil)
+	if err := r.ReconcileVideoStudios(ctx, studio, []string{"Nova Pictures"}, nil); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	person := seed("/m/p.mkv", "P", nil)
+	linkPeople(t, r, person, "Nova Reyes")
+	title := seed("/m/n.mkv", "Nova", nil)
+
+	res, err := r.Search(ctx, "nova", 10, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if got, want := videoIDs(res.Videos), []int64{title, person, studio, tag}; !slices.Equal(got, want) {
+		t.Errorf("search nova videos = %v, want %v (title, person, studio, tag)", got, want)
+	}
+	res, err = r.Search(ctx, "nova", 3, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if got, want := videoIDs(res.Videos), []int64{title, person, studio}; !slices.Equal(got, want) {
+		t.Errorf("search nova limit 3 videos = %v, want %v (tag cut)", got, want)
 	}
 }
 

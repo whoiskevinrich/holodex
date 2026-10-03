@@ -34,6 +34,19 @@ const tagSubtreeQuery = `
 	)
 	SELECT id FROM tag_subtree`
 
+// tagSubtreesQuery is tagSubtreeQuery seeded with n root ids (n placeholders) in
+// one walk — VideoFilter.TagIDsAny's union of subtrees. UNION, not UNION ALL,
+// because overlapping roots (a tag and its own ancestor) would revisit nodes.
+func tagSubtreesQuery(n int) string {
+	return `
+	WITH RECURSIVE tag_subtree(id) AS (
+		SELECT id FROM tags WHERE id IN (` + placeholders(n) + `)
+		UNION
+		SELECT t.id FROM tags t JOIN tag_subtree s ON t.parent_tag_id = s.id
+	)
+	SELECT id FROM tag_subtree`
+}
+
 // isTagDescendant reports whether candidateID is rootID itself or appears
 // anywhere in rootID's subtree.
 func isTagDescendant(ctx context.Context, db *sql.DB, rootID, candidateID int64) (bool, error) {

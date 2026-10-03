@@ -218,6 +218,19 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   tag appears once in the Tags group, under its canonical name.)*
   - Given tag `sci-fi` with alias `science fiction`, When a visitor searches `science fic`, Then `sci-fi`
     appears in the Tags results exactly once.
+
+  **"+ its media" — ordering** (HOLODEX-511; studios and tags previously returned no media). The Videos
+  group fills **specific → broad**: title matches first, then the media of matched people, then of
+  matched studios, then of matched tags. Each video appears once, at its first position, and the per-group
+  limit cuts from the end, so a broad tag can never crowd out a title, person or studio hit. A tag's media
+  **includes its sub-tags**, the same set the tag's own page lists (F50).
+  - Given studio `Warner Bros.` with alias `WB`, When a visitor searches `WB`, Then the Videos results
+    list Warner Bros.' videos.
+  - Given tag `animal` with alias `fauna` and sub-tag `german shepherd`, When a visitor searches
+    `fauna`, Then the Videos results list videos tagged `animal` and videos tagged `german shepherd`.
+  - Given a video titled `Nova`, one credited to person `Nova Reyes`, one from studio `Nova Pictures`
+    and one tagged `nova`, When a visitor searches `nova`, Then the Videos results list them in that
+    order, and with a limit of 3 the tagged video is the one dropped.
   *(HOLODEX-508: never met for studios either — global search read `studios_fts` only. Closed for studios
   here, the same way.)*
   - Given studio `Warner Bros.` with alias `WB`, When a visitor searches `WB`, Then `Warner Bros.` appears in
