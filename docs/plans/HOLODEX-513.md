@@ -63,7 +63,7 @@ fall back to the file.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Open the PR via `/implement`, then mark it ready — `docs/plans/HOLODEX-513.md`
+1. [ ] [—] Review + squash-merge PR #434 — `docs/plans/HOLODEX-513.md`
 2. [ ] [—] Film values outside the media page (browse/search) and display spelling in other film readers → HOLODEX-514
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -77,8 +77,8 @@ fall back to the file.
 -->
 
 ### 2026-10-02 · linked film decides the Film/Title rows
-- skills: code-review high --fix, handoff
-- handoff: Built, tested and live-checked: resolver default (ADR-122), display-name overlay and reload-on-detach. Only the PR is left. Run /implement to open it, then mark it ready.
+- skills: code-review high --fix, handoff, implement
+- handoff: Crossed into build (design [~], so no sign-off needed). PR #434 is open and marked ready with every gate settled. Next is review and merge, then HOLODEX-514.
 
 ## Dropped — newest first (the reason is the point)
 
