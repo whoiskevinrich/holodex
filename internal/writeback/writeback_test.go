@@ -443,6 +443,24 @@ func TestMergeTagsXML_IllegalXMLChars(t *testing.T) {
 	}
 }
 
+// TestMergeTagsXML_IllegalCharRefs: mkvextract's XML writer escapes control
+// characters as character references, and encoding/xml range-checks the
+// decoded text — so "&#12;" fails exactly as a raw form feed does. References
+// to illegal code points are dropped; legal ones are kept.
+func TestMergeTagsXML_IllegalCharRefs(t *testing.T) {
+	const existing = "<?xml version=\"1.0\"?>\n<Tags>\n<Tag>\n<Targets />\n" +
+		"<Simple><Name>COMMENT</Name><String>a&#12;b&#x0C;c&#xFFFF;d&#xD800;&#x110000;&#0;&#9;e&#x41;&amp;</String></Simple>\n" +
+		"</Tag>\n</Tags>"
+
+	got, err := mergeTagsXML(existing, nil)
+	if err != nil {
+		t.Fatalf("mergeTagsXML: %v", err)
+	}
+	if want := "<Name>COMMENT</Name><String>abcd&#9;e&#x41;&amp;</String>"; !strings.Contains(got, want) {
+		t.Errorf("merged document missing %q:\n%s", want, got)
+	}
+}
+
 func mustReadDir(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
