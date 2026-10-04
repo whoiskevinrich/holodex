@@ -165,8 +165,10 @@ pencil + modal for `long_text`).
 **Adoption vs. precedence.** ADR-090's two layers. *Adoption*: should this candidate enter the
 shadow store at all (transient, review queues). *Precedence*: which stored source wins this
 field (standing, the decision controls above). Every control in this document is a precedence
-control. Never put a competing provider value in an adoption row.
-→ [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md)
+control. Never put a competing provider value in an adoption row. On any entity page, adoption is
+reachable inline (the same resolve path as its `/owner` queue), and an adopted value visibly lands
+in the field list with its provenance badge, with no further owner action.
+→ [field-resolution.md](../architecture/field-resolution.md)
 
 **Applied vs. on file.** The two columns a writeback surface shows for a video field: *applied*
 is the resolver's winner (decided or not); *on file* is the `·file` candidate — the tag value the
@@ -230,6 +232,7 @@ the phrasing is kept as said so the next reading of it is consistent.
 | "add the edition chip to the Media Details page. It should sit near the '+ Set part' chip" (2026-09-29) | **text CTA** in the edition pill's slot (`+ Set edition`) | the chip itself already rendered when set, so what was missing was the *affordance* for an empty one. It uses Part's inline editor (one slot open at a time) and appears only where `edition` is a curatable facet. Changing a set edition stays in the Metadata row — HOLODEX-491 |
 | "the owner should be able to detach the studio … in the 'Change studio' modal" (2026-09-29) | **attached chip** | the studio picker gets PersonPicker's attached-chip idiom (a Linked now chip whose × detaches) rather than a Remove button of its own. Needs a new "resolve to no studio" decision, which is ADR territory — HOLODEX-493 |
 | "None feels less like a decision source and more like a value … the decision source should be user with a value of none. I would never want to write 'none' back to the file, I'd just want to clear an existing value as a decision" (2026-09-29) | **cleared field** | no new decision source: a `manual` decision with an empty value, written only by an explicit `clear`. Writeback deletes the tag rather than writing anything in its place. The use case is a studio mis-parsed from the file — ADR-120 |
+| "the Details section should be collapsible and collapsed by default" (2026-10-04) | **fold** (the field list clips behind a disclosure; the header and its controls stay) | the media Metadata fold's mechanism, with two differences the owner chose: the label is the toggle, and visitors start closed too. It is chrome over content, not a content gate, because the values are one click away for everyone. A `#field-*` landing must open it first — HOLODEX-539 |
 
 ## Saying it
 

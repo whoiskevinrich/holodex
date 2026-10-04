@@ -32,8 +32,11 @@ person` — in place of the variation slug.
 
 - **Naming the asserter, not the verdict.** "tmdb says one person", never "same person". F70's
   rule holds: the surface reports who asserted what and never adjudicates. The chip is a citation.
-- **Accent, not warn.** `--bg-accent` fill with `--text-accent` text. `text-warn` is spoken for —
-  it means weak — and reusing it here would say the opposite of what is true.
+- **Accent, not warn.** An **outlined** accent pill — `rounded-full border border-accent
+  bg-accent/10 text-accent`, the treatment `ExtractionQueueRow`'s staged chips use — not a solid
+  accent fill, which is reserved for a page's one primary action. `text-warn` is spoken for — it
+  means weak — and reusing it here would say the opposite of what is true. A row with no provider
+  detail reads `a provider says one person`.
 - **It replaces the slug, it does not join it.** One chip per row; the row stays one line.
 - **Every other row is untouched.** No restyling of `punctuation`, `provider-alias` or
   `same-title`, and no new emphasis tier for them.

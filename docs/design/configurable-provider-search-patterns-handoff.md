@@ -79,8 +79,10 @@ contract: return the input unchanged when the stripped result is empty.
 
 ## Optional P1: seeded-value transparency caption
 
-Not required for v1 (spec P1-a) — flagged here so it's fully specified if picked up, rather than
-half-designed later.
+**Replaced — never built.** This slot now holds the "Searched" caption (what the provider actually
+asked upstream), specified in
+[structured-resolve-hints-searched-caption-handoff.md](structured-resolve-hints-searched-caption-handoff.md)
+(spec FR9). The original P1-a design is kept below only as the record of what was replaced.
 
 **Trigger**: render only when the seeded `entityName` differs from the video's raw resolved `title`
 (i.e., a pattern rendered, or the sanitizer changed something) — never shown when the seed equals the

@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 520" width="760" height="520" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif">
+  <title>Person Details fold (HOLODEX-539)</title>
+  <desc>Three states of the Person page Details card: owner collapsed with Enrich chips visible, owner expanded, and visitor collapsed. The chevron and label form the disclosure button.</desc>
+  <rect width="760" height="520" fill="#0c0a09"/>
+
+  <!-- 1. Owner, collapsed (default) — measured card height 68px -->
+  <text x="24" y="30" font-size="12" fill="#9b9082">1 · Owner, collapsed (default on every load)</text>
+  <rect x="24" y="42" width="712" height="68" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <g transform="translate(41 76)">
+    <path d="M-1 -5 l5 5 -5 5" fill="none" stroke="#9b9082" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="12" y="4" font-size="12" letter-spacing="0.6" fill="#9b9082">DETAILS</text>
+    <text x="74" y="4" font-size="12" fill="#9b9082">· 5 fields</text>
+  </g>
+  <g font-size="12">
+    <rect x="512" y="59" width="110" height="34" rx="2" fill="none" stroke="#2a2622"/>
+    <rect x="522" y="69" width="14" height="14" rx="2" fill="#2a2622"/>
+    <text x="542" y="80" fill="#f3ece1">tmdb</text>
+    <text x="574" y="80" fill="#e8a33d">Refresh</text>
+    <text x="630" y="80" fill="#9b9082">⋯</text>
+    <rect x="648" y="59" width="72" height="34" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="658" y="80" fill="#e8a33d">Refresh all</text>
+  </g>
+  <text x="24" y="128" font-size="11" fill="#9b9082">Only the field list folds — the Enrich chips stay reachable. Label + count are vertically centred on the chips.</text>
+
+  <!-- 2. Owner, expanded -->
+  <text x="24" y="168" font-size="12" fill="#9b9082">2 · Owner, expanded (label clicked, or a #field-* deep link landed)</text>
+  <rect x="24" y="180" width="712" height="190" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <g transform="translate(41 214)">
+    <path d="M-5 -2 l5 5 5 -5" fill="none" stroke="#f3ece1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="12" y="4" font-size="12" letter-spacing="0.6" fill="#9b9082">DETAILS</text>
+    <text x="74" y="4" font-size="12" fill="#9b9082">· 5 fields</text>
+  </g>
+  <g font-size="12">
+    <rect x="512" y="197" width="110" height="34" rx="2" fill="none" stroke="#2a2622"/>
+    <rect x="522" y="207" width="14" height="14" rx="2" fill="#2a2622"/>
+    <text x="542" y="218" fill="#f3ece1">tmdb</text>
+    <text x="574" y="218" fill="#e8a33d">Refresh</text>
+    <text x="630" y="218" fill="#9b9082">⋯</text>
+    <rect x="648" y="197" width="72" height="34" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="658" y="218" fill="#e8a33d">Refresh all</text>
+  </g>
+  <g font-size="14">
+    <text x="40" y="262" fill="#9b9082">Born:</text>
+    <rect x="40" y="270" width="200" height="24" rx="2" fill="none" stroke="#2a2622"/>
+    <text x="48" y="287" fill="#f3ece1">1972-12-04</text>
+    <text x="388" y="262" fill="#9b9082">Age:</text><text x="422" y="262" fill="#f3ece1">53</text>
+    <text x="40" y="318" fill="#9b9082">Nationality:</text>
+    <rect x="40" y="326" width="200" height="24" rx="2" fill="none" stroke="#2a2622"/>
+    <text x="48" y="343" fill="#f3ece1">US</text>
+    <text x="388" y="318" fill="#9b9082">Website:</text>
+    <rect x="388" y="326" width="260" height="24" rx="2" fill="none" stroke="#2a2622"/>
+    <text x="396" y="343" fill="#f3ece1">example.com</text>
+  </g>
+
+  <!-- 3. Visitor, collapsed — measured card height 50px -->
+  <text x="24" y="408" font-size="12" fill="#9b9082">3 · Visitor, collapsed (no chips; same toggle, same default)</text>
+  <rect x="24" y="420" width="712" height="50" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <g transform="translate(41 445)">
+    <path d="M-1 -5 l5 5 -5 5" fill="none" stroke="#9b9082" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="12" y="4" font-size="12" letter-spacing="0.6" fill="#9b9082">DETAILS</text>
+    <text x="74" y="4" font-size="12" fill="#9b9082">· 5 fields</text>
+  </g>
+  <text x="24" y="494" font-size="11" fill="#9b9082">Deliberately unlike the media Metadata fold, which stays open for visitors (owner decision, 2026-10-04).</text>
+</svg>

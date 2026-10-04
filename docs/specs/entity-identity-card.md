@@ -321,9 +321,13 @@ reads the resolved value: alias routing, nameKey, `RenameEntity`, writeback, and
 `name` field all read the canonical column. Tags are out (RD9). Films: gated on 376 landing
 `NameEditControl` on the title.
 
-As built (2026-09-15): the rendered surfaces are the three detail headings and the search-result
-row — list cards, cast tiles, link cards and pickers keep the canonical name (owner scope ruling;
-cards are a follow-up if 378 survives QA 4.3). Search results carry `display_name` beside the
+Where the display name shows (current truth): the three detail headings and the search-result row
+for every kind. A **person** is labelled by the displayed spelling everywhere outside their own
+page too — the Cast grid on media and film pages, the "More with" shelf, the People list (label,
+name sort, A–Z jump and filter) and the people picker — while the canonical name stays the linking
+identity and still matches the People filter (HOLODEX-461). A **film** linked to a media item shows
+its display name on that media page (see [Films entity](films-entity.md)). Studio list rows and link
+cards keep the canonical name. Search results carry `display_name` beside the
 canonical `name` rather than replacing it, because the pickers read the same endpoint and send
 `name` back for linking. Search matches the display spelling through a narrow SQL mirror of the
 resolver's decided-replace rule (`repo.DisplayNames`), pinned to the resolved payload by test. The

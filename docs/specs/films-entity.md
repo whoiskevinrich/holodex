@@ -299,12 +299,13 @@ asserts and the system must remember durably, distinct from anything a rescan ca
   standing decision, a video's **sole** attached film wins `collection`, and `title` for a
   full-film link, over the file tag. The value is the film's current display spelling, so a
   rename or a film display-name decision shows on the media page on the next read. Detaching
-  falls back to the file. Two or more attached films stay record-first and owner-decided (the
+  falls back to the file at once — the media page's Film and Title rows update without a reload.
+  Two or more attached films stay record-first and owner-decided (the
   user story below). A standing `file`/`manual` decision, a manual add or a suppression still
   wins. A film winner that differs from the file's tag reports out of sync for writeback.
   List tiles (playlists, given RD6) and the film picker's "Also in:" use the same film value and
-  display spelling (HOLODEX-514). So does the completeness score (HOLODEX-515). Search, title sort
-  and MCP deliberately read the stored file title (HOLODEX-516, won't do). They hide full-film
+  display spelling (HOLODEX-514). So does the completeness score (HOLODEX-515). Search, title sort,
+  MCP and the film page's scene list deliberately read the stored file title (HOLODEX-516, won't do). They hide full-film
   videos, and writeback converges the stored title. See ADR-122's consequences.
 - **P0-8 — Video → film attach (video detail page).** New affordance on `/media/{id}`: search
   films by name (results show name/poster/year, `EntityPickerDialog.svelte`-shaped), select

@@ -224,6 +224,10 @@ as every other filter.
 - [ ] Given a garbage `sort` value in the URL or in storage, the page falls back to its default
       without throwing (unchanged from SP1).
 - [ ] Given a filtered list, when I reload, the filters persist, because they're in the URL.
+- [ ] Given I scrolled down People, Studios, Tags, Films, Search or an entity's video list, when I
+      press F5, or the page reloads before I come Back to it, then it returns to the same scroll
+      position. This holds within the tab only. The Media grid is the exception and starts at the
+      top after a reload (Quick Wins QW4).
 - [ ] Legacy saved filters (`holodex:filters:*`) are **ignored** on read from this release. Deleting
       them is HOLODEX-474.
 

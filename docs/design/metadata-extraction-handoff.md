@@ -225,8 +225,10 @@ manually-resolved batch since the owner explicitly asked to review those).
 
 ## 3. Revert (System Activity)
 
-A completed extraction (or merge-writeback) batch's row in the System Activity list gets one
-additional control, gated on the presence of a `batch_id`:
+A completed writeback run's row in the System Activity Log gets one additional control. It
+appears on **every** writeback run that carries a batch, whatever started it (extraction, the
+writeback dialog, a tag sync, or a merge's propagation batch). Writeback runs recorded before
+batches were kept on the run show no Revert:
 
 ```
 rounded-theme border border-rule px-2.5 py-1.5 text-xs text-muted hover:text-ink
@@ -236,9 +238,10 @@ rounded-theme border border-rule px-2.5 py-1.5 text-xs text-muted hover:text-ink
 - Placement: trailing edge of the activity row, same slot pattern other row-level actions use in
   that list (implementer confirms exact slot against the current `ActivityRow`-equivalent
   component — not read in this session, verify before implementing).
-- Click behavior: no confirm dialog for the *click* itself (the batch's own original write already
-  went through a confirm — either the preview dialog above, or the merge's own informed-confirm
-  per F48.8c) — but the button **does** show a brief inline "Reverting…" busy state and, on
+- Click behavior: the click opens a `ConfirmDialog` titled **"Revert this write?"** with a
+  **Revert** button (HOLODEX-370, superseding the original no-confirm call). Its body says that
+  every field the batch wrote goes back to its pre-write value, so an edit made after that write
+  is lost too. After confirming, the button shows a brief inline "Reverting…" busy state and, on
   success, the row updates to reflect "Reverted" (new `text-muted` status line under the original
   entry, not a whole new row) so the owner can see it happened without leaving the activity list.
 - Revert failure: `text-warn` inline error on the same row, same convention as every other
@@ -300,7 +303,7 @@ stays empty for the new/changed files.
 | Preview dialog | row checked, click submit | Sequential writes, per-row status icon updates live, matches `WritebackFormDialog`'s existing submit behavior |
 | Preview dialog | row unchecked | Skipped at write time, no diff shown as struck-through (same as `WritebackFormDialog`'s existing "unchecked = skip" semantics) |
 | Preview dialog (auto-apply context) | "skip preview next time" checked + submit | Future high-confidence auto-apply batches commit without opening this dialog (F48.7b) |
-| Activity row | click "Revert" | Busy → "Reverting…"; success → inline "Reverted" status line; failure → `text-warn` inline error |
+| Activity row | click "Revert" | Confirm dialog → Busy → "Reverting…"; success → inline "Reverted" status line; failure → `text-warn` inline error |
 | Any owner control | not owner | Absent from the DOM, not merely hidden (existing convention) |
 
 ---

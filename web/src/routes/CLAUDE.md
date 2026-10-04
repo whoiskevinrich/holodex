@@ -42,6 +42,12 @@ additionally get `SourceBadge`, the enrichment controls, writeback and the edit 
 Blocks that are wholly owner machinery — Manage, Completeness, File, the `Enrichment data:`
 payload disclosures — are the exception and stay fully gated.
 
+**A fold is not a gate, and the two field-list folds differ on purpose.** The media Metadata fold
+is closed for the owner only, and visitors get it open with no chevron. The Person Details fold
+(HOLODEX-539) is closed for everyone, and its label is the toggle. The owner chose both, so don't
+"align" one to the other without asking. Either way, every `#field-*` landing has to open its fold
+before scrolling, because a clipped `inert` row exists but can't be reached (HOLODEX-398).
+
 **The value's rendering sits outside the owner branch; only the affordance goes inside one.**
 Co-location is not enough — the media Overview had both views five lines apart in one file and
 still diverged (HOLODEX-365), because the owner branch delegated the *value* to `SourceBadge`,

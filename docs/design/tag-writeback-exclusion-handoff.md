@@ -211,6 +211,9 @@ New `{#snippet detail()}` passed to `<EntityVideos>`, rendered only for owners
 - **Sync button is `disabled` (not hint-driven) when `video_count === 0`** — spec P0 says the
   trigger itself is "disabled/no-op," unlike the `/tags` Merge button's hint-on-click pattern
   (which the spec doesn't ask this control to follow).
+- **Copy speaks for this tag's name only.** The exclusion is flat
+  ([spec](../specs/tag-writeback-exclusion.md) P0): nothing on the card or in the bulk bar may
+  imply that excluding a parent also excludes its children, or the reverse.
 - Clicking Sync opens `WritebackBatchDialog` with `scopeLabel={tag.name}`,
   `videoCountHint={tag.video_count}`, `trigger={() => api.syncTagWriteback(tag.id)}`.
 

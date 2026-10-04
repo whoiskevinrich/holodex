@@ -5,8 +5,8 @@ projection of `person_external_ids`/`studio_external_ids`, server-built links vi
 `Manifest.LinkTemplates`, one badge per stored id (D3)
 **Extends**: the video provider badge decided earlier this session (mockups: raw-value vs.
 provider-name badge; header-inline vs. separate section; placement on the resolution/duration/year
-metadata row) — not yet implemented in code (ADR-082 action item 6 is still open), so this handoff
-treats that visual design as **settled** and specs the delta HOLODEX-266 actually needs: the states
+metadata row) — now built on the media, film, person and studio headers. This handoff treats that
+visual design as **settled** and specs the delta HOLODEX-266 actually needs: the states
 that only exist once an entity can carry **zero, one, or several** ids instead of one resolved
 scalar.
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
@@ -40,6 +40,11 @@ Settled earlier this session, restated here so this doc is self-contained:
 - A small pill: `ProviderIcon` (16px, self-hosted brand icon or themed monogram) + the provider's
   short label text (e.g. "IMDb", not the id) — `rounded-full border border-rule px-2 py-0.5 text-xs
   text-muted`, matching `CurationChip`'s pill sizing.
+- **Monogram fallback** (every `ProviderIcon`, not only this badge): a provider with no brand icon
+  shows its name's first letter, uppercased (`?` for a blank name), centred in a square plate the
+  icon's height — `bg-logo-plate`, `text-logo-plate-ink`, `font-display font-semibold`,
+  `rounded-theme`. A real icon keeps its own aspect at the same height (a wide wordmark is not
+  squashed into the square).
 - Lives inline in the header's passive-metadata row (the row already carrying resolution/duration/
   year for video), not in a separate card/section.
 - Hover/focus-visible: border and text shift to `text-ink`/`border-accent` (mirrors

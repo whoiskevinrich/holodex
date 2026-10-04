@@ -93,6 +93,11 @@ the file from disk. The owner can also **purge now**, bypassing the grace period
   pending purges without a migration.
 - Grace period `0` (or unset) disables **automatic** purge — items stay in Trash until the owner
   purges them manually (a conservative default worth weighing in Open Questions).
+- During the grace period a trashed item's file and thumbnail can't be fetched by id either: playback
+  and the image answer not-found (`404`), exactly as for an unknown id.
+- An owner action on a trashed item (a metadata refresh, a field decision, linking it to a film) is
+  refused as a conflict (`409`, "item is deleted"), not a not-found, because the item still exists.
+  Restore it first. An unknown id is still a `404`.
 
 ---
 
@@ -202,6 +207,5 @@ so a delete is an app-level hide + DB purge without a doomed `unlink`.
 1. **Purge job home** — a dedicated `internal/purge` ticker vs. folding the sweep into the scanner's
    periodic pass. Reusing the scanner's lifecycle is less machinery; a separate job keeps concerns
    clean. *(engineering — settle in ADR-037)*
-2. **Stream/thumbnail during grace** — a soft-deleted item is hidden from listings, but should a
-   direct `/media/{id}/stream` or `/thumbnail` by id also 404? (Spec says yes via the shared
-   predicate; confirm no internal caller needs the bytes mid-grace.) *(engineering)*
+2. ~~**Stream/thumbnail during grace**~~ — **Resolved: yes**, both answer not-found during grace
+   (see Validation & semantics).
