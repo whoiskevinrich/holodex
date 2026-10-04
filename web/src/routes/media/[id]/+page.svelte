@@ -5,7 +5,7 @@
 	import { exitAfterRemoval } from '$lib/listState';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Tag, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -55,6 +55,8 @@
 	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
 	import { partBadgeLabel } from '$lib/components/video/partBadge';
 	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
+	import TagAddInput from '$lib/components/entity/TagAddInput.svelte';
+	import { sortTagsByStatus } from '$lib/tagInput';
 	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
 	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
 	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
@@ -193,7 +195,8 @@
 	// existing" (below) knows which link to drop when swapping onto the near-miss.
 	let tagAddOpen = $state(false);
 	let tagAddValue = $state('');
-	let tagInput = $state<HTMLInputElement | null>(null);
+	let tagInput = $state<TagAddInput | null>(null);
+	let tagAddButton = $state<HTMLButtonElement | null>(null);
 	let tagBusy = $state(false);
 	let tagError = $state('');
 	let tagNearMiss = $state<EntityRef | null>(null);
@@ -240,6 +243,10 @@
 
 	const id = $derived(Number($page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	// The owner reads tag chips pending-writeback-first (HOLODEX-519 D4); visitors see no
+	// status glyph, so a status order would look random to them — name order stays.
+	const tagChips = $derived(isOwner ? sortTagsByStatus(video?.tags ?? []) : (video?.tags ?? []));
+	const tagIds = $derived(new Set((video?.tags ?? []).map((t) => t.id)));
 	// Prefer the resolved title (may come from an enrichment provider) over the
 	// filename-derived video.title. Falls back gracefully when no mapping is configured.
 	const displayTitle = $derived(
@@ -507,14 +514,19 @@
 		if (!video || deleteBusy) return;
 		deleteBusy = true;
 		deleteError = '';
+		const gen = pageGeneration;
 		try {
 			await api.deleteMedia(video.id, { purge: confirmMode === 'purge' });
+			// A run can advance while the request is in flight; the load effect has already
+			// closed the dialog, so leave the item now on screen alone.
+			if (gen !== pageGeneration) return;
 			// The item is gone — return to wherever it was opened from (a filtered list, a
 			// person's filmography, a studio page) rather than always resetting to the
 			// unfiltered browse root (HOLODEX-41). Falls back to '/' when there's no in-app
 			// history to pop (direct link / new tab). ADR-114 D4's shared exit.
 			exitAfterRemoval(cameFromInApp, '/');
 		} catch (e) {
+			if (gen !== pageGeneration) return;
 			deleteError = toMessage(e);
 			deleteBusy = false; // keep the dialog open so the message is visible
 		}
@@ -1189,6 +1201,15 @@
 		writebackAction = null;
 		writebackActionError = '';
 		pickerOpen = false;
+		// The delete confirm is per-video too, and the most dangerous to carry over: in a run,
+		// playback continues behind the modal and `ended` advances to the next item, so a
+		// dialog left open would name — and on Confirm delete — the item it advanced to.
+		// deleteBusy too: a successful delete never clears it (it exits instead), and in a run
+		// that exit's history.back() lands on another /media item in this same component.
+		confirmMode = null;
+		deleteBusy = false;
+		deleteError = '';
+		deleteMenuOpen = false;
 		api
 			.getMedia(current)
 			.then((res) => {
@@ -1274,9 +1295,20 @@
 		tagInput?.focus();
 	}
 
-	function closeTagAdd() {
+	// Done or Esc: the form closes and focus goes back to "+ Add tag".
+	async function closeTagAdd() {
+		// Esc reaches here too, so honour Done's disabled-while-busy: an add in flight
+		// would otherwise land its near-miss nudge on a closed form.
+		if (tagBusy) return;
 		resetTagForm();
 		tagAddOpen = false;
+		await tick();
+		tagAddButton?.focus();
+	}
+
+	function dismissTagNearMiss() {
+		tagNearMiss = null;
+		tagJustAdded = null;
 	}
 
 	// Shared busy/error/finally scaffolding for the three tag mutations below.
@@ -1295,14 +1327,21 @@
 		}
 	}
 
-	function submitTagAdd(e: SubmitEvent) {
-		e.preventDefault();
-		const name = tagAddValue.trim();
-		if (!name) return;
-		runTagAction(
+	// The form stays open for the next tag (HOLODEX-519 D1): a successful add clears the
+	// input and a failed one keeps the text to correct. Resolves to the attached tag.
+	async function addTag(raw: string): Promise<Tag | undefined> {
+		const name = raw.trim();
+		if (!name || tagBusy) return;
+		// Text typed while the add is in flight is the next tag, not this one — keep it.
+		const typed = tagAddValue;
+		let added: Tag | undefined;
+		dismissTagNearMiss();
+		await runTagAction(
 			async () => {
 				const { tag } = await api.addVideoTag(id, name);
+				added = tag;
 				tagJustAdded = { id: tag.id, name: tag.name };
+				if (tagAddValue === typed) tagAddValue = '';
 				// Fire-and-forget: the detail refetch and the near-miss check are
 				// independent, so don't serialize them (mirrors /tags' reload()-then-
 				// nearMiss() concurrency).
@@ -1310,17 +1349,20 @@
 				// Non-blocking near-miss (mirrors /tags' actionNearMiss, F43 P1-5): advisory,
 				// shown after the attach already succeeded.
 				const nm = await api.nearMiss('tag', tag.id, name).then((r) => r.near_miss);
-				if (nm) {
-					tagNearMiss = nm;
-				} else {
-					closeTagAdd();
-				}
+				if (nm) tagNearMiss = nm;
 			},
 			(err) =>
 				err instanceof ApiError && err.status === 422
 					? `'${name}' is on the deny-list.`
 					: toMessage(err)
 		);
+		return added;
+	}
+
+	function submitTagAdd(e: SubmitEvent) {
+		e.preventDefault();
+		// Through the input, so the Add button refreshes suggestions and announces like Enter.
+		tagInput?.addTyped();
 	}
 
 	// "Use existing": swap this video's just-added tag for the near-miss it looks
@@ -1337,7 +1379,8 @@
 			await api.addVideoTag(id, nearMissName);
 			await api.removeVideoTag(id, justAddedId);
 			await reloadDetail();
-			closeTagAdd();
+			// The swap only settles the nudge; anything typed since is the next tag.
+			dismissTagNearMiss();
 		});
 	}
 
@@ -1753,28 +1796,32 @@
 					<section id="field-genres" class="space-y-1.5">
 						<h2 class="text-xs uppercase tracking-wide text-muted">Tags</h2>
 						<div class="flex flex-wrap items-center gap-2">
-							{#each video.tags ?? [] as t (t.id)}
+							{#each tagChips as t (t.id)}
 								<TagLinkChip tag={t} busy={tagBusy} onremove={isOwner ? removeTag : undefined} />
 							{/each}
 
 							{#if isOwner}
 								{#if tagAddOpen}
 									<form onsubmit={submitTagAdd} class="inline-flex items-center gap-2">
-										<input
+										<TagAddInput
 											bind:this={tagInput}
 											bind:value={tagAddValue}
-											type="text"
-											placeholder="Add a tag"
-											aria-label="Add a tag"
-											class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+											exclude={tagIds}
+											onadd={addTag}
+											onclose={closeTagAdd}
 										/>
 										<button type="submit" disabled={tagBusy} class="btn-accent px-3 py-1.5 text-sm">Add</button>
 										<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-quiet px-3 py-1.5 text-sm">
-											Cancel
+											Done
 										</button>
 									</form>
 								{:else}
-									<button type="button" onclick={openTagAdd} class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button>
+									<button
+										type="button"
+										bind:this={tagAddButton}
+										onclick={openTagAdd}
+										class="btn-quiet px-3 py-1.5 text-sm">+ Add tag</button
+									>
 								{/if}
 							{/if}
 						</div>
@@ -1796,7 +1843,7 @@
 								>
 									Use existing
 								</button>
-								<button type="button" onclick={closeTagAdd} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
+								<button type="button" onclick={dismissTagNearMiss} disabled={tagBusy} class="btn-ghost px-3 py-1.5 text-sm">
 									Add as new anyway
 								</button>
 							</div>
