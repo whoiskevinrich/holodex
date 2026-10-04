@@ -76,12 +76,11 @@ Decided in [`4e2e782b`](https://github.com/whoiskevinrich/holodex/commit/4e2e782
 
 ## A sole linked film is the undecided winner for its fields
 
-An attached film is a synthetic `film:<id>` namespace offering `collection` and, for a full-film
-link, `title`. With no standing decision and exactly one `film:<id>` offering a value,
-`soleFilmNamespace` puts it first inside the normal `resolvePrecedence` walk, so manual adds and
-suppressions still apply. Several films are ambiguous and nothing auto-wins; any standing decision
-beats the film. The injected value is the film's decided display spelling
-(`repo.AttachFilmDisplayNames`); `films.name` stays the identity. A default film winner reports a real
+An attached film reaches the resolver as a synthetic `film:<id>` namespace (how it is injected is
+[entity-relationships.md](entity-relationships.md)). With no standing decision and exactly one
+`film:<id>` offering a value, `soleFilmNamespace` puts it first inside the normal
+`resolvePrecedence` walk, so manual adds and suppressions still apply. Several films are ambiguous
+and nothing auto-wins; any standing decision beats the film. A default film winner reports a real
 `in_sync` against the file tag.
 
 **Rejected:** writing a decision at attach time — it outlives a detach where a read-time rule suffices.
