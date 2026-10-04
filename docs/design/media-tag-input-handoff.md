@@ -53,7 +53,8 @@ border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:ou
 
 The listbox is absolutely positioned under the input (`absolute left-0 top-full mt-1 z-20`).
 It is the input's width, with a `min-w-[16rem]` floor so counts don't crowd short names.
-It shows at most **8** rows and the list itself scrolls (`max-h-72 overflow-y-auto`). It opens
+It shows at most **8** matches plus the "Add as new" row, and never scrolls: the cap already
+bounds its height (QA found a `max-h` cutting the last row off). It opens
 over the content below and never pushes the near-miss card or the error line.
 
 ## Design tokens used
