@@ -59,7 +59,9 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 Your library is mounted **read-only**; the index, thumbnails, and config live in a named
-volume. Pin a release with `HOLODEX_TAG=1.2.0` instead of `latest`. See
+volume. A fresh host starts with an empty volume and re-indexes the library on first boot; to
+move an existing index, migrate the `holodex-data` volume itself. Pin a release with
+`HOLODEX_TAG=1.2.0` instead of `latest`. See
 [ADR-023](docs/architecture/ADR-023-image-distribution.md) for the distribution model.
 
 ### Image tags
@@ -74,6 +76,9 @@ volume. Pin a release with `HOLODEX_TAG=1.2.0` instead of `latest`. See
 > recently — since `edge` rebuilds on every merge, that badge usually points at `edge`, not at
 > the `latest` tag. The `:latest` Docker tag itself is unaffected and still resolves to the
 > newest stable release.
+
+> Publishing from a fork? GHCR creates a new package as **private**. Set it to public once after
+> the first publish, or anonymous pulls fail.
 
 ## Roadmap
 

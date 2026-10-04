@@ -161,6 +161,25 @@ Holodex can expose its library catalog to AI assistants via the Model Context Pr
 | `mcp_transport` | `MCP_TRANSPORT` | `http` | `http` — serve MCP over HTTP (same process, separate port). `stdio` — pipe-based transport for `docker exec -i holodex holodex --mcp-transport stdio`. `both` — enable both. |
 | `mcp_port` | `MCP_PORT` | `7801` | Port for the HTTP MCP transport. Ignored when `mcp_transport: stdio`. |
 
+The HTTP transport serves Streamable HTTP at `/mcp`, plus `/mcp/sse` for older SSE-only clients.
+It has no authentication of its own (the owner token only unredacts file metadata), so if you
+expose `MCP_PORT` beyond loopback, put it behind a reverse proxy that adds auth.
+
+Client configuration — Claude Desktop over HTTP:
+
+```json
+{ "mcpServers": { "holodex": { "url": "http://localhost:7801/mcp" } } }
+```
+
+Claude Desktop over stdio, into the running container:
+
+```json
+{ "mcpServers": { "holodex": {
+  "command": "docker",
+  "args": ["exec", "-i", "holodex", "holodex", "-mcp-transport", "stdio"]
+} } }
+```
+
 ---
 
 ## Metadata field mapping

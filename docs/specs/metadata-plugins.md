@@ -322,6 +322,19 @@ Per-field, operator-confirmed write-back of enrichment-sourced values into the m
 3. On success: `os.Rename(tmp, path)` — atomic on the same partition
 4. On any failure: remove the temp file; original is untouched
 
+Because every write works on a full copy, a write needs **free space next to the file equal to the
+file's size**, and costs a full read and write of it.
+
+### What a write preserves
+
+- **MKV / WebM files are edited in place, not rebuilt.** Streams, chapters, editions, track-level
+  tags and attachments other than the cover survive byte-for-byte.
+- **Tags merge, they don't replace the tag set.** Every existing tag the write doesn't touch survives
+  verbatim. A written field replaces its old tag regardless of letter case, so a legacy `Year` tag
+  comes back as `YEAR`.
+- **Clearing a title removes it.** A write that clears the title deletes the MKV's title rather than
+  failing. (Today only genres and tag keys can be cleared, so no screen sends this yet.)
+
 ### Format mapping
 
 Tag names are resolved by `internal/writeback.TagForField(canonical, container)` using the container value from `videos.container` (set by the scanner's `normalizeContainer()`). Supported containers: `Matroska`, `MP4`, `WebM`, `mp3`, `flac`. A `422` is returned for any unrecognized container.
