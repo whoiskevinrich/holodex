@@ -514,14 +514,19 @@
 		if (!video || deleteBusy) return;
 		deleteBusy = true;
 		deleteError = '';
+		const gen = pageGeneration;
 		try {
 			await api.deleteMedia(video.id, { purge: confirmMode === 'purge' });
+			// A run can advance while the request is in flight; the load effect has already
+			// closed the dialog, so leave the item now on screen alone.
+			if (gen !== pageGeneration) return;
 			// The item is gone — return to wherever it was opened from (a filtered list, a
 			// person's filmography, a studio page) rather than always resetting to the
 			// unfiltered browse root (HOLODEX-41). Falls back to '/' when there's no in-app
 			// history to pop (direct link / new tab). ADR-114 D4's shared exit.
 			exitAfterRemoval(cameFromInApp, '/');
 		} catch (e) {
+			if (gen !== pageGeneration) return;
 			deleteError = toMessage(e);
 			deleteBusy = false; // keep the dialog open so the message is visible
 		}
@@ -1196,6 +1201,15 @@
 		writebackAction = null;
 		writebackActionError = '';
 		pickerOpen = false;
+		// The delete confirm is per-video too, and the most dangerous to carry over: in a run,
+		// playback continues behind the modal and `ended` advances to the next item, so a
+		// dialog left open would name — and on Confirm delete — the item it advanced to.
+		// deleteBusy too: a successful delete never clears it (it exits instead), and in a run
+		// that exit's history.back() lands on another /media item in this same component.
+		confirmMode = null;
+		deleteBusy = false;
+		deleteError = '';
+		deleteMenuOpen = false;
 		api
 			.getMedia(current)
 			.then((res) => {
