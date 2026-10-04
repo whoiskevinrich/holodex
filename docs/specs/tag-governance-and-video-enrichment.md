@@ -200,6 +200,27 @@ This must be fixed as part of this spec (P0-1), not discovered after ship.
 - **P0-8 — Media-page tag chips gain add/remove UI.** Replace the read-only chip list
   (`media/[id]/+page.svelte:406`) with removable chips (owner-only) plus an add-tag input with the same
   near-miss/collision affordances F43 already gives `/tags`.
+  - **P0-8a — Add-tag input refinements (amended 2026-10-03,
+    [HOLODEX-519](https://whoiskevinrich.atlassian.net/browse/HOLODEX-519)).** P0-8 shipped without the
+    autocomplete its UI section called for, and with a form that closes after every add. The owner-only add
+    control now:
+    1. **Stays open for rapid entry.** A successful add clears the input and keeps focus in it. A failed add
+       keeps the text. Esc (with no suggestion list open) or **Done**, which replaces Cancel, closes the form.
+    2. **Suggests existing tags.** As the owner types, a list of existing tags shows: prefix matches first,
+       then substring matches, case-insensitive, up to 8, with tags already on the video left out and each
+       tag's video count shown. A final "Add “x” as a new tag" row appears unless an existing tag's name is
+       exactly the typed text. Nothing is highlighted while typing; ↑/↓ move the highlight.
+    3. **Separates "take a suggestion" from "take my text".** **Enter** adds the highlighted row, or the
+       typed text when nothing is highlighted. **Tab** adds the highlighted suggestion, or the first
+       suggestion when nothing is highlighted, then clears like any add. Tab is intercepted only while the
+       list shows at least one existing tag; otherwise it moves focus as normal. Shift+Tab is never
+       intercepted.
+    4. **Sorts the owner's chips by on-file status**, with pending writeback changes first: pending add,
+       then pending removal, then on the file, then Holodex only. Alphabetical within each group. With the
+       file's tags unknown, plain name order. Visitors see no status, so their chips stay in name order.
+
+    Alias matching in the suggestions is out of scope. Design:
+    [media-tag-input-handoff.md](../design/media-tag-input-handoff.md).
 - **P0-9 — Enrichment materialization pass (RD4/RD5).** When a video is (re-)enriched, each value in the
   resolved `genres` field is attached via `resolveOrCreateByName(..., model.EntityTag, value, "")` with
   `source='provider:<name>'`, silently skipping denied terms (no error surfaced — enrichment is unattended).
@@ -316,7 +337,8 @@ Existing endpoints, behavior extended (no new routes):
 
 - **Media page (`web/src/routes/media/[id]/+page.svelte`)**: tag chips gain an owner-only remove affordance
   and an add-tag input (autocomplete against existing tags, same collision/near-miss soft-warning F43 already
-  gives `/tags`). Denied-term submission shows an inline rejection, not a silent no-op.
+  gives `/tags`). Denied-term submission shows an inline rejection, not a silent no-op. Input behaviour,
+  suggestions, and chip order are refined by P0-8a (HOLODEX-519).
 - **`/tags`**: gains a parent-setter row action (P1-2) alongside F43's existing rename/alias/merge actions.
 - **`/owner`**: a new **Deny-list** tab (P1-1), added to the existing tab row (`owner/+layout.svelte`) next
   to Duplicates.

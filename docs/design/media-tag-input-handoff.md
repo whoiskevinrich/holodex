@@ -34,6 +34,7 @@ rail. Three changes, all owner-only. The visitor branch is untouched.
 | D3 | Autocomplete is a combobox using **`aria-activedescendant`** | Roving tabindex, the codebase's listbox default (`EnrichPicker`, `SearchResultsPanel`). That moves DOM focus out of the input, so typing would stop working mid-list. This is an approved exception, limited to text-input comboboxes |
 | D4 | Sort order **A: pending changes first**: pending add → pending removal → on the file → Holodex only | B: on-file first, reading like the file with changes trailing |
 | D5 | Alias matching is **out of scope** | Matching on `aliases` with a "via *alias*" hint, a possible follow-up |
+| D6 | **Tab takes the suggestion** (owner, 2026-10-03): adds the highlighted row, or the first suggestion if none is highlighted. Enter takes the text | Tab only fills the input and the owner presses Enter after: two keys for the common case. Tab never touching the list: there'd be no one-key way to take the top match. If "fill, don't add" turns out to be wanted, it's a one-line change in `TagAddInput`'s key handler |
 
 ## Components
 
@@ -78,6 +79,9 @@ No new tokens, no hardcoded colours.
 | `+ Add tag` | Opens the form with focus in the input (unchanged) |
 | Enter, nothing highlighted, text not blank | `onadd(trimmed text)` |
 | Enter, a row highlighted | `onadd(row's tag name)` (or the typed text for the "Add as new" row) |
+| Tab, list showing ≥ 1 existing tag (D6) | `preventDefault`, then `onadd(highlighted tag)`, or the **first** existing tag if nothing is highlighted. If the highlight is on the "Add as new" row, `onadd(typed text)`. Focus stays in the input |
+| Tab, list closed or only the "Add as new" row | Not intercepted; focus moves to Add as normal. Tab never traps the owner |
+| Shift+Tab | Never intercepted |
 | Enter, blank input | Nothing (unchanged) |
 | Add button | Same as Enter with nothing highlighted |
 | Add succeeds | `tagAddValue = ''`, listbox closes, **focus stays in the input**, form stays open |
@@ -161,6 +165,9 @@ reload lands after an add or remove. There is no animation.
 - After a successful add, a polite live region announces "Added heist". The cleared input alone
   would otherwise announce nothing.
 - Focus order: chips (each link, then its ×) → input → Add → Done. The listbox is not a tab stop.
+  While suggestions show, Tab takes one instead of moving on (D6). To leave the input, press Esc
+  to close the list and then Tab, or use Shift+Tab. The input's `aria-describedby` hint says so:
+  "Enter adds what you typed. Tab adds the suggestion."
 - **Recording the exception:** add a line to `web/src/lib/components/entity/CLAUDE.md` saying
   that text-input comboboxes use `aria-activedescendant` and option-list pickers use roving
   tabindex, and why. Otherwise the next session "fixes" it back.
@@ -177,3 +184,5 @@ None. The listbox appears and disappears instantly, the same as the existing pic
   hiding "Add as new", no initial highlight).
 - Component or e2e: Enter → input empty and still focused; 422 → text kept; Esc twice → form
   closed and focus on `+ Add tag`; "Use that instead" doesn't wipe typing in progress.
+- Keys: Tab with nothing highlighted adds the first suggestion; Tab with the list closed moves focus
+  to Add; Shift+Tab is never swallowed; Tab on the "Add as new" row adds the typed text.
