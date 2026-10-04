@@ -162,6 +162,7 @@ suites are pending (see [testing-strategy.md §0](../testing-strategy.md)).
 |----------|-------------|
 | Performance | Search API p95 ≤ 300ms for 50k records on 4-core / 8 GB machine |
 | Performance | Client-side route transitions ≤ 150ms perceived |
+| Performance | A first full scan of a 10k-file library completes in roughly two minutes (~125 s at the default 4 `SCAN_WORKERS`, ~50 ms per file); it runs in the background, so browsing stays usable meanwhile |
 | Reliability | Scanner crash does not crash the web server |
 | Reliability | Corrupt or unreadable media files are logged and skipped; they do not stop the scan |
 | Security | Files are served only by video ID (canonical path looked up from the index); clients never supply paths, so traversal is structurally impossible (ADR-011/ADR-015) |
@@ -217,6 +218,6 @@ VideoMetadata  (extended/extra tags — see ADR-013)
 1. ~~**Symlinks**~~: **Resolved (ADR-011)** — follow symlinks by default, dedup by canonical path, allow targets outside `MEDIA_PATH`; configurable via `FOLLOW_SYMLINKS`.
 2. ~~**MKV tag priority**~~: **Resolved (ADR-010)** — Matroska target level 50 (MOVIE/EPISODE) and untargeted tags are authoritative; track/chapter (level 30) tags ignored; people/genres never inherited from higher levels.
 3. ~~**Cover art source**~~: **Resolved (ADR-009)** — embedded cover art is extracted at index time (Tier 1, near-free); generated frame thumbnails are a Phase 2 background job.
-4. ~~**Resolution buckets**~~: **Resolved (ADR-012)** — width-based buckets with 10% tolerance: SD <1152, HD 1152–1727, FHD 1728–3455, 4K+ ≥3456.
+4. ~~**Resolution buckets**~~: **Resolved (ADR-012)** — width-based buckets with 10% tolerance: SD <1152, HD 1152–1727, FHD 1728–3455, 4K+ ≥3456. The four buckets are fixed; a QHD/1440p split (2304–3455) may be added later if wanted.
 
 _All Phase 1 open questions resolved._

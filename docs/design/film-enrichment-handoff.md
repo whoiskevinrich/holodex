@@ -211,6 +211,14 @@ still reads `No year set`, and clicking the pencil gives the precise reason. The
 `year_collision` on the apply response (backend-tested); the SPA no longer renders a separate line
 for it.
 
+### 4f. Year vs. release date — stated, not reconciled
+
+When the year and the resolved release date both exist and name different years, a muted line sits
+directly under the year control: `Release date says 2016.` (`text-xs text-muted`, owner-only, like the
+rest of the curation context). It carries **no verb and no link** — a "use that" action would read as
+"the year is wrong" and nag the owner to change a value that is right. Why the two may differ:
+[spec Q0](../specs/film-provider-enrichment-ux.md#open-questions).
+
 Measured on the built control — `No year set` 6.31 / 4.90 / 5.73, verdict claim 16.00 / 15.59 /
 18.50, verdict rationale 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and Brutalist. One `h1`
 on the page, confirmed in the DOM.
