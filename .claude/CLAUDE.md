@@ -280,7 +280,9 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   deciding squash commit ("Decided in `<sha>`"). **Write no new numbered ADRs** — the `ADR-NNN`
   files are being folded into topic docs (HOLODEX-523); until then a technology decision edits the
   ADR that covers it in place or starts `docs/architecture/<topic>.md`. Index:
-  `docs/architecture/README.md`. Full rules: `docs/reference/doc-types.md`. A branch that already
+  `docs/architecture/README.md`. Full rules: `docs/reference/doc-types.md`. **Enforced by a hook**
+  (`scripts/hooks/doc-type-guard.mjs`): invoking `/architecture`, `/write-spec` or `/design-handoff`
+  injects that doc type's boundary, and creating a new `ADR-NNN-*.md` is blocked. A branch that already
   carries an unmerged numbered ADR checks it with `node scripts/adr-claims.mjs` before merging.
 - **Never pick a feature number (`F##`) by eye.** "Highest on main + 1" collides with whatever is
   in flight on another branch — HOLODEX-390/406 both took F63. Run `node scripts/feature-claims.mjs`

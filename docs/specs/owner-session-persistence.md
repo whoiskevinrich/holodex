@@ -106,8 +106,7 @@ A new ungated `POST /api/v1/session` accepts the owner token, validates it again
   ADR-046. Never a query string.
 - **Success → cookie.** On a valid token, respond `204` (or `200` with the capabilities payload) and set a
   cookie named e.g. `holodex_session` with attributes: **`HttpOnly`**, **`Secure`**, **`SameSite=Strict`**,
-  **`Path=/`**, and a bounded **`Max-Age`** (default lifetime defined in ADR-046, e.g. 7 days; revisit at
-  review). The cookie **value is not the raw token** — it is a signed/opaque session value the server can
+  **`Path=/`**, and a bounded **`Max-Age`** (7 days by default; 30 days with "trust this device", OS6). The cookie **value is not the raw token** — it is a signed/opaque session value the server can
   validate, so the literal `ADMIN_TOKEN` never travels in a JS-reachable channel and is not sitting in the
   cookie jar verbatim.
 - **Failure.** Wrong/missing token → `401`, no cookie set. Constant-time compare (no early return that
@@ -239,8 +238,8 @@ An opt-in choice at sign-in that issues a longer-lived cookie for a private mach
 default bounded session.
 
 - **Affordance.** A "Trust this device" checkbox (or equivalent) on the token-entry form. Unchecked is the
-  default, bounded session (OS1's default `Max-Age`); checked issues a **longer `Max-Age`** cookie
-  (concrete value in ADR-046, e.g. 30 days).
+  default, bounded session (OS1's default `Max-Age`); checked issues a **longer `Max-Age`** cookie.
+  The two lifetimes are **7 days** (unchecked, the default) and **30 days** (checked).
 - **Wired through the exchange.** The choice is a parameter on `POST /session` (header/body field per
   ADR-046) that the server reads to set the cookie's `Max-Age`. The server — not the client — decides the
   two lifetime values; the client only signals which.
@@ -267,9 +266,10 @@ An actively-used session does not expire out from under the owner; an idle one s
   server **re-issues** the cookie with a refreshed `Max-Age` (a fresh `Set-Cookie`), so continued activity
   keeps the session alive. An idle session (no requests) still expires at its last-issued lifetime.
 - **Bounded renewal.** Renewal slides the **same** lifetime class — a short (default) session renews to the
-  short window, a "trust this device" (OS6) session renews to its long window. ADR-046 decides whether to
-  throttle re-issue (e.g. only refresh when the cookie is past, say, half its life) to avoid a `Set-Cookie`
-  on literally every request, and whether there is an absolute cap on total session age.
+  short window, a "trust this device" (OS6) session renews to its long window; renewal never upgrades a
+  short session to a long one. A session is renewed only once it is past half its window, not on every
+  request. However active, a session lasts at most **90 days** from sign-in; after that the owner signs in
+  again.
 - **Idle-then-return.** A session left idle past its window is expired on return → `401` → graceful drop to
   the prompt (OS2/OS4 behavior). Sliding expiry never resurrects an already-expired cookie.
 

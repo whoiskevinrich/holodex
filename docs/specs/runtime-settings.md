@@ -1,6 +1,8 @@
 # Spec: Runtime owner-editable settings (F41)
 
 **Status**: Draft
+**Build state**: **not built.** Everything below is intent. Today the gallery cap is set only by
+startup config, and the owner hub has no Settings tab.
 **Phase**: Phase 3 follow-up (operator/owner surface)
 **Owner**: Project owner
 **Date**: 2026-07-05

@@ -26,6 +26,10 @@
           {
             "type": "command",
             "command": "node scripts/hooks/feature-claims-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/hooks/doc-type-guard.mjs"
           }
         ]
       },
@@ -35,6 +39,10 @@
           {
             "type": "command",
             "command": "node scripts/hooks/feature-claims-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node scripts/hooks/doc-type-guard.mjs"
           }
         ]
       }
