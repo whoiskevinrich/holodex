@@ -2,7 +2,7 @@
 
 A single self-contained marketing page (`index.html`) — no build step, no framework. Its
 hero shows the **real** product screenshots (grid + detail) in Cinémathèque, the one look
-Holodex ships ([ADR-115](../docs/architecture/ADR-115-cinematheque-only-skin.md)).
+Holodex ships ([theming](../docs/design/theming.md)).
 
 Screenshots in `screenshots/` are captured from the [demo corpus](../docs/specs/showcase-demo-corpus.md)
 (copies of `docs/assets/screenshots/`).
