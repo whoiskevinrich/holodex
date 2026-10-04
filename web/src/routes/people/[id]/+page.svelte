@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick, untrack } from 'svelte';
 	import { page } from '$app/stores';
 	import { api } from '$lib/api';
 	import { toMessage, aliasHint } from '$lib/format';
@@ -199,6 +200,34 @@
 	// "Additional details" divider. Same for owner and visitor (no controls).
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
 
+	// Details fold (HOLODEX-539): the field list is closed at rest for owner AND visitor —
+	// unlike the media Metadata fold, which stays open for visitors; the owner chose this
+	// deliberately. The header (label, field count, Enrich chips) stays visible; the count
+	// is the summary that keeps the fold honest.
+	let detailsExpanded = $state(false);
+	const detailsFieldCount = $derived(
+		compactFields.length + mergeFields.length + extraLongFields.length + extraFields.length
+	);
+
+	// A `#field-<canonical>` landing (completeness queue rows) must open the fold first, or
+	// it lands on a row clipped and `inert` (HOLODEX-398's hazard on the media page). Keyed
+	// on the hash itself because SvelteKit runs no afterNavigate for a same-page hash change.
+	$effect(() => {
+		const hash = $page.url.hash;
+		if (!hash || loading) return;
+		untrack(() => void openDeepLinkedDetail(hash));
+	});
+
+	async function openDeepLinkedDetail(hash: string) {
+		if (!/^#field-[\w-]+$/.test(hash)) return;
+		const row = document.getElementById(hash.slice(1));
+		// Only rows inside the fold — `#field-photo-upload` and friends live elsewhere.
+		if (!row?.closest('#person-details-fields')) return;
+		detailsExpanded = true;
+		await tick();
+		row.scrollIntoView({ block: 'center' });
+	}
+
 	// The provider name behind a visitor row's ProvenanceBadge — the winning namespace
 	// unless it is a baseline source (record/file/manual). Shared with AutoFieldRows.
 	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
@@ -227,6 +256,7 @@
 
 	$effect(() => {
 		expandedField.reset(); // no per-entity scope of its own (F56.9) — clear on nav between people
+		detailsExpanded = false; // the route component is reused across /people/A → /people/B
 		load(id);
 	});
 
@@ -653,9 +683,37 @@
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
 			{#if resolved.length || (isOwner && personProviders.length)}
-				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
-					<div class="flex flex-wrap items-start justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
+				<section class="rounded-theme border border-rule bg-surface p-4">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">
+							{#if detailsFieldCount}
+								<!-- HOLODEX-539: the label is the disclosure button (heading-wraps-button);
+								     only the field list folds, so the Enrich chips stay reachable. -->
+								<button
+									type="button"
+									onclick={() => (detailsExpanded = !detailsExpanded)}
+									aria-expanded={detailsExpanded}
+									aria-controls="person-details-fields"
+									class="btn-quiet -mx-1 -my-0.5 flex items-center gap-1.5 rounded-theme px-1 py-0.5 uppercase hover:bg-surface-2"
+								>
+									<svg
+										class="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none"
+										class:rotate-90={detailsExpanded}
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										aria-hidden="true"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6" />
+									</svg>
+									Details
+									<span class="normal-case tracking-normal">· {detailsFieldCount} field{detailsFieldCount === 1 ? '' : 's'}</span>
+								</button>
+							{:else}
+								Details
+							{/if}
+						</h2>
 						{#if isOwner && personProviders.length}
 							<!-- HOLODEX-136: one compact chip per person-capable provider (icon +
 							     name + Enrich), Clear in a ⋯ overflow once linked. Each opens its
@@ -673,8 +731,16 @@
 						{/if}
 					</div>
 
-					{#if resolved.length}
-						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+					{#if detailsFieldCount}
+						<!-- Clipped, not unmounted, while closed: `#field-*` ids must exist for the
+						     deep-link landing to find them; `inert` keeps the clipped rows out of tab order. -->
+						<div
+							id="person-details-fields"
+							class="overflow-hidden transition-[max-height] duration-200 ease-out motion-reduce:transition-none"
+							style="max-height: {detailsExpanded ? '6000px' : '0px'}"
+							inert={!detailsExpanded}
+						>
+						<dl class="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
 							{#snippet promotedEdit(f: ResolvedField)}
 								<PromotedFieldEdit {isOwner} field={f} entityType="person" entityNoun="people" onchanged={reloadDetail} />
 							{/snippet}
@@ -788,12 +854,13 @@
 								onchanged={reloadDetail}
 							/>
 						</dl>
+						</div>
 					{:else}
-						<p class="text-sm text-muted">No details yet.</p>
+						<p class="mt-3 text-sm text-muted">No details yet.</p>
 					{/if}
 
 					{#if actionError}
-						<p class="text-sm text-warn">{actionError}</p>
+						<p class="mt-3 text-sm text-warn">{actionError}</p>
 					{/if}
 				</section>
 			{/if}
