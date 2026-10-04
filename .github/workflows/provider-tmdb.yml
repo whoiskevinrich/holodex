@@ -72,8 +72,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Own scope — see image.yml.
+          cache-from: type=gha,scope=provider-tmdb
+          cache-to: type=gha,scope=provider-tmdb,mode=max
 
       - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
