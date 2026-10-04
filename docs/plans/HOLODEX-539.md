@@ -3,6 +3,10 @@ key: HOLODEX-539
 status: in-progress
 profile: ui                  # UX change, behavior unchanged
 depends-on: []
+approved:
+  design:
+    on: 2026-10-04
+    at: 56e0afed
 release_note: "The Details card on a person's page now starts collapsed, so the page opens on what matters; click Details to see every field."
 ---
 
@@ -24,13 +28,12 @@ header, and a `#field-*` deep link opens the fold before it scrolls.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement` → opens the PR (design gate is settled; the guard refuses `gh pr create` before it)
-2. [ ] [human] Watch the open/close animation in a visible window (handoff QA 5; the agent pane was hidden)
+1. [ ] [human] Watch the open/close animation in a visible window (handoff QA 5; the agent pane was hidden)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-04 · designed, built, verified
-- skills: code-review
-- handoff: Fold built per the approved mockup (label toggle, collapsed for visitors too). Deep-link landing verified with `elementFromPoint` as owner and visitor. Two review findings were left out: expanding the SourceBadge on landing, and a fold component shared with the media page.
+- skills: code-review, implement
+- handoff: Crossed into build — design signed off at 56e0afed; draft PR open. Start at the [human] animation check, then mark ready. Left out from review: SourceBadge expand on landing, and a fold component shared with media.
 
 ## Dropped — newest first (the reason is the point)
