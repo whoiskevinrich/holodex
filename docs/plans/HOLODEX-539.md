@@ -1,6 +1,6 @@
 ---
 key: HOLODEX-539
-status: in-progress
+status: in-review
 profile: ui                  # UX change, behavior unchanged
 depends-on: []
 approved:
@@ -28,12 +28,12 @@ header, and a `#field-*` deep link opens the fold before it scrolls.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [human] Watch the open/close animation in a visible window (handoff QA 5; the agent pane was hidden)
+1. [ ] [—] Squash-merge when CI passes (owner asked, 2026-10-04); CI moves HOLODEX-539 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-04 · designed, built, verified
 - skills: code-review, implement
-- handoff: Crossed into build — design signed off at 56e0afed; draft PR open. Start at the [human] animation check, then mark ready. Left out from review: SourceBadge expand on landing, and a fold component shared with media.
+- handoff: Owner approved the build ("looks good"), which covers the [human] animation check; PR #453 marked ready to squash-merge once CI is green. Left out from review: SourceBadge expand on landing, and a fold component shared with media.
 
 ## Dropped — newest first (the reason is the point)
