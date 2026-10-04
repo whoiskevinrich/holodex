@@ -41,6 +41,15 @@ is edited in place when that changes, and leaves the history to git.
 - **Process docs are not architecture.** CI, Jira, branching and agent tooling belong in
   `docs/reference/`.
 
+## Enforcement
+
+- **`.claude/rules/doc-types.md`** carries the boundaries above. It loads whenever a file under
+  `docs/specs/`, `docs/architecture/` or `docs/design/` is opened.
+- **`scripts/hooks/doc-type-guard.mjs`** is a PreToolUse hook. It injects the matching boundary when
+  `/architecture`, `/write-spec` or `/design-handoff` is invoked. Those skills are plugin-owned and
+  don't know these rules; the `/architecture` template scaffolds a numbered ADR. The hook also
+  blocks creating a new `docs/architecture/ADR-NNN-*.md`.
+
 ## Transition (HOLODEX-523)
 
 The numbered `ADR-NNN` files are being folded into topic docs (HOLODEX-526, HOLODEX-527) and then
