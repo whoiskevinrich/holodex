@@ -30,7 +30,9 @@ worklog:
 # to flip the gate to [/]; `artifact` (optional) is the glob whose presence a gate can be cross-checked against.
 gates:
   - { id: spec,         skill: write-spec,        artifact: 'docs/specs/**' }
-  - { id: architecture, skill: architecture,      artifact: 'docs/architecture/ADR-*' }
+  # architecture: living topic docs (docs/reference/doc-types.md). No technology fork → the worklog
+  # records `[~] architecture — no technology fork`; that skip is a pass, not a missing artifact.
+  - { id: architecture, skill: architecture,      artifact: 'docs/architecture/**' }
   - { id: design,       skill: design-handoff,    artifact: 'docs/design/**', approve: true }
   - { id: backend,                                artifact: '{cmd,internal,providers}/**' }
   - { id: frontend,                               artifact: 'web/src/**' }

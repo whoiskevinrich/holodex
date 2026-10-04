@@ -2,6 +2,10 @@
 
 Index of ADRs for Holodex. Each records one decision, its rationale, and consequences.
 
+> **Transition (HOLODEX-523):** these numbered ADRs are being folded into living topic docs. Write
+> no new numbered ADR — edit the one that covers the decision in place, or start
+> `docs/architecture/<topic>.md`. Rules: [`docs/reference/doc-types.md`](../reference/doc-types.md).
+
 | ADR | Decision | Status |
 |-----|----------|--------|
 | [001](ADR-001-backend-language.md) | Backend language — **Go** | Accepted |

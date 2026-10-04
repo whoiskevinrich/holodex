@@ -14,7 +14,7 @@ early taxes every later step. Keep per-turn context flat:
 - **Read narrowly.** Prefer a targeted `rg` with a head limit and `Read` with offset/limit over
   whole files "to be safe." **Never read `TASKS.md`** (80K, archived and frozen) — use Jira.
 - **Point at indexes, pull one doc.** Start from `docs/architecture/README.md` and open a single
-  ADR deliberately; don't read the ADR/spec tree. Same for `docs/specs/`.
+  architecture doc deliberately; don't read the ADR/spec tree. Same for `docs/specs/`.
 - **Clear between unrelated asks.** Prefer `/clear` or a fresh session when switching tasks so one
   ask isn't billed for the previous one's accumulated context.
 
@@ -70,7 +70,7 @@ While making a change, route it through the right skill based on what it touches
 | If the change touches… | Run… | Artifact produced/updated |
 |---|---|---|
 | **Functionality / behavior** (new feature, changed requirement, scope) | `/write-spec` (new) or edit the relevant `docs/specs/phase-*.md` | a spec |
-| **Infrastructure / technical architecture** (stack, data model, deployment, cross-cutting decisions) | `/architecture` | a new or updated ADR in `docs/architecture/` |
+| **A technology fork** (stack, data model, storage, service boundary, security perimeter, deployment, cross-cutting pattern — a credible alternative rejected) | `/architecture` | the topic doc in `docs/architecture/`, edited in place — never a new numbered ADR, whatever the skill's template says |
 | **UX / user-facing surface** (screens, flows, components, interactions) | `/design-handoff` | a design handoff spec |
 | **Anything significant** (any of the above, or a multi-file behavior change) | `/testing-strategy` | updated `docs/testing-strategy.md` + tests aligned to the spec/architecture/design |
 | **Authentication, access, or infrastructure** | `/security-review` | a security sign-off before merge |
@@ -92,7 +92,14 @@ handoff doc, referenced from it with an image embed. A mockup that only exists a
 artifact is lost the moment context is summarized or the session ends, which has caused approved
 designs to not make it into implementation — the committed doc is the only copy that survives.
 
-A functional change with no spec update — or an infra change with no ADR — is **incomplete**.
+**Specs, architecture docs and design docs never comingle** — each answers one question and states
+current truth, edited in place; git is the history. Rules and the "never contains" list:
+[`docs/reference/doc-types.md`](../docs/reference/doc-types.md). A changed product rule is a **spec
+edit**, never a new ADR. A feature with no technology fork writes no architecture doc: its worklog
+records `[~] architecture — no technology fork`.
+
+A functional change with no spec update — or a technology fork with no architecture-doc update — is
+**incomplete**.
 On the Jira side, the same gates surface as the `needs-spec` / `needs-adr` / `needs-design` /
 `needs-security-review` labels (see "Task tracking") — apply one when the change enters the
 matching row, clear it when the artifact lands.
@@ -269,20 +276,22 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 
 ## Conventions
 
-- ADRs are immutable decisions — **supersede** rather than rewrite. Index: `docs/architecture/README.md`.
-- **Never pick an ADR number — or a feature number (`F##`) — by eye.** "Highest on main + 1"
-  collides with whatever is in flight on another branch — PR #257 hit this three times running
-  for ADRs, and HOLODEX-390/406 both took F63. Run `node scripts/adr-claims.mjs` (ADRs) or
-  `node scripts/feature-claims.mjs` (features — before writing a spec's `# Spec: … (F##)` H1,
-  i.e. at `/write-spec`'s scaffold step). Each derives the claim set from every local and
-  remote branch, prints the next free number, flags in-flight collisions (exit 1), and
-  refreshes its gitignored `.adr-claims` / `.feature-claims` file at the **main** worktree
-  root. If the ADR/spec will not be pushed immediately, hold the number with
-  `--reserve <slug>` so a parallel session in another worktree does not take it.
-  **The feature half is enforced by a hook** (`scripts/hooks/feature-claims-guard.mjs`, wired in
-  `.claude/settings.json`): invoking `/write-spec` injects the next free `F##` as context, and a
-  Write/Edit to `docs/specs/*.md` whose H1 takes a number another spec already claims — on any
-  branch, or via a reservation — is **blocked** with the rival and the next free number named.
-  The ADR half is still by hand.
+- Architecture docs are **living topic docs**, edited in place; each decision section links its
+  deciding squash commit ("Decided in `<sha>`"). **Write no new numbered ADRs** — the `ADR-NNN`
+  files are being folded into topic docs (HOLODEX-523); until then a technology decision edits the
+  ADR that covers it in place or starts `docs/architecture/<topic>.md`. Index:
+  `docs/architecture/README.md`. Full rules: `docs/reference/doc-types.md`. A branch that already
+  carries an unmerged numbered ADR checks it with `node scripts/adr-claims.mjs` before merging.
+- **Never pick a feature number (`F##`) by eye.** "Highest on main + 1" collides with whatever is
+  in flight on another branch — HOLODEX-390/406 both took F63. Run `node scripts/feature-claims.mjs`
+  before writing a spec's `# Spec: … (F##)` H1 (i.e. at `/write-spec`'s scaffold step). It derives
+  the claim set from every local and remote branch, prints the next free number, flags in-flight
+  collisions (exit 1), and refreshes its gitignored `.feature-claims` file at the **main** worktree
+  root. If the spec will not be pushed immediately, hold the number with `--reserve <slug>` so a
+  parallel session in another worktree does not take it. **This is enforced by a hook**
+  (`scripts/hooks/feature-claims-guard.mjs`, wired in `.claude/settings.json`): invoking
+  `/write-spec` injects the next free `F##` as context, and a Write/Edit to `docs/specs/*.md` whose
+  H1 takes a number another spec already claims — on any branch, or via a reservation — is
+  **blocked** with the rival and the next free number named.
 - Specs live in `docs/specs/`; the testing strategy in `docs/testing-strategy.md`.
-- Keep the ADR index and spec cross-references up to date when adding either.
+- Keep the architecture index and spec cross-references up to date when adding either.
