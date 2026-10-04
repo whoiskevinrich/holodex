@@ -28,7 +28,7 @@ Done means that testing-strategy §20.3 live-QA items 1–5 (same-route nav, Bac
 exits, shared link, two tabs) run as a Playwright script against the stress fixture, and each
 scenario has been shown to fail against a planted mutant. Spun out of HOLODEX-472 (F73).
 
-**Design package:** [ADR-114](../architecture/ADR-114-list-state-model.md) · [testing-strategy §20.6](../testing-strategy.md) · [`web/geometry/README.md`](../../web/geometry/README.md)
+**Design package:** [ADR-114](../architecture/archive/ADR-114-list-state-model.md) · [testing-strategy §20.6](../testing-strategy.md) · [`web/geometry/README.md`](../../web/geometry/README.md)
 
 ## Gates — definition of done
 

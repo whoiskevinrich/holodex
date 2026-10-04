@@ -2,7 +2,7 @@
 
 How Holodex work is tracked in Jira and kept in sync with the GitHub pipeline. Status
 **transitions** are driven by **direct Jira REST API calls** from CI and the agent
-([ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md)); the **GitHub for
+([ADR-058](../architecture/archive/ADR-058-jira-transitions-via-rest-api.md)); the **GitHub for
 Jira** app is still installed, but only for the **development panel** (branch/commit/PR/
 build/deployment links on each issue) — it no longer drives transitions.
 
@@ -49,15 +49,15 @@ To Do → In Progress → In Review → Done → Released
 | Status | Meaning | Set by |
 |---|---|---|
 | **To Do** | Backlog / triaged | manual |
-| **In Progress** | Branch created, work underway (**including while a Draft PR is open**) | **agent/session** (MCP `transitionJiraIssue` at branch-rename) |
+| **In Progress** | Branch created, work underway (**including while a Draft PR is open**) | **Flightplan `SessionStart` hook** (Jira REST, from the branch key) |
 | **In Review** | PR marked **ready for review** | **CI** — `jira-sync.yml` on a non-draft `opened` or on `ready_for_review` |
 | **Done** | Merged to `main` (code complete) | **CI** — `jira-sync.yml` on `pull_request` merged |
 | **Released** | Shipped in a tagged GHCR image | **CI** — `release.yml` on the `prod` deploy (batch) |
 
-**A Draft PR is not "In Review"** ([ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md)
+**A Draft PR is not "In Review"** ([ADR-069](../architecture/archive/ADR-069-draft-prs-for-pre-implementation-gates.md)
 §2, still live). The PR opens at the **design → build crossing** — `/implement`, once the
 pre-implementation gates (spec, architecture, design) are settled and signed off — not when
-the first artifact lands ([ADR-106](../architecture/ADR-106-push-early-pr-at-implementation.md)
+the first artifact lands ([ADR-106](../architecture/archive/ADR-106-push-early-pr-at-implementation.md)
 supersedes ADR-069 §1). During the design phase the branch is **pushed with no PR**, so the
 dev panel is populated by branch and commits alone and a parked epic is found by the
 `fp:ready-to-build` label instead. From the crossing on, the PR stays **Draft** while the
@@ -96,12 +96,12 @@ Both the GitHub-for-Jira dev panel *and* the CI transitions key off the issue ke
 ## CI transitions (REST API)
 
 The transitions are direct `POST /rest/api/3/issue/{key}/transitions` calls against the
-**gateway** base URL. Reference: [ADR-058](../architecture/ADR-058-jira-transitions-via-rest-api.md);
+**gateway** base URL. Reference: [ADR-058](../architecture/archive/ADR-058-jira-transitions-via-rest-api.md);
 scripts in [`scripts/`](../../scripts).
 
 | Transition | Trigger | Fired by | Key source |
 |---|---|---|---|
-| → **In Progress** | start-of-work (branch rename to key) | agent/session (MCP `transitionJiraIssue`) | current branch |
+| → **In Progress** | session start on a keyed branch | Flightplan `SessionStart` hook (Jira REST) | current branch |
 | → **In Review** | `pull_request: opened` **when not draft**, or `ready_for_review` | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
 | → **Done** | `pull_request` merged | `jira-sync.yml` → `scripts/jira-branch-sync.mjs` | `github.head_ref` |
 | → **Released** | `prod` deploy (Release-Please tag) | `release.yml` → `scripts/jira-release-sync.mjs` | JQL `status = Done` (batch) |
@@ -118,9 +118,17 @@ Design notes:
   read from **Jira state**, not the diff: every merged PR was already moved to `Done` by
   the branch sync, so a release cut from `main` ships exactly the current
   `project = HOLODEX AND status = Done` set. The release sync transitions them all.
-- **`In Progress` is agent-only** — it's the one transition with no server-side event, so
-  the session fires it (see CLAUDE.md → *Branch ↔ Jira linkage*). It won't fire on a rare
-  session-less start; the CI trio covers everything server-visible.
+- **`In Progress` is session-fired** — it's the one transition with no server-side event
+  (a branch is created locally), so Flightplan's `SessionStart` hook fires it over the same
+  REST path, reading `JIRA_*` from the environment, whenever a session starts on a branch
+  carrying the key. It never moves an issue backwards (see below). It won't fire for work
+  done with no session; the CI trio covers everything server-visible. Fire it by hand with
+  the Jira MCP `transitionJiraIssue` only when the session banner says it didn't land.
+- **CI transitions only the branch's own key.** `jira-branch-sync.mjs` passes the keys in the
+  branch name and nothing else; it never walks to children. An epic whose child stories are
+  built in one PR on the epic's branch leaves those children at `In Progress` — sweep them
+  by hand with the epic: to `In Review` when the PR is marked ready, to `Done` on merge.
+  Don't move a child to `Done` because its code is committed; `Done` means merged.
 - **Idempotent + soft-fail** — each script skips an issue already at the target, matches the
   transition by destination status **name**, and on any failure (missing key/secret, Jira
   outage, unreachable transition) logs a GitHub `::warning::` and **exits 0**. A Jira hiccup

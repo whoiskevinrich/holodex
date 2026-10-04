@@ -29,9 +29,9 @@
 
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { describeRivals, mainWorktreeRoot, nextFree, pruneReservations } from "../adr-claims.mjs";
+import { describeRivals, mainWorktreeRoot, nextFree, pruneReservations } from "../claims-common.mjs";
 // `collisions` must be feature-claims' own: it honours the merged-on-main tolerance (F55/F56
-// legitimately share numbers on main); adr-claims' version flags any shared number.
+// legitimately share numbers on main).
 import {
   CLAIMS_FILENAME,
   collapseClaims,

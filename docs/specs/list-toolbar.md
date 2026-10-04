@@ -13,7 +13,7 @@ state" is withdrawn. See [Amendments to sort-persistence](#amendments-to-sort-pe
 §9 is *reinstated*. Completeness is a sort entry, as that handoff specified, not the separate
 `CompletenessSortToggle` that People and Studios actually built.
 
-**ADR**: [ADR-114 — list-state model](../architecture/ADR-114-list-state-model.md). It decides
+**ADR**: [ADR-114 — list-state model](../architecture/archive/ADR-114-list-state-model.md). It decides
 which list state lives in the URL, in localStorage or in the session, and how arrival, Back and
 removal exits restore it.
 
@@ -230,7 +230,7 @@ as every other filter.
 **R8. Redirects after actions return to the list you came from.**
 - When an action sends you to a list page, you return to the list URL (sort and filters) you left
   from in this tab, if you came from that list. Otherwise you get the bare list.
-- Mechanism: [ADR-114](../architecture/ADR-114-list-state-model.md) D4.
+- Mechanism: [ADR-114](../architecture/archive/ADR-114-list-state-model.md) D4.
   - The exit is `history.back()` when you arrived from within the app, otherwise the bare list.
     This generalises the media-delete exit from HOLODEX-41. It's per tab by construction.
   - Merges that keep you on the page reload in place, so they need no redirect.

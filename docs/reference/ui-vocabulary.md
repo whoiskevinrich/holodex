@@ -102,7 +102,7 @@ unchanged, prefilled with the canonical value — and, once a decision stands, t
 on the "In files as" line opens that same form. Two existing affordances, no new buttons; the
 canonical column is never written by a display decision.
 → [entity-identity-card-handoff.md §4](../design/entity-identity-card-handoff.md);
-[ADR-096](../architecture/ADR-096-entity-identity-card.md) D5
+[ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) D5
 
 **List toolbar.** The one row every list page (Media, People, Studios, Films, Tags) puts above its
 data: `[Sort] [Reroll?] [Filters?] ··· [View?] [⋯?]`. It never wraps, and an empty slot renders
@@ -115,7 +115,7 @@ nothing. Active filters sit under it as a one-line chips row, then the `aria-liv
   a right-edge rail.
 
 → `sort/ListToolbar.svelte`; [list-toolbar-handoff.md](../design/list-toolbar-handoff.md);
-state model [ADR-114](../architecture/ADR-114-list-state-model.md)
+state model [ADR-114](../architecture/archive/ADR-114-list-state-model.md)
 
 **Scope chip.** A chip in the list toolbar's chips row that narrows a list to one entity, e.g.
 "Studio: Foo" or "Tag: bar". It's reached from that entity's own page, not picked from a filter
@@ -160,13 +160,13 @@ could point at it — a viewport-keyed second render is a bug, not a layout choi
 Tier-2 = every other replace field, handled by the standard decision control (chip row, or
 pencil + modal for `long_text`).
 → [two-tier-field-editing-handoff.md](../design/two-tier-field-editing-handoff.md);
-[ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)
+[ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)
 
 **Adoption vs. precedence.** ADR-090's two layers. *Adoption*: should this candidate enter the
 shadow store at all (transient, review queues). *Precedence*: which stored source wins this
 field (standing, the decision controls above). Every control in this document is a precedence
 control. Never put a competing provider value in an adoption row.
-→ [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md)
+→ [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md)
 
 **Applied vs. on file.** The two columns a writeback surface shows for a video field: *applied*
 is the resolver's winner (decided or not); *on file* is the `·file` candidate — the tag value the
@@ -191,12 +191,12 @@ two destinations"; HOLODEX-400
 to the file. It's recorded only by an explicit `clear` request, never inferred from an empty Custom
 submit. Writeback turns it into a tag *deletion*. In the UI it's the empty state of the field's
 control (for Studio, an empty Linked-now section), never a "None" chip.
-→ [ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md); HOLODEX-493
+→ [ADR-120](../architecture/archive/ADR-120-owner-cleared-field-decision.md); HOLODEX-493
 
 **Baseline.** The entity's own record — the file layer for videos (`baselineKey='file'`), the
 row for persons/studios (`'record'`). Enrichment is an additive shadow over it; the resolver is
 the only merge point.
-→ [ADR-033](../architecture/ADR-033-metadata-source-plugins.md), ADR-051
+→ [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), ADR-051
 
 ## Translations
 

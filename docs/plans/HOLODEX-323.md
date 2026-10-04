@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-323
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -17,12 +17,12 @@ section, sourced from `writeback_queue` so it survives reload and restart; a fai
 persists until retried or dismissed; and with neither pending nor failed work, nothing
 renders at all — silence is the success signal.
 
-**Design package:** [spec](../specs/fire-and-forget-writeback.md) · [ADR-091](../architecture/ADR-091-fire-and-forget-writeback-status.md) · [handoff](../design/fire-and-forget-writeback-handoff.md) · [mockup](../design/fire-and-forget-writeback-mockup.svg)
+**Design package:** [spec](../specs/fire-and-forget-writeback.md) · [ADR-091](../architecture/archive/ADR-091-fire-and-forget-writeback-status.md) · [handoff](../design/fire-and-forget-writeback-handoff.md) · [mockup](../design/fire-and-forget-writeback-mockup.svg)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/fire-and-forget-writeback.md` (RD1–RD6, 12 acceptance criteria)
-- [x] architecture `architecture` → `docs/architecture/ADR-091-fire-and-forget-writeback-status.md` (Proposed; supersedes ADR-073 **D4 only**)
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-091-fire-and-forget-writeback-status.md` (Proposed; supersedes ADR-073 **D4 only**)
 - [x] design `design-handoff` → `docs/design/fire-and-forget-writeback-handoff.md` + committed SVG mockup
 - [x] backend → `internal/repo/writequeue.go` (`GetVideoWritebackStatus`/`RetryFailedWriteback`/`DismissFailedWriteback`), `internal/writequeue/writequeue.go` (`Queue.RetryFailed`), `internal/api/writeback.go` (Retry/Dismiss routes, RD5 clear-on-enqueue), `internal/api/handlers.go` (R2.1a redaction on `getMedia`) — all Go-test-covered
 - [x] frontend → `WritebackFormDialog.svelte` (closes on ack, `=`/circle-minus/checkbox gutter, row-tier order), `writebackJob.ts` (`waitForVideoWriteback`), `media/[id]/+page.svelte` (badges, poll effect, Retry/Dismiss), `films/[id]/+page.svelte` (contract parity) — `writebackJob.ts` Vitest-covered; dialog/page verified live against real media (see session log), no new Playwright/component coverage (§0's standing gap)

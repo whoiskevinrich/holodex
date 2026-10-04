@@ -2,7 +2,7 @@
 
 **Spec**: [promote-override-fields.md](../specs/promote-override-fields.md) ·
 **Handoff**: [promote-override-fields-handoff.md](promote-override-fields-handoff.md) ·
-**ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) ·
+**ADR**: [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md) ·
 **Jira**: HOLODEX-171
 
 Conventions: every item is numbered `section.item` and tagged by verifier —

@@ -1,7 +1,7 @@
 # Design handoff: Fire-and-forget writeback
 
 **Jira:** HOLODEX-323 · **Spec:** [fire-and-forget-writeback.md](../specs/fire-and-forget-writeback.md) ·
-**ADR:** [ADR-091](../architecture/ADR-091-fire-and-forget-writeback-status.md) ·
+**ADR:** [ADR-091](../architecture/archive/ADR-091-fire-and-forget-writeback-status.md) ·
 **Supersedes:** ADR-073 D4
 
 ![Fire-and-forget writeback mockup](fire-and-forget-writeback-mockup.svg)

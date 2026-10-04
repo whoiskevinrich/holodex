@@ -3,7 +3,7 @@
 **Status**: Draft (developer handoff)
 **Date**: 2026-06-14
 **Spec**: [`docs/specs/system-activity.md`](../specs/system-activity.md) (F21)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 This handoff covers the two user-facing surfaces in F21: the **activity page** (F21.4)
 and the **header indicator** (F21.5), plus the **controls** (F21.6) and the

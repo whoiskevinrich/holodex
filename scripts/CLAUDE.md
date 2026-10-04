@@ -1,6 +1,6 @@
 # scripts/
 
-Repo tooling: claim allocators (`adr-claims.mjs`, `feature-claims.mjs`), Jira/CI sync
+Repo tooling: the feature-number allocator (`feature-claims.mjs`, helpers in `claims-common.mjs`), Jira/CI sync
 (`jira-*.mjs`, `release-*.mjs`), commit and worklog gates, `hooks/`, and the `detect_*.sql`
 probes that measure the live library.
 

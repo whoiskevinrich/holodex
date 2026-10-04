@@ -4,7 +4,7 @@
 **Status:** approved by the owner 2026-09-20 — panels 1, 2, 3, 5 as drawn; panel 4 (*Save as
 playlist* placement, spec OQ3) resolved **A** (toolbar) · **Date:** 2026-09-20 ·
 **Spec:** [video-playlists.md](../specs/video-playlists.md) P0-5..P0-10 ·
-**ADR:** [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md) D4/D5
+**ADR:** [ADR-104](../architecture/archive/ADR-104-video-playlists-container-and-persistent-player.md) D4/D5
 
 ## Decision
 

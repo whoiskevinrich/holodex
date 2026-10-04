@@ -19,7 +19,7 @@ page, and from the Film page's studio dialog, where it clears only the videos ca
 The clear must hold across re-scans and remove the studio from every file tag it was read from, so
 nothing is ever written in its place.
 
-**Design package:** [spec F74](../specs/studio-clear.md) · [ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md) · [handoff](../design/studio-detach-handoff.md) · [testing-strategy §22](../testing-strategy.md#22-clearing-a-studio-from-a-video-or-a-film-f74-holodex-493-adr-120)
+**Design package:** [spec F74](../specs/studio-clear.md) · [ADR-120](../architecture/archive/ADR-120-owner-cleared-field-decision.md) · [handoff](../design/studio-detach-handoff.md) · [testing-strategy §22](../testing-strategy.md#22-clearing-a-studio-from-a-video-or-a-film-f74-holodex-493-adr-120)
 
 ## Gates — definition of done
 

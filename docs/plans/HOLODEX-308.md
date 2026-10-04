@@ -15,7 +15,7 @@ backend already exists (ADR-086/HOLODEX-284) — this epic is the surface for it
 vocabulary decisions that surface forces.
 
 **Design package:** [film-provider-enrichment-ux.md](../specs/film-provider-enrichment-ux.md) (F59) ·
-[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) ·
+[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) ·
 [film-enrichment-handoff.md](../design/film-enrichment-handoff.md) +
 [mockup](../design/film-enrichment-mockup.svg) ·
 [testing-strategy §4/§5 + Critical invariants](../testing-strategy.md)
@@ -23,7 +23,7 @@ vocabulary decisions that surface forces.
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/film-provider-enrichment-ux.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-089-film-enrichment-field-vocabulary.md`
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-089-film-enrichment-field-vocabulary.md`
 - [x] design `design-handoff` → `docs/design/film-enrichment-handoff.md` + committed SVG mockup
 - [/] backend — 311/312/310 shipped; nothing outstanding
 - [/] frontend — 309/311/312/317/310 shipped and verified live

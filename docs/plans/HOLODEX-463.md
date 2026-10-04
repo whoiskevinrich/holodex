@@ -20,7 +20,7 @@ and saved independently for dark and light palettes, inverting to black on a lig
 follows the image to every surface that draws it.
 
 **Design package:** spec [studio-images.md § Image halo](../specs/studio-images.md) ·
-[ADR-109](../architecture/ADR-109-per-studio-image-halo.md) ·
+[ADR-109](../architecture/archive/ADR-109-per-studio-image-halo.md) ·
 [handoff](../design/studio-image-halo-handoff.md) + [mockup](../design/studio-image-halo-mockup.svg).
 
 ## Decisions — do not re-litigate

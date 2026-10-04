@@ -34,7 +34,7 @@ test("classify flags a docs(...) PR whose diff is a real implementation", () => 
     title: "docs(tags): F50 spec + ADR-075",
     files: [
       "docs/specs/tag-governance-and-video-enrichment.md",
-      "docs/architecture/ADR-075-tag-governance-and-video-enrichment.md",
+      "docs/architecture/archive/ADR-075-tag-governance-and-video-enrichment.md",
       "internal/api/tag_materialize.go",
       "internal/repo/tag_hierarchy.go",
       "internal/db/migrations/0030_tag_hierarchy.up.sql",
@@ -54,7 +54,7 @@ test("classify flags a docs(...) PR whose diff is a real implementation", () => 
 test("classify tolerates a single non-doc file touched by a docs(...) PR", () => {
   const result = classify({
     title: "docs(tags): fix ADR cross-reference",
-    files: ["docs/architecture/ADR-004-metadata-extraction.md", "internal/api/handler.go"],
+    files: ["docs/architecture/archive/ADR-004-metadata-extraction.md", "internal/api/handler.go"],
   });
   assert.equal(result.flagged, false);
   assert.deepEqual(result.matched, ["internal/api/handler.go"]);

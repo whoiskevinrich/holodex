@@ -2,7 +2,7 @@
 
 **Spec**: [configurable-provider-search-patterns.md](../specs/configurable-provider-search-patterns.md) FR9 ·
 **Handoff**: [structured-resolve-hints-searched-caption-handoff.md](structured-resolve-hints-searched-caption-handoff.md) ·
-**ADR**: [ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D6 ·
+**ADR**: [ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D6 ·
 **Jira**: HOLODEX-369 (epic HOLODEX-367)
 
 Conventions: every item is numbered `section.item` and tagged by verifier —

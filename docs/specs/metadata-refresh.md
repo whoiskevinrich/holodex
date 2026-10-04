@@ -8,17 +8,17 @@
 follow-up and pairs it with a new **forced file re-extract** into one owner action.
 
 **Depends on**: Only shipped surfaces —
-- the metadata extraction pipeline (exiftool + ffprobe; [ADR-004](../architecture/ADR-004-metadata-extraction.md), `internal/metadata`)
-- the scanner per-file index path & change-detection ([ADR-018](../architecture/ADR-018-scanner-change-detection.md), `internal/scanner`)
-- the enrichment shadow store + per-item provider apply ([F22](metadata-plugins.md) / [ADR-033](../architecture/ADR-033-metadata-source-plugins.md), `internal/enrich`, `POST /media/{id}/enrich`)
+- the metadata extraction pipeline (exiftool + ffprobe; [ADR-004](../architecture/archive/ADR-004-metadata-extraction.md), `internal/metadata`)
+- the scanner per-file index path & change-detection ([ADR-018](../architecture/archive/ADR-018-scanner-change-detection.md), `internal/scanner`)
+- the enrichment shadow store + per-item provider apply ([F22](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), `internal/enrich`, `POST /media/{id}/enrich`)
 - the unified field resolver with `file:`/`{provider}:` provenance (F27, `internal/resolver`)
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner` / `X-Admin-Token`)
-- the activity surface & job history ([F21](system-activity.md) / [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md))
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner` / `X-Admin-Token`)
+- the activity surface & job history ([F21](system-activity.md) / [ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md))
 
 **New ADR required**: **Yes** — one ADR for the **per-item refresh orchestration**: a forced
 (change-detection-bypassing) single-file re-extract seam in the scanner, the per-item
 "re-run all linked providers" loop reusing persisted matches, and how a per-item operation is
-recorded in the library-wide `job_runs` model. **[ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)**. Touches **access + file
+recorded in the library-wide `job_runs` model. **[ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)**. Touches **access + file
 I/O + subprocess** → a `/security-review` sign-off is required before merge.
 
 ---
@@ -26,7 +26,7 @@ I/O + subprocess** → a `/security-review` sign-off is required before merge.
 ## Problem Statement
 
 Holodex indexes each media file once and then only re-reads it when the periodic scan notices
-its **size or mtime** changed ([ADR-018](../architecture/ADR-018-scanner-change-detection.md)).
+its **size or mtime** changed ([ADR-018](../architecture/archive/ADR-018-scanner-change-detection.md)).
 But the owner routinely edits the same files from **other systems** — a desktop tagger, a
 different media manager, a script — and two gaps follow. **(1)** Some taggers rewrite tags
 **in place without bumping mtime**, so Holodex's change-detection never re-reads them and the
@@ -61,7 +61,7 @@ files it mirrors, with no owner-visible remedy.
   of files and hammer disk; scope it on its own merits later — see Future Considerations.)*
 - **Automatic / scheduled staleness refresh.** No crawler, no "re-enrich everything nightly,"
   no upstream-change polling. Refresh is **always an explicit owner click**, preserving the
-  on-demand ethos of [ADR-033](../architecture/ADR-033-metadata-source-plugins.md). *(Why: the
+  on-demand ethos of [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md). *(Why: the
   whole enrichment design is deliberately pull-only; a scheduler is a different posture.)*
 - **A new enrichment identity flow.** Refresh re-fetches only providers the item is **already
   matched to**. If an item has no persisted provider match, the provider step is a no-op — it
@@ -71,7 +71,7 @@ files it mirrors, with no owner-visible remedy.
   writes. Pushing values *into* the file is the existing F28 writeback. *(Why: read vs. write are
   separate, separately-gated operations; conflating them is surprising and risky.)*
 - **Reactivating or re-reading soft-deleted items.** A soft-deleted row
-  ([ADR-037](../architecture/ADR-037-soft-delete-and-purge.md)) is untouchable; refresh is
+  ([ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md)) is untouchable; refresh is
   unavailable for it and the endpoint refuses it. *(Why: honors the #26 reactivation guard — a
   deleted item must never be resurrected by any path.)*
 - **Thumbnail regeneration.** Refresh updates *metadata* (incl. cover-art detection). Rebuilding
@@ -124,7 +124,7 @@ files it mirrors, with no owner-visible remedy.
 | **F31.3** | **Re-enrich linked providers.** Refresh re-fetches **every provider the item is currently matched to**, reusing the persisted external match (no identity prompt), and updates the enrichment shadow store. | • An item matched to TMDB: refresh re-applies TMDB and the enrichment fields update.<br>• An item with **no** match: provider step is a clean no-op (no picker, no error).<br>• The match record is **not** cleared or changed by a refresh. |
 | **F31.4** | **Non-destructive layering (load-bearing invariant).** Re-extract updates **only** the `file:` layer; re-enrich updates **only** the `{provider}:` layer; refresh **never flattens** the two into a single stored value — the resolver remains the sole merge point and re-merges afterward with correct `file:` / `{provider}:` provenance. *This invariant is what keeps a future batch conflict-resolution policy (F31.11) implementable without re-extraction.* | After refresh, the media detail `resolved[]` reflects new values with the **same provenance semantics** as before (file-won badged "from file," provider-won "from <provider>"). No enrichment row is lost by the re-extract; no file field is lost by the re-enrich. **No code path writes a resolved/merged value back into `videos.*` or the enrichment store as the stored truth.** |
 | **F31.5** | **Resilient, per-source error handling.** A provider failure (timeout, 5xx, down) fails **only that provider's** step; the file re-extract result is committed regardless. A file-read failure (missing/locked file) fails the refresh **without** mutating the row's active state or data. | • Provider down + file OK → file fields update, response/activity reports the provider error, item not corrupted.<br>• File missing → refresh errors, item retains prior data and prior `active` state, **not** deactivated by this action. |
-| **F31.6** | **Recorded in activity history (flat `job_runs`, no FK).** Each refresh appends **one** `job_runs` row following the established per-entity pattern ([F22.6b](metadata-plugins.md), [migration 0006](../../internal/db/migrations/0006_job_detail.up.sql)): a new `kind="refresh"` constant, `trigger="manual"`, and a free-text `detail` summarizing both halves — **never** a new FK column and **never** a filesystem path (the [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md) no-secrets invariant). | A completed refresh appears in System Activity as a single row with `kind=refresh`, the item referenced as `#<id>` inside `detail` (e.g. `"#42 — file: 3 fields; tmdb: 5 fields"`), the combined `status`, and (on failure/partial) an error message. Scan-count columns are `0` for this kind. **No `video_id` column is added to `job_runs`.** |
+| **F31.6** | **Recorded in activity history (flat `job_runs`, no FK).** Each refresh appends **one** `job_runs` row following the established per-entity pattern ([F22.6b](metadata-plugins.md), [migration 0006](../../internal/db/migrations/0006_job_detail.up.sql)): a new `kind="refresh"` constant, `trigger="manual"`, and a free-text `detail` summarizing both halves — **never** a new FK column and **never** a filesystem path (the [ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) no-secrets invariant). | A completed refresh appears in System Activity as a single row with `kind=refresh`, the item referenced as `#<id>` inside `detail` (e.g. `"#42 — file: 3 fields; tmdb: 5 fields"`), the combined `status`, and (on failure/partial) an error message. Scan-count columns are `0` for this kind. **No `video_id` column is added to `job_runs`.** |
 | **F31.7** | **Owner-only, single-flight, scan-safe.** The control renders only when `capabilities.owner === true`; concurrent refreshes of the same item, or a refresh racing a full scan, must not corrupt the row or double-write. The single-file refresh **does not** acquire the global `scanMu` (a one-file op must not wait behind a 10k-file scan); row safety rides on `repo.writeMu`, and a small **per-item in-flight guard** de-dupes a double-click server-side (returning "already running", mirroring `TriggerRescan`). | • Non-owner UI never shows the control; non-owner request is rejected (F31.1).<br>• A second refresh of the same item while one is in flight is de-duplicated server-side (no torn writes).<br>• A refresh during a running library scan completes without DB corruption (both paths read the same file and write the same derived data via single-statement `UpsertVideo` under `repo.writeMu` — a race is redundant work, not corruption). |
 | **F31.14** | **Structured `RefreshReport` (batch-ready outcome).** The refresh service returns a typed result: per-source entries (file + each provider) with `ok` / `changed` / `error`, an overall `changed`, and a reserved **`sources_disagree`** flag. The file `changed` is a real file-layer diff; provider `changed` mirrors a successful re-fetch. **Staged delivery:** the report *shape* (incl. `sources_disagree`) ships with the re-enrich slice so the endpoint/response are stable; the **per-field** `sources_disagree` *computation* lands with its only consumer — the batch conflict-triage op (F31.11) — to avoid coupling refresh to the resolver/mapping for a value not surfaced single-item (the existing provenance chips already disambiguate at single-item scale). | The endpoint response derives from the `RefreshReport`; a provider failure shows as that source's `ok:false` + `error` while `file` stays `ok:true`. `sources_disagree` is present in the shape, default `false`, until F31.11 populates per-field. |
 | **F31.15** | **Separable `plan` / `apply` internals (batch-ready seam).** The service is structured as `plan(id) → RefreshPlan` (re-extract + provider re-fetch + diff/disagreement detection, **no writes**) then `apply(plan) → RefreshReport` (commit). F31 calls them back-to-back so the split is invisible single-item, but a future batch (F31.11) can run `plan` across N items, interpose conflict resolution, then `apply`. **No public `plan` endpoint** is exposed in v1. | The two phases are independent functions with no hidden coupling; `plan` performs no DB writes (verifiable by test). Single-item refresh behavior is unchanged by the split. |
@@ -187,7 +187,7 @@ These were the load-bearing open questions; resolved with the owner before draft
 seams exist specifically so a later **bulk forced re-extract with conflict resolution** (F31.11)
 layers on without reworking F31. The one data-model batch would most likely add — a **per-item /
 per-field precedence override** (operator pins "file wins" or "provider wins" for an item,
-overriding the global precedence of [ADR-013](../architecture/ADR-013-metadata-field-mapping.md))
+overriding the global precedence of [ADR-013](../architecture/archive/ADR-013-metadata-field-mapping.md))
 — is deliberately **not** built now; the F31.4 non-destructive invariant is what lets it be added
 later cleanly. We bank the seams (struct + plan/apply + invariant), not the batch machinery.
 
@@ -221,7 +221,7 @@ not adoption funnels.
 ## Open Questions
 
 The architectural questions are resolved above (see Resolved Decisions 4–8) and carried into
-**[ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)**. The **design** call —
+**[ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)**. The **design** call —
 placement, label/icon, in-flight treatment, and how F31.8 feedback renders — is resolved in the
 **[design handoff](../design/metadata-refresh-handoff.md)**: a ghost **Refresh** control first in the
 Metadata header cluster, an inline `aria-live` status line for feedback (no toast), and
@@ -252,25 +252,25 @@ implementation, the embedded three-skin QA, `/security-review`, and a `/testing-
 ## References
 
 - **F22 Metadata Source Plugins** — [metadata-plugins.md](metadata-plugins.md) ·
-  [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) (enrichment store, persisted
+  [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) (enrichment store, persisted
   match, on-demand ethos; this spec completes its deferred re-enrich UI).
-- **F27 Resolver / F28 Writeback** — [ADR-041](../architecture/ADR-041-metadata-writeback.md) ·
+- **F27 Resolver / F28 Writeback** — [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md) ·
   [qa-writeback.md](qa-writeback.md) (provenance model; writeback is the complementary *write*
   path — refresh is the *read* path).
 - **F21 System Activity** — [system-activity.md](system-activity.md) ·
-  [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md) (job history surface).
-- **Owner gating** — [ADR-030](../architecture/ADR-030-access-control-gating-seam.md)
+  [ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) (job history surface).
+- **Owner gating** — [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)
   (`requireOwner`, `X-Admin-Token`, capabilities `owner` flag).
-- **Scanner change-detection** — [ADR-018](../architecture/ADR-018-scanner-change-detection.md)
+- **Scanner change-detection** — [ADR-018](../architecture/archive/ADR-018-scanner-change-detection.md)
   (the `(size, mtime)` fast-path this feature deliberately forces past).
-- **Soft-delete guard** — [ADR-037](../architecture/ADR-037-soft-delete-and-purge.md)
+- **Soft-delete guard** — [ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md)
   (#26 reactivation guard refresh must honor).
 
 ---
 
 > **Change-routing reminder (per project working agreements).** This functional spec is the
 > **functionality** artifact. Status of the matching artifacts: **ADR — done**
-> ([ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)); **design handoff — done**
+> ([ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)); **design handoff — done**
 > ([metadata-refresh-handoff.md](../design/metadata-refresh-handoff.md), with embedded three-skin
 > QA). Still required before merge: a **`/testing-strategy`** update + tests (auth/validation,
 > forced-extract proof incl. the mtime-preserved case, provider isolation, soft-delete guard,

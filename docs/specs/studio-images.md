@@ -7,21 +7,21 @@
 **Feature block**: **F51** — generalize Studio from one self-hosted `logo` cache to three
 named image roles (`icon`, `logo`, `poster`), each independently sourced from enrichment
 **or** owner upload, with add/edit/remove controls on the studio detail page. Realizes the
-Option D deferred by [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md) — moving
+Option D deferred by [ADR-057](../architecture/archive/ADR-057-self-hosted-studio-logo.md) — moving
 the studio logo off the field/decision model and onto the Person-style image-asset model.
 
 **Depends on** (all shipped):
-- the on-disk image store + normalize spine ([ADR-038](../architecture/ADR-038-person-images.md), `internal/personimage`, migration 0009)
-- the provenance-lock precedent ([ADR-049](../architecture/ADR-049-manual-image-precedence.md)) — enrichment never overwrites an owner-set core slot
-- the provider asset perimeter ([ADR-039](../architecture/ADR-039-provider-asset-urls.md), `AssetClient`, `asset_hosts` allowlist)
-- the studio entity + its current single logo cache ([ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md), [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md), migrations 0017/0020) — **this spec replaces migration 0020's `studio_logos`**
+- the on-disk image store + normalize spine ([ADR-038](../architecture/archive/ADR-038-person-images.md), `internal/personimage`, migration 0009)
+- the provenance-lock precedent ([ADR-049](../architecture/archive/ADR-049-manual-image-precedence.md)) — enrichment never overwrites an owner-set core slot
+- the provider asset perimeter ([ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md), `AssetClient`, `asset_hosts` allowlist)
+- the studio entity + its current single logo cache ([ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md), [ADR-057](../architecture/archive/ADR-057-self-hosted-studio-logo.md), migrations 0017/0020) — **this spec replaces migration 0020's `studio_logos`**
 - TMDB company enrichment ([docs/specs/studio-entity.md](studio-entity.md) P1-1; `providers/tmdb/tmdb.go`, currently emits `fields["logo"]`)
 
 **ADR**: A new ADR (next available number) records: (1) the `studio_images` table
 (single-slot-per-role, no gallery), (2) generalizing `enrich.ImageSink`/`downloadAssets`
 to be entity-generic (`entityType` + `entityID`) rather than person-only, and (3)
 retiring the studio `logo` **field** (registry + ADR-051 decision) in favor of the
-asset-slot model. **Supersedes [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md)** (the derived-cache-over-a-field approach) and realizes its own deferred
+asset-slot model. **Supersedes [ADR-057](../architecture/archive/ADR-057-self-hosted-studio-logo.md)** (the derived-cache-over-a-field approach) and realizes its own deferred
 "Option D". Touches **access** (new owner-gated upload/delete endpoints) and a new
 untrusted-bytes ingestion path (owner file upload) → `/security-review` before merge.
 
@@ -168,7 +168,7 @@ entirely.
   storing — the same untrusted-bytes gate every other image upload passes. A non-opaque
   upload (a logo with a transparent background) is kept as PNG rather than flattened to
   JPEG, so the mark sits on the skin's surface with no painted-in box
-  ([ADR-097](../architecture/ADR-097-alpha-preserving-image-normalization.md), HOLODEX-396).
+  ([ADR-097](../architecture/archive/ADR-097-alpha-preserving-image-normalization.md), HOLODEX-396).
 - **P0-6 — Public serve route.** `GET /api/v1/studios/{id}/images/{role}` streams the
   on-disk JPEG or PNG with the matching `Content-Type` (`Cache-Control: public,
   max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`), 404 when the slot is empty (the SPA renders its
@@ -282,7 +282,7 @@ Single-owner curation feature:
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ✅ **`/architecture`** — [ADR-079](../architecture/ADR-079-studio-image-roles.md)
+1. ✅ **`/architecture`** — [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md)
    (table + entity-generic `ImageSink` + retiring the `logo` field; supersedes ADR-057).
 2. ✅ **`/design-handoff`** — [studio-images-handoff.md](../design/studio-images-handoff.md):
    studio detail-page image controls, list icon well, empty states, 3-skin QA.

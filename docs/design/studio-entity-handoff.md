@@ -1,7 +1,7 @@
 # Design handoff: Studio entity pages (F38)
 
 **Spec**: [studio-entity.md](../specs/studio-entity.md) (F38, HOLODEX-11) ·
-**ADR**: [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md) ·
+**ADR**: [ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md) ·
 **Impl design**: [studio-entity-implementation.md](../plans/studio-entity-implementation.md)
 
 This is an **addendum** to the [F36 source-of-truth handoff](field-source-of-truth-handoff.md). The

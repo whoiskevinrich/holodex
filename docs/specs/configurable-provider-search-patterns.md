@@ -11,23 +11,23 @@ bracket/comma punctuation and resolution tokens) so an un-enriched file's messy 
 sink its own first search.
 
 **Issue**: [HOLODEX-254](https://whoiskevinrich.atlassian.net/browse/HOLODEX-254)
-**ADR**: [ADR-080](../architecture/ADR-080-configurable-provider-search-patterns.md) (the
+**ADR**: [ADR-080](../architecture/archive/ADR-080-configurable-provider-search-patterns.md) (the
 mechanism — three-tier precedence, token grammar, sanitizer, wire-contract-unchanged posture)
 **Design handoff**: [configurable-provider-search-patterns-handoff.md](../design/configurable-provider-search-patterns-handoff.md)
 (confirms zero `EnrichPicker.svelte` diff; pins the exact seeded-string content per scenario, incl.
 the empty-sanitization fallback; specs the optional P1 transparency caption)
-**Amended 2026-09-11** by [ADR-095](../architecture/ADR-095-structured-resolve-hints.md) /
+**Amended 2026-09-11** by [ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) /
 [HOLODEX-367](https://whoiskevinrich.atlassian.net/browse/HOLODEX-367): FR6–FR9 below (residue rule,
 `query_source`, structured hints on both paths, the "Searched: …" caption), AC-12–AC-18, and the
 narrowed AC-10. The original Non-Goal "structured `hint.fields` over the wire" and P2-a are
 **superseded** — the evidence ADR-080 D1 asked for arrived. Everything else in this spec stands.
 
 **Depends on** (all shipped):
-- the provider sidecar contract, `GET /describe` / `POST /resolve` ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
+- the provider sidecar contract, `GET /describe` / `POST /resolve` ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md))
 - `resolver.ResolveFields` resolving `studio`/`title`/`actors`/`director`/`release_date` before
-  `getMedia` returns ([ADR-052](../architecture/ADR-052-baseline-source-contract.md))
+  `getMedia` returns ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md))
 - the operator provider registry, `metadata-sources.yaml` + hot-reload via `POST /admin/reload-config`
-  (`internal/enrich`, [ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
+  (`internal/enrich`, [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md))
 - `EnrichPicker.svelte`'s generic `entityName` seed prop (F22.5b) — this spec changes what value
   callers pass in, not the component itself
 

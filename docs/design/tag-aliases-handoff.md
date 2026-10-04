@@ -1,8 +1,8 @@
 # Design Handoff: Tag aliases on the tag detail page (HOLODEX-507)
 
 **Spec**: [entity-identity.md](../specs/entity-identity.md) — F43, revised RD7 + RD12 + P0-9/P0-10 (HOLODEX-507 amendment)
-**Architecture**: [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) D7 — tags are identity-only
-**Theming contract**: [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) + [theming.md](theming.md) — tokens only, QA Cinémathèque.
+**Architecture**: [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) D7 — tags are identity-only
+**Theming contract**: [ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md) + [theming.md](theming.md) — tokens only, QA Cinémathèque.
 **Prior art**: [entity-identity-handoff.md](entity-identity-handoff.md) §1 (the alias panel on person/studio);
 the film page's use of the same panel (HOLODEX-376).
 **Surface**: `web/src/routes/tags/[id]/+page.svelte` only. No new component, no new route, no search UI change.

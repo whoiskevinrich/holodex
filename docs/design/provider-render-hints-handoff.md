@@ -1,7 +1,7 @@
 # Design handoff: Provider render hints — auto-registered non-canonical fields (F39)
 
 **Spec**: [provider-render-hints.md](../specs/provider-render-hints.md) (F39, HOLODEX-128) ·
-**ADR**: [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)
+**ADR**: [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
 
 This is an **addendum** to the [F36 source-of-truth handoff](field-source-of-truth-handoff.md) and the
 [F37 people](people-source-of-truth-handoff.md) / [F38 studio](studio-entity-handoff.md) handoffs. The

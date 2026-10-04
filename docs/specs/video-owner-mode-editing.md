@@ -17,7 +17,7 @@ a new **Commentary** field, an **upload** path for the video poster, **Studio** 
 title (not buried in the metadata list), and **file (technical) metadata hidden from visitors**.
 Person/Studio *linking* — the one piece that looked like a gap but turns out to already be fully
 designed — is **not** re-specced here; it implements **F40** ([HOLODEX-114](https://whoiskevinrich.atlassian.net/browse/HOLODEX-114),
-[ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md)) as already locked. See
+[ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md)) as already locked. See
 "Relationship to F40" below.
 **Owner**: Project owner
 **Date**: 2026-08-05
@@ -26,18 +26,18 @@ linking) · [HOLODEX-251](https://whoiskevinrich.atlassian.net/browse/HOLODEX-25
 [HOLODEX-252](https://whoiskevinrich.atlassian.net/browse/HOLODEX-252) (poster upload)
 
 **Depends on** (all shipped):
-- Per-field source-of-truth decisions ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) —
+- Per-field source-of-truth decisions ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) —
   Commentary rides this unchanged; no new decision mechanism.
-- Configurable field mapping ([ADR-013](../architecture/ADR-013-metadata-field-mapping.md),
+- Configurable field mapping ([ADR-013](../architecture/archive/ADR-013-metadata-field-mapping.md),
   [`internal/mapping`](../../internal/mapping/mapping.go)) — Commentary needs one small loosening
   (below).
-- Thumbnail pipeline ([ADR-009](../architecture/ADR-009-thumbnail-strategy.md),
+- Thumbnail pipeline ([ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md),
   [`internal/thumbnail`](../../internal/thumbnail/manager.go)) — the poster upload is a new tier on
   this existing pipeline, not a new asset store.
-- The owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`).
+- The owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`).
 
 **Related / in-flight in the same branch**:
-- [person-media-linking.md / F40](person-media-linking.md) + [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) —
+- [person-media-linking.md / F40](person-media-linking.md) + [ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md) —
   implemented alongside this spec (same PR), covering People + Studio *linking*. Fully designed
   already; this spec does not duplicate it.
 
@@ -210,7 +210,7 @@ Single-owner correctness/completeness feature, no metrics infra needed:
 Per the change-routing rules:
 1. **`/architecture`** — not needed. Commentary rides ADR-051 unchanged (one parser loosening, not an
    architectural decision); poster upload rides ADR-009 unchanged (one new pipeline tier). Person/Studio
-   linking's architecture is already **[ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md)**
+   linking's architecture is already **[ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md)**
    (Proposed → implemented by this branch).
 2. **`/design-handoff`** — [video-owner-mode-editing-handoff.md](../design/video-owner-mode-editing-handoff.md):
    studio-near-title layout, Commentary block, poster upload/remove controls, 3-skin QA. (People/Studio

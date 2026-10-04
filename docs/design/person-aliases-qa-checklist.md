@@ -1,7 +1,7 @@
 # Manual QA Checklist: Person Aliases (F23)
 
-**Spec**: [Person Aliases (F23)](../specs/person-aliases.md) · **ADR**: [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md) · **Design**: [handoff](person-aliases-handoff.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Person Aliases (F23)](../specs/person-aliases.md) · **ADR**: [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md) · **Design**: [handoff](person-aliases-handoff.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`go test`, `svelte-check`, the token-guard `rg`). Green build = pass; pre-checked `[x]` with the test named.

@@ -1,7 +1,7 @@
 # Design handoff — Aliases panel skipped line names its holder (HOLODEX-453)
 
 Provider-alias collisions leave the Duplicates queue
-([ADR-108](../architecture/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md);
+([ADR-108](../architecture/archive/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md);
 spec F58 P0-5a). The Aliases panel's owner-only skipped line
 ([alias-collapse-handoff](alias-collapse-handoff.md#collision-review-line)) ended in a **Review** link
 to `/owner/duplicates`, which would now open a queue that no longer lists the pair. That link is

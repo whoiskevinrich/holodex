@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-341                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: infra
@@ -46,7 +46,7 @@ security gate is ADR-070's.
 ## Gates — definition of done
 
 - [x] architecture `architecture` —
-  `docs/architecture/ADR-094-local-dev-credentials-from-environment.md` (D1–D5), indexed in
+  `docs/architecture/archive/ADR-094-local-dev-credentials-from-environment.md` (D1–D5), indexed in
   `docs/architecture/README.md`. ADR number claimed via `scripts/adr-claims.mjs --reserve`, not by eye
 - [x] testing `testing-strategy` — `providers/tmdb/main_test.go` pins the credential shapes (14 cases
   incl. both swap directions, the template placeholder, and a guard that a hex key can never satisfy

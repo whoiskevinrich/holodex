@@ -2,7 +2,7 @@
 
 **Spec**: [nav-search-live-filter.md](../specs/nav-search-live-filter.md)
 **ADRs**: None (extends existing patterns — see spec's "New ADRs required")
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Issue**: [HOLODEX-249](https://whoiskevinrich.atlassian.net/browse/HOLODEX-249)
 **Surface**: `web/src/routes/+layout.svelte` (nav box), new shared results-panel component,

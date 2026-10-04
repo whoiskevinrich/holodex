@@ -25,7 +25,7 @@ test("specSlugOf recognises a spec path with either separator and rejects the re
   assert.equal(specSlugOf("G:\\source\\holodex\\docs\\specs\\instance-skin.md"), "instance-skin");
   assert.equal(specSlugOf("/repo/docs/specs/x.md"), "x");
   assert.equal(specSlugOf("docs/specs/nested/x.md"), null);
-  assert.equal(specSlugOf("docs/architecture/ADR-102-x.md"), null);
+  assert.equal(specSlugOf("docs/architecture/archive/ADR-102-x.md"), null);
   assert.equal(specSlugOf("docs/specs/README.txt"), null);
   assert.equal(specSlugOf(undefined), null);
 });

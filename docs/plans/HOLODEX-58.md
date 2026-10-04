@@ -21,7 +21,7 @@ more than `/media` would, and never quietly broaden a stored query when an entit
 deleted. Three stories ship in order under epic HOLODEX-16: HOLODEX-501 (entity grids through
 `/media`), HOLODEX-500 (Play all + Shuffle), then HOLODEX-58 (smart playlists).
 
-**Design package:** [spec F75](../specs/smart-playlists.md) · [ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md) · [handoff](../design/smart-playlists-handoff.md) + [mockup](../design/smart-playlists-mockup.svg) · [testing-strategy §23](../testing-strategy.md#23-smart-playlists-play-all-and-shuffle-f75-holodex-58--500--501-adr-121)
+**Design package:** [spec F75](../specs/smart-playlists.md) · [ADR-121](../architecture/archive/ADR-121-smart-playlists-stored-query-and-runs.md) · [handoff](../design/smart-playlists-handoff.md) + [mockup](../design/smart-playlists-mockup.svg) · [testing-strategy §23](../testing-strategy.md#23-smart-playlists-play-all-and-shuffle-f75-holodex-58--500--501-adr-121)
 
 ## Gates — definition of done
 

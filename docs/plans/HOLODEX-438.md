@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-438
 status: in-progress
 profile: full
@@ -21,7 +21,7 @@ Spec: [`docs/specs/video-playlists.md`](../specs/video-playlists.md).
 
 - [x] spec `write-spec` — `docs/specs/video-playlists.md` (F69), RD1–RD9 locked; OQ1 resolved (hide
   the visitor nav item via `/capabilities.public_playlists`)
-- [x] architecture `architecture` — [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md)
+- [x] architecture `architecture` — [ADR-104](../architecture/archive/ADR-104-video-playlists-container-and-persistent-player.md)
   D1–D5; index row landed; D3 adds the uncapped `ListVideoIDs` over the existing `build()`/`orderBy()`
 - [x] design `design-handoff` — `docs/design/video-playlists-handoff.md` + mockup SVG: `/playlists`,
   `/playlists/[id]`, *Save as playlist* placement (OQ3 → A), *Add to playlist* picker, next-up surface;

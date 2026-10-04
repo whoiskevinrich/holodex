@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-224                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -16,7 +16,7 @@ tag-materialization from video enrichment (TMDB `genres`), manual add/remove tag
 and genre writeback. Done means all nine suggested slices (S1–S9) land, tested, and pass `/security-review`
 against the final implementation diff.
 
-**Design package:** [spec](../specs/tag-governance-and-video-enrichment.md) · [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) · [handoff](../design/tag-governance-and-video-enrichment-handoff.md) + [QA checklist](../design/tag-governance-and-video-enrichment-qa-checklist.md) · [testing-strategy §9](../../docs/testing-strategy.md) (F50 block)
+**Design package:** [spec](../specs/tag-governance-and-video-enrichment.md) · [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md) · [handoff](../design/tag-governance-and-video-enrichment-handoff.md) + [QA checklist](../design/tag-governance-and-video-enrichment-qa-checklist.md) · [testing-strategy §9](../../docs/testing-strategy.md) (F50 block)
 
 ## Gates — definition of done
 

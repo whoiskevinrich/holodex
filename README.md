@@ -36,8 +36,8 @@ a fast, good-looking web library you run yourself.
 
 A refined film-archive editorial style: Fraunces serif, a warm grain and vignette, an ember
 accent, and letterbox bars on the cards. It is built on semantic design tokens
-([ADR-021](docs/architecture/ADR-021-frontend-theming-and-skins.md)), and it is the one look
-Holodex ships ([ADR-115](docs/architecture/ADR-115-cinematheque-only-skin.md)).
+([ADR-021](docs/architecture/archive/ADR-021-frontend-theming-and-skins.md)), and it is the one look
+Holodex ships ([ADR-115](docs/architecture/archive/ADR-115-cinematheque-only-skin.md)).
 
 Every video detail page carries it through:
 
@@ -62,7 +62,7 @@ Your library is mounted **read-only**; the index, thumbnails, and config live in
 volume. A fresh host starts with an empty volume and re-indexes the library on first boot; to
 move an existing index, migrate the `holodex-data` volume itself. Pin a release with
 `HOLODEX_TAG=1.2.0` instead of `latest`. See
-[ADR-023](docs/architecture/ADR-023-image-distribution.md) for the distribution model.
+[ADR-023](docs/architecture/archive/ADR-023-image-distribution.md) for the distribution model.
 
 ### Image tags
 
@@ -90,7 +90,7 @@ responsive layout, Prometheus metrics, and configurable metadata field mapping),
 "More with…" related shelves, fluid Back), and the **Phase 3 enrichment foundation**: external
 **metadata source plugins** (F22) that enrich People from IMDB/TMDB-style providers — owner-gated,
 with provider candidates previewed and stored in a provenance-tracked shadow layer
-([ADR-033](docs/architecture/ADR-033-metadata-source-plugins.md)).
+([ADR-033](docs/architecture/archive/ADR-033-metadata-source-plugins.md)).
 
 **Next** ([`docs/specs`](docs/specs)) — people/tag aliases and hierarchy, opt-in metadata
 writeback to source files, and hover-preview trailers.
@@ -114,7 +114,7 @@ cd web && npm install && npm run dev              # -> http://localhost:5173
 > as deps differ by branch). Without it the dev server fails with `'vite' is not recognized`.
 
 Config precedence is **CLI flags > env > `holodex.yaml` > defaults**
-([ADR-014](docs/architecture/ADR-014-configuration-and-data-layout.md)); e.g.
+([ADR-014](docs/architecture/archive/ADR-014-configuration-and-data-layout.md)); e.g.
 `holodex -port 8080 -media-path /srv/videos`. Other vars: `DATA_PATH` (index/thumbnails/config),
 `PORT`, `HOST` (bind address; default all interfaces — set `127.0.0.1` for loopback only), and
 `ADMIN_TOKEN` (gates owner-only controls — set it whenever the server is reachable beyond loopback).
@@ -125,8 +125,8 @@ The real files are gitignored:
 | File | Purpose | Example |
 |------|---------|---------|
 | `holodex.yaml` | Main server config (paths, server, scanner, thumbnails, MCP, …) | [`holodex.yaml.example`](holodex.yaml.example) |
-| `metadata-mappings.yaml` | Map raw container tags to custom facets/labels — F20, [ADR-013](docs/architecture/ADR-013-metadata-field-mapping.md) | [`metadata-mappings.yaml.example`](metadata-mappings.yaml.example) |
-| `metadata-sources.yaml` | External metadata source providers (People enrichment) — F22, [ADR-033](docs/architecture/ADR-033-metadata-source-plugins.md) | [`metadata-sources.yaml.example`](metadata-sources.yaml.example) |
+| `metadata-mappings.yaml` | Map raw container tags to custom facets/labels — F20, [ADR-013](docs/architecture/archive/ADR-013-metadata-field-mapping.md) | [`metadata-mappings.yaml.example`](metadata-mappings.yaml.example) |
+| `metadata-sources.yaml` | External metadata source providers (People enrichment) — F22, [ADR-033](docs/architecture/archive/ADR-033-metadata-source-plugins.md) | [`metadata-sources.yaml.example`](metadata-sources.yaml.example) |
 | `.env` | Docker Compose env (host media path) | [`.env.example`](.env.example) |
 
 ### Try it without a library

@@ -8,8 +8,8 @@
 **Depends on**: Nothing. Both features build only on shipped surfaces (the header search form, the media detail page, the existing media/person/tag read APIs).
 
 **New ADRs required**:
-- **[ADR-031](../architecture/ADR-031-related-media-endpoint.md) (Proposed)** — Related-media query & endpoint (`GET /api/v1/media/{id}/related`): random selection seam (`ORDER BY RANDOM()`), most-popular-tag selection, and the response contract. Search history is client-only and needs **no ADR**.
-- **[ADR-032](../architecture/ADR-032-browse-state-preservation.md) (Proposed)** — Browse-state preservation across SPA navigation (the QW4 "fluid Back" mechanism): a module-scoped client cache of the loaded grid + filters + pagination offset + scroll position, restored on return.
+- **[ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md) (Proposed)** — Related-media query & endpoint (`GET /api/v1/media/{id}/related`): random selection seam (`ORDER BY RANDOM()`), most-popular-tag selection, and the response contract. Search history is client-only and needs **no ADR**.
+- **[ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md) (Proposed)** — Browse-state preservation across SPA navigation (the QW4 "fluid Back" mechanism): a module-scoped client cache of the loaded grid + filters + pagination offset + scroll position, restored on return.
 
 > **Also in this batch (not specced here):** the **QA overlay bug** — the `.app-atmosphere::after` scan/atmosphere overlay (`position:fixed; z-index:40`, worst in **Broadcast**) stays visible over the `<video>` on the media detail page once playback starts. That is a pure frontend bugfix (suppress the atmosphere overlay while a media video is playing) routed through the theming QA discipline, not a functional change — so it carries no spec or ADR. Acceptance for it lives with the design/theming QA: video unobstructed during playback in **all three skins**, overlay restored on pause/end.
 
@@ -151,7 +151,7 @@ A single reusable shelf component, instantiated twice on the media detail page (
 
 Returning to the browse grid via in-app navigation (open item → Back) restores the
 grid exactly as it was left. Mechanism is architectural — see
-**[ADR-032](../architecture/ADR-032-browse-state-preservation.md)**.
+**[ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md)**.
 
 - **What is preserved.** The loaded `videos` array (including every "Load more" page),
   `total`, the pagination `offset`, the active filters/sort, and the **window scroll
@@ -207,7 +207,7 @@ This is a personal single-user server, so metrics are qualitative / self-observe
 *All resolved 2026-06-14 — recorded here for traceability.*
 
 - **(eng) — RESOLVED: stable per page view.** `/related` is **not** re-randomized on every render. The client fetches it once on media-page mount and holds the result, so shelves don't reshuffle while viewing; navigating back to the item (a fresh page view) draws a new set. The server query stays per-request `ORDER BY RANDOM()`; stability is a client fetch-and-hold concern. *(A hard reload re-draws — making a reload identical would need a URL-carried seed; deferred. See QW2 "Stability".)*
-- **(eng/design) — RESOLVED: most *distinctive* tag, not most popular.** Tag selection scores the item's tags to reward sharing while penalizing universality, so a near-universal tag is demoted in favor of a popular-but-not-universal one — the tag shelf stays thematic. Score defined in [ADR-031](../architecture/ADR-031-related-media-endpoint.md). *(See QW2 "Tag selection".)*
+- **(eng/design) — RESOLVED: most *distinctive* tag, not most popular.** Tag selection scores the item's tags to reward sharing while penalizing universality, so a near-universal tag is demoted in favor of a popular-but-not-universal one — the tag shelf stays thematic. Score defined in [ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md). *(See QW2 "Tag selection".)*
 - **(design) — RESOLVED: history hides once typing starts.** The dropdown opens on focus of an *empty* search box and closes the instant the user types, leaving the "typing" state free for a future autocomplete surface to own without reworking history. *(See QW1 "Surface".)*
 
 ## Timeline / Phasing

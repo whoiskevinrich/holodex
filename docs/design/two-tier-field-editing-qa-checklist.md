@@ -2,7 +2,7 @@
 
 **Spec**: [Two-Tier Field Editing Model (F56)](../specs/two-tier-field-editing.md) · **Issue**: [HOLODEX-268](https://whoiskevinrich.atlassian.net/browse/HOLODEX-268) · **Design**: [handoff](two-tier-field-editing-handoff.md)
 **Builds on**: [field-source-of-truth-qa-checklist.md](field-source-of-truth-qa-checklist.md) — F36's invariants (DB-only decisions, one batched write, file-first default, server-gate authority) are **unchanged**; this checklist covers only the new badge/expand/Confirm presentation layer.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped **by verifier** — each actor runs only their section:
 > - **§2 Smoke** — automated test / build gate (`svelte-check`, token-guard `rg`, unit tests). Green = pass; pre-check `[x]` with the test named.

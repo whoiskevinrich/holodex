@@ -1,6 +1,6 @@
 # Spec: Metadata Source Plugins (F22)
 
-**Status**: Draft (Accepted direction — decisions locked via [ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
+**Status**: Draft (Accepted direction — decisions locked via [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md))
 **Feature block**: F22
 **Phase**: 3 (Enrichment foundation) — this is the **keystone** that unblocks the rest of [Phase 3](phase-3-enrichment.md)
 **Depends on**: Phase 2 complete · ADR-013 (field mapping — the precedence model this generalizes) · ADR-004 (extraction) · ADR-028 (job history / activity surface) · ADR-030 (owner gating) · ADR-007/023 (Docker compose deployment)
@@ -293,7 +293,7 @@ fields:
 
 ## F28: Metadata Writeback
 
-**Status**: Implemented ([ADR-041](../architecture/ADR-041-metadata-writeback.md))  
+**Status**: Implemented ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md))  
 **QA**: [qa-writeback.md](qa-writeback.md)
 
 ### Summary
@@ -339,7 +339,7 @@ file's size**, and costs a full read and write of it.
 
 Tag names are resolved by `internal/writeback.TagForField(canonical, container)` using the container value from `videos.container` (set by the scanner's `normalizeContainer()`). Supported containers: `Matroska`, `MP4`, `WebM`, `mp3`, `flac`. A `422` is returned for any unrecognized container.
 
-**Writing a tag is only half the round trip** ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). `formatMap` decides where a value is *written*; the field's `sources:` list in `metadata-mappings.yaml` decides where it is *read back from* when computing `in_sync`. Nothing else relates the two, so a replace field can be writable and unverifiable at once — which is exactly what happened to `title` and `release_date` (HOLODEX-335). `writeback.ReadbackGaps` now compares them, `TestExampleMappingCoversWriteTargets` holds the shipped example to it, and `writeback.LogReadbackGaps` warns per affected field at process start and on `POST /api/v1/admin/reload-config`.
+**Writing a tag is only half the round trip** ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)). `formatMap` decides where a value is *written*; the field's `sources:` list in `metadata-mappings.yaml` decides where it is *read back from* when computing `in_sync`. Nothing else relates the two, so a replace field can be writable and unverifiable at once — which is exactly what happened to `title` and `release_date` (HOLODEX-335). `writeback.ReadbackGaps` now compares them, `TestExampleMappingCoversWriteTargets` holds the shipped example to it, and `writeback.LogReadbackGaps` warns per affected field at process start and on `POST /api/v1/admin/reload-config`.
 
 ### Audit
 

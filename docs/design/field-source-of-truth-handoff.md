@@ -1,8 +1,8 @@
 # Design Handoff: Per-field source-of-truth decisions (F36)
 
-**Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)
+**Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)
 **Builds on**: [Metadata Curation (F30)](metadata-curation-handoff.md) (chips/provenance), [Refresh Metadata (F31)](metadata-refresh-handoff.md) (header cluster, refetch idiom).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 > **Refinement — HOLODEX-112 (shipped on top of PR #71).** The original control was three stacked

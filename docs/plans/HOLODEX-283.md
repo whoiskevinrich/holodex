@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-283                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -17,7 +17,7 @@ fired a parallel `GET /films?q=` and spliced results client-side. Sub-task of ep
 (F56 — Films entity).
 
 **Design package:** [docs/specs/films-entity.md](../specs/films-entity.md) (pre-existing, already
-specified this exact behavior) · [ADR-017](../architecture/ADR-017-search-architecture.md)
+specified this exact behavior) · [ADR-017](../architecture/archive/ADR-017-search-architecture.md)
 (pre-existing mixed-entity FTS pattern, extended not superseded) · no design-handoff (no new UX
 surface) · [docs/testing-strategy.md](../testing-strategy.md) §Search / FTS5
 
@@ -25,7 +25,7 @@ surface) · [docs/testing-strategy.md](../testing-strategy.md) §Search / FTS5
 
 - [x] spec `write-spec` → `docs/specs/films-entity.md` already specified this surface (§"Global
       search and browse"); no new spec needed
-- [x] architecture `architecture` → `docs/architecture/ADR-017-search-architecture.md` already
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-017-search-architecture.md` already
       documents the mixed-entity FTS pattern this extends; no new ADR needed
 - [~] design `design-handoff` — not applicable, no new UX surface (backend integration + shim
       removal only; existing `SearchResultsPanel` already renders a generic `films` group)

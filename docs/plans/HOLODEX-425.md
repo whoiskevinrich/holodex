@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-425
 status: in-review
 profile: full
@@ -20,7 +20,7 @@ ask). Spec: [`docs/specs/instance-skin.md`](../specs/instance-skin.md).
 ## Gates — definition of done
 
 - [x] spec `write-spec` — `docs/specs/instance-skin.md` (F67), RD1–RD10 locked
-- [x] architecture `architecture` — [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md)
+- [x] architecture `architecture` — [ADR-102](../architecture/archive/ADR-102-instance-skin-and-settings-store.md)
   D1–D6; supersedes ADR-021 §5 only; index row + ADR-021 annotation landed
 - [x] design `design-handoff` — [instance-skin-handoff.md](../design/instance-skin-handoff.md) +
   [mockup SVG](../design/instance-skin-mockup.svg); option B (miniature browse preview) chosen;

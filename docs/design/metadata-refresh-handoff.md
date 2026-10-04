@@ -1,7 +1,7 @@
 # Design Handoff: Refresh Metadata (per-item re-extract + re-enrich) (F31)
 
-**Spec**: [Refresh Metadata (F31)](../specs/metadata-refresh.md) · **ADR**: [ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Refresh Metadata (F31)](../specs/metadata-refresh.md) · **ADR**: [ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---

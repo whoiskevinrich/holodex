@@ -1,8 +1,8 @@
 # Design Handoff: Tag Governance & Video Enrichment (F50)
 
 **Spec**: [tag-governance-and-video-enrichment.md](../specs/tag-governance-and-video-enrichment.md)
-**ADR**: [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**ADR**: [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — tokens only, QA all three skins.
 **Issue**: [HOLODEX-224](https://whoiskevinrich.atlassian.net/browse/HOLODEX-224) · **Surfaces**:
 `media/[id]/+page.svelte` (tag chips), `tags/+page.svelte` (hierarchy), `tags/[id]/+page.svelte`

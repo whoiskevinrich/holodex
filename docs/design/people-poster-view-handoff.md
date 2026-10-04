@@ -4,7 +4,7 @@
 **Date**: 2026-08-05
 **Spec**: [`docs/specs/people-poster-view.md`](../specs/people-poster-view.md) (F55, Jira [HOLODEX-255](https://whoiskevinrich.atlassian.net/browse/HOLODEX-255))
 **Architecture**: none required — see the spec header ("New ADRs required: none")
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 A new **Poster View** for `/people`, toggled alongside the existing List view: a `PersonPosterGrid`
 of `PersonPosterCard`s (the 2:3 `.portrait-frame` well + name/count below, mirroring `VideoCard`'s

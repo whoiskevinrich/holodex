@@ -242,7 +242,7 @@ in-app remap path.
 **Promote or claim?** Promote a key when it is *its own thing* deserving a row and curation. When it is
 instead the *same thing* as a field you already have — a second provider's name for your overview — **claim**
 it onto that field so it stops rendering twice (F49,
-[ADR-074](../architecture/ADR-074-claimed-provider-keys.md)). The two are mutually exclusive per key; the full
+[ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md)). The two are mutually exclusive per key; the full
 decision table and worked examples live in
 [canonical-fields.md § Claiming a provider key](canonical-fields.md#claiming-a-provider-key).
 
@@ -337,7 +337,7 @@ This is an operator setting: all visitors see the same layout. It is applied as 
 Holodex has one look, **Cinémathèque**: a dark film-archive editorial style set in Fraunces and
 Archivo, with a warm grain and vignette, an ember accent, and letterbox bars on the cards. There is
 nothing to configure. There are no alternative skins, no custom palette, and no Owner ›
-Appearance tab ([ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)). The fonts are
+Appearance tab ([ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md)). The fonts are
 bundled, so the look works offline.
 
 **Upgrading from a release that had skins.** Broadcast, Brutalist and the `theme.custom` palette
@@ -359,7 +359,7 @@ Off by default, matching `mcp_enabled`'s precedent. Server-side and real, not co
 
 ## Metadata source of truth
 
-Controls which layer wins a **replace (scalar)** field when the owner has made no per-field decision (F36, [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)).
+Controls which layer wins a **replace (scalar)** field when the owner has made no per-field decision (F36, [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)).
 
 | `holodex.yaml` key | Env var | Default | Description |
 |--------------------|---------|---------|-------------|

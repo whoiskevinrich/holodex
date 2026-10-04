@@ -15,12 +15,12 @@ bypass (single-provider and all-providers). **Done** = P0–P1 slices (S1–S6) 
 the Owner hub, `EnrichPicker`/`EnrichProviderChips` extended, provider contract amended, QA +
 security clean.
 
-**Design package:** [spec](../specs/enrichment-review-workflow.md) · [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) · [handoff](../design/enrichment-review-workflow-handoff.md) · [testing-strategy](../testing-strategy.md)
+**Design package:** [spec](../specs/enrichment-review-workflow.md) · [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) · [handoff](../design/enrichment-review-workflow-handoff.md) · [testing-strategy](../testing-strategy.md)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md)
-- [x] architecture `architecture` → [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
+- [x] architecture `architecture` → [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) — auto-apply-with-revert posture change + new `enrichment_dismissals` store
 - [x] backend — S1 (`enrichment_dismissals` migration + dismiss/undismiss/refresh/refresh-all endpoints + `/owner/enrich-queue`) landed
 - [x] frontend — [handoff](../design/enrichment-review-workflow-handoff.md) landed (Enrichment tab, `EnrichPicker`/`EnrichProviderChips` additions, Q3 resolved); S2 (Enrichment tab) + S3 (`EnrichPicker`) + S4 (`EnrichProviderChips`) all shipped
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3 — written ahead of S1–S4, now exercised by S1's test suite
@@ -93,7 +93,7 @@ security clean.
 ### 2026-07-13 · S5 — provider contract doc amendment
 - skills: security-review
 - docs: [`docs/specs/metadata-provider-contract.md`](../specs/metadata-provider-contract.md) §2.3
-  amended per [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) D1's
+  amended per [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) D1's
   action item: replaced the stale "Holodex always shows the owner a picker and never
   auto-applies... `confidence` is advisory" posture with a callout documenting the
   threshold-gated auto-apply behavior (a lone `>=0.85` candidate applies with no picker; any

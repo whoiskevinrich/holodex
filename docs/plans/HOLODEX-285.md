@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-285
 status: in-progress
 profile: full
@@ -16,12 +16,12 @@ affordance as the Media page (RD1), and setting a studio there sets a new manual
 file writeback across every video attached to the film in one action (RD2-RD4), reusing the
 ADR-077 write-queue/batch-status mechanism for progress.
 
-**Design package:** [spec](../specs/film-studio-cascade-writeback.md) · [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md) · [handoff](../design/film-studio-cascade-writeback-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component)
+**Design package:** [spec](../specs/film-studio-cascade-writeback.md) · [ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md) · [handoff](../design/film-studio-cascade-writeback-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/film-studio-cascade-writeback.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-087-film-studio-cascade-decide-and-writeback.md`
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md`
 - [x] design `design-handoff` → `docs/design/film-studio-cascade-writeback-handoff.md`
 - [x] backend
 - [x] frontend

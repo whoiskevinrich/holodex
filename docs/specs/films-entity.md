@@ -12,24 +12,24 @@ resolver source** for a video's `album`/`title` fields — not merely as the fou
 the existing shape.
 
 **Depends on** (all shipped):
-- the F36 decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md),
+- the F36 decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md),
   migration 0016 `field_source_decisions` — keyed by `entity_type`/`entity_id`/`field_key`)
-- the entity-agnostic resolver ([ADR-052](../architecture/ADR-052-baseline-source-contract.md),
+- the entity-agnostic resolver ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md),
   `BaselineSource` + `ResolveFields`)
-- the studio entity ([ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md),
+- the studio entity ([ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md),
   [studio-entity.md](studio-entity.md)) — the **derived**-link precedent this spec deliberately
   diverges from (see Resolved Decisions RD1)
-- the person-link resolved derivation ([ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md),
+- the person-link resolved derivation ([ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md),
   migration 0037 `video_people(video_id, person_id, role)`) — **unchanged** by this spec; films
   read from it, never write to it
 - the entity-image pipeline (person/studio images, `internal/personimage`/`internal/studioimage`)
   — reused for film posters, not reinvented
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 - the `capabilities` payload ([internal/api/auth.go](../../internal/api/auth.go) `capabilities`
   handler) — the existing mechanism for shipping a server-computed flag to the SPA
   (`card_layout`, `person_gallery_max`) that `films_enabled` extends
 
-**ADR**: **[ADR-085](../architecture/ADR-085-films-entity.md) (Proposed)** records the decisions
+**ADR**: **[ADR-085](../architecture/archive/ADR-085-films-entity.md) (Proposed)** records the decisions
 that rise to ADR level: (1) the `films`/`film_videos`/`film_people_roles`/`film_images` data
 model (migration 0043), including the `UNIQUE(film_id, scene_number)`-with-NULL sentinel (RD5)
 and the `UNIQUE(name, year)` identity key (RD8/RD9 in this doc); (2) the **asserted-link model**
@@ -432,14 +432,14 @@ Single-owner feature (no adoption funnel — success is architectural correctnes
 ## Open Questions
 
 - **Q1** (multi-film resolver-source candidate naming) and **Q2** (suspend-without-delete
-  mechanism) are now **resolved by [ADR-085](../architecture/ADR-085-films-entity.md)**: a film
+  mechanism) are now **resolved by [ADR-085](../architecture/archive/ADR-085-films-entity.md)**: a film
   competes as a `provider:film:<id>` decision source injected as a synthetic candidate at the
   resolver call site (one namespace per attached film, so N films = N distinct decision chips),
   and `films_enabled=false` suspends resolution by simply not injecting those candidates — the
   existing "decided source currently unmatched → empty" resolver path handles the rest with no
   new schema or state. See ADR-085 §4/§5 for the full mechanism and its one genuine
   `resolveDecided` core diff.
-- **Q3** is now **resolved by [ADR-086](../architecture/ADR-086-film-provider-enrichment.md)**:
+- **Q3** is now **resolved by [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md)**:
   film enrichment gets its own `entity_type: "film"` (not a reuse of `video`), the poster is an
   asset (`film_images.role='poster'`, the existing `poster` kind — never a resolved field), and
   TMDB is reused via an entity-type-aware field remap rather than a provider-agnostic abstraction.
@@ -453,7 +453,7 @@ Single-owner feature (no adoption funnel — success is architectural correctnes
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ✅ **`/architecture`** — [ADR-085](../architecture/ADR-085-films-entity.md): asserted-link
+1. ✅ **`/architecture`** — [ADR-085](../architecture/archive/ADR-085-films-entity.md): asserted-link
    data model (RD1/RD5/RD8), the film resolver-source mechanism (RD7, Q1/Q2 resolved), and the
    `films_enabled` suspend semantics (RD6).
 2. ⬜ **`/design-handoff`** — films list/detail layout, the two attach pickers (RD9), the

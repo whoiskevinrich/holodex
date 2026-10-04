@@ -1,16 +1,16 @@
 # Spec: Granular Metadata Curation & Merge (F30)
 
-**Status**: Draft — scope decisions locked 2026-06-27 (see [Resolved Decisions](#resolved-decisions)); architecture recorded in [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md) (Proposed); pending `/security-review`
+**Status**: Draft — scope decisions locked 2026-06-27 (see [Resolved Decisions](#resolved-decisions)); architecture recorded in [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md) (Proposed); pending `/security-review`
 **Feature block**: F30
 **Phase**: 3 (Enrichment) — follow-on to F22/F27/F28
 **Date**: 2026-06-27
 **Depends on**:
 [F27 unified field resolution](metadata-plugins.md#f27--unified-field-resolution-implements-f223) (`internal/resolver`, `internal/registry`) ·
-[F28 metadata writeback](metadata-plugins.md#f28-metadata-writeback) / [ADR-041](../architecture/ADR-041-metadata-writeback.md) (`internal/writeback`, `WriteBatch`) ·
-[F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) (shadow store, `entity_enrichment`) ·
-[ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md) (job history / activity surface) ·
-[ADR-030](../architecture/ADR-030-access-control-gating-seam.md) (owner gating)
-**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in all three skins.
+[F28 metadata writeback](metadata-plugins.md#f28-metadata-writeback) / [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md) (`internal/writeback`, `WriteBatch`) ·
+[F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) (shadow store, `entity_enrichment`) ·
+[ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) (job history / activity surface) ·
+[ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) (owner gating)
+**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in all three skins.
 
 ---
 
@@ -60,7 +60,7 @@ file's value and lose the enrichment entirely — and curated intent is never ca
 **Lagging**
 
 - The `browse:true` shadow-store read-path (F27.4) demonstrably shrinks over time as owners
-  curate-and-write libraries (carried from [ADR-041 Consequences](../architecture/ADR-041-metadata-writeback.md#consequences)).
+  curate-and-write libraries (carried from [ADR-041 Consequences](../architecture/archive/ADR-041-metadata-writeback.md#consequences)).
 - The merge/curation model generalizes to **person** entities (bio aliases, etc.) with no
   resolver change — only a new `entity_type` — validating the keystone claim of F22/F27.
 
@@ -330,9 +330,9 @@ Curation = map[field_key] -> { add: []string, suppress: set[norm], nowrite: set[
 
 ---
 
-## Architecture impact ([ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md))
+## Architecture impact ([ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md))
 
-Two cross-cutting decisions are recorded in [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md) (Proposed):
+Two cross-cutting decisions are recorded in [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md) (Proposed):
 
 1. **Merge resolution model** — generalizing F27's "first source wins" to a deduplicated
    union with per-value provenance and a persistent `manual` source + tombstones. This

@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-247                 # the tracker key; must match the branch key regex
 status: done                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -19,7 +19,7 @@ entity-generic `imagesink` package, the owner-gated CRUD API, the TMDB asset swi
 frontend controls are all merged, with every lockstep gate (spec/ADR/design/testing/security)
 landed.
 
-**Design package:** [spec](../specs/studio-images.md) · [ADR-079](../architecture/ADR-079-studio-image-roles.md) · [handoff](../design/studio-images-handoff.md) · [testing-strategy §10](../testing-strategy.md)
+**Design package:** [spec](../specs/studio-images.md) · [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md) · [handoff](../design/studio-images-handoff.md) · [testing-strategy §10](../testing-strategy.md)
 
 ## Gates — definition of done
 
@@ -27,7 +27,7 @@ landed.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → [docs/specs/studio-images.md](../specs/studio-images.md)
-- [x] architecture `architecture` → [ADR-079](../architecture/ADR-079-studio-image-roles.md) (supersedes ADR-057)
+- [x] architecture `architecture` → [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md) (supersedes ADR-057)
 - [x] design `design-handoff` → [docs/design/studio-images-handoff.md](../design/studio-images-handoff.md)
 - [x] backend → migration 0036, `internal/imagesink` (entity-generic `enrich.ImageSink`), `internal/api/studio_images.go`, `providers/tmdb` asset switch
 - [x] frontend → `StudioImageSlot.svelte`, studios list + detail pages

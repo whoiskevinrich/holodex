@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nextFree, parseReservations, pruneReservations } from "./adr-claims.mjs";
+import { nextFree, parseReservations, pruneReservations } from "./claims-common.mjs";
 import {
   CLAIMS_FILENAME,
   collapseClaims,

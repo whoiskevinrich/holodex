@@ -1,17 +1,17 @@
 # Design Handoff: Writeback dialog as cockpit — applied vs. on file, chooser on differing rows
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Writeback ·
-**ADRs**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) ·
-[ADR-091](../architecture/ADR-091-fire-and-forget-writeback-status.md) ·
-[ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md) ·
-[ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) (precedence layer only)
+**ADRs**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) ·
+[ADR-091](../architecture/archive/ADR-091-fire-and-forget-writeback-status.md) ·
+[ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md) ·
+[ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md) (precedence layer only)
 **Builds on**: [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213 —
 the decided/undecided split and the three gutter tiers are ground truth here) ·
 [writeback-poster-and-decision-legibility-handoff.md](writeback-poster-and-decision-legibility-handoff.md)
 (HOLODEX-245 — the poster comparison row is untouched) ·
 [two-tier-field-editing-handoff.md](two-tier-field-editing-handoff.md) (the chip row this
 dialog now reuses).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (the only file whose
 behaviour changes) · reuses `curation/CurationChip.svelte` (radio mode), `f36.ts`

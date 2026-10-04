@@ -1,14 +1,14 @@
 # Design Handoff: Writeback dialog — the Poster row becomes an image-tile chooser
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Sync state ·
-**ADRs**: [ADR-101](../architecture/ADR-101-ledger-witnessed-image-sync.md) (the sync witness
-and the tile chooser) · [ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md) ·
-[ADR-049](../architecture/ADR-049-manual-image-precedence.md) · [ADR-039](../architecture/ADR-039-provider-asset-urls.md)
+**ADRs**: [ADR-101](../architecture/archive/ADR-101-ledger-witnessed-image-sync.md) (the sync witness
+and the tile chooser) · [ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md) ·
+[ADR-049](../architecture/archive/ADR-049-manual-image-precedence.md) · [ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md)
 **Builds on**: [writeback-cockpit-handoff.md](writeback-cockpit-handoff.md) (HOLODEX-400 — every rule
 there applies; this doc only adds the third chooser shape and the image rows' sync) ·
 [writeback-poster-and-decision-legibility-handoff.md](writeback-poster-and-decision-legibility-handoff.md)
 (HOLODEX-245 — whose read-only comparison this replaces).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (image rows join the
 cockpit) · new `web/src/lib/components/curation/SourceImageTiles.svelte` · `web/src/lib/writebackCockpit.ts`

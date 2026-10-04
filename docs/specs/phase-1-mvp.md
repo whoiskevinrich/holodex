@@ -23,7 +23,7 @@ into a **3-skin theming system** (ADR-021), WCAG AA contrast verified per skin (
 F9 Docker (compose serves UI at :7800, volumes, migrations, health, graceful shutdown,
 **CLI>env>yaml>default precedence** F9.5, **multi-arch-ready** buildx F9.4).
 
-**Deferred (tracked):** the in-process cache is deferred to a measured need ([ADR-022](../architecture/ADR-022-defer-in-process-cache.md));
+**Deferred (tracked):** the in-process cache is deferred to a measured need ([ADR-022](../architecture/archive/ADR-022-defer-in-process-cache.md));
 the golden-fixture/real-binary integration corpus and the automated Vitest/Playwright/perf
 suites are pending (see [testing-strategy.md §0](../testing-strategy.md)).
 

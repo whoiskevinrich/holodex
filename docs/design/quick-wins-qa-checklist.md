@@ -4,7 +4,7 @@ Work through this against a running app. Dev: backend on `:7800`
 (`go run ./cmd/holodex --media-path <dir> --host 127.0.0.1`), frontend on `:5173`
 (`npm --prefix web run dev`), then open **http://localhost:5173/**.
 
-Spec [`quick-wins.md`](../specs/quick-wins.md) · design handoff [`quick-wins-handoff.md`](quick-wins-handoff.md) · [ADR-031](../architecture/ADR-031-related-media-endpoint.md) / [ADR-032](../architecture/ADR-032-browse-state-preservation.md).
+Spec [`quick-wins.md`](../specs/quick-wins.md) · design handoff [`quick-wins-handoff.md`](quick-wins-handoff.md) · [ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md) / [ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md).
 
 Legend: **[auto]** = verified programmatically this session (`preview_eval` / screenshots / tests) · **[eye]** = needs a human look.
 

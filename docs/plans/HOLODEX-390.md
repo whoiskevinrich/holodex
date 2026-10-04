@@ -12,13 +12,13 @@ Every person, studio, film, and video page shows a clickable provider pill when 
 the provider's page — fed by the sidecar's `link_templates`, with a provider-returned
 `_source_url` as the per-pill fallback — and the media page stops linking TMDB twice.
 
-**Design package:** [spec](../specs/provider-link-badge-coverage.md) · [ADR-098](../architecture/ADR-098-provider-source-url-fallback.md) (amends ADR-083 D2) · [handoff](../design/provider-link-badge-handoff.md) (to be extended with film +
+**Design package:** [spec](../specs/provider-link-badge-coverage.md) · [ADR-098](../architecture/archive/ADR-098-provider-source-url-fallback.md) (amends ADR-083 D2) · [handoff](../design/provider-link-badge-handoff.md) (to be extended with film +
 media placement) · testing-strategy §4/§5/§11 (closed 2026-09-17)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/provider-link-badge-coverage.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-098-provider-source-url-fallback.md` — `_source_url` storage + per-pill precedence, amends ADR-083 D2
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-098-provider-source-url-fallback.md` — `_source_url` storage + per-pill precedence, amends ADR-083 D2
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md` §5 — film DD4 (year line via `trailing`, ruled 2026-09-17) + media DD5 (RD7, after the year); mockup `provider-link-badge-film-media-mockup.svg`
 - [x] backend — `_source_url` ingest + `BuildProviderLink` fallback (392 ✓); `getFilm` (393 ✓) / `getVideo` (394 ✓) project `external_links`
 - [x] frontend — mount `ProviderLinkBadge` on film (393 ✓, three skins QA'd) + media (394 ✓, three skins QA'd) headers
@@ -28,7 +28,7 @@ media placement) · testing-strategy §4/§5/§11 (closed 2026-09-17)
 ## Up next — ordered (position = priority)
 
 1. [x] [—] ask Kevin: does the production provider return a per-item URL on `/enrich` — **yes, it should, per entity on every `/enrich` (RD10, 2026-09-17)**; its sidecar implements contract §4.12
-2. [x] [architecture] ADR-098 for `_source_url` storage + precedence — `docs/architecture/ADR-098-provider-source-url-fallback.md`
+2. [x] [architecture] ADR-098 for `_source_url` storage + precedence — `docs/architecture/archive/ADR-098-provider-source-url-fallback.md`
 3. [x] [backend] HOLODEX-391: `providers/tmdb` declares `link_templates` + drops the `homepage` override — `providers/tmdb/tmdb.go` (~L55 manifest, ~L566 homepage)
 4. [x] [spec] contract §2.2 `link_templates` row + §4.11 subsection + §8 example (P0-1) — `docs/specs/metadata-provider-contract.md`
 4b. [x] [spec] contract §4.12 `_source_url` subsection + §8 example (P0-4, shape fixed by ADR-098 D1/D2) — `docs/specs/metadata-provider-contract.md`

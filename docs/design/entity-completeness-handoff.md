@@ -1,8 +1,8 @@
 # Design Handoff: Entity Completeness Score — Remediation Queue & Breakdown Panel (HOLODEX-260)
 
 **Spec**: [entity-completeness-score.md](../specs/entity-completeness-score.md)
-**ADR**: [ADR-081](../architecture/ADR-081-entity-completeness-score.md) — facet criticality, `facet_not_applicable` table, compute-on-read scoring
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**ADR**: [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) — facet criticality, `facet_not_applicable` table, compute-on-read scoring
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Prior art**: `owner/extraction` + `ExtractionQueueRow.svelte` (HOLODEX-199) — reuses the "individual apply only, no bulk" idiom and the `tier: 'conflict' | 'weak' | null` badge vocabulary. Does **not** reuse the component itself: extraction groups rows by *video* with heterogeneous per-field editors (entity chips vs. scalar diffs); this queue groups by *facet* with a uniform row shape (apply / search / upload). Forcing one shared component across both would mean a wide union-typed prop surface for two genuinely different interaction models — the spec's own Frontend section calls this out explicitly ("visual language, not shared code").
 **Depends on**: F55.1–4 (registry criticality + tri-state resolution + score/actionability compute) and F55.10 (not-applicable mutation) — items #2–3 in the flightplan's Up next, not yet built. This handoff specs the UI to build against once that backend work lands; it does not block starting frontend scaffolding in parallel (empty/loading states don't need real data).
 **Surfaces**:

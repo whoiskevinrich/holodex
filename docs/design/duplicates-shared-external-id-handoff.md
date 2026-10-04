@@ -1,7 +1,7 @@
 # Design handoff — shared provider external id in the Duplicates queue (F71)
 
 **Jira**: [HOLODEX-452](https://whoiskevinrich.atlassian.net/browse/HOLODEX-452) ·
-**ADR**: [ADR-107](../architecture/ADR-107-shared-external-id-duplicate-detection.md) ·
+**ADR**: [ADR-107](../architecture/archive/ADR-107-shared-external-id-duplicate-detection.md) ·
 **Spec**: [F71](../specs/duplicates-shared-external-id.md) · **Date**: 2026-09-23
 
 This is a deliberately small handoff: HOLODEX-452 is a detector, and ADR-107 decision 3 puts its

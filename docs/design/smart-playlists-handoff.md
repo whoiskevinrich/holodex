@@ -1,6 +1,6 @@
 # Handoff Spec: Smart playlists, Play all and Shuffle (F75)
 
-**Spec:** [smart-playlists.md](../specs/smart-playlists.md) · **ADR:** [ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md) ·
+**Spec:** [smart-playlists.md](../specs/smart-playlists.md) · **ADR:** [ADR-121](../architecture/archive/ADR-121-smart-playlists-stored-query-and-runs.md) ·
 **Extends:** [video-playlists-handoff.md](video-playlists-handoff.md) (F69) · **Jira:** HOLODEX-58, HOLODEX-500, HOLODEX-501
 **Approved:** owner, 2026-09-30. Save **option B** (one *Save as playlist…* with a Smart | Snapshot
 toggle), marker **option A** (`smart` chip), and Play all / Shuffle as **one split button** on grids

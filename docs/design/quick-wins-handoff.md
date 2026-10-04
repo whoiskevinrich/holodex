@@ -3,8 +3,8 @@
 **Status**: Draft (developer handoff)
 **Date**: 2026-06-14
 **Spec**: [`docs/specs/quick-wins.md`](../specs/quick-wins.md) (overlay bugfix · QW1 · QW2/QW3)
-**Architecture**: [ADR-031](../architecture/ADR-031-related-media-endpoint.md) (related-media endpoint)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Architecture**: [ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md) (related-media endpoint)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 This handoff covers the three UI surfaces in the Quick Wins batch: the **media-page
 atmosphere overlay fix**, the **search-history dropdown** (QW1), and the shared
@@ -298,7 +298,7 @@ the whole `/related` call is in flight, simply render nothing until it resolves.
 > runs **once per media-page view** and the shelves do **not** reshuffle on incidental
 > re-renders (skin switch, thumbnail regenerate). Navigating to a different item changes
 > `id` → one fresh fetch → a new draw. The server stays per-request random
-> ([ADR-031](../architecture/ADR-031-related-media-endpoint.md)); holding the result
+> ([ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md)); holding the result
 > client-side is what makes the shelf stable while viewing. *(A hard reload is a new page
 > view, so it re-draws — accepted.)*
 
@@ -328,7 +328,7 @@ the whole `/related` call is in flight, simply render nothing until it resolves.
 
 ## Surface 4 — Fluid Back navigation (QW4)
 
-Mostly behavioral (see [ADR-032](../architecture/ADR-032-browse-state-preservation.md)),
+Mostly behavioral (see [ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md)),
 but it carries a hard **UX contract** worth pinning here because it's the difference
 between "feels native" and "feels like a website reload":
 

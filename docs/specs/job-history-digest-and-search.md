@@ -6,11 +6,11 @@
 **Date**: 2026-07-22
 **Jira**: [HOLODEX-203](https://whoiskevinrich.atlassian.net/browse/HOLODEX-203) (parent epic [HOLODEX-166](https://whoiskevinrich.atlassian.net/browse/HOLODEX-166) — System Activity)
 
-**Depends on**: F21 System Activity ([spec](system-activity.md), [ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md)) — this spec changes the read path and schema that ADR-028 established.
+**Depends on**: F21 System Activity ([spec](system-activity.md), [ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md)) — this spec changes the read path and schema that ADR-028 established.
 
 **New ADRs required**:
-- **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
-- **[ADR-100](../architecture/ADR-100-job-run-dismissals.md) (P0-7)** — Job-run dismissals as a sibling table. Records why a dismissal is a `job_run_dismissals (job_run_id PK, dismissed_at)` row rather than a column on `job_runs` (the audit-row posture 0028 and ADR-091 assume), and how the retention sweep keeps a dismissal from outliving its run. Number reserved via `scripts/adr-claims.mjs` on 2026-09-18.
+- **[ADR-071](../architecture/archive/ADR-071-job-run-attribution-and-paginated-history.md) (P0)** — Job-run entity attribution and paginated history reads. Covers the `entity_type`/`entity_id`/`batch_id` columns, the decision to attribute rather than group, and the keyset read contract. Extends ADR-028 (which fixed the 30-day window and the unpaginated read); does not supersede it. *(This spec originally reserved ADR-069; that number was taken by [draft PRs for pre-implementation gates](../architecture/archive/ADR-069-draft-prs-for-pre-implementation-gates.md) before the ADR was written.)*
+- **[ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md) (P0-7)** — Job-run dismissals as a sibling table. Records why a dismissal is a `job_run_dismissals (job_run_id PK, dismissed_at)` row rather than a column on `job_runs` (the audit-row posture 0028 and ADR-091 assume), and how the retention sweep keeps a dismissal from outliving its run. Number reserved via `scripts/adr-claims.mjs` on 2026-09-18.
 
 ---
 
@@ -117,7 +117,7 @@ Consecutive runs sharing `(kind, status, and — for enrich — provider)` withi
 - [ ] ~~A failed run is never absorbed into a successful rollup~~
 
 **P0-7 — Dismiss addressed failures** *(added 2026-09-18 — answers Q4; [HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416); design: [status-dismiss-failures-handoff.md](../design/status-dismiss-failures-handoff.md))*
-The owner marks a failed run as handled and it leaves the digest — the `Recent failures` callout and the per-kind `errors` count — while the Log tab keeps the run as the audit record. Dismissal is a separate `job_run_dismissals (job_run_id PK, dismissed_at)` row; `job_runs` is never updated ([ADR-100](../architecture/ADR-100-job-run-dismissals.md)).
+The owner marks a failed run as handled and it leaves the digest — the `Recent failures` callout and the per-kind `errors` count — while the Log tab keeps the run as the audit record. Dismissal is a separate `job_run_dismissals (job_run_id PK, dismissed_at)` row; `job_runs` is never updated ([ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md)).
 
 - [ ] `POST /admin/activity/runs/{id}/dismiss` records a dismissal for one run and answers `200 {dismissed: true}`; a second call for the same run — or a call for a run that is not an error — is a no-op `200 {dismissed: false}`, never a 409 or 404 (two tabs, or a row already swept, cost the owner nothing)
 - [ ] `POST /admin/activity/failures/dismiss` with `{days}` (the digest's window parameter, same 30-day clamp) records a dismissal for every **undismissed error run in that window** — including runs beyond the digest's `digestFailureCap` — and answers `200 {dismissed: n}`; the window is evaluated server-side at request time, so a failure that starts after the call is not dismissed and surfaces on the next digest read
@@ -162,7 +162,7 @@ The owner marks a failed run as handled and it leaves the digest — the `Recent
 
 Index: `(entity_type, entity_id)`. No foreign key — `job_runs` is an audit table and must survive deletion of what it describes.
 
-**Dismissals** (P0-7, one migration, additive — [ADR-100](../architecture/ADR-100-job-run-dismissals.md)):
+**Dismissals** (P0-7, one migration, additive — [ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md)):
 
 | Table | Columns | Notes |
 |---|---|---|
@@ -210,7 +210,7 @@ Two shapes: a search box on the status page that resolves a typed name to an ent
 **Q4 — Does the digest's failure list need its own window? [design, non-blocking] — ANSWERED 2026-09-18: no; it needs a dismiss**
 Failures across a full 30 days may be too noisy after a bad batch, or exactly right. Default to the full window and revisit.
 
-**Resolution:** after two months of use the window was the wrong lever. The noise is not *old* failures but *handled* ones — a bad batch stays in the callout and keeps the per-kind Errors column `text-warn` for 30 days after it was fixed, and a new failure hides among them. A shorter window would hide unhandled failures just as readily. The fix is a per-run dismissal (P0-7): the owner clears what they have addressed, the digest goes quiet, and the Log keeps every run. Design decisions D1–D4 are locked in the [handoff](../design/status-dismiss-failures-handoff.md), D5 (muted badge + `· dismissed` when a kind's newest run is a dismissed error) was added at spec time; the storage decision is [ADR-100](../architecture/ADR-100-job-run-dismissals.md).
+**Resolution:** after two months of use the window was the wrong lever. The noise is not *old* failures but *handled* ones — a bad batch stays in the callout and keeps the per-kind Errors column `text-warn` for 30 days after it was fixed, and a new failure hides among them. A shorter window would hide unhandled failures just as readily. The fix is a per-run dismissal (P0-7): the owner clears what they have addressed, the digest goes quiet, and the Log keeps every run. Design decisions D1–D4 are locked in the [handoff](../design/status-dismiss-failures-handoff.md), D5 (muted badge + `· dismissed` when a kind's newest run is a dismissed error) was added at spec time; the storage decision is [ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md).
 
 **Q5 — Page size for the log? [engineering, non-blocking]**
 50 is the assumed default. Worth confirming against the collapsed-row count once rollup exists — 50 *rolled-up* entries may represent far more runs than intended.
@@ -235,7 +235,7 @@ Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps
 ## Gates
 
 - [x] **Spec** — this document (reduced scope, 2026-07-29)
-- [x] **[ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract (paginated-read half now describes dropped scope; attribution half shipped)
+- [x] **[ADR-071](../architecture/archive/ADR-071-job-run-attribution-and-paginated-history.md)** — entity attribution + paginated read contract (paginated-read half now describes dropped scope; attribution half shipped)
 - [x] **Design handoff** — not required for what shipped; digest reused existing card/table/badge treatments (per HOLODEX-210); two-mode/rollup handoff moot, P0-4/P0-6 dropped
 - [/] **Testing strategy** — [`docs/testing-strategy.md`](../testing-strategy.md) updated for attribution + digest; keyset-cursor and rollup-boundary cases no longer needed (scope dropped); the frontend component-test harness gap (HOLODEX-203 up-next item 4) is unrelated pre-existing debt, still open
 - [x] **Security review** — not required; endpoints stay within the existing `requireOwner` group and no auth surface changes
@@ -244,7 +244,7 @@ Step 2 was the only irreversible one and was worth doing regardless of Q1. Steps
 **P0-7 extension ([HOLODEX-416](https://whoiskevinrich.atlassian.net/browse/HOLODEX-416), PR #354):**
 
 - [x] **Spec** — this section + Q4 resolved (2026-09-18)
-- [x] **[ADR-100](../architecture/ADR-100-job-run-dismissals.md)** — `job_run_dismissals` sibling table, FK `ON DELETE CASCADE` retention (2026-09-18)
+- [x] **[ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md)** — `job_run_dismissals` sibling table, FK `ON DELETE CASCADE` retention (2026-09-18)
 - [x] **Design handoff** — [`status-dismiss-failures-handoff.md`](../design/status-dismiss-failures-handoff.md) + SVG mockup (2026-09-18)
 - [x] **Testing strategy** — Go repo + HTTP tests, `dismissDigest.test.ts` for the client mutation; strategy row (2026-09-18)
 - [x] **Security review** — not required; both endpoints stay inside the existing `requireOwner` group, input is a path id and the digest's `days`

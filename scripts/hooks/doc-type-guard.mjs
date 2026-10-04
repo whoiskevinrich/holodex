@@ -52,7 +52,8 @@ export function contextFor(docType) {
   return BOUNDARIES[docType] ?? null;
 }
 
-const NUMBERED_ADR = /(^|[\\/])docs[\\/]architecture[\\/]ADR-\d+[^\\/]*\.md$/;
+// A new numbered ADR anywhere under docs/architecture, the archive included.
+const NUMBERED_ADR = /(^|[\\/])docs[\\/]architecture[\\/](archive[\\/])?ADR-\d+[^\\/]*\.md$/;
 
 // Block only the creation of a new numbered ADR; `exists` says whether the target is on disk.
 export function decideWrite(toolName, filePath, exists) {

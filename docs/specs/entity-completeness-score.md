@@ -5,10 +5,10 @@
 **Issue**: [HOLODEX-260](https://whoiskevinrich.atlassian.net/browse/HOLODEX-260) (F55, shipped) · [HOLODEX-412](https://whoiskevinrich.atlassian.net/browse/HOLODEX-412) (F65 amendment)
 **Amended**: 2026-09-20 — **F65.8** ([HOLODEX-435](https://whoiskevinrich.atlassian.net/browse/HOLODEX-435)):
 the ring badge becomes a **button** that fires the single-entity enrichment refresh (sweep semantics,
-ADR-103 D7); see F65.8 and RD9. Amended 2026-09-18 — **F65 Completeness score v2** rewrites § Scoring model, § Facet tables, the sort, the storage direction, and adds the card ring badge. Requirements added by F65 are numbered `F65.n`; F55 rows whose behavior changed carry a **v2** note. The v1 formula is recorded in [ADR-081](../architecture/ADR-081-entity-completeness-score.md) D3 and is not repeated here.
-**Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+ADR-103 D7); see F65.8 and RD9. Amended 2026-09-18 — **F65 Completeness score v2** rewrites § Scoring model, § Facet tables, the sort, the storage direction, and adds the card ring badge. Requirements added by F65 are numbered `F65.n`; F55 rows whose behavior changed carry a **v2** note. The v1 formula is recorded in [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) D3 and is not repeated here.
+**Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/archive/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Realizes**: F55 (new). Builds on the extraction-queue UX precedent ([HOLODEX-199](https://whoiskevinrich.atlassian.net/browse/HOLODEX-199)) — its deliberate deferral of bulk-apply directly informs this feature's queue design (§ Scope).
-**Architecture**: [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, and the `imdb_id` → `external_provider_id` rename), [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id), and [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) (F65 — supersedes ADR-081 D3 + D4: required-band score, separate extras, a materialized store with trigger-fed invalidation, and the owner-only list field the ring badge rides).
+**Architecture**: [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, and the `imdb_id` → `external_provider_id` rename), [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id), and [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) (F65 — supersedes ADR-081 D3 + D4: required-band score, separate extras, a materialized store with trigger-fed invalidation, and the owner-only list field the ring badge rides).
 **Design handoff**: [entity-completeness-handoff.md](../design/entity-completeness-handoff.md) (F55 — queue, panel, browse sort/filter) and, for F65, [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md) (the card ring badge, its overfill, the row placement on `/people` + `/studios`, three skins).
 
 ---
@@ -25,7 +25,7 @@ queue** (find *specific* holes — "9 videos missing a poster" — and fix them 
 candidate sitting in cache, so "quick wins" are visually distinct from "needs real research."
 
 > **Why this is needed.** Holodex already resolves every field through a single seam — the unified
-> resolver ([ADR-051](../architecture/ADR-051-unified-field-resolution.md)) — that knows, per field,
+> resolver ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) — that knows, per field,
 > whether a value exists, where it came from, and whether the owner curated it. But nothing today rolls
 > that up into a single per-entity signal. An owner who wants to know "which of my 40 studios are missing
 > branding art" or "which videos have no cast credited" has no way to ask that question except scrolling
@@ -56,10 +56,10 @@ candidate sitting in cache, so "quick wins" are visually distinct from "needs re
   below).
 - **Generalizing `imdb_id` to a provider-agnostic `external_provider_id` facet.** Production doesn't use
   IMDb, and isn't limited to a single non-IMDb provider either — the registry treats providers as
-  declared-not-compiled-in configuration ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md)),
+  declared-not-compiled-in configuration ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)),
   so an operator-configured provider outside this repo can also populate this facet. The resolved value
   is namespace-qualified (`"<provider>:<id>"`, e.g. `"tmdb:603"`) so it stays self-describing regardless
-  of which provider supplied it ([ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md));
+  of which provider supplied it ([ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md));
   the completeness facet needs to match that, not assume IMDb specifically. Self-published/home content
   legitimately has no external ID at all, which is exactly what the not-applicable affordance is for.
 - **Owner-mode browse-page additions**: a "Completeness" sort order (v2: the composite key
@@ -109,7 +109,7 @@ candidate sitting in cache, so "quick wins" are visually distinct from "needs re
 
 - **Owner / admin** — the only persona this feature serves. Sorts/filters browse pages by completeness,
   works the remediation queue, reads per-entity breakdown panels, and toggles the not-applicable flag.
-  Reuses the existing owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)).
+  Reuses the existing owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)).
 - **Viewer** — unaffected. No score, filter, sort, or queue surface is visible outside Owner mode.
 - **Metadata provider (system actor)** — unaffected directly; its resolved output is what the score reads.
   An applied enrichment candidate moves a facet from `missing` to `resolved` the same way it always has.
@@ -159,7 +159,7 @@ Ordered by priority.
 > and 12 nice-to-have video facets the two bands carried *equal* aggregate weight, so every required
 > facet curated and nothing else scored 50 while a missing poster with everything else curated scored
 > 88. The owner's report — "a media file can have all required facets and still sit at 69%" — was this
-> inversion. [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D1 records the
+> inversion. [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D1 records the
 > decision; the v1 formula is preserved in ADR-081 D3.
 
 ### Bands, not weights
@@ -297,7 +297,7 @@ too.
 |----|-------------|---------------------|
 | F55.1 | The field registry carries a **criticality** (`critical` \| `nice_to_have` \| `optional` \| unset-for-excluded) per facet, matching the tables above. **v2:** the F65 demotions land here. | `Lookup()` for `title` returns `critical`; for `tagline` returns `optional`; for `deathdate` returns no criticality (excluded). |
 | F55.2 | Every scored facet on an entity resolves to a **tri-state status**: `resolved` (with a source tier), `missing`, or `not-applicable`. | A video with a curated title reads `resolved`/`curated`; an unset genres reads `missing`; a video with `external_provider_id` marked not-applicable reads `not-applicable`. |
-| F55.3 | **Completeness score** is computed per the § Scoring model formula by the pure `resolver.Complete` post-pass. **v2:** the result is *also* materialized per entity for list surfaces ([ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D3/D4 — see F65.5–7); the detail page still computes live. | For § Worked examples Video A the API returns `required: 100, extras: 67`. Curating the poster on Video B moves it to `required: 100` on the next owner read of any list, with no manual backfill. |
+| F55.3 | **Completeness score** is computed per the § Scoring model formula by the pure `resolver.Complete` post-pass. **v2:** the result is *also* materialized per entity for list surfaces ([ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D3/D4 — see F65.5–7); the detail page still computes live. | For § Worked examples Video A the API returns `required: 100, extras: 67`. Curating the poster on Video B moves it to `required: 100` on the next owner read of any list, with no manual backfill. |
 | F55.4 | **Actionability** is computed separately from the score, per the formula above, and never influences `completeness_score`. | A video with 2 missing facets, 1 with a cached candidate, reports `actionability: 50` alongside an unchanged `completeness_score`. |
 | F55.5 | Owner-mode video/person/studio browse pages get a **"Completeness" sort order**. **v2:** the key is the composite `(required, extras)` — `required` first (or `extras` alone where `required` is `null` for the type), `extras` breaks ties, then the type's default order. | With Owner mode active, the sort dropdown offers Completeness (ascending/descending); ascending on the video list puts Video B (75/100) before Video A (100/67) and Video A before Video C (100/0). |
 | F55.6 | Owner-mode browse pages get a **"Missing facet" filter chip**, built on the existing `FacetFilter.svelte` component (same pattern as the Tags filter), listing scored facets for that entity type. | Selecting "Missing poster" on the video list shows only videos whose `poster_url` facet is `missing`; the browse-page filter and the remediation queue (F55.7) share one backend predicate so their counts never disagree. |
@@ -305,13 +305,13 @@ too.
 | F55.8 | Queue rows support **individual** actions: apply a cached candidate (candidate-ready rows), or jump to search/upload (needs-research rows). No bulk action exists in v1. | Clicking Apply on a candidate-ready row applies that one candidate and removes the row from the queue; there is no "select all" or "apply all" control anywhere on the page. |
 | F55.9 | A **per-entity completeness breakdown panel** on the video/person/studio detail page lists every scored facet with its resolved tier. **v2:** the panel headline shows `required` as the score and `extras` beside it; provenance (curated/provider) stays per-row via `ProvenanceBadge` since it no longer moves the number. | Opening Video A shows `100` with `extras 67`, and lists its 8 scored facets with their tier; optional facets are not listed in the panel (F60 RD6). |
 | F55.10 | The owner can **mark `external_provider_id` not-applicable** for a video via an owner-gated mutation; the flag persists and the facet is excluded from that video's score and from the queue. | An owner PATCH marking the facet not-applicable removes that video from any "missing external ID" queue group and excludes the facet from its score on the next read; a non-owner request is rejected by the gate. |
-| F55.11 | `imdb_id` is generalized to a provider-agnostic **`external_provider_id`** concept in the registry and API, without breaking existing resolver/decision plumbing for videos that already have an IMDb value stored. Resolved values are namespace-qualified (`"<provider>:<id>"`) so they stay unambiguous when more than one provider can populate the facet ([ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md)). | Existing videos with a stored `imdb_id` value continue to resolve correctly under the renamed/generalized facet, with their value namespace-qualified (`"imdb:tt..."`) by the migration; no data loss on migration. |
+| F55.11 | `imdb_id` is generalized to a provider-agnostic **`external_provider_id`** concept in the registry and API, without breaking existing resolver/decision plumbing for videos that already have an IMDb value stored. Resolved values are namespace-qualified (`"<provider>:<id>"`) so they stay unambiguous when more than one provider can populate the facet ([ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md)). | Existing videos with a stored `imdb_id` value continue to resolve correctly under the renamed/generalized facet, with their value namespace-qualified (`"imdb:tt..."`) by the migration; no data loss on migration. |
 | F55.12 | All new surfaces (browse filter chip, sort option, remediation queue, breakdown panel, not-applicable control, **v2: ring badge**) render correctly in **all three skins** using semantic tokens only. | QA in Cinémathèque, Broadcast, and Brutalist: `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty; every state (loading/empty/populated) reads correctly in each skin. |
 | F65.1 | **Required-band score.** `required` is computed per § Scoring model over `critical` facets only, with binary presence; no provider/curated weighting anywhere in the number. | Video C (all four required present, two provider-resolved) reports `required: 100`. Video B reports `required: 75`. |
 | F65.2 | **Separate extras.** `extras` is computed over `nice_to_have` facets only and is never summed, averaged or weighted into `required`; both are integers 0–100 or `null` per § Edge rules. | Video B reports `extras: 100` and `required: 75` — no field in the payload combines them. A studio reports `required: null`. |
 | F65.3 | **Optional demotions.** The facets marked *Optional (F65)* in § Facet tables carry `optional` criticality: listed in the panel payload, never scored, never missing, never queued, never in the "Missing facet" chip. | The video "Missing facet" chip offers at most `title, studio, actors, poster_url, overview, release_date, genres, external_provider_id` (a facet no video is missing has no stored missing row and is not offered — there is nothing to filter to); a video with no `tagline` has no `tagline` entry in any queue group. |
 | F65.4 | **Ring badge on every entity card in owner mode.** Wherever a video / person / studio card renders (browse grids, entity Videos sections, landing shelves, film scenes), the owner sees a ring in the card's bottom-left slot: `required` fills the ring; once `required` is 100, `extras` draws as a second lap over it (the "overfill"). Where `required` is `null`, `extras` fills the ring and there is no overfill. Nothing renders for a visitor or when the item carries no `completeness`. | Video B shows a ¾ ring and no overfill regardless of its extras; Video A shows a full ring with ⅔ of a second lap; a studio with branding shows a full ring; a visitor's grid shows no rings. |
-| F65.5 | **Owner-only `completeness` on list items.** Every video / person / studio list response carries `completeness: { required, extras }` per item when the requester passes the owner gate, on every sort — not only the Completeness sort — and the field is absent for a visitor (same redaction seam as file metadata). Values come from the materialized store ([ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D3), so the default-sort list page pays no per-request library resolve. | `GET /media` as owner: every item has `completeness`; as visitor: no item does. A grid of 50 cards issues no request beyond the list call. |
+| F65.5 | **Owner-only `completeness` on list items.** Every video / person / studio list response carries `completeness: { required, extras }` per item when the requester passes the owner gate, on every sort — not only the Completeness sort — and the field is absent for a visitor (same redaction seam as file metadata). Values come from the materialized store ([ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D3), so the default-sort list page pays no per-request library resolve. | `GET /media` as owner: every item has `completeness`; as visitor: no item does. A grid of 50 cards issues no request beyond the list call. |
 | F65.6 | **Materialized store with trigger-fed invalidation.** The score is persisted per entity and invalidated by SQL triggers on every table `Complete` reads from, drained on the next owner read; boot, mapping reload, and promotion/claim writes mark every entity dirty. The detail page computes live and rewrites a stale row. A test enumerates the input tables and asserts each write leaves a dirty row. | Curating a poster from the media page, then loading `/` as owner, shows the updated ring without a restart. Adding a scored input table without its trigger fails the enumerating test. |
 | F65.7 | **Composite sort and facet counts read the store.** The Completeness sort is a SQL `ORDER BY` with normal `LIMIT`/`OFFSET` paging; `GET /completeness/facets` counts come from the stored missing-facet rows. The remediation queue keeps its live resolve (it needs actionability). | Page 2 of the Completeness sort is a `LIMIT 50 OFFSET 50` query, not a full-library resolve; the chip's "Missing poster · 9" equals the number of stored `poster_url` missing rows. |
 | F65.8 | **The ring is a button that fires a single-entity refresh.** `CompletenessRing` renders a `<button type="button">` (never `role="img"`) whenever it is mounted; clicking it calls the existing owner-gated `POST /{people\|studios\|media\|films}/{id}/enrich/refresh-all` — the same `RefreshPair` fan-out over every provider that supports the kind, `Force: true`, that the F66 sweep runs per entity (ADR-103 D7). **Sweep semantics:** fire-and-forget; a `needs_review` result is not surfaced (no picker — the entity page is where review happens); `rate_limited` / errors return the ring to idle with no toast. While the request is in flight the ring is `aria-busy`, disabled, and draws a spinning quarter arc; when it resolves the mount site re-fetches the item (or its list) and the ring redraws to the stored score, which the F65.6 dirty-drain refreshed on that owner read. **Never nested in a link:** at every mount the ring is a sibling of the card/row `<a>` (or checkbox `<label>`), so a click neither navigates nor toggles selection. Props: `required`, `extras`, `size`, plus `entity: { kind, id }` and `onrefreshed()`. Still owner-only by payload. | Owner clicks the ring on Video B (poster missing, a provider has one): the request fires, the ring spins, the grid re-fetches, Video B's ring is now full. Click on a person row in select mode: the checkbox does not toggle. A visitor sees no ring. Tab reaches the ring after the card link. |
@@ -340,13 +340,13 @@ too.
   `Label`, `Display`) — a static, code-level table, not a DB-backed setting in v1 (F55.14's config surface
   is P1).
 - **The completeness score is computed by the pure resolver post-pass and, as of v2, materialized for
-  list surfaces** ([ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D3/D4):
+  list surfaces** ([ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D3/D4):
   `entity_completeness(entity_type, entity_id, required, extras)` backs the badge and the SQL sort;
   `entity_completeness_missing(entity_type, entity_id, canonical, band)` backs the "Missing facet" chip
   and its counts; `completeness_dirty` is filled by `AFTER INSERT/UPDATE/DELETE` triggers on every input
   table (the FTS triggers are the precedent) and drained under `writeMu` on the next owner read — and once
   at boot in the background, during which owner reads serve the store as it stands rather than wait
-  ([ADR-112](../architecture/ADR-112-completeness-boot-fingerprint.md); HOLODEX-469). Rows are
+  ([ADR-112](../architecture/archive/ADR-112-completeness-boot-fingerprint.md); HOLODEX-469). Rows are
   a cache of `Complete`'s output, never a source of truth — the detail page computes live and self-heals
   the row. **Actionability stays computed, not stored** (queue-only; its candidate inputs are not in the
   store).
@@ -438,8 +438,8 @@ other owner-tooling features measure adoption.
   reusing the convention `entity_enrichment.match_id`/`_studio_external_ids`/`person_external_ids`
   already established, rather than F49's `field_claims`-style dedicated `provider` column (that
   mechanism disambiguates key *identity*, not a value). See
-  [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), which
-  supersedes [ADR-081](../architecture/ADR-081-entity-completeness-score.md) D5 on this point only.
+  [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md), which
+  supersedes [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) D5 on this point only.
 
 ---
 
@@ -448,7 +448,7 @@ other owner-tooling features measure adoption.
 - **RD1 — Required band is the score; extras separate.** A 75/25 band split and "keep the formula, just
   prune" were both rejected: each keeps one blended number, so the ring could not say "required is done"
   without a legend. "Required only with extras unscored" was rejected because the sort would quantize to
-  ~5 buckets per type. [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D1/D2.
+  ~5 buckets per type. [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D1/D2.
 - **RD2 — Binary presence.** The 0.7 provider tier is dropped from scoring. In a required-only score it
   was the *only* thing between 70 and 100 on the ring, and for the owner's job (fill gaps) a
   provider-resolved poster is a present poster. Provenance stays in the panel.
@@ -537,7 +537,7 @@ Suggested internal build order (informal, non-gating — engineering may reseque
 
 **F65 (HOLODEX-412):**
 - [x] This amendment.
-- [x] **ADR** — [ADR-099](../architecture/ADR-099-completeness-score-required-band.md) (supersedes
+- [x] **ADR** — [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) (supersedes
       ADR-081 D3 + D4).
 - [x] **Design handoff** — [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md)
       + [completeness-ring-badge-mockup.svg](../design/completeness-ring-badge-mockup.svg) (ring geometry,

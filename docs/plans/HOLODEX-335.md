@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-335                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -54,7 +54,7 @@ the write-target table is ADR-041's.
   `metadata-plugins.md`, `metadata-provider-contract.md`, `claimed-provider-keys.md` and
   `qa-writeback.md`
 - [x] architecture `architecture` —
-  `docs/architecture/ADR-093-writeback-readback-and-tristate-in-sync.md`, indexed in
+  `docs/architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md`, indexed in
   `docs/architecture/README.md`
 - [~] design `design-handoff` — not applicable; no new surface. The visible change is the removal
   of a false signal, and the frontend needed no code change (`outOfSync` is already `=== false`)

@@ -28,7 +28,7 @@ Done means after any genres writeback, every tag key the scanner reads (Genre, G
 Category, Categories) holds only the UI's tags minus ignored ones. Ignored tags are UI-only and survive
 rescans, and the MP4 tagline no longer leaks into tags (folds in HOLODEX-466).
 
-**Design package:** [spec § Amendment](../specs/tag-writeback-exclusion.md#amendment--the-file-tag-contract-holodex-465) · [ADR-110](../architecture/ADR-110-tag-writeback-file-contract.md) · no UI (no handoff) · [testing-strategy § file tag contract](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec § Amendment](../specs/tag-writeback-exclusion.md#amendment--the-file-tag-contract-holodex-465) · [ADR-110](../architecture/archive/ADR-110-tag-writeback-file-contract.md) · no UI (no handoff) · [testing-strategy § file tag contract](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 

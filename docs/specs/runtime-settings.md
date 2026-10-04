@@ -11,14 +11,14 @@ runtime**, persisted and effective without a restart. Debuts with the **person g
 (`person_gallery_max`); ships the reusable mechanism, wires exactly one value.
 
 **Issue**: [HOLODEX-140](https://whoiskevinrich.atlassian.net/browse/HOLODEX-140)
-**ADR**: [ADR-060](../architecture/ADR-060-runtime-owner-settings.md) (the mechanism — generic
+**ADR**: [ADR-060](../architecture/archive/ADR-060-runtime-owner-settings.md) (the mechanism — generic
 `settings` KV, typed registry, precedence layer above config, hot-reload, security posture)
 
 **Depends on** (all shipped):
-- config load + `PERSON_GALLERY_MAX` → `repo.SetGalleryCap` → `Repo.GalleryCapValue()` ([ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md), [ADR-014](../architecture/ADR-014-configuration-and-data-layout.md))
-- the owner gate (`requireOwner`, [ADR-030](../architecture/ADR-030-access-control-gating-seam.md)) and the existing `/admin/*` endpoints
+- config load + `PERSON_GALLERY_MAX` → `repo.SetGalleryCap` → `Repo.GalleryCapValue()` ([ADR-043](../architecture/archive/ADR-043-gallery-cap-and-enrichment-suppression.md), [ADR-014](../architecture/archive/ADR-014-configuration-and-data-layout.md))
+- the owner gate (`requireOwner`, [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)) and the existing `/admin/*` endpoints
 - the `/owner` hub (`web/src/routes/owner/+layout.svelte`, tabs Status/Metadata keys/Trash) and `/capabilities` (already advertises `person_gallery_max`)
-- golang-migrate ([ADR-016](../architecture/ADR-016-database-migrations.md))
+- golang-migrate ([ADR-016](../architecture/archive/ADR-016-database-migrations.md))
 
 **Touches the owner gate + a new persisted, owner-writable surface → a `/security-review` sign-off is
 required before merge** (label `needs-security-review`).

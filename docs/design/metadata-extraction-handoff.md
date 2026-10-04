@@ -2,8 +2,8 @@
 
 **Status**: Design decided (developer handoff)
 **Date**: 2026-07-14
-**Spec**: [metadata-extraction.md](../specs/metadata-extraction.md) · **ADR**: [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [metadata-extraction.md](../specs/metadata-extraction.md) · **ADR**: [ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 **QA checklist**: [metadata-extraction-qa-checklist.md](metadata-extraction-qa-checklist.md)
 **Extended by**: [media-page-extraction-handoff.md](media-page-extraction-handoff.md) (2026-09-04,

@@ -28,7 +28,7 @@ release_note: Going Back to a list now returns to where you were even if the pag
 Done when ← Back to a scroll-only list (People, Studios, Tags, Films, Search, an entity's videos)
 returns to the saved offset even after the document reloaded in between (re-auth, deploy, tab discard).
 
-**Design package:** [ADR-118](../architecture/ADR-118-list-scroll-survives-reload.md) · [testing-strategy §21](../testing-strategy.md)
+**Design package:** [ADR-118](../architecture/archive/ADR-118-list-scroll-survives-reload.md) · [testing-strategy §21](../testing-strategy.md)
 
 ## Gates — definition of done
 

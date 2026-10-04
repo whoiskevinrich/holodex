@@ -2,7 +2,7 @@
 
 **Jira:** [HOLODEX-328](https://whoiskevinrich.atlassian.net/browse/HOLODEX-328)
 **Surface:** `web/src/routes/media/[id]/+page.svelte` (Films + People row), `web/src/lib/components/entity/PeopleGrid.svelte`
-**Related:** [HOLODEX-296](https://whoiskevinrich.atlassian.net/browse/HOLODEX-296) (shared poster-tile component), [ADR-085](../architecture/ADR-085-films-entity.md) (films entity), [media-detail-reorder-handoff.md](media-detail-reorder-handoff.md) (the co-located row this revises)
+**Related:** [HOLODEX-296](https://whoiskevinrich.atlassian.net/browse/HOLODEX-296) (shared poster-tile component), [ADR-085](../architecture/archive/ADR-085-films-entity.md) (films entity), [media-detail-reorder-handoff.md](media-detail-reorder-handoff.md) (the co-located row this revises)
 
 ![Media detail Films and People sections in four link states, owner and visitor](media-detail-films-people-mockup.svg)
 
@@ -63,7 +63,7 @@ exists and never sees an owner-only control. Do not add a visitor empty state.
 
 ## 3. Design tokens
 
-Skin tokens per [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) / [theming.md](theming.md). **No
+Skin tokens per [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) / [theming.md](theming.md). **No
 hardcoded colors, fonts, or radii** — all three skins must be QA'd.
 
 | Token / utility | Cinémathèque value | Usage |
@@ -241,5 +241,5 @@ button corner move, owner and visitor variants.
   *sizing contract* that extraction should satisfy; it does not require the extraction to land first.
 - **Anything in the Metadata section**, the `#field-actors` / `#field-genres` deep-link anchors
   (both preserved), and the provider-adoption / precedence layers of
-  [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md). This is layout and
+  [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md). This is layout and
   affordance only — no field, no namespace, no decision model is touched.

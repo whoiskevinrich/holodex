@@ -20,11 +20,11 @@ stories proposed under *Timeline / routing* (S1 store + API · S2 pages + produc
   the server-side parse `videoFilterFromQuery` in `internal/api/handlers.go` — *Save as playlist* reuses
   both: the client sends the filter query string it already serialises, the server runs the same
   `ListVideos` it runs for browse, unpaged.
-- The media sort vocabulary (F12.1, `MEDIA_SORTS`, seeded `random` per [ADR-045](../architecture/ADR-045-seeded-random-ordering.md)) —
+- The media sort vocabulary (F12.1, `MEDIA_SORTS`, seeded `random` per [ADR-045](../architecture/archive/ADR-045-seeded-random-ordering.md)) —
   a playlist's `sort` **is** one of these values, plus `manual`.
 - Owner mode (F29, `requireOwner`) — every mutation in this spec is owner-gated; the visitor/owner
   distinction is what `visibility` gates against.
-- The entity reference handle ([ADR-096](../architecture/ADR-096-entity-identity-card.md) D1,
+- The entity reference handle ([ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) D1,
   `internal/model/ref.go`) — playlists mint `playlist:<id>` and accept it wherever an id is.
 - The media detail page's reuse across `/media/[id]` navigations (SvelteKit keeps the component; the
   page's own load effect resets per-item state) — next-up rides that reuse and **fixes** the one thing
@@ -35,7 +35,7 @@ stories proposed under *Timeline / routing* (S1 store + API · S2 pages + produc
 fact**: never written to a file, freely named, ordered, private. The two coexist; nothing migrates.
 Hotkeys (F62) — next/previous-in-playlist keys are a P1 here, wired into F62's map, not a new one.
 
-**ADR**: [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md) — D1 container,
+**ADR**: [ADR-104](../architecture/archive/ADR-104-video-playlists-container-and-persistent-player.md) — D1 container,
 not entity · D2 playlist = membership + sort · D3 snapshot-only producers, server-side through the
 extracted clause builder · D4 persistent player element · D5 visibility as a read gate.
 **Design**: [video-playlists-handoff.md](../design/video-playlists-handoff.md) +

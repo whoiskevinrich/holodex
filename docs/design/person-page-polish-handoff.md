@@ -3,8 +3,8 @@
 **Status**: Implemented (developer handoff, reverse-documented from the change)
 **Date**: 2026-06-24
 **Spec**: [`docs/specs/people-images.md`](../specs/people-images.md) (F25 hero) — see the **F25.26–28 follow-ups** section
-**Architecture**: [ADR-038](../architecture/ADR-038-person-images.md) (person images / hero), [ADR-032](../architecture/ADR-032-browse-state-preservation.md) (browse-state preservation — the pattern reused for the people list)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Architecture**: [ADR-038](../architecture/archive/ADR-038-person-images.md) (person images / hero), [ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md) (browse-state preservation — the pattern reused for the people list)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 Three small, related changes to the **person experience**:
 
@@ -115,7 +115,7 @@ input retargeted via `pickCore('poster')`.
 **Files:** [`web/src/lib/peopleScroll.svelte.ts`](../../web/src/lib/peopleScroll.svelte.ts) (new),
 [`web/src/routes/people/+page.svelte`](../../web/src/routes/people/+page.svelte).
 
-Mirrors the browse-grid pattern ([ADR-032](../architecture/ADR-032-browse-state-preservation.md)). Because
+Mirrors the browse-grid pattern ([ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md)). Because
 Holodex is an SPA (`ssr=false`), the list component is destroyed when you open a person and SvelteKit
 resets scroll to the top on in-app navigation — so `← Back` dumped you at the top of a long A–Z list.
 

@@ -5,7 +5,7 @@ row classes, gutter glyphs, chooser shapes and commit semantics are ground truth
 changes only *when* a chooser is visible and how wide the dialog is) ·
 [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213 option A — the
 decided/undecided disclosure this handoff **retires**).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (the only file whose
 behaviour changes). No endpoint, no ADR, no new component.

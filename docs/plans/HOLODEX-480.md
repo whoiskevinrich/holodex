@@ -26,7 +26,7 @@ Done when a writeback to a fragmented MP4/M4V/MOV succeeds invisibly. The file i
 job's temp copy, its existing tags (XMP included) are restored, and the batch is written and renamed
 into place. HOLODEX-479's refusal remains only as the fallback for when the remux can't run.
 
-**Design package:** [ADR-116](../architecture/ADR-116-remux-fragmented-mp4-on-write.md) · [spec R3.7a](../specs/fire-and-forget-writeback.md) · absorbs HOLODEX-481 (Won't Do)
+**Design package:** [ADR-116](../architecture/archive/ADR-116-remux-fragmented-mp4-on-write.md) · [spec R3.7a](../specs/fire-and-forget-writeback.md) · absorbs HOLODEX-481 (Won't Do)
 
 ## Gates — definition of done
 

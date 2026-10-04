@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-260                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -16,7 +16,7 @@ signal, surfaced as an owner-mode browse sort/filter, a facet-first remediation 
 per-entity breakdown panel — done when the owner can find and fix metadata gaps without scrolling
 the library by eye. Ships as **one release**, not phased (explicit owner call during brainstorming).
 
-**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/ADR-081-entity-completeness-score.md) (+[ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md), supersedes D5) · [design handoff](../design/entity-completeness-handoff.md) · [testing-strategy](../testing-strategy.md) F55/HOLODEX-260 block
+**Design package:** [entity-completeness-score.md](../specs/entity-completeness-score.md) · [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) (+[ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md), supersedes D5) · [design handoff](../design/entity-completeness-handoff.md) · [testing-strategy](../testing-strategy.md) F55/HOLODEX-260 block
 
 ## Gates — definition of done
 
@@ -24,7 +24,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/entity-completeness-score.md`
-- [x] architecture `architecture` → `docs/architecture/ADR-081-entity-completeness-score.md` (D5 superseded by `docs/architecture/ADR-082-external-provider-id-namespace-qualified-value.md`)
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-081-entity-completeness-score.md` (D5 superseded by `docs/architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md`)
 - [x] design `design-handoff` → remediation queue, breakdown panel, browse filter/sort, all three skins
 - [x] backend
 - [x] frontend
@@ -37,7 +37,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/ADR-081-entity-completeness-score.md`
+1. [x] [architecture] ADR: facet criticality metadata, `facet_not_applicable` table, score/actionability computation seam — `docs/architecture/archive/ADR-081-entity-completeness-score.md`
 2. [x] [backend] registry criticality metadata (D1) + `facet_not_applicable` table/mutation (D2) — `internal/registry/registry.go`, `internal/db/migrations/0039_facet_not_applicable.{up,down}.sql`, `internal/repo/facet_not_applicable.go`, `internal/api/facet_not_applicable.go`
 2b. [x] [backend] score/actionability computation (D3) — `internal/resolver/complete.go`
 2c. [x] [backend] list-wide resolve-all backend predicate (D4) — `internal/api/completeness.go`, generic `*ForEntities` batch loaders in `internal/repo/{enrichment,curation,decisions,facet_not_applicable}.go`
@@ -404,7 +404,7 @@ the library by eye. Ships as **one release**, not phased (explicit owner call du
 
 ### 2026-08-07 · Architecture gate closed — ADR-081 written
 - skills: architecture, design-handoff, graphify
-- handoff: wrote `docs/architecture/ADR-081-entity-completeness-score.md`, resolving the four
+- handoff: wrote `docs/architecture/archive/ADR-081-entity-completeness-score.md`, resolving the four
   things the spec punted to an ADR. D1: facet criticality is a new static `Criticality` field on
   `registry.FieldDef` (reuses the existing `Computed` bool for auto-exclusion, no double
   bookkeeping). D2: not-applicable persists in a new dedicated `facet_not_applicable(entity_type,

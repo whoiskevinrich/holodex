@@ -1,7 +1,7 @@
 # Design handoff: Derived / calculated person fields — Age & Age at death (F45)
 
 **Spec**: [derived-person-fields.md](../specs/derived-person-fields.md) (F45, HOLODEX-73) ·
-**ADR**: [ADR-063](../architecture/ADR-063-derived-computed-fields.md) ·
+**ADR**: [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md) ·
 **Epic**: [HOLODEX-18](https://whoiskevinrich.atlassian.net/browse/HOLODEX-18)
 
 This is an **addendum** to the [F37 people source-of-truth handoff](people-source-of-truth-handoff.md) and the

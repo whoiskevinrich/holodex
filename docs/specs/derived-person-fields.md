@@ -11,11 +11,11 @@ curatable.
 
 **Issue**: [HOLODEX-73](https://whoiskevinrich.atlassian.net/browse/HOLODEX-73) *(parent epic
 [HOLODEX-18](https://whoiskevinrich.atlassian.net/browse/HOLODEX-18) — Enrichment fields)*
-**ADR**: [ADR-063](../architecture/ADR-063-derived-computed-fields.md) — derived-field genre
+**ADR**: [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md) — derived-field genre
 (`FieldDef.Computed`/`DependsOn`) + pure `Derive(resolved, now)` post-pass + non-adoptable `computed:`
-provenance token + handler-injected clock; extends [ADR-052](../architecture/ADR-052-baseline-source-contract.md) /
-[ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), sibling of
-[ADR-056](../architecture/ADR-056-provider-field-render-hints.md)
+provenance token + handler-injected clock; extends [ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md) /
+[ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), sibling of
+[ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
 **Design**: [derived-person-fields-handoff.md](../design/derived-person-fields-handoff.md) +
 [QA checklist](../design/derived-person-fields-qa-checklist.md) — bare-number Age/Age-at-death row directly
 under Birthdate; provenance is a **hover tooltip on the value** — "calculated from Born" on `title` +
@@ -26,13 +26,13 @@ the `deriveAge` / `deriveAgeAtDeath` unit tests (missing-input branch, deathdate
 with the implementation
 
 **Depends on** (all shipped):
-- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/ADR-052-baseline-source-contract.md),
+- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md),
   `ResolveFields`, `registry.FieldDef`, `internal/registry`) — the seam the `Derive` post-pass plugs into
 - per-field source-of-truth ([F36](field-source-of-truth.md) /
-  [ADR-051](../architecture/ADR-051-field-source-of-truth.md), `ResolvedField`, `WinningSource`,
+  [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), `ResolvedField`, `WinningSource`,
   `fieldsource` grammar) — the resolver is already **clock-free / pure**; "now" is injected by the caller
 - presence-driven auto-registration ([F39](provider-render-hints.md) /
-  [ADR-056](../architecture/ADR-056-provider-field-render-hints.md), `ResolvedField.AutoRegistered`,
+  [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md), `ResolvedField.AutoRegistered`,
   `AutoRegisterFields`, `AutoFieldRows.svelte`, `ProvenanceBadge.svelte`) — derived rows reuse the same
   read-only render path and the "no Decision → not adoptable" convention
 - person enrichment baseline ([F37](people-source-of-truth.md), `NewPersonBaseline`, `personResolved`) —
@@ -169,7 +169,7 @@ The two age formulas are the **one conceptual function branching on `deathdate`*
 constant + a `ForComputed(canonical)` formatter + an `IsComputed` recognizer (mirroring the `provider:`
 helpers). A derived row's `WinningSource` is `computed:<canonical>` (e.g. `computed:age`).
 
-Per [ADR-063](../architecture/ADR-063-derived-computed-fields.md) D3, the token is **deliberately kept out
+Per [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md) D3, the token is **deliberately kept out
 of `Valid()`/`ForNamespace()`** — those encode *adoptable decision* sources, and a computed field can never be
 pinned. Non-adoptability is enforced structurally (the row **carries no `Decision`/`Candidates`**, like the
 auto-registered convention, and is never written to `field_source_decisions`) **plus** an API guard that
@@ -241,7 +241,7 @@ to the SPA and to any MCP `resolved`-field consumer for free, tagged `computed: 
 ## Open Items
 
 - ~~**ADR** — formalize the derived-field genre~~ — **landed**:
-  [ADR-063](../architecture/ADR-063-derived-computed-fields.md) (registry `Computed`/`DependsOn`, pure
+  [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md) (registry `Computed`/`DependsOn`, pure
   `Derive(resolved, now)` post-pass, non-adoptable `computed:` provenance token kept out of the decision
   grammar, handler-injected clock). ADR D3 refines this spec's FR4.
 - ~~**Design handoff** — final call on whether Age renders in the primary `<dl>` vs. an `AutoFieldRows`-style

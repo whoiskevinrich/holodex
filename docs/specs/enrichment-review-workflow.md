@@ -13,7 +13,7 @@ picker entirely.
 
 **Depends on** (all shipped, except where noted):
 - F22 Metadata source plugins ([metadata-plugins.md](metadata-plugins.md),
-  [ADR-033](../architecture/ADR-033-metadata-source-plugins.md)) — the `entity_enrichment` shadow
+  [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)) — the `entity_enrichment` shadow
   store, the per-entity `/enrich/resolve` · `/enrich` · `/enrich/{provider}` (DELETE) routes this
   spec extends, and the [provider HTTP contract](metadata-provider-contract.md) this spec amends.
 - F36 Field source-of-truth ([field-source-of-truth.md](field-source-of-truth.md),
@@ -35,7 +35,7 @@ picker entirely.
   type conforming to id-based identity. **Studio and Video already conform; Person does not yet**
   (HOLODEX-125 tracks the fix). See Open Questions Q1.
 
-**ADR**: [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) (Proposed) —
+**ADR**: [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) (Proposed) —
 records the threshold-gated auto-apply routing change (amending the metadata provider contract's
 stated v1 posture, "Holodex always shows the owner a picker and never auto-applies a candidate in
 v1") and the new per-`(entity, provider)` `enrichment_dismissals` store, mirroring how ADR-061
@@ -86,7 +86,7 @@ volume of unambiguous confirmations, not the occasional real judgment call.
   spec's lazy, per-row-click model is chosen specifically to avoid needing it yet.
   **Amended 2026-09-19 (F66, HOLODEX-421):** [entity-refresh-sweep.md](entity-refresh-sweep.md)
   supplies that contract (core per-provider token bucket, `/describe.rate_limit`, `429 Retry-After`,
-  circuit breaker — decided in [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md))
+  circuit breaker — decided in [ADR-103](../architecture/archive/ADR-103-provider-traffic-contract-and-enrich-sweep.md))
   and adds an owner-triggered **sweep** beside this queue — not *on* queue load, and
   not automatic. The sweep runs RD8's per-entity step over every person/studio; the routing table
   (RD1) is unchanged. This Non-Goal now reads: *no resolution the owner did not click for*.
@@ -359,7 +359,7 @@ have no file; their dismiss returns `written_back: false` and their clear stays 
 
 No hard deadline. Per the change-routing rules, before/with implementation:
 
-1. ✅ **`/architecture`** — [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+1. ✅ **`/architecture`** — [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)
    records the auto-apply-with-revert model (the provider-contract posture change, Q4) and the
    `enrichment_dismissals` store, mirroring how ADR-061 preceded F43.
 2. ✅ **`/design-handoff`** — [enrichment-review-workflow-handoff.md](../design/enrichment-review-workflow-handoff.md):

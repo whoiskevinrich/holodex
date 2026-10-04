@@ -1,7 +1,7 @@
 # Design handoff: Films entity (F56)
 
 **Spec**: [films-entity.md](../specs/films-entity.md) (F56, HOLODEX-279) ·
-**ADR**: [ADR-085](../architecture/ADR-085-films-entity.md) · **Precedent**: this is an
+**ADR**: [ADR-085](../architecture/archive/ADR-085-films-entity.md) · **Precedent**: this is an
 **addendum** to [studio-entity-handoff.md](studio-entity-handoff.md) and
 [field-source-of-truth-handoff.md](field-source-of-truth-handoff.md) — the `SourceSelect`
 radiogroup, `CurationFieldRow` merge chips, and roving-tabindex picker mechanics are **inherited

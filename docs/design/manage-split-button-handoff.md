@@ -2,9 +2,9 @@
 
 **Jira:** [HOLODEX-362](https://whoiskevinrich.atlassian.net/browse/HOLODEX-362)
 **Surface:** `web/src/routes/media/[id]/+page.svelte` (owner-only Manage section)
-**Theming contract:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Revises:** [delete-media-handoff.md](delete-media-handoff.md) §1 (the Manage block's two-button layout)
-**Related:** [ADR-037](../architecture/ADR-037-soft-delete-and-purge.md) (soft-delete vs. purge), HOLODEX-324 (the `--warn` / `--warn-ink` solid-fill pair this depends on)
+**Related:** [ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md) (soft-delete vs. purge), HOLODEX-324 (the `--warn` / `--warn-ink` solid-fill pair this depends on)
 
 ![Manage block before and after: two equal-weight warn buttons become a split button whose menu holds a solid-filled permanent delete, shown across all three skins](manage-split-button-mockup.svg)
 

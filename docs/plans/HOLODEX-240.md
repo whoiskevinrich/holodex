@@ -8,7 +8,7 @@ release_note: "Tags can now be grouped into hand-curated categories — browsabl
 
 ## Gates — definition of done
 - [x] spec          docs/specs/tag-categories.md · S1
-- [x] architecture  docs/architecture/ADR-078-tag-categories-entity.md · S3
+- [x] architecture  docs/architecture/archive/ADR-078-tag-categories-entity.md · S3
 - [x] backend       migration 0035 + internal/repo/categories.go + internal/api/categories.go · S4
 - [x] frontend      tags/+page.svelte unified filter + category pills, entity/CategoryPicker.svelte,
                     categories/[id]/+page.svelte, browse Categories facet · S5
@@ -43,7 +43,7 @@ close the single-tag "Add to category…" gap via a new pill ⋯-menu item rathe
 Manage-bar threshold; ship `CategoryPicker` as a new sibling rather than extending `EntityPicker`;
 category delete lives only in `/tags`'s ⋯ menu, not duplicated on the detail page. No code yet —
 frontend gate stays open pending the ADR + backend.
-S3 · /architecture — docs/architecture/ADR-078-tag-categories-entity.md. `categories`/`category_tags`
+S3 · /architecture — docs/architecture/archive/ADR-078-tag-categories-entity.md. `categories`/`category_tags`
 mirror `tags`' pre-identity shape and `video_tags` respectively (no provenance, `ON DELETE CASCADE` both
 sides — cascade-delete is free). Category deliberately kept outside `resolveOrCreateByName`'s identity
 spine (D1/D4) — it never hits the scanner-duplicate problem that spine solves for. The one genuinely new

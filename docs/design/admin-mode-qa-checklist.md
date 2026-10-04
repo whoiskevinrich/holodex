@@ -1,7 +1,7 @@
 # Manual QA Checklist: Admin Mode (F29)
 
-**Spec**: [Admin Mode (F29)](../specs/admin-mode.md) · **Gate**: [ADR-030](../architecture/ADR-030-access-control-gating-seam.md) · **Design**: [handoff](admin-mode-handoff.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Admin Mode (F29)](../specs/admin-mode.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) · **Design**: [handoff](admin-mode-handoff.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`svelte-check`, the token-guard `rg`, store unit test). Green build = pass; pre-checked `[x]` with the test named.

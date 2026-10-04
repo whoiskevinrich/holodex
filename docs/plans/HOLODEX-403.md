@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-403
 status: in-progress
 profile: full
@@ -23,7 +23,7 @@ reads cover art back and a decided poster would otherwise re-embed on every Writ
 ## Gates — definition of done
 
 - [x] spec `write-spec` — two lines in `docs/specs/field-source-of-truth.md` §Sync state (2026-09-19)
-- [x] architecture `architecture` — `docs/architecture/ADR-101-ledger-witnessed-image-sync.md` + index row (2026-09-19)
+- [x] architecture `architecture` — `docs/architecture/archive/ADR-101-ledger-witnessed-image-sync.md` + index row (2026-09-19)
 - [x] design `design-handoff` — `docs/design/writeback-poster-chooser-handoff.md` + `writeback-poster-chooser-mockup.svg` (2026-09-19)
 - [x] backend — `resolver.Options.LastWritten` + `ledgerWitness` branch in `replaceMarkers`;
   `repo.LastWrittenValues`; `getMedia` loads it; `TestResolveFields_ImageSyncFromLedger`,

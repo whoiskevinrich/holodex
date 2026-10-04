@@ -1,8 +1,8 @@
 # Manual QA Checklist: Per-field source-of-truth decisions (F36)
 
-**Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) · **Design**: [handoff](field-source-of-truth-handoff.md)
-**Gate**: [ADR-030](../architecture/ADR-030-access-control-gating-seam.md) · **Write safety**: [ADR-041](../architecture/ADR-041-metadata-writeback.md)/[ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) · **Design**: [handoff](field-source-of-truth-handoff.md)
+**Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) · **Write safety**: [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)/[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped **by verifier** — each actor runs only their section:
 > - **§2 Smoke** — automated test / build gate (`svelte-check`, token-guard `rg`, unit/integration). Green = pass; pre-check `[x]` with the test named.

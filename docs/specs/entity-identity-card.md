@@ -20,28 +20,28 @@ stories [374](https://whoiskevinrich.atlassian.net/browse/HOLODEX-374) reference
 
 **Depends on** (all shipped):
 - F43 name-identity spine ([entity-identity.md](entity-identity.md),
-  [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md)) — `entity_aliases`,
+  [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md)) — `entity_aliases`,
   `entity_keep_separate`, `identity_review_queue`, `resolveOrCreateByName`, `AliasPanel`. F60 adds
   Film to it and moves the external-id branch of the resolve order onto a shared table.
 - Per-field source decisions ([field-source-of-truth.md](field-source-of-truth.md),
-  [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) and the two-layer
-  model ([ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md)) — edition
+  [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) and the two-layer
+  model ([ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md)) — edition
   and display name are *precedence-layer* decisions on ordinary resolved fields.
 - Two-tier field editing ([two-tier-field-editing.md](two-tier-field-editing.md)) as implemented by
   `SourceBadge` — the only edit affordance this spec adds fields to.
 - F48 metadata extraction ([metadata-extraction.md](metadata-extraction.md)) — the `filename:`
   namespace and its auto-apply / review-queue routing; edition's filename source rides it.
-- Writeback ([ADR-041](../architecture/ADR-041-metadata-writeback.md),
-  the tri-state read-back of [ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)) — edition
+- Writeback ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md),
+  the tri-state read-back of [ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)) — edition
   is one more row in `formatMap`.
-- Provider identity ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md) /
-  [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md) /
-  [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md)) — the two per-kind
+- Provider identity ([ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md) /
+  [ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md) /
+  [ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md)) — the two per-kind
   external-id tables this spec folds into one.
 - F56/F59 films ([films-entity.md](films-entity.md), [film-provider-enrichment-ux.md](film-provider-enrichment-ux.md)) —
   the entity being brought into the spine.
 
-**ADR**: [ADR-096](../architecture/ADR-096-entity-identity-card.md) — D1 reference · D2 external ids ·
+**ADR**: [ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) — D1 reference · D2 external ids ·
 D3 Film in the spine · D4 edition · D5 display name (revisits ADR-061's entity set and ADR-051's `name` exclusion).
 **Design**: [entity-identity-card-handoff.md](../design/entity-identity-card-handoff.md) +
 [mockup](../design/entity-identity-card-mockup.svg) — ratified 2026-09-12 (OQ1 deep link, OQ2 keep 378).

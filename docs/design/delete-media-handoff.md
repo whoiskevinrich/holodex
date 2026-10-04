@@ -1,7 +1,7 @@
 # Design Handoff: Delete a Media Item ("Move to Trash" + Trash view) (F24)
 
-**Spec**: [Delete a Media Item (F24)](../specs/delete-media.md) · **ADR**: [ADR-037](../architecture/ADR-037-soft-delete-and-purge.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Delete a Media Item (F24)](../specs/delete-media.md) · **ADR**: [ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---

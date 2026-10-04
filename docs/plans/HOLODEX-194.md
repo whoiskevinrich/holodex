@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-194                 # the tracker key; must match the branch key regex
 status: in-review                  # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -42,7 +42,7 @@ handoff's Non-goals.
       existing extraction pipeline, resolve endpoint and write queue; the one backend change is an
       optional query parameter on an existing owner-gated route; ADR-067/068 unchanged). But the
       *design pattern* this work arrived at was generalized on the owner's instruction into
-      [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) — two-layer entity
+      [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md) — two-layer entity
       metadata management (adoption vs precedence), with this ticket as its first instance
 - [x] design `design-handoff` → `docs/design/media-page-extraction-handoff.md` with a committed
       SVG mockup (4 states + implementer notes) and a numbered, verifier-tagged QA checklist
@@ -107,7 +107,7 @@ handoff's Non-goals.
 - handoff: Owner opted into this design's two-layer model as the standard for entity metadata
   management across all entities, explicitly choosing documentation over a tracking ticket ("the
   ticket would get lost"). Wrote
-  [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md): layer 1 = adoption
+  [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md): layer 1 = adoption
   (transient, judged against the entity's own baseline), layer 2 = precedence (standing, ADR-051's
   chip row), with D1 forbidding a provider value inside an adoption row, D2 putting layer 1 on the
   entity page, D3 requiring the adopted value to visibly land with a `ProvenanceBadge`, D4 "a new

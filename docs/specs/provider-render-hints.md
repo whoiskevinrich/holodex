@@ -10,15 +10,15 @@ with **zero per-operator mapping config**, by (a) letting a provider carry per-f
 the resolved output as a display-only row.
 
 **Issue**: [HOLODEX-128](https://whoiskevinrich.atlassian.net/browse/HOLODEX-128)
-**ADR**: [ADR-056](../architecture/ADR-056-provider-field-render-hints.md) (the decision + the four-tier
+**ADR**: [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md) (the decision + the four-tier
 ladder + the persisted hint store + security posture)
 **Design**: [provider-render-hints-handoff.md](../design/provider-render-hints-handoff.md)
 
 **Depends on** (all shipped):
-- the provider contract + shadow store ([F22](metadata-plugins.md) / [ADR-033](../architecture/ADR-033-metadata-source-plugins.md), `entity_enrichment`, `enrich.Manifest`, `GET /describe`)
+- the provider contract + shadow store ([F22](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), `entity_enrichment`, `enrich.Manifest`, `GET /describe`)
 - the canonical field registry ([F27](../reference/canonical-fields.md), `internal/registry`, `FieldDef{Canonical,Label,Display,Description}`)
-- the entity-agnostic resolver ([ADR-052](../architecture/ADR-052-baseline-source-contract.md), `ResolveFields`, video/person/studio baselines)
-- the asset-host allowlist ([ADR-039](../architecture/ADR-039-provider-asset-urls.md), `asset_hosts`) — reused to gate provider-selected `image_url`
+- the entity-agnostic resolver ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md), `ResolveFields`, video/person/studio baselines)
+- the asset-host allowlist ([ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md), `asset_hosts`) — reused to gate provider-selected `image_url`
 - the read-only field render on each entity page (`web/src/routes/{media,people,studios}/[id]/+page.svelte`)
 
 **Touches** the untrusted-provider perimeter and renders provider-influenced URLs → a **`/security-review`**
@@ -91,7 +91,7 @@ unordered, invisible-on-entities extra rows.
 
 The manifest gains an optional `field_hints` object keyed by field key (contract §4.7). `fields[]` is
 unchanged (`string[]`). Each hint object has optional `label`, `render`, `group`, `order`; unknown keys are
-ignored. See [ADR-056 §D1](../architecture/ADR-056-provider-field-render-hints.md) for the exact table and the
+ignored. See [ADR-056 §D1](../architecture/archive/ADR-056-provider-field-render-hints.md) for the exact table and the
 `acme` example.
 
 - Holodex decodes `enrich.Manifest.FieldHints map[string]FieldHint`.
@@ -126,7 +126,7 @@ CREATE TABLE provider_field_hints (
 ### FR3 — Four-tier label/render/order resolution
 
 For any field key, resolve `(label, render/display, group, order)` top-down, first tier wins
-([ADR-056 §D2](../architecture/ADR-056-provider-field-render-hints.md)):
+([ADR-056 §D2](../architecture/archive/ADR-056-provider-field-render-hints.md)):
 
 1. Operator `metadata-mappings.yaml` (incl. the new `display:` — FR5).
 2. Code registry (`registry.Lookup`) — for canonical keys; owns their label/render.
@@ -184,7 +184,7 @@ tokens, and the three-skin QA.
 ### FR7 — Security (untrusted hints)
 
 - `image_url` value must be on the asset-host allowlist (provider `base_url` host or operator `asset_hosts`,
-  [ADR-039](../architecture/ADR-039-provider-asset-urls.md)); otherwise the image does **not** render (text
+  [ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md)); otherwise the image does **not** render (text
   fallback). The allowlist check happens server-side (the resolved field marks whether the value is
   allowlisted) or is enforced by the same URL policy the SPA already applies for `poster_url`/`logo`.
 - `url` — `http`/`https` only; non-http → text.

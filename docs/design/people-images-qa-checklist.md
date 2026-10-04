@@ -1,7 +1,7 @@
 # Manual QA Checklist: People Images (F25)
 
-**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) · **Design**: [handoff](people-images-handoff.md) + [system pattern](people-images-design-system.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/archive/ADR-038-person-images.md) · **Design**: [handoff](people-images-handoff.md) + [system pattern](people-images-design-system.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`go test`, `svelte-check`, the token-guard `rg`). Green build = pass; pre-checked `[x]` with the test named.

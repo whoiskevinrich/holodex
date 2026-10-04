@@ -3,8 +3,8 @@
 **Surfaces**: `entity/NameEditControl.svelte` (an opt-in `multiline` edit field) and
 `routes/media/[id]/+page.svelte` (the title mount opts in; its wrapper takes the whole row while editing).
 No new component.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) as amended by
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
 **Mockup**: ![Media title rename: today, approved edit-in-place on desktop, at rest, and on a phone](title-edit-in-place-mockup.svg)
 **Jira**: [HOLODEX-512](https://whoiskevinrich.atlassian.net/browse/HOLODEX-512) (bug)
 

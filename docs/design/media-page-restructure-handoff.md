@@ -1,10 +1,10 @@
 # Design Handoff: Media page — one sync verb, render-once fields (F36 / F39)
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) ·
-**ADRs**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) ·
-[ADR-047](../architecture/ADR-047-per-item-metadata-refresh.md) ·
-[ADR-056](../architecture/ADR-056-provider-field-render-hints.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**ADRs**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) ·
+[ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md) ·
+[ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Issue**: HOLODEX-220 · **Surface**: `web/src/routes/media/[id]/+page.svelte`,
 `EnrichProviderChips.svelte`, `SourceSelect.svelte`.

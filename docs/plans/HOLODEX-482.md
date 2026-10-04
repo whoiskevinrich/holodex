@@ -13,8 +13,8 @@ Done means the owner's halo switch on `/studios/{id}` no longer says "· dark" o
 palettes", because Cinémathèque is the only look (ADR-115). The per-mode storage from ADR-109 is
 left as it is.
 
-**Context:** spun out of HOLODEX-476 · [ADR-109](../architecture/ADR-109-per-studio-image-halo.md) ·
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) · [spec](../specs/studio-images.md) H3/H5
+**Context:** spun out of HOLODEX-476 · [ADR-109](../architecture/archive/ADR-109-per-studio-image-halo.md) ·
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md) · [spec](../specs/studio-images.md) H3/H5
 
 ## Gates — definition of done
 

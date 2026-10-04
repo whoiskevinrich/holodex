@@ -2,7 +2,7 @@
 
 **Spec**: [derived-person-fields.md](../specs/derived-person-fields.md) ·
 **Handoff**: [derived-person-fields-handoff.md](derived-person-fields-handoff.md) ·
-**ADR**: [ADR-063](../architecture/ADR-063-derived-computed-fields.md) ·
+**ADR**: [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md) ·
 **Jira**: HOLODEX-73
 
 Conventions: every item is numbered `section.item` and tagged by verifier —

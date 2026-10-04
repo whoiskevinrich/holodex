@@ -9,7 +9,7 @@ value as a candidate of that field and stops rendering as a separate display-onl
 
 **Issue**: [HOLODEX-218](https://whoiskevinrich.atlassian.net/browse/HOLODEX-218) ·
 tracks [GH #178](https://github.com/whoiskevinrich/holodex/issues/178)
-**ADR**: [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) — the `field_claims` store, the
+**ADR**: [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md) — the `field_claims` store, the
 derivation seam, and the merge-order relationship to F44 promotions. Settles Q1/Q2 below.
 **Design**: required — the claim action on an auto-registered row is user-facing. *(not yet written —
 `needs-design`)*
@@ -17,15 +17,15 @@ derivation seam, and the merge-order relationship to F44 promotions. Settles Q1/
 
 **Depends on** (all shipped):
 - presence-driven auto-registration ([F39](provider-render-hints.md) /
-  [ADR-056](../architecture/ADR-056-provider-field-render-hints.md), `AutoRegisterFields`,
+  [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md), `AutoRegisterFields`,
   `ResolvedField.AutoRegistered`)
 - in-app field promotion ([F44](promote-override-fields.md) /
-  [ADR-062](../architecture/ADR-062-in-app-field-promotion.md), `mergePromotions`, `field_promotions`)
+  [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md), `mergePromotions`, `field_promotions`)
 - the entity-agnostic resolver + canonical registry
-  ([ADR-052](../architecture/ADR-052-baseline-source-contract.md), `ResolveFields`, `mapping.Field`)
+  ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md), `ResolveFields`, `mapping.Field`)
 - per-field source decisions ([F36](field-source-of-truth.md) /
-  [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md))
-- the owner gate ([ADR-046](../architecture/ADR-046-owner-session-persistence.md), `requireOwner`)
+  [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md))
+- the owner gate ([ADR-046](../architecture/archive/ADR-046-owner-session-persistence.md), `requireOwner`)
 
 **Touches** an owner-gated mutation that changes which fields render and which sources feed a canonical
 field. It writes presentation/precedence config the resolver trusts — the same perimeter F44 crossed —
@@ -345,7 +345,7 @@ Nothing in the shadow store is rewritten either way, so an unclaim is always a c
 - **A bare key never claims.** `sources: [Comment]` means `file:Comment` — a file tag. It has no effect
   on any provider's `comment` key. It is not inert, though: a `file:` source is the layer `in_sync` is
   computed against, so on a writeback-capable replace field it is what makes a written value verifiable
-  ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). Prune bare sources for
+  ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)). Prune bare sources for
   being "non-claiming" and you silently remove that field's sync reporting.
 - **Claiming a canonical name is rejected** (422). `bio` is already a field; there is nothing to attach.
 
@@ -472,7 +472,7 @@ If the ADR introduces anything beyond a keyed lookup table, revisit this.
 
 ## 10. Open Questions
 
-Blocking — **both settled by [ADR-074](../architecture/ADR-074-claimed-provider-keys.md)**:
+Blocking — **both settled by [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md)**:
 
 - ~~**Q1 (architecture)** — does the claims table carry only `(entity_type, provider, field_key) →
   canonical`, or does it also carry the precedence position?~~ **Canonical only** (ADR-074 D3). Claims

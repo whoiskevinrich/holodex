@@ -1,6 +1,6 @@
 # Spec: Video Credits — cast/crew People with headshots (F32, "Populate")
 
-> **Rebased onto F40 / [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) (2026-07-04).**
+> **Rebased onto F40 / [ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md) (2026-07-04).**
 > F40 now owns the `video_people` **data model** this spec used to propose: the `role` column
 > (derived from the source field, PK `(video_id, person_id, role)`, unset-capable) and the migration
 > of `video_people` to **resolved-value derivation** (`RelinkVideoPeople`, sole writer). F32 no longer
@@ -59,11 +59,11 @@ The provider returns structured per-person credits with a stable `external_id` a
 - Treat all provider person data as **untrusted**: sanitize `name`/`role` (reuse `enrich.SanitizeValue`), clamp the list, validate `role` against the enum (unknown → generic).
 
 ### 3. Data model (migration)
-- **`video_people.role` + resolved-derivation — now owned by [ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md) (F40), not F32.** The `role` column
+- **`video_people.role` + resolved-derivation — now owned by [ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md) (F40), not F32.** The `role` column
   (derived from the source field, PK `(video_id, person_id, role)`, unset-capable) and the migration of
   `video_people` to `RelinkVideoPeople` land in F40. F32 **depends on** that model and adds nothing to it.
   *(The "a person can be both actor+director" case F32 flagged is resolved there: two rows, distinct by role.)*
-- `people` has **no `external_id`** (unique by `name` only). Add person external-id de-dup: a `person_external_ids(person_id, external_id)` join table (a person can carry IMDb+TMDB ids) — mirrors `person_aliases`, and mirrors the id-first resolve pattern `studio_external_ids` already ships for Studio. **This is F32's remaining data-model work, built in F32's own scope** (resolved 2026-08-06, see "Resolved decisions" above) — it is the person case of [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md) and supersedes/absorbs [HOLODEX-125](https://whoiskevinrich.atlassian.net/browse/HOLODEX-125) rather than landing as a separate follow-up.
+- `people` has **no `external_id`** (unique by `name` only). Add person external-id de-dup: a `person_external_ids(person_id, external_id)` join table (a person can carry IMDb+TMDB ids) — mirrors `person_aliases`, and mirrors the id-first resolve pattern `studio_external_ids` already ships for Studio. **This is F32's remaining data-model work, built in F32's own scope** (resolved 2026-08-06, see "Resolved decisions" above) — it is the person case of [ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md) and supersedes/absorbs [HOLODEX-125](https://whoiskevinrich.atlassian.net/browse/HOLODEX-125) rather than landing as a separate follow-up.
 - Person de-dup at scan time uses name (`resolveOrCreatePerson`, [`internal/repo/aliases.go`](../../internal/repo/aliases.go)); extend to also match on external_id so a scan-created "Denis Villeneuve" and an enrich-created one converge. **`RelinkVideoPeople` calls the same `resolveOrCreatePerson`**, so the external-id-first upgrade benefits derivation automatically.
 
 ### 4. Frontend — mostly already done (F30)

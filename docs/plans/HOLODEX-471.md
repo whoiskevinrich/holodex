@@ -25,7 +25,7 @@ Done means an owner viewing a video with no overview sees **+ Add overview** in 
 the existing Edit Overview dialog with Custom selected, and the Write metadata to file dialog lists
 an Overview row they can fill and write. Visitors see no change, and no other empty field changes.
 
-**Design package:** [ADR-113](../architecture/ADR-113-owner-offered-empty-fields.md) (owner-offered
+**Design package:** [ADR-113](../architecture/archive/ADR-113-owner-offered-empty-fields.md) (owner-offered
 empty fields, adopted per field) · [spec F36 P1-5](../specs/field-source-of-truth.md) ·
 [handoff](../design/overview-add-handoff.md) + [mockup](../design/overview-add-mockup.svg)
 

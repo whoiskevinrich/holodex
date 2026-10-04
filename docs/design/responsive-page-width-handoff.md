@@ -2,7 +2,7 @@
 
 **Jira:** [HOLODEX-331](https://whoiskevinrich.atlassian.net/browse/HOLODEX-331)
 **Surface:** `web/src/routes/media/[id]/+page.svelte`, `web/src/routes/films/[id]/+page.svelte`, `web/src/routes/owner/+layout.svelte` (+ its three children), `web/src/lib/density.svelte.ts`, `web/src/lib/components/video/VideoGrid.svelte`, `web/src/app.css`
-**Related:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) (tokens-only components), [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) (`SourceBadge` chip row in the field list), [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) (the two metadata layers this layout must keep visually separate), [media-detail-metadata-fold-handoff.md](media-detail-metadata-fold-handoff.md) (the Metadata section this re-hosts), [media-detail-films-people-handoff.md](media-detail-films-people-handoff.md) (the Films + People row that moves into the rail)
+**Related:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) (tokens-only components), [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) (`SourceBadge` chip row in the field list), [ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md) (the two metadata layers this layout must keep visually separate), [media-detail-metadata-fold-handoff.md](media-detail-metadata-fold-handoff.md) (the Metadata section this re-hosts), [media-detail-films-people-handoff.md](media-detail-films-people-handoff.md) (the Films + People row that moves into the rail)
 
 ![Four page width options for the media detail page at 1920 by 1080](responsive-page-width-mockup.svg)
 

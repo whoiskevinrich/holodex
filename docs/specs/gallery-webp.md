@@ -16,8 +16,8 @@ spec is the artifact of record.
 **Depends on** (all shipped):
 - the person-image ingest normalizer (`internal/personimage`, `Normalize` — decode → bomb-guard →
   optional downscale → **re-encode to JPEG q85, metadata stripped**)
-- the enrichment asset perimeter (`internal/enrich/assets.go`, SSRF allowlist + 16 MiB cap, [ADR-039](../architecture/ADR-039-provider-asset-urls.md)) — **unchanged**
-- the person-image store + gallery (`internal/repo/person_images.go`, [ADR-038](../architecture/ADR-038-person-images.md)/[ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md))
+- the enrichment asset perimeter (`internal/enrich/assets.go`, SSRF allowlist + 16 MiB cap, [ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md)) — **unchanged**
+- the person-image store + gallery (`internal/repo/person_images.go`, [ADR-038](../architecture/archive/ADR-038-person-images.md)/[ADR-043](../architecture/archive/ADR-043-gallery-cap-and-enrichment-suppression.md))
 
 **Touches the untrusted-provider asset perimeter (a new accepted input format) → a `/security-review`
 sign-off is required before merge** (label `needs-security-review`). Expected to come back clean: WebP

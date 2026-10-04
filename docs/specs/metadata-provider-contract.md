@@ -158,7 +158,7 @@ provider loudly.
 Given a name query and/or embedded external IDs, return **ranked candidate matches** for the
 owner to confirm.
 
-> **Auto-apply (F47 / [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+> **Auto-apply (F47 / [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)
 > D1) — amends the earlier v1 posture.** This section previously stated "Holodex always shows the
 > owner a picker and never auto-applies a candidate in v1, so `confidence` is advisory." That is no
 > longer true: when a `/resolve` call returns **exactly one** candidate at or above Holodex's
@@ -277,7 +277,7 @@ Given a chosen `external_id`, return the canonical field values plus optional as
 | `people` | array | optional | **`video`/`media` only** — structured cast/crew with optional per-person headshots, enabling Holodex to create/link real Person records (additive; see [§4.5](#45-video-credits--per-person-castcrew-with-headshots)). Omit for `person` enrichment or when returning flat `actors`/`director` text |
 
 **Asset note (load-bearing).** Holodex **downloads** `assets` during the owner's enrich
-action (the asset-storage follow-up has shipped — [ADR-038](../architecture/ADR-038-person-images.md)/[ADR-039](../architecture/ADR-039-provider-asset-urls.md)). It fetches each asset URL through the **same SSRF
+action (the asset-storage follow-up has shipped — [ADR-038](../architecture/archive/ADR-038-person-images.md)/[ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md)). It fetches each asset URL through the **same SSRF
 perimeter** as the provider API calls, runs the bytes through an ingest normalizer
 (decode → bound → **re-encode → strip all metadata**), and stores its own copy. Practical
 consequences for you: (1) an asset's `url` host must be **allowlisted** — your own
@@ -315,7 +315,7 @@ types — not just designed-in future ones. Advertise whichever you support in
 `"series"`/`"media"` beyond the file-per-video model remain designed-in but unexercised.
 
 **Film is a first-class entity type.** Holodex
-F56/[ADR-085](../architecture/ADR-085-films-entity.md) added a fourth entity, **Film** — a
+F56/[ADR-085](../architecture/archive/ADR-085-films-entity.md) added a fourth entity, **Film** — a
 durable, owner-asserted grouping of videos (e.g. scenes of the same production) with its own
 detail page. A film's *membership* is still created entirely in the Holodex UI — a provider never
 adds or removes a film's videos — but the film itself resolves, enriches and clears exactly like a
@@ -323,9 +323,9 @@ person or a studio. It has its **own `entity_type: "film"`** (never a reuse of `
 canonical field vocabulary ([§4.2c](#42c-canonical-fields--film)), its own image sink (`poster`
 and `banner` **assets**, [§4.3](#43-assets) — never `fields` entries), and its own rows in the
 enrichment review queue. The plumbing shipped with
-[ADR-086](../architecture/ADR-086-film-provider-enrichment.md) and was wired end to end — provider
+[ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) and was wired end to end — provider
 chips, picker and clear on the film detail page — with F59 /
-[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md). The bundled TMDB provider
+[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md). The bundled TMDB provider
 advertises `film` and serves `/resolve` + `/enrich` for it.
 
 A film's name additionally competes as a **synthetic, non-provider** decision source for a linked
@@ -335,7 +335,7 @@ fields, through the ordinary field-decision/precedence UI — see the reserved-n
 
 > **A film's canonical vocabulary is deliberately narrower than what a movie-shaped provider will
 > naturally send** — a settled decision, not a gap
-> ([ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md)). Send your whole movie
+> ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)). Send your whole movie
 > payload; everything lands in the shadow store. But only `description`, `release_date`, `actors`
 > and the `poster`/`banner` assets do anything ([§4.2c](#42c-canonical-fields--film)). In
 > particular `title` is **not** applied — a film's title is owner-asserted identity, half of
@@ -347,8 +347,8 @@ fields, through the ordinary field-decision/precedence UI — see the reserved-n
 [§4.2a](#42a-canonical-fields--videomedia) (video), [§4.2b](#42b-canonical-fields--studio)
 (studio) and [§4.2c](#42c-canonical-fields--film) (film). Critically, **a video's poster is a
 `fields` entry (`poster_url`), never an `assets[]` entry** — `video` is the one entity type with
-no image sink at all. Person, studio (F51/[ADR-079](../architecture/ADR-079-studio-image-roles.md))
-and film ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) all take their images as
+no image sink at all. Person, studio (F51/[ADR-079](../architecture/archive/ADR-079-studio-image-roles.md))
+and film ([ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md)) all take their images as
 assets. See the entity-type-scoping callout in [§4.3](#43-assets).
 
 A provider MAY choose to support `person` only, `video` only, any combination, or all four. Do
@@ -372,7 +372,7 @@ decide how your data maps onto stable namespaces and canonical keys.
 
 - An `external_id` is **`<namespace>:<id>`** — a stable namespace prefix, a colon, then an
   id that is stable in your source (e.g. `acme:998211`, `wikidata:Q7259`).
-- **The id is mandatory and is the identity** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)).
+- **The id is mandatory and is the identity** ([ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)).
   Every record you resolve or enrich — a `/resolve` candidate, an `/enrich` target, and **every**
   `people[]` credit ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) — MUST carry a well-formed `<namespace>:<id>`.
   Holodex uses it as the **sole identity/de-dup key** for the entity; there is **no name fallback**. A
@@ -385,7 +385,7 @@ decide how your data maps onto stable namespaces and canonical keys.
   it internally), advertise those namespaces too — a **namespace is a shared identity space**: two
   providers that both emit `imdb:tt1160419` refer to the **same** entity and Holodex converges them to one.
 - **`film:` is a reserved namespace prefix — do not use it.** Holodex's internal Films entity
-  (F56/[ADR-085](../architecture/ADR-085-films-entity.md)) injects synthetic per-video decision
+  (F56/[ADR-085](../architecture/archive/ADR-085-films-entity.md)) injects synthetic per-video decision
   sources named `film:<film-id>` so an owner-asserted film can compete for a video's
   `collection`/`title` fields exactly like a real provider ([§3](#3-entity-types-and-matching)). A
   provider whose own `name`/`id_namespaces` began with `film:` would collide with that reserved
@@ -455,7 +455,7 @@ Rules:
 | `status` | Release status | single | Plain text (e.g. `"Released"`) |
 | `original_language` | Original language | single | ISO 639-1 code preferred (e.g. `"en"`) |
 | `homepage` | Official/home page | single | Absolute URL, `render: url`. The title's **own** site — never your provider page for it; omit when upstream has none (see the `website` rule in [§4.2](#42-canonical-fields)) |
-| `external_provider_id` | External metadata-provider identifier | single | Namespace-qualified `"<provider>:<id>"`, e.g. `"imdb:tt1160419"` — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
+| `external_provider_id` | External metadata-provider identifier | single | Namespace-qualified `"<provider>:<id>"`, e.g. `"imdb:tt1160419"` — [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | Poster / cover art | single | Absolute image URL, `render: image_url`. **This is a `fields` entry — never an `assets[]` entry.** Holodex downloads it on writeback and embeds it as the file's cover art (see [§4.3](#43-assets) for why `assets[]` doesn't apply here) |
 | `actors` | Cast (flat text) | multi | One name per element, billing order first. Prefer the structured [`people[]`](#45-video-credits--per-person-castcrew-with-headshots) shape instead if you want headshots/Person linking |
 | `director` | Director(s) (flat text) | multi | One name per element |
@@ -466,7 +466,7 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 
 ### 4.2b Canonical fields — studio
 
-> **Status: additive extension** ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)), exercised today.
+> **Status: additive extension** ([ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)), exercised today.
 
 | Canonical key | Meaning | Cardinality | Format guidance |
 |---|---|---|---|
@@ -483,8 +483,8 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 ### 4.2c Canonical fields — film
 
 > **Status: additive extension, exercised today** — shipped by
-> [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) and widened by F59 /
-> [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md). The bundled TMDB
+> [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) and widened by F59 /
+> [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md). The bundled TMDB
 > provider advertises `film` and serves it (see [§3](#3-entity-types-and-matching)).
 
 | Canonical key | Meaning | Cardinality | Format guidance |
@@ -509,11 +509,11 @@ read-only union of the people on its attached videos. Holodex reads your `actors
 shadow store at display time and shows only the **difference** — names you billed that appear in
 none of the owner's scenes — as a separate "billed on the release" group. It creates **no** Person
 records, adds **no** credits, and modifies **none** of the attached videos
-([ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D1/D2). Matching is
+([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D1/D2). Matching is
 alias-aware, so a spelling variant of someone already in the union is not reported as missing.
 
 **Accepted, stored, and then ignored for a film:** `title` (a film's name is owner-asserted
-identity and is not provider-writable, [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md)
+identity and is not provider-writable, [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
 D3); `studio` and its `_studio_external_ids` sidecar
 ([§4.6](#46-studio-external-ids-_studio_external_ids)), because a film's studios are a union over
 its attached videos; `director`; and `aliases`, whose identity spine covers `person` and `studio`
@@ -525,7 +525,7 @@ you send is stored and may auto-register as a display-only field through `field_
 ### 4.3 Assets
 
 > **`assets[]` is consumed for `entity_type: "person"`, `"studio"` (F51, ADR-079) and `"film"`
-> ([ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — all three are live.** See the
+> ([ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md)) — all three are live.** See the
 > Film kind table below. There is still **no** `video`/`media` image sink: a video's own poster/cover art
 > stays a **`fields` entry** — `fields["poster_url"]` (video, `render: image_url`), exactly like
 > `bio`/`website`/any other canonical text field, just holding an image URL as the value. See
@@ -572,8 +572,8 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `icon` | Small list icon | ~1:1 | No provider emits this yet — reserved |
 | `poster` | Tall poster | ~2:3 | No provider emits this yet — reserved |
 
-**Film** (`entity_type: "film"`, [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) /
-[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4 — live, see
+**Film** (`entity_type: "film"`, [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) /
+[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D4 — live, see
 [§3](#3-entity-types-and-matching)):
 
 | `kind` | Meaning | Target aspect | Notes |
@@ -582,7 +582,7 @@ hints like `expires_at`/`width` can be added later without a protocol bump):
 | `banner` | Wide hero image | ~16:9 | The film detail page header. Synonym `backdrop` accepted, reusing Person's kind |
 
 > **There is no film `thumb` kind.** A `thumb` role existed briefly with neither a producer nor a
-> consumer and was removed ([ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md)
+> consumer and was removed ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
 > D4); a `thumb` sent for a film is dropped as an unknown kind, per the rule below.
 
 Each entity type has its own kind namespace — a studio's `logo` kind is unrelated to a
@@ -661,7 +661,7 @@ serves its own copy. Stay inside these so nothing is rejected or silently altere
 ### 4.5 Video credits — per-person cast/crew with headshots
 
 > **Status: additive extension** for `video`/`media` enrichment (Holodex F30 "populate",
-> [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)). **Backward
+> [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)). **Backward
 > compatible:** a provider may keep returning cast/crew as flat text in `fields` (`actors`,
 > `director`); Holodex still consumes those. The structured `people` array below is the
 > richer, **opt-in** shape that lets Holodex create/link real **Person** records and download
@@ -689,15 +689,15 @@ A `video`/`media` `/enrich` response MAY include a top-level **`people`** array 
 
 | Key | Type | Required | Notes |
 |---|---|---|---|
-| `people[].name` | string | yes | Display name. Holodex sanitizes (strips control chars, caps 4096). **Display only** — it is *not* an identity/match key ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) |
+| `people[].name` | string | yes | Display name. Holodex sanitizes (strips control chars, caps 4096). **Display only** — it is *not* an identity/match key ([ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)) |
 | `people[].role` | string | yes | Credit role. v1 enum: `"actor"`, `"director"`, `"writer"`, `"producer"`, `"composer"`, `"crew"`. An **unknown role is stored generically** (never dropped) — forward-compatible |
-| `people[].external_id` | string | **yes** | Namespace-qualified id (`<namespace>:<id>`, [§4.1](#41-external-ids-and-namespaces)). The **stable, deterministic** identity Holodex stores; the same person across films de-duplicates to one record. **Required** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — a credit without one is refused, not name-matched. If your source lacks a stable person id, synthesize a deterministic namespaced one |
+| `people[].external_id` | string | **yes** | Namespace-qualified id (`<namespace>:<id>`, [§4.1](#41-external-ids-and-namespaces)). The **stable, deterministic** identity Holodex stores; the same person across films de-duplicates to one record. **Required** ([ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)) — a credit without one is refused, not name-matched. If your source lacks a stable person id, synthesize a deterministic namespaced one |
 | `people[].order` | integer | optional | Billing order within a role (0 = top-billed) for display ordering. Holodex caps the list |
 | `people[].headshot` | object | optional | A single **asset object** ([§4.3](#43-assets)) — `{ "kind": "photo", "url": "…" }` — for that person's portrait. Subject to **all** the [§4.3](#43-assets)/[§6](#6-security-requirements) asset rules: allowlisted host (your `base_url` host or an operator `asset_hosts` entry), `https` cross-host, no credentials in the URL, raster JPEG/PNG/GIF, ≤16 MiB, ≤4096 px. Omit when you have none |
 
 **How Holodex consumes it.** On the owner's video enrich, Holodex (a) resolve-or-creates a
 Person per entry — keyed **by `external_id`** (the identity; a namespaced id that another provider
-already emitted converges to the same Person, [ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) —
+already emitted converges to the same Person, [ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)) —
 and links it to the video with its `role`; (b) downloads each `headshot` through the **same SSRF perimeter**
 as every other asset ([§4.3](#43-assets)) and stores it as that person's headshot. The flat
 `fields.actors`/`fields.director` text remains the fallback for providers that don't emit
@@ -710,7 +710,7 @@ text is not) — same precedence as `assets` in [§4.3](#43-assets).
 
 ### 4.6 Studio external IDs (`_studio_external_ids`)
 
-> **Status: additive extension** for `video`/`media` enrichment ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).
+> **Status: additive extension** for `video`/`media` enrichment ([ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)).
 > **Backward compatible and opt-in:** it is an [internal sidecar](#42-canonical-fields) field, not
 > a capability — **do not advertise it in `/describe`**, and a provider that omits it stays fully
 > conformant (Holodex just falls back to de-duping studios by name). Emit it only if your upstream
@@ -768,7 +768,7 @@ like everything else (S4); this field triggers **no** new fetch or host access.
 
 ### 4.7 Field render hints (`/describe.field_hints`)
 
-> **Status: additive extension** ([ADR-056](../architecture/ADR-056-provider-field-render-hints.md), Holodex
+> **Status: additive extension** ([ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md), Holodex
 > F39). **Backward compatible and opt-in:** it is an optional key on the `/describe` manifest; a provider that
 > omits it stays fully conformant and renders exactly as before. **No protocol bump** — it rides the
 > [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule, so an older Holodex ignores it.
@@ -828,14 +828,14 @@ entry, which overrides your hint. If that entry is a **replace** field Holodex c
 also list the file tag the writeback writes — otherwise the written value cannot be read back and the
 field reports no sync state at all. See
 [canonical-fields.md § Writeback round-trip](../reference/canonical-fields.md#writeback-round-trip)
-([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)). This is a Holodex-side
+([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)). This is a Holodex-side
 mapping concern only — it places no requirement on your wire contract.
 
 ---
 
 ### 4.8 Provider brand icon (`/describe.brand_icon`)
 
-> **Status: additive extension** ([ADR-059](../architecture/ADR-059-provider-brand-icon.md), Holodex
+> **Status: additive extension** ([ADR-059](../architecture/archive/ADR-059-provider-brand-icon.md), Holodex
 > HOLODEX-134). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider that
 > omits it stays fully conformant. **No protocol bump** — it rides the
 > [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule.
@@ -880,7 +880,7 @@ handles it exactly like every other ingested image:
 
 ### 4.9 Preferred search query pattern (`/describe.preferred_search_pattern`)
 
-> **Status: additive extension** ([ADR-080](../architecture/ADR-080-configurable-provider-search-patterns.md),
+> **Status: additive extension** ([ADR-080](../architecture/archive/ADR-080-configurable-provider-search-patterns.md),
 > HOLODEX-254). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
 > that omits it stays fully conformant, and an older Holodex that doesn't parse it is unaffected. **No
 > protocol bump** — it rides the [§2.2](#22-get-describe--capability-manifest) "unknown keys ignored" rule.
@@ -913,7 +913,7 @@ still only ever receive the one flattened `hint.query` string ([§2.3](#23-post-
 | Required token, no value | The **whole pattern** is skipped for that render — Holodex falls back to its next tier (an operator override, if the operator set one for you, then their fleet-wide default, then the sanitized-title floor). It never sends a query with a gap where your required token would have been |
 | Unknown token name | Your whole `preferred_search_pattern` is ignored (logged Holodex-side) — never an error response to you, and it doesn't affect anything else about your provider |
 | **Operator override always wins** | If the operator configures their own `search_pattern` for you in `metadata-sources.yaml`, it outranks this key entirely — you may still advertise a sensible default for operators who configure nothing |
-| **Residue rule** ([ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D5) | `{title}` / `{title?}` renders **empty** when, after stripping every word that matches the resolved studio, any resolved performer, or a date token (case-insensitive, tokenized — and only for the tokens the pattern being rendered contains: `{studio}`, `{performers}`, `{year}` respectively), no Unicode alphanumeric residue is left — i.e. the title was only the other tokens, which happens whenever a fresh file's title *is* its filename stem. Lossless: every dropped word is already in the query from the token that matched it. An empty-by-residue `{title}` **does not** count as a missing required token — the pattern still renders (it would otherwise fall through to the title-only floor and resend the duplication). Applies to this render only, never to `hint.fields` |
+| **Residue rule** ([ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D5) | `{title}` / `{title?}` renders **empty** when, after stripping every word that matches the resolved studio, any resolved performer, or a date token (case-insensitive, tokenized — and only for the tokens the pattern being rendered contains: `{studio}`, `{performers}`, `{year}` respectively), no Unicode alphanumeric residue is left — i.e. the title was only the other tokens, which happens whenever a fresh file's title *is* its filename stem. Lossless: every dropped word is already in the query from the token that matched it. An empty-by-residue `{title}` **does not** count as a missing required token — the pattern still renders (it would otherwise fall through to the title-only floor and resend the duplication). Applies to this render only, never to `hint.fields` |
 
 **Practical guidance:** advertise this if your search index is meaningfully better with a shaped query than a
 bare title — for example, disambiguating common titles by studio or year. If a bare title search already
@@ -923,7 +923,7 @@ either way).
 
 ### 4.10 Structured resolve hints (`/describe.resolve_hints`)
 
-> **Status: additive extension** ([ADR-095](../architecture/ADR-095-structured-resolve-hints.md),
+> **Status: additive extension** ([ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md),
 > HOLODEX-367). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
 > that omits it receives a `/resolve` request **byte-for-byte identical** to today's. **No protocol bump.**
 > **`video` entity only.** The `searched[]` response key ([§2.3](#23-post-resolve--identity-match-disambiguation))
@@ -975,7 +975,7 @@ after a miss. Omitting `resolve_hints` entirely remains fully conformant.
 
 ### 4.11 Outbound link templates (`/describe.link_templates`)
 
-> **Status: additive extension** ([ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md) D2,
+> **Status: additive extension** ([ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md) D2,
 > HOLODEX-266; coverage widened to film + video by [F63](provider-link-badge-coverage.md), HOLODEX-391).
 > **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider that omits it
 > stays fully conformant, and an older Holodex that doesn't parse it is unaffected. **No protocol bump.**
@@ -1022,7 +1022,7 @@ are **not** a function of the id alone, return the page per entity instead — [
 
 ### 4.12 Provider source URL (`_source_url`)
 
-> **Status: additive extension** ([ADR-098](../architecture/ADR-098-provider-source-url-fallback.md),
+> **Status: additive extension** ([ADR-098](../architecture/archive/ADR-098-provider-source-url-fallback.md),
 > [F63](provider-link-badge-coverage.md), HOLODEX-392). **Backward compatible and opt-in:** an
 > [internal sidecar](#42-canonical-fields) key inside `/enrich`'s `fields`; a provider that omits it stays
 > fully conformant, and an older Holodex stores it as an inert row it never shows. **No protocol bump.**
@@ -1061,7 +1061,7 @@ tokens, no tracking parameters); it is shown to visitors as-is.
 ### 4.13 Rate limit declaration (`/describe.rate_limit`)
 
 > **Status: additive extension** (F66 — [entity-refresh-sweep.md](entity-refresh-sweep.md), HOLODEX-421;
-> [ADR-103](../architecture/ADR-103-provider-traffic-contract-and-enrich-sweep.md)). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
+> [ADR-103](../architecture/archive/ADR-103-provider-traffic-contract-and-enrich-sweep.md)). **Backward compatible and opt-in:** an optional key on the `/describe` manifest; a provider
 > that omits it stays fully conformant at Holodex's default pace, and an older Holodex that doesn't parse it
 > is unaffected. **No protocol bump.**
 
@@ -1388,18 +1388,18 @@ truth if a clarification is needed:
 
 - **F22 spec** — Metadata Source Plugins ([`docs/specs/metadata-plugins.md`](metadata-plugins.md)):
   provider protocol, registry/allowlist, shadow store, People v1 slice.
-- **ADR-033** — Metadata source plugins ([`docs/architecture/ADR-033-metadata-source-plugins.md`](../architecture/ADR-033-metadata-source-plugins.md)):
+- **ADR-033** — Metadata source plugins ([`docs/architecture/archive/ADR-033-metadata-source-plugins.md`](../architecture/archive/ADR-033-metadata-source-plugins.md)):
   the sidecar decision, SSRF perimeter, untrusted-response handling, on-demand-only posture.
-- **ADR-038** — Person images ([`docs/architecture/ADR-038-person-images.md`](../architecture/ADR-038-person-images.md)):
+- **ADR-038** — Person images ([`docs/architecture/archive/ADR-038-person-images.md`](../architecture/archive/ADR-038-person-images.md)):
   the on-disk image store and the ingest normalizer (decode → bound → re-encode → strip) that
   every downloaded asset passes through.
-- **ADR-039** — Provider asset URLs ([`docs/architecture/ADR-039-provider-asset-urls.md`](../architecture/ADR-039-provider-asset-urls.md)):
+- **ADR-039** — Provider asset URLs ([`docs/architecture/archive/ADR-039-provider-asset-urls.md`](../architecture/archive/ADR-039-provider-asset-urls.md)):
   the asset object schema, `asset_kinds` advertisement, and the operator-configured
   `asset_hosts` download allowlist this section ([§4.3](#43-assets)) specifies.
-- **ADR-083** — Provider link badge ([`docs/architecture/ADR-083-provider-link-badge-person-studio.md`](../architecture/ADR-083-provider-link-badge-person-studio.md))
+- **ADR-083** — Provider link badge ([`docs/architecture/archive/ADR-083-provider-link-badge-person-studio.md`](../architecture/archive/ADR-083-provider-link-badge-person-studio.md))
   and **F63** ([`docs/specs/provider-link-badge-coverage.md`](provider-link-badge-coverage.md)):
   the `link_templates` manifest key ([§4.11](#411-outbound-link-templates-describelink_templates)) and the badge it feeds.
-- **ADR-098** — Provider source URL ([`docs/architecture/ADR-098-provider-source-url-fallback.md`](../architecture/ADR-098-provider-source-url-fallback.md)):
+- **ADR-098** — Provider source URL ([`docs/architecture/archive/ADR-098-provider-source-url-fallback.md`](../architecture/archive/ADR-098-provider-source-url-fallback.md)):
   the `_source_url` sidecar ([§4.12](#412-provider-source-url-_source_url)) and its precedence behind templates.
 - **Worked example** — TMDB provider spec ([`docs/specs/tmdb-provider.md`](tmdb-provider.md)):
   this same contract mapped onto a real upstream (TMDB), with a concrete field-mapping table.
@@ -1408,7 +1408,7 @@ truth if a clarification is needed:
 
 ### Open items flagged for Holodex maintainers
 
-- **`confidence` semantics** for `/resolve` — **resolved (F47 / [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+- **`confidence` semantics** for `/resolve` — **resolved (F47 / [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)
   D1).** Holodex now thresholds on it client-side: a lone candidate at/above `0.85` auto-applies
   with no picker ([§2.3](#23-post-resolve--identity-match-disambiguation)). Any monotonic 0–1 value
   is still acceptable — there is no required calibration scheme, and the wire shape is unchanged —
@@ -1429,8 +1429,8 @@ truth if a clarification is needed:
   was supported; that was stale). A `series` entity type beyond the file-per-video model remains
   designed-in but unexercised; coordinate its canonical field vocabulary before shipping one.
 - **Film provider enrichment** — **resolved, shipped, and wired end to end.** The protocol half
-  landed with [ADR-086](../architecture/ADR-086-film-provider-enrichment.md); F59 /
-  [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) settled the field
+  landed with [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md); F59 /
+  [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) settled the field
   vocabulary and connected the film detail page to it. Film has its own `entity_type: "film"`
   (never a reuse of `video`), its own canonical fields
   ([§4.2c](#42c-canonical-fields--film): `description`, `release_date`, `actors`), and `poster` +

@@ -1,7 +1,7 @@
 # Design handoff: Claimed provider keys — the claim action (F49)
 
 **Spec**: [claimed-provider-keys.md](../specs/claimed-provider-keys.md) (F49, FR5 + FR8) ·
-**ADR**: [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) ·
+**ADR**: [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md) ·
 **Ticket**: [HOLODEX-218](https://whoiskevinrich.atlassian.net/browse/HOLODEX-218)
 
 This is an **addendum** to the [F44 promote/override handoff](promote-override-fields-handoff.md) and the

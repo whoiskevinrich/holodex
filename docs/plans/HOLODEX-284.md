@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-284
 status: in-review
 profile: full
@@ -16,7 +16,7 @@ enrichment lifecycle, independent of any attached video, with the poster stored 
 `film_images` asset (never a resolved field) — TMDB reused via an entity-type-aware field remap.
 Sub-task of epic HOLODEX-279 (F56 — Films entity).
 
-**Design package:** [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) (pre-existing,
+**Design package:** [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) (pre-existing,
 merged via #253 — this ticket is the implementation of its 12 Action Items) · no new spec/design-
 handoff (backend/API surface only, reuses the existing Person/Studio enrich UI unmodified).
 

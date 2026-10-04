@@ -70,10 +70,11 @@
 /CLAUDE.md
 /memory/
 
-# Claimed ADR / feature numbers, derived from git by scripts/adr-claims.mjs and
-# scripts/feature-claims.mjs. Local-only and gitignored on purpose: a committed registry
-# would be a merge-conflict magnet, since every branch claiming a number would edit the
-# same lines. Live at the MAIN worktree root so every worktree shares one copy.
+# Claimed feature numbers, derived from git by scripts/feature-claims.mjs. Local-only and
+# gitignored on purpose: a committed registry would be a merge-conflict magnet, since every
+# branch claiming a number would edit the same lines. Lives at the MAIN worktree root so
+# every worktree shares one copy. (.adr-claims is the retired ADR allocator's file; still
+# ignored so a leftover local copy stays out of git.)
 /.adr-claims
 /.feature-claims
 

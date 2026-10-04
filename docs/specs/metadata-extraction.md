@@ -1,7 +1,7 @@
 # Spec: On-demand metadata extraction from filenames & tags (F48)
 
 **Status**: ✅ Shipped — all F48.1–F48.11 requirements implemented and released (Jira HOLODEX-193:
-Released, 2026-07-20). Architecture ([ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)),
+Released, 2026-07-20). Architecture ([ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md)),
 design handoff ([metadata-extraction-handoff.md](../design/metadata-extraction-handoff.md)), and
 `/testing-strategy` ([docs/testing-strategy.md](../testing-strategy.md), §4/§5/Phase 3/Critical
 invariants) all landed; F48.10 security requirements (owner-gated endpoints, sanitized filename
@@ -17,13 +17,13 @@ input, no new egress, bounded write concurrency) shipped with the code
 **Phase**: 3 (Enrichment)
 **Date**: 2026-07-14
 **Depends on**:
-[F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/ADR-033-metadata-source-plugins.md)
+[F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)
 (`entity_enrichment` shadow store, namespaced sources — **this spec adds a `filename:` namespace
 alongside `file:`/`tmdb:`, unchanged shape**) ·
 [F27 unified field resolution](metadata-plugins.md#f27--unified-field-resolution-implements-f223)
 (`internal/resolver`, precedence/merge over `orderedSources` — **a new namespace slots in with no
 resolver change**) ·
-[F30 metadata curation & write queue](metadata-curation.md) / [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)
+[F30 metadata curation & write queue](metadata-curation.md) / [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)
 (`internal/writeback.WriteBatch`, the durable `internal/writequeue`, per-file atomic writes —
 **shipped; this spec's extraction and merge writes ride this queue unchanged, no new write
 mechanism**) ·
@@ -31,11 +31,11 @@ mechanism**) ·
 model that a queued extraction candidate ultimately resolves into) ·
 [F37/F38 People/Studio source-of-truth](field-source-of-truth.md) / ADR-052 (entity-generic
 resolver already treats Person/Studio/Video on one `BaselineSource` model) ·
-[F43 entity name-identity](entity-identity.md) / [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md)
+[F43 entity name-identity](entity-identity.md) / [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md)
 (loose-key near-miss detection, `entity_type` merge, `keep_separate` — **this spec's exact-match
 entity-resolution tier reuses the loose-key detector unchanged**; person merge itself is
 [F23.9](person-aliases.md)) ·
-[F47 enrichment review workflow](enrichment-review-workflow.md) / [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)
+[F47 enrichment review workflow](enrichment-review-workflow.md) / [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)
 (`Candidate.Confidence float64`, `StrongMatchThreshold`-style auto-apply-vs-review-queue routing —
 **this spec's routing model directly mirrors it**, extraction is a second, non-provider source
 of candidates) ·

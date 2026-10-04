@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-274
 status: in-review
 profile: full
@@ -36,7 +36,7 @@ change, not a pure perf one.
 - [x] architecture — not needed (no new ADR; reuses ADR-072's `RelinkVideoPeople`/
       `ReconcileVideoPeople` contract, generalizing HOLODEX-271's precedent) — **revisited**:
       the concurrency follow-up below did turn into a `SetCurationChecked` contract change,
-      tracked as [ADR-084](../architecture/ADR-084-locked-curation-relink-commit.md) under
+      tracked as [ADR-084](../architecture/archive/ADR-084-locked-curation-relink-commit.md) under
       HOLODEX-277
 - [x] design — not needed (backend-only; no frontend/UX surface touched)
 - [x] backend — `internal/api/curation.go`'s `proposedPeopleNames` → `proposedPeopleLinks`,

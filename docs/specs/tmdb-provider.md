@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Feature block**: F22 (Metadata Source Plugins) — first real provider container
-**Audience**: Implementers of the TMDB sidecar at **`providers/tmdb/`** in this repository ([ADR-040](../architecture/ADR-040-tmdb-provider-repo-placement.md))
+**Audience**: Implementers of the TMDB sidecar at **`providers/tmdb/`** in this repository ([ADR-040](../architecture/archive/ADR-040-tmdb-provider-repo-placement.md))
 **Implements**: The Holodex provider HTTP contract defined by [F22 / ADR-033](#references) — protocol version **1**. This is a **worked example** of the source-neutral [Metadata Provider Contract](metadata-provider-contract.md); that document is the generic spec, this one maps it onto TMDB.
 
 > **Self-contained by design.** This document specifies everything the container
@@ -29,8 +29,8 @@ calls to enrich local entities with data the media files do not carry. This spec
 
 - **People** (`entity_type: "person"`) — bios, birthdates, nationality, websites (the person's own site, when TMDB has one — never the TMDB page, which the provider badge links via `link_templates`, F63), aliases, and a portrait photo.
 - **Movies / Video** (`entity_type: "video"`) — title, overview, release date, runtime, genres, tagline, a homepage link (the film's own website, when TMDB has one — the TMDB page itself is reached through `link_templates`, F63), original language/title, status, IMDb ID, poster URL, **studio(s)**, top-billed **actors**, and **director(s)** — as flat text fields, plus the same cast/crew as a structured **`people[]`** array with provider ids and headshots (F32, `credits: true`). The poster is a **`fields`** entry (`poster_url`) here — there is no video image sink.
-- **Films** (`entity_type: "film"`, F56/[ADR-086](../architecture/ADR-086-film-provider-enrichment.md)) — the same TMDB movie lookup as `video`, re-shaped for the Film entity by an entity-type-aware remap rather than a second response builder: `overview` becomes **`description`**, and the poster is routed to an **`assets[]`** entry (`kind: "poster"`) instead of `poster_url`. A film additionally gets the movie's `backdrop_path` as a **`banner`** asset (F59/[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4) — the one key `video` does not receive, since a video has no image sink. Every other key is shared with `video`. Holodex resolves only `description` and `release_date`, and reads `actors` back at display time to show the cast billed on the release but absent from the owner's scenes; see [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) for why title/studio/director are stored but not applied.
-- **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, and `website` (the company homepage, omitted when absent — the TMDB company page is the badge's link via `link_templates`, F63). Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a downloaded **`assets[]`** entry (`kind: "logo"`) as of F51/[ADR-079](../architecture/ADR-079-studio-image-roles.md) — **not** a `fields` image URL; a `fields["logo"]` value is silently dropped.
+- **Films** (`entity_type: "film"`, F56/[ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md)) — the same TMDB movie lookup as `video`, re-shaped for the Film entity by an entity-type-aware remap rather than a second response builder: `overview` becomes **`description`**, and the poster is routed to an **`assets[]`** entry (`kind: "poster"`) instead of `poster_url`. A film additionally gets the movie's `backdrop_path` as a **`banner`** asset (F59/[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D4) — the one key `video` does not receive, since a video has no image sink. Every other key is shared with `video`. Holodex resolves only `description` and `release_date`, and reads `actors` back at display time to show the cast billed on the release but absent from the owner's scenes; see [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) for why title/studio/director are stored but not applied.
+- **Studios** (`entity_type: "studio"`, F38 S3) — production-company `description`, origin `country`, and `website` (the company homepage, omitted when absent — the TMDB company page is the badge's link via `link_templates`, F63). Matched via `/3/search/company`, enriched via `/3/company/{id}`. The logo is a downloaded **`assets[]`** entry (`kind: "logo"`) as of F51/[ADR-079](../architecture/archive/ADR-079-studio-image-roles.md) — **not** a `fields` image URL; a `fields["logo"]` value is silently dropped.
 
 The container translates Holodex's small, provider-agnostic contract into calls against the public TMDB API and maps the responses back into Holodex's canonical enrichment fields.
 
@@ -399,12 +399,12 @@ Map the responses → canonical `fields` (each value an array of strings):
 | `original_language` | details `original_language` | BCP-47 code, e.g. `"en"`. Omit if empty |
 | `original_title` | details `original_title` | Emitted **only** when non-empty and different from `title` (avoid redundancy) |
 | `status` | details `status` | e.g. `"Released"`. Omit if empty |
-| `external_provider_id` | details `imdb_id`, namespace-qualified | e.g. `"imdb:tt0137523"`. Omit if `imdb_id` empty — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) |
+| `external_provider_id` | details `imdb_id`, namespace-qualified | e.g. `"imdb:tt0137523"`. Omit if `imdb_id` empty — [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md) |
 | `poster_url` | details `poster_path` | **`entity_type: "video"` only.** Text field, not an asset. Absolute URL `https://image.tmdb.org/t/p/original` + `poster_path`. Holodex renders it as an `<img>` in the media Details panel. Omit when `poster_path` is null. For `entity_type: "film"` the same `poster_path` is emitted as an `assets[]` entry (`kind: "poster"`) and this key is **not** sent (ADR-086) |
 | `studio` | details `production_companies[].name` | Multi-value — one per company (drop empty names) |
 | `actors` | credits `cast[].name` | Top **20** by billing order (`maxCastCredits`, TMDB returns `cast` pre-sorted) — kept in sync with `people[]`'s cast window below, since `video_people` links derive from this flat field, not from `people[]` directly. Drop empty names |
 | `director` | credits `crew[]` where `job == "Director"` | Multi-value (co-directors). Drop empty names |
-| `_studio_external_ids` | details `production_companies[].{id, name}` | **Internal sidecar** — see the contract's [§4.6](metadata-provider-contract.md#46-studio-external-ids-_studio_external_ids). One self-describing value `"tmdb:<id> <name>"` per company with a non-empty name **and** `id > 0`, paired with `studio`. **Not advertised in `/describe`** and never displayed or resolved — it powers studio-entity de-dup by company id (HOLODEX-122 / [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)). Omit when no company has an id |
+| `_studio_external_ids` | details `production_companies[].{id, name}` | **Internal sidecar** — see the contract's [§4.6](metadata-provider-contract.md#46-studio-external-ids-_studio_external_ids). One self-describing value `"tmdb:<id> <name>"` per company with a non-empty name **and** `id > 0`, paired with `studio`. **Not advertised in `/describe`** and never displayed or resolved — it powers studio-entity de-dup by company id (HOLODEX-122 / [ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)). Omit when no company has an id |
 
 Omit any field whose TMDB value is null/empty rather than emitting an empty array.
 
@@ -427,7 +427,7 @@ records and download their headshots:
 |---|---|---|
 | `name` | `cast[].name` / `crew[].name` | Display only — not an identity/match key |
 | `role` | `"actor"` for every `cast[]` entry; `"director"` for up to `maxCrewCredits` `crew[]` entries where `job == "Director"` | Other crew jobs (producer, writer, composer, …) are **not** emitted into `people[]`, and TMDB's `crew[]` credits for those jobs aren't surfaced anywhere else in this provider's response either — this slice covers actor + director only, matching the flat `actors`/`director` fields above |
-| `external_id` | `"tmdb:" + cast[]/crew[].id` | **Required** ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — an entry whose TMDB person `id` is `0`/absent is **skipped from `people[]` entirely** (it still appears in the flat `actors` field, which has no id requirement) |
+| `external_id` | `"tmdb:" + cast[]/crew[].id` | **Required** ([ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)) — an entry whose TMDB person `id` is `0`/absent is **skipped from `people[]` entirely** (it still appears in the flat `actors` field, which has no id requirement) |
 | `order` | `cast[].order` | Actors only; omitted (zero value) for directors |
 | `headshot` | `cast[]/crew[].profile_path` | `{ "kind": "photo", "url": "https://image.tmdb.org/t/p/original" + profile_path }`. Omitted when `profile_path` is empty — a credit with an id but no photo is still emitted, just without a headshot |
 
@@ -438,7 +438,7 @@ that) — tighter than the contract's ≈50 ceiling, per this feature's own spec
 
 **No `assets[]` for `entity_type: "video"`.** A video's poster is a text `fields` entry (`poster_url`), not an asset download — there is no *video* image sink that maps to a stored image slot (unlike person photos, which map to the headshot role). Holodex renders the URL directly as an image in the UI.
 
-**`entity_type: "film"` is the exception, and it is live.** The same movie response, requested for a film, emits the poster as an `assets[]` entry (`kind: "poster"`) and the backdrop as a second one (`kind: "banner"`, F59/[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4), both of which Holodex downloads into `film_images` — see [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) and §2.3. So "no asset sink for movies" is true of the *video* entity only; it has not been true of films since ADR-086.
+**`entity_type: "film"` is the exception, and it is live.** The same movie response, requested for a film, emits the poster as an `assets[]` entry (`kind: "poster"`) and the backdrop as a second one (`kind: "banner"`, F59/[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D4), both of which Holodex downloads into `film_images` — see [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) and §2.3. So "no asset sink for movies" is true of the *video* entity only; it has not been true of films since ADR-086.
 
 ### 4.5 Studio / Company enrichment (F38 S3)
 
@@ -466,7 +466,7 @@ purely rank-based. Map each result (cap 10) to a candidate:
 | `disambiguation` | `origin_country` | e.g. `"US"`, `"JP"` — the picker hint (may be empty) |
 
 For `hint.external_ids` — if a `tmdb:NNN` id is present (a video's `_studio_external_ids`
-sidecar hands it straight through, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)),
+sidecar hands it straight through, [ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)),
 call **Company › Details** directly and return one high-confidence candidate.
 
 #### 4.5b `/enrich` (company details)
@@ -763,7 +763,7 @@ truth if a clarification is needed:
 - **F22 spec** — Metadata Source Plugins (`docs/specs/metadata-plugins.md`): provider
   protocol, registry/allowlist, shadow store, People v1 slice.
 - **ADR-033** — Metadata source plugins: sidecar providers over a unified resolution layer
-  (`docs/architecture/ADR-033-metadata-source-plugins.md`): the sidecar decision, SSRF
+  (`docs/architecture/archive/ADR-033-metadata-source-plugins.md`): the sidecar decision, SSRF
   perimeter, untrusted-response handling, on-demand-only posture.
 - **Reference stub** — `testdata/enrich-stub/` (Node, dependency-free): the worked
   contract example mirrored in [§9](#9-testing--conformance).

@@ -3,7 +3,7 @@
 **Status**: Implemented (developer handoff)
 **Date**: 2026-07-05
 **Spec**: [`docs/specs/people-nationality-flag.md`](../specs/people-nationality-flag.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 A small country flag sits to the **right of the person's name** in the hero, derived from the existing

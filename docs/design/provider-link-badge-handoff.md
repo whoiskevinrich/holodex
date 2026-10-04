@@ -1,6 +1,6 @@
 # Design Handoff: Provider Link Badge — Multi-Badge States for Person/Studio (HOLODEX-266)
 
-**ADR**: [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md) — read-only
+**ADR**: [ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md) — read-only
 projection of `person_external_ids`/`studio_external_ids`, server-built links via
 `Manifest.LinkTemplates`, one badge per stored id (D3)
 **Extends**: the video provider badge decided earlier this session (mockups: raw-value vs.
@@ -9,7 +9,7 @@ metadata row) — not yet implemented in code (ADR-082 action item 6 is still op
 treats that visual design as **settled** and specs the delta HOLODEX-266 actually needs: the states
 that only exist once an entity can carry **zero, one, or several** ids instead of one resolved
 scalar.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — tokens only, QA all three skins.
 **Prior art**: `UrlValueList.svelte` (icon + host text leading a link, ADR-059 opt-in) for the
 icon+label-as-link shape; `ProvenanceBadge.svelte`/`ProviderIcon.svelte` for the icon/monogram

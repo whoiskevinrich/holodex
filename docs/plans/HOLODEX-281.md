@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-281                 # the tracker key; must match the branch key regex
 status: in-review                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -15,7 +15,7 @@ Owner-gated CRUD API for `film_people_roles` (F56, ADR-085): add/edit/remove a p
 role independently of that person's per-video `video_people` role, and surface it in `getFilm`'s
 response distinct from the read-only inherited cast union.
 
-**Design package:** [docs/specs/films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md)
+**Design package:** [docs/specs/films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/archive/ADR-085-films-entity.md)
 
 ## Gates — definition of done
 

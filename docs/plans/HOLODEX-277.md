@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-277
 status: in-progress
 profile: full
@@ -21,7 +21,7 @@ review-fix's scope.
 
 ## Gates — definition of done
 
-- [x] architecture — [ADR-084](../architecture/ADR-084-locked-curation-relink-commit.md):
+- [x] architecture — [ADR-084](../architecture/archive/ADR-084-locked-curation-relink-commit.md):
       `SetCurationChecked` gains an optional `commit func()` run under the same `writeMu`
       lock right after the curation write; `ReconcileVideoPeople` splits into a locked core
       (`ReconcileVideoPeopleLocked`) and a thin locking wrapper, using this codebase's

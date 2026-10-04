@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-453
 status: in-progress
 profile: full
@@ -40,7 +40,7 @@ against 185 dismissed keep-separate. On his hands-on pass through the F70 compar
 
 - [x] spec `write-spec` — F58 amended in place: RD4 amendment note, **P0-5a**, API + UI notes in
       `docs/specs/provider-alias-collapse.md`
-- [x] architecture `architecture` — [ADR-108](../architecture/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md);
+- [x] architecture `architecture` — [ADR-108](../architecture/archive/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md);
       ADR-088's status marks D5's enqueue half superseded; index row added
 - [x] design `design-handoff` — `docs/design/provider-alias-skipped-line-handoff.md` + committed
       `provider-alias-skipped-line-mockup.svg` (text extents measured in the browser: every line

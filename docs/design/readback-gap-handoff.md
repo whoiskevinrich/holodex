@@ -1,13 +1,13 @@
 # Design Handoff: Read-back gap — ledger-witnessed rows, the dialog hint, and Mapping checks
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Sync state ·
-**ADRs**: [ADR-119](../architecture/ADR-119-ledger-witness-for-readback-gaps.md) (this change) ·
-[ADR-101](../architecture/ADR-101-ledger-witnessed-image-sync.md) ·
-[ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)
+**ADRs**: [ADR-119](../architecture/archive/ADR-119-ledger-witness-for-readback-gaps.md) (this change) ·
+[ADR-101](../architecture/archive/ADR-101-ledger-witnessed-image-sync.md) ·
+[ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)
 **Builds on**: [writeback-cockpit-handoff.md](writeback-cockpit-handoff.md) (HOLODEX-400). Every
 rule there applies, with one narrowed (§2).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md). Tokens only; QA Cinémathèque.
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) as amended by
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md). Tokens only; QA Cinémathèque.
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (hint line) ·
 `web/src/routes/owner/status/+page.svelte` (Mapping checks + reload toast) · `web/src/lib/api.ts` ·
 backend `internal/resolver`, `internal/api`, `internal/writeback` (ADR-119 D1, D2, D4).

@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-266                 # the tracker key; must match the branch key regex
 status: in-progress               # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -16,15 +16,15 @@ entity header's metadata row, linking out to the third-party source) from video 
 studio detail pages — done when a person/studio with a stored external id shows the same badge
 video already gets, without touching completeness scoring or the ADR-054/055 identity model.
 
-**Design package:** [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md)
-(extends [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md))
+**Design package:** [ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md)
+(extends [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md))
 
 ## Gates — definition of done
 
 <!-- Keyed to flightplan.yaml `gates`. States: [ ] not started · [/] in progress · [~] deferred · [x] done.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
-- [x] architecture `architecture` → `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-083-provider-link-badge-person-studio.md`
 - [x] design `design-handoff` → `docs/design/provider-link-badge-handoff.md`
 - [x] backend
 - [x] frontend
@@ -38,7 +38,7 @@ video already gets, without touching completeness scoring or the ADR-054/055 ide
      The top item is surfaced verbatim in the SessionStart banner. -->
 
 1. [x] [architecture] ADR: read-only projection (D1), provider-declared `link_templates` resolved
-   server-side (D2), one badge per stored id (D3) — `docs/architecture/ADR-083-provider-link-badge-person-studio.md`
+   server-side (D2), one badge per stored id (D3) — `docs/architecture/archive/ADR-083-provider-link-badge-person-studio.md`
 2. [x] [design] design-handoff note covering the multi-badge and no-link-degradation states —
    `docs/design/provider-link-badge-handoff.md`
 3. [x] [backend] `Manifest.LinkTemplates map[string]map[string]string` (`internal/enrich/enrich.go`)
