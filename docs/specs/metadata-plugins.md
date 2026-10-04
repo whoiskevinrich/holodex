@@ -113,6 +113,11 @@ A provider is an HTTP/JSON service. Core calls it; it owns its upstream API key,
 
 ### F22.8 — Provider health & observability
 
+> **Not built.** Neither row below exists today: the System Activity page shows no per-provider
+> health, Holodex never polls a provider's health check, and the metrics output carries no
+> per-provider series. The "shown on `/status`" clauses in F22.1a and F22.2c depend on F22.8a and are
+> unbuilt for the same reason.
+
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
 | F22.8a | Provider health (`/healthz`) shown on the `/status` page | Each configured provider lists state (ok/unavailable) and version; no secrets exposed (ADR-028 invariant) |

@@ -87,7 +87,10 @@ purely for browsing/filtering today, that also lays groundwork for semantic sear
 - [x] Owner can create, rename, and delete a category.
 - [x] A tag can be linked to zero, one, or many categories.
 - [x] Creating a category or tag with a name that collides (case-insensitive fold, matching the
-      existing tag-identity fold) with the other type is rejected with a clear error.
+      existing tag-identity fold) with the other type is rejected with a clear error, as a
+      conflict, before anything is written: "that name already belongs to a tag" when a category
+      takes a tag's name, "that name already belongs to a category" when a new tag takes a
+      category's, and "a category with that name already exists" for a duplicate category.
 
 **Cascade delete**
 - Deleting a category unassigns it from every tag (removes the junction rows) and deletes the

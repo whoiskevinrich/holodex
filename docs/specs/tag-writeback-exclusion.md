@@ -97,6 +97,9 @@ vocabulary, and gets worse as the catalog grows.
 - [ ] The flag affects only the Genre writeback value — not creation, search, filtering, or
       attachment.
 - [ ] Changing the flag alone never enqueues a write — it only updates the stored value.
+- [ ] The flag is flat, per name, and does not inherit through the hierarchy: turning it off
+      for "Dog" drops only "Dog" from a video's written genres. Its parent "Animal" and a
+      separately attached child "German Shepherd" are still written, each by its own flag.
 
 **Manual sync trigger**
 - A tag-scoped action ("Sync writeback now" or similar) that the owner explicitly invokes,

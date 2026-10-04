@@ -165,8 +165,10 @@ pencil + modal for `long_text`).
 **Adoption vs. precedence.** ADR-090's two layers. *Adoption*: should this candidate enter the
 shadow store at all (transient, review queues). *Precedence*: which stored source wins this
 field (standing, the decision controls above). Every control in this document is a precedence
-control. Never put a competing provider value in an adoption row.
-→ [ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md)
+control. Never put a competing provider value in an adoption row. On any entity page, adoption is
+reachable inline (the same resolve path as its `/owner` queue), and an adopted value visibly lands
+in the field list with its provenance badge, with no further owner action.
+→ [field-resolution.md](../architecture/field-resolution.md)
 
 **Applied vs. on file.** The two columns a writeback surface shows for a video field: *applied*
 is the resolver's winner (decided or not); *on file* is the `·file` candidate — the tag value the
