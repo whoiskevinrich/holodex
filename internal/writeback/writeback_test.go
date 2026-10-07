@@ -449,7 +449,7 @@ func TestMergeTagsXML_IllegalXMLChars(t *testing.T) {
 // to illegal code points are dropped; legal ones are kept.
 func TestMergeTagsXML_IllegalCharRefs(t *testing.T) {
 	const existing = "<?xml version=\"1.0\"?>\n<Tags>\n<Tag>\n<Targets />\n" +
-		"<Simple><Name>COMMENT</Name><String>a&#12;b&#x0C;c&#xFFFF;d&#xD800;&#x110000;&#0;&#9;e&#x41;&amp;</String></Simple>\n" +
+		"<Simple><Name>COMMENT</Name><String>a&#12;b&#x0C;c&#xFFFF;d&#xD800;&#x110000;&#x80000041;&#0;&#9;e&#x41;&amp;</String></Simple>\n" +
 		"</Tag>\n</Tags>"
 
 	got, err := mergeTagsXML(existing, nil)
