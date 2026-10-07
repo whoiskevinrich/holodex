@@ -2,9 +2,9 @@
 
 **Status**: Draft
 **Phase**: 3 (Enrichment foundation)
-**Depends on**: the thumbnail pipeline ([ADR-009](../architecture/ADR-009-thumbnail-strategy.md)), media-file/asset serving ([ADR-015](../architecture/ADR-015-media-file-serving.md)), the data layout ([ADR-014](../architecture/ADR-014-configuration-and-data-layout.md)), the access-control gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), metadata source plugins / enrichment ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md), F22), and frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+**Depends on**: the thumbnail pipeline ([ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md)), media-file/asset serving ([ADR-015](../architecture/archive/ADR-015-media-file-serving.md)), the data layout ([ADR-014](../architecture/archive/ADR-014-configuration-and-data-layout.md)), the access-control gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)), metadata source plugins / enrichment ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), F22), and frontend theming ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Realizes / supersedes**: [Phase 3 F14.3](phase-3-enrichment.md) (person profile image) and the deferred F22 photo-download follow-up — expanded from a single profile image to four image roles, themed/gendered placeholders, and an owner upload path.
-**Architecture**: [ADR-038](../architecture/ADR-038-person-images.md) — person image on-disk store, typed real-or-placeholder serving (version-stamped cache), shared ingest normalization, and placeholder resolution. Access reuses the existing owner gate (ADR-030) — no access-model change.
+**Architecture**: [ADR-038](../architecture/archive/ADR-038-person-images.md) — person image on-disk store, typed real-or-placeholder serving (version-stamped cache), shared ingest normalization, and placeholder resolution. Access reuses the existing owner gate (ADR-030) — no access-model change.
 **Design handoff (to be produced)**: `docs/design/people-images-handoff.md` (placeholder artwork set across all three skins; upload/gallery UI; loading/empty/error states).
 
 ---
@@ -24,7 +24,7 @@ the gallery holds up to **20 extra images per person** on top of those.
 > person tags embedded in media (see [Person Aliases](person-aliases.md)). Every people surface is pure
 > text — a list of names, a name header, and name chips on a video. The library looks like a database,
 > not a media app. F22 enrichment already *parses* provider asset URLs but
-> [deferred actually downloading them](../architecture/ADR-033-metadata-source-plugins.md); this spec
+> [deferred actually downloading them](../architecture/archive/ADR-033-metadata-source-plugins.md); this spec
 > turns those parsed URLs into displayed images and adds an owner upload path for everything a
 > provider doesn't supply.
 
@@ -49,7 +49,7 @@ the gallery holds up to **20 extra images per person** on top of those.
   - **Enrichment asset download** — activate the deferred F22 asset path: fetch image URLs returned by
     metadata providers (subject to the existing SSRF allowlist, redirect refusal, and response caps in
     `internal/enrich`) and store them as person images.
-  - **Owner upload** — the **owner**, behind the existing access gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)),
+  - **Owner upload** — the **owner**, behind the existing access gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)),
     can upload an image and assign it a role: fill/replace one of the three core slots, or add to the
     gallery. (Uploads are owner-curated; non-owner viewers do not upload — see §9.)
 - **Core roles are single-slot.** Each person has at most one `headshot`, one `banner`, and one
@@ -165,7 +165,7 @@ Ordered by priority.
 
 ---
 
-## Addendum — configurable cap, owner override & enrichment suppression ([ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md), 2026-06-25)
+## Addendum — configurable cap, owner override & enrichment suppression ([ADR-043](../architecture/archive/ADR-043-gallery-cap-and-enrichment-suppression.md), 2026-06-25)
 
 A follow-up slice that hardens the gallery cap and gives the owner control over it,
 plus a "don't bring back what I deleted" guarantee for enrichment. Motivated by a
@@ -194,15 +194,15 @@ issues the over-cap upload. Suppression is entirely server-side (no UI).
 
 ---
 
-## Addendum — enrichment photos are deduplicated in the gallery ([ADR-050](../architecture/ADR-050-image-content-dedup.md), F34, 2026-06-29)
+## Addendum — enrichment photos are deduplicated in the gallery ([ADR-050](../architecture/archive/ADR-050-image-content-dedup.md), F34, 2026-06-29)
 
 The gallery `extra` role is the one append-only slot: where the three core roles are
 single-occupancy (replace-on-reupload) and already dedup *per role within a run*
-([ADR-039 §5](../architecture/ADR-039-provider-asset-urls.md)), gallery extras are
+([ADR-039 §5](../architecture/archive/ADR-039-provider-asset-urls.md)), gallery extras are
 stored unbounded-then-capped with **no dedup at all**. So the same photo lands in a
 person's gallery more than once whenever:
 
-1. **A re-enrich re-fetches a still-present URL.** Suppression ([ADR-043](../architecture/ADR-043-gallery-cap-and-enrichment-suppression.md) F25.25)
+1. **A re-enrich re-fetches a still-present URL.** Suppression ([ADR-043](../architecture/archive/ADR-043-gallery-cap-and-enrichment-suppression.md) F25.25)
    only skips URLs the owner *deleted*; an image that's still in the gallery is fetched
    and appended again on the next run.
 2. **A provider lists the same gallery URL twice** in one response (the per-run `done`
@@ -235,7 +235,7 @@ access model or the read/serve path.
 | F34.5 | **One-time backfill collapses existing duplicate gallery extras.** A startup repair pass hashes any image rows lacking a `content_hash`, then for each person removes duplicate `extra` rows (and their on-disk files), keeping the earliest occurrence; an `extra` whose bytes match a **core** image is removed in favor of the core image. Core images are never deleted by the backfill. The pass is idempotent and runs once (rows already hashed are skipped). | After upgrade, a gallery that held three copies of one photo shows one; an `extra` that duplicated the headshot is gone; running the pass again is a no-op; no core image is ever removed. |
 | F34.6 | **Owner uploads are hashed but never auto-skipped.** An owner deliberately uploading (or promoting) an image that duplicates an existing one is honored — dedup is an *enrichment* bound, consistent with the cap (enrichment bounded; owner may over-cap, ADR-043 F25.24). | An owner upload of a duplicate image succeeds and appears; only enrichment-sourced extras are silently deduped. |
 
-**Data/architecture ([ADR-050](../architecture/ADR-050-image-content-dedup.md)).** Migration
+**Data/architecture ([ADR-050](../architecture/archive/ADR-050-image-content-dedup.md)).** Migration
 `0015` adds `person_images.content_hash TEXT NOT NULL DEFAULT ''` plus a non-unique
 lookup index `(person_id, content_hash)`. Uniqueness is enforced in the **repo/sink
 layer** (a transactional existence check), not a DB constraint — the hash is computed in
@@ -253,7 +253,7 @@ rows exist. Existing galleries clean up on the first post-upgrade start (F34.5).
 
 ---
 
-## Addendum — owner-set core images take precedence over enrichment ([ADR-049](../architecture/ADR-049-manual-image-precedence.md), F33, 2026-06-28)
+## Addendum — owner-set core images take precedence over enrichment ([ADR-049](../architecture/archive/ADR-049-manual-image-precedence.md), F33, 2026-06-28)
 
 The sibling of F25.25's delete-suppression: where F25.25 keeps a *deleted* provider
 image deleted, this keeps an *owner-set* core image from being overwritten. A person's
@@ -347,8 +347,8 @@ follow-up, F25.18b.) No gender is persisted on the `people` row in v1.
 
 ## Data, storage & serving (direction — finalized in the ADR)
 
-These mirror the thumbnail pipeline ([ADR-009](../architecture/ADR-009-thumbnail-strategy.md)) and
-data-layout ([ADR-014](../architecture/ADR-014-configuration-and-data-layout.md)) conventions; exact
+These mirror the thumbnail pipeline ([ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md)) and
+data-layout ([ADR-014](../architecture/archive/ADR-014-configuration-and-data-layout.md)) conventions; exact
 column/route names are settled in the new ADR.
 
 - **DB**: a `person_images` table — `id`, `person_id` (FK), `role`, `source` (`upload` | `enrichment`
@@ -377,7 +377,7 @@ column/route names are settled in the new ADR.
 ## Access control & security
 
 Uploads are **owner-only**, so there is **no access-model change** — they reuse the existing owner gate
-([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)), the same choke point as enrichment
+([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)), the same choke point as enrichment
 and aliases. Viewing images is public (public metadata), as elsewhere. A `/security-review` is still
 warranted before merge because the change ingests binary files and serves them, but the surface is much
 smaller than open contribution.
@@ -501,7 +501,7 @@ owner-gated throughout — there is no access-model change to sequence around.
 ## Artifacts to produce (project working agreements)
 
 - [ ] This spec (`docs/specs/people-images.md`) — **done** (draft).
-- [x] **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) — storage, serving, ingest
+- [x] **ADR**: [ADR-038](../architecture/archive/ADR-038-person-images.md) — storage, serving, ingest
       normalization, placeholder resolution. Access reuses ADR-030; no access-model change.
 - [x] **Design handoff**: [people-images-handoff.md](../design/people-images-handoff.md) + system pattern
       [people-images-design-system.md](people-images-design-system.md) (`.portrait-frame`, components,

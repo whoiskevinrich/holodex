@@ -2,10 +2,10 @@
 
 **Status**: Implemented (showcase tooling)
 **Date**: 2026-06-11
-**Related**: [ADR-004](../architecture/ADR-004-metadata-extraction.md) (extraction),
-[ADR-009](../architecture/ADR-009-thumbnail-strategy.md) (cover art / Tier 1),
-[ADR-012](../architecture/ADR-012-resolution-classification.md) (resolution buckets),
-[ADR-017](../architecture/ADR-017-search-architecture.md) (FTS folding).
+**Related**: [ADR-004](../architecture/archive/ADR-004-metadata-extraction.md) (extraction),
+[ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md) (cover art / Tier 1),
+[ADR-012](../architecture/archive/ADR-012-resolution-classification.md) (resolution buckets),
+[ADR-017](../architecture/archive/ADR-017-search-architecture.md) (FTS folding).
 Generator: [`testdata/demo/`](../../testdata/demo/).
 
 ## Problem

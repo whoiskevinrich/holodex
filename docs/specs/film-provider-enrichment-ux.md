@@ -11,18 +11,18 @@ builds the owner-facing surface for it and closes the gap between what a provide
 and what the core is willing to store.
 
 **Depends on** (all shipped):
-- [ADR-086](../architecture/ADR-086-film-provider-enrichment.md) / [films-entity.md](films-entity.md)
+- [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) / [films-entity.md](films-entity.md)
   (F56) — `entity_type: "film"`, `filmEnrichResolve/Apply/Clear`, the `film_images` poster sink, and
   the `films_enabled` route gate. **The resolve/apply/clear trio and the F47 review-queue routes are
   already mounted**; nothing in this spec adds a new enrichment endpoint.
-- [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) /
+- [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) /
   [field-source-of-truth.md](field-source-of-truth.md) (F36) — the per-field decision grammar film
   scalars already resolve through, and the `SourceBadge` control that renders it.
-- [ADR-079](../architecture/ADR-079-studio-image-roles.md) (F51) — entity-generic
+- [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md) (F51) — entity-generic
   `ImageSink`/`downloadAssets`/`assetRoleFor` role plumbing, widened Person → Studio → Film.
-- [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) (F47) — confidence
+- [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) (F47) — confidence
   routing, dismissal, and the owner enrich queue that already ranks film rows.
-- [ADR-030](../architecture/ADR-030-access-control-gating-seam.md) — the owner gate (`requireOwner`).
+- [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) — the owner gate (`requireOwner`).
 - `EntityImageSlot` (HOLODEX-286) — the entity-generic image-role control, generic over role.
 
 **Related**: [films-entity.md](films-entity.md) (F56) — this block resolves its deferred **P1-1**
@@ -32,7 +32,7 @@ deferred **P1-3** scene-coverage badge · [film-studio-cascade-writeback.md](fil
 [metadata-provider-contract.md](metadata-provider-contract.md) — the film vocabulary and asset-kind
 tables this block corrects and extends.
 
-**ADR**: **[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) (Proposed)** records
+**ADR**: **[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) (Proposed)** records
 the field-vocabulary decisions as D1–D6: the cast landing zone and its deliberate asymmetry with
 ADR-087's Studio cascade, the non-overlap merge rule, the `year` identity write, the `banner` role
 replacing the consumer-less `thumb`, and the SPA entity-kind widening. Touches the **enrichment write
@@ -89,7 +89,7 @@ not a field write. So this block cannot be a list of new field keys; each gap ne
 ## Non-Goals
 
 1. **Film rename.** `name` stays baseline-only. If title enrichment is ever wanted it routes through
-   the [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) unified name-edit and
+   the [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) unified name-edit and
    collision-detect machinery Person and Studio already use — a separate block, not a field addition.
 2. **Changing how a film's cast, tags or studios are derived.** The scene union stays the primary
    answer (films-entity RD2/RD3). This block adds a second, clearly-labelled film-level layer beside
@@ -114,7 +114,7 @@ backend already shipped.)*
   forced creating a Person row per billed performer. See ADR-089 D1; the principle below is
   unchanged.)* This is **deliberately asymmetric
   with Studio**, which cascades a decision to every attached video under
-  [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md). The asymmetry is the
+  [ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md). The asymmetry is the
   point, not drift: a studio is effectively single-valued and genuinely is a property every scene of
   the film shares, whereas cast is many-valued and "billed on the theatrical release" is a different
   claim from "appears in this scene." Cascading cast would write performers onto scenes they are not
@@ -287,7 +287,7 @@ backend already shipped.)*
   scenes cover 8 of 12 billed cast"* — as a single muted line above the cast section, closing
   films-entity P1-3 properly rather than leaving it implicit in chip counts.
 - **P1-2**: **Provider link badge on films.** `ProviderLinkBadge` is already entity-agnostic;
-  [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md)'s `LinkTemplates` map is
+  [ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md)'s `LinkTemplates` map is
   keyed by entity kind and needs a `film` key. Deferred only because it is orthogonal to the field
   vocabulary. **Picked up by [provider-link-badge-coverage.md](provider-link-badge-coverage.md)
   (F63, HOLODEX-393) as its P0-6 — shipped 2026-09-17: pills on the year line (handoff DD4).**

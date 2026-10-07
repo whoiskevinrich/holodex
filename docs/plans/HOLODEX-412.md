@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-412
 status: in-review
 profile: full
@@ -13,7 +13,7 @@ The F55 score let 12 nice-to-haves out-vote 4 critical facets (all-required-cura
 poster-missing = 88) and blended provenance into doneness. v2: `required` (binary presence over
 critical facets) *is* the score; `extras` is separate and only overfills the ring once required is
 full; the score is materialized per entity with trigger-fed invalidation so a ring can sit on every
-owner-mode card. ADR: [ADR-099](../architecture/ADR-099-completeness-score-required-band.md).
+owner-mode card. ADR: [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md).
 Spec: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F55, amended in place).
 
 ## Gates — definition of done

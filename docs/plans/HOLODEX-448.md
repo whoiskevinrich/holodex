@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-448
 status: in-progress
 profile: infra
@@ -15,11 +15,11 @@ existed for exactly two things: `ca-certificates`, and `wget` for the `HEALTHCHE
 packages were cargo it cannot link — and 9 of its 17 Trivy alerts were **unreachable** CVEs against
 them, recurring every release. This moves the runtime to
 `gcr.io/distroless/static-debian12:debug-nonroot` and moves the health probe into the binary.
-ADR: [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md).
+ADR: [ADR-105](../architecture/archive/ADR-105-sidecar-distroless-runtime-base.md).
 
 ## Gates — definition of done
 
-- [x] architecture `architecture` — [ADR-105](../architecture/ADR-105-sidecar-distroless-runtime-base.md)
+- [x] architecture `architecture` — [ADR-105](../architecture/archive/ADR-105-sidecar-distroless-runtime-base.md)
   D1–D4; index row landed. D3 records that `edge` and `latest` **cannot** carry different bases
   (ADR-070 retag promotion makes them one digest) — the question that will otherwise be re-asked.
 - [x] backend — `-healthcheck` flag on `providers/tmdb/main.go` handled before credential validation,

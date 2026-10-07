@@ -2,7 +2,7 @@
 
 **Status:** approved 2026-09-26. The owner picked **option A** (one switch per slot) over option B
 (Dark and Light chips).
-**Refs:** [ADR-109](../architecture/ADR-109-per-studio-image-halo.md), spec
+**Refs:** [ADR-109](../architecture/archive/ADR-109-per-studio-image-halo.md), spec
 [studio-images.md § Image halo](../specs/studio-images.md), prior halo work in
 [studio-list-logo-handoff.md](studio-list-logo-handoff.md) (HOLODEX-432) and
 [image-plate-handoff.md](image-plate-handoff.md) (HOLODEX-437).

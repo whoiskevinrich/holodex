@@ -7,7 +7,7 @@ restart) to pick it up.
 
 Spec [`configurable-provider-search-patterns.md`](../specs/configurable-provider-search-patterns.md) ·
 design handoff [`configurable-provider-search-patterns-handoff.md`](configurable-provider-search-patterns-handoff.md) ·
-ADR [`ADR-080`](../architecture/ADR-080-configurable-provider-search-patterns.md).
+ADR [`ADR-080`](../architecture/archive/ADR-080-configurable-provider-search-patterns.md).
 
 Legend: **[smoke]** = quick programmatic check · **[agent]** = verified this session
 (`javascript_tool` / unit tests) · **[human]** = needs a human look.

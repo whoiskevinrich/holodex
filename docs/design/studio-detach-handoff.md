@@ -5,10 +5,10 @@ linked studio and a `detach` callback), and `film/FilmStudioCascadeDialog.svelte
 committing a cascade clear; see [The film page](#the-film-page-same-chip-cascade-commit)). No new
 component.
 **Sibling it must match**: `entity/PersonPicker.svelte`'s attached-people list (HOLODEX-272).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) as amended by
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) as amended by
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md), so this is tokens only and QA'd in Cinémathèque.
 **Backend dependency**: a "resolve to no studio" decision, settled by
-[ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md) (a manual decision with no value,
+[ADR-120](../architecture/archive/ADR-120-owner-cleared-field-decision.md) (a manual decision with no value,
 recorded by an explicit `clear`; writeback removes the tag).
 **Mockup**: ![Studio detach: Linked now chip, busy, after-detach page, reopened picker](studio-detach-mockup.svg)
 **Jira**: [HOLODEX-493](https://whoiskevinrich.atlassian.net/browse/HOLODEX-493) (story)
@@ -126,7 +126,7 @@ Videos on another studio are untouched, and the results step lists exactly the v
 ## Backend contract (for the ADR)
 
 The frontend calls a page-supplied `detach(): Promise<{ ok: true } | { conflict: VideoCollisionRef }>`,
-the same shape as `decide`. [ADR-120](../architecture/ADR-120-owner-cleared-field-decision.md) settles it:
+the same shape as `decide`. [ADR-120](../architecture/archive/ADR-120-owner-cleared-field-decision.md) settles it:
 `PUT …/fields/studio/decision` with `{ "source": "manual", "clear": true }`. The gaps it closed were:
 
 - `PUT /media/{id}/fields/studio/decision` with `source: manual, manual_value: ""` is **refused**

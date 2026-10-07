@@ -1,7 +1,7 @@
 # Design handoff — Tag set writeback: dialog Tags row + on-file chip glyphs (HOLODEX-401)
 
 **Spec:** [tag-set-writeback.md](../specs/tag-set-writeback.md) (F72) · **ADR:**
-[ADR-111](../architecture/ADR-111-recorded-file-tag-set.md) · **Builds on:**
+[ADR-111](../architecture/archive/ADR-111-recorded-file-tag-set.md) · **Builds on:**
 [writeback-cockpit-handoff.md](writeback-cockpit-handoff.md) (HOLODEX-400: gutter glyphs, no checkboxes)
 · [tag-link-chip-handoff.md](tag-link-chip-handoff.md) (HOLODEX-292: `TagLinkChip`)
 

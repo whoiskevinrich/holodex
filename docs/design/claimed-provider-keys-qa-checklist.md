@@ -2,7 +2,7 @@
 
 **Spec**: [claimed-provider-keys.md](../specs/claimed-provider-keys.md) ·
 **Handoff**: [claimed-provider-keys-handoff.md](claimed-provider-keys-handoff.md) ·
-**ADR**: [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) ·
+**ADR**: [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md) ·
 **Jira**: HOLODEX-218
 
 Conventions: every item is numbered `section.item` and tagged by verifier —

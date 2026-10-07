@@ -17,25 +17,25 @@ no registry involvement — [HOLODEX-173](https://whoiskevinrich.atlassian.net/b
 [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) stays open, and this spec should be
 re-validated (confirmed, revised, or replaced) if a future phase — most likely
 [HOLODEX-180](https://whoiskevinrich.atlassian.net/browse/HOLODEX-180) — actually needs the generic
-substrate. See also [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md#superseded-2026-07-12),
+substrate. See also [ADR-065](../architecture/archive/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md#superseded-2026-07-12),
 superseded in lockstep.
 
 **Issue**: [HOLODEX-176](https://whoiskevinrich.atlassian.net/browse/HOLODEX-176) *(parent epic
 [HOLODEX-178](https://whoiskevinrich.atlassian.net/browse/HOLODEX-178) — F46 Queryable person/video
 attributes)*
-**ADR**: [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md) —
-extends [ADR-062](../architecture/ADR-062-in-app-field-promotion.md)'s deferred D-filterable item and
-[ADR-063](../architecture/ADR-063-derived-computed-fields.md)'s derived-field genre to relationship scope
+**ADR**: [ADR-065](../architecture/archive/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md) —
+extends [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md)'s deferred D-filterable item and
+[ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md)'s derived-field genre to relationship scope
 (two-entity input, new injection boundary)
 **Design**: TBD via `/design-handoff` — cast-list age placement (the video page's people section is currently
 a bare poster grid with no subtitle text; fitting an age number in needs a UI call)
 **Testing**: TBD via `/testing-strategy`
 
 **Depends on** (all shipped):
-- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/ADR-052-baseline-source-contract.md),
+- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md),
   `ResolveFields`, `registry.FieldDef`, `internal/registry`)
 - the derived-field genre and `Derive` post-pass precedent ([F45](derived-person-fields.md) /
-  [ADR-063](../architecture/ADR-063-derived-computed-fields.md), `internal/resolver/derive.go`) — Age in
+  [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md), `internal/resolver/derive.go`) — Age in
   Media is the same computable/absent/non-adoptable contract, extended to a second entity's resolved fields
 - the video ↔ person link (`video_people`, `internal/repo/repo.go` `attachAssociations`) that already
   populates the video-page cast list
@@ -216,7 +216,7 @@ measure. The metrics that matter are correctness and coverage:
 
 ## Open Questions
 
-Two of the four were architecture-level and are now settled by [ADR-065](../architecture/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md):
+Two of the four were architecture-level and are now settled by [ADR-065](../architecture/archive/ADR-065-typed-field-registry-and-relationship-scoped-computed-fields.md):
 
 - ~~Which existing canonicals get a `FieldType` in this pass~~ — **resolved (ADR-065 §D1):** the minimum set
   that proves the taxonomy — `birthdate`/`release_date` → `date`, `age_in_media` → `numeric`, plus `title`

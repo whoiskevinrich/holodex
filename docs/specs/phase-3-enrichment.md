@@ -2,7 +2,7 @@
 
 **Status**: Draft (Future)  
 **Phase**: 3 of 3  
-**Depends on**: Phase 2 complete. Plugin architecture is now **decided** — see the dedicated [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) (sidecar providers over a unified resolution layer). Writeback strategy (safe edit-back to source files, F17) remains a **future ADR**, designed to consume the F22 shadow layer.
+**Depends on**: Phase 2 complete. Plugin architecture is now **decided** — see the dedicated [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) (sidecar providers over a unified resolution layer). Writeback strategy (safe edit-back to source files, F17) remains a **future ADR**, designed to consume the F22 shadow layer.
 
 ---
 
@@ -34,7 +34,7 @@ Extend the People and Tags data models to support rich metadata, aliases, and gr
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F14.1 | A Person record supports N aliases; any alias matches in search and filter | Adding alias "Rob" to "Robert Smith" causes videos tagged "Rob" to surface when filtering by "Robert Smith" — **realized (search slice) in the dedicated [Person Aliases spec (F23)](person-aliases.md) + [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)**; the merge reading (folding distinct extracted people) is scoped out there as a future person-merge feature |
+| F14.1 | A Person record supports N aliases; any alias matches in search and filter | Adding alias "Rob" to "Robert Smith" causes videos tagged "Rob" to surface when filtering by "Robert Smith" — **realized (search slice) in the dedicated [Person Aliases spec (F23)](person-aliases.md) + [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md)**; the merge reading (folding distinct extracted people) is scoped out there as a future person-merge feature |
 | F14.2 | Configurable extra metadata fields per Person via a JSON schema defined in app config (e.g., `birthdate`, `website`, `nationality`) | Config file declares fields; UI renders them on person detail page |
 | F14.3 | Person profile image stored at `DATABASE_PATH/images/people/:person_id.{jpg,png}` | Uploading an image via UI stores it and displays it on the person's page and index card |
 | F14.4 | Person detail page displays all enrichment fields alongside video list | All configured fields visible |
@@ -52,7 +52,7 @@ Extend the People and Tags data models to support rich metadata, aliases, and gr
 
 ### F16: Metadata Source Plugins
 
-> **Detailed and made concrete in the [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/ADR-033-metadata-source-plugins.md).** Decisions locked: providers are **sidecar containers** speaking a small HTTP contract; **People** is the v1 slice; matching is **embedded-ID-first with a name-search fallback**; provider data is a shadow layer merged through ADR-013's precedence model. The high-level F16 table below is retained for roadmap context.
+> **Detailed and made concrete in the [Metadata Source Plugins spec (F22)](metadata-plugins.md) + [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md).** Decisions locked: providers are **sidecar containers** speaking a small HTTP contract; **People** is the v1 slice; matching is **embedded-ID-first with a name-search fallback**; provider data is a shadow layer merged through ADR-013's precedence model. The high-level F16 table below is retained for roadmap context.
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|

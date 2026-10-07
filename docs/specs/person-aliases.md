@@ -4,8 +4,8 @@
 **Phase**: 3 (Enrichment foundation — first slice)
 **Depends on**: Phase 1 search (ADR-017), the owner gate (ADR-030).
 **Related**: detailed realization of [Phase 3 F14.1](phase-3-enrichment.md); distinct from the
-provider-sourced `aliases` enrichment field (F22, [ADR-033](../architecture/ADR-033-metadata-source-plugins.md)).
-**Architecture**: [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md).
+provider-sourced `aliases` enrichment field (F22, [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)).
+**Architecture**: [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md).
 **Design handoff**: [`docs/design/person-aliases-handoff.md`](../design/person-aliases-handoff.md).
 
 ---
@@ -110,7 +110,7 @@ person_aliases_fts   (external-content FTS5 mirror of person_aliases.alias)
   kept in sync by ai/ad/au triggers (mirrors people_fts, ADR-017)
 ```
 
-Migration **0007** (next in sequence after 0006). See [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)
+Migration **0007** (next in sequence after 0006). See [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md)
 for why aliases get their own FTS table (not a denormalized column), and how the scanner's people
 branch resolves names through this table (name → alias → create) so merges survive re-scans.
 

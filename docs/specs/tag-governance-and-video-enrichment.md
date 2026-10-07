@@ -9,13 +9,13 @@
 repo's F/ADR numbers move fast, see F43's own renumbering history in `entity-identity.md`).
 
 **Depends on** (all shipped):
-- F43 tag identity spine ([entity-identity.md](entity-identity.md), [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md)) — `resolveOrCreateByName`, `entity_aliases`, merge/rename, the `/tags` list. This spec adds governance (deny-list, hierarchy) **on top of** that spine; it does not change RD7's "tags are identity-only, no decision model" call.
-- F47 enrichment auto-apply + dismissals ([enrichment-review-workflow.md](enrichment-review-workflow.md), [ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md)) — closest structural precedent for a durable negative-assertion table; this spec's deny-list is a different shape (global term block, not per-entity-per-provider) but the same idiom.
-- Metadata writeback ([ADR-041](../architecture/ADR-041-metadata-writeback.md), `internal/writeback`) — the `genres` → `Genre`/`QuickTime:Genre` tag mapping **already exists** for every writable container (`internal/writeback/tags.go`); this spec changes what feeds that field, not the plumbing.
-- Metadata field mapping ([ADR-013](../architecture/ADR-013-metadata-field-mapping.md), `metadata-mappings.yaml`) — the `genres` canonical field (`multi: true`, sourced from `tmdb:genres`) this spec materializes into real Tag rows.
+- F43 tag identity spine ([entity-identity.md](entity-identity.md), [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md)) — `resolveOrCreateByName`, `entity_aliases`, merge/rename, the `/tags` list. This spec adds governance (deny-list, hierarchy) **on top of** that spine; it does not change RD7's "tags are identity-only, no decision model" call.
+- F47 enrichment auto-apply + dismissals ([enrichment-review-workflow.md](enrichment-review-workflow.md), [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)) — closest structural precedent for a durable negative-assertion table; this spec's deny-list is a different shape (global term block, not per-entity-per-provider) but the same idiom.
+- Metadata writeback ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md), `internal/writeback`) — the `genres` → `Genre`/`QuickTime:Genre` tag mapping **already exists** for every writable container (`internal/writeback/tags.go`); this spec changes what feeds that field, not the plumbing.
+- Metadata field mapping ([ADR-013](../architecture/archive/ADR-013-metadata-field-mapping.md), `metadata-mappings.yaml`) — the `genres` canonical field (`multi: true`, sourced from `tmdb:genres`) this spec materializes into real Tag rows.
 - TMDB provider sidecar (F26) — the enrichment source whose genre data flows through this pipeline.
 
-**ADR**: [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) (Proposed) — the hierarchy
+**ADR**: [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md) (Proposed) — the hierarchy
 column + application-layer cycle guard, the `denied_tags` table shape and its single enforcement point inside
 `resolveOrCreateByName`, the `video_tags` provenance fix to `replaceAssociations` (the correctness-critical
 piece), and the materialization pass's placement in the existing `afterEnrichApply` dispatcher.
@@ -373,7 +373,7 @@ Single-owner correctness + hygiene feature — same posture as F43:
 
 No hard deadline. Per this project's change-routing rules, before/with implementation:
 
-1. ✅ **`/architecture`** — [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) (Proposed):
+1. ✅ **`/architecture`** — [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md) (Proposed):
    the hierarchy relationship (`parent_tag_id`, application-layer cycle guard, query-time recursive expansion),
    the deny-list table shape (why it's not `entity_keep_separate`- or `enrichment_dismissals`-shaped), the
    `video_tags` provenance column + `replaceAssociations` behavior change (flagged as the ADR's highest-risk
@@ -388,7 +388,7 @@ No hard deadline. Per this project's change-routing rules, before/with implement
 4. ✅ **`/security-review`** — new mutations (`videos/{id}/tags`, `tags/{id}/parent`, `owner/tags/denylist`) are
    all `requireOwner`; no new externally-influenced input beyond what F43/F47 already validate (tag names go
    through the same sanitize perimeter). **Design-level sign-off complete 2026-07-30** (see
-   [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md) Action Items 10-11) — clean,
+   [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md) Action Items 10-11) — clean,
    with one gap found and tracked (no length cap on the two new tag-creation paths, closeable at
    implementation). Re-run on the implementation diff per standing policy.
 

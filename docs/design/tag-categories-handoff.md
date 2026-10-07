@@ -5,7 +5,7 @@
 reduced lifecycle vs. Tag/Person/Studio, the `tag_categories` junction shape, the facet-expansion
 query). This handoff's UI-reuse decisions are inputs that ADR should treat as settled; the "Open
 design decisions" section at the end lists what's still genuinely open.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Prior art**: [tag-writeback-exclusion-handoff.md](tag-writeback-exclusion-handoff.md) — the
 `tags/[id]` `detail`-snippet and `/tags` Manage-mode-bar extension points this epic builds on,

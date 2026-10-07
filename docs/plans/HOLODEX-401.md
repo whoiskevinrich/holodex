@@ -16,7 +16,7 @@ Done means the writeback dialog writes a video's tags as one set whenever the fi
 as on file / will add / will drop, and the owner's tag chips on the media page carry an on-file glyph —
 backed by the file's tag set recorded at every scan.
 
-**Design package:** [spec F72](../specs/tag-set-writeback.md) · [ADR-111](../architecture/ADR-111-recorded-file-tag-set.md) · [handoff](../design/tag-set-writeback-handoff.md) + [mockup](../design/tag-set-writeback-mockup.svg) · [testing-strategy](../testing-strategy.md)
+**Design package:** [spec F72](../specs/tag-set-writeback.md) · [ADR-111](../architecture/archive/ADR-111-recorded-file-tag-set.md) · [handoff](../design/tag-set-writeback-handoff.md) + [mockup](../design/tag-set-writeback-mockup.svg) · [testing-strategy](../testing-strategy.md)
 
 ## Gates — definition of done
 

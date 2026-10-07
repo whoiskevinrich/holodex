@@ -6,7 +6,7 @@
 **Date**: 2026-06-27
 
 **Depends on**: The shipped owner-access gate — `requireOwner` middleware, the `X-Admin-Token`
-header scheme, and `GET /api/v1/capabilities` ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md),
+header scheme, and `GET /api/v1/capabilities` ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md),
 spec [F21 System Activity](system-activity.md) F21.7). No dependency on multi-user accounts (still out of scope).
 
 **New ADRs required**:

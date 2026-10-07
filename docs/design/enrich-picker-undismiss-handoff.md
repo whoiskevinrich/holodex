@@ -3,7 +3,7 @@
 **Spec**: [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md) P0-4 (RD4) —
 amended by this bug · **Prior handoff**: [enrichment-review-workflow-handoff.md](enrichment-review-workflow-handoff.md)
 (the queue row's "Try again") ·
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — tokens only, QA all three skins.
 **Surfaces**: `EnrichPicker.svelte` (one new state), its four detail-page mounts (pass `retry`
 through), `api.ts` (the four `enrich*Resolve` methods), the four `/resolve` handlers. No new component.

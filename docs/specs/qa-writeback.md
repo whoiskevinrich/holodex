@@ -1,7 +1,7 @@
 # QA: Metadata Writeback (F28)
 
 **Feature**: Per-field write-back of enrichment values into media file tags via exiftool  
-**Related**: [ADR-041](../architecture/ADR-041-metadata-writeback.md), [metadata-plugins spec §F28](metadata-plugins.md#f28-metadata-writeback)
+**Related**: [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md), [metadata-plugins spec §F28](metadata-plugins.md#f28-metadata-writeback)
 
 ---
 

@@ -43,25 +43,27 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 | `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free) |
 | `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
 | `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter. Providers are declared (not compiled in) in `metadata-sources.yaml` — `base_url` **is** the SSRF allowlist, `asset_hosts` the image-download allowlist |
-| `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, ADR-013) + per-field metadata (labels/display) |
+| `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, see `field-resolution.md`) + per-field metadata (labels/display) |
 | `internal/db/migrations` | golang-migrate, numbered `NNNN_name.{up,down}.sql` (see `.claude/rules/migrations.md`) |
 | `providers/tmdb` | Standalone metadata-provider **sidecar** (see `.claude/rules/provider-sidecar.md`) |
 | `web/` | SvelteKit SPA (see `.claude/rules/frontend-theming.md`; UX terms and the translate / link / record rule in `.claude/rules/ui-vocabulary.md` → `docs/reference/ui-vocabulary.md`) |
 
-**The core model** (ADR-033/051/052): the file layer is the **baseline/default truth**; provider
-enrichment is an **additive shadow** (never flattened into the file layer); the **pure resolver** is
-the sole merge point; standing **per-field source decisions** + **curation** override precedence at
-resolve time. Person and Studio are **entities** riding that same decision model over a
-`BaselineSource`. Read the relevant ADR before changing any of these seams.
+**The core model** ([field-resolution.md](../docs/architecture/field-resolution.md),
+[metadata-providers.md](../docs/architecture/metadata-providers.md)): the file layer is the
+**baseline/default truth**; provider enrichment is an **additive shadow** (never flattened into the
+file layer); the **pure resolver** is the sole merge point; standing **per-field source decisions** +
+**curation** override precedence at resolve time. Person and Studio are **entities** riding that same
+decision model over a `BaselineSource`. Read the relevant topic doc (index:
+`docs/architecture/README.md`) before changing any of these seams.
 
-**Metadata UX rides two layers** ([ADR-090](../docs/architecture/ADR-090-two-layer-entity-metadata-management.md)):
-*adoption* (should this candidate enter the shadow store? transient, judged against the entity's own
-baseline — review queues) and *precedence* (which stored namespace wins for this field? standing —
-ADR-051's `SourceBadge` chip row). Building metadata UI? Pick one layer. **Never put a competing
-provider value in an adoption row** — that comparison is layer 2's and already has a UI. A new
-source is a namespace, never a new subsystem, and an adoption must visibly land in the field list
-carrying its `ProvenanceBadge`. Read ADR-090's Scope section first — the model deliberately does
-**not** cover tags, merge/multi fields, entity-link fields, or identity fields.
+**Metadata UX rides two layers** (field-resolution.md, "Adoption gates the shadow store; precedence
+decides over it"): *adoption* (should this candidate enter the shadow store? transient, judged
+against the entity's own baseline — review queues) and *precedence* (which stored namespace wins for
+this field? standing — the `SourceBadge` chip row). Building metadata UI? Pick one layer. **Never put
+a competing provider value in an adoption row** — that comparison is layer 2's and already has a UI.
+A new source is a namespace, never a new subsystem, and an adoption must visibly land in the field
+list carrying its `ProvenanceBadge`. The model deliberately does **not** cover tags, merge/multi
+fields, entity-link fields, or identity fields.
 
 ## Change-routing rules
 
@@ -114,9 +116,8 @@ and opens the PR — Draft, because the build gates are still open. Until then a
 epic is surfaced by the **`fp:ready-to-build`** Jira label, not by appearing in the PR list. Still
 true: a Draft PR fires **no** Jira transition, and **`In Review` fires when you mark it ready for
 review**. Don't split a gate artifact into its own PR merged ahead of the implementation.
-See [ADR-106](../docs/architecture/ADR-106-push-early-pr-at-implementation.md) (which supersedes
-[ADR-069](../docs/architecture/ADR-069-draft-prs-for-pre-implementation-gates.md) §1 — §1's
-"open a Draft PR at the first artifact" is dead; its `In Review` half is live).
+Full process: [`docs/reference/workflow-idea-to-merge.md`](../docs/reference/workflow-idea-to-merge.md)
+(Stage 4).
 
 ## Pre-commit checklist (every commit)
 
@@ -133,13 +134,13 @@ See [ADR-106](../docs/architecture/ADR-106-push-early-pr-at-implementation.md) (
 ## Frontend theming
 
 Tokens-only components + **QA Cinémathèque**. **Cinémathèque is the only look**
-([ADR-115](../docs/architecture/ADR-115-cinematheque-only-skin.md), HOLODEX-476). Broadcast,
+([theming.md](../docs/design/theming.md), HOLODEX-476). Broadcast,
 Brutalist, the custom palette and the Appearance tab are retired. Never QA, mock up, propose or
 extend another skin, palette or theme switch, and never offer a theme choice as a design option.
 Tokens stay, because one source per colour keeps a look change to a one-file edit.
 The full, load-bearing rules live in `.claude/rules/frontend-theming.md` and load
-automatically when you open a `web/**/*.svelte` file (also ADR-021 as amended and
-`docs/design/theming.md`).
+automatically when you open a `web/**/*.svelte` file (the token mechanism is in
+`docs/architecture/stack.md`; the look in `docs/design/theming.md`).
 
 ## Before pushing or opening a PR
 
@@ -225,8 +226,8 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   only the branch name must carry the key. The substring is enough — GitHub-for-Jira detects
   the key anywhere in the branch name, so a `worktree-`/other prefix still links.
 - **`In Progress` fires on the next session start — no manual step.** Once the branch carries
-  the key, Flightplan's SessionStart hook transitions the issue over Jira REST (ADR-058's
-  uncounted path; CI owns In Review/Done/Released). It never moves an issue backwards: a branch
+  the key, Flightplan's SessionStart hook transitions the issue over Jira REST (the
+  uncounted path in `docs/reference/jira-pipeline.md`; CI owns In Review/Done/Released). It never moves an issue backwards: a branch
   keyed to a `Done` issue leaves it `Done`, and the banner says so. Fire it by hand via the Jira
   MCP `transitionJiraIssue` **only** when the banner reports it didn't land — and never on an
   issue that is already `Done` or later.
@@ -237,9 +238,9 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   `chore(flightplan): ...`, not `feat`/`fix`.** Both `cliff.toml` and `release-please-config.json` already hide `chore`
   commits, so this keeps agent-tooling changes out of user-facing CHANGELOG/Release notes
   without any config change — neither tool supports filtering by scope, only by type.
-- Transitions run via **direct Jira REST API calls** (ADR-058), not Jira Automation (which
+- Transitions run via **direct Jira REST API calls**, not Jira Automation (which
   meters the shared Free-plan quota): **In Progress** is fired by the SessionStart hook (above);
-  **In Review** (PR marked *ready for review* — a Draft PR fires nothing, ADR-069), **Done**
+  **In Review** (PR marked *ready for review* — a Draft PR fires nothing), **Done**
   (merge), and **Released** (`ghcr` deploy) are fired by CI
   (`.github/workflows/jira-sync.yml` + `release.yml`, scripts in `scripts/`). Not Smart
   Commits — commits stay clean. Full reference: `docs/reference/jira-pipeline.md`.
@@ -255,8 +256,8 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 
 - Never commit secrets, tokens, private keys, or PII. Configuration comes from environment
   variables or three parallel gitignored YAML files — `holodex.yaml` (main config),
-  `metadata-mappings.yaml` (field mapping, ADR-013), `metadata-sources.yaml` (provider registry /
-  SSRF allowlist, ADR-033); only their `*.example` placeholders are committed.
+  `metadata-mappings.yaml` (field mapping, `field-resolution.md`), `metadata-sources.yaml` (provider
+  registry / SSRF allowlist, `security-perimeter.md`); only their `*.example` placeholders are committed.
 - Generated/runtime data (`/data`, `*.db`, thumbnails, `web/node_modules`, build output, media fixtures)
   is gitignored — never commit it.
 - Before pushing to a public remote, scan the working tree for sensitive values.
@@ -277,13 +278,13 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
 ## Conventions
 
 - Architecture docs are **living topic docs**, edited in place; each decision section links its
-  deciding squash commit ("Decided in `<sha>`"). **Write no new numbered ADRs** — the `ADR-NNN`
-  files are being folded into topic docs (HOLODEX-523); until then a technology decision edits the
-  ADR that covers it in place or starts `docs/architecture/<topic>.md`. Index:
-  `docs/architecture/README.md`. Full rules: `docs/reference/doc-types.md`. **Enforced by a hook**
-  (`scripts/hooks/doc-type-guard.mjs`): invoking `/architecture`, `/write-spec` or `/design-handoff`
-  injects that doc type's boundary, and creating a new `ADR-NNN-*.md` is blocked. A branch that already
-  carries an unmerged numbered ADR checks it with `node scripts/adr-claims.mjs` before merging.
+  deciding squash commit ("Decided in `<sha>`"). Index: `docs/architecture/README.md`. Full rules:
+  `docs/reference/doc-types.md`. **There are no numbered ADRs any more** — the old `ADR-NNN` files
+  are in `docs/architecture/archive/`, each stamped with where its content went; they are history,
+  never current truth, so don't cite or edit them (an `ADR-NNN` mention in code or a spec resolves
+  there). **Enforced by a hook** (`scripts/hooks/doc-type-guard.mjs`): invoking `/architecture`,
+  `/write-spec` or `/design-handoff` injects that doc type's boundary, and creating a new
+  `ADR-NNN-*.md` is blocked.
 - **Never pick a feature number (`F##`) by eye.** "Highest on main + 1" collides with whatever is
   in flight on another branch — HOLODEX-390/406 both took F63. Run `node scripts/feature-claims.mjs`
   before writing a spec's `# Spec: … (F##)` H1 (i.e. at `/write-spec`'s scaffold step). It derives

@@ -22,8 +22,8 @@ paths:
   `git diff --stat` for the spec before committing. (#344 stated a `website`/`homepage` rule
   only in §4.11 and left the §4.2 field rows stale; #345 was the follow-up.)
 - **`_`-prefixed enrichment field keys are internal provider→core sidecars, not display fields**
-  (`model.InternalFieldPrefix`, ADR-054). They're persisted in the shadow store but **never
+  (`model.InternalFieldPrefix`, see `docs/architecture/metadata-providers.md`). They're persisted in the shadow store but **never
   resolved or rendered** (`enrich.FieldsFromRows` skips them). They're cross-boundary contracts
   shared as string literals (core + every provider) — never invent new ones ad hoc. v1 defines
   `_studio_external_ids` (studio de-dup by id); `_source_url` (the provider's own page for the
-  enriched entity — the badge's per-pill fallback behind `link_templates`, ADR-098, contract §4.12).
+  enriched entity — the badge's per-pill fallback behind `link_templates`, contract §4.12).

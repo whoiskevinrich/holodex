@@ -13,12 +13,12 @@ ground truth, mechanical hooks that fire status + orientation, and `/handoff`/`/
 judgment surfaces. **Done** = batches 1 and 2 shipped and lived-with; the plugin orients and
 tracks HOLODEX epics with no reliance on agent memory.
 
-**Design package:** [ADR-064](../architecture/ADR-064-flightplan-plugin.md) · [one-pager](flightplan-plugin.md) · prior art: [field-source-of-truth-rollout.md](field-source-of-truth-rollout.md), [studio-entity-implementation.md](studio-entity-implementation.md)
+**Design package:** [ADR-064](../architecture/archive/ADR-064-flightplan-plugin.md) · [one-pager](flightplan-plugin.md) · prior art: [field-source-of-truth-rollout.md](field-source-of-truth-rollout.md), [studio-entity-implementation.md](studio-entity-implementation.md)
 
 ## Gates — definition of done
 
 - [x] spec — n/a: infra/tooling, ADR-064 records no product spec (§Spec: none)
-- [x] architecture `architecture` → [ADR-064](../architecture/ADR-064-flightplan-plugin.md)
+- [x] architecture `architecture` → [ADR-064](../architecture/archive/ADR-064-flightplan-plugin.md)
 - [/] backend — template + config seam + `jira-transition.mjs` + all three batch-1 hooks (SessionStart, PostToolUse, Stop) + shared `config.mjs`/`stdin.mjs` done; batch-1 plumbing complete, batch 2 (`/handoff`, `/triage`) remains
 - [x] frontend — n/a: no web UI surface
 - [ ] testing `testing-strategy` — hook unit tests (batch 2)
@@ -35,7 +35,7 @@ tracks HOLODEX epics with no reliance on agent memory.
 6. [x] [security] `/security-review` — clean; the matched-substring key charset already blocks traversal/injection
 7. [x] [backend] Collapse `worklog.mjs`/`scripts/whats-left.mjs` onto one parser (shared schema) —
    done: `flightplan/lib/worklog.mjs` is canonical; both are now thin consumers
-8. [x] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md); repo at `G:\source\flightplan`, now an installed Claude Code plugin (its ADR-002). **Holodex cut over 2026-09-07**: `flightplan/` deleted, hooks unwired, parser vendored to `scripts/lib/worklog.mjs`. Open: push the new repo to a GitHub remote (visibility unconfirmed) → [HOLODEX-327](HOLODEX-327.md)
+8. [x] [architecture] Extract `flightplan/` to a standalone repo — [ADR-092](../architecture/archive/ADR-092-flightplan-repo-extraction.md); repo at `G:\source\flightplan`, now an installed Claude Code plugin (its ADR-002). **Holodex cut over 2026-09-07**: `flightplan/` deleted, hooks unwired, parser vendored to `scripts/lib/worklog.mjs`. Open: push the new repo to a GitHub remote (visibility unconfirmed) → [HOLODEX-327](HOLODEX-327.md)
 9. [ ] [backend] `/handoff` skill → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — see retro verdict below
 10. [ ] [backend] `INBOX.md` + `/triage` → batch 2, **now executes in the new repo post-extraction** (ADR-092), not here — unblocked, retro completed 2026-07-29
 
@@ -96,7 +96,7 @@ trigger + a fixed set of questions, so nobody has to remember to check in:
   already collided twice with flightplan-adjacent tooling work (#257)? Converged: extract
   `flightplan/` to its own standalone repo (own ADR trail, still hand-copied per consumer — no
   packaged plugin yet, no second real consumer exists to design that interface against). Filed
-  [HOLODEX-327](HOLODEX-327.md) and drafted [ADR-092](../architecture/ADR-092-flightplan-repo-extraction.md)
+  [HOLODEX-327](HOLODEX-327.md) and drafted [ADR-092](../architecture/archive/ADR-092-flightplan-repo-extraction.md)
   (Proposed; narrowly supersedes only ADR-064's in-repo packaging clause — worklog/hook/skill design
   stands). Batch 2 (`/handoff`, `/triage`) reprioritized to execute in the new repo post-extraction,
   not here. Next: get the extraction ADR reviewed (ships as a Draft PR per ADR-069), then confirm the

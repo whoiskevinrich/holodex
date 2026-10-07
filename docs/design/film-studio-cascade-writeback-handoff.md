@@ -5,7 +5,7 @@
 **Owner:** Project owner
 **Date:** 2026-08-25
 **Spec:** [film-studio-cascade-writeback.md](../specs/film-studio-cascade-writeback.md)
-**ADR:** [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md)
+**ADR:** [ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md)
 **Branch/PR:** `HOLODEX-285-film-studio-cascade-writeback`, Draft PR #254
 
 ## Overview

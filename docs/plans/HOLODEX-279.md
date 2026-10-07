@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-279                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -19,7 +19,7 @@ Album/Title writeback, inherited cast/tags, enrichment, posters, and a two-regio
 Done means all seven gates below are checked and the feature merges to main behind
 `films_enabled` (default false).
 
-**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/ADR-085-films-entity.md) · [design handoff](../design/films-entity-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component) (§4/§5/Critical invariants/§10/§11)
+**Design package:** [films-entity.md](../specs/films-entity.md) · [ADR-085](../architecture/archive/ADR-085-films-entity.md) · [design handoff](../design/films-entity-handoff.md) · [testing-strategy](../testing-strategy.md#4-backend-strategy-by-component) (§4/§5/Critical invariants/§10/§11)
 
 ## Gates — definition of done
 
@@ -27,7 +27,7 @@ Done means all seven gates below are checked and the feature merges to main behi
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/films-entity.md`
-- [x] architecture `architecture` → [ADR-085](../architecture/ADR-085-films-entity.md) (asserted-link model, film resolver source, films_enabled suspend semantics)
+- [x] architecture `architecture` → [ADR-085](../architecture/archive/ADR-085-films-entity.md) (asserted-link model, film resolver source, films_enabled suspend semantics)
 - [x] design `design-handoff` → [films-entity-handoff.md](../design/films-entity-handoff.md) (films list/detail, two attach pickers, films row on person/studio/tag pages, ADR-085 §5 suspended-source display resolved)
 - [x] backend — CRUD read/create + attach/detach/bulk-attach + per-field decision endpoint + films-by-entity filter + video-candidates endpoint all done and tested; poster pipeline (`film_images.go`, HOLODEX-280) and `film_people_roles` CRUD (HOLODEX-281) are separately-tracked follow-up issues, not blockers for this epic's frontend build
 - [x] frontend
@@ -42,7 +42,7 @@ Done means all seven gates below are checked and the feature merges to main behi
 
 1. [ ] [backend] → [HOLODEX-280](https://whoiskevinrich.atlassian.net/browse/HOLODEX-280) `film_images.go` — poster/thumb asset pipeline for films; needs extending `internal/imagesink` + a new `filmimage` package mirroring `studioimage` + config/env/main.go wiring. Highest priority: films are poster-forward in the shipped frontend but have no way to actually get a poster yet, and it's the prerequisite for item 3's poster-asset slot (ADR-086 action item 4).
 2. [x] [backend] → [HOLODEX-282](https://whoiskevinrich.atlassian.net/browse/HOLODEX-282) RD6 subtractive video-hiding — done this session, see session log below.
-3. [ ] [backend] → [HOLODEX-284](https://whoiskevinrich.atlassian.net/browse/HOLODEX-284) Film provider enrichment (spec P1-1) — real `entity_type: "film"` enrichment + poster asset, per [ADR-086](../architecture/ADR-086-film-provider-enrichment.md). Supersedes/absorbs HOLODEX-280's asset-pipeline scope for the `role='poster'` slot specifically (HOLODEX-280 still owns the wider `filmimage`/upload plumbing); design-decided, implementation not started. Sequenced after item 1 since it needs that `film_images`/`ImageSink` plumbing.
+3. [ ] [backend] → [HOLODEX-284](https://whoiskevinrich.atlassian.net/browse/HOLODEX-284) Film provider enrichment (spec P1-1) — real `entity_type: "film"` enrichment + poster asset, per [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md). Supersedes/absorbs HOLODEX-280's asset-pipeline scope for the `role='poster'` slot specifically (HOLODEX-280 still owns the wider `filmimage`/upload plumbing); design-decided, implementation not started. Sequenced after item 1 since it needs that `film_images`/`ImageSink` plumbing.
 4. [ ] [backend] → [HOLODEX-283](https://whoiskevinrich.atlassian.net/browse/HOLODEX-283) Real backend search integration — fold films into `Search()`/FTS (`films_fts` already exists, migration 0043) so `GET /search?q=` returns them natively; replaces `SearchResultsPanel.svelte`'s frontend-only `GET /films?q=` splice. Real debt but functional today (the splice's partial-failure bug was already fixed 2026-08-24), so lower urgency than items 1–3.
 5. [ ] [backend] → [HOLODEX-281](https://whoiskevinrich.atlassian.net/browse/HOLODEX-281) `film_people_roles` CRUD — film-level additive billing/role data (director, billing order). Only read-only inherited cast (`FilmCast`, set union over attached videos) exists so far. Lowest priority: purely additive, inherited cast already covers the primary use case.
 
@@ -62,7 +62,7 @@ Done means all seven gates below are checked and the feature merges to main behi
 
 ### 2026-08-25 · session
 - skills: architecture
-- handoff: Wrote [ADR-086](../architecture/ADR-086-film-provider-enrichment.md), resolving ADR-085's deferred "Film provider enrichment" open item and its namespace-collision revisit note (also resolves spec `films-entity.md` Q3). Two decisions locked by Kevin this session: (1) film enrichment gets its **own `entity_type: "film"`**, never a reuse of `video` — "a video may be a film or may be part of a film... the film should be its own entity"; (2) film posters need a **portrait poster image**, mapping to the existing `poster` asset kind (~2:3) via a third `ImageSink`/`downloadAssets`/`assetRoleFor` widening (Person → Studio → Film, same pattern ADR-079 established). Updated cross-references: `metadata-provider-contract.md` §3 (from "not yet decided" to a resolved pointer), new §4.2c (film canonical fields: `description`/`release_date`), §4.3 (Film poster kind table + blockquote note); `films-entity.md` Q3 resolved; `docs/architecture/README.md` gained ADR-086's row. Filed [HOLODEX-284](https://whoiskevinrich.atlassian.net/browse/HOLODEX-284) under this epic to track the follow-on implementation (not started — this session was decision-record-only, no Go/Svelte code). This epic's own 7 gates are unaffected (all already `[x]`); ADR-086 is a design artifact for the third `Up next` follow-up item, sibling to HOLODEX-280/281. Next session (whichever follow-up is picked up first): HOLODEX-280 (poster/thumb asset pipeline), HOLODEX-281 (`film_people_roles` CRUD), or HOLODEX-284 (provider enrichment per ADR-086 — the poster-asset slice overlaps HOLODEX-280's scope, so pick one owner for `film_images` before starting both).
+- handoff: Wrote [ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md), resolving ADR-085's deferred "Film provider enrichment" open item and its namespace-collision revisit note (also resolves spec `films-entity.md` Q3). Two decisions locked by Kevin this session: (1) film enrichment gets its **own `entity_type: "film"`**, never a reuse of `video` — "a video may be a film or may be part of a film... the film should be its own entity"; (2) film posters need a **portrait poster image**, mapping to the existing `poster` asset kind (~2:3) via a third `ImageSink`/`downloadAssets`/`assetRoleFor` widening (Person → Studio → Film, same pattern ADR-079 established). Updated cross-references: `metadata-provider-contract.md` §3 (from "not yet decided" to a resolved pointer), new §4.2c (film canonical fields: `description`/`release_date`), §4.3 (Film poster kind table + blockquote note); `films-entity.md` Q3 resolved; `docs/architecture/README.md` gained ADR-086's row. Filed [HOLODEX-284](https://whoiskevinrich.atlassian.net/browse/HOLODEX-284) under this epic to track the follow-on implementation (not started — this session was decision-record-only, no Go/Svelte code). This epic's own 7 gates are unaffected (all already `[x]`); ADR-086 is a design artifact for the third `Up next` follow-up item, sibling to HOLODEX-280/281. Next session (whichever follow-up is picked up first): HOLODEX-280 (poster/thumb asset pipeline), HOLODEX-281 (`film_people_roles` CRUD), or HOLODEX-284 (provider enrichment per ADR-086 — the poster-asset slice overlaps HOLODEX-280's scope, so pick one owner for `film_images` before starting both).
 
 ### 2026-08-24 · session
 - skills: security-review, simplify

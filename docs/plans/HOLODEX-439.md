@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-439
 status: in-review
 profile: backend

@@ -4,7 +4,7 @@
 **Addendum to**: [F36 handoff](field-source-of-truth-handoff.md) — the chip radiogroup, fold/dedup,
 tokens, a11y semantics, and motion rules there apply **unchanged**; this document specifies only what
 differs on the person page. **QA**: [people-source-of-truth-qa-checklist.md](people-source-of-truth-qa-checklist.md).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 ---
 

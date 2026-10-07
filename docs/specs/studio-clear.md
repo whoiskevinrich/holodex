@@ -6,11 +6,11 @@ HOLODEX-495 (revert of an added tag), HOLODEX-496 (films get their own studio at
 **Owner**: Project owner
 **Date**: 2026-09-29
 
-**ADR**: [ADR-120 — the owner can clear a replace field](../architecture/ADR-120-owner-cleared-field-decision.md).
+**ADR**: [ADR-120 — the owner can clear a replace field](../architecture/archive/ADR-120-owner-cleared-field-decision.md).
 A cleared field is a `manual` decision with an empty value, written only by an explicit `clear`.
 Writeback deletes the tag. D6 covers films.
 **Design handoff**: [`studio-detach-handoff.md`](../design/studio-detach-handoff.md), with a committed
-SVG mockup. **Extends**: [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md)'s
+SVG mockup. **Extends**: [ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md)'s
 film-studio cascade, which gains a clear.
 
 ---

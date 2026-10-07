@@ -7,9 +7,9 @@
 
 **Depends on**: Phase 2 complete (F11 thumbnails, F13 metrics/admin, F20 mapping reload).
 **New ADRs required**:
-- **[ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md) (Proposed)** — User-facing activity surface & job-history persistence (extends [ADR-019](../architecture/ADR-019-observability-conventions.md)). Covers the new `activity` read-model endpoint, the job-history table, and 30-day retention.
+- **[ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) (Proposed)** — User-facing activity surface & job-history persistence (extends [ADR-019](../architecture/archive/ADR-019-observability-conventions.md)). Covers the new `activity` read-model endpoint, the job-history table, and 30-day retention.
 - **ADR-029 (reserved, P1)** — Live activity transport (Server-Sent Events) for real-time push (to be drafted when SSE is scheduled).
-- **[ADR-030](../architecture/ADR-030-access-control-gating-seam.md) (Accepted, P0)** — Access-control / "Pro mode" gating seam for owner-only surfaces (precondition for future multi-user). Pulled into P0 because F21.6 exposes infrastructure-affecting controls. Implemented as `ADMIN_TOKEN` + a `requireOwner` middleware; security-review signed off 2026-06-14.
+- **[ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) (Accepted, P0)** — Access-control / "Pro mode" gating seam for owner-only surfaces (precondition for future multi-user). Pulled into P0 because F21.6 exposes infrastructure-affecting controls. Implemented as `ADMIN_TOKEN` + a `requireOwner` middleware; security-review signed off 2026-06-14.
 
 ---
 
@@ -260,6 +260,6 @@ This is a personal, self-hosted tool, so metrics are framed as owner-experience 
 ## Cross-References
 
 - Builds on: [phase-2-mcp-polish.md](phase-2-mcp-polish.md) F11 (thumbnails), F13 (observability/admin), F20 (mapping reload).
-- ADRs: [ADR-019](../architecture/ADR-019-observability-conventions.md) (observability conventions, extended by ADR-028), [ADR-016](../architecture/ADR-016-database-migrations.md) (migrations), [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) (theming/skins), [ADR-008](../architecture/ADR-008-caching.md)/[ADR-022](../architecture/ADR-022-defer-in-process-cache.md) (caching seam).
+- ADRs: [ADR-019](../architecture/archive/ADR-019-observability-conventions.md) (observability conventions, extended by ADR-028), [ADR-016](../architecture/archive/ADR-016-database-migrations.md) (migrations), [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) (theming/skins), [ADR-008](../architecture/archive/ADR-008-caching.md)/[ADR-022](../architecture/archive/ADR-022-defer-in-process-cache.md) (caching seam).
 - Design: [system-activity-handoff.md](../design/system-activity-handoff.md) — `/status` page + header indicator, component breakdown, states, three-skin QA.
 - Forward link: Phase 3 jobs ([phase-3-enrichment.md](phase-3-enrichment.md) F16–F18) plug into `job_runs.kind` (F21.10).

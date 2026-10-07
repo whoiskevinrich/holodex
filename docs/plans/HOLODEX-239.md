@@ -8,7 +8,7 @@ release_note: "Tags can now be excluded from file writeback while staying search
 
 ## Gates — definition of done
 - [x] spec          docs/specs/tag-writeback-exclusion.md · S1
-- [x] architecture  docs/architecture/ADR-077-tag-writeback-exclusion.md · S2
+- [x] architecture  docs/architecture/archive/ADR-077-tag-writeback-exclusion.md · S2
 - [x] backend       S3 (commit cb88390)
 - [x] frontend      S4 — docs/design/tag-writeback-exclusion-handoff.md + -qa-checklist.md
 - [x] testing       docs/testing-strategy.md §4/§5/§6/§9/§10 (ADR-077 action item 7) — cross-references existing green coverage, no new tests needed

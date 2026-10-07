@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-452
 status: in-review
 profile: full
@@ -146,7 +146,7 @@ OQ2 repair pass makes the number stop being small.
 
 - [x] spec `write-spec` — **F71**, `docs/specs/duplicates-shared-external-id.md`. 8 P0 criteria,
       2 P1, 3 open questions (all three need the host probe)
-- [x] architecture `architecture` — [ADR-107](../architecture/ADR-107-shared-external-id-duplicate-detection.md),
+- [x] architecture `architecture` — [ADR-107](../architecture/archive/ADR-107-shared-external-id-duplicate-detection.md),
       5 decisions; index row added. Amends the **timing** of ADR-096 D2's memo-column drop, not its
       substance
 - [x] design `design-handoff` — `docs/design/duplicates-shared-external-id-handoff.md` +

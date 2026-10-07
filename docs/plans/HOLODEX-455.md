@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-455
 status: in-progress
 profile: infra
@@ -21,7 +21,7 @@ merges `main`); this ticket is the documentation half.
 
 ## Gates — definition of done
 
-- [x] architecture `architecture` — **[ADR-106](../architecture/ADR-106-push-early-pr-at-implementation.md)**,
+- [x] architecture `architecture` — **[ADR-106](../architecture/archive/ADR-106-push-early-pr-at-implementation.md)**,
   Accepted. Supersedes **ADR-069 §1 only**; §2's `In Review`-on-ready-for-review amendment to ADR-058
   is live in CI and a dependency of Flightplan ADR-007, so retiring ADR-069 wholesale was the wrong
   move and is recorded as rejected option **D**. ADR number taken from

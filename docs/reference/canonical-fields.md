@@ -7,7 +7,7 @@ Fields are registered in `internal/registry/registry.go`. Unknown keys still wor
 resolve with a title-cased label and default (text) rendering — but registered fields get
 accurate labels and correct render behaviour.
 
-> **Non-canonical provider fields (F39, [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)).**
+> **Non-canonical provider fields (F39, [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)).**
 > A provider may advertise **non-canonical** keys (outside this registry) with per-field render hints in
 > `GET /describe.field_hints` (label / render mode / ordering group). Any such key that has a **stored value**
 > for an entity is **auto-registered** — surfaced as a **display-only** row on the video/person/studio detail
@@ -18,7 +18,7 @@ accurate labels and correct render behaviour.
 > curation controls; an operator promotes one to a first-class curatable field by adding a mapping entry.
 >
 > **A key listed in a field's `sources:` no longer auto-registers** (F49,
-> [ADR-074](../architecture/ADR-074-claimed-provider-keys.md)). It is already a candidate of that field, so
+> [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md)). It is already a candidate of that field, so
 > rendering it again as its own display-only row was a duplicate — see
 > [Claiming a provider key](#claiming-a-provider-key) below.
 
@@ -51,7 +51,7 @@ fields:
 | `file:title` | `videos.title` column (scanner's primary title) |
 | `file:<Key>` | `extra_metadata` raw file tag (case-insensitive) |
 | `<provider>:<field>` | `entity_enrichment` shadow store (e.g. `tmdb:overview`) |
-| `filename:<field>` | `entity_enrichment` shadow store, `filename` namespace — parsed from a configured filename pattern (F48, [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)); same shape as any other provider, no schema change |
+| `filename:<field>` | `entity_enrichment` shadow store, `filename` namespace — parsed from a configured filename pattern (F48, [ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md)); same shape as any other provider, no schema change |
 | `<Key>` (no colon) | Legacy bare key — treated as `file:<Key>`. Being a file tag, it **claims nothing**: `Comment` has no effect on any provider's `comment` key |
 
 `filename:` currently produces four field keys: `title`, `people`, `studio`, `release_date` (year granularity) — see the [F48 spec](../specs/metadata-extraction.md#concepts--model) for the token grammar and confidence model.
@@ -60,7 +60,7 @@ Sources are walked left-to-right; the first non-empty value wins (`WinningSource
 
 ## Claiming a provider key
 
-*(F49, [ADR-074](../architecture/ADR-074-claimed-provider-keys.md) · [spec](../specs/claimed-provider-keys.md))*
+*(F49, [ADR-074](../architecture/archive/ADR-074-claimed-provider-keys.md) · [spec](../specs/claimed-provider-keys.md))*
 
 Providers rarely agree on names. Three of them can describe the same plot as `overview`, `synopsis` and
 `comments`, and each unrecognized key auto-registers its own row (F39) — so one paragraph renders three times.
@@ -201,14 +201,14 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 | `status` | Status | text | Release status (e.g. `Released`, `Post Production`). |
 | `original_language` | Language | text | ISO 639-1 language code. |
 | `homepage` | Website | text | Official website URL. Rendered as plain text (not a link). |
-| `external_provider_id` | External ID | text | External metadata-provider identifier, namespace-qualified (`"<provider>:<id>"`, e.g. `tmdb:603`, `imdb:tt1234567`) — [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md). |
+| `external_provider_id` | External ID | text | External metadata-provider identifier, namespace-qualified (`"<provider>:<id>"`, e.g. `tmdb:603`, `imdb:tt1234567`) — [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md). |
 | `poster_url` | Poster | image_url (`<img>`) | Poster URL. **Must be on an `asset_hosts`-allowlisted CDN** (ADR-039). |
 
 ---
 
 ## Writeback round-trip
 
-Defined by [ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md).
+Defined by [ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md).
 
 Writeback and the sync check read two different tables, and it is on you to keep them agreeing.
 Writeback picks its destination tag per container from `internal/writeback`'s `formatMap`. The
@@ -281,7 +281,7 @@ decision is unaffected.
 
 ---
 
-## Genre tag materialization & governance (F50, [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md))
+## Genre tag materialization & governance (F50, [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md))
 
 `genres` does double duty beyond display text. Whenever a video is (re-)enriched, its **resolved** `genres`
 value — the merge-type union across every source listed in its `sources` — automatically materializes into
@@ -306,12 +306,12 @@ this materialization):
   what a subsequent writeback writes to the file's `Genre` tag.
 
 None of this introduces a new `metadata-mappings.yaml` key or `holodex.yaml`/env setting — it rides the
-existing `genres` canonical field unchanged. See [ADR-075](../architecture/ADR-075-tag-governance-and-video-enrichment.md)
+existing `genres` canonical field unchanged. See [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md)
 and the [F50 spec](../specs/tag-governance-and-video-enrichment.md) for the full mechanism.
 
 ---
 
-## Derived / computed fields (F45, [ADR-063](../architecture/ADR-063-derived-computed-fields.md))
+## Derived / computed fields (F45, [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md))
 
 A **third field genre** — beyond canonical (this registry) and non-canonical auto-registered (F39) — is
 **computed**: source-less, read-only, **calculated on read** from other resolved fields by a pure `Derive`
@@ -356,7 +356,7 @@ documented examples; operators add their own via `metadata-mappings.yaml`.
 | `image_url` | `<img src=values[0]>` (thumbnail-sized, border-rule). A provider-hinted value renders as an image only if its host is on the `asset_hosts` allowlist (ADR-039/056); otherwise it falls back to text |
 
 For a **canonical** field, `display` is set in `internal/registry/registry.go`. Since F39
-([ADR-056](../architecture/ADR-056-provider-field-render-hints.md)) a mapping may also set `display:`
+([ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)) a mapping may also set `display:`
 explicitly (operator override), and a provider may suggest a render mode for a **non-canonical** key via
 `field_hints`; the resolution ladder is operator mapping > code registry > provider hint > default (text).
 

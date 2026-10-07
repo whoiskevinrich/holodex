@@ -3,7 +3,7 @@
 **Status**: Design decided (developer handoff)
 **Date**: 2026-07-12
 **Spec**: [`docs/specs/age-in-media.md`](../specs/age-in-media.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [`theming.md`](theming.md) — **tokens only, QA all three skins**
 
 A small corner badge on each cast member's poster card shows their age at the time of the video's

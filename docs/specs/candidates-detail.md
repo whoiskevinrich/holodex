@@ -11,7 +11,7 @@ label; the auto-applied candidate's lines reach the activity log on the unattend
 
 **Issue**: [HOLODEX-380](https://whoiskevinrich.atlassian.net/browse/HOLODEX-380)
 **ADR**: none — additive optional response key, same posture as `profile_url` (F47/RD6) and
-`searched[]` ([ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D6). The wire promise
+`searched[]` ([ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D6). The wire promise
 that makes this safe is [§2.3](metadata-provider-contract.md#23-post-resolve--identity-match-disambiguation)'s
 "Holodex ignores unknown response keys".
 **Contract amendment**: [metadata-provider-contract.md](metadata-provider-contract.md) §2.3
@@ -26,13 +26,13 @@ collide and tie-breaks equal confidences on catalogue richness; this spec gives 
 signal a place to show.
 
 **Depends on** (all shipped):
-- the provider sidecar contract, `POST /resolve` ([ADR-033](../architecture/ADR-033-metadata-source-plugins.md))
+- the provider sidecar contract, `POST /resolve` ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md))
 - the picker's `searched[]` caption and its caps/sanitization pattern
-  (`internal/enrich/resolve_hints.go`, [ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D6)
+  (`internal/enrich/resolve_hints.go`, [ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D6)
 - `profile_url` on candidates and the `view source ↗` in-row link pattern (F47/RD6,
   `web/src/lib/components/enrichment/EnrichPicker.svelte`)
 - auto-apply of a lone strong candidate and the unattended refresh-all path
-  ([ADR-066](../architecture/ADR-066-enrichment-auto-apply-and-dismissal.md) D1,
+  ([ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) D1,
   `internal/api/enrich_review.go`)
 
 ## Problem Statement

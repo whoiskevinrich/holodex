@@ -29,7 +29,7 @@ every input to a film's display spelling dirties its linked videos' stored score
 owner split search, title sort, MCP and the film page's scene list out into HOLODEX-516. Those need
 a stored resolved title and their own ADR.
 
-**Design package:** [spec F56 P0-7 note](../specs/films-entity.md) · [ADR-122 amendment](../architecture/ADR-122-linked-film-decides-by-default.md) · [testing-strategy completeness trigger row](../testing-strategy.md) · migration `0058_completeness_film_name_inputs`
+**Design package:** [spec F56 P0-7 note](../specs/films-entity.md) · [ADR-122 amendment](../architecture/archive/ADR-122-linked-film-decides-by-default.md) · [testing-strategy completeness trigger row](../testing-strategy.md) · migration `0058_completeness_film_name_inputs`
 
 ## Gates — definition of done
 

@@ -2,7 +2,7 @@
 
 **Spec**: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F65.4 ring badge, F65.5 owner-only
 `completeness` on list items, § Scoring model edge rules, RD5–RD7) · **ADR**:
-[ADR-099](../architecture/ADR-099-completeness-score-required-band.md) D1/D5 · Jira
+[ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D1/D5 · Jira
 [HOLODEX-412](https://whoiskevinrich.atlassian.net/browse/HOLODEX-412) · **Date**: 2026-09-18
 
 ![Completeness ring badge: video-card states, row-list states, ring geometry](completeness-ring-badge-mockup.svg)

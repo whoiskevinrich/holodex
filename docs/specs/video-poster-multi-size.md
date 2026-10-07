@@ -11,13 +11,13 @@ starts producing a second, larger derivative in the same pass; the detail page s
 it. List view is unchanged.
 
 **Depends on** (all shipped):
-- the thumbnail pipeline itself ([ADR-009](../architecture/ADR-009-thumbnail-strategy.md),
+- the thumbnail pipeline itself ([ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md),
   `internal/thumbnail`) — Tier 1 embedded-art extraction, Tier 2 ffmpeg frame-grab, both
   writing to a single `DATA_PATH/thumbnails/{id}.jpg`
 - owner poster upload ([F52](video-owner-mode-editing.md), HOLODEX-252) — uploads land in
   the same pipeline (`internal/api/video_poster.go` calls `ExtractEmbedded`), so this
   feature's larger tier benefits uploaded posters for free, no separate handling
-- metadata writeback ([ADR-041](../architecture/ADR-041-metadata-writeback.md),
+- metadata writeback ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md),
   `internal/writeback`) — relevant only as the thing that already gets this right; see
   Problem Statement
 

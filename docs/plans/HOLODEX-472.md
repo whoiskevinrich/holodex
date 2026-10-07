@@ -33,7 +33,7 @@ Every list page (Media, People, Studios, Films, Tags) draws sort, filters and vi
 HOLODEX-473. On a phone, data starts after the title, one toolbar row and at most one chip row.
 List state follows ADR-114: the URL holds what you see, and storage holds only preferences.
 
-**Design package:** [spec F73](../specs/list-toolbar.md) · [ADR-114](../architecture/ADR-114-list-state-model.md) · [handoff + 3 SVGs](../design/list-toolbar-handoff.md) · [testing-strategy §20](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F73](../specs/list-toolbar.md) · [ADR-114](../architecture/archive/ADR-114-list-state-model.md) · [handoff + 3 SVGs](../design/list-toolbar-handoff.md) · [testing-strategy §20](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 

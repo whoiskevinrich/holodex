@@ -1,7 +1,7 @@
 # Design Handoff: Metadata Enrichment UI for People (F22)
 
-**Spec**: [Metadata Source Plugins (F22)](../specs/metadata-plugins.md) · **ADR**: [ADR-033](../architecture/ADR-033-metadata-source-plugins.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Metadata Source Plugins (F22)](../specs/metadata-plugins.md) · **ADR**: [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---

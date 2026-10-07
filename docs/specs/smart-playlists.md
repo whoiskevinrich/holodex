@@ -31,13 +31,13 @@ F69*; this spec is the follow-up it anticipated, with one change of shape: the q
 (re-run on read), not refreshed by hand.
 
 **Depends on** (all shipped unless noted):
-- F69 playlists ([video-playlists.md](video-playlists.md), [ADR-104](../architecture/ADR-104-video-playlists-container-and-persistent-player.md)) —
+- F69 playlists ([video-playlists.md](video-playlists.md), [ADR-104](../architecture/archive/ADR-104-video-playlists-container-and-persistent-player.md)) —
   the container, `visibility` (RD4: private ⇒ 404), seeded `random` per play-through (RD7), the
   `?playlist=` next-up context (RD6) and the persistent `<video>` element (RD5 / ADR-104 D4).
 - Browse filters as a URL ([`web/src/lib/filters.ts`](../../web/src/lib/filters.ts)) and the server
   parse `videoFilterFromQuery` (`internal/api/handlers.go`). Entity facets are already **numeric ids**
   (`person`, `tag`, `studio_id`), so a stored query survives renames by construction.
-- The list-state model ([ADR-114](../architecture/ADR-114-list-state-model.md)) — filters live in the URL,
+- The list-state model ([ADR-114](../architecture/archive/ADR-114-list-state-model.md)) — filters live in the URL,
   the random seed lives in the session.
 - **HOLODEX-501 (not shipped, blocking):** person / tag / studio detail grids load through
   `GET /media?person=|tag=|studio_id=` with paging. Today they use bespoke endpoints capped at 500.
@@ -378,7 +378,7 @@ Three stories under HOLODEX-16, in order:
    migration.
 
 Gates: **spec** (this document) · **ADR**
-([ADR-121](../architecture/ADR-121-smart-playlists-stored-query-and-runs.md): stored-query format and
+([ADR-121](../architecture/archive/ADR-121-smart-playlists-stored-query-and-runs.md): stored-query format and
 versioning, live evaluation, merge rewriting, runs — supersedes ADR-104 D3's "no `frozen_query`") · **design handoff** (grid-header actions,
 run context label, smart playlist page, browse edit mode; SVG committed) · **testing strategy**
 ([§23](../testing-strategy.md#23-smart-playlists-play-all-and-shuffle-f75-holodex-58--500--501-adr-121)) ·

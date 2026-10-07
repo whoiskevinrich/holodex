@@ -1,8 +1,8 @@
 # Design Handoff: Add an Overview when no source has one (HOLODEX-471)
 
-**Spec**: [field-source-of-truth.md](../specs/field-source-of-truth.md) P1-5 (F36) · **Architecture**: [ADR-113](../architecture/ADR-113-owner-offered-empty-fields.md)
+**Spec**: [field-source-of-truth.md](../specs/field-source-of-truth.md) P1-5 (F36) · **Architecture**: [ADR-113](../architecture/archive/ADR-113-owner-offered-empty-fields.md)
 (owner-offered empty fields; this handoff is its first adopter) ·
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md): tokens only, QA all three skins.
 **Surfaces**: `routes/media/[id]/+page.svelte` (the Overview block in the rail), the existing
 `curation/SourceEditModal.svelte` (initial selection only), and the existing

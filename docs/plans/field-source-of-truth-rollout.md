@@ -5,7 +5,7 @@
 needed here.
 
 **Living coordination doc** — update the graph + table as sessions complete (see [Update protocol](#update-protocol)).
-**Design package**: [spec F36](../specs/field-source-of-truth.md) · [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) · [handoff](../design/field-source-of-truth-handoff.md) · [QA checklist](../design/field-source-of-truth-qa-checklist.md) · [testing-strategy §9](../testing-strategy.md). Design is **complete**; this plan sequences the **implementation** across sessions.
+**Design package**: [spec F36](../specs/field-source-of-truth.md) · [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) · [handoff](../design/field-source-of-truth-handoff.md) · [QA checklist](../design/field-source-of-truth-qa-checklist.md) · [testing-strategy §9](../testing-strategy.md). Design is **complete**; this plan sequences the **implementation** across sessions.
 
 > **Highest-leverage decision (baked in):** do **S0 BaselineSource** first and build the resolver on it
 > *video-first but entity-generic* — that realizes fast-follow **① (entity-agnostic resolver)** as a

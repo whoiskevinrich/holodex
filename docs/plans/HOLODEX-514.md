@@ -28,7 +28,7 @@ Done when list tiles resolve their title with the same film source as the media 
 picker names other films by display spelling. Completeness, search, title sort, MCP and scene lists
 were scoped out by the owner, in HOLODEX-515.
 
-**Design package:** [spec F56 P0-7 note](../specs/films-entity.md) · [ADR-122 amendment](../architecture/ADR-122-linked-film-decides-by-default.md) · [testing-strategy films resolver row](../testing-strategy.md)
+**Design package:** [spec F56 P0-7 note](../specs/films-entity.md) · [ADR-122 amendment](../architecture/archive/ADR-122-linked-film-decides-by-default.md) · [testing-strategy films resolver row](../testing-strategy.md)
 
 ## Gates — definition of done
 

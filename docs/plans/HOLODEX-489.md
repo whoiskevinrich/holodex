@@ -19,7 +19,7 @@ ledger (written once, then `=`; re-decided, then out of sync), and the gap is vi
 two places: a muted hint on a never-written row in the writeback dialog, and a *Mapping checks* block
 on System Activity (plus a count in the reload-config response). Relates to HOLODEX-488.
 
-**Design package:** [ADR-119](../architecture/ADR-119-ledger-witness-for-readback-gaps.md) ·
+**Design package:** [ADR-119](../architecture/archive/ADR-119-ledger-witness-for-readback-gaps.md) ·
 [handoff](../design/readback-gap-handoff.md) + [mockup](../design/readback-gap-mockup.svg) ·
 spec [field-source-of-truth.md §Sync state](../specs/field-source-of-truth.md)
 

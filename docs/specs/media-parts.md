@@ -9,20 +9,20 @@ edition template; no new subsystem
 
 **Depends on** (all shipped):
 - F60 edition ([entity-identity-card.md](entity-identity-card.md) RD6–RD8, RD11, RD12;
-  [ADR-096](../architecture/ADR-096-entity-identity-card.md) D4) — the template this field copies
+  [ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) D4) — the template this field copies
   line for line: a file fact with a container-tag baseline, a strict `{…}` filename marker, no
   provider source, an `optional` completeness facet, a `formatMap` row, a pill beside the title.
 - F48 metadata extraction ([metadata-extraction.md](metadata-extraction.md)) — the `filename:`
   namespace, the marker lifter in `internal/extract/pattern.go` (`liftEdition`), and the
   auto-apply / review-queue routing every `filename:` candidate follows.
 - Per-field source decisions ([field-source-of-truth.md](field-source-of-truth.md),
-  [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) and the two-layer
-  model ([ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md)) — `part` is
+  [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) and the two-layer
+  model ([ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md)) — `part` is
   a precedence-layer field rendered through the generic field row + `SourceBadge`.
-- Writeback ([ADR-041](../architecture/ADR-041-metadata-writeback.md),
-  [ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)) — one more row
+- Writeback ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md),
+  [ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)) — one more row
   in `formatMap`, round-tripped through read-back.
-- Canonical field mapping ([ADR-013](../architecture/ADR-013-metadata-field-mapping.md)) —
+- Canonical field mapping ([ADR-013](../architecture/archive/ADR-013-metadata-field-mapping.md)) —
   `part` is declared in `metadata-mappings.yaml`, not compiled in.
 
 **ADR**: none — a canonical field is mapping config, exactly as edition was (ADR-096 D4 covered

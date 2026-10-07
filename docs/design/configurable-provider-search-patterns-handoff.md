@@ -1,8 +1,8 @@
 # Design Handoff: Configurable provider search patterns — search box seeding (HOLODEX-254)
 
 **Spec**: [configurable-provider-search-patterns.md](../specs/configurable-provider-search-patterns.md) ·
-**ADR**: [ADR-080](../architecture/ADR-080-configurable-provider-search-patterns.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**ADR**: [ADR-080](../architecture/archive/ADR-080-configurable-provider-search-patterns.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins** (applies to the optional P1 caption
 below; the P0 scope introduces no new markup).
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)

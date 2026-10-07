@@ -4,7 +4,7 @@
 **Story**: [HOLODEX-401](https://whoiskevinrich.atlassian.net/browse/HOLODEX-401) (epic HOLODEX-167 Writeback)
 **Owner**: Project owner
 **Date**: 2026-09-26
-**Architecture**: [ADR-111](../architecture/ADR-111-recorded-file-tag-set.md) · **Design**:
+**Architecture**: [ADR-111](../architecture/archive/ADR-111-recorded-file-tag-set.md) · **Design**:
 [tag-set-writeback-handoff.md](../design/tag-set-writeback-handoff.md)
 
 **Depends on (all shipped)**: the genres write path, which writes the full applied set and ignores the

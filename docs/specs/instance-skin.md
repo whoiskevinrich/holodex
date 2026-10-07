@@ -10,7 +10,7 @@ operator setting and one config block, no new subsystem
 `/owner` selects one of the three shipped skins or an owner-defined **custom palette** declared in
 `holodex.yaml`. The selection persists **server-side** and ships to every viewer.
 
-> **Retired 2026-09-27 by [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (epic
+> **Retired 2026-09-27 by [ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md) (epic
 > [HOLODEX-476](https://whoiskevinrich.atlassian.net/browse/HOLODEX-476)).** Cinémathèque is the
 > only look, and nothing chooses it. Broadcast, Brutalist, the custom palette, `PUT /admin/theme`,
 > `/capabilities.theme`, the paint cache and the Appearance tab are all removed. Only R1's
@@ -24,7 +24,7 @@ stories [426](https://whoiskevinrich.atlassian.net/browse/HOLODEX-426) settings 
 [428](https://whoiskevinrich.atlassian.net/browse/HOLODEX-428) custom palette
 
 **Depends on** (all shipped):
-- Frontend theming and skins ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md),
+- Frontend theming and skins ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md),
   [`docs/design/theming.md`](../design/theming.md)) — the semantic token set
   (`bg surface surface-2 ink muted rule accent accent-ink warn warn-ink logo-plate logo-plate-ink
   font-display font-ui radius`), the three `[data-theme]` blocks in `web/src/app.css`, and the
@@ -39,7 +39,7 @@ stories [426](https://whoiskevinrich.atlassian.net/browse/HOLODEX-426) settings 
 HOLODEX-234) — branding there is icon/favicon only; wiring the manifest's `theme_color` to the
 active skin is a P2 below, not part of either epic.
 
-**ADR**: [ADR-102](../architecture/ADR-102-instance-skin-and-settings-store.md) — D1 instance identity ·
+**ADR**: [ADR-102](../architecture/archive/ADR-102-instance-skin-and-settings-store.md) — D1 instance identity ·
 D2 `settings` store + the library/deployment ownership boundary · D3 read/write channels · D4 derived palette applied
 inline · D5 validation posture · D6 restart-to-apply (supersedes ADR-021 §5 only).
 **Design**: [instance-skin-handoff.md](../design/instance-skin-handoff.md) +

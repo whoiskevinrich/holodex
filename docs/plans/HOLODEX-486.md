@@ -14,7 +14,7 @@ This is done when the runtime image ships `mkvtoolnix`, so production MKV writeb
 (mkvpropedit) instead of remuxing, and the media-tool suites pass **inside the built image** via
 `make test-image`.
 
-**Design package:** [ADR-117](../architecture/ADR-117-bundle-mkvtoolnix-runtime.md) · spun out of HOLODEX-485 · CI wiring → HOLODEX-487
+**Design package:** [ADR-117](../architecture/archive/ADR-117-bundle-mkvtoolnix-runtime.md) · spun out of HOLODEX-485 · CI wiring → HOLODEX-487
 
 ## Gates — definition of done
 

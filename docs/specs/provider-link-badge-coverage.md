@@ -13,20 +13,20 @@ providers whose ids do not template, and finishes the two entities the badge nev
 and media.
 
 **Depends on** (all shipped):
-- [ADR-083](../architecture/ADR-083-provider-link-badge-person-studio.md) (HOLODEX-266) —
+- [ADR-083](../architecture/archive/ADR-083-provider-link-badge-person-studio.md) (HOLODEX-266) —
   `ProviderLinkBadge`, the `external_links` projection for person/studio, `link_templates` in the
   `/describe` manifest, `enrich.ValidateLinkTemplate` / `BuildLink`, and the D2 degraded state.
   This spec **keeps** D1 (read-only projection), D2 (template resolved server-side), and D3 (one
   badge per stored id, namespace-keyed) unchanged; the ADR this block adds only *widens* D2 with a
   fallback.
-- [ADR-082](../architecture/ADR-082-external-provider-id-namespace-qualified-value.md) (F55) —
+- [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md) (F55) —
   video's `external_provider_id` registry facet carries a `<namespace>:<id>` scalar with one
   resolved winner; its Display section already prescribes "use the namespace to build a provider
   link". That badge was designed but never built (see
   [HOLODEX-266's worklog](../plans/HOLODEX-266.md), 2026-08-09 entry).
-- [ADR-096](../architecture/ADR-096-entity-identity-card.md) D2 (F60) — `entity_external_ids`
+- [ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) D2 (F60) — `entity_external_ids`
   is the one table person / studio / film ids live in; film ids are already written on adoption.
-- [ADR-059](../architecture/ADR-059-provider-brand-icon.md) — the brand icon each pill shows.
+- [ADR-059](../architecture/archive/ADR-059-provider-brand-icon.md) — the brand icon each pill shows.
 - [metadata-provider-contract.md](metadata-provider-contract.md) — the sidecar contract this block
   extends (§2.2 gains `link_templates`, §4 gains `_source_url`).
 
@@ -34,7 +34,7 @@ and media.
 resolves its deferred **P1-2** (provider link badge on films) ·
 [docs/design/provider-link-badge-handoff.md](../design/provider-link-badge-handoff.md) — the
 person/studio badge handoff this block's design gate extends ·
-[ADR-090](../architecture/ADR-090-two-layer-entity-metadata-management.md) — the badge is a
+[ADR-090](../architecture/archive/ADR-090-two-layer-entity-metadata-management.md) — the badge is a
 *precedence-layer* read-out of stored identity, never an adoption surface.
 
 ---
@@ -292,7 +292,7 @@ This is an owner-facing single-user surface; the metrics are correctness, not ad
   2026-09-17 → RD10:** it should, per entity, on every `/enrich`; contract §4.12 is what its sidecar
   implements against. Core is unaffected either way.
 - ~~**[architecture]** Where the stored `_source_url` lives~~ **Resolved by
-  [ADR-098](../architecture/ADR-098-provider-source-url-fallback.md) D1:** a reserved `_`-prefixed
+  [ADR-098](../architecture/archive/ADR-098-provider-source-url-fallback.md) D1:** a reserved `_`-prefixed
   key in `fields`, stored as an ordinary `entity_enrichment` row — no migration.
 - ~~**[design]** Film header: the film page has a banner/poster header (F59) rather than the
   person page's portrait hero — the handoff decides which line the pills join.~~ **Resolved by

@@ -5,9 +5,9 @@
 **Date**: 2026-06-29
 **Owner**: Project owner
 
-**Depends on**: the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)) — `activity.isOwner` / `effectiveOwner`;
+**Depends on**: the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)) — `activity.isOwner` / `effectiveOwner`;
 the Admin-mode toggle and its store ([Admin Mode F29](admin-mode.md), `web/src/lib/adminMode.svelte.ts`);
-the theming/token system ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+the theming/token system ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Related surfaces (folded into the hub)**: System Activity `/status` ([F21](system-activity.md)),
 Metadata keys `/keys`, Trash `/trash` ([F24](delete-media.md)).
 **Supersedes a follow-up of**: [F29](admin-mode.md) explicitly parked "a consolidated **Admin page**

@@ -1,8 +1,8 @@
 # Manual QA Checklist: Owner tooling hub + nav split (F35)
 
-**Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/ADR-030-access-control-gating-seam.md) · **Design**: [handoff](owner-tooling-hub-handoff.md)
+**Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) · **Design**: [handoff](owner-tooling-hub-handoff.md)
 **Builds on**: [Admin Mode (F29)](../specs/admin-mode.md) — same toggle, relabeled.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — automated test or build gate (`svelte-check`, token-guard `rg`, redirect/route test). Green build = pass; pre-checked `[x]` with the test named.

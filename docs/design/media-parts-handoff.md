@@ -8,7 +8,7 @@
 **Builds on:** [entity-identity-card-handoff.md](entity-identity-card-handoff.md) §2–§3 (F60 —
 the edition pill, the "+ Set edition" empty row, `SourceBadge` for a single-source field) ·
 [film-enrichment-handoff.md](film-enrichment-handoff.md) (scene badge on `VideoCard`)
-**Theming contract:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — tokens only, QA all three skins.
 
 ![Media parts mockup](media-parts-mockup.svg)

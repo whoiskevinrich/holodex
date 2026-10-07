@@ -8,11 +8,11 @@
 **Owner:** Kevin Rich
 **Date:** 2026-09-12
 **Spec:** [entity-identity-card.md](../specs/entity-identity-card.md) (F60, RD1–RD12)
-**ADR:** [ADR-096](../architecture/ADR-096-entity-identity-card.md) — D5 struck Tag from §4 (see 4d).
+**ADR:** [ADR-096](../architecture/archive/ADR-096-entity-identity-card.md) — D5 struck Tag from §4 (see 4d).
 **Builds on:** [entity-identity-handoff.md](entity-identity-handoff.md) (F43 — AliasPanel,
 EntityPicker) · [field-source-of-truth-handoff.md](field-source-of-truth-handoff.md) (ADR-051
 chip row) · [film-enrichment-handoff.md](film-enrichment-handoff.md) (F59 film header)
-**Theming contract:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — tokens only, QA all three skins.
 
 ![Entity identity card mockup](entity-identity-card-mockup.svg)

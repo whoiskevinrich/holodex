@@ -1,7 +1,7 @@
 # QA: TMDB Provider Sidecar + ADR-039 Core Changes
 
 **Feature**: Real TMDB metadata provider (`providers/tmdb/`) + ADR-039 `asset_hosts` allowlist  
-**Related**: [ADR-033](../architecture/ADR-033-metadata-source-plugins.md), [ADR-039](../architecture/ADR-039-provider-asset-urls.md), [ADR-040](../architecture/ADR-040-tmdb-provider-repo-placement.md), [tmdb-provider spec](tmdb-provider.md)
+**Related**: [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), [ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md), [ADR-040](../architecture/archive/ADR-040-tmdb-provider-repo-placement.md), [tmdb-provider spec](tmdb-provider.md)
 
 ---
 

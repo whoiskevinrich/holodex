@@ -13,8 +13,8 @@ for progress. This is the first case in the app where an owner action fans out a
 writeback across N videos in one gesture.
 
 **Depends on** (all shipped):
-- the F36 decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) and
-  entity-generic resolver ([ADR-052](../architecture/ADR-052-baseline-source-contract.md)) — Media's
+- the F36 decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) and
+  entity-generic resolver ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)) — Media's
   `studio` field already rides this; Film's cascade sets decisions through the same
   `field_source_decisions` table, just N rows in one action instead of one
 - `StudioPicker.svelte` (HOLODEX-271) — the existing docked-pencil Studio edit popover on Media,
@@ -23,7 +23,7 @@ writeback across N videos in one gesture.
 - `NameEditControl.svelte`'s docked-pencil pattern (HOLODEX-269) and `.name-edit-row`/
   `.name-edit-pencil` CSS hooks (`app.css`) — the shared hover/focus-reveal affordance this spec
   extends to Film
-- the tag writeback-sync mechanism (HOLODEX-239, [ADR-077](../architecture/ADR-077-tag-writeback-exclusion.md)) —
+- the tag writeback-sync mechanism (HOLODEX-239, [ADR-077](../architecture/archive/ADR-077-tag-writeback-exclusion.md)) —
   `internal/writequeue.EnqueueMany` with a `batchID`, `api.writebackBatchStatus` polling, and
   `WritebackBatchDialog.svelte` rendering aggregate pending/running/done/failed progress. F57
   reuses this display/polling shape but needs a **new** backend action: ADR-077's
@@ -31,9 +31,9 @@ writeback across N videos in one gesture.
   a new decision on each video, then enqueue the write, in one server-side action
 - the films entity ([F56/ADR-085](films-entity.md)) — `internal/repo.FilmStudios` (the SQL union
   this spec's cascade target reads from) and `film_videos` (the attachment list the cascade walks)
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
-**ADR**: **[ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md) (Proposed)**
+**ADR**: **[ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md) (Proposed)**
 records the bulk-decide-then-writeback mechanism: a shared `decideStudioForVideo` helper
 (extracted from the existing single-video Studio-decide path) called once per video attached to
 the film, with a **best-effort, not all-or-nothing** failure posture — a per-video collision or
@@ -247,7 +247,7 @@ binary: an owner can correct a film's studio in one action instead of N, and the
 
 ## Open Questions
 
-*(Resolved by [ADR-087](../architecture/ADR-087-film-studio-cascade-decide-and-writeback.md):
+*(Resolved by [ADR-087](../architecture/archive/ADR-087-film-studio-cascade-decide-and-writeback.md):
 failure-boundary semantics are best-effort-per-video, not all-or-nothing — a decision-set failure
 for video K excludes only K's writeback while videos K+1..N proceed, since each video's decision
 is already an independent commit by the time a later one might fail. Endpoint is Film-scoped for

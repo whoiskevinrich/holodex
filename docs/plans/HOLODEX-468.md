@@ -11,7 +11,7 @@ release_note: Videos indexed before on-file tag markers existed now get their ma
 Done means a routine background scan fills `videos.file_tags` for a pre-0054 row whose file is
 unchanged, once, without a boot backfill, so the whole existing library gets on-file tag glyphs.
 
-**Context:** spun out of HOLODEX-401 · [ADR-111](../architecture/ADR-111-recorded-file-tag-set.md) D1 follow-up · [spec F72](../specs/tag-set-writeback.md) · [testing-strategy](../testing-strategy.md)
+**Context:** spun out of HOLODEX-401 · [ADR-111](../architecture/archive/ADR-111-recorded-file-tag-set.md) D1 follow-up · [spec F72](../specs/tag-set-writeback.md) · [testing-strategy](../testing-strategy.md)
 
 ## Gates — definition of done
 

@@ -545,7 +545,7 @@ export const api = {
 		sendAuthed<Record<string, never>>('PUT', `/studios/${id}/images/${role}/halo`, { mode, on }),
 
 	// Film entities (F56, ADR-085): the first entity whose video membership is an owner
-	// assertion, not a derived link — see docs/architecture/ADR-085-films-entity.md.
+	// assertion, not a derived link — see docs/architecture/archive/ADR-085-films-entity.md.
 	// Reads are public (gated on films_enabled server-side at Mount); mutations are
 	// owner-gated. ?q= name-searches (FTS); ?person_id=/?studio_id=/?tag_id= filter to
 	// films whose video union includes that entity (mutually exclusive with ?q).

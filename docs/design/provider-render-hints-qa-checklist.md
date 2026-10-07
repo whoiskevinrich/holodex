@@ -2,7 +2,7 @@
 
 **Spec**: [provider-render-hints.md](../specs/provider-render-hints.md) ·
 **Handoff**: [provider-render-hints-handoff.md](provider-render-hints-handoff.md) ·
-**ADR**: [ADR-056](../architecture/ADR-056-provider-field-render-hints.md) ·
+**ADR**: [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md) ·
 **Jira**: HOLODEX-128
 
 Conventions: every item is numbered `section.item` and tagged by verifier —

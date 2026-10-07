@@ -3,7 +3,7 @@
 **Status**: Proposed
 **Date**: 2026-06-16
 **Mode**: extend
-**Refs**: spec [People Images (F25)](../specs/people-images.md) · [ADR-038](../architecture/ADR-038-person-images.md) · theming contract [`theming.md`](theming.md) · [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)
+**Refs**: spec [People Images (F25)](../specs/people-images.md) · [ADR-038](../architecture/archive/ADR-038-person-images.md) · theming contract [`theming.md`](theming.md) · [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)
 
 This extends the existing design system; it introduces **no new color/type/radius tokens**. Person
 images reuse the semantic token contract and follow the same "skins own the look via a shared hook

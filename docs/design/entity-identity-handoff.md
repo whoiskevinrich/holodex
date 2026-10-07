@@ -1,7 +1,7 @@
 # Design Handoff: Entity name-identity — merge, alias & duplicate review (F43)
 
-**Spec**: [entity-identity.md](../specs/entity-identity.md) · **ADR**: [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [entity-identity.md](../specs/entity-identity.md) · **ADR**: [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 This handoff **generalizes the F23 person-alias surfaces** ([person-aliases-handoff.md](person-aliases-handoff.md))

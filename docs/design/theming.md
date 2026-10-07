@@ -2,11 +2,11 @@
 
 **Status**: Implemented (Phase 1)
 **Date**: 2026-06-10
-**Architecture**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md), amended by
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md)
+**Architecture**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md), amended by
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md)
 
 Holodex has **one look: Cinémathèque** (dark). There is nothing to choose.
-[ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) (HOLODEX-476) retired Broadcast,
+[ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md) (HOLODEX-476) retired Broadcast,
 Brutalist, the custom palette (`theme.custom`), the instance-skin setting and the **Owner ›
 Appearance** tab. The tokens live in one `:root` block in `web/src/app.css`, and nothing sets
 `data-theme`. The one mirror left is `internal/personimage/placeholder.go`, which copies four

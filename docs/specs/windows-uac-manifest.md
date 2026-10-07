@@ -4,7 +4,7 @@
 **Owner:** Kevin  
 **Type:** Developer experience / build tooling  
 **Scope:** v1, single phase  
-**ADR:** [ADR-042](../architecture/ADR-042-windows-asInvoker-manifest.md)
+**ADR:** [ADR-042](../architecture/archive/ADR-042-windows-asInvoker-manifest.md)
 
 ---
 

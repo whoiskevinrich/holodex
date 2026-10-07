@@ -1,8 +1,8 @@
 # QA Checklist: Person-page polish (parallax banner · inline poster · list scroll-restore)
 
 Design handoff [`person-page-polish-handoff.md`](person-page-polish-handoff.md) · spec
-[`people-images.md`](../specs/people-images.md) (F25.26–28 follow-ups) · [ADR-038](../architecture/ADR-038-person-images.md) /
-[ADR-032](../architecture/ADR-032-browse-state-preservation.md).
+[`people-images.md`](../specs/people-images.md) (F25.26–28 follow-ups) · [ADR-038](../architecture/archive/ADR-038-person-images.md) /
+[ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md).
 
 **Legend** — verifier tags: **[smoke]** trivially confirmable the app runs · **[agent]** verified
 programmatically this session (DOM inspection / svelte-check) · **[human]** needs a person's eyes (live

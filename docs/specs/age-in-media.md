@@ -14,7 +14,7 @@ today).
 **Issue**: [HOLODEX-173](https://whoiskevinrich.atlassian.net/browse/HOLODEX-173) *(parent epic
 [HOLODEX-18](https://whoiskevinrich.atlassian.net/browse/HOLODEX-18) — Enrichment fields; split from
 [HOLODEX-73](https://whoiskevinrich.atlassian.net/browse/HOLODEX-73))*
-**ADR**: N/A per the ticket — reuses [ADR-063](../architecture/ADR-063-derived-computed-fields.md)'s age
+**ADR**: N/A per the ticket — reuses [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md)'s age
 arithmetic; a bespoke join at the API layer introduces no new architecture. Revisit only if the resolver
 package's exported surface needs formalizing (see Open Items).
 **Design**: Not yet landed — `needs-design` (exact placement/style of the age annotation on the
@@ -26,7 +26,7 @@ package's exported surface needs formalizing (see Open Items).
   shared age arithmetic (`wholeYearsBetween`, `parseDate`, `internal/resolver/derive.go`) and the
   "compute-on-read, no storage, no placeholder-when-uncomputable" conventions this spec reuses.
 - Per-field source-of-truth ([F36](field-source-of-truth.md) / F37 people /
-  [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) — `personResolved`
+  [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) — `personResolved`
   (`internal/api/person_fields.go:110-137`) is what supplies a person's **resolved** (not raw baseline)
   `birthdate`, honoring any owner source decision.
 - Video-level TMDB enrichment reaching `release_date` — was blocked, now unblocked (config-wiring fix,

@@ -1,7 +1,7 @@
 # Design Handoff: Writeback hides the target file tag (HOLODEX-216)
 
 **Epic**: HOLODEX-167 (Writeback)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Prior art (same dialog)**: [writeback-selection-handoff.md](writeback-selection-handoff.md) —
 the "no dimming" rule and `.btn-*` disabled treatment this handoff follows.

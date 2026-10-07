@@ -10,7 +10,7 @@ group-order and opting it into the F36 source-decision + F30 curation machinery 
 `metadata-mappings.yaml`**.
 
 **Issue**: [HOLODEX-171](https://whoiskevinrich.atlassian.net/browse/HOLODEX-171)
-**ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) *(written — the DB-backed override store,
+**ADR**: [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md) *(written — the DB-backed override store,
 the tier-0 precedence ladder amending ADR-056 §D2, and per-entity candidate-source derivation; settles the
 `filterable` deferral and the candidate rule left open here)*
 **Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) +
@@ -21,15 +21,15 @@ invariants §4, E2E flow §6.19, three Given/When/Then examples §10; maps to th
 
 **Depends on** (all shipped):
 - provider render hints + presence-driven auto-registration ([F39](provider-render-hints.md) /
-  [ADR-056](../architecture/ADR-056-provider-field-render-hints.md), `ResolvedField.AutoRegistered`,
+  [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md), `ResolvedField.AutoRegistered`,
   `AutoRegisterFields`, the four-tier ladder, `provider_field_hints`)
-- per-field source decisions ([F36](field-source-of-truth.md) / [ADR-051](../architecture/ADR-051-field-source-of-truth.md),
+- per-field source decisions ([F36](field-source-of-truth.md) / [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md),
   `field_source_decisions`, `ResolvedField.Decision/Candidates/InSync`, `SourceSelect.svelte`)
-- metadata curation ([F30](metadata-curation.md) / [ADR-048](../architecture/ADR-048-metadata-curation.md),
+- metadata curation ([F30](metadata-curation.md) / [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md),
   `metadata_curation`, `CurationFieldRow.svelte`)
-- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/ADR-052-baseline-source-contract.md),
+- the entity-agnostic resolver + canonical registry ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md),
   `ResolveFields`, `mapping.Field`, `internal/registry`)
-- the owner gate ([ADR-045](../architecture/ADR-045-owner-session.md), `requireOwner`, Admin mode /
+- the owner gate ([ADR-045](../architecture/archive/ADR-046-owner-session-persistence.md), `requireOwner`, Admin mode /
   `effectiveOwner`)
 
 **Touches** an owner-gated mutation that changes what fields render and how they navigate/curate, and
@@ -283,7 +283,7 @@ the source these were built from.*
 
 ## Open Items
 
-*Two prior architecture items are resolved in [ADR-062](../architecture/ADR-062-in-app-field-promotion.md):*
+*Two prior architecture items are resolved in [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md):*
 `filterable` on a promotion — **deferred** (`Filterable` stays false in v1; browse-facet is a follow-up,
 ADR-062 D-filterable); and candidate-source derivation — **per-entity from shadow provenance** (one
 `provider:<ns>` per supplying namespace, union across providers, `manual` always available; no stored source

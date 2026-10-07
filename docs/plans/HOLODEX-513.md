@@ -28,7 +28,7 @@ Done when a video's sole attached film wins its `collection` (and `title` for a 
 the file tag. Film renames and display-name decisions must reach the media page, and a detach must
 fall back to the file.
 
-**Design package:** [spec F56 P0-7 amendment](../specs/films-entity.md) · [ADR-122](../architecture/ADR-122-linked-film-decides-by-default.md) · no handoff (no new UI surface) · [testing-strategy films resolver row](../testing-strategy.md)
+**Design package:** [spec F56 P0-7 amendment](../specs/films-entity.md) · [ADR-122](../architecture/archive/ADR-122-linked-film-decides-by-default.md) · no handoff (no new UI surface) · [testing-strategy films resolver row](../testing-strategy.md)
 
 ## Gates — definition of done
 

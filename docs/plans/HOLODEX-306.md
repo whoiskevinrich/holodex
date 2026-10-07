@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-306
 status: in-progress
 profile: full
@@ -15,13 +15,13 @@ Done means: a person (and studio) has exactly one set of alternate names. Provid
 and scan-routing on arrival, and the display-only "Also known as" curation row is gone from the
 person page.
 
-**Design package:** [ADR-088](../architecture/ADR-088-provider-alias-collapse.md) · [handoff](../design/alias-collapse-handoff.md) · [mockup](../design/alias-collapse-mockup.svg)
+**Design package:** [ADR-088](../architecture/archive/ADR-088-provider-alias-collapse.md) · [handoff](../design/alias-collapse-handoff.md) · [mockup](../design/alias-collapse-mockup.svg)
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/provider-alias-collapse.md` (F58) — 8 resolved decisions,
       10 P0 requirements, sliced build order
-- [x] architecture `architecture` → `docs/architecture/ADR-088-provider-alias-collapse.md`
+- [x] architecture `architecture` → `docs/architecture/archive/ADR-088-provider-alias-collapse.md`
 - [x] design `design-handoff` → `docs/design/alias-collapse-handoff.md` + committed SVG
 - [ ] backend
 - [x] frontend — `AliasPanel` badge + subcopy + review line; person page's `aliases`

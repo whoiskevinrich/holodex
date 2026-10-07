@@ -1,8 +1,8 @@
 # Design Handoff: Tag writeback exclusion — Details card + bulk actions (HOLODEX-239)
 
 **Spec**: [tag-writeback-exclusion.md](../specs/tag-writeback-exclusion.md) ·
-**ADR**: [ADR-077](../architecture/ADR-077-tag-writeback-exclusion.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**ADR**: [ADR-077](../architecture/archive/ADR-077-tag-writeback-exclusion.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Prior art (same dialog, different feature)**:
 [writeback-selection-handoff.md](writeback-selection-handoff.md) — the design-system-fit audit

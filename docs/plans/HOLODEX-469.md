@@ -21,7 +21,7 @@ Done means an ordinary restart does no completeness work, so the first owner Peo
 is as fast as the second. A new build or a changed config re-scores everything once, in the
 background, and pages opened meanwhile show the previous rings instead of waiting.
 
-**Design package:** [ADR-112](../architecture/ADR-112-completeness-boot-fingerprint.md) (supersedes
+**Design package:** [ADR-112](../architecture/archive/ADR-112-completeness-boot-fingerprint.md) (supersedes
 ADR-099 D4's boot hook only) · [spec note](../specs/entity-completeness-score.md) ·
 [testing-strategy § Completeness store — boot re-score](../testing-strategy.md)
 

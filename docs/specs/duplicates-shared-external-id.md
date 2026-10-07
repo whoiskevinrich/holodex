@@ -6,7 +6,7 @@ compare panel; adds one `variation`, two producers and no new endpoint
 **Owner**: Project owner
 **Date**: 2026-09-23
 **Jira**: [HOLODEX-452](https://whoiskevinrich.atlassian.net/browse/HOLODEX-452)
-**ADR**: [ADR-107](../architecture/ADR-107-shared-external-id-duplicate-detection.md)
+**ADR**: [ADR-107](../architecture/archive/ADR-107-shared-external-id-duplicate-detection.md)
 **Design**: [handoff](../design/duplicates-shared-external-id-handoff.md) ·
 [mockup](../design/duplicates-shared-external-id-mockup.svg)
 **Feature block**: **F71** — two entities of the same kind that carry the same provider external
@@ -529,7 +529,7 @@ Probe run on the host 2026-09-23. OQ1 and OQ3 are closed; OQ2 is half-closed and
 | Gate | State |
 |---|---|
 | spec | this document (F71) |
-| architecture | [ADR-107](../architecture/ADR-107-shared-external-id-duplicate-detection.md) |
+| architecture | [ADR-107](../architecture/archive/ADR-107-shared-external-id-duplicate-detection.md) |
 | design | [handoff](../design/duplicates-shared-external-id-handoff.md) + committed mockup |
 | backend | P0-1 … P0-5, P0-7, P0-8 |
 | frontend | P0-6 |

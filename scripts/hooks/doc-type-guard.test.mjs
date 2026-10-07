@@ -26,11 +26,13 @@ test("each doc type's context names its own boundary and the rules file", () => 
 });
 
 test("decideWrite blocks only creating a new numbered ADR", () => {
-  assert.equal(decideWrite("Write", "docs/architecture/ADR-123-new-thing.md", false).block, true);
+  assert.equal(decideWrite("Write", "docs/" + "architecture/ADR-123-new-thing.md", false).block, true);
   assert.equal(decideWrite("Write", "G:\\repo\\docs\\architecture\\ADR-123-x.md", false).block, true);
+  assert.equal(decideWrite("Write", "docs/architecture/archive/ADR-123-x.md", false).block, true);
+  assert.equal(decideWrite("Write", "docs/architecture/archive/ADR-091-x.md", true).block, false);
   // editing or overwriting an existing ADR passes during the transition
-  assert.equal(decideWrite("Write", "docs/architecture/ADR-091-fire-and-forget.md", true).block, false);
-  assert.equal(decideWrite("Edit", "docs/architecture/ADR-123-x.md", false).block, false);
+  assert.equal(decideWrite("Write", "docs/architecture/archive/ADR-091-fire-and-forget.md", true).block, false);
+  assert.equal(decideWrite("Edit", "docs/architecture/archive/ADR-123-x.md", false).block, false);
   // topic docs, the index and other trees pass
   assert.equal(decideWrite("Write", "docs/architecture/writeback.md", false).block, false);
   assert.equal(decideWrite("Write", "docs/architecture/README.md", false).block, false);
@@ -40,7 +42,7 @@ test("decideWrite blocks only creating a new numbered ADR", () => {
 
 test("the hook exits 2 on a new ADR and injects context for a doc skill", () => {
   const block = spawnSync(process.execPath, [GUARD], {
-    input: JSON.stringify({ tool_name: "Write", tool_input: { file_path: "docs/architecture/ADR-999-nope.md", content: "x" } }),
+    input: JSON.stringify({ tool_name: "Write", tool_input: { file_path: "docs/architecture/archive/ADR-999-nope.md", content: "x" } }),
   });
   assert.equal(block.status, 2);
   assert.match(String(block.stderr), /new numbered ADRs are retired/);

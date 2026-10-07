@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-280                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -18,8 +18,8 @@ mirroring `studio_images_test.go`'s coverage shape, frontend type-check + unit t
 upload/replace/remove/visitor flow verified live in a browser across all three skins.
 
 **Design package:** spec §P1-2 ([films-entity.md](../specs/films-entity.md)) · architecture
-[ADR-085](../architecture/ADR-085-films-entity.md) (film_images schema, reuses
-[ADR-079](../architecture/ADR-079-studio-image-roles.md) verbatim) · design: none needed — the
+[ADR-085](../architecture/archive/ADR-085-films-entity.md) (film_images schema, reuses
+[ADR-079](../architecture/archive/ADR-079-studio-image-roles.md) verbatim) · design: none needed — the
 Images section is mechanical reuse of Studio's existing (undocumented-as-a-handoff) pattern,
 see session log · testing-strategy: [§ "Film poster/thumb self-hosted images"](../../docs/testing-strategy.md)
 

@@ -15,7 +15,7 @@ which changes the meaning of "excluded" from *not written to Genre* to *UI-only:
 - the "don't write" chip interaction language (`web/src/lib/components/curation/CurationChip.svelte`)
 - the background-activity indicator convention (`.activity-dot`, `web/src/app.css`, F21.5)
 
-**New ADR**: [ADR-077](../architecture/ADR-077-tag-writeback-exclusion.md) — covers the flag's
+**New ADR**: [ADR-077](../architecture/archive/ADR-077-tag-writeback-exclusion.md) — covers the flag's
 enforcement point (`TagNamesForVideo`'s final projection, flat per-name rather than
 hierarchy-inherited), why the manual sync trigger must recompute `GenreWritebackValues` per video
 rather than reuse `propagateMerge`'s precomputed-name-list pattern, and a new
@@ -193,7 +193,7 @@ Manage-bar bulk-action extension point this spec originates.
 
 ## Amendment — the file tag contract (HOLODEX-465)
 
-**Date**: 2026-09-26 · **ADR**: [ADR-110](../architecture/ADR-110-tag-writeback-file-contract.md) ·
+**Date**: 2026-09-26 · **ADR**: [ADR-110](../architecture/archive/ADR-110-tag-writeback-file-contract.md) ·
 **Also closes**: [HOLODEX-466](https://whoiskevinrich.atlassian.net/browse/HOLODEX-466) (MP4 tagline
 read back as tags)
 

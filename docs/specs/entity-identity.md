@@ -10,13 +10,13 @@ canonical names *and* aliases, plus a shared alias / merge / rename / keep-separ
 capitalization, and gives Studios and Tags the merge/alias capability People already have (F23).
 
 **Depends on** (all shipped):
-- F23 person aliases + merge ([person-aliases.md](person-aliases.md), [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)) — the pattern this generalizes; `person_aliases` migrates onto the shared spine.
-- The studio entity ([studio-entity.md](studio-entity.md), [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)) — studio links **derive** from the resolved field, so studio merge must register an alias (RD6).
-- Studio external-id de-dup ([ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)) / the enrichment unique-key invariant ([ADR-055](../architecture/ADR-055-enrichment-unique-key-invariant.md)) — provider identity; this spec is the **name** side that ADR-055 explicitly leaves separate (RD3).
-- Person link resolved-derivation ([ADR-072](../architecture/ADR-072-person-link-resolved-derivation.md), spec F40) — makes `video_people` **derived** via a generic `RelinkVideoEntity` that routes names through the alias table at derivation time; F43 is the alias/merge spine that derivation routes through, and person merge now survives re-derivation like studio (RD6). The two converge on one `resolveOrCreateByName`; whichever lands second wires to it.
-- The owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`); System Activity job history ([F21](system-activity.md)/[ADR-028](../architecture/ADR-028-activity-surface-and-job-history.md)) for the backfill; the Owner hub ([F35](owner-tooling-hub.md), `/owner`) for the review queue.
+- F23 person aliases + merge ([person-aliases.md](person-aliases.md), [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md)) — the pattern this generalizes; `person_aliases` migrates onto the shared spine.
+- The studio entity ([studio-entity.md](studio-entity.md), [ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md)) — studio links **derive** from the resolved field, so studio merge must register an alias (RD6).
+- Studio external-id de-dup ([ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)) / the enrichment unique-key invariant ([ADR-055](../architecture/archive/ADR-055-enrichment-unique-key-invariant.md)) — provider identity; this spec is the **name** side that ADR-055 explicitly leaves separate (RD3).
+- Person link resolved-derivation ([ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md), spec F40) — makes `video_people` **derived** via a generic `RelinkVideoEntity` that routes names through the alias table at derivation time; F43 is the alias/merge spine that derivation routes through, and person merge now survives re-derivation like studio (RD6). The two converge on one `resolveOrCreateByName`; whichever lands second wires to it.
+- The owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`); System Activity job history ([F21](system-activity.md)/[ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md)) for the backfill; the Owner hub ([F35](owner-tooling-hub.md), `/owner`) for the review queue.
 
-**ADR**: [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) (Proposed) — the shared spine,
+**ADR**: [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) (Proposed) — the shared spine,
 per-entity normalize, id→name→create resolve order, two-path handling, keep-separate. Realizes ADR-053's
 deferred RD4; generalizes ADR-036/F23; complements ADR-055. **Supersedes** ADR-053's binary-name studio
 identity and the tag bare-string identity.
@@ -402,7 +402,7 @@ Single-owner correctness + hygiene feature:
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ✅ **`/architecture`** — [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) (the spine,
+1. ✅ **`/architecture`** — [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) (the spine,
    resolve order, per-entity normalize, keep-separate, two-path handling).
 2. ✅ **`/design-handoff`** — [entity-identity-handoff.md](../design/entity-identity-handoff.md): review-queue
    banner + `/owner` Duplicates tab, `/tags` identity row-actions, editor near-miss prompt, studio/person alias

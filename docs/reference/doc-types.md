@@ -50,12 +50,13 @@ is edited in place when that changes, and leaves the history to git.
   don't know these rules; the `/architecture` template scaffolds a numbered ADR. The hook also
   blocks creating a new `docs/architecture/ADR-NNN-*.md`.
 
-## Transition (HOLODEX-523)
+## The archived ADRs
 
-The numbered `ADR-NNN` files are being folded into topic docs (HOLODEX-526, HOLODEX-527) and then
-removed (HOLODEX-528). Until then:
+The numbered `ADR-NNN` files were folded into topic docs (architecture), specs and design docs
+(product and UI rules) and `docs/reference/` (process), then moved to
+`docs/architecture/archive/` (HOLODEX-523). Each archived file opens with a banner naming where its
+content now lives, and `archive/README.md` maps every number.
 
-- **No new numbered ADRs.**
-- A technology decision either edits the ADR that already covers it, in place, or starts a topic
-  doc at `docs/architecture/<topic>.md`.
-- Existing `ADR-NNN` links stay valid until HOLODEX-528 rewrites them.
+- They are **history, never current truth**: don't cite, edit or extend them.
+- An `ADR-NNN` mention in code, a spec or a worklog still resolves through the archive. Replace it
+  with a topic-doc reference when you next touch that file; there is no sweep.

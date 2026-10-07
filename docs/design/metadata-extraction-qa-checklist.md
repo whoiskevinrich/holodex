@@ -10,7 +10,7 @@ suggestion without an exact match). A completed extraction batch is also needed 
 checks — run "Extract all" once against the fixture set first.
 
 Spec [`metadata-extraction.md`](../specs/metadata-extraction.md) · ADR
-[`ADR-067`](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md) · design handoff
+[`ADR-067`](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md) · design handoff
 [`metadata-extraction-handoff.md`](metadata-extraction-handoff.md).
 
 Legend: **[smoke]** = quick programmatic check · **[agent]** = verified this session

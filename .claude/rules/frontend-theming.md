@@ -8,9 +8,8 @@ paths:
 # Frontend theming (component discipline)
 
 The UI is built on semantic design tokens with **one look, Cinémathèque** (see
-[ADR-021](../../docs/architecture/ADR-021-frontend-theming-and-skins.md) as amended by
-[ADR-115](../../docs/architecture/ADR-115-cinematheque-only-skin.md), and
-[`docs/design/theming.md`](../../docs/design/theming.md)). Broadcast, Brutalist, the custom
+[`docs/design/theming.md`](../../docs/design/theming.md) for the look and
+[`docs/architecture/stack.md`](../../docs/architecture/stack.md) for the token mechanism). Broadcast, Brutalist, the custom
 palette and the Appearance tab are **retired**. Don't QA, mock up, propose or extend another skin,
 palette or theme switch, and don't present a theme choice as a design option. Tokens stay
 mandatory anyway: one source per colour keeps a look change to a one-file edit. Two rules are

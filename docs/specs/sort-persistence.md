@@ -10,7 +10,7 @@
 media/people/tags list APIs.
 
 **New ADRs required**:
-- **[ADR-045](../architecture/ADR-045-seeded-random-ordering.md) (Proposed)** — Seeded
+- **[ADR-045](../architecture/archive/ADR-045-seeded-random-ordering.md) (Proposed)** — Seeded
   random ordering for paginated list endpoints. The Media list is paged (offset/limit +
   "Load more"), so a naive `ORDER BY RANDOM()` would reshuffle on every page request and
   produce duplicate/skipped rows across pages. ADR-045 defines a **deterministic,

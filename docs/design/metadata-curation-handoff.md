@@ -1,7 +1,7 @@
 # Design Handoff: Granular Metadata Curation (F30)
 
 **Spec:** [docs/specs/metadata-curation.md](../specs/metadata-curation.md) ·
-**ADR:** [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md) (curation/merge + write queue) ·
+**ADR:** [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md) (curation/merge + write queue) ·
 **Security:** conditional design sign-off — render curated values as **text only, never `{@html}`** (condition C4) ·
 **Builds on:** the F27/F28 metadata section in [`web/src/routes/media/[id]/+page.svelte`](../../web/src/routes/media/%5Bid%5D/+page.svelte), [`ProvenanceBadge.svelte`](../../web/src/lib/components/ProvenanceBadge.svelte), [`WritebackFormDialog.svelte`](../../web/src/lib/components/WritebackFormDialog.svelte), the roving-tabindex pattern from [`EnrichPicker.svelte`](../../web/src/lib/components/EnrichPicker.svelte).
 

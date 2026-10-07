@@ -1,6 +1,6 @@
 # Enrich stub — fake metadata-source providers for manual QA
 
-A tiny runnable HTTP provider implementing the [ADR-033](../../docs/architecture/ADR-033-metadata-source-plugins.md)
+A tiny runnable HTTP provider implementing the [ADR-033](../../docs/architecture/archive/ADR-033-metadata-source-plugins.md)
 contract, so you can drive the live **enrichment** flow without a real sidecar, network,
 or API keys.
 

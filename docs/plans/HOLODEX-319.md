@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-319                 # the tracker key; must match the branch key regex
 status: in-review                   # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -12,7 +12,7 @@ release_note: The provider-facing metadata contract now documents Film as a firs
 # HOLODEX-319 · Metadata provider contract: catch up to the shipped film entity (post-F59)
 
 HOLODEX-313 corrected the provider docs **mid**-F59, when the film `banner` role
-([ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) D4) and the billed-cast
+([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D4) and the billed-cast
 read (D1/D2) were still decided-but-unbuilt. Both shipped in
 [#293](https://github.com/whoiskevinrich/holodex/pull/293), so the same sections went stale again in
 the opposite direction — they now *understate* what a film provider can send. Done means an external
@@ -21,9 +21,9 @@ correctly with no access to the Holodex tree, and its worked example (`tmdb-prov
 it.
 
 **Design package:** no new spec or ADR — this documents decisions already made in
-[ADR-085](../architecture/ADR-085-films-entity.md) /
-[ADR-086](../architecture/ADR-086-film-provider-enrichment.md) /
-[ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) and shipped under
+[ADR-085](../architecture/archive/ADR-085-films-entity.md) /
+[ADR-086](../architecture/archive/ADR-086-film-provider-enrichment.md) /
+[ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) and shipped under
 [HOLODEX-308](https://whoiskevinrich.atlassian.net/browse/HOLODEX-308); no design handoff (no
 user-facing surface); no testing-strategy row (no behaviour change).
 

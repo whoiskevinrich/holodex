@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-193                 # the tracker key; must match the branch key regex
 status: released                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -19,7 +19,7 @@ Done means F48.1–F48.11 all shipped in code (docs already landed pre-branch) a
 Items closed.
 
 **Design package:** [spec](../specs/metadata-extraction.md) ·
-[ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md) ·
+[ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md) ·
 [design handoff](../design/metadata-extraction-handoff.md) ·
 [testing-strategy](../testing-strategy.md) (§4/§5/Phase 3) ·
 [release runbook](https://whoiskevinrich.atlassian.net/browse/HOLODEX-195) (HOLODEX-195)
@@ -30,7 +30,7 @@ Items closed.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → [metadata-extraction.md](../specs/metadata-extraction.md)
-- [x] architecture `architecture` → [ADR-067](../architecture/ADR-067-filename-extraction-confidence-and-rollback.md)
+- [x] architecture `architecture` → [ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md)
 - [x] backend — Phases 1–4, 6 (see Up next below)
 - [x] frontend — Phase 5
 - [x] testing `testing-strategy` → [docs/testing-strategy.md](../testing-strategy.md) §4/§5/Phase 3

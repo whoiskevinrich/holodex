@@ -5,11 +5,11 @@
 **Issue**: [HOLODEX-268](https://whoiskevinrich.atlassian.net/browse/HOLODEX-268)
 **Epic**: [HOLODEX-267](https://whoiskevinrich.atlassian.net/browse/HOLODEX-267) — Entity decision editing overhaul (this spec covers the first of six linked stories; see § Non-Goals for the rest)
 **Depends on**:
-- Per-field source-of-truth decisions ([F36](field-source-of-truth.md) / [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)) — the decision model, API, and RD1–RD5 rules this spec re-presents but does not change.
+- Per-field source-of-truth decisions ([F36](field-source-of-truth.md) / [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)) — the decision model, API, and RD1–RD5 rules this spec re-presents but does not change.
 - People decisions ([F37](people-source-of-truth.md)) — Person fields ride the same decision primitive.
-- The baseline-source contract ([ADR-052](../architecture/ADR-052-baseline-source-contract.md)).
-- The owner gating seam ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)).
-- Frontend theming ([ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+- The baseline-source contract ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)).
+- The owner gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)).
+- Frontend theming ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 - Existing components: `SourceSelect.svelte`, `CurationChip.svelte` (`radio` mode), `ProvenanceBadge.svelte`, `f36.ts` (`resolveSelection`, `standing`, `isPendingSelection`, `outOfSync`).
 - **Precedent, not a hard dependency**: the F51/ADR-079 image-edit-overlay pattern and the existing Tags hover-chip pattern — both already Tier-1-shaped and cited throughout as the visual language to extend.
 - **New ADR**: none. This spec restructures *presentation* of the existing ADR-051 decision model — same API, same persistence, same RD1–RD5 rules. No new architectural decision is introduced.

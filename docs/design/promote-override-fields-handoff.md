@@ -1,7 +1,7 @@
 # Design handoff: In-app promote / override affordance for auto-registered fields (F44)
 
 **Spec**: [promote-override-fields.md](../specs/promote-override-fields.md) (F44, HOLODEX-171) ·
-**ADR**: [ADR-062](../architecture/ADR-062-in-app-field-promotion.md) ·
+**ADR**: [ADR-062](../architecture/archive/ADR-062-in-app-field-promotion.md) ·
 **QA checklist**: [promote-override-fields-qa-checklist.md](promote-override-fields-qa-checklist.md)
 
 This is an **addendum** to the [F39 provider-render-hints handoff](provider-render-hints-handoff.md) (which added

@@ -10,22 +10,22 @@ in `entity_aliases`, carrying a `source` and behaving from the moment they arriv
 name the owner typed: searchable, and load-bearing for scan routing.
 
 **Depends on** (all shipped):
-- [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md) / [person-aliases.md](person-aliases.md)
+- [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md) / [person-aliases.md](person-aliases.md)
   (F23) — the original alias-as-routing-rule model, `entity_aliases_fts`, and the
   name → alias → create resolution order the scanner walks
-- [ADR-061](../architecture/ADR-061-unified-entity-name-identity.md) / [entity-identity.md](entity-identity.md)
+- [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) / [entity-identity.md](entity-identity.md)
   (F43) — the polymorphic `entity_aliases` spine, the **global** `UNIQUE (entity_type, alias_key)`
   (RD1: one alias key belongs to exactly one entity), the per-entity `nameKey` fold, and
   `identity_review_queue` / `entity_keep_separate`
-- [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) / [metadata-plugins.md](metadata-plugins.md)
+- [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) / [metadata-plugins.md](metadata-plugins.md)
   (F22) — `entity_enrichment`, the shadow store a provider value arrives through, and the enrich
   apply path that writes it
-- [ADR-081](../architecture/ADR-081-entity-completeness-score.md) / [entity-completeness-score.md](entity-completeness-score.md)
+- [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) / [entity-completeness-score.md](entity-completeness-score.md)
   (F55) — the scored-facet model and `injectAssetFacet`, the existing seam for a facet the resolver
   does not produce
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
-**ADR**: **[ADR-088](../architecture/ADR-088-provider-alias-collapse.md) (Proposed)** records the
+**ADR**: **[ADR-088](../architecture/archive/ADR-088-provider-alias-collapse.md) (Proposed)** records the
 collapse as D1–D7: `aliases` leaves the field registry; `entity_aliases` gains a `source` column
 (provenance, not privilege); a provider alias is fully live on arrival; deleting one records a
 per-entity suppression; a collision against another entity's key skips and enqueues for review;
@@ -134,7 +134,7 @@ inserted. Enrich skips that one candidate, records the pair in `identity_review_
 `variation='provider-alias'`, and completes normally. *Enrich completing* is as load-bearing as the
 skip: one awkward AKA must never cost an entity its bio, birthdate, and photo.
 
-> **Amended 2026-09-25 ([ADR-108](../architecture/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md),
+> **Amended 2026-09-25 ([ADR-108](../architecture/archive/ADR-108-provider-alias-collisions-leave-the-duplicates-queue.md),
 > HOLODEX-453): the pair is recorded, but no longer reviewed.** The row is still written, and it is
 > still the skip record behind `skipped_aliases`. But the Duplicates queue no longer lists
 > `provider-alias` pairs. Of 31 open person pairs, every one was provider-alias; 185 had been
@@ -346,7 +346,7 @@ name finds them, and a file tagged with it attaches to them instead of creating 
 
 ## Open Questions
 
-*(Resolved by [ADR-088](../architecture/ADR-088-provider-alias-collapse.md): the store, the
+*(Resolved by [ADR-088](../architecture/archive/ADR-088-provider-alias-collapse.md): the store, the
 provenance column, the live-on-arrival posture, the suppression mechanism, the collision
 disposition, the migration's treatment of existing curation, and where the lost completeness facet
 goes. Four rejected alternatives are recorded there so they are not re-proposed.)*
@@ -370,10 +370,10 @@ No open questions remain before implementation.
 ## Timeline / routing
 
 No hard deadline. Per this repo's change-routing rules, the pre-implementation gates are
-`/architecture` ([ADR-088](../architecture/ADR-088-provider-alias-collapse.md), green),
+`/architecture` ([ADR-088](../architecture/archive/ADR-088-provider-alias-collapse.md), green),
 `/design-handoff` ([handoff](../design/alias-collapse-handoff.md) + committed SVG, green),
 `/testing-strategy` ([testing-strategy.md](../testing-strategy.md), green), and this spec — all on
-a Draft PR per [ADR-069](../architecture/ADR-069-draft-prs-for-pre-implementation-gates.md).
+a Draft PR per [ADR-069](../architecture/archive/ADR-069-draft-prs-for-pre-implementation-gates.md).
 `/security-review` follows the enrich write path landing, and `/simplify` runs before each commit;
 the PR is marked ready for review only once both are green.
 

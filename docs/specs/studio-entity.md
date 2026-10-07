@@ -10,14 +10,14 @@ entity-backed browse facet — and inherit the F36 decision model as the **third
 `video` and `person`), exactly per the shape F37 proved.
 
 **Depends on** (all shipped):
-- the F36 decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), migration 0016 `field_source_decisions` — keyed by `entity_type`)
-- the entity-agnostic resolver ([ADR-052](../architecture/ADR-052-baseline-source-contract.md), `BaselineSource` + `ResolveFields`) — fast-follow ①
+- the F36 decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), migration 0016 `field_source_decisions` — keyed by `entity_type`)
+- the entity-agnostic resolver ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md), `BaselineSource` + `ResolveFields`) — fast-follow ①
 - the F37 people refactor ([people-source-of-truth.md](people-source-of-truth.md)) — `personBaseline` precedent (`internal/resolver/person_baseline.go`), the person decision/curation endpoints (`internal/api/person_fields.go`), the `·record` baseline label, the no-writeback shape
 - the source-chip control ([F36 handoff](../design/field-source-of-truth-handoff.md), `SourceSelect`/`CurationChip`, `web/src/lib/f36.ts`)
 - video enrichment (F26/F27; TMDB emits multi-valued `studio` from `production_companies` — `providers/tmdb/tmdb.go` ~line 478)
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
-**ADR**: [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)
+**ADR**: [ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md)
 (Proposed) records the two decisions that rise to ADR level: (1) the `studios` /
 `video_studios` data model, and (2) the **link-derivation rule** — entity links follow the
 *resolved* field value (RD1), a new pattern vs. person's scan-time-only links. Extends
@@ -75,12 +75,12 @@ until it rides the decision model as a real entity.
 - **Studio writeback / sync state** — a studio has no file; `in_sync` is **omitted** and
   there is no write button (same rationale as F37).
 - **Studio photos / logo galleries / owner-uploaded logos** — ~~the *storage + serving* of the
-  single logo IS now hardened (self-hosted, normalized; [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md),
+  single logo IS now hardened (self-hosted, normalized; [ADR-057](../architecture/archive/ADR-057-self-hosted-studio-logo.md),
   HOLODEX-130), but the rest of the F25 person-image pipeline (owner upload, delete-suppression,
   galleries, content-hash dedup, promote/reorder) is **not** generalized to studios — a studio
   has one logo, curated only via the existing provider/blank-pin decision.~~ *(Why: a studio has
   no upload UI and one image slot; cloning the multi-role subsystem would be mostly-dead surface.)*
-  **Reversed by [F51](studio-images.md) / [ADR-079](../architecture/ADR-079-studio-image-roles.md)
+  **Reversed by [F51](studio-images.md) / [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md)
   (2026-08-03):** studios gain three owner-editable image roles (icon/logo/poster) with upload +
   an ADR-049-style provenance lock, superseding ADR-057. Galleries and content-hash dedup remain
   out of scope — every role stays single-slot.
@@ -114,7 +114,7 @@ until it rides the decision model as a real entity.
   decision/curation endpoints mirror the person ones; **`name` decisions rejected (400)** —
   and unlike persons there is no rename materialization either (RD4): the name row renders
   as a plain read-only value in v1, not chips.
-- **RD6 — External-id de-dup converges same-company spellings** (HOLODEX-122, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).
+- **RD6 — External-id de-dup converges same-company spellings** (HOLODEX-122, [ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)).
   The TMDB `production_companies[].id` (today discarded) is captured, stored in a
   `studio_external_ids(external_id PK, studio_id)` join table, and consulted **before** exact
   name in resolve-or-create — so "Warner Bros." and "Warner Bros. Pictures" that share TMDB id
@@ -204,7 +204,7 @@ until it rides the decision model as a real entity.
   System Activity.
 - **P1-2 — Recently-added / landing parity.** Studio names on video cards (where the card
   layout shows them) become links.
-- **P1-3 — Studio external-id de-dup (RD6, HOLODEX-122, [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md)).**
+- **P1-3 — Studio external-id de-dup (RD6, HOLODEX-122, [ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md)).**
   Capture the TMDB `production_companies[].id`, persist it, and de-dup studios by it.
   - **Capture.** The TMDB movie mapping decodes `production_companies[].id` and emits a
     self-describing **internal sidecar** field `_studio_external_ids` = `"<ns>:<id> <name>"` per
@@ -238,15 +238,15 @@ until it rides the decision model as a real entity.
 - **P2-2 — Multi-studio UI** if the `studio` field is ever promoted to a merge field
   (schema already permits it, RD2).
 - **P2-3 — Studio logo in the image store** (F25 generalization) — realized in
-  [ADR-057](../architecture/ADR-057-self-hosted-studio-logo.md)
+  [ADR-057](../architecture/archive/ADR-057-self-hosted-studio-logo.md)
   ([HOLODEX-130](https://whoiskevinrich.atlassian.net/browse/HOLODEX-130)) as a self-hosted,
   normalized cache **derived from the resolved `logo` field** (`studio_logos`, migration 0020).
-  **Superseded** by [F51](studio-images.md) / [ADR-079](../architecture/ADR-079-studio-image-roles.md)
+  **Superseded** by [F51](studio-images.md) / [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md)
   (2026-08-03): the logo (plus new icon/poster roles) moves onto the Person-style asset-slot
   model with owner upload, and `studio_logos` is replaced by `studio_images`.
 - **P2-4 — MCP studio entities** (rides F22.5f).
 - **P2-5 — Studio external-id dedup** — **promoted to P1-3 above** and decided in
-  [ADR-054](../architecture/ADR-054-studio-external-id-dedup.md) ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122)).
+  [ADR-054](../architecture/archive/ADR-054-studio-external-id-dedup.md) ([HOLODEX-122](https://whoiskevinrich.atlassian.net/browse/HOLODEX-122)).
   Companion to the S3 enrichment slice ([HOLODEX-121](https://whoiskevinrich.atlassian.net/browse/HOLODEX-121)).
 
 ## Behavior detail
@@ -327,7 +327,7 @@ Single-owner consistency feature:
 ## Timeline / routing
 
 No hard deadline. Per the change-routing rules, before/with implementation:
-1. ✅ **`/architecture`** — [ADR-053](../architecture/ADR-053-studio-entity-and-resolved-link-derivation.md)
+1. ✅ **`/architecture`** — [ADR-053](../architecture/archive/ADR-053-studio-entity-and-resolved-link-derivation.md)
    (data model + resolved-value link derivation, RD1/RD2) + the
    [implementation design](../plans/studio-entity-implementation.md).
 2. ✅ **`/design-handoff`** — [studio-entity-handoff.md](../design/studio-entity-handoff.md):

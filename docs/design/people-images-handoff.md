@@ -2,8 +2,8 @@
 
 **Status**: Proposed
 **Date**: 2026-06-16
-**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/ADR-038-person-images.md) · **System pattern**: [people-images-design-system.md](people-images-design-system.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/archive/ADR-038-person-images.md) · **System pattern**: [people-images-design-system.md](people-images-design-system.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 
 > Stack: SvelteKit SPA + Tailwind v4 (CSS-first, `@theme inline`). All values below are **token
 > references**, never literals. "Owner" = the ADR-030 capability flag; non-owners never see mutation UI.

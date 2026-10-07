@@ -2,7 +2,7 @@
 
 How a change that is merged to `main` but not yet released gets validated on a real
 instance, and how that validated image becomes the release. Decision record:
-[ADR-070](../architecture/ADR-070-canary-release-candidate-and-promote-by-retag.md).
+[ADR-070](../architecture/archive/ADR-070-canary-release-candidate-and-promote-by-retag.md).
 
 ## The idea in one line
 
@@ -65,7 +65,7 @@ relevant workflow (`workflow_dispatch`) before relying on the digest; an image r
 that way is *newer* than required and still reads ✅ current.
 
 The comment is **advisory**. It sets no status check and blocks no merge — see
-[ADR-070](../architecture/ADR-070-canary-release-candidate-and-promote-by-retag.md) for why
+[ADR-070](../architecture/archive/ADR-070-canary-release-candidate-and-promote-by-retag.md) for why
 that posture was chosen and what it costs.
 
 ## What protects the release
@@ -85,7 +85,7 @@ Any failure aborts the release rather than publishing. The negative cases are co
 [`scripts/resolve-release-digest.test.mjs`](../../scripts/resolve-release-digest.test.mjs).
 
 The walk normally lands one commit back from the tag: release-please's version-bump commit
-touches only `version.txt`, `CHANGELOG.md`, and the manifest, none of which appear in the
+touches only `CHANGELOG.md` and the manifest, neither of which appear in the
 image workflows' `paths:` filters, so no image is built for it.
 
 ## Known limits

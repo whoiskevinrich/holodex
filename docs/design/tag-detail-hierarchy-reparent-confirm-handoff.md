@@ -2,7 +2,7 @@
 
 **Spec**: [tag-detail-hierarchy-and-categories.md](../specs/tag-detail-hierarchy-and-categories.md)
 **ADR**: none — spec confirms no new ADR (extends ADR-075/ADR-078).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Prior art**: `ConfirmDialog.svelte` (`web/src/lib/components/shared/`) — the existing
 warn-styled modal idiom (focus trap, Esc/backdrop cancel, focus returned to trigger), already

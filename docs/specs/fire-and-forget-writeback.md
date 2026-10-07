@@ -9,24 +9,24 @@ Writing metadata to a file stops holding the owner in a modal. The dialog closes
 job is accepted, and the job's outcome moves to the Metadata section of the media detail page,
 where it survives reload, tab close and server restart.
 
-**ADR**: **[ADR-091](../architecture/ADR-091-fire-and-forget-writeback-status.md) (Proposed)** —
-records the transport decision and supersedes **[ADR-073](../architecture/ADR-073-post-write-baseline-resync.md) D4 only**.
+**ADR**: **[ADR-091](../architecture/archive/ADR-091-fire-and-forget-writeback-status.md) (Proposed)** —
+records the transport decision and supersedes **[ADR-073](../architecture/archive/ADR-073-post-write-baseline-resync.md) D4 only**.
 **Design handoff**: [fire-and-forget-writeback-handoff.md](../design/fire-and-forget-writeback-handoff.md)
 (+ committed SVG mockup).
 
 **Depends on** (all shipped):
-- the durable write queue ([ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md)) —
+- the durable write queue ([ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)) —
   `writeback_queue`, `writequeue.Queue`, and the worker pool started from `cmd/holodex`
-- atomic file writes ([ADR-041](../architecture/ADR-041-metadata-writeback.md)) — copy → write →
+- atomic file writes ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)) — copy → write →
   rename, plus `RecoverRunningWritebacks` for crash recovery
-- the unconditional post-write read-back ([ADR-073](../architecture/ADR-073-post-write-baseline-resync.md) **D1**,
+- the unconditional post-write read-back ([ADR-073](../architecture/archive/ADR-073-post-write-baseline-resync.md) **D1**,
   which this spec relies on and does not touch) — without it the page could not re-resolve to a
   correct baseline when a job lands
-- the per-field decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md)/[ADR-052](../architecture/ADR-052-baseline-source-contract.md)) —
+- the per-field decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)/[ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)) —
   `in_sync` and the existing per-field `file out of sync` pill. `in_sync` is tri-state
-  ([ADR-093](../architecture/ADR-093-writeback-readback-and-tristate-in-sync.md)); the badge keys off
+  ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)); the badge keys off
   `in_sync === false`, so an absent (unknown) value correctly renders nothing
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
 ---
 
@@ -184,7 +184,7 @@ on `moof` it refuses with `writeback.ErrFragmentedMP4`, whose message starts wit
 has replaced the file with the remux, it succeeds. The legacy synchronous path answers **422** with
 the same message instead of the generic 500.
 
-**R3.7a — Remux on write (HOLODEX-480, [ADR-116](../architecture/ADR-116-remux-fragmented-mp4-on-write.md)).**
+**R3.7a — Remux on write (HOLODEX-480, [ADR-116](../architecture/archive/ADR-116-remux-fragmented-mp4-on-write.md)).**
 The refusal above becomes the *fallback*. A fragmented `.mp4`/`.m4v`/`.mov` is remuxed with a
 stream copy into the job's own `.holodex-tmp`, with every tag restored from the original
 (`-TagsFromFile`, because the remux drops XMP). The batch is then written and the result renamed

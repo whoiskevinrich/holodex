@@ -14,7 +14,7 @@ custom palette (`theme.custom`), `PUT /admin/theme`, `/capabilities.theme`, the 
 `/owner/appearance` are gone from the code, fonts, geometry harness and docs. An instance that was
 set to any of them comes up in Cinémathèque with nothing to fix, and every UI change is QA'd once.
 
-**Design package:** [ADR-115](../architecture/ADR-115-cinematheque-only-skin.md) ·
+**Design package:** [ADR-115](../architecture/archive/ADR-115-cinematheque-only-skin.md) ·
 [F67 amendment](../specs/instance-skin.md) (R17–R23)
 
 ## Gates — definition of done

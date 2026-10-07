@@ -2,8 +2,8 @@
 
 **Status**: Draft
 **Phase**: Quick win / polish (cross-cutting UX over the owner gate)
-**Depends on**: the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md)) — `activity.isOwner`;
-the skin/theme preference pattern (`web/src/lib/theme.svelte.ts`, [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+**Depends on**: the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)) — `activity.isOwner`;
+the skin/theme preference pattern (`web/src/lib/theme.svelte.ts`, [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Related**: every owner-gated surface (enrichment F22, person images F25, writeback F28, delete-media,
 person aliases/merge F23, rescan/reload on `/status`).
 **Design handoff**: [`docs/design/admin-mode-handoff.md`](../design/admin-mode-handoff.md).
@@ -87,7 +87,7 @@ rendered only when `activity.isOwner`. Labeled with the term **"Admin mode"** an
 states clearly (ON = admin elements visible; OFF = visitor view). Exact affordance TBD in design handoff.
 - Given I am authenticated as owner, when the header renders, then I see the toggle.
 - Given I am not owner, when the header renders, then the toggle is absent.
-- Tokens-only styling (no hardcoded palette/radii — [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md)).
+- Tokens-only styling (no hardcoded palette/radii — [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 
 **P0-2 — Single global reactive state (dedicated store).**
 A reactive `adminMode` boolean in a small dedicated store **mirroring `theme.svelte.ts`** (kept separate

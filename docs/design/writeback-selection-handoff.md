@@ -1,9 +1,9 @@
 # Design Handoff: Writeback dialog selection + undecided grouping (F36 / F28)
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Writeback ·
-**ADRs**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) ·
-[ADR-041](../architecture/ADR-041-metadata-writeback.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**ADRs**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) ·
+[ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Issue**: HOLODEX-213 · **Surface**: `WritebackFormDialog.svelte`, opened from `/media/[id]`.
 

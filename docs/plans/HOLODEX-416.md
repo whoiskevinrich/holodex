@@ -1,6 +1,6 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-416
 status: in-review
 profile: full
@@ -18,7 +18,7 @@ and a new failure hides among old ones. Spec `job-history-digest-and-search.md` 
 - [x] spec `write-spec` — Q4 resolved + P0-7 in `docs/specs/job-history-digest-and-search.md`
   (2026-09-18): two owner endpoints, digest excludes dismissed runs + `kinds[].last_dismissed`,
   history carries `dismissed_at`; D5 added to the handoff + SVG panel E
-- [x] architecture `architecture` — [ADR-100](../architecture/ADR-100-job-run-dismissals.md)
+- [x] architecture `architecture` — [ADR-100](../architecture/archive/ADR-100-job-run-dismissals.md)
   (2026-09-18): `job_run_dismissals (job_run_id PK REFERENCES job_runs ON DELETE CASCADE,
   dismissed_at)`; sweep cascades via FK, not code; digest `LEFT JOIN` + bare-column `last_dismissed`
 - [x] design `design-handoff` — `docs/design/status-dismiss-failures-handoff.md` +

@@ -1,7 +1,7 @@
 # Design Handoff: Person Aliases ("Also known as") (F23)
 
-**Spec**: [Person Aliases (F23)](../specs/person-aliases.md) · **ADR**: [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Person Aliases (F23)](../specs/person-aliases.md) · **ADR**: [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---

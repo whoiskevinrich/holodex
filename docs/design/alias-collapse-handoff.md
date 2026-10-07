@@ -1,7 +1,7 @@
 # Design handoff — alias collapse (HOLODEX-306)
 
 One Aliases panel replaces two competing lists of alternate names. Architecture and rationale:
-[ADR-088](../architecture/ADR-088-provider-alias-collapse.md).
+[ADR-088](../architecture/archive/ADR-088-provider-alias-collapse.md).
 
 ![Alias collapse mockup](alias-collapse-mockup.svg)
 

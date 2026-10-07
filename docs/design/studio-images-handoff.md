@@ -1,7 +1,7 @@
 # Design handoff: Studio image roles — icon / logo / poster (F51)
 
 **Spec**: [studio-images.md](../specs/studio-images.md) (F51, HOLODEX-247) ·
-**ADR**: [ADR-079](../architecture/ADR-079-studio-image-roles.md)
+**ADR**: [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md)
 
 This is an **addendum** to the [F38 studio-entity handoff](studio-entity-handoff.md). The
 list's leading logo well (§1b there) and the detail page's layout are unchanged in shape;

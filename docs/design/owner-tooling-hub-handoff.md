@@ -1,8 +1,8 @@
 # Design Handoff: Owner tooling hub + nav split (F35)
 
-**Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/ADR-030-access-control-gating-seam.md)
+**Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)
 **Builds on**: [Admin Mode (F29)](../specs/admin-mode.md) + [its handoff](admin-mode-handoff.md) — same header, same toggle (here relabeled).
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025). Reuses the chrome in
 [`+layout.svelte`](../../web/src/routes/+layout.svelte) (skin picker, Preview toggle, `ActivityIndicator`).
 

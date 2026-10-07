@@ -1,7 +1,7 @@
 # Handoff Spec: One list toolbar (F73)
 
 **Epic:** HOLODEX-472 (children: HOLODEX-473 multi-sort bug, HOLODEX-474 legacy-key purge)
-**Spec:** [`docs/specs/list-toolbar.md`](../specs/list-toolbar.md) · **ADR:** [ADR-114](../architecture/ADR-114-list-state-model.md)
+**Spec:** [`docs/specs/list-toolbar.md`](../specs/list-toolbar.md) · **ADR:** [ADR-114](../architecture/archive/ADR-114-list-state-model.md)
 **Date:** 2026-09-27 · **Status:** Draft, awaiting owner sign-off at `/implement`
 
 Decided with the owner:

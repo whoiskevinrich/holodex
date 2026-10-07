@@ -1,7 +1,7 @@
 # QA: Granular Metadata Curation & Merge (F30)
 
 **Feature**: cross-source merge + value-level curation (add/edit/suppress/no-write) + durable batch-writeback queue
-**Related**: [ADR-046](../architecture/ADR-046-metadata-curation-and-write-queue.md), [spec](metadata-curation.md), [design handoff](../design/metadata-curation-handoff.md)
+**Related**: [ADR-046](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md), [spec](metadata-curation.md), [design handoff](../design/metadata-curation-handoff.md)
 
 > Items are numbered `section.item` and tagged by verifier: **[smoke]** (build/unit, no
 > running app), **[agent]** (scriptable against a running server), **[human]** (eyeball in the

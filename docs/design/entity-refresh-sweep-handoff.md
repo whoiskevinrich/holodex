@@ -3,7 +3,7 @@
 **Status**: Approved placement (Option D, 2026-09-19) · **Ticket**: HOLODEX-421 · **Spec**:
 [entity-refresh-sweep.md](../specs/entity-refresh-sweep.md) (F66) · **ADR**: *pending `/architecture`* — provider
 rate-limit contract (the initiative F47 deferred; see "Backend contract this UI needs")
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
 **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 

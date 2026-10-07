@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-173                 # the tracker key; must match the branch key regex
 status: in-progress                 # todo | in-progress | in-review | done | released (coarse; mirrors Jira)
 profile: full
@@ -15,7 +15,7 @@ Cross-entity derived field: joins a person's resolved `birthdate` with a video's
 at the API layer to show each cast member's age at release time, on the video's cast poster grid. Done
 means the backend join + frontend badge + tests land — not just the design decided.
 
-**Design package:** [spec](../specs/age-in-media.md) · ADR N/A (reuses [ADR-063](../architecture/ADR-063-derived-computed-fields.md)) · [handoff](../design/age-in-media-handoff.md) · testing-strategy §TBD
+**Design package:** [spec](../specs/age-in-media.md) · ADR N/A (reuses [ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md)) · [handoff](../design/age-in-media-handoff.md) · testing-strategy §TBD
 
 **Note (2026-07-12):** Jira shows this issue's status as **Done**, fired by CI when PR #137 (the
 design-handoff docs only) merged. That's premature — the gates below show backend/frontend/testing still

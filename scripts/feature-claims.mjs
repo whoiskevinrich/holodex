@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // feature-claims.mjs — "which feature number (F##) is actually free?"
 //
-// The F-number twin of adr-claims.mjs. Feature numbers are claimed on a branch long
+// Feature numbers are claimed on a branch long
 // before they reach main, so "highest spec heading on main + 1" collides with whatever
 // is in flight: on 2026-09-17 HOLODEX-390 and HOLODEX-406 both took F63, and the one
 // that merged second had to be renumbered across 53 references (HOLODEX-407).
 //
-// ADRs claim a number via filename; features claim via the spec's H1 —
+// Features claim via the spec's H1 —
 // `# Spec: Candidate thumbnail in the resolve picker (F64)` in docs/specs/*.md — so
 // this scans the first `# ` line of every spec on every local and remote branch. A
 // `# QA: …` companion doc restates its feature's number and is not a claim.
 //
-// Two things differ from the ADR rule, because the spec corpus already breaks it:
+// Two things make this more than "highest + 1", because the spec corpus already breaks it:
 //   * Sub-features (`F56.2`, `F21.3`) are children, not rivals, of their parent number.
 //     They are tracked by their full id and only the integer part feeds "next free".
 //   * Two specs on main can share a bare number (F55, F56 both do). That is a merged
@@ -21,7 +21,7 @@
 //
 // Same mechanics otherwise: derived from git (read-only, never fetches), cached in a
 // gitignored file at the MAIN worktree root, --reserve for a number not yet in git.
-// Shared helpers are imported from adr-claims.mjs; pure helpers here are exported for
+// Shared helpers are imported from claims-common.mjs; pure helpers here are exported for
 // scripts/feature-claims.test.mjs; main() runs only when executed directly.
 //
 // Usage:
@@ -44,7 +44,7 @@ import {
   pruneReservations,
   rankRef,
   refsBySha,
-} from "./adr-claims.mjs";
+} from "./claims-common.mjs";
 
 export const CLAIMS_FILENAME = ".feature-claims";
 const SPEC_GLOB = "docs/specs/*.md";

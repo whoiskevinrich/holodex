@@ -1,11 +1,11 @@
 # Design Handoff: Writeback dialog — poster comparison + enrichment/decision legibility gap
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) §Writeback ·
-**ADRs**: [ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md) ·
-[ADR-041](../architecture/ADR-041-metadata-writeback.md)
+**ADRs**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) ·
+[ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)
 **Builds on**: [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213) — this
 doc assumes that one's decided/undecided split as ground truth and does not change it.
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Surface**: `WritebackFormDialog.svelte` (issue 1) · `SourceSelect.svelte` / `f36.ts` /
 `internal/resolver/resolver.go` (issue 2, traced below). **Issue**: [HOLODEX-245](https://whoiskevinrich.atlassian.net/browse/HOLODEX-245).

@@ -1,9 +1,9 @@
 # Design Handoff: Enrich picker "Searched" caption from `/resolve` `searched[]` (HOLODEX-369)
 
 **Spec**: [configurable-provider-search-patterns.md](../specs/configurable-provider-search-patterns.md) FR9 (replaces P1-a) ·
-**ADR**: [ADR-095](../architecture/ADR-095-structured-resolve-hints.md) D6 ·
+**ADR**: [ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D6 ·
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3 `searched[]`, §5 caps
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) +
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA all three skins**.
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)
 (F22.5b) — the status line at `:241` is the idiom this reuses; the optional P1 caption in

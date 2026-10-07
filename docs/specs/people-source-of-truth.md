@@ -10,13 +10,13 @@ value-level curation + per-field source decisions, making `person` the second en
 deliberately deferred to this refactor.
 
 **Depends on** (all shipped):
-- the F36 decision model ([ADR-051](../architecture/ADR-051-per-field-source-of-truth-decisions.md), migration 0016 `field_source_decisions` — already keyed by `entity_type`)
-- the entity-agnostic resolver ([ADR-052](../architecture/ADR-052-baseline-source-contract.md), `BaselineSource` + `ResolveFields`, `internal/resolver`)
+- the F36 decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), migration 0016 `field_source_decisions` — already keyed by `entity_type`)
+- the entity-agnostic resolver ([ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md), `BaselineSource` + `ResolveFields`, `internal/resolver`)
 - the source-chip control ([F36 handoff](../design/field-source-of-truth-handoff.md), HOLODEX-112 `SourceSelect`/`CurationChip` radio mode, `web/src/lib/f36.ts`)
 - person enrichment ([F22](metadata-plugins.md), `entity_enrichment` for `entity_type='person'`; TMDB supplies bio/birthdate/deathdate/nationality/website/photo)
-- person aliases + merge ([F23](person-aliases.md) / [ADR-036](../architecture/ADR-036-person-alias-search-indexing.md) — scan-time name routing)
-- value-level curation ([F30](metadata-curation.md) / [ADR-048](../architecture/ADR-048-metadata-curation-and-write-queue.md), `metadata_curation` — already keyed by `entity_type`)
-- the owner gate ([ADR-030](../architecture/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- person aliases + merge ([F23](person-aliases.md) / [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md) — scan-time name routing)
+- value-level curation ([F30](metadata-curation.md) / [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md), `metadata_curation` — already keyed by `entity_type`)
+- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
 
 **New ADR**: **None needed.** ADR-051 §9 (entity generalization, baseline-per-entity) and
 ADR-052 (the `BaselineSource` contract) already decide the architecture; this spec applies them.

@@ -1,7 +1,7 @@
 # Design Handoff: Admin Mode toggle (F29)
 
-**Spec**: [Admin Mode (F29)](../specs/admin-mode.md) · **Gate**: [ADR-030](../architecture/ADR-030-access-control-gating-seam.md)
-**Theming contract**: [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Spec**: [Admin Mode (F29)](../specs/admin-mode.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025). Mirrors the skin picker in
 [`+layout.svelte`](../../web/src/routes/+layout.svelte) and the `theme.svelte.ts` store pattern.
 

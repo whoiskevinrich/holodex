@@ -1,7 +1,7 @@
 ---
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Copy to <worklog.dir>/<KEY>.md (SessionStart scaffolds this automatically if missing).
-# Schema: ../README.md · design: ../../docs/architecture/ADR-064-flightplan-plugin.md
+# Schema: ../README.md · design: ../../docs/architecture/archive/ADR-064-flightplan-plugin.md
 key: HOLODEX-203                 # the tracker key; must match the branch key regex
 status: in-progress          # code already merged/released (PRs #160/#163/#166); stays in-progress
 profile: full
@@ -20,7 +20,7 @@ days of rows. Done when the digest is the default view and job runs attribute to
 touched. **Scope reduced 2026-07-29:** keyset log pagination + rollup dropped, see Q1 in the spec —
 ungating the render gate alone fixed the load-time complaint that motivated them.
 
-**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) · design handoff not required (see spec Gates) · testing-strategy: attribution + digest covered, frontend harness gap open (item 4)
+**Design package:** [`docs/specs/job-history-digest-and-search.md`](../specs/job-history-digest-and-search.md) · [ADR-071](../architecture/archive/ADR-071-job-run-attribution-and-paginated-history.md) · design handoff not required (see spec Gates) · testing-strategy: attribution + digest covered, frontend harness gap open (item 4)
 
 ## Gates — definition of done
 
@@ -28,7 +28,7 @@ ungating the render gate alone fixed the load-time complaint that motivated them
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/job-history-digest-and-search.md` (reduced scope, 2026-07-29)
-- [x] architecture `architecture` → [ADR-071](../architecture/ADR-071-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (attribution half shipped; paginated-read half now describes dropped scope)
+- [x] architecture `architecture` → [ADR-071](../architecture/archive/ADR-071-job-run-attribution-and-paginated-history.md) entity attribution + paginated read contract (attribution half shipped; paginated-read half now describes dropped scope)
 - [x] backend — phase 2 (attribution, #163) + digest endpoint (#166) shipped; keyset log endpoint (P0-4) **dropped** — Q1 answered "ungating alone fixed it" (2026-07-29)
 - [x] frontend — phase 1 (ungate, #160), Revert-on-column, and digest UI landed; keyset log pagination + rollup (P0-6) **dropped** with P0-4
 - [x] testing `testing-strategy` — attribution + digest rows landed; keyset-cursor + rollup cases no longer needed (scope dropped); frontend component-test harness gap promoted to [HOLODEX-223](https://whoiskevinrich.atlassian.net/browse/HOLODEX-223) (tech debt, not blocking this epic)

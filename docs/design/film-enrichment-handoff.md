@@ -5,12 +5,12 @@
 **Owner:** Project owner
 **Date:** 2026-09-04
 **Spec:** [film-provider-enrichment-ux.md](../specs/film-provider-enrichment-ux.md) (F59)
-**ADR:** [ADR-089](../architecture/ADR-089-film-enrichment-field-vocabulary.md) — D1 cast landing,
+**ADR:** [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) — D1 cast landing,
 D2 merge rule, D3 year identity write, D4 banner-replaces-thumb, D5 SPA widening
 **Supersedes:** [films-entity-handoff.md](films-entity-handoff.md) §2a (header) — the poster is no
 longer the header's only image, the year is now an editable field, and the "All films" backlink is
 gone (the nav's Films link already goes there; the person page dropped its equivalent in #286)
-**Theming contract:** [ADR-021](../architecture/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
+**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
 **tokens only, QA all three skins.**
 
 ![Film enrichment mockup](film-enrichment-mockup.svg)

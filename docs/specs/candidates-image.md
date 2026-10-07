@@ -16,7 +16,7 @@ media, logo for studio — always 60 px tall. FR3, FR4, AC4/7/9 and Resolved Dec
 the amendment; the original "one 2:3 box, no branching" rule is retired, not reworded.
 **ADR**: none — additive optional response key under [§2.3](metadata-provider-contract.md#23-post-resolve--identity-match-disambiguation)'s
 "Holodex ignores unknown response keys" (the `profile_url` / `detail` posture), and the browser-side
-image gate is [ADR-056](../architecture/ADR-056-provider-field-render-hints.md)'s `render: image_url`
+image gate is [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)'s `render: image_url`
 rule applied to one more surface. No new decision, no new perimeter.
 **Contract amendment**: [metadata-provider-contract.md](metadata-provider-contract.md) §2.3
 (response example + field row), §5 (caps row), §6 (S7 note), §8 (example) — amended in the same
@@ -35,11 +35,11 @@ does not fetch: the thumb is *rendered* through the existing allowlist gate, exa
 
 **Depends on** (all shipped):
 
-- F22 / [ADR-033](../architecture/ADR-033-metadata-source-plugins.md) — the `/resolve` contract and
+- F22 / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) — the `/resolve` contract and
   the shared `EnrichPicker.svelte`, mounted by the person, media, film and studio detail pages.
-- [ADR-039](../architecture/ADR-039-provider-asset-urls.md) — `asset_hosts` allowlist
+- [ADR-039](../architecture/archive/ADR-039-provider-asset-urls.md) — `asset_hosts` allowlist
   (`{base_url host} ∪ operator-listed hosts`), the single `checkHost` gate.
-- [ADR-056](../architecture/ADR-056-provider-field-render-hints.md) — `render: image_url` renders an
+- [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md) — `render: image_url` renders an
   `<img>` to an allowlisted host; a value on any other host degrades to text. `Service.ImageURLAllowed`
   is the check.
 - F61 — `candidates[].detail` (the row's expand/collapse behaviour the thumb must coexist with).
