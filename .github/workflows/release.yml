@@ -33,6 +33,8 @@ jobs:
   promote:
     needs: ci
     runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.retag.outputs.latest }}   # did this release take `latest`?
     permissions:
       contents: read
       packages: write        # retag within this repository's own package namespace
@@ -67,18 +69,20 @@ jobs:
         run: node scripts/resolve-release-digest.mjs "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Retag as the release
+        id: retag
         env:
           IMAGES: ${{ steps.resolve.outputs.images }}
         run: |
           set -euo pipefail
           ver="${GITHUB_REF_NAME#v}"
 
-          # Mirror metadata-action's `latest=auto` + semver patterns: a prerelease gets
-          # only its exact version, never the moving major/minor/latest tags.
-          tags=("$ver")
-          if [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            tags+=("${ver%.*}" "${ver%%.*}" "latest")
-          fi
+          # Exact version always; `X.Y`, `X` and `latest` only when this is the highest
+          # release in that range, so a release/** hotfix can't pull `latest` back to an
+          # older line. A prerelease gets only its exact version (HOLODEX-545).
+          read -ra tags <<< "$(node scripts/release-tags.mjs "$ver")"
+          [[ "${tags[0]:-}" == "$ver" ]] || { echo "release-tags produced no tags" >&2; exit 1; }
+          if [[ " ${tags[*]} " == *" latest "* ]]; then latest=true; else latest=false; fi
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
 
           # Materialise the list first: a process substitution that fails would feed the
           # loop nothing and exit 0, silently promoting no images at all.
@@ -123,6 +127,24 @@ jobs:
         with:
           fetch-depth: 0        # full history for the changelog
 
+      # A release/** hotfix (HOLODEX-545) isn't main's release, so the Jira sync below
+      # must not run for it. Exit 1 means "not an ancestor"; anything else (a missing
+      # origin/main) is an error, not an answer — fail rather than silently skip the sync.
+      - name: Is this tag on main?
+        id: lane
+        run: |
+          set +e
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          rc=$?
+          set -e
+          case $rc in
+            0) on_main=true ;;
+            1) on_main=false ;;
+            *) echo "::error::cannot tell whether $GITHUB_SHA is on origin/main (rc=$rc)"; exit 1 ;;
+          esac
+          echo "on_main=$on_main" >> "$GITHUB_OUTPUT"
+          echo "on_main=$on_main"
+
       - name: Generate changelog (Conventional Commits)
         id: changelog
         uses: orhun/git-cliff-action@v4
@@ -133,6 +155,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          make_latest: ${{ needs.promote.outputs.latest }}   # same decision as the image's `latest`
           body: |
             ${{ steps.changelog.outputs.content }}
 
@@ -149,12 +172,16 @@ jobs:
       # at which the tag has shipped. Move every code-complete HOLODEX issue
       # (status = Done) to Released (ADR-058, replaces the old Automation rule 5).
       # Soft-fails: a Jira hiccup logs a warning and never red-builds a shipped release.
+      # Skipped for a tag off main: the sync releases the whole `status = Done` set, which
+      # is only true of a release cut from main (HOLODEX-545).
       - name: Set up Node
+        if: steps.lane.outputs.on_main == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
 
       - name: Sync Jira → Released
+        if: steps.lane.outputs.on_main == 'true'
         env:
           RELEASE_TAG: ${{ github.ref_name }}
           JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}

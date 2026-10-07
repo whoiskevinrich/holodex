@@ -5,7 +5,8 @@ name: Build provider-tmdb image
 
 on:
   push:
-    branches: [main]
+    # release/** is the hotfix lane (HOLODEX-545): it publishes sha-<short> for promotion, never edge.
+    branches: [main, 'release/**']
     paths:
       - 'providers/tmdb/**'
       - 'Dockerfile.provider-tmdb'
@@ -59,7 +60,7 @@ jobs:
           # `sha-<short>` is the handle release.yml resolves and retags (ADR-070).
           tags: |
             type=raw,value=edge,enable={{is_default_branch}}
-            type=sha,prefix=sha-,enable={{is_default_branch}}
+            type=sha,prefix=sha-,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/heads/release/') }}
           flavor: latest=false
 
       - name: Build and push
