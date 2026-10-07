@@ -82,8 +82,9 @@ Images are published to GitHub Container Registry, public-pull and authenticated
 Each is built for `linux/amd64` and `linux/arm64`.
 
 - A merge to `main` that touches an image's sources builds it and tags `edge` and `sha-<short>`.
-  Semver tags and `latest` are only ever produced by release promotion (next section), so
-  `latest` always means the last release.
+  A push to a `release/**` hotfix branch tags `sha-<short>` only, never `edge`. Semver tags and
+  `latest` are only ever produced by release promotion (next section), so `latest` always means
+  the highest release.
 - Operators run `docker-compose.prod.yml`, which pulls `holodex:${HOLODEX_TAG:-latest}` and needs
   no source tree or toolchain. The build-from-source `docker-compose.yml` is the developer path.
 - Publishing uses the workflow's `GITHUB_TOKEN` with `packages: write`; no registry credential is
@@ -104,13 +105,33 @@ Constraints this imposes:
 
 - **No build-time version injection.** The version-bump commit must change no runtime bytes; an
   embedded version string would silently disagree with the retagged tag.
-- **One runtime base per image.** `edge` and `latest` are the same digest, so they cannot carry
-  different bases; a divergent production base would first require abandoning retag promotion.
+- **One runtime base per line.** A release from `main` makes `edge` and `latest` the same digest.
+  A hotfix (below) is the one sanctioned divergence: `latest` runs the release branch's base until
+  `main` next ships.
 - Since promotion re-scans nothing, CVE scanning of published tags runs on its own schedule.
 
 **Rejected:** rebuilding at the tag — the shipped image would not be the one that was validated.
 
 Decided in [`e8120b9d`](https://github.com/whoiskevinrich/holodex/commit/e8120b9d).
+
+### Hotfixes promote from a `release/vX.Y` branch
+
+When the shipped line needs a fix and `main` is not ready to release, the fix ships from a
+`release/vX.Y` branch cut at the shipped tag. The branch builds `sha-<short>` candidates, and a
+`vX.Y.Z` tag on it promotes one through the same ancestry check and retag as a `main` release.
+The procedure is in [ci-and-releases.md](../reference/ci-and-releases.md#hotfix-releases).
+
+- **Moving tags follow the highest version, not the newest tag.** `X.Y`, `X`, `latest` and the
+  GitHub "Latest" release go to a release only if it is the highest in that range
+  (`scripts/release-tags.mjs`), so a 1.x hotfix cut after 2.0.0 cannot move `latest` back.
+- **Jira → Released runs only for a tag reachable from `main`.** That sync releases the whole
+  `status = Done` set, which is true of `main` and false of a branch.
+
+**Rejected:** building the hotfix image at the tag — it would be the one release whose bits were
+never published as a candidate first. **Rejected:** releasing `main` early under a `Release-As`
+override — it ships everything on `main`, which is what a hotfix exists to avoid.
+
+Decided in HOLODEX-545.
 
 ## Provider sidecars: in-repo source, separate image
 

@@ -161,8 +161,9 @@ On a `v*` tag:
 
 1. **`ci`** — reuses `ci.yml` via `workflow_call`, so the release re-runs exactly the merge
    checks. `promote` `needs: ci`, so a failing check stops the release.
-2. **`promote`** — retags the already-built, canaried digests of both images as semver and
-   `latest`. No rebuild; the ancestry checks that make this safe are in
+2. **`promote`** — retags the already-built, canaried digests of both images as the exact
+   version plus whichever of `X.Y`, `X` and `latest` it is the highest release for
+   (`scripts/release-tags.mjs`). No rebuild; the ancestry checks that make this safe are in
    [`canary-releases.md`](canary-releases.md#what-protects-the-release).
 3. **`github-release`** —
    - renders the release body with **git-cliff** `--latest` from `cliff.toml`. That body
@@ -172,7 +173,25 @@ On a `v*` tag:
    - declares `environment: prod` (URL: the package page), which records a GitHub **Deployment**
      natively and links Release ↔ Deployment ↔ Environment. It is named `prod`, not `ghcr`, so
      GitHub-for-Jira maps it to Production. The environment has no protection rules;
-   - moves every Jira issue in `Done` to `Released` (`scripts/jira-release-sync.mjs`, soft-fail).
+   - marks the GitHub Release "Latest" only when the image promotion took `latest`;
+   - moves every Jira issue in `Done` to `Released` (`scripts/jira-release-sync.mjs`, soft-fail),
+     only when the tag is reachable from `origin/main`.
 
 `environment:` sits on the release job rather than the image jobs so a deployment is recorded
 once per release, not on every build.
+
+### Hotfix releases
+
+For a fix to the shipped line while `main` is not ready to release. The rationale is in
+[deployment.md](../architecture/deployment.md#hotfixes-promote-from-a-releasevxy-branch).
+
+1. Cut the branch from the shipped tag, if it doesn't exist yet:
+   `git switch -c release/v1.16 v1.16.1 && git push -u origin release/v1.16`.
+2. Commit the fix to `release/v1.16` and push. If `release.yml`, `image.yml` or
+   `scripts/release-tags.mjs` on the branch predate HOLODEX-545, carry that change too. The tag runs
+   the branch's copies, not `main`'s.
+3. Wait for **Build image** on the branch to publish `sha-<short>`. Optionally pull and run it.
+4. Tag and push: `git tag v1.16.2 && git push origin v1.16.2`. Release Please is not involved,
+   because its PR lives on `main`.
+5. Move the hotfix's own Jira issues to `Released` by hand. The automatic sync is skipped off `main`.
+6. If `main` needs the same fix, land it there through a normal PR.

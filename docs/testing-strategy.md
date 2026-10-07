@@ -514,6 +514,9 @@ Conventions:
   moved (HOLODEX-185), a docs-only merge never fires Done (HOLODEX-173/220), and nothing moves an
   issue to an earlier status category (HOLODEX-462), with `Done` → `In Review` tested both with and
   without `docsOnly`. Each guard has a refusal test that a mutation removing the guard fails.
+  `scripts/release-tags.test.mjs` guards which moving tags a promotion writes (HOLODEX-545): its
+  refusal cases are the point. A hotfix after a newer major must not take `latest`, an older-minor
+  hotfix must not take the major, and a prerelease takes no moving tag.
 - Fixtures generated deterministically in CI; goldens committed.
 - Coverage reported per-package; PRs surface deltas (informational, not a hard gate except on the critical-invariant packages).
 
