@@ -131,7 +131,7 @@ The procedure is in [ci-and-releases.md](../reference/ci-and-releases.md#hotfix-
 never published as a candidate first. **Rejected:** releasing `main` early under a `Release-As`
 override — it ships everything on `main`, which is what a hotfix exists to avoid.
 
-Decided in HOLODEX-545.
+Decided in [`7e2389d3`](https://github.com/whoiskevinrich/holodex/commit/7e2389d3).
 
 ## Provider sidecars: in-repo source, separate image
 
