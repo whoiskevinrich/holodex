@@ -95,6 +95,7 @@ jobs:
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true   # only flag CVEs with an available fix
+          limit-severities-for-sarif: true   # SARIF ignores `severity:` without this
 
       - name: Upload Trivy results to Security tab
         uses: github/codeql-action/upload-sarif@v4.38.2
