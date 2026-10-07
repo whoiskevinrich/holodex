@@ -23,7 +23,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 # --- Stage 3: runtime ---
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# `upgrade` pulls Debian security fixes into packages that ship in the base image itself
+# (perl-base, openssl, libexpat1…), not just the ones installed below.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
       ffmpeg \
       libimage-exiftool-perl \
       ca-certificates \
