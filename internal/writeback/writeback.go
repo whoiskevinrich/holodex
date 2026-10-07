@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // FieldWrite is one tag assignment for WriteBatch.
@@ -696,7 +697,8 @@ func stripIllegalCharRefs(s string) string {
 			digits, base = digits[1:], 16
 		}
 		n, err := strconv.ParseUint(digits, base, 32)
-		if err != nil || illegalXMLRune(rune(n)) {
+		// Bound n before the int32 rune conversion so values >= 2^31 never wrap.
+		if err != nil || n > unicode.MaxRune || illegalXMLRune(rune(n)) {
 			return ""
 		}
 		return ref
