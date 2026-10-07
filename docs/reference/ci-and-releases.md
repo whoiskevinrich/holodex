@@ -47,13 +47,31 @@ The stored credentials are exactly: `RELEASE_PLEASE_TOKEN` (below) and the Jira 
 
 ## The merge gate
 
-`ci.yml` is the check a PR must pass to merge. The other PR workflows are advisory: they
-comment or annotate, they don't block.
+`ci.yml` and the worklog gate are the checks a PR must pass to merge. The other PR workflows
+are advisory: they comment or annotate, they don't block.
 
-> **Not enforced by GitHub today.** `main` has no branch protection rule and no ruleset, so no
-> status check is required at merge — `ci.yml` (and `worklog gate`, which expects to be a
-> required check) gate merges only by convention. The release path still re-runs CI on the
-> tag, so a red tree can't be promoted.
+The repository ruleset `main` enforces this on `refs/heads/main` and `refs/heads/release/**`
+(HOLODEX-546):
+
+| Rule | Setting |
+|---|---|
+| Required status checks | `backend`, `frontend`, `theming`, `scripts`, `secrets` (`ci.yml`), `gate` (worklog gate) |
+| Deletion, force-push | Blocked |
+| Bypass | Repository admin, for an emergency hotfix |
+
+- **Required names are job names, not workflow names.** The worklog gate reports as `gate`. A
+  required `worklog gate` would never report, and every PR would wait on it forever. Renaming a
+  `ci.yml` job means updating the ruleset in the same change.
+- **A required check must run on every PR event that changes the head.** That is why
+  `transition` (`jira-sync.yml`) is not required: it only runs on `opened`, `ready_for_review` and
+  `closed`, so any later push would leave it unreported.
+- **CodeQL's `analyze` jobs are not required.** Their findings land in the Security tab, not the
+  merge decision. If the ruleset ever requires them, list them in the table above, and keep
+  `codeql.yml` free of a `paths:` filter, or docs-only PRs will wait forever.
+- **Drafts skip the worklog gate**, and a skipped check counts as passing. Nothing slips through,
+  because a draft can't be merged, and marking it ready re-runs the gate.
+- The release path still re-runs CI on the tag, so a red tree can't be promoted even through
+  the bypass.
 
 **CI does not path-filter.** It is cheap enough that a `paths:` filter isn't worth it, and on a
 required check a filter would leave docs-only PRs with a status that never reports.
