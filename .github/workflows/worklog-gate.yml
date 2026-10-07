@@ -6,9 +6,11 @@
 # scripts/worklog-gate.mjs in the consuming repo, then make the check required once:
 #
 #   gh api -X PUT repos/{owner}/{repo}/branches/main/protection/required_status_checks \
-#     -f strict=false -f 'contexts[]=worklog gate'
+#     -f strict=false -f 'contexts[]=gate'
 #
-# (or add "worklog gate" under Settings → Branches → the main rule → required status checks.)
+# (or add "gate" under the ruleset's or branch rule's required status checks). The check reports
+# under the JOB name `gate`, not the workflow name — a required "worklog gate" never reports.
+# Holodex requires it through the `main` ruleset (docs/reference/ci-and-releases.md).
 #
 # Drafts are skipped in `if:` — a draft cannot be merged, so there is nothing to hold. Un-keyed
 # branches pass inside the script: they are untracked by design. The unpushed-work check has no
