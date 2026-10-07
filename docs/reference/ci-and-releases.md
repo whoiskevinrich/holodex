@@ -73,6 +73,11 @@ The repository ruleset `main` enforces this on `refs/heads/main` and `refs/heads
 - The release path still re-runs CI on the tag, so a red tree can't be promoted even through
   the bypass.
 
+A second ruleset, `release tags`, covers `refs/tags/v*`. It blocks deleting a tag and moving it
+to another commit, with the same Repository admin bypass. Creating tags stays open, so Release
+Please and hotfix tags work unchanged. A published version therefore always names the commit
+its images and changelog were built from.
+
 **CI does not path-filter.** It is cheap enough that a `paths:` filter isn't worth it, and on a
 required check a filter would leave docs-only PRs with a status that never reports.
 
