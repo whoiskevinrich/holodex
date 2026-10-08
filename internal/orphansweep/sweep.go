@@ -1,10 +1,10 @@
-// Package personorphan runs the F40 orphan-grace sweep (ADR-072 §4/P0-9): it
-// deletes people whose last video link was removed more than gracePeriod ago and
-// who carry no authored identity (alias, curated image, manual field decision/
-// curation). A dedicated daily ticker, independent of the scanner's clock,
-// recording each pass in the activity history (ADR-028, kind=person-orphan-sweep)
+// Package orphansweep runs the orphan-grace sweep for people, studios and tags
+// (HOLODEX-535, generalized from the F40 person sweep): it deletes entities whose
+// last video link was removed more than GraceDays ago and that carry no authored
+// data (repo.SweepOrphans). A dedicated daily ticker, independent of the scanner's
+// clock, recording each pass in the activity history (ADR-028, kind=orphan-sweep)
 // — mirrors internal/purge's grace-period sweep shape exactly.
-package personorphan
+package orphansweep
 
 import (
 	"context"
@@ -16,17 +16,17 @@ import (
 
 // Repo is the slice of the repository the sweeper needs (kept narrow for testing).
 type Repo interface {
-	SweepOrphanedPeople(ctx context.Context, graceDays int) (deleted, skipped int, err error)
+	SweepOrphans(ctx context.Context, graceDays int) (deleted, skipped int, err error)
 	RecordJobRun(ctx context.Context, run model.JobRun) error
 }
 
 // Config carries the sweep knobs.
 type Config struct {
-	GraceDays int           // people orphaned longer than this are eligible for deletion
+	GraceDays int           // entities orphaned longer than this are eligible for deletion
 	Interval  time.Duration // how often the sweep runs
 }
 
-// Sweeper periodically prunes unauthored orphaned people. Construct with New,
+// Sweeper periodically prunes unauthored orphaned people, studios and tags. Construct with New,
 // then Run on a goroutine.
 type Sweeper struct {
 	repo Repo
@@ -69,9 +69,9 @@ func (s *Sweeper) Run(ctx context.Context) {
 // nothing was due (deleted == 0 && skipped == 0) — no empty job_runs noise.
 func (s *Sweeper) Sweep(ctx context.Context) {
 	start := time.Now()
-	deleted, skipped, err := s.repo.SweepOrphanedPeople(ctx, s.cfg.GraceDays)
+	deleted, skipped, err := s.repo.SweepOrphans(ctx, s.cfg.GraceDays)
 	if err != nil {
-		s.log.Warn("person orphan sweep failed", "err", err)
+		s.log.Warn("orphan sweep failed", "err", err)
 		s.record(ctx, start, model.JobStatusErr, 0, 0, err.Error())
 		return
 	}
@@ -84,7 +84,7 @@ func (s *Sweeper) Sweep(ctx context.Context) {
 func (s *Sweeper) record(ctx context.Context, start time.Time, status string, deleted, skipped int, errMsg string) {
 	finished := time.Now()
 	run := model.JobRun{
-		Kind:         model.JobKindPersonOrphanSweep,
+		Kind:         model.JobKindOrphanSweep,
 		Trigger:      model.TriggerPeriodic,
 		Status:       status,
 		StartedAt:    start.UTC(),
@@ -97,6 +97,6 @@ func (s *Sweeper) record(ctx context.Context, start time.Time, status string, de
 	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := s.repo.RecordJobRun(recCtx, run); err != nil {
-		s.log.Warn("person orphan sweep: record job run failed", "err", err)
+		s.log.Warn("orphan sweep: record job run failed", "err", err)
 	}
 }

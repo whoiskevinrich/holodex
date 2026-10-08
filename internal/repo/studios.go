@@ -32,12 +32,11 @@ func resolveOrCreateStudio(ctx context.Context, tx *sql.Tx, name, externalID str
 
 // ReconcileVideoStudios makes video_studios for one video hold exactly the studios
 // named in `names` (the video's resolved studio value(s); empty/duplicate names are
-// dropped). It resolves-or-creates each name, inserts the missing links, deletes the
-// stale ones, and prunes any studio left with zero links (prune-on-empty, ADR-053
-// §2 step 4 — what keeps a derived-identity studio honest without alias routing).
-// One write transaction under writeMu; idempotent. Passing nil/empty `names`
-// removes all of the video's studio links (and prunes) — the soft-delete/blank-pin
-// path. `extIDByName` maps a resolved name → its provider external id (ADR-054), so
+// dropped). It resolves-or-creates each name, inserts the missing links and deletes
+// the stale ones; a studio left with zero links is orphan-stamped by trigger and
+// later swept by SweepOrphans (HOLODEX-535). One write transaction under writeMu;
+// idempotent. Passing nil/empty `names` removes all of the video's studio links —
+// the soft-delete/blank-pin path. `extIDByName` maps a resolved name → its provider external id (ADR-054), so
 // resolve-or-create can de-dup by company id; a name absent from the map (custom or
 // id-less) resolves by name only. Pass nil when no ids are known.
 func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names []string, extIDByName map[string]string) error {
@@ -95,7 +94,8 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 		}
 	}
 
-	// Delete stale, then prune any of those studios left with no links.
+	// Delete stale. A studio left with no links is orphan-stamped by the
+	// video_studios_ad_orphan trigger, never deleted here (HOLODEX-535).
 	for sid := range current {
 		if _, keep := desired[sid]; keep {
 			continue
@@ -103,11 +103,6 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 		if _, err := tx.ExecContext(ctx,
 			`DELETE FROM video_studios WHERE video_id = ? AND studio_id = ?`, videoID, sid); err != nil {
 			return fmt.Errorf("unlink studio: %w", err)
-		}
-		if _, err := tx.ExecContext(ctx,
-			`DELETE FROM studios WHERE id = ? AND NOT EXISTS
-			 (SELECT 1 FROM video_studios WHERE studio_id = ?)`, sid, sid); err != nil {
-			return fmt.Errorf("prune studio: %w", err)
 		}
 	}
 
@@ -119,8 +114,8 @@ func (r *Repo) ReconcileVideoStudios(ctx context.Context, videoID int64, names [
 
 // ListStudios returns every studio with at least one active, non-deleted video,
 // with counts. sortByCount orders by video count desc (else name asc). Empty
-// studios never appear (prune-on-empty removes them; the INNER JOIN also excludes a
-// studio whose only videos are soft-deleted).
+// studios never appear (the INNER JOIN excludes an orphaned studio and one whose
+// only videos are soft-deleted).
 func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studio, error) {
 	return r.ListStudiosFiltered(ctx, countSortFilter(sortByCount))
 }

@@ -44,11 +44,10 @@ Studios-list filters, and in the file.
   images never qualify.
 - **A film-level studio.** A film's studio stays the union of its videos' (HOLODEX-496 proposes a
   separate "released by" attachment). This spec clears *video* studios, from either page.
-- **Keeping a curated studio alive after its last video is cleared.** That's existing prune-on-empty
-  behaviour, which reassigning a studio already triggers (HOLODEX-494). So clearing the only video
-  of a studio deletes that studio, with its uploaded logo, image halo and enrichment, at decision
-  time. Clearing makes that case easier to reach. Whether that deletion should happen at all is
-  open as HOLODEX-535.
+- **What happens to a studio after its last video is cleared.** That belongs to
+  [studio-entity.md](studio-entity.md) RD1: the studio disappears from the list. It is deleted after
+  30 days only if the owner never gave it an alias, image, decision or curation (HOLODEX-535,
+  which also resolves HOLODEX-494). Clearing never deletes a studio at decision time.
 - **Undo inside the writeback batch dialog.** Undo is re-picking the studio (R6). A batch revert
   for added tags is HOLODEX-495.
 - **Bigger touch targets for the `×`.** It's the same ~20px as `PersonPicker`'s. Growing it has to
