@@ -5,6 +5,10 @@ key: HOLODEX-521
 status: in-progress          # DERIVED from the Gates below; only `done`/`released` are read from here.
 profile: full                # destructive Trash action + multi-record carry-over (security); a possible entity-identity.md edit (architecture)
 depends-on: []
+approved:
+  design:
+    on: 2026-10-08
+    at: 611d09d2
 release_note: "The Duplicates page now flags two files matched to the same provider item, shows them side by side, and lets you keep one (your playlists, film links and edits move to it), keep both, or label them as editions or parts."
 ---
 
@@ -29,14 +33,15 @@ the scene model (HOLODEX-520).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/implement`: owner signs off the design handoff, then the draft PR and the build — `docs/design/duplicate-videos-handoff.md`
-2. [ ] [backend] In the build PR, add the video producer to the review-queue producer list — `docs/architecture/entity-identity.md`
-3. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
+1. [ ] [backend] Video pair producer + keep-one (Trash + additive carry-over) / keep-both / label endpoints, with repo tests — `internal/repo/`, `internal/api/duplicates.go`
+2. [ ] [frontend] Videos group, `VideoPairRow`, `VideoComparePanel` per the handoff — `web/src/lib/components/duplicates/`
+3. [ ] [backend] Add the video producer to the review-queue producer list — `docs/architecture/entity-identity.md`
+4. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-08 · session
-- skills: system-design, write-spec, handoff, design-handoff
-- handoff: Spec F76 and the design handoff are done (fact-table compare, collapsed rows, keep-one confirm with carry-over list, edition/part editors; mockup measured clean); architecture skipped as no fork. Next: `/implement`, which asks for the design sign-off and opens the draft PR.
+- skills: system-design, write-spec, handoff, design-handoff, implement
+- handoff: Crossed into build — design signed off at 611d09d2; draft PR open. Start at Up next #1, the backend video pair producer and resolution actions.
 
 ## Dropped — newest first (the reason is the point)
