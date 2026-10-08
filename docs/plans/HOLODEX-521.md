@@ -27,23 +27,20 @@ the scene model (HOLODEX-520).
 - [x] architecture `architecture` → `docs/architecture/**` — reopened from `[~]`: the build found a real fork (pairs computed on demand vs stored in the review queue); recorded in `entity-identity.md` "Duplicate videos are computed on demand, not queued"
 - [x] design `design-handoff` → `docs/design/**` — `duplicate-videos-handoff.md` + measured SVG mockup; option B fact table, collapsed default (owner's choices 2026-10-08)
 - [x] backend → `{cmd,internal,providers}/**` — `repo/video_pairs.go` + `api/duplicates_video.go`; 11 repo + 5 API tests, full Go suite green; `/code-review high --fix` applied
-- [/] frontend → `web/src/**` — built and browser-verified on a seeded stress copy (desktop + 375 px); held on the owner's row-title call and the build-vs-mockup comparison
-- [ ] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] frontend → `web/src/**` — browser-verified on a seeded stress copy (desktop + 375 px); owner confirmed the build matches the approved mockup 2026-10-08
+- [x] testing `testing-strategy` — §24 in `docs/testing-strategy.md`; five mutation checks each turned a named test red
+- [x] security `security-review` — 2026-10-08: no vulnerabilities (all five routes owner-gated, all SQL bound, liveness re-checked in-transaction, clear tag names from the mapping only)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner compares the built page against the approved mockup (handoff §3d) to settle the frontend gate — `docs/design/duplicate-videos-mockup.svg`
-2. [ ] [testing] `/testing-strategy` for F76 — `docs/testing-strategy.md`
-3. [ ] [security] `/security-review`: owner-only Trash action + multi-record carry-over + edition joins the clearable allowlist — `internal/api/duplicates_video.go`
-4. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
-5. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
-6. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
+1. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
+2. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
+3. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-08 · session
-- skills: system-design, write-spec, handoff, design-handoff, implement
-- handoff: Backend, edition clearing, the frontend Videos group and the provider-title row label are in draft PR #465, browser-verified on a seeded fixture copy; design sign-off re-confirmed at 83201455. Next: owner compares build vs mockup, then `/testing-strategy` and `/security-review`.
+- skills: system-design, write-spec, handoff, design-handoff, implement, testing-strategy, security-review
+- handoff: All seven gates settled and PR #465 marked ready; the owner confirmed the build matches the mockup. Next: run `make test-image` for the mkvpropedit edition-clear case, then after merge fill the "Decided in" sha.
 
 ## Dropped — newest first (the reason is the point)
