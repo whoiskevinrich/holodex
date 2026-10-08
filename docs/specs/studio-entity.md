@@ -255,9 +255,13 @@ until it rides the decision model as a real entity.
 `RelinkVideoStudios(videoID)`: resolve the video's fields (existing media-detail path),
 take the `studio` resolved value(s) — for a multi-mapped field, every value; else the single
 value — trim, drop empties, resolve-or-create each name in `studios`, replace the video's
-`video_studios` rows with exactly that set, and delete any studio left with zero links
-(prune-on-empty keeps RD4 honest: bogus names die when the last video is fixed). All inside
-one transaction. Call sites: `UpsertVideo` (scan), enrich completion, decision PUT/DELETE for
+`video_studios` rows with exactly that set, and mark any studio left with zero links as unused.
+All inside one transaction. An unused studio disappears from the studio list at once. It is
+deleted 30 days later unless a video links it again in that time, or the owner has given it an
+alias, an image, a field decision or a curation. A studio with any of those is never deleted
+automatically. Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
+studio survives. (Amended by HOLODEX-535: this used to delete the studio at once, along with its
+aliases, logo and enrichment.) Call sites: `UpsertVideo` (scan), enrich completion, decision PUT/DELETE for
 `studio`, curation add/suppress/clear for `studio`. Derivation never runs at read time.
 
 ### Resolution (studio entity fields)

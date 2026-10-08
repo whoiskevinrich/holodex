@@ -31,19 +31,46 @@ fields, so grouping, navigation and the media detail always read one resolution.
   and the resolved value flows to the file through the ordinary writeback map (`actors → Artist`,
   `studio → Publisher`). A studio entity has no file, but its value lives in the video's `Publisher`
   tag, so studios get the same link-and-write treatment as people.
-- **Pruning differs by kind.** `ReconcileVideoStudios` deletes a studio left with no link in the same
-  transaction. Studios now carry authored aliases, ids, images and decisions, so this may lose data;
-  it is under review as HOLODEX-535. `ReconcileVideoPeople` never deletes; it stamps `people.orphaned_at` (cleared when a
-  link returns), and `SweepOrphanedPeople` (`internal/personorphan`, an observable job) deletes people
-  orphaned longer than `GraceDays` (default 30) unless `personHasAuthoredIdentity` finds an alias
-  (covering merge history), a person image, a decision or a curation row.
+- **Neither reconcile deletes.** A person or studio left with no link is orphan-stamped, not pruned;
+  see the next section.
 
 **Rejected:** links from raw file extraction at scan time — an adopted or curated value would display
 one entity and group under another until the next rescan. **Rejected:** a separate manual-link table —
-every reader would union two tables. **Rejected:** immediate prune for people — a file pulled offline
-for maintenance would destroy curated identity.
+every reader would union two tables.
 
 Decided in [`9ccbdc2f`](https://github.com/whoiskevinrich/holodex/commit/9ccbdc2f).
+
+## People, studios and tags share one orphan stamp and one sweep
+
+An entity is never deleted in the transaction that removes its last video link. People, studios and
+tags each carry an `orphaned_at` column, and one sweep deletes them later under one rule.
+
+- **Stamp.** Every path that can remove a link re-checks the entities it touched, in its own
+  transaction: stamp `orphaned_at` when the count reaches zero, clear it when a link returns. Those
+  paths are `ReconcileVideoPeople`, `ReconcileVideoStudios`, tag detach, the rescan's
+  `replaceAssociations` (file-sourced tag rows) and `HardDelete`. Purge removes links by FK
+  cascade, so `HardDelete` stamps the video's people, studios and tags *before* the delete. A tag
+  created bare is stamped at creation. Merge needs no stamp: it deletes the merged row and moves its
+  links to the survivor.
+- **Sweep.** `internal/orphansweep` (the generalized `personorphan`, an observable job of kind
+  `orphan-sweep`) deletes rows orphaned longer than `GraceDays` (default 30). It skips any row that
+  has authored data, and counts skips. One per-kind query (`hasAuthoredData`) defines authored data:
+  - **all three:** an alias (which covers merge history), a field decision, or a curation row
+  - **person:** a person image
+  - **studio:** a studio image
+  - **tag:** a category, a parent or child tag, or writeback exclusion
+- **Cleanup.** The sweep deletes the row's `entity_enrichment` row in the same transaction. That
+  table is polymorphic and has no trigger. The FK cascades and the `*_ad_*` triggers handle the rest.
+- **Visibility.** Studio and person lists already hide unlinked rows. `ListTags` lists zero-video
+  tags deliberately, so an orphaned tag stays visible until the sweep deletes it.
+
+**Rejected:** immediate prune guarded by authored data. A studio or tag that a rescan briefly
+unlinks would lose its id and provider enrichment, and studios and tags would follow a different rule
+from people. **Rejected:** never deleting orphans. Rescan churn would pile up without limit in
+`/tags` and the identity tables. **Rejected:** immediate prune for people. A file pulled offline for
+maintenance would destroy curated identity.
+
+Decided in *pending: HOLODEX-535 squash commit*.
 
 ## A people curation edit relinks inside the curation lock
 

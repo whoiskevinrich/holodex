@@ -287,6 +287,14 @@ path (unchanged): (1) the video's `video_tags`, expanded to each tag's full ance
 (2) today's raw resolved `genres` union, **with any value matching a `denied_tags.term_key` dropped first**
 (same normalize/lookup the tag resolver uses, RD3). Deduplicated by case-insensitive value before writeback.
 
+### Unused tags (HOLODEX-535)
+A tag with no videos is kept for 30 days and stays visible on `/tags` during that time. Attaching it to a
+video in that window resets the clock. After 30 days it is deleted, **unless** the owner gave it an alias, a
+category, a parent or child tag, writeback exclusion, a field decision or a curation; a tag with any of those
+is never deleted automatically. This applies however the tag lost its videos (detach, a rescan dropping a
+file tag, a purged video), and to a tag created on `/tags` that was never attached. People and studios follow
+the same rule.
+
 ## Data model
 
 ```
