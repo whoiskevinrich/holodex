@@ -290,7 +290,8 @@ path (unchanged): (1) the video's `video_tags`, expanded to each tag's full ance
 ### Unused tags (HOLODEX-535)
 A tag with no videos is kept for 30 days and stays visible on `/tags` during that time. Attaching it to a
 video in that window resets the clock. After 30 days it is deleted, **unless** the owner gave it an alias, a
-category, a parent or child tag, writeback exclusion, a field decision or a curation; a tag with any of those
+category, a parent or child tag, writeback exclusion, a field decision or a curation, or marked it as distinct
+from another tag (keep separate); a tag with any of those
 is never deleted automatically. This applies however the tag lost its videos (detach, a rescan dropping a
 file tag, a purged video), and to a tag created on `/tags` that was never attached. People and studios follow
 the same rule.

@@ -258,7 +258,7 @@ value — trim, drop empties, resolve-or-create each name in `studios`, replace 
 `video_studios` rows with exactly that set, and mark any studio left with zero links as unused.
 All inside one transaction. An unused studio disappears from the studio list at once. It is
 deleted 30 days later unless a video links it again in that time, or the owner has given it an
-alias, an image, a field decision or a curation. A studio with any of those is never deleted
+alias, an image, a field decision or a curation, or kept it separate from another studio. A studio with any of those is never deleted
 automatically. Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
 studio survives. (Amended by HOLODEX-535: this used to delete the studio at once, along with its
 aliases, logo and enrichment.) Call sites: `UpsertVideo` (scan), enrich completion, decision PUT/DELETE for

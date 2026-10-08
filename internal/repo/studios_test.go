@@ -23,7 +23,7 @@ func studioNames(t *testing.T, r *repo.Repo) []string {
 	return names
 }
 
-func TestReconcileVideoStudios_CreateReplacePrune(t *testing.T) {
+func TestReconcileVideoStudios_CreateReplaceOrphan(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 
@@ -48,15 +48,15 @@ func TestReconcileVideoStudios_CreateReplacePrune(t *testing.T) {
 		t.Fatalf("after idempotent: %v, want [Acme]", got)
 	}
 
-	// Replace: adopt "Acme Films" — "Acme" is now unlinked and must be pruned.
+	// Replace: adopt "Acme Films" — "Acme" is now unlinked and drops out of the list.
 	if err := r.ReconcileVideoStudios(ctx, id, []string{"Acme Films"}, nil); err != nil {
 		t.Fatalf("reconcile replace: %v", err)
 	}
 	if got := studioNames(t, r); len(got) != 1 || got[0] != "Acme Films" {
-		t.Fatalf("after replace: %v, want [Acme Films] (Acme pruned)", got)
+		t.Fatalf("after replace: %v, want [Acme Films] (Acme orphaned)", got)
 	}
 
-	// Empty (blank-pin / soft-delete): all links dropped and the studio pruned.
+	// Empty (blank-pin / soft-delete): all links dropped, the studio orphaned.
 	if err := r.ReconcileVideoStudios(ctx, id, nil, nil); err != nil {
 		t.Fatalf("reconcile empty: %v", err)
 	}
@@ -145,8 +145,9 @@ func TestReconcileVideoStudios_ExternalIDDedup(t *testing.T) {
 		t.Fatalf("converged name = %q, want %q (first-seen)", studios[0].Name, "Warner Bros.")
 	}
 
-	// Prune-on-empty must cascade the id row: remove both videos, then a fresh video
-	// with the same id re-creates a studio (proving the id was not orphaned/left over).
+	// Clearing both videos orphans the studio (hidden from the list) but keeps it and
+	// its id (HOLODEX-535): a fresh video with the same id within the grace period
+	// re-links the SAME studio rather than creating a new one.
 	if err := r.ReconcileVideoStudios(ctx, a, nil, nil); err != nil {
 		t.Fatalf("clear a: %v", err)
 	}
@@ -154,15 +155,15 @@ func TestReconcileVideoStudios_ExternalIDDedup(t *testing.T) {
 		t.Fatalf("clear b: %v", err)
 	}
 	if got := studioNames(t, r); len(got) != 0 {
-		t.Fatalf("after clearing both: %v, want [] (pruned)", got)
+		t.Fatalf("after clearing both: %v, want [] (orphan hidden)", got)
 	}
 	c, _ := r.UpsertVideo(ctx, sampleVideo("/m/c.mkv", "C", nil, nil), nil)
 	if err := r.ReconcileVideoStudios(ctx, c, []string{"WB"},
 		map[string]string{"WB": "tmdb:174"}); err != nil {
 		t.Fatalf("reconcile c: %v", err)
 	}
-	if got := studioNames(t, r); len(got) != 1 || got[0] != "WB" {
-		t.Fatalf("re-create after prune: %v, want [WB]", got)
+	if got := studioNames(t, r); len(got) != 1 || got[0] != "Warner Bros." {
+		t.Fatalf("re-link after orphaning: %v, want [Warner Bros.] (kept, id-deduped)", got)
 	}
 }
 

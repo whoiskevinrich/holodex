@@ -297,7 +297,8 @@ func (r *Repo) JobRunDigest(ctx context.Context, days int) (JobRunDigest, error)
 
 // LibraryCounts is the catalog-size snapshot for the activity surface (F21.1).
 // People/Tags count only entities still linked to an active video, matching what
-// the /people and /tags pages show (orphan rows linger after re-index).
+// the /people and /tags pages show (orphan rows stay until the orphan sweep,
+// SweepOrphans, deletes them).
 type LibraryCounts struct {
 	VideosActive   int `json:"videos_active"`
 	VideosInactive int `json:"videos_inactive"`
