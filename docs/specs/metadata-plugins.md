@@ -108,7 +108,7 @@ A provider is an HTTP/JSON service. Core calls it; it owns its upstream API key,
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F22.7a | Every resolved field shows its provenance ("from TMDB" / "from file") | The winning source is labeled; QA'd in all three skins using semantic tokens (no hardcoded styling) |
+| F22.7a | Every resolved field shows its provenance ("from TMDB" / "from file") | The winning source is labeled; QA'd in Cinémathèque using semantic tokens (no hardcoded styling) |
 | F22.7b | Owner can clear a provider's contribution for an entity | One action removes `entity_enrichment` rows for that provider+entity; field falls back to the next source. Clearing never touches the file: for a video whose file already carries that provider's values (a prior writeback), the response says so (`written_back`, HOLODEX-370) and the page points at the batch Revert |
 
 ### F22.8 — Provider health & observability
@@ -292,7 +292,7 @@ fields:
 >   spec (any upstream, any language).
 > - [TMDB Provider](tmdb-provider.md) — a worked example mapping that contract onto TMDB.
 
-> **Routing reminder (CLAUDE.md):** this feature touches infrastructure (new deployable services, outbound network) and access (owner-gated, SSRF surface) → **`/security-review` is required before merge**, and **`/testing-strategy`** must gain the provider-contract + resolution + provenance cases. Frontend (picker, provenance badges) must use semantic tokens and QA all three skins — see the [design handoff](../design/metadata-enrichment-handoff.md).
+> **Routing reminder (CLAUDE.md):** this feature touches infrastructure (new deployable services, outbound network) and access (owner-gated, SSRF surface) → **`/security-review` is required before merge**, and **`/testing-strategy`** must gain the provider-contract + resolution + provenance cases. Frontend (picker, provenance badges) must use semantic tokens and QA Cinémathèque — see the [design handoff](../design/metadata-enrichment-handoff.md).
 
 ---
 

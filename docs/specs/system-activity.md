@@ -146,7 +146,7 @@ A themed `/status` route (final path TBD in design-handoff; `/status` or `/admin
   - Given a scan starts, then within one poll interval the scan card switches to "running" with elapsed time.
   - Given the API is unreachable, then the page shows a themed error state, not a blank screen or console crash.
   - **Theming (ADR-021):** tokens only — no `zinc-*`/`sky-*`/hex/named-font/fixed-radius literals; `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` stays empty for new components.
-  - **QA all three skins** — Cinémathèque, Broadcast, Brutalist all render the page (including the running-spinner and history timeline) without collision or unreadable accent-on-background.
+  - **QA Cinémathèque** — it renders the page (including the running-spinner and history timeline) without collision or unreadable accent-on-background.
 
 #### F21.5 — Header activity indicator
 A small live indicator in the shared header, present on every page, reflects whether background work is active.
@@ -154,8 +154,8 @@ A small live indicator in the shared header, present on every page, reflects whe
 - **Behavior**: shows an active/busy affticon (e.g. a subtle animated state on the existing header hook) when `scan.state == "running"` **or** `thumbnails.queue_depth > 0`; idle/hidden otherwise. Clicking it navigates to the activity page.
 - **Acceptance criteria**:
   - The indicator reflects state within one refresh cycle and clears when work finishes.
-  - It is driven by the same read-model as the page (one source of truth), and uses a shared themed hook class (per ADR-021) — no per-skin markup, no hardcoded styling.
-  - QA'd in all three skins (the indicator must read against each skin's header background).
+  - It is driven by the same read-model as the page (one source of truth), and uses a shared themed hook class (per ADR-021) — no hardcoded styling.
+  - QA'd in Cinémathèque (the indicator must read against the header background).
 
 #### F21.6 — In-UI controls (wires existing admin actions)
 Expose the **already-existing** admin endpoints as confirmable buttons on the activity page.
@@ -261,5 +261,5 @@ This is a personal, self-hosted tool, so metrics are framed as owner-experience 
 
 - Builds on: [phase-2-mcp-polish.md](phase-2-mcp-polish.md) F11 (thumbnails), F13 (observability/admin), F20 (mapping reload).
 - ADRs: [ADR-019](../architecture/archive/ADR-019-observability-conventions.md) (observability conventions, extended by ADR-028), [ADR-016](../architecture/archive/ADR-016-database-migrations.md) (migrations), [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) (theming/skins), [ADR-008](../architecture/archive/ADR-008-caching.md)/[ADR-022](../architecture/archive/ADR-022-defer-in-process-cache.md) (caching seam).
-- Design: [system-activity-handoff.md](../design/system-activity-handoff.md) — `/status` page + header indicator, component breakdown, states, three-skin QA.
+- Design: [system-activity-handoff.md](../design/system-activity-handoff.md) — `/status` page + header indicator, component breakdown, states, Cinémathèque QA.
 - Forward link: Phase 3 jobs ([phase-3-enrichment.md](phase-3-enrichment.md) F16–F18) plug into `job_runs.kind` (F21.10).

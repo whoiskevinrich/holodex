@@ -380,7 +380,7 @@ No endpoint changes its auth posture; all mutations stay behind `requireOwner`.
 
 Fully specified in the [design handoff](../design/entity-identity-card-handoff.md); summary:
 (§1's `RefChip` was removed after shipping — owner ruling), Edition row = generic field row + `SourceBadge` (§2), Full-film pill + dashed
-Set-edition link (§3), "In files as" line + name `SourceBadge` (§4). Three-skin QA per handoff §8.
+Set-edition link (§3), "In files as" line + name `SourceBadge` (§4). Cinémathèque QA per handoff §8.
 
 ## Success Metrics
 

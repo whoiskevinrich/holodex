@@ -6,7 +6,7 @@
 **Builds on**: [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213) — this
 doc assumes that one's decided/undecided split as ground truth and does not change it.
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Surface**: `WritebackFormDialog.svelte` (issue 1) · `SourceSelect.svelte` / `f36.ts` /
 `internal/resolver/resolver.go` (issue 2, traced below). **Issue**: [HOLODEX-245](https://whoiskevinrich.atlassian.net/browse/HOLODEX-245).
 
@@ -171,8 +171,8 @@ instead, and a regression test using the real payload shape was added to `f36.te
       new pending treatment — confirmed live against a real TMDB-enriched video (Dune 1984):
       Tagline/Released/Runtime/Status/Language/IMDb/Studio all correctly read dashed + `, pending`;
       Title (file wins, non-empty baseline) did not.
-- [x] All three skins: the pending ring/dot reads at AA contrast — measured live (WCAG formula):
-      text 15.7–18.1:1, dashed border 8.5–16.4:1 across Cinémathèque/Broadcast/Brutalist, all
+- [x] Cinémathèque: the pending ring/dot reads at AA contrast — measured live (WCAG formula):
+      text ≥ 15.7:1, dashed border ≥ 8.5:1, both
       comfortably above the 4.5:1 / 3:1 floors.
 - [x] `f36.test.ts` covers the implicit-winner branch from the outside, including the real API's
       `decision: {source, standing:false}` shape (not just the test-fixture "omitted" shape).

@@ -139,7 +139,7 @@ panel, and focus returns to the disclosure.
 - [ ] Given a pair is resolved, when the row is removed, then focus moves to the next row's disclosure — or to the group heading when it was the last row in the group. **There is no fade**: `routes/owner/duplicates/+page.svelte:47–49` is an unanimated `pairs.filter()` and always has been, so focus would otherwise fall to `<body>`. The stale "the row fades out" comment at `DuplicatePairRow.svelte:7` is corrected in the same commit.
 - [ ] Opening a second panel collapses the first (RD12)
 
-**P0-7 · Three-skin QA.** Tokens only; no hardcoded colour, radius or shadow.
+**P0-7 · Cinémathèque QA.** Tokens only; no hardcoded colour, radius or shadow.
 
 ### Nice-to-Have (P1)
 

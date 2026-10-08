@@ -21,7 +21,7 @@
 - [ ] 1.2 Exercise **both token states**: `ADMIN_TOKEN` unset (open/owner) vs set (locked → unlock via `/status`).
 - [ ] 1.3 Have test images ready: a normal **JPEG** and **PNG**; a **wrong-ratio** image (very wide and very tall); an image with **planted EXIF/GPS**; a **renamed non-image** (e.g. `evil.txt` → `evil.jpg`); an **oversized** image (> the configured byte/dimension bound).
 - [ ] 1.4 One person with an **enriched `gender`** value (female and male if possible) and one **without** any gender, to check placeholder buckets.
-- [ ] 1.5 Devtools open (Network + Console); skin picker reachable (header); a `prefers-reduced-motion: reduce` profile ready.
+- [ ] 1.5 Devtools open (Network + Console); a `prefers-reduced-motion: reduce` profile ready.
 
 ---
 

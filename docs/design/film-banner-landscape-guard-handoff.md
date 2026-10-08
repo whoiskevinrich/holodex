@@ -45,6 +45,6 @@ ADR away and no UI built for C is thrown out.
 - 1.1 `[agent]` Enrich a film whose sidecar returns a portrait `banner`; assert no banner
   row in `ImageVersions` and one activity entry naming width×height.
 - 1.2 `[agent]` Same film with a landscape `banner`; assert stored and served.
-- 1.3 `[human]` Open the film page in all three skins with the portrait case: the header
+- 1.3 `[human]` Open the film page in Cinémathèque with the portrait case: the header
   should look identical to a film that never had a banner — no plate, no gap where the
   band was.

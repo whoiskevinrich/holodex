@@ -75,9 +75,8 @@ pages its toggle should now read as excluded.
 3.5 **[human]** With 2+ tags still selected, click "Sync writeback now for selected". The dialog
 should describe the sync as covering the tags you picked (by name, not a single number this time)
 and behave the same way as 3.3 once started.
-3.6 **[human]** Repeat 3.1–3.3 in each of the three skins (header picker: Cinémathèque, Broadcast,
-Brutalist). The Details card, the toggle glyph, the Sync button, and the batch dialog's progress
-bar should all read clearly against the background in every skin — no washed-out text, no
+3.6 **[human]** Repeat 3.1–3.3 in Cinémathèque. The Details card, the toggle glyph, the Sync button, and the batch dialog's progress
+bar should all read clearly against the background — no washed-out text, no
 invisible progress fill.
 3.7 **[human]** With the batch dialog open mid-progress, press `Tab` repeatedly — focus should stay
 inside the dialog. Press `Escape` — the dialog should close and focus should return to the button

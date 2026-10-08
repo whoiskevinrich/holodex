@@ -5,7 +5,7 @@
 	// dialog can embed the same chooser per row: one native radio row per SourceChip plus an
 	// inline Custom textarea. Long values need their own line each — a chip row truncates the
 	// very text being compared (HOLODEX-303). Selecting a row STAGES (binds `stagedKey` / `stagedCustomValue`); the
-	// embedding component owns Confirm/Save. Tokens only; QA 3 skins.
+	// embedding component owns Confirm/Save. Tokens only; QA Cinémathèque.
 	import type { SourceChip } from '$lib/f36';
 	import type { ResolvedField } from '$lib/types';
 	import SourceValueClamp from './SourceValueClamp.svelte';

@@ -9,7 +9,7 @@ editable-field chip mechanics — `SourceSelect` radiogroup (● per replace val
 merge chips (✕ per value), provenance fold/dedup, roving-tabindex a11y — are **inherited unchanged**
 from F36/F37; this document specifies only what is new for studio: two new pages, the baseline label,
 the media-detail link, the facet switch, and the search group. Everything is **tokens-only** (no
-literal palette/radius/font — see [theming.md](theming.md)) and must be QA'd in all three skins.
+literal palette/radius/font — see [theming.md](theming.md)) and must be QA'd in Cinémathèque.
 
 New surfaces, in build order:
 1. `/studios` — entity list (mirrors `/people`)
@@ -82,8 +82,8 @@ scannability — but as a **fixed leading well with a monogram fallback**, not a
   `2`, "東宝" shows `東` — not the A–Z jump bar's catch-all `#`), in `font-display`, `text-logo-plate-ink`.
   The monogram is **decorative** (`aria-hidden`) — the studio name is adjacent, so it adds nothing for
   a screen reader. The real logo `<img>`, by contrast, keeps a meaningful `alt`.
-- **New token**: `--logo-plate-ink` (a dark neutral tuned per skin) for the monogram glyph — the plate
-  is a light neutral in all three skins, so its ink must be dark to read. Lives in `app.css` alongside
+- **New token**: `--logo-plate-ink` (a dark neutral) for the monogram glyph — the plate
+  is a light neutral, so its ink must be dark to read. Lives in `app.css` alongside
   `--logo-plate`, mapped through `@theme inline` to the `text-logo-plate-ink` utility.
 
 **Known edge (documented, acceptable):** `logo_url` is the *stored* provider logo, not the *resolved*
@@ -236,11 +236,11 @@ The detail video grid inherits the media grid's own responsive rules. The A–Z 
 
 ---
 
-## QA checklist (3-skin)
+## QA checklist (Cinémathèque)
 
 Conventions ([[feedback-qa-checklist-numbering]]): every item numbered `section.item`, tagged by
-verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Skins:
-**Cinémathèque · Broadcast · Brutalist**, switched via the header picker.
+verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Skin:
+**Cinémathèque** (the only look).
 
 ### §1 Setup
 - **1.1** `[agent]` Start `backend-films` + `provider-tmdb` ([[reference-holodex-preview-testbeds]]).
@@ -260,17 +260,17 @@ verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` need
 
 ### §3 Agent live QA (preview tools against §1 stack)
 - **3.1** `[agent]` `/studios` renders the grid; counts match; A–Z jump works; sort toggle + Random
-  reroll behave as on People. **All 3 skins.**
+  reroll behave as on People.
 - **3.1b** `[agent]` Leading logo well (§1b, HOLODEX-126): an enriched studio shows its real logo
   (`object-contain`, `alt="{name} logo"`); a name-only studio shows a monogram (first glyph,
   `aria-hidden`); logo rows and monogram rows have **identical height** (the alignment constraint).
   Confirm the well plate (`bg-logo-plate`) and monogram ink (`text-logo-plate-ink`) read cleanly in
-  **all 3 skins** (plate is light in every skin; ink must stay dark/legible).
+  Cinémathèque (plate is light; ink must stay dark/legible).
 - **3.2** `[agent]` Open a studio → name header + video grid; a name-only studio shows **no** Details
-  section (not an empty box). **All 3 skins.**
+  section (not an empty box).
 - **3.3** `[agent]` On an enriched studio (post-S3, or with a decision set), Details renders
   `SourceSelect` rows with the **`·record`** baseline chip; `— ·record` selectable as blank-pin.
-  **All 3 skins** (confirm the Brutalist filled-accent selected chip and any `text-warn` read
+  (confirm the selected chip and any `text-warn` read
   cleanly, per the F36 regression history).
 - **3.4** `[agent]` Media detail: the studio value is a **link**; clicking lands on the matching
   studio page; the linked studio equals the *displayed* resolved value even after adopting a TMDB
@@ -283,8 +283,8 @@ verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` need
   `/writeback` calls anywhere on studio surfaces.
 
 ### §4 Human
-- **4.1** `[human]` Visit `/studios` in each skin. It should feel like the People page's sibling —
-  same rhythm of cards, same fonts and borders reacting to the skin. Nothing should look like a
+- **4.1** `[human]` Visit `/studios`. It should feel like the People page's sibling —
+  same rhythm of cards, same fonts and borders. Nothing should look like a
   different app or use a stray color.
 - **4.2** `[human]` Open a studio that has films from a real company. The name reads as a title; the
   film grid below looks like the rest of the library. If the studio has curated fields, the chips

@@ -41,8 +41,8 @@ row; clicking again re-collapses it.
 checkbox when there are decisions, the dialog element itself when there are none (the collapsed
 group's hidden inputs must not swallow it).
 2.8 **[agent]** No element inside the dialog renders below `opacity: 1`, and the row label,
-disclosure label, and `Select all` all clear 4.5:1 against the dialog surface in all three skins
-(measured 4.67–16.76).
+disclosure label, and `Select all` all clear 4.5:1 against the dialog surface in Cinémathèque
+(measured 6.00–8.71).
 2.9 **[agent]** No console errors on open, expand, select-all, or close.
 
 ## 3. Human look
@@ -60,10 +60,9 @@ drops by one.
 3.4 **[human]** Now make a real choice on the page behind the dialog: pick a provider value for one
 field using its value chips, then reopen the dialog. That field should be at the top, already
 ticked, and the count line below should have gone down by one.
-3.5 **[human]** Repeat 3.1–3.2 in each of the three skins (header picker: Cinémathèque, Broadcast,
-Brutalist). In every skin the fold/unfold line, the **Select all** button, and the field labels
+3.5 **[human]** Repeat 3.1–3.2 in Cinémathèque. The fold/unfold line, the **Select all** button, and the field labels
 should be comfortably legible against the dialog background, and the **Select all** button should
-read as the accent colour of that skin.
+read as the accent colour.
 3.6 **[human]** With the dialog open, press `Tab` repeatedly. Focus should cycle within the dialog
 and never escape to the page behind it — including when the provider values are folded away. Press
 `Escape` to close; focus should return to the button that opened it.

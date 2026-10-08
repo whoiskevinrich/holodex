@@ -254,8 +254,8 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   records keep-separate (RD5); resolving a pair uses the per-entity `merge` endpoint. `requireOwner`.
 - **P1-4 — Review-queue UI (RD9).** A **Duplicates tab under `/owner`** (F35) listing pairs grouped by entity
   (tags first — they dominate) with per-pair **Merge** (→ informed confirm, RD8) / **Keep separate**; and a
-  **"N possible duplicates" banner** on `/people`, `/studios`, `/tags` linking into it. Tokens only; QA all
-  three skins.
+  **"N possible duplicates" banner** on `/people`, `/studios`, `/tags` linking into it. Tokens only; QA
+  Cinémathèque.
 - **P1-5 — Editor near-miss soft warning (RD9).** On create/rename/alias where a fuzzy near-miss (not exact)
   is detected, show a non-blocking "looks like *X* — merge instead?" with **Merge** / **Create anyway** (the
   latter records keep-separate). Distinct from the P0-5 exact-collision 409.
@@ -372,7 +372,7 @@ belongs to another entity; `401` unauthorized. Alias validation reuses F23.1 (tr
   banner** on each entity list links here (RD9).
 - **Editor near-miss**: non-blocking inline prompt on create/rename/alias — "looks like *X* — merge?" /
   "Create anyway" (RD9); distinct from the exact-collision 409 (P0-5).
-- Tokens only; QA Cinémathèque / Broadcast / Brutalist. Full layout/states/a11y in the design handoff.
+- Tokens only; QA Cinémathèque. Full layout/states/a11y in the design handoff.
 
 ## Success Metrics
 
@@ -406,7 +406,7 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    resolve order, per-entity normalize, keep-separate, two-path handling).
 2. ✅ **`/design-handoff`** — [entity-identity-handoff.md](../design/entity-identity-handoff.md): review-queue
    banner + `/owner` Duplicates tab, `/tags` identity row-actions, editor near-miss prompt, studio/person alias
-   panels, 3-skin QA. **Ratified (owner, 2026-07-05):** Duplicates tab layout = Option A (dense pair rows); Option B (cards) dropped.
+   panels, Cinémathèque QA. **Ratified (owner, 2026-07-05):** Duplicates tab layout = Option A (dense pair rows); Option B (cards) dropped.
 3. ✅ **`/testing-strategy`** — [testing-strategy.md](../testing-strategy.md) §4 invariants + §9 F43 block, and
    the paired [entity-identity-qa-checklist.md](../design/entity-identity-qa-checklist.md): collision matrix (all
    three modes × scan/editor × entity), per-entity normalize scope, backfill auto-fold-vs-queue split, **studio

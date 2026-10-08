@@ -63,7 +63,7 @@ global rule decide for them.
    value differs from what's embedded in the file, show it, per field and in aggregate. Say nothing
    when the field's mapping declares no file source to read back through: the state is then unknown,
    not out of sync ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)).
-6. **Keep it legible and safe** — owner-gated, themed across all three skins, reusing the
+6. **Keep it legible and safe** — owner-gated, themed in Cinémathèque, reusing the
    existing curation components and provenance vocabulary.
 
 ## Non-Goals
@@ -151,7 +151,7 @@ global rule decide for them.
 - **P0-5 — File-first default + escape hatch (RD4).** Undecided replace fields resolve file-first; `default_source: file|mapping` config (default `file`); shipped `metadata-mappings.yaml.example` reordered file-first.
 - **P0-6 — Replace-only control (RD1).** Segmented source selector renders only on scalar fields; merge fields render the existing F30 chips unchanged.
 - **P0-7 — Owner-gated API.** `PUT /media/{id}/fields/{canonical}/decision {source, manual_value?}` and `DELETE …/decision`, behind `requireOwner`; untrusted `manual_value` sanitized like F30 manual add.
-- **P0-8 — Themed + accessible.** Tokens only; QA all three skins; the segmented control is keyboard-operable with clear selected state; candidates and provenance are screen-reader labeled.
+- **P0-8 — Themed + accessible.** Tokens only; QA Cinémathèque; the segmented control is keyboard-operable with clear selected state; candidates and provenance are screen-reader labeled.
 
 ### Should-have (P1)
 
@@ -214,12 +214,12 @@ DELETE /api/v1/media/{id}/fields/{canonical}/decision                           
 - **Chips/provenance** reuse `CurationChip` (`·source` suffix; accent for provider, muted for file/manual) and `ProvenanceBadge`. Merge fields keep `CurationFieldRow` unchanged.
 - **Custom** opens the existing inline input (reuses the F30 add/edit field pattern).
 - **Write to file** → **"Write decisions to file"**, with an out-of-sync count beside it (RD2) and a per-field out-of-sync chip (a quiet `text-warn` pill — distinct from accent).
-- Visible only to `effectiveOwner`. Tokens only; QA Cinémathèque / Broadcast / Brutalist (badge/counter collisions and accent-on-accent are the usual skin regressions).
+- Visible only to `effectiveOwner`. Tokens only; QA Cinémathèque (badge/counter collisions and accent-on-accent are the usual regressions).
 
 ## Success Metrics
 
 This is a single-owner correctness/control feature, not a funnel. Success =
-- **Leading:** the bug is gone — an external file edit + Refresh shows the file value by default in every skin; adopting a provider then editing the file behaves per the decision (manual QA + tests).
+- **Leading:** the bug is gone — an external file edit + Refresh shows the file value by default; adopting a provider then editing the file behaves per the decision (manual QA + tests).
 - **Leading:** a decided field's writeback writes the decided value (audited via `file_writebacks`).
 - **Lagging:** the owner stops needing the `metadata-mappings.yaml` source-order workaround; provider drift no longer silently overrides curated fields.
 
@@ -232,8 +232,8 @@ This is a single-owner correctness/control feature, not a funnel. Success =
 ## Timeline / routing
 
 No hard deadline. Remaining artifacts before/with implementation, per the project change-routing rules:
-1. **`/design-handoff`** — ✅ done: [handoff](../design/field-source-of-truth-handoff.md) + [QA checklist](../design/field-source-of-truth-qa-checklist.md) (the new `SourceSelect` control, sync indicators, 3-skin QA).
-2. **`/testing-strategy`** — ✅ done: F36 block added to [testing-strategy.md](../testing-strategy.md) §9 (decision short-circuit + merge-untouched regression, file-first default + escape hatch, source-pin, **one-`WriteBatch`-per-file** assertion, DB-only decisions, sync recompute, multi-provider, API auth, `SourceSelect` a11y/3-skin) — mapped to the QA §2 smoke items.
+1. **`/design-handoff`** — ✅ done: [handoff](../design/field-source-of-truth-handoff.md) + [QA checklist](../design/field-source-of-truth-qa-checklist.md) (the new `SourceSelect` control, sync indicators, Cinémathèque QA).
+2. **`/testing-strategy`** — ✅ done: F36 block added to [testing-strategy.md](../testing-strategy.md) §9 (decision short-circuit + merge-untouched regression, file-first default + escape hatch, source-pin, **one-`WriteBatch`-per-file** assertion, DB-only decisions, sync recompute, multi-provider, API auth, `SourceSelect` a11y/Cinémathèque) — mapped to the QA §2 smoke items.
 3. **`/security-review`** — owner gate + untrusted `manual_value` feeding file writeback.
 
 Implementation lands video-first ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) parent task, migration 0016); People/Studio inherit via the tracked fast-follows.

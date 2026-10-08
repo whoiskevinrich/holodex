@@ -134,7 +134,7 @@ filters / close). Escape, `?` or a backdrop click closes it; focus returns to th
 - [ ] On a page with no registered keys the Page group reads "No page shortcuts here" and the Navigation group still renders.
 - [ ] The sheet is itself a `[role="dialog"]`, so while open `e`/`f` are guarded by RD6; `?` while *another* dialog is open does nothing (the sheet never stacks).
 - [ ] The typing guard applies: `?` inside an input types a question mark.
-- [ ] Tokens-only styling; passes three-skin QA.
+- [ ] Tokens-only styling; passes Cinémathèque QA.
 
 ### Nice-to-Have (P1)
 
@@ -187,5 +187,5 @@ sheet (RD5).
 ## Timeline / routing
 
 Single PR on `HOLODEX-405-ux-hotkeys`, opened Draft with this spec. Gates: spec (this doc) → design
-handoff (`?` sheet + committed SVG) → frontend → testing-strategy rows → three-skin QA. No ADR, no
+handoff (`?` sheet + committed SVG) → frontend → testing-strategy rows → Cinémathèque QA. No ADR, no
 security review (frontend-only, no new endpoint, no auth change).

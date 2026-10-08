@@ -14,8 +14,8 @@ the `image_url` allowlist fallback — is **inherited unchanged**.
 This document specifies only what F44 adds: an **owner-only** control that **promotes** an auto-registered
 (display-only) field into a **first-class curatable** field, the **inline editor** that drives promote /
 edit / de-promote, and the **partition move** that happens when a field crosses that line. Everything is
-**tokens-only** (no literal palette / radius / font — see [theming.md](theming.md)) and must be QA'd in all
-three skins.
+**tokens-only** (no literal palette / radius / font — see [theming.md](theming.md)) and must be QA'd in
+Cinémathèque.
 
 **Resolved design decisions** (2026-07-07, via mockup):
 - **DD1 — Editor is an inline expander.** The editor unfolds in-flow directly beneath the row it targets
@@ -244,7 +244,7 @@ Minimal, tokens/skin-agnostic:
 | Busy state | `PUT`/`DELETE` in flight | `opacity-60` (existing F36/F30 pattern) | — | — |
 
 Keep motion subtle and respect `prefers-reduced-motion` if any fade is added (skip it entirely under reduced
-motion). No skin-specific motion flourishes in the component (those live in `app.css` gated by `[data-theme]`).
+motion). No skin-specific motion flourishes in the component (those live in `app.css`).
 
 ---
 
@@ -269,26 +269,25 @@ motion). No skin-specific motion flourishes in the component (those live in `app
 
 ---
 
-## 10. Three-skin QA (required)
+## 10. Cinémathèque QA (required)
 
-Render every new surface in **Cinémathèque, Broadcast, and Brutalist** (header picker), in the
+Render every new surface in **Cinémathèque**, in the
 loading / empty / populated / error states, tokens only. Full numbered list in
 [promote-override-fields-qa-checklist.md](promote-override-fields-qa-checklist.md); the essentials:
 
-1. **Promote pill** matches the `CurationFieldRow` Add pill in every skin (border-rule → accent on hover);
+1. **Promote pill** matches the `CurationFieldRow` Add pill (border-rule → accent on hover);
    no collision with the `ProvenanceBadge` on the same row (the F36/F38 badge-vs-chip regression class).
-2. **Editor panel** accent border + `bg-surface-2` reads as "editing" and is distinct from resting rows in all
-   three skins; the inputs/`<select>`s use `rounded-theme` (2px Cinémathèque, 0px Broadcast/Brutalist) — no
+2. **Editor panel** accent border + `bg-surface-2` reads as "editing" and is distinct from resting rows; the inputs/`<select>`s use `rounded-theme` (2px in Cinémathèque) — no
    literal radius.
-3. **Primary Promote/Save** button uses `bg-accent` + `text-accent-ink` and is legible in all three
-   (Brutalist lime, Broadcast cyan, Cinémathèque gold); **Remove promotion** uses `text-warn`, clearly
+3. **Primary Promote/Save** button uses `bg-accent` + `text-accent-ink` and is legible
+   (Cinémathèque gold); **Remove promotion** uses `text-warn`, clearly
    distinct from accent.
 4. **Partition move**: after promote, the field appears once in the curatable list and is gone from
    "Additional details"; after Remove, it returns. Verified on **person, studio, and media**.
 5. **Chips vs scalar**: a `chips`-render promotion becomes a `CurationFieldRow` (✕/＋); every other mode becomes
    a `SourceSelect` scalar row.
 6. **Visitor view**: no Promote, no Edit, no editor — promoted rows show curated label/mode/order + value only.
-7. **`image_url` non-allowlisted** promoted value renders as legible text (no phantom image frame) in all skins.
+7. **`image_url` non-allowlisted** promoted value renders as legible text (no phantom image frame).
 8. **Golden no-op**: an entity with no promotions is visually identical to pre-F44.
 
 ---
@@ -305,4 +304,4 @@ loading / empty / populated / error states, tokens only. Full numbered list in
 - **Browse-facet ("promote to filter")** — `Filterable=false` in v1 (ADR-062 D-filterable); no filter UI.
 - **Writeback of promoted fields to files** — out of scope (spec Non-Goals); a promoted field participates in
   decisions + curation, not file writeback.
-- **New skins / tokens** — pure token reuse; no new CSS variable, no `[data-theme]` flourish.
+- **New skins / tokens** — pure token reuse; no new CSS variable, no theme flourish.

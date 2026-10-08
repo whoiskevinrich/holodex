@@ -85,11 +85,11 @@
 
 ---
 
-## 6. UI — theming (human, all 3 skins)
+## 6. UI — theming (human, Cinémathèque)
 
 **6.1** [human] **Cinémathèque**: chips use `bg-surface-2`/`text-ink`, provider provenance reads in `text-accent`, controls go muted→accent on hover; the add-input ring is `accent`.
-**6.2** [human] **Broadcast**: repeat 6.1 — no hardcoded colours; chips legible on the surface.
-**6.3** [human] **Brutalist**: repeat 6.1 — accent provenance and chip text meet contrast (the usual offender).
+**6.2** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+**6.3** [human] **Cinémathèque**: accent provenance and chip text meet contrast.
 **6.4** [human] `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src/lib/components/Curation*.svelte` is empty (tokens only; `rounded-full` pills are intentional).
 **6.5** [human] Error states (a failed curation call) render in `text-warn`; remove/edit do **not** use warn.
 

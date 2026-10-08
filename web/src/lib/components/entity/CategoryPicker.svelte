@@ -7,7 +7,7 @@
 	// keeps its own search/listbox/roving-tabindex body (role=combobox + role=
 	// listbox, Tab and ↑/↓ move through results, Enter/Space/click pick). Two
 	// callers: the /tags Manage-bar bulk actions and a tag pill's own ⋯ menu
-	// "Add to category…" (single tag). Tokens only; QA 3 skins.
+	// "Add to category…" (single tag). Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage, tagCount, filterByName } from '$lib/format';

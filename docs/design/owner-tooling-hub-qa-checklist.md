@@ -2,12 +2,12 @@
 
 **Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) · **Design**: [handoff](owner-tooling-hub-handoff.md)
 **Builds on**: [Admin Mode (F29)](../specs/admin-mode.md) — same toggle, relabeled.
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — automated test or build gate (`svelte-check`, token-guard `rg`, redirect/route test). Green build = pass; pre-checked `[x]` with the test named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/routes/`localStorage`/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (per-skin "look", legibility, the at-a-glance read).
+> - **§4 Human** — needs a human's eye ("look", legibility, the at-a-glance read).
 >
 > §1 is one-time **setup** that §3 and §4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 >
@@ -19,11 +19,11 @@
 
 ## 1. Setup / preconditions
 
-> **Who does this:** whoever sets up the session (a developer or the agent) — *not* the §4 human. **Quick "is it ready?" check:** open the app as owner; in the header, the content nav should read just **Media · People · Tags**, and to the right (near the skin picker) there's a **gear "Owner"**. Click it → you land on an **Owner** page with tabs **Status · Metadata keys · Trash**. That's the feature.
+> **Who does this:** whoever sets up the session (a developer or the agent) — *not* the §4 human. **Quick "is it ready?" check:** open the app as owner; in the header, the content nav should read just **Media · People · Tags**, and to the right there's a **gear "Owner"**. Click it → you land on an **Owner** page with tabs **Status · Metadata keys · Trash**. That's the feature.
 
 - [ ] 1.1 App running with a library that has captured **extended metadata** (so Metadata keys has rows), at least one **soft-deleted item** (so Trash is non-empty), and live **system activity** (so Status has cards/jobs). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`.
 - [ ] 1.2 Be set up as **owner**: either `ADMIN_TOKEN` unset (open/owner), or set then unlocked via `/owner/status`. Note the `/owner`, `/owner/status`, `/owner/keys`, `/owner/trash`, and **old** `/status` `/keys` `/trash` URLs.
-- [ ] 1.3 Devtools open (Console for errors; Application → Local Storage to watch `holodex-admin-mode`; Network to confirm no owner data on visitor loads). Skin picker reachable in the header.
+- [ ] 1.3 Devtools open (Console for errors; Application → Local Storage to watch `holodex-admin-mode`; Network to confirm no owner data on visitor loads).
 - [ ] 1.4 Know how to toggle **Owner view / Preview** (the relabeled F29 switch) and how to simulate a **non-owner** (token set, none entered) for the gating checks.
 
 ---
@@ -46,7 +46,7 @@
 **Header — content nav & gear**
 
 - [ ] 3.1 **Owner, Owner-view ON**: the content nav is exactly **Media · People · Tags** — no Keys/Status/Trash links in that row.
-- [ ] 3.2 The **Owner gear** is present in the chrome cluster, after the content/chrome `border-l` separator, in order `ActivityIndicator → Owner-view toggle → Owner gear → skin picker`.
+- [ ] 3.2 The **Owner gear** is present in the chrome cluster, after the content/chrome `border-l` separator, in order `ActivityIndicator → Owner-view toggle → Owner gear`.
 - [ ] 3.3 The gear is an `<a href="/owner">` with `aria-label="Owner tools"`; keyboard-reachable; focus-visible ring present.
 - [ ] 3.4 On an `/owner` route the gear shows **active** state: `text-accent` and `aria-current="page"` (no `bg-accent` fill on the gear).
 
@@ -81,19 +81,19 @@
 
 ---
 
-## 4. Human — needs your eyes (all three skins)
+## 4. Human — needs your eyes (Cinémathèque)
 
-> **How to run this:** open the app in a browser as the owner. In the header there's a **skin picker** — run every item below **three times**, once in each skin: **Cinémathèque**, **Broadcast**, **Brutalist**. You're checking it *looks right* and reads clearly — not that links work (the agent checked that). The new bits: the top nav is now just **Media · People · Tags**, and the owner tools moved behind a **gear "Owner"** near the skin picker that opens an **Owner** page with tabs.
+> **How to run this:** open the app in a browser as the owner. Run every item below in **Cinémathèque**. You're checking it *looks right* and reads clearly — not that links work (the agent checked that). The new bits: the top nav is now just **Media · People · Tags**, and the owner tools moved behind a **gear "Owner"** that opens an **Owner** page with tabs.
 
-- [ ] 4.1 **The bar looks calmer and reads in tiers.** The three content links (Media/People/Tags) sit together; the cluster on the right (activity dot, the **Owner view** eye switch, the **Owner** gear, the skin swatches) reads as a separate "my controls" group, divided by a faint vertical line. It shouldn't feel like one long undifferentiated list of links anymore.
-- [ ] 4.2 **The gear reads as "owner tools."** It's a cog with an "Owner" label (on a wide window), quiet grey when you're elsewhere, and picks up the skin's **highlight color** (gold / cyan / lime) when you're on an Owner page — *as colored text, not a filled button.* Only the **Owner view** eye switch is allowed to be a solid filled pill.
+- [ ] 4.1 **The bar looks calmer and reads in tiers.** The three content links (Media/People/Tags) sit together; the cluster on the right (activity dot, the **Owner view** eye switch, the **Owner** gear) reads as a separate "my controls" group, divided by a faint vertical line. It shouldn't feel like one long undifferentiated list of links anymore.
+- [ ] 4.2 **The gear reads as "owner tools."** It's a cog with an "Owner" label (on a wide window), quiet grey when you're elsewhere, and picks up the **highlight color** (gold) when you're on an Owner page — *as colored text, not a filled button.* Only the **Owner view** eye switch is allowed to be a solid filled pill.
 - [ ] 4.3 **No more "Admin" anywhere.** The old "Admin" toggle now says **"Owner view"**; nothing in the header says "Admin". The eye switch still clearly shows on (filled) vs off (outline).
-- [ ] 4.4 **The Owner page looks native.** The heading "Owner" uses the skin's display font (serif on Cinémathèque, the pixel/mono faces on Broadcast/Brutalist). The tabs **Status · Metadata keys · Trash** sit in a neat row above a thin dividing line.
-- [ ] 4.5 **The selected tab is obvious but quiet.** The active tab has a subtle filled-panel background (not the bright highlight color); the others are muted text that brighten on hover. You can tell which tab you're on at a glance. Pay extra attention on **Broadcast**, where the panel shade is close to the page — confirm the active tab still clearly looks selected.
-- [ ] 4.6 **Corner shape matches the skin** — softly rounded on Cinémathèque, **squarer** on Broadcast and Brutalist, for both the gear and the tabs, like the controls around them.
+- [ ] 4.4 **The Owner page looks native.** The heading "Owner" uses the display font (serif). The tabs **Status · Metadata keys · Trash** sit in a neat row above a thin dividing line.
+- [ ] 4.5 **The selected tab is obvious but quiet.** The active tab has a subtle filled-panel background (not the bright highlight color); the others are muted text that brighten on hover. You can tell which tab you're on at a glance.
+- [ ] 4.6 **Corner shape is soft** — softly rounded, for both the gear and the tabs, like the controls around them.
 - [ ] 4.7 **Switching tabs feels in-place.** Clicking Status → Metadata keys → Trash swaps the content below the tabs without the whole app flashing or jumping to the top.
-- [ ] 4.8 **A visitor sees a clean public bar.** Turn **Owner view off** (the eye switch): the gear disappears and the bar is just Media/People/Tags + search + the skin picker — no owner tools peeking through. Do this in all three skins.
+- [ ] 4.8 **A visitor sees a clean public bar.** Turn **Owner view off** (the eye switch): the gear disappears and the bar is just Media/People/Tags + search — no owner tools peeking through.
 - [ ] 4.9 **Direct link to an Owner page while in visitor view just works.** With Owner view off, paste `/owner/trash` and go: it should quietly switch you back to owner view and show the page — never an empty or "forbidden" screen.
 - [ ] 4.10 **Old bookmarks still land.** Paste the old `/status` (and `/keys`, `/trash`) URLs: each should take you to the matching Owner tab, not a 404.
 - [ ] 4.11 **Narrow window** — drag the browser narrow: the gear keeps just its icon (label tucks away) and the three little icons (activity, eye, gear) stay distinguishable; the tab row wraps tidily instead of scrolling sideways.
-- [ ] 4.12 **Overall it looks intentional** — the gear reads as a sibling of the skin picker and Owner-view switch (a deliberate "my tools" control), and the Owner page feels like a real section of the app, not three old pages bolted together.
+- [ ] 4.12 **Overall it looks intentional** — the gear reads as a sibling of the Owner-view switch (a deliberate "my tools" control), and the Owner page feels like a real section of the app, not three old pages bolted together.

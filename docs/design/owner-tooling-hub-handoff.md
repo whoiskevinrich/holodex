@@ -2,9 +2,9 @@
 
 **Spec**: [Owner tooling hub (F35)](../specs/owner-tooling-hub.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)
 **Builds on**: [Admin Mode (F29)](../specs/admin-mode.md) + [its handoff](admin-mode-handoff.md) — same header, same toggle (here relabeled).
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025). Reuses the chrome in
-[`+layout.svelte`](../../web/src/routes/+layout.svelte) (skin picker, Preview toggle, `ActivityIndicator`).
+[`+layout.svelte`](../../web/src/routes/+layout.svelte) (Preview toggle, `ActivityIndicator`).
 
 ---
 
@@ -35,8 +35,8 @@ No new tokens, no new primitive. Everything is assembled from chrome the header 
   **`text-accent`** (the sanctioned active/primary semantic) — **not** a second solid `bg-accent` fill. The
   one solid-accent fill on screen stays reserved for the Preview toggle's ON state and for a page's single
   primary action.
-- **Tabs reuse the skin-picker's active idiom.** The active tab is **`bg-surface-2 text-ink`** — exactly
-  how the skin picker marks its active segment ([`+layout.svelte:258-261`](../../web/src/routes/+layout.svelte#L258)) —
+- **Tabs reuse the former skin-picker's active idiom.** The active tab is **`bg-surface-2 text-ink`** — exactly
+  how the retired skin picker marked its active segment ([`+layout.svelte:258-261`](../../web/src/routes/+layout.svelte#L258)) —
   so the tab row needs no new "selected" treatment and does **not** consume the accent.
 - **`skin-title` for the hub heading**, `font-display` via that hook, like every other page `<h1>`
   (e.g. [`keys/+page.svelte:22`](../../web/src/routes/keys/+page.svelte#L22)).
@@ -64,11 +64,11 @@ Holodex   [ search…………… ]   Media  People  Tags  | (Activity)  [⚙ Ow
 - The content nav keeps its `nav.flex.items-center.gap-3` rhythm; just three links now.
 - The owner-chrome cluster keeps the existing `border-l border-rule pl-3` separator that today wraps the
   "library tools" span — **reuse that separator** to divide content nav from chrome (it no longer wraps
-  Keys/Status/Trash; it now opens the Activity/Preview/Owner/skins group).
-- Order within chrome: `ActivityIndicator` → **Owner gear** → **Preview/Owner-view toggle** → skin picker.
+  Keys/Status/Trash; it now opens the Activity/Preview/Owner group).
+- Order within chrome: `ActivityIndicator` → **Owner gear** → **Preview/Owner-view toggle**.
   Rationale: the gear (a navigating link) sits away from the toggle (a frequent on/off switch) so flipping
-  Owner view isn't adjacent to a click that leaves the page — the toggle sits next to the skin picker
-  instead, both "view" controls at the far right.
+  Owner view isn't adjacent to a click that leaves the page — the toggle sits
+  at the far right instead.
 
 ### The gear entry — anatomy & states
 
@@ -150,7 +150,7 @@ same eye/eye-slash icon swap, same placement. **Only the strings change:**
 | State | Visual (token) | Notes |
 |---|---|---|
 | **Active** | `bg-surface-2 text-ink rounded-theme px-3 py-1.5` | Skin-picker active idiom. **No accent fill.** `aria-current="page"`. |
-| **Inactive** | `text-muted hover:text-ink px-3 py-1.5` | Quiet, like inactive skin segments / nav links. |
+| **Inactive** | `text-muted hover:text-ink px-3 py-1.5` | Quiet, like inactive nav links. |
 | **Focus-visible** | token focus ring, ≥2px | Keyboard. |
 | **Future tab** (P2 placeholder, if shown) | `text-muted border border-dashed border-rule rounded-theme`, non-interactive | Only if a "coming soon" affordance is desired; **omit in v1** unless a tab is genuinely stubbed. |
 
@@ -183,20 +183,15 @@ same eye/eye-slash icon swap, same placement. **Only the strings change:**
 
 ---
 
-## Per-skin QA (all three — load-bearing)
+## Cinémathèque QA (load-bearing)
 
-Render the **header** and the **hub** in each skin:
+Render the **header** and the **hub** in Cinémathèque:
 
 - **Cinémathèque** — gear `text-accent` (warm gold) reads against the header; the active tab's `surface-2`
   is distinguishable from the page `bg`; `skin-title` uses Fraunces.
-- **Broadcast** — gear active accent (bright cyan) doesn't vibrate against the skin swatches; the VT323
-  `skin-title` uppercases "Owner"; the active tab's `surface-2` vs `surface` separation is visible (the two
-  are close in this skin — verify the active tab still reads as selected).
-- **Brutalist** — `rounded-theme` → square; the tab-row `border-b` and gear border match the skin's heavier
-  rule weight; lime `text-accent` active gear is legible; mono `skin-title`.
 
-In **all three**: with **Preview ON (visitor view)**, the gear and any `/owner` content are **absent** and
-the bar is exactly Media/People/Tags + search + activity + skins — the clean visitor surface.
+With **Preview ON (visitor view)**, the gear and any `/owner` content are **absent** and
+the bar is exactly Media/People/Tags + search + activity — the clean visitor surface.
 
 ---
 
@@ -204,8 +199,8 @@ the bar is exactly Media/People/Tags + search + activity + skins — the clean v
 
 | Breakpoint | Header behavior | Hub behavior |
 |---|---|---|
-| Desktop (≥ `sm`) | Gear shows icon + "Owner" label, like the skin picker's active label. | Tabs in a single row. |
-| `< sm` | Gear **drops the label, keeps the icon** (`hidden sm:inline` on the label span) — mirrors the skin-picker / Preview precedent. `aria-label="Owner tools"` keeps the name. | Tab row may wrap; tabs stay `px-3 py-1.5`, no horizontal scroll. Heading/subtitle stack. |
+| Desktop (≥ `sm`) | Gear shows icon + "Owner" label. | Tabs in a single row. |
+| `< sm` | Gear **drops the label, keeps the icon** (`hidden sm:inline` on the label span) — mirrors the Preview precedent. `aria-label="Owner tools"` keeps the name. | Tab row may wrap; tabs stay `px-3 py-1.5`, no horizontal scroll. Heading/subtitle stack. |
 
 The three icons in the chrome cluster (activity · eye · gear) sit adjacent below `sm`; keep their
 `aria-label`/`title` so each is distinguishable to AT and on hover (the recognition risk flagged in review).
@@ -258,8 +253,8 @@ Honor `prefers-reduced-motion` for any optional fade.
   on." via the existing visually-hidden `aria-live="polite"` region (string updated from F29).
 - **Don't rely on color alone**: the gear's active state pairs `text-accent` with `aria-current`; the active
   tab pairs `bg-surface-2` with `aria-current`/`aria-selected` — never accent/contrast alone.
-- **Contrast**: `text-accent` on the header `bg` and `text-ink` on `bg-surface-2` must meet AA in all three
-  skins (Broadcast tightest).
+- **Contrast**: `text-accent` on the header `bg` and `text-ink` on `bg-surface-2` must meet AA in
+  Cinémathèque.
 
 ---
 
@@ -281,4 +276,4 @@ Honor `prefers-reduced-motion` for any optional fade.
 - **Token guard** stays empty: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'`.
 
 > Paired QA checklist: [`owner-tooling-hub-qa-checklist.md`](owner-tooling-hub-qa-checklist.md) — numbered,
-> grouped by verifier (Setup / Smoke / Agent / Human), all three skins.
+> grouped by verifier (Setup / Smoke / Agent / Human), Cinémathèque.

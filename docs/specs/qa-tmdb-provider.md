@@ -80,7 +80,7 @@ Set up local Holodex pointing at the provider sidecar:
   - `Aliases` list (including native script if TMDB has it) with "from tmdb" badge
   - Person image updated to TMDB portrait (headshot slot) if TMDB had a `profile_path`
 
-**3.5** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): the ProvenanceBadge and enriched fields render correctly in all three; no hardcoded colors visible
+**3.5** [human] Confirm Cinémathèque: the ProvenanceBadge and enriched fields render correctly; no hardcoded colors visible
 
 **3.6** [human] Navigate to System Activity → the enrich run appears in the job history with `status: ok` and a detail line like `tmdb → person #N (5 fields)`
 
@@ -155,7 +155,7 @@ whenever the runtime base changes**; none of it is covered by CI (testing-strate
 
 **7b.4** [human] After enrichment, reload the page → Film Details persist (enrichment is stored, not session-state)  
 **7b.5** [human] Click "Clear tmdb data" → all Film Details fields removed; the "Enrich from tmdb" button is the only control remaining; page no longer shows enrichment rows  
-**7b.6** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): Film Details section and poster `<img>` render correctly in all three; no hardcoded colors  
+**7b.6** [human] Confirm Cinémathèque: Film Details section and poster `<img>` render correctly; no hardcoded colors  
 **7b.7** [human] Navigate to System Activity → the video enrich run appears in job history with `status: ok` and a detail line referencing the provider and video id  
 **7b.8** [human] On a Media page with no video-capable provider configured (provider `entity_types` contains only `person`): Film Details section does **not** appear
 
@@ -182,6 +182,6 @@ whenever the runtime base changes**; none of it is covered by CI (testing-strate
 
 **8b.4** [human] Reload the page → Details persist (enrichment is stored, not session-state)  
 **8b.5** [human] Clear the tmdb chip (overflow menu) → studio `description`/`country`/`website`/`logo` fields removed; the Enrich chip is available again  
-**8b.6** [human] Confirm three skins (Cinémathèque, Broadcast, Brutalist): the Details section, logo `<img>`, and provenance badges render correctly in all three; no hardcoded colors  
+**8b.6** [human] Confirm Cinémathèque: the Details section, logo `<img>`, and provenance badges render correctly; no hardcoded colors  
 **8b.7** [human] Navigate to System Activity → the studio enrich run appears in job history with `status: ok` and a detail line referencing the provider and studio id  
 **8b.8** [human] On a Studio page with no studio-capable provider configured (provider `entity_types` omits `studio`): no Enrich chip appears, and the Details section is hidden unless there's something else to curate  

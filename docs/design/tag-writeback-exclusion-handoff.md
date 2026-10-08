@@ -3,7 +3,7 @@
 **Spec**: [tag-writeback-exclusion.md](../specs/tag-writeback-exclusion.md) ·
 **ADR**: [ADR-077](../architecture/archive/ADR-077-tag-writeback-exclusion.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art (same dialog, different feature)**:
 [writeback-selection-handoff.md](writeback-selection-handoff.md) — the design-system-fit audit
 format and "no dimming" rule this handoff follows.
@@ -265,9 +265,9 @@ below 2 and answers with a hint instead, an existing pattern this change doesn't
 
 ---
 
-## Measured contrast (all three skins, dialog + card surfaces)
+## Measured contrast (Cinémathèque, dialog + card surfaces)
 
 Reuses `WritebackFormDialog`'s already-measured surface/border tokens (`bg-surface`, `border-rule`,
 `text-muted`, `.btn-accent`) verbatim — see `writeback-selection-handoff.md`'s table
-(4.67–16.76:1 across all three skins for these same tokens). No new color combination is
+(6.00–8.71:1 in Cinémathèque for these same tokens). No new color combination is
 introduced by this change; the QA checklist re-verifies rather than re-measures.

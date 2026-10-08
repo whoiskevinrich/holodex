@@ -14,7 +14,7 @@
 	// which is what keeps this row to one 40 px line. Every other entity kind keeps the
 	// label here: it has no panel to move it to, and without it two unalike names are
 	// paired with nothing explaining why.
-	// Tokens only; QA 3 skins.
+	// Tokens only; QA Cinémathèque.
 	import { videoCount, toMessage, refLabel } from '$lib/format';
 	import type { DuplicatePair } from '$lib/types';
 	import DuplicateComparePanel from './DuplicateComparePanel.svelte';

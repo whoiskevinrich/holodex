@@ -188,13 +188,11 @@ three rules — e.g. `.name-edit-row` / `.name-edit-pencil` — right beside `.c
   removed from the generic Metadata `SourceSelect` list, same Tier-1-exclusivity treatment as
   Person's `name`.
 
-## Three-skin QA checklist (before this ships)
+## Cinémathèque QA checklist (before this ships)
 
-1. Pencil `opacity:0→1` transition and `hover:border-accent` are legible in Cinémathèque,
-   Broadcast, and Brutalist — the accent color differs enough per skin that a low-contrast pencil
-   in one skin is a realistic regression.
-2. `MergeOfferCard`'s `bg-surface-2` reads as distinct from its parent `bg-surface` card in all
-   three skins (mirrors the existing `AliasPanel` conflict card, which already passes this today —
+1. Pencil `opacity:0→1` transition and `hover:border-accent` are legible in Cinémathèque.
+2. `MergeOfferCard`'s `bg-surface-2` reads as distinct from its parent `bg-surface` card
+   (mirrors the existing `AliasPanel` conflict card, which already passes this today —
    regression check only).
 3. Keyboard-only pass: Tab to pencil → Enter opens edit → Tab through input/Save/Cancel → Escape
    or Cancel returns focus to the pencil.

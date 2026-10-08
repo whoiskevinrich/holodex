@@ -278,7 +278,7 @@ Video cannot reach the guard at all — `enrich.identityEntityType` stops it a l
 
 **P0-6 — the row renders the chip.** `variation = 'shared-external-id'` renders an accent chip
 naming the provider (`tmdb says one person`) in place of the variation slug, in the row, for every
-kind. Every other variation is untouched. Tokens only; QA in all three skins.
+kind. Every other variation is untouched. Tokens only; QA in Cinémathèque.
 
 **Done.** `sharedIdChip` in `queue.ts` + the chip branch in `DuplicatePairRow`. Treatment is
 **outlined** accent — `rounded-full border border-accent bg-accent/10 text-accent`, the same one
@@ -290,10 +290,9 @@ wording implied: `app.css` reserves solid accent for a page's one primary action
 preview** (they time out), so the verification is computed-style and geometry, and a human eyeball is
 still wanted:
 
-1. `[agent]` **Contrast, three skins — pass.** The chip resolves a *different* accent per skin, which
-   is the real proof it is token-driven rather than hardcoded: Cinémathèque `rgb(232,163,61)`,
-   Broadcast `rgb(54,224,208)`, Brutalist `rgb(214,255,63)`. Text-on-chip contrast, composited over
-   the translucent `bg-accent/10` fill: **8.84 / 11.62 / 16.88** — all above AA and AAA.
+1. `[agent]` **Contrast — pass.** The chip resolves the accent token rather than a hardcoded colour:
+   Cinémathèque `rgb(232,163,61)`. Text-on-chip contrast, composited over
+   the translucent `bg-accent/10` fill: **8.84** — above AA and AAA.
 2. `[agent]` **Row height unchanged at ≥ 640px — pass.** With two 39–42-character names, the chip row
    and a `punctuation` row both measure **49.0px** at 700px and at 1280px, with no truncation of the
    chip and no horizontal page overflow. On a phone (375px, where the row is designed to wrap) the
@@ -487,7 +486,7 @@ One chip, keyed on `variation`, in `DuplicatePairRow`'s existing variation span 
 `queue.ts`, a sibling of `MATCH_KIND_LABEL` and not an entry in it, because that map is keyed on the
 derived `match_kind`, which `ListReviewPairs` leaves `''` for every non-fuzzy row (so anything driven
 off that map would render nothing here). `web/src/lib/types.ts`'s `DuplicatePair` gains `detail` and
-documents the new `variation` value. Full rationale, placement and the three-skin QA list are in the
+documents the new `variation` value. Full rationale, placement and the Cinémathèque QA list are in the
 [design handoff](../design/duplicates-shared-external-id-handoff.md).
 
 ## Success Metrics

@@ -1,7 +1,7 @@
 # Design Handoff: Enrichment review workflow — queue, auto-apply, unmatched, refresh (F47)
 
 **Spec**: [enrichment-review-workflow.md](../specs/enrichment-review-workflow.md) · **ADR**: [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 This handoff extends two shipped surfaces — `EnrichPicker.svelte` (F22) and `EnrichProviderChips.svelte`
@@ -356,11 +356,11 @@ No new motion. Reuses exactly what ships today, gated behind
 
 ---
 
-## QA checklist (3-skin)
+## QA checklist (Cinémathèque)
 
 Conventions ([[feedback-qa-checklist-numbering]]): every item numbered `section.item`, tagged by
-verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Skins:
-**Cinémathèque · Broadcast · Brutalist**, switched via the header picker. (The exhaustive functional
+verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Look:
+**Cinémathèque**, the only one. (The exhaustive functional
 matrix is `/testing-strategy`'s job, still pending per the spec's Timeline — this is the design-surface
 subset.)
 
@@ -375,9 +375,9 @@ subset.)
 - **2.2** `[smoke]` Dismiss/undismiss/refresh/refresh-all endpoints are `requireOwner`-gated (401/403 when
   unauthenticated).
 
-### §3 Agent live QA (all 3 skins)
+### §3 Agent live QA (Cinémathèque)
 - **3.1** `[agent]` **Enrichment tab** renders grouped rows (People → Studios → Media), chips per provider
-  legible in each skin, tab entry styled like the existing Status/Keys/Duplicates/Trash tabs (no visual
+  legible, tab entry styled like the existing Status/Keys/Duplicates/Trash tabs (no visual
   outlier).
 - **3.2** `[agent]` **Auto-apply on open**: a row whose sole outstanding provider resolves to one
   `>=0.85` candidate flips straight to "✓ Auto-applied" (`text-accent`) with no picker shown; a row with
@@ -399,11 +399,11 @@ subset.)
   for the ambiguous one — never drops it silently.
 - **3.7** `[agent]` **Warn vs neutral separation** (the F43 regression risk, re-verified here): "needs
   review"/"not matched" chips read `text-ink`/`text-muted`, never `text-warn`; only an actual
-  resolve/apply/dismiss failure shows `text-warn`. Check this holds on **Brutalist** (bright lime accent
-  vs. hot red-orange warn) where the two are most likely to visually collide.
+  resolve/apply/dismiss failure shows `text-warn`. Check this holds against the gold accent
+  vs. red-orange warn, where the two are most likely to visually collide.
 
 ### §4 Human
-- **4.1** `[human]` Open the Enrichment tab in each skin. It should feel like the Duplicates tab's
+- **4.1** `[human]` Open the Enrichment tab in Cinémathèque. It should feel like the Duplicates tab's
   sibling — same density, same "tidy worklist" feeling — not a bespoke new screen.
 - **4.2** `[human]` Work a row end-to-end: click Review on an obvious match and watch it resolve with no
   extra click; then click Review on an ambiguous one and confirm the picker still feels like the same

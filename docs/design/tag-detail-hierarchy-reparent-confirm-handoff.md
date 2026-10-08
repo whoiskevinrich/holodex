@@ -3,7 +3,7 @@
 **Spec**: [tag-detail-hierarchy-and-categories.md](../specs/tag-detail-hierarchy-and-categories.md)
 **ADR**: none — spec confirms no new ADR (extends ADR-075/ADR-078).
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art**: `ConfirmDialog.svelte` (`web/src/lib/components/shared/`) — the existing
 warn-styled modal idiom (focus trap, Esc/backdrop cancel, focus returned to trigger), already
 used for category delete on `/tags`. The `nearMissCard` snippet on `tags/+page.svelte` — the
@@ -152,6 +152,5 @@ Rendered against the real Cinémathèque skin tokens (`--surface:#15110e`, `--ru
 `--ink:#f3ece1`, `--muted:#9b9082`, `--warn:#e2603f`, `--warn-ink:#fdf1ee`,
 `font-display: Fraunces Variable`): the two confirm-copy cases side by side, in context above the
 Children control's chip row. See the mockup rendered earlier in this session
-(`reparent_confirm_dialog_mockup`). QA all three skins before merging — Brutalist and Broadcast
-each remap `--warn`/`--warn-ink` differently (see `app.css`), and this is the one control in the
-new card that actually exercises those tokens.
+(`reparent_confirm_dialog_mockup`). QA Cinémathèque before merging — this is the one control in the
+new card that actually exercises the `--warn`/`--warn-ink` tokens.

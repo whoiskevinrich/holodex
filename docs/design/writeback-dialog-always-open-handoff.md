@@ -6,7 +6,7 @@ changes only *when* a chooser is visible and how wide the dialog is) ·
 [writeback-selection-handoff.md](writeback-selection-handoff.md) (HOLODEX-213 option A — the
 decided/undecided disclosure this handoff **retires**).
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (the only file whose
 behaviour changes). No endpoint, no ADR, no new component.
 **Issue**: [HOLODEX-434](https://whoiskevinrich.atlassian.net/browse/HOLODEX-434).
@@ -44,7 +44,7 @@ Four changes — three subtractive, plus the width and a wider stacking rule:
    longer reserved for `long_text`: `stacksCandidates(field, chips)` in `writebackCockpit.ts`
    stacks any cockpit row with a candidate — a standing manual literal included, it is a value
    chip too — over `CHIP_VALUE_MAX_CHARS` (32 — what
-   the widest skin font fits in 14rem at `text-xs`, so the rule is conservative in every skin).
+   fits in 14rem at `text-xs`, so the rule is conservative).
    Deterministic, not measured after render, so a row never flips layout under the owner. Image
    rows keep their tiles. The stacked Custom textarea is 5 rows for `long_text`, 2 otherwise.
 
@@ -93,5 +93,5 @@ No new tokens. No hardcoded values.
 5. `[agent]` A row with a candidate over 32 characters (Website URL, Tagline on the films
    testbed) renders stacked rows; no `.truncate` span inside the dialog has
    `scrollWidth > clientWidth` other than the header's file-path line.
-6. `[human]` Three skins (Cinémathèque, Broadcast, Brutalist): caption contrast, chip rows wrap
+6. `[human]` Cinémathèque: caption contrast, chip rows wrap
    cleanly at 768 and at 343, the body scrolls rather than the page when the row count is high.

@@ -192,8 +192,8 @@ included only when `h.auth.authorized(r)`, exactly as the list reads do (ADR-099
 - [ ] While loading, the card shows the name line only (no spinner) and fills in when data lands.
 
 **R7 — Theming.** Tokens only: `bg-surface border-rule rounded-theme shadow-lg text-ink
-text-muted` — the same floating-panel recipe as the header search dropdown; there is no per-skin
-shadow hook in the app and this does not introduce one. QA all three skins.
+text-muted` — the same floating-panel recipe as the header search dropdown; there is no dedicated
+shadow hook in the app and this does not introduce one. QA Cinémathèque.
 
 **R8 — Tests.** Component tests for R2 (timers, focus order, single-open), a positioning test
 for R3 at the corner, an API test for R5 (shape, 404, age exclusivity), and a geometry-harness
@@ -250,7 +250,7 @@ Registered beside `/people/{id}/images` in `handlers.go`. Not exposed on MCP in 
   (person rows, `/search` page context only — prop `hoverCards: boolean`, default `false`,
   the dropdown never sets it), `routes/media/[id]/+page.svelte` (`RelatedShelf` title for the
   person shelf).
-- Design handoff + committed SVG (all three skins, corner-flip state, loading state, no-headshot
+- Design handoff + committed SVG (Cinémathèque, corner-flip state, loading state, no-headshot
   state) precede code.
 
 ## Success Metrics

@@ -148,7 +148,7 @@ Person detail page (`/people/[id]`) gains an **"Also known as"** panel (rendered
 People list (`/people`) gains an owner **"Merge people…"** mode: multi-select two or more, then a
 **"Keep which name?"** dialog picks the canonical; the rest fold into it.
 
-All-tokens styling; QA in all three skins. Full layout, states, and a11y in the design handoff.
+All-tokens styling; QA in Cinémathèque. Full layout, states, and a11y in the design handoff.
 
 ---
 

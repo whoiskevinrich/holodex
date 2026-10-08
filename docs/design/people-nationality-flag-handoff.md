@@ -4,7 +4,7 @@
 **Date**: 2026-07-05
 **Spec**: [`docs/specs/people-nationality-flag.md`](../specs/people-nationality-flag.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[`theming.md`](theming.md) — **tokens only, QA all three skins**
+[`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 A small country flag sits to the **right of the person's name** in the hero, derived from the existing
 `nationality` value. The flag itself is imagery; every piece of chrome around it uses semantic tokens.
@@ -19,7 +19,7 @@ A small country flag sits to the **right of the person's name** in the hero, der
 | Position | Inline, right of the `<h1>` name, vertically centered | `flex items-center gap-2` row wrapping the name + flag |
 | Name truncation | The name keeps `truncate` + `min-w-0`; the flag is `shrink-0` so a long name ellipsizes **before** the flag is pushed out | — |
 | Flag height | `h-4` (16px), width auto (~21px at the SVG's 4:3) | `h-4 w-auto` |
-| Flag corner | `rounded-theme` (2px Cinémathèque, 0 Broadcast/Brutalist) | `--radius` |
+| Flag corner | `rounded-theme` (2px in Cinémathèque) | `--radius` |
 | Flag border | 1px hairline so a white flag reads on the surface | `border border-rule` (`--rule`) |
 | Multi count | Muted `+N` after the primary flag when >1 country resolves | `text-xs text-muted` (`--muted`) |
 | Gap flag↔count | 4px | `gap-1` |
@@ -35,11 +35,10 @@ A small country flag sits to the **right of the person's name** in the hero, der
 ## Theming notes (what bites these surfaces)
 
 - **Tokens only.** The only literals are the flag image and its `width`/`height` sizing attributes
-  (imagery, not styling). Border, radius, and the `+N` color are all tokens, so they react to the skin.
-- **Broadcast & Brutalist** set `--radius: 0` → the flag is square; **Cinémathèque** rounds it 2px.
+  (imagery, not styling). Border, radius, and the `+N` color are all tokens, so they react to the theme.
+- **Cinémathèque** rounds the flag 2px.
 - The `--rule` hairline keeps a light flag (e.g. Japan) from bleeding into `--surface`. Verified the
-  border color tracks each skin's `--rule` (Cinémathèque `#2a2622`, Broadcast `#1a2240`, Brutalist
-  `#333333`).
+  border color tracks `--rule` (Cinémathèque `#2a2622`).
 
 ## Derivation (see the spec for detail)
 

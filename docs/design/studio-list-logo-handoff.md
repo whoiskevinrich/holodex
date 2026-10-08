@@ -214,13 +214,13 @@ multipart field named `image`.
 - 11.8 `[agent]` Accessibility tree: each row link exposes the studio name exactly once — wordmark rows as the link name (from alt), captioned rows as a text child with no image name. ✅ (`find`/`read_page`)
 - 11.9 `[agent]` Every row `<a>` is 70px tall. ✅
 - 11.10 `[agent]` Viewport 375px: every row narrower than the viewport, boxes 48–192px; one grid column. ✅ (rows 327px; the toolbar overflow above the grid is pre-existing — see §10)
-- 11.11 `[agent]` Repeat 11.3, 11.6, 11.7 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: logo box transparent in every skin; plate `background-color` = `#e9e0d0` / `#e4ebf8` / `#f0f0f0`; plate `border-radius` 2px / 0 / 0. ✅
+- 11.11 `[agent]` In 11.3, 11.6, 11.7 (Cinémathèque): logo box transparent; plate `background-color` = `#e9e0d0`; plate `border-radius` 2px. ✅
 - 11.11b `[agent]` Halo: the `<img>` in every logo/icon row has class `logo-halo` and computed `filter` = `drop-shadow(<plate> 0px 0px 1px) drop-shadow(<plate> 0px 0px 3px) drop-shadow(<plate> 0px 0px 6px)` where `<plate>` is that skin's `--logo-plate` (`rgb(233, 224, 208)` / `rgb(228, 235, 248)` / `rgb(240, 240, 240)`); the monogram `<span>` has no filter. ✅ 2026-09-20, all three skins
   - **Superseded 2026-09-26 (HOLODEX-463, [ADR-109](../architecture/archive/ADR-109-per-studio-image-halo.md)):** the halo is now the owner's per-role, per-palette choice, off by default. The `<img>` carries `halo-dark`/`halo-light` for the saved modes, not `logo-halo`. See [studio-image-halo-handoff.md](studio-image-halo-handoff.md) §4.
 - 11.12 `[agent]` Sort by name, click the letter of a wordmark studio in the jump-nav: the row scrolls into view (its name is in `alt`/`title`, not text).
 - 11.13 `[agent]` `/media/{id}` and `/films/{id}` with a logo-bearing studio: `StudioLinkCard` renders exactly as on `main` (same box width, caption rule, alt/title) — the extraction changed no behaviour.
 
 **Human**
-- 11.14 `[human]` Open `/studios` in each skin. Enriched studios show their logo sitting directly on the row, no cream box, with a thin light glow tracing the mark so a dark logo still reads on the dark row; at the same size as on a film page; wordmark studios show the logo alone with the count at the right; symbol-mark, icon and logo-less studios show image + name. Rows are visibly taller than People rows.
+- 11.14 `[human]` Open `/studios` in Cinémathèque. Enriched studios show their logo sitting directly on the row, no cream box, with a thin light glow tracing the mark so a dark logo still reads on the dark row; at the same size as on a film page; wordmark studios show the logo alone with the count at the right; symbol-mark, icon and logo-less studios show image + name. Rows are visibly taller than People rows.
 - 11.15 `[human]` Hover a wordmark row: the browser tooltip shows the studio name.
 - 11.16 `[human]` Open a film whose studio has a logo: the studio row under the year looks exactly as it did before this change.

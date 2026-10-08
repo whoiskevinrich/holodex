@@ -123,7 +123,7 @@ The loop this is designed around:
 1. The owner looks at the fixture and describes a problem in plain language — *"media 123 has 12
    people and the headshots are unusably small."*
 2. The agent resolves `123` through the manifest, measures the actual geometry with
-   `getBoundingClientRect` and computed style, across all three skins.
+   `getBoundingClientRect` and computed style, in Cinémathèque.
 3. The agent writes the finding back as an assertion — *on every page where `people >= 10`, each
    headshot's rendered width must be ≥ 40px* — which fails until fixed, and keeps failing if it
    regresses.
@@ -201,7 +201,7 @@ Three things HOLODEX-345 settled that the original wording got wrong:
   PNG *source* and lets the normalizer do what it does to a real uploaded logo. It differs from
   `black` only where the frame is `object-contain` — the studio logo and icon, the film banner —
   and it is kept on the cover frames anyway so one rung key means one thing on every kind.
-- **Every skin is a dark ground**, so `black` is the quieter failure rather than the obvious one:
+- **Cinémathèque is a dark ground**, so `black` is the quieter failure rather than the obvious one:
   a black plate reads as an absent image, not a broken one. (The spec's earlier draft of this
   section assumed a light skin to check against; there isn't one.)
 
@@ -370,17 +370,17 @@ filmography dimensions are HOLODEX-351.
    enumerating all entities sharing a dimension.
 4. Every ladder dimension above has a rung at 0 and a rung at its maximum. (Reverse
    cardinality is exempt and is not a dimension — see the note above.)
-5. Detail pages for media, person, studio, film, tag and category all render at every rung in all
-   three skins without console errors.
+5. Detail pages for media, person, studio, film, tag and category all render at every rung in
+   Cinémathèque without console errors.
 6. The enrichment stub yields at least five conflicting namespaces on a shared field, and at least
    one 30-candidate `/resolve` response. The five land in `entity_enrichment` from the seed alone,
    at an address the manifest names. (Note: core caps a response at `maxCandidates = 25`, so the
    picker renders 25 of the 30 — the flood persona stresses the list *and* proves the cap holds.)
-7. The geometry harness runs against the manifest, evaluates at least one real invariant across all
-   three skins, and reports the page, variant, selector and measured-vs-expected value on failure.
+7. The geometry harness runs against the manifest, evaluates at least one real invariant in
+   Cinémathèque, and reports the page, variant, selector and measured-vs-expected value on failure.
 8. `docs/testing-strategy.md` describes the harness and when to add an assertion.
 
-**Overall success criterion**: if the first three-skin run surfaces zero layout bugs that were not
+**Overall success criterion**: if the first Cinémathèque run surfaces zero layout bugs that were not
 already known, the fixture is not adversarial enough and needs another turn of the screw. A fixture
 that passes on day one is a demo, not a test.
 
@@ -408,5 +408,5 @@ that passes on day one is a demo, not a test.
 - ADR-053 / ADR-072 — `video_studios` and `video_people` as derived tables; why the
   fixture seeds the file layer rather than the link tables.
 - ADR-075 D3 — `video_tags` as an authored table, the one relationship that is not derived.
-- `docs/design/theming.md` and `.claude/rules/frontend-theming.md` — the three-skin QA obligation
+- `docs/design/theming.md` and `.claude/rules/frontend-theming.md` — the Cinémathèque QA obligation
   this fixture is built to serve.

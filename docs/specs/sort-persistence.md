@@ -51,8 +51,8 @@ the core "rediscover my own library" loop.
    re-renders — and only reshuffles on a new session or an explicit re-roll.
 4. **Add zero backend persistence.** The sort preference is a local convenience in the
    owner's browser, with no server state and no privacy footprint.
-5. **Keep all three skins clean.** The new Random option renders correctly in
-   Cinémathèque, Broadcast, and Brutalist using semantic tokens only.
+5. **Keep Cinémathèque clean.** The new Random option renders correctly in
+   Cinémathèque using semantic tokens only.
 
 ## Non-Goals
 
@@ -180,7 +180,7 @@ session and reshuffling only on a new session or an explicit re-roll.
   the session so every "Load more" page and any re-fetch of the same view continues the same
   shuffle.
 - **Stability scope.** "Stable per session" means: consistent across pagination, across
-  in-app Back navigation, and across incidental re-renders (e.g. a skin switch). It does
+  in-app Back navigation, and across incidental re-renders (e.g. a thumbnail regenerate). It does
   **not** mean reproducible across a new tab/session (Non-Goals) — a fresh session draws a
   fresh seed.
 
@@ -193,7 +193,7 @@ session and reshuffling only on a new session or an explicit re-roll.
       shuffled order (and, with SP-adjacent browse-state preservation, my place) is intact.
 - [ ] Given Random is active, when I click the re-roll control, then the list reshuffles to
       a new order (new seed) on that page; pages still tile correctly under the new seed.
-- [ ] Given a skin switch while Random is active, then the order does **not** change
+- [ ] Given an incidental re-render while Random is active, then the order does **not** change
       (re-render doesn't reshuffle).
 - [ ] Given a new browser tab, when I select Random, then the order differs from the prior
       tab's shuffle (independent session seed) — i.e. Random is genuinely fresh per session.
@@ -239,8 +239,8 @@ endpoint gains `random`. Contract finalized in **ADR-045**.
 
 #### SP4 — Sort controls: add Random + re-roll (frontend, themed)
 
-The existing sort controls gain a Random option and a re-roll affordance, themed across all
-three skins.
+The existing sort controls gain a Random option and a re-roll affordance, themed in
+Cinémathèque.
 
 - **Media (`SortDropdown`).** Add a `random` option to the dropdown's option list
   (label e.g. "Random"). When Random is selected, show the re-roll control beside the
@@ -252,8 +252,7 @@ three skins.
 - **Theming.** Tokens only — `bg-accent`/`text-accent-ink` for the active state,
   `text-muted hover:text-ink`, `border-rule`, `rounded-theme` (matching the current
   `SortToggle`/`SortDropdown`). No hardcoded palette/radius. The widened `SortToggle` (now
-  three segments) must not overflow or collide on narrow widths in any skin, including the
-  `--radius: 0` square treatment in Broadcast/Brutalist.
+  three segments) must not overflow or collide on narrow widths.
 - **Accessibility.** The Random segment/option is keyboard-reachable and labeled; the
   re-roll button is a real focusable button with an accessible name.
 
@@ -266,7 +265,7 @@ three skins.
       sort is chosen.
 - [ ] All sort controls (including the new Random state and re-roll) render correctly —
       tokens, radius, contrast, active-state legibility, no overflow/collision — in
-      **Cinémathèque, Broadcast, and Brutalist**.
+      **Cinémathèque**.
 - [ ] Random option and re-roll are keyboard-operable and screen-reader-labeled.
 
 #### SP5 — Per-page sticky filters (client-only) — added 2026-09-21, HOLODEX-25
@@ -368,7 +367,7 @@ Single-user personal server, so metrics are qualitative / self-observed:
   is coherent (no dupes/gaps), and the order stays put across Back/re-render within a
   session, reshuffling only on re-roll or a new session.
 - **No regressions:** no new backend state; `/people` & `/tags` stay backward-compatible;
-  Media deep-links still reproduce sort from the URL; all three skins remain clean.
+  Media deep-links still reproduce sort from the URL; Cinémathèque remains clean.
 
 ## Open Questions
 
@@ -396,5 +395,5 @@ No hard deadline. Suggested order:
 3. **SP1 sticky persistence** — the `sortPreference` module + wiring all three pages
    (client-only; independent of the backend work for People/Tags A–Z/count).
 4. **SP2 + SP4** — session-seed store, client shuffle for People/Tags, seed plumbing for
-   Media, and the Random option + re-roll in `SortDropdown` / `SortToggle`, QA'd in all
-   three skins.
+   Media, and the Random option + re-roll in `SortDropdown` / `SortToggle`, QA'd in
+   Cinémathèque.

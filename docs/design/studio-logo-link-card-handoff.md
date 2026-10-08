@@ -167,7 +167,7 @@ squeezing (§7). The visitor "resolved-but-unlinked studio" plain-text branch on
 | `border-rule` | Plate border — solid on the icon state, dashed on the monogram state, absent on the logo state |
 | `text-ink`, `text-muted`, `text-accent` | Name / count / hover, unchanged |
 | `font-display` | Monogram, unchanged |
-| `rounded-theme` | Plate corners (2px Cinémathèque, 0 Broadcast/Brutalist) |
+| `rounded-theme` | Plate corners (2px) |
 
 No new tokens. `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)|#[0-9a-f]{3,6}' StudioLinkCard.svelte`
 stays empty.
@@ -236,7 +236,7 @@ with **both** logo and icon. Link at least two of them to the same video and the
 - 11.1 `[smoke]` `cd web && npm run check` clean; `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)|#[0-9a-f]{3,6}' web/src/lib/components/entity/StudioLinkCard.svelte` empty.
 
 **Agent (driven browser, `getBoundingClientRect` + computed styles — no screenshots, per the
-three-skin QA reference)**
+skin QA reference)**
 - 11.2 `[agent]` Wide-logo card on `/media/{id}`: box height 48, width in `(48, 192]`, `<img>` computed `object-fit: contain`, box `background-color` transparent (`rgba(0, 0, 0, 0)`) and `border-width: 0px` (HOLODEX-411 — Tailwind's preflight leaves `border-style: solid`, so assert the width, not the style). The `<a>` has **one** child (no caption), `img[alt]` equals the studio name, `a[title]` is `"{name} · {n} video(s)"`; sampled every 150ms from navigation, the caption never appears (cached image included).
 - 11.2b `[agent]` Square logo (upload a 300×300 PNG): same bare box at 48×48, caption present (`<a>` has two children), `img[alt=""]`, no `a[title]`.
 - 11.3 `[agent]` Same studio on `/films/{id}`: plate width identical to 11.2 (same URL, same clamp).
@@ -246,9 +246,9 @@ three-skin QA reference)**
 - 11.7 `[agent]` 12:1 logo (upload a 1200×100 PNG): plate width exactly 192, `<img>` naturalWidth/naturalHeight ratio preserved (rendered width ≤ 184 after inset).
 - 11.8 `[agent]` Viewport 375px, two wide-logo studios on one video: row height ≥ 2 × 48 + 12 (wrapped), `document.documentElement.scrollWidth === clientWidth` (no horizontal overflow).
 - 11.9 `[agent]` One `<a>` per card; `img[alt=""]`; tab order unchanged versus a build from `main`.
-- 11.10 `[agent]` Repeat 11.2, 11.5 and 11.6 under `data-theme` = `cinematheque`, `broadcast`, `brutalist`: the logo box stays transparent in every skin; the icon/monogram plate `background-color` equals that skin's `--logo-plate`; `border-radius` 2px / 0 / 0.
+- 11.10 `[agent]` In 11.2, 11.5 and 11.6 (Cinémathèque): the logo box stays transparent; the icon/monogram plate `background-color` equals `--logo-plate` (`#e9e0d0`); `border-radius` 2px.
 
 **Human**
-- 11.11 `[human]` Open a film whose studio has a TMDB logo, in each of the three skins (top-right skin switcher). The studio row under the year should show the logo sitting directly on the page background — no light box behind it, no frame around it — at the same height as before, with the studio name and video count beside it; not a monogram, not a squashed or cropped logo. It should look like a mark on the page (same height as a 48px poster thumb), not like a badge or a banner.
+- 11.11 `[human]` Open a film whose studio has a TMDB logo, in Cinémathèque. The studio row under the year should show the logo sitting directly on the page background — no light box behind it, no frame around it — at the same height as before, with the studio name and video count beside it; not a monogram, not a squashed or cropped logo. It should look like a mark on the page (same height as a 48px poster thumb), not like a badge or a banner.
 - 11.12 `[human]` Open the same studio's video on `/media/{id}`. The card should be pixel-identical to 11.11 (same plate width), sitting beside the studio pencil (owner) exactly where it was.
 - 11.13 `[human]` Narrow the window to phone width on a video with two logo-bearing studios. The two cards should stack on separate lines with nothing cut off and no sideways scroll.

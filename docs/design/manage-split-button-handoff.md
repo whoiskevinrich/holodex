@@ -2,7 +2,7 @@
 
 **Jira:** [HOLODEX-362](https://whoiskevinrich.atlassian.net/browse/HOLODEX-362)
 **Surface:** `web/src/routes/media/[id]/+page.svelte` (owner-only Manage section)
-**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Revises:** [delete-media-handoff.md](delete-media-handoff.md) §1 (the Manage block's two-button layout)
 **Related:** [ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md) (soft-delete vs. purge), HOLODEX-324 (the `--warn` / `--warn-ink` solid-fill pair this depends on)
 
@@ -110,17 +110,15 @@ The chevron carries `aria-haspopup="menu"`, `aria-expanded`, and an explicit
 
 ## 5. Contrast (measured, not assumed)
 
-All three skins already ship a `--warn` / `--warn-ink` pair documented for a solid destructive fill;
+Cinémathèque already ships a `--warn` / `--warn-ink` pair documented for a solid destructive fill;
 HOLODEX-324 did that work. Computed WCAG ratios for both treatments:
 
 | Skin | `text-warn` on `--bg` (outline segment) | `text-warn-ink` on `--warn` (filled item) |
 |---|---|---|
 | Cinémathèque | 5.62:1 | 5.42:1 |
-| Broadcast | 7.31:1 | 7.36:1 |
-| Brutalist | 6.52:1 | 6.52:1 |
 
-All pass AA for normal text. Cinémathèque's `--warn-ink` is dark where the other two skins' are
-near-black-but-cooler — that is intentional and recorded in `app.css`: a light ink on that skin's
+All pass AA for normal text. Cinémathèque's `--warn-ink` is dark — that is intentional and recorded in
+`app.css`: a light ink on its
 warn only reaches 3.51:1.
 
 ## 6. Acceptance
@@ -132,4 +130,4 @@ warn only reaches 3.51:1.
 4. That item opens the purge confirm dialog, unchanged.
 5. Escape closes the menu and focus lands back on the chevron.
 6. A click anywhere outside the control closes the menu.
-7. All three skins render both states with no hardcoded colour, radius, or font.
+7. Cinémathèque renders both states with no hardcoded colour, radius, or font.

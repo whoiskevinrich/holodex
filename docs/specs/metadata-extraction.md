@@ -47,8 +47,8 @@ config at runtime, no redeploy)
 trigger, and adds a backup/rollback mechanism that amends ADR-041's stated deferred non-goal →
 **`/architecture`** required (new ADR, next number after 066); **`/security-review`** required
 (owner-gated, new write-trigger surface, filenames are untrusted string input); **`/testing-strategy`**
-must gain extraction/confidence/rollback cases; frontend uses semantic tokens, QA'd in all three
-skins.
+must gain extraction/confidence/rollback cases; frontend uses semantic tokens, QA'd in
+Cinémathèque.
 
 ---
 
@@ -317,7 +317,7 @@ treated as the owner having already made the call.
 | F48.6a | A new **Extraction** tab in the Owner Hub ([F35](owner-tooling-hub.md)), parallel to Duplicates (F43) and Enrichment (F47) | Owner-gated; hidden for non-owner clients (ADR-030) |
 | F48.6b | Each row shows the field, filename value, tag value, and (for entity fields) the Jaro-Winkler-suggested candidate when no exact match exists | Suggested candidate is clearly marked as a suggestion, not an applied value |
 | F48.6c | Row actions: accept filename value / accept tag value / pick suggested entity / edit manually / dismiss | Matches F48.4c's resolution paths |
-| F48.6d | All controls use semantic tokens; QA'd in Cinémathèque, Broadcast, Brutalist | No hardcoded colors/hex in the new components |
+| F48.6d | All controls use semantic tokens; QA'd in Cinémathèque | No hardcoded colors/hex in the new components |
 | F48.6e | Keyboard-accessible row navigation | Roving-tabindex, consistent with existing pickers (`EnrichPicker`) |
 | F48.6f | An entity field renders one **chip per parsed name** (a multi-person cast = N chips; a studio = 1), each marked *exists* or *new* against the identity spine; clicking a chip opens the picker to swap it to an existing entity or a corrected new name, and × removes it, without disturbing the other names (HOLODEX-196 #1/#5, ADR-068 D2) | Editing or swapping one person in a 3-person cast writes the full edited cast, never collapses it to one; a mistyped studio is fixed in one click |
 | F48.6g | Resolving a row that introduces a not-yet-existing Person/Studio actually creates and links that entity (HOLODEX-196 #4, ADR-068 D1) | After resolve, the new entity appears in the DB / People/Studio list (via the post-write re-extract), not only on a later scan |

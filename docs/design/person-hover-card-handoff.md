@@ -34,9 +34,8 @@ nest in a link). While busy it spins; on `onrefreshed` the card re-fetches `/car
 With the header as the profile link, a separate "Profile" text link would be redundant, so the row
 is Titles · Films · badges.
 
-**Skin:** since ADR-102 the skin is instance identity — one skin per install, chosen by the owner,
-no per-browser switching. The mockup therefore renders every state in the **default skin,
-Cinémathèque**; the three-skin QA rule still applies to the build (`.claude/rules/frontend-theming.md`).
+**Skin:** Cinémathèque is the only look (HOLODEX-476). The mockup therefore renders every state in
+**Cinémathèque**; the QA-Cinémathèque rule applies to the build (`.claude/rules/frontend-theming.md`).
 
 Options considered in the brainstorm: **A** read-only preview (whole card = link), **B** card with
 link row, **C** enriched chip with no overlay, **D** in-tile reveal. B chosen — the link row is the
@@ -80,7 +79,7 @@ point; A's simplicity is recovered by keeping the card non-modal and single-open
 | Element | Spec | Notes |
 |---|---|---|
 | Header block | `<a href="/people/{id}" class="flex gap-3 group">` wrapping headshot + name/meta/alias column | The profile link for everyone; for the owner it is the edit path. `group-hover:text-accent` on the name only — the block does not get a background. |
-| Headshot | `PersonImageFrame` `role="headshot"` `frameClass="portrait-frame--1x1 w-12"` | 48 px; face-biased crop and the Broadcast scanline overlay come from `.portrait-frame` for free. No client fallback needed — the backend always serves a real or themed placeholder image. |
+| Headshot | `PersonImageFrame` `role="headshot"` `frameClass="portrait-frame--1x1 w-12"` | 48 px; the face-biased crop comes from `.portrait-frame` for free. No client fallback needed — the backend always serves a real or themed placeholder image. |
 | Name line | `display_name ?? name` · `NationalityFlags values={nationality}` (`h-4`) inside the header `<a>`; `CompletenessRing size="row" required extras entity={{kind:'person', id}} onrefreshed` as the **next sibling** of the `<a>` in a `flex items-center gap-1.5` row, **only when `card.completeness` is present** (owner, by payload) | `truncate` on the name; flags and ring `shrink-0`. Ring = 12 px, muted track, accent arc, ink overfill lap — as on the people index rows. It is a button (F65.8): idle → busy (spinning) → `onrefreshed` → the card re-fetches `/card` and redraws. Never feed it the detail read's `score/facets` object. |
 | Meta line | segments `age` · `videoCount(video_count)` · `N films`, joined with ` · `; **absent segments are dropped**, never rendered as "—" | `age_at_death` renders as `†41`. `0 films` → segment dropped. |
 | Aliases | "also credited as a, b, c" — first three aliases | Omitted entirely when empty. |
@@ -101,14 +100,14 @@ point; A's simplicity is recovered by keeping the card non-modal and single-open
 
 | Token / utility | Where |
 |---|---|
-| `bg-surface` `border-rule` `rounded-theme` `shadow-lg` | card surface — identical to the header search dropdown (`+layout.svelte:257`), the app's floating-panel convention. **No per-skin shadow hook.** |
+| `bg-surface` `border-rule` `rounded-theme` `shadow-lg` | card surface — identical to the header search dropdown (`+layout.svelte:257`), the app's floating-panel convention. **No theme-specific shadow hook.** |
 | `text-ink` `font-display` | name |
 | `text-muted` | meta, aliases, provider badge text, ring track |
 | `text-accent` | in-app links (Titles / Films), ring required arc, name on header hover |
 | `stroke-muted` `stroke-accent` `stroke-ink` | `CompletenessRing` (its own) |
 | `hover:text-ink` `focus-visible:ring-1 focus-visible:ring-accent` | link hover/focus, matching `ProviderLinkBadge` |
-| `.portrait-frame` `.portrait-frame--1x1` | headshot (app.css :454–:482, Broadcast `::after` :553) |
-| `--radius` via `rounded-theme` | 2 px in the default skin (0 in Broadcast/Brutalist) — the card corners follow the skin like every panel |
+| `.portrait-frame` `.portrait-frame--1x1` | headshot (app.css :454–:482) |
+| `--radius` via `rounded-theme` | 2 px in Cinémathèque — the card corners follow the token like every panel |
 
 Nothing hardcoded; the mockup's literal hex values are Cinémathèque's own tokens (`app.css`
 :107–:123, unchanged by #365) so it renders faithfully on GitHub without the fonts.
@@ -165,7 +164,7 @@ required < 100; a second person with none of those; a film page (owner) whose bi
 lists the first person.
 
 - 1.1 `[agent]` Hover the film chip: nothing before 250 ms; card open after; `bg-surface`,
-  `border-rule`, `rounded-theme` computed values match the active skin — **all three skins**.
+  `border-rule`, `rounded-theme` computed values match the Cinémathèque tokens.
 - 1.2 `[agent]` Leave chip → card closes after 150 ms; leave chip → enter card within 150 ms →
   stays open.
 - 1.3 `[agent]` Tab to a `/search` person row: card opens with no delay; Tab walks header →

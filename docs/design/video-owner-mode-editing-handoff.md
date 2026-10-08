@@ -5,7 +5,7 @@
 
 Four surfaces on [`web/src/routes/media/[id]/+page.svelte`](../../web/src/routes/media/[id]/+page.svelte),
 each a layout/extension of existing chrome — **no new visual language**. Tokens only (ADR-021); QA
-all three skins. (The person/studio **link picker** is the separate [F40 handoff](person-media-linking-handoff.md) —
+Cinémathèque. (The person/studio **link picker** is the separate [F40 handoff](person-media-linking-handoff.md) —
 this document doesn't repeat it.)
 
 ---
@@ -130,6 +130,6 @@ the tab stop.
 2. [agent] Owner view, `rg 'zinc-|sky-|#'` over any new/changed markup in `+page.svelte` — clean.
 3. [agent] Poster upload round-trip: upload → `thumbnail_state` becomes `uploaded` → rescan/backfill
    leaves it untouched → Remove reverts to a re-derived poster.
-4. [human] All three skins (Cinémathèque / Broadcast / Brutalist): the new upload/remove icon buttons
+4. [human] Cinémathèque: the new upload/remove icon buttons
    read at the same visual weight as the existing Regenerate button; the studio row doesn't crowd the
    title on narrow viewports (< 640px) — wraps, doesn't truncate awkwardly.

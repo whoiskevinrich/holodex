@@ -113,16 +113,16 @@ non-allowlisted case — plain text is the correct, quiet fallback.
 
 ---
 
-## 6. Three-skin QA (required)
+## 6. Cinémathèque QA (required)
 
-Render each mode in **Cinémathèque, Broadcast, and Brutalist** (header picker), in the loading/empty/populated
+Render each mode in **Cinémathèque**, in the loading/empty/populated
 states, tokens only:
 
 1. `text` and `long_text` rows read correctly against `bg-surface`; `long_text` paragraph uses `text-ink`
    with `leading-relaxed`.
 2. `chips` pills use `border-rule` + `text-ink`; confirm no collision with the `ProvenanceBadge` on the same
-   row in any skin (the F36/F38 badge-vs-chip regression class).
-3. `url` links use `text-accent`; the external-link affordance reads in all three skins.
+   row (the F36/F38 badge-vs-chip regression class).
+3. `url` links use `text-accent`; the external-link affordance reads.
 4. `image_url` thumbnail uses `rounded-theme`/`border-rule`; the **non-allowlisted text fallback** is legible
    (no phantom image frame).
 5. The "Additional details" divider (`border-rule`) and heading (`text-muted`, `text-xs`, sentence case) sit
@@ -140,4 +140,4 @@ items.
   promotion is a YAML edit. Auto-registered fields never show curation controls.
 - **Per-pill provenance.** The `chips` mode is read-only with one row-level badge, not the `CurationChip`
   per-value provenance.
-- **New skins / tokens.** No new CSS variable, no `[data-theme]` flourish — F39 is pure token reuse.
+- **New skins / tokens.** No new CSS variable, no theme flourish — F39 is pure token reuse.

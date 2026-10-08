@@ -4,7 +4,7 @@
 	// only an aggregate pending/running/done/failed count from a shared batchID, so
 	// the body is a confirm step + a progress bar rather than N editable rows. Chrome
 	// (backdrop, focus trap, Escape-to-close) is copied from that dialog's existing
-	// pattern. Tokens only; QA 3 skins.
+	// pattern. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { toMessage } from '$lib/format';
 	import { waitForWritebackBatch, type BatchStatus } from '$lib/writebackJob';

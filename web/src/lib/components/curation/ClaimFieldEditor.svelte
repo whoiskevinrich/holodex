@@ -20,7 +20,7 @@
 	//         usually disappears from view. The outcome sentence says which will happen
 	//         before the owner commits.
 	//
-	// Tokens only; QA 3 skins.
+	// Tokens only; QA Cinémathèque.
 	import { untrack } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';

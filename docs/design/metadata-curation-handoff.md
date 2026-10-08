@@ -5,7 +5,7 @@
 **Security:** conditional design sign-off — render curated values as **text only, never `{@html}`** (condition C4) ·
 **Builds on:** the F27/F28 metadata section in [`web/src/routes/media/[id]/+page.svelte`](../../web/src/routes/media/%5Bid%5D/+page.svelte), [`ProvenanceBadge.svelte`](../../web/src/lib/components/ProvenanceBadge.svelte), [`WritebackFormDialog.svelte`](../../web/src/lib/components/WritebackFormDialog.svelte), the roving-tabindex pattern from [`EnrichPicker.svelte`](../../web/src/lib/components/EnrichPicker.svelte).
 
-> **Stack:** SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first. **Tokens only — no `zinc-*`/hex/`rounded-(lg|md|sm|xl)`.** **QA all three skins** (Cinémathèque, Broadcast, Brutalist). These two rules are load-bearing — see [`.claude/CLAUDE.md` › Frontend theming](../../.claude/CLAUDE.md) and [theming.md](theming.md).
+> **Stack:** SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first. **Tokens only — no `zinc-*`/hex/`rounded-(lg|md|sm|xl)`.** **QA Cinémathèque.** These two rules are load-bearing — see [`.claude/CLAUDE.md` › Frontend theming](../../.claude/CLAUDE.md) and [theming.md](theming.md).
 
 ---
 
@@ -63,7 +63,7 @@ Metadata                          [Enrich from TMDB] [Clear TMDB] [⤓ Write to 
 | `font-mono` `text-xs` | file path in the write dialog |
 | `accent-[var(--color-accent)]` | native checkbox accent (as in `WritebackFormDialog`) |
 
-No new tokens. Skin-specific flourishes (if any) attach to existing hook classes in `app.css` gated by `[data-theme]` — not per-component markup.
+No new tokens. Theme flourishes (if any) attach to existing hook classes in `app.css` — not per-component markup.
 
 ---
 
@@ -167,11 +167,11 @@ Keep motion subtle; respect `prefers-reduced-motion` (skip scale/collapse, keep 
 - **ARIA** — each chip `role="group"` with `aria-label="{value}, from {sources}"`; the field row labelled by its `<dt>`. The "Show removed" region is a disclosure (`aria-expanded`). The don't-write toggle is a `button` with `aria-pressed`.
 - **Write status** — the queue status line is `aria-live="polite"` so "Write queued → Writing → Written ✓ / failed" is announced without stealing focus.
 - **Dialog** — `WritebackFormDialog` keeps its existing focus trap + return-focus + Escape-to-close (when idle).
-- **Contrast** — verify chip text (`text-ink` on `bg-surface-2`) and provider-accent provenance meet contrast in **all three skins**; the Brutalist accent on its surface is the usual offender.
+- **Contrast** — verify chip text (`text-ink` on `bg-surface-2`) and provider-accent provenance meet contrast in **Cinémathèque**.
 - **Security (C4)** — all value/label/provenance rendering is plain text interpolation (Svelte auto-escapes); **never `{@html}`** on curated content.
 
 ---
 
 ## QA
 
-A companion `docs/design/metadata-curation-qa-checklist.md` should mirror the repo's numbered, verifier-tagged convention (Setup/Smoke/Agent/Human, grouped by tag): per-value add/edit/remove/restore/nowrite, dedup-shows-once, suppress-survives-reenrich, scalar override, queue states (queued→writing→written/failed), non-owner read-only, the `.avi` no-mapping case, and a **3-skin render pass** of chips + provenance + the write dialog.
+A companion `docs/design/metadata-curation-qa-checklist.md` should mirror the repo's numbered, verifier-tagged convention (Setup/Smoke/Agent/Human, grouped by tag): per-value add/edit/remove/restore/nowrite, dedup-shows-once, suppress-survives-reenrich, scalar override, queue states (queued→writing→written/failed), non-owner read-only, the `.avi` no-mapping case, and a **Cinémathèque render pass** of chips + provenance + the write dialog.

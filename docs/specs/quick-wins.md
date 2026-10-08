@@ -11,7 +11,7 @@
 - **[ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md) (Proposed)** — Related-media query & endpoint (`GET /api/v1/media/{id}/related`): random selection seam (`ORDER BY RANDOM()`), most-popular-tag selection, and the response contract. Search history is client-only and needs **no ADR**.
 - **[ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md) (Proposed)** — Browse-state preservation across SPA navigation (the QW4 "fluid Back" mechanism): a module-scoped client cache of the loaded grid + filters + pagination offset + scroll position, restored on return.
 
-> **Also in this batch (not specced here):** the **QA overlay bug** — the `.app-atmosphere::after` scan/atmosphere overlay (`position:fixed; z-index:40`, worst in **Broadcast**) stays visible over the `<video>` on the media detail page once playback starts. That is a pure frontend bugfix (suppress the atmosphere overlay while a media video is playing) routed through the theming QA discipline, not a functional change — so it carries no spec or ADR. Acceptance for it lives with the design/theming QA: video unobstructed during playback in **all three skins**, overlay restored on pause/end.
+> **Also in this batch (not specced here):** the **QA overlay bug** — the `.app-atmosphere::after` scan/atmosphere overlay (`position:fixed; z-index:40`) stays visible over the `<video>` on the media detail page once playback starts. That is a pure frontend bugfix (suppress the atmosphere overlay while a media video is playing) routed through the theming QA discipline, not a functional change — so it carries no spec or ADR. Acceptance for it lives with the design/theming QA: video unobstructed during playback in **Cinémathèque**, overlay restored on pause/end.
 
 ---
 
@@ -73,7 +73,7 @@ A locally-stored, most-recent-first list of past search queries, surfaced as a d
 - **Storage.** A single `localStorage` key (e.g. `holodex-search-history`) holding a JSON array of strings. Reads/writes are defensive: malformed or oversized JSON is treated as empty (never throws into the UI). Mirrors the existing `holodex-theme` localStorage pattern.
 - **Surface.** Focusing the search input **while it is empty** (including via the existing Ctrl/Cmd-K shortcut) opens a dropdown listing the recent queries. **The dropdown hides the moment the user types a character** — history is for recalling past queries from an empty box, not for filtering as you type; this leaves the "typing" state free for a future autocomplete surface to own without reworking history *(resolves the coexistence Open Question)*. Clicking an entry populates the input **and runs the search** (navigates to `/search?q=…`). Keyboard: arrow keys move through entries, Enter runs the highlighted one, Esc closes the dropdown. When history is empty, no dropdown (or a quiet empty hint) — never an empty floating box.
 - **Management.** A "Clear history" affordance empties the list; each entry has a small remove (×) control to drop just that one.
-- **Theming.** The dropdown uses semantic tokens only (`bg-surface`, `text-ink`, `text-muted`, `border-rule`, `bg-accent`/`text-accent-ink` for the active row, `rounded-theme`) and is QA'd in all three skins — including the Broadcast/Brutalist `--radius: 0` square treatment.
+- **Theming.** The dropdown uses semantic tokens only (`bg-surface`, `text-ink`, `text-muted`, `border-rule`, `bg-accent`/`text-accent-ink` for the active row, `rounded-theme`) and is QA'd in Cinémathèque.
 
 **Acceptance criteria — QW1**
 - [ ] Given I run a search "amv `editor:foo`", when I next focus the search box, then "amv `editor:foo`" appears at the top of the recent list.
@@ -86,7 +86,7 @@ A locally-stored, most-recent-first list of past search queries, surfaced as a d
 - [ ] Given I click an entry's × control, then only that entry is removed and the rest of the list is preserved in order.
 - [ ] Given a corrupted/garbage value in `localStorage`, when the page loads, then search still works and history reads as empty (no thrown error).
 - [ ] History never appears in any network request — verified there is no new backend call.
-- [ ] The dropdown renders correctly (tokens, radius, contrast, active-row legibility) in **Cinémathèque, Broadcast, and Brutalist**.
+- [ ] The dropdown renders correctly (tokens, radius, contrast, active-row legibility) in **Cinémathèque**.
 
 #### QW2 — Related-media endpoint (`GET /api/v1/media/{id}/related`)
 
@@ -124,7 +124,7 @@ One backend endpoint returns both the person-based and tag-based related sets fo
 - [ ] Given an item with no tags, when I GET `/related`, then `tag` is null/omitted and the request still succeeds with the `person` block.
 - [ ] Given an item with multiple tags — one near-universal (on almost every item) and one mid-frequency — when I GET `/related`, then the chosen tag is the **mid-frequency (most distinctive)** one, not the near-universal one (deterministic per the ADR-031 score + tie-break).
 - [ ] Given an item with multiple people, when I GET `/related`, then the chosen person is the one with the highest global video count (deterministic tie-break by id).
-- [ ] Given I am on a media page, when an incidental re-render occurs (e.g. a thumbnail regenerate, a skin switch), then the related shelves do **not** reshuffle — they were resolved once on mount.
+- [ ] Given I am on a media page, when an incidental re-render occurs (e.g. a thumbnail regenerate), then the related shelves do **not** reshuffle — they were resolved once on mount.
 - [ ] Given a non-existent or inactive item id, when I GET `/related`, then the response is 404.
 - [ ] Returned items include their attached people/tags (verified no N+1 — same association batch as list/detail).
 
@@ -137,7 +137,7 @@ A single reusable shelf component, instantiated twice on the media detail page (
 - **Items.** Reuses the existing media-card presentation (thumbnail, title, the standard `.video-frame`/skin flourishes) so cards look identical to the browse grid. Each card links to that item's detail page.
 - **Omission.** A shelf renders **only** when its block is present **and** `items` is non-empty. No skeleton-forever, no "nothing here" text — an empty/absent shelf is simply not rendered.
 - **States.** Loading (while `/related` is in flight) shows the existing card shimmer; error (request fails) silently omits the shelves (the page's primary content is unaffected). The shelves are non-blocking — the detail page renders fully without waiting on `/related`.
-- **Theming.** Tokens only; QA'd in all three skins. Confirm the Brutalist catalog-counter and Broadcast scanline flourishes on `.video-frame` read correctly inside a shelf, and that shelf headings use `.skin-title` where the page already does.
+- **Theming.** Tokens only; QA'd in Cinémathèque. Confirm that shelf headings use `.skin-title` where the page already does.
 
 **Acceptance criteria — QW3**
 - [ ] Given a `/related` response with a non-empty person block, when the page loads, then a "More with `<person>`" shelf shows up to 5 cards, each linking to its item.
@@ -145,7 +145,7 @@ A single reusable shelf component, instantiated twice on the media detail page (
 - [ ] Given `/related` is still loading, when I view the page, then primary detail content is fully usable and the shelves show shimmer (not a blocked page).
 - [ ] Given `/related` fails, when I view the page, then the shelves are omitted and the rest of the page is unaffected (no error UI dominating the page).
 - [ ] Clicking a shelf heading navigates to the corresponding person/tag page.
-- [ ] Shelves render correctly (cards, flourishes, headings, contrast) in **Cinémathèque, Broadcast, and Brutalist**.
+- [ ] Shelves render correctly (cards, flourishes, headings, contrast) in **Cinémathèque**.
 
 #### QW4 — Fluid Back navigation (browse-state preservation)
 
@@ -200,7 +200,7 @@ grid exactly as it was left. Mechanism is architectural — see
 This is a personal single-user server, so metrics are qualitative / self-observed rather than instrumented:
 - **Search history:** the owner re-runs searches from the dropdown instead of retyping (observed in normal use); history stays short and relevant (cap + dedupe holding).
 - **"More with …":** the detail page produces onward navigation — opening an item leads to opening a related item — where before it was a dead end. Shelves are populated (non-empty) for items whose people/tags have siblings, and gracefully absent otherwise.
-- **No regressions:** no new backend state for history; `/related` adds bounded query cost; all three skins remain clean (the overlay bug fixed, dropdown + shelves themed).
+- **No regressions:** no new backend state for history; `/related` adds bounded query cost; Cinémathèque remains clean (the overlay bug fixed, dropdown + shelves themed).
 
 ## Open Questions
 
@@ -212,7 +212,7 @@ This is a personal single-user server, so metrics are qualitative / self-observe
 
 ## Timeline / Phasing
 No hard deadline. Suggested order within the batch:
-1. **QA overlay bugfix** (P1·S, no spec) — smallest, unblocks clean 3-skin QA for everything that follows on the media page.
+1. **QA overlay bugfix** (P1·S, no spec) — smallest, unblocks clean Cinémathèque QA for everything that follows on the media page.
 2. **QW1 Search history** (P2·S) — client-only, independent, no backend.
 3. **QW4 Fluid Back** (P2·M, ADR-032) — client-only; pairs naturally with the "More with…" work since both are about the open-item → Back loop.
 4. **QW2 + QW3 "More with …"** (P2·M) — endpoint + ADR-031 first, then the shared shelf component on the detail page.

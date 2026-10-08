@@ -5,7 +5,7 @@
 	// group. Structurally identical to owner/duplicates/+page.svelte — $state rows,
 	// $derived groups, $effect load-once — except rows update chips in place on
 	// resolve instead of dropping out (the handoff's Animation/Motion table). Tokens
-	// only; QA 3 skins.
+	// only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import { groupByKind } from '$lib/entityGroups';

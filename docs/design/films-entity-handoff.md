@@ -396,11 +396,11 @@ interaction, not a short list.
 
 ---
 
-## QA checklist (3-skin)
+## QA checklist (Cinémathèque)
 
 Conventions ([[feedback-qa-checklist-numbering]]): every item numbered `section.item`, tagged by
 verifier — `[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes.
-Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header picker.
+Look: **Cinémathèque**, the only one.
 
 ### §1 Setup
 - **1.1** `[agent]` Enable `films_enabled` on a preview stack
@@ -429,10 +429,10 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
 ### §3 Agent live QA (preview tools against §1 stack)
 - **3.1** `[agent]` `/films` renders the poster grid; no-poster films show the monogram
   fallback at identical card size to poster films (alignment parity, mirroring Studio's logo
-  well). **All 3 skins.**
+  well).
 - **3.2** `[agent]` Open the scenes-only film: header, empty full-film-section (no heading
   rendered), populated scenes list ordered by scene number then unnumbered-last, each unnumbered
-  card showing the muted `—` badge (not blank). **All 3 skins.**
+  card showing the muted `—` badge (not blank).
 - **3.3** `[agent]` Open the full-film-only film: full-film section shows the file with a
   writeback control; scenes list shows its empty state with an attach entry point; Details
   cast/tags are still populated from that file (RD2 union still applies).
@@ -440,12 +440,11 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
   excludes already-attached videos; studio/people filter chips are pre-populated from the film
   and narrow results on click; filename search finds the filename-only candidate from §1.3;
   select 3, set a starting scene number, commit — all 3 attach sequentially in list order with
-  the stated numbering. **All 3 skins**, roving-tabindex keyboard-only pass on at least one skin.
+  the stated numbering, plus a roving-tabindex keyboard-only pass.
 - **3.5** `[agent]` From `/media/{id}` on an unattached video, open `FilmAttachDialog`: search
   returns poster+name+year rows; selecting one advances to the scene-number/full-film step
   in-place (no new modal); checking "entire film" shows the subtractive-consequence copy;
   confirm attaches; the video's Films section now shows the chip with a "Full film" pill.
-  **All 3 skins.**
 - **3.6** `[agent]` Trigger a scene-number collision from both `FilmAttachDialog` (single) and
   the bulk picker: inline error names the current occupant by title in both cases; the dialog
   stays open and editable, not dismissed.
@@ -459,7 +458,7 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
   confirm the decision is restored with no owner action.
 - **3.9** `[agent]` Visit a person/studio/tag page whose only video is a full-film-flagged file:
   confirm the video grid is empty (or shows only other, non-full-film videos) while the new
-  films row surfaces that film with a working link. **All 3 skins.**
+  films row surfaces that film with a working link.
 - **3.10** `[agent]` Global search for a film name (with `films_enabled` true) returns a Films
   group with poster thumb + name + year; searching the same term with the flag off returns no
   Films group at all (not an empty one).
@@ -468,12 +467,12 @@ Skins: **Cinémathèque · Broadcast · Brutalist**, switched via the header pic
   video title. Save a new number — the card re-sorts into position with no page reload. Repeat
   from `/media/{id}`'s Films chip row on that same video: the dialog now labels with the film's
   name instead. Trigger a collision from each entry point and confirm the inline "Scene {n} is
-  already {title}" error (same string §3.6's attach-time collision already uses). **All 3 skins.**
+  already {title}" error (same string §3.6's attach-time collision already uses).
 
 ### §4 Human
-- **4.1** `[human]` Visit `/films` in each skin. It should read as a movie-library grid — denser
+- **4.1** `[human]` Visit `/films`. It should read as a movie-library grid — denser
   and more poster-forward than the People/Studio pages, but still unmistakably part of the same
-  app (same borders, same hover treatment, same fonts reacting to the skin).
+  app (same borders, same hover treatment, same fonts).
 - **4.2** `[human]` Open a film with several scenes. The two-region layout (full-film section vs.
   scenes list) should be immediately legible — you shouldn't have to read a label to know which
   list is which.

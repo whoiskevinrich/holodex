@@ -1,12 +1,12 @@
 # Manual QA Checklist: Metadata Enrichment for People (F22)
 
 **Spec**: [Metadata Source Plugins (F22)](../specs/metadata-plugins.md) · **ADR**: [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) · **Design**: [handoff](metadata-enrichment-handoff.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped into three sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`go test`, `svelte-check`, the token-guard `rg`). Green build = pass; pre-checked `[x]` with the test named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/network/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, per-skin "look", "feels right", CJK tofu).
+> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, "look", "feels right", CJK tofu).
 >
 > §1 is one-time **setup** that both §3 and §4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 >
@@ -23,7 +23,7 @@
 - [ ] 1.3 **Core boots clean**: `POST /admin/reload-config` (or restart) loads it; `/status` lists the provider **ok** with a version; no protocol error in logs (F22.1, F22.8a).
 - [ ] 1.4 Pick a **Person the provider matches** (note its `/people/[id]` URL) and a **Person it does not** (for the no-results path).
 - [ ] 1.5 Exercise **both token states**: `ADMIN_TOKEN` unset (open) vs set (locked, then unlocked via `/status`).
-- [ ] 1.6 Devtools open (Network + Console); skin picker reachable; a `prefers-reduced-motion: reduce` profile ready.
+- [ ] 1.6 Devtools open (Network + Console); a `prefers-reduced-motion: reduce` profile ready.
 
 ---
 
@@ -87,11 +87,11 @@
 - [x] 3.28 Provenance badges carry `aria-label="source: from {provider}"` (full phrase).
 - [x] 3.29 Owner controls are **absent from the DOM** for a non-owner (verified in 3.2).
 
-**Per-skin computed styles (repeat for Cinémathèque / Broadcast / Brutalist)**
+**Computed styles (Cinémathèque)**
 
-- [x] 3.30 Picker panel computed `border-radius` matches `--radius` (**2px / 0 / 0**).
-- [x] 3.31 `.skin-title` font + casing + caret: Fraunces/normal/none · VT323/UPPER/`▮` · Spline-Mono/UPPER/none.
-- [x] 3.32 **Provider chip color = `--accent` in every skin** (`#e8a33d` / `#36e0d0` / `#d6ff3f`), **never `--warn`**.
+- [x] 3.30 Picker panel computed `border-radius` matches `--radius` (**2px**).
+- [x] 3.31 `.skin-title` font + casing + caret: Fraunces/normal/none.
+- [x] 3.32 **Provider chip color = `--accent`** (`#e8a33d`), **never `--warn`**.
 - [x] 3.33 ~ Reduced-motion: picker open animation is gated in `@media (prefers-reduced-motion: no-preference)` (code-confirmed; live emulation not available via preview).
 
 **Security (agent)**
@@ -106,13 +106,13 @@
 > 1. Open **http://localhost:5173** in a browser.
 > 2. If a bar near the top asks for an **admin token**: click **Status** in the top navigation → type the token (ask whoever set this up — in this session it's `secret`) → **Unlock**. If you're never asked, you're already good.
 > 3. Click **People** (top nav) → click **Hayao Miyazaki** → you're on the person page. The **"Enrich from fake"** button (top-right of the **Enrichment** box) opens the search popup ("the picker").
-> 4. Change the look with the **three coloured dots** at the top-right — **Cinémathèque** (gold), **Broadcast** (cyan), **Brutalist** (lime). Several items below say "repeat in all 3 skins" — click each dot and look again.
+> 4. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 >
-> Filing a miss: note the **item number** (e.g. "4.2") and **which skin**. "Pass" = it looks right; you don't need to understand the code.
+> Filing a miss: note the **item number** (e.g. "4.2"). "Pass" = it looks right; you don't need to understand the code.
 
-**Appearance — repeat in all 3 skins (the coloured dots)**
+**Appearance**
 
-- [x] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold / cyan / lime), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
+- [x] 4.1 **The "from fake" tags look like info, not an error.** On the person page each field (Bio, Born, Nationality, …) has a small pill after it reading **"from fake"**. It should be a quiet **outlined** pill in the theme's main colour (gold), clearly **not** red/orange (that's reserved for errors) and **not** a solid filled button. *(For reference: it uses the `--accent` colour, which must look different from the `--warn` red.)*
 - [x] 4.2 **"Strong match" is easy to read.** Click **Enrich from fake** to open the picker; the match row shows **"Strong match"** in the theme colour on the right. Confirm it's comfortably readable against the popup background.
 - [ ] 4.3 **You can reach and pick a match with the keyboard, and focus stays in the popup.** Open the picker (**Enrich from fake**). Press **Tab** repeatedly — focus moves **search box → the highlighted match → the ✕ button** and wraps back, **never leaving the popup**. **↑/↓** also move through the matches (the highlighted one shows a **coloured left bar**). Press **Enter** on a match (or click it) to apply. Press **Esc** (or ✕) — focus jumps back to the **Enrich from fake** button. Each focused thing shows a visible coloured outline/highlight.
 - [x] 4.4 **Nothing looks unstyled.** Glance at each situation and confirm none show plain white boxes or off-theme colours: **searching** (type in the picker), **empty** (clear the box → grey help text), **results** (a match row), **filled** (the field list on the person page).
@@ -120,7 +120,7 @@
 
 **Text & feel**
 
-- [x] 4.6 **Japanese characters show properly.** The person's **Aliases** field includes **宮崎駿**. Confirm those are real characters, **not** empty boxes/▯ ("tofu"). Re-check especially in **Broadcast** and **Brutalist** (their blocky fonts are where tofu shows up first).
+- [x] 4.6 **Japanese characters show properly.** The person's **Aliases** field includes **宮崎駿**. Confirm those are real characters, **not** empty boxes/▯ ("tofu").
 - [x] 4.7 **A provider problem shows a tidy message, not a crash.** With the picker open, if the fake provider is stopped (ask the dev, or it's already down), typing a name shows a short error line and **the rest of the page keeps working** — no blank screen, no raw error dump. *(Known nitpick: today's wording is technical — already logged. You're only checking the page survives.)*
 - [x] 4.8 **Opening the picker feels smooth.** It should pop in with a quick, subtle fade — no jarring jump or flicker. If your OS **"reduce motion"** setting is on, it should just appear instantly (no animation) — that's correct, not a bug.
 

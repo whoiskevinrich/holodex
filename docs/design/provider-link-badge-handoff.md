@@ -10,7 +10,7 @@ visual design as **settled** and specs the delta HOLODEX-266 actually needs: the
 that only exist once an entity can carry **zero, one, or several** ids instead of one resolved
 scalar.
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — tokens only, QA all three skins.
+[theming.md](theming.md) — tokens only, QA Cinémathèque.
 **Prior art**: `UrlValueList.svelte` (icon + host text leading a link, ADR-059 opt-in) for the
 icon+label-as-link shape; `ProvenanceBadge.svelte`/`ProviderIcon.svelte` for the icon/monogram
 fallback machinery; `EnrichPicker.svelte`'s `profile_url` link (`target="_blank" rel="noopener
@@ -191,7 +191,7 @@ per-segment, as it already is for the year.
 ### What this does not change
 
 - No new component, no new token, no skin-specific work: the pill's classes are the ADR-083 set
-  (`border-rule text-muted`, accent on hover/focus) and pass all three skins already; the QA for
+  (`border-rule text-muted`, accent on hover/focus) and pass Cinémathèque already; the QA for
   P0-8 is placement + wrap only.
 - `EntityVideoMeta` stays person/studio's; film and media mount `ProviderLinkBadge` directly
   because neither line has a video count to lead with.
@@ -253,7 +253,7 @@ still holds under DD6, so 382 can land later without undoing this.
 ### What this does not change
 
 - **Nothing in `web/`.** Slot (after the year, DD5), component, classes, `aria-label`s, the
-  `{#if externalLinks.length}` separator guard — all as shipped. The three-skin QA is a re-run of
+  `{#if externalLinks.length}` separator guard — all as shipped. The Cinémathèque QA is a re-run of
   P0-8's placement + wrap check with a two-pill row, not new theming work.
 - **Layer 2 is untouched (ADR-090).** A pill says "known to X"; *which* source won a field is the
   `SourceBadge`'s job. No provenance distinction between a match-derived and a tag-derived pill.

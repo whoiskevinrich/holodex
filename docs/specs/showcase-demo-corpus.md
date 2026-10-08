@@ -12,7 +12,7 @@ Generator: [`testdata/demo/`](../../testdata/demo/).
 
 A brand-new visitor has no way to *see* what Holodex offers. The app's front door is
 the media grid, which is empty until you mount your own library — and the README has no
-screenshots. To showcase the product (and its three skins) we need the app to render a
+screenshots. To showcase the product we need the app to render a
 full, attractive, believable library on demand, without shipping real video files or any
 third-party IP.
 
@@ -20,7 +20,7 @@ third-party IP.
 
 A one-command generator that produces a deterministic demo media library. Pointing
 `MEDIA_PATH` at its output yields a populated grid that exercises every user-visible
-surface — for screenshots (README), a future live demo, and manual QA of all three skins.
+surface — for screenshots (README), a future live demo, and manual QA of Cinémathèque.
 
 ## Non-goals
 
@@ -37,7 +37,7 @@ For each curated item the generator:
 
 1. **Renders key-art** (`poster.mjs`) — a deterministic 16:9 SVG "still" (flat cinematic
    background + abstract motif + title/genre/year), rasterized to JPEG by `sharp`. Posters
-   are skin-independent: they become the embedded cover art, identical across all skins.
+   are theme-independent: they become the embedded cover art.
 2. **Muxes an MP4** (`ffmpeg`):
    - video stream: the poster encoded at the item's **target resolution** (so the
      width-based resolution badge is correct, ADR-012) for the item's **runtime** at 1 fps
@@ -79,7 +79,7 @@ The curated set (`items.mjs`, ~18 titles) must, in aggregate:
   person/tag filters and detail pages return the expected subsets.
 - **A4** — The year filter and title search (including the diacritic title) behave.
 - **A5** — Generation is deterministic: re-running yields the same library.
-- **A6** — Verified across **all three skins** (Cinémathèque, Broadcast, Brutalist) per
+- **A6** — Verified in **Cinémathèque** per
   `.claude/CLAUDE.md`.
 
 ## Usage
@@ -95,10 +95,10 @@ node generate.mjs --out /path/to/media     # custom output directory
 
 ## Showcase surfaces built on this corpus
 
-- **README** — product-first rewrite with a three-skin gallery + detail shot
+- **README** — product-first rewrite with a gallery + detail shot
   (`docs/assets/screenshots/`, captured from this corpus).
 - **Landing page** — [`site/`](../../site/), a self-contained static page whose hero swaps the
-  real grid + detail screenshots between skins, tinted with each skin's accent. It reuses the
+  real grid + detail screenshots, tinted with the accent. It reuses the
   existing theming design system (ADR-021) rather than introducing new UX, so no new design
   handoff is required; deploying it is a separate infra step (see [`site/README.md`](../../site/README.md)).
 

@@ -8,7 +8,7 @@
 two-layer model (adoption vs precedence) to entity metadata management as a whole. This handoff is its
 first instance; read the ADR's Scope section before applying the pattern elsewhere.
 **Jira**: [HOLODEX-194](https://whoiskevinrich.atlassian.net/browse/HOLODEX-194)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 **Extends**: [metadata-extraction-handoff.md](metadata-extraction-handoff.md), which scoped the F48 UI
 to the `/owner` hub only. This handoff adds the second surface that spec §F48.5a always called for.
@@ -194,4 +194,4 @@ One parameter, one handler:
 ## QA
 
 See [media-page-extraction-qa-checklist.md](media-page-extraction-qa-checklist.md) — numbered,
-tagged by verifier, all three skins.
+tagged by verifier, Cinémathèque.

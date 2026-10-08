@@ -1,7 +1,7 @@
 # Design Handoff: Delete a Media Item ("Move to Trash" + Trash view) (F24)
 
 **Spec**: [Delete a Media Item (F24)](../specs/delete-media.md) · **ADR**: [ADR-037](../architecture/archive/ADR-037-soft-delete-and-purge.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---
@@ -188,8 +188,8 @@ Restore has **no** confirm dialog (it's non-destructive); both delete paths **al
 
 Reuse `PersonPicker`'s `merge-rise` entrance (opacity + `scale(0.98)`), gated behind
 `@media (prefers-reduced-motion: no-preference)` — copy it into `ConfirmDialog`. Row
-removal on restore/purge can use a subtle opacity transition only; no transforms required. Skin
-flourishes belong in `app.css` gated by `[data-theme]`, never per-component markup.
+removal on restore/purge can use a subtle opacity transition only; no transforms required. Look
+flourishes belong in `app.css`, never per-component markup.
 
 ---
 
@@ -210,9 +210,9 @@ flourishes belong in `app.css` gated by `[data-theme]`, never per-component mark
 
 ---
 
-## Three-skin QA checklist (required before merge — CLAUDE.md)
+## Cinémathèque QA checklist (required before merge — CLAUDE.md)
 
-> Numbered + verifier-tagged per the house convention. Switch skins via the header picker.
+> Numbered + verifier-tagged per the house convention.
 
 ### Setup
 - [ ] **0.1** `[smoke]` Set `ADMIN_TOKEN`, enter it on `/status` so `activity.isOwner` is true; have at
@@ -223,10 +223,10 @@ flourishes belong in `app.css` gated by `[data-theme]`, never per-component mark
       returns empty for the changed markup (raw hex only in `app.css`; `rounded-full` pills intentional).
 - [ ] **1.2** `[smoke]` `svelte-check` + `vitest` green.
 
-### Agent / human (per skin: Cinémathèque, Broadcast, Brutalist)
+### Agent / human (Cinémathèque)
 - [ ] **2.1** `[human]` On `/media/[id]` as owner, the **Manage** block shows at the bottom with
       **Move to Trash** + **Delete permanently** in `--warn` (outlined), visually distinct from the
-      accent used elsewhere — load-bearing on Brutalist (bright-lime accent vs warn).
+      accent used elsewhere — load-bearing (gold accent vs warn).
 - [ ] **2.2** `[human]` **Move to Trash** opens a confirm naming the {N}-day grace; confirming returns
       you to the library and the item is **gone from the grid**.
 - [ ] **2.3** `[human]` **Delete permanently** opens the *stronger* confirm that names irreversibility
@@ -239,8 +239,8 @@ flourishes belong in `app.css` gated by `[data-theme]`, never per-component mark
 - [ ] **2.6** `[human]` **Restore** (no confirm) returns the item to the library; reload `/` to confirm
       it's back. **Delete permanently** from Trash confirms, then the row disappears.
 - [ ] **2.7** `[human]` Empty Trash shows a themed "Trash is empty."; loading + error states themed.
-- [ ] **2.8** `[human]` Dialog radius per skin (`--radius` 2px/0/0) — `rounded-theme` card has no stray
-      rounding on Broadcast/Brutalist; focus ring (`focus:border-accent`) visible on each accent.
+- [ ] **2.8** `[human]` Dialog radius (`--radius` 2px) — `rounded-theme` card has no stray
+      rounding; focus ring (`focus:border-accent`) visible on the accent.
 - [ ] **2.9** `[human]` Keyboard: open a confirm, focus starts on **Cancel**, Tab is trapped, Esc
       cancels, focus returns to the trigger button. Restore/delete buttons are reachable and labelled.
 - [ ] **2.10** `[agent]` A soft-deleted item is **absent** from browse, search, the person/tag page it

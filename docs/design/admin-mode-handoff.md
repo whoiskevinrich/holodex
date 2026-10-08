@@ -1,9 +1,9 @@
 # Design Handoff: Admin Mode toggle (F29)
 
 **Spec**: [Admin Mode (F29)](../specs/admin-mode.md) · **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
-**Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025). Mirrors the skin picker in
-[`+layout.svelte`](../../web/src/routes/+layout.svelte) and the `theme.svelte.ts` store pattern.
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
+**Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025). Lives in the header of
+[`+layout.svelte`](../../web/src/routes/+layout.svelte) and follows the retired `theme.svelte.ts` store pattern.
 
 ---
 
@@ -12,8 +12,8 @@
 A single header control, **rendered only for the owner**, that turns **Admin mode** on or off. ON =
 owner-only controls and data are visible (today's behavior). OFF = a faithful **visitor view**: every
 owner-only control *and* data surface is removed from the DOM, so the owner sees exactly what a logged-out
-visitor sees — for QA across the three skins and for distraction-free browsing. It mirrors the dark-mode /
-skin toggle the owner already knows: per-device `localStorage`, reactive, no reload, no privilege change.
+visitor sees — for QA and for distraction-free browsing. It mirrors the retired dark-mode /
+skin toggle the owner knew: per-device `localStorage`, reactive, no reload, no privilege change.
 
 This handoff covers **one new control** plus the **visual contract for how each owner-gated surface
 appears/disappears**. It does not restyle any of the gated controls themselves — they already exist.
@@ -22,9 +22,9 @@ appears/disappears**. It does not restyle any of the gated controls themselves �
 
 No new tokens and no new primitive. The control is built from chrome the header already uses:
 
-- **Same shell as the skin picker** — `rounded-theme border border-rule`, sitting as its sibling in the
+- **Same shell as the header's other controls** — `rounded-theme border border-rule`, sitting in the
   right-hand `<nav>` group. It is a **binary switch**, not a multi-option segmented control, so it reads as
-  one button (the skin picker's 3-way segmented shape stays reserved for the 3-way choice next to it — a
+  one button (a segmented shape stays reserved for multi-option choices — a
   meaningful "binary = switch, multi = segmented" distinction).
 - **Active/primary treatment = `--accent`** — when Admin mode is ON, the button uses
   `bg-accent text-accent-ink` (the established active/primary semantic, ADR-021). OFF uses the muted
@@ -32,20 +32,20 @@ No new tokens and no new primitive. The control is built from chrome the header 
   doubles as the **persistent "you have powers on" indicator**.
 - **Owner gating** — `activity.isOwner`, identical to the Trash link beside it.
 
-Because every piece already exists, the audit output is: **reuse the picker's shell, the `bg-accent
+Because every piece already exists, the audit output is: **reuse the header controls' shell, the `bg-accent
 text-accent-ink` active idiom, and `activity.isOwner` verbatim; introduce nothing new.**
 
 ---
 
 ## Layout & placement
 
-In the header's right-hand `<nav>` (the "tools" group), place the toggle **between `ActivityIndicator`
-and the skin picker** — grouping the two view-preference controls (Admin mode, then skin) at the far
+In the header's right-hand `<nav>` (the "tools" group), place the toggle **after `ActivityIndicator`**
+as the view-preference control at the far
 right. Reference: [`+layout.svelte:181`](../../web/src/routes/+layout.svelte#L181).
 
 ```
-… Keys  Status  [Trash]  | (ActivityIndicator)  [⦿ Admin]  [ ◐ skin segmented ]
-                  ↑ hides when OFF            ↑ new control   ↑ existing
+… Keys  Status  [Trash]  | (ActivityIndicator)  [⦿ Admin]
+                  ↑ hides when OFF            ↑ new control
 ```
 
 - Spacing: it's a child of the existing `nav.flex.items-center.gap-3`, so the `gap-3` rhythm applies —
@@ -63,18 +63,18 @@ right. Reference: [`+layout.svelte:181`](../../web/src/routes/+layout.svelte#L18
 | `bg-accent` / `text-accent-ink` | Fill + label when Admin mode is **ON**. |
 | `text-muted` | Label/icon when **OFF** (resting). |
 | `text-ink` | Label/icon on hover when OFF. |
-| `text-xs` | Label size (matches skin picker). |
-| `transition` | Color transition on state/hover (matches skin picker). |
+| `text-xs` | Label size. |
+| `transition` | Color transition on state/hover. |
 
 **No literals.** No `zinc-*`/`sky-*`/hex, no fixed `rounded-lg`/px radii. Icon is an inline SVG using
-`currentColor` so it inherits the token color in every state and skin.
+`currentColor` so it inherits the token color in every state.
 
 ---
 
 ## The control — anatomy & states
 
 **Element**: a single `<button>` acting as a switch. Icon + the always-visible text label **"Admin"**
-(unlike the skin picker, which hides inactive labels — there's only one control here, so its label is
+(there's only one control here, so its label is
 always shown for clarity).
 
 **Icon**: an inline SVG eye/shield glyph at `h-3.5 w-3.5`, `currentColor`. Suggestion: an **eye** that
@@ -112,18 +112,16 @@ optional reduced-motion-friendly fade is a P1 nice-to-have (see Motion).
 
 ---
 
-## Per-skin QA (all three — load-bearing)
+## Cinémathèque QA (load-bearing)
 
-Render and eyeball the control **and a previewed page** in each skin, in **both** states:
+Render and eyeball the control **and a previewed page** in Cinémathèque, in **both** states:
 
 - **Cinémathèque** — confirm the ON accent fill has enough contrast against the header; the eye icon reads
   at `h-3.5`.
-- **Broadcast** — confirm `text-accent-ink` on `bg-accent` is legible (Broadcast's accent is brightest);
-  no collision with the adjacent skin swatches.
-- **Brutalist** — confirm `rounded-theme` resolves to the skin's sharper radius and the border weight
-  matches neighboring controls; the OFF outline shouldn't look heavier than the skin picker's.
+- Confirm `text-accent-ink` on `bg-accent` is legible, and the border weight
+  matches neighboring controls; the OFF outline shouldn't look heavier than theirs.
 
-In **all three**, with Admin mode **OFF**, verify a representative gated page (e.g. `/media/[id]`) shows
+With Admin mode **OFF**, verify a representative gated page (e.g. `/media/[id]`) shows
 **zero** owner-only controls/badges and the layout has no orphaned gaps — it must read as the public page.
 
 ---
@@ -133,7 +131,7 @@ In **all three**, with Admin mode **OFF**, verify a representative gated page (e
 | Breakpoint | Behavior |
 |---|---|
 | Desktop (≥ `sm`) | Icon + "Admin" label, as specified. |
-| `< sm` | Follow the skin picker's precedent (`{#if active}<span class="hidden sm:inline">`): **drop the text label, keep the icon** so the header stays compact. The accent fill still conveys ON/OFF, so the icon-only control remains unambiguous. Keep the `aria-label="Admin mode"` for the accessible name. |
+| `< sm` | Hide the label below `sm` (`<span class="hidden sm:inline">`): **drop the text label, keep the icon** so the header stays compact. The accent fill still conveys ON/OFF, so the icon-only control remains unambiguous. Keep the `aria-label="Admin mode"` for the accessible name. |
 
 No layout reflow of the header beyond label hide; the control stays in the same nav slot.
 
@@ -173,13 +171,13 @@ Honor `prefers-reduced-motion`: the optional fade must not run when reduced moti
 - **Accessible name**: `aria-label="Admin mode"` (covers the icon-only `<sm` variant). The visible "Admin"
   label is the name on ≥`sm`.
 - **Keyboard**: reachable via `Tab`; toggled with `Enter` **and** `Space`. Focus order in the nav:
-  …`ActivityIndicator` → **Admin toggle** → skin-picker buttons. Self-toggling never moves focus (the
+  …`ActivityIndicator` → **Admin toggle**. Self-toggling never moves focus (the
   control persists), so there's no focus-loss when surfaces hide.
 - **State announcement**: changing `aria-checked` announces the new state. For the **auto-reveal** case
   (state changes from navigation, not from the control), add a visually-hidden `aria-live="polite"` region
   that announces **"Admin mode on."** so the change isn't silent.
 - **Contrast**: ON state must meet AA — `text-accent-ink` on `bg-accent` is the system's designated
-  on-accent pair; verify per skin (Broadcast is the tightest).
+  on-accent pair; verify in Cinémathèque.
 - **Don't rely on color alone**: the icon swap (open-eye ↔ eye-slash) and the `aria-checked` state both
   carry the on/off meaning alongside the accent fill.
 
@@ -198,4 +196,4 @@ Honor `prefers-reduced-motion`: the optional fade must not run when reduced moti
   adminMode.set(true)`.
 
 > Paired QA checklist: [`admin-mode-qa-checklist.md`](admin-mode-qa-checklist.md) — numbered, grouped by
-> verifier (Setup / Smoke / Agent / Human), all three skins.
+> verifier (Setup / Smoke / Agent / Human), Cinémathèque.

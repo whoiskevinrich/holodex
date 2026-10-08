@@ -51,7 +51,7 @@ files it mirrors, with no owner-visible remedy.
    per-field "from file" vs "from TMDB" badges, and a refresh never silently destroys the other
    layer (re-extract leaves the enrichment store intact; re-enrich leaves file fields intact).
 5. **Make the action legible and safe** — owner-gated, visible only when admin features are,
-   honoring soft-delete, recorded in activity history, and themed across all three skins.
+   honoring soft-delete, recorded in activity history, and themed in Cinémathèque.
 
 ## Non-Goals
 
@@ -227,7 +227,7 @@ placement, label/icon, in-flight treatment, and how F31.8 feedback renders — i
 Metadata header cluster, an inline `aria-live` status line for feedback (no toast), and
 `sources_disagree` deliberately **not** surfaced single-item (the existing provenance chips suffice;
 rich triage waits for the batch feature, F31.11). No open questions remain; what's left is
-implementation, the embedded three-skin QA, `/security-review`, and a `/testing-strategy` update.
+implementation, the embedded Cinémathèque QA, `/security-review`, and a `/testing-strategy` update.
 
 ---
 
@@ -245,7 +245,7 @@ implementation, the embedded three-skin QA, `/security-review`, and a `/testing-
      invariant, per-source error handling, and the `RefreshReport` (incl. `sources_disagree`) —
      the full "refresh" semantics and the batch-ready outcome.
   3. **F31.6 + frontend control + F31.8** — activity recording (`kind=refresh`) and the
-     owner-facing button with "what changed" feedback; QA across all three skins.
+     owner-facing button with "what changed" feedback; QA in Cinémathèque.
 
 ---
 
@@ -271,7 +271,7 @@ implementation, the embedded three-skin QA, `/security-review`, and a `/testing-
 > **Change-routing reminder (per project working agreements).** This functional spec is the
 > **functionality** artifact. Status of the matching artifacts: **ADR — done**
 > ([ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)); **design handoff — done**
-> ([metadata-refresh-handoff.md](../design/metadata-refresh-handoff.md), with embedded three-skin
+> ([metadata-refresh-handoff.md](../design/metadata-refresh-handoff.md), with embedded Cinémathèque
 > QA). Still required before merge: a **`/testing-strategy`** update + tests (auth/validation,
 > forced-extract proof incl. the mtime-preserved case, provider isolation, soft-delete guard,
 > activity recording) and a **`/security-review`** (it touches access + file I/O + subprocess).

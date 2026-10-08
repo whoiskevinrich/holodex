@@ -79,8 +79,8 @@ They are a 16×16 viewBox file outline plus one mark. The mockup has the exact p
 ## 3. Tokens and skins
 
 Only existing tokens are used: `ink`, `muted`, `accent`, `warn`, `rule`, `surface-2`. There is no new
-token and no hardcoded colour. QA covers all three skins (`.claude/rules/frontend-theming.md`). The
-accent / warn pairing on a dashed border is the risk to check on each skin.
+token and no hardcoded colour. QA covers Cinémathèque (`.claude/rules/frontend-theming.md`). The
+accent / warn pairing on a dashed border is the risk to check.
 
 ## 4. Edge cases
 

@@ -75,7 +75,7 @@ not re-decided per component.
 
 1. **`RelatedShelf` is not a `VideoGrid`.** It is a `flex … overflow-x-auto` horizontal scroller
    with fixed-width cards (`w-32`/`w-52` per `data-layout`), borrowing the `.video-grid` class only
-   to reset the Brutalist `reel` counter and inherit `data-layout` sizing. There is no
+   to inherit `data-layout` sizing. There is no
    `stageAligned` prop to pass — the class goes on directly, and `width: fit-content` against
    `overflow-x: auto` is **not** the same layout as against a grid. **Verified live: it is.** At
    5120, 5 cards pin the box to 2600 with zero overhang; 16 cloned cards grow it to 3824 with a
@@ -225,7 +225,7 @@ child. `stage-grid` is untouched, the film page inherits nothing new from this c
 
 ## 8. QA
 
-Skin coverage per `.claude/rules/frontend-theming.md` — all three skins, no hardcoded styling.
+Skin coverage per `.claude/rules/frontend-theming.md` — Cinémathèque, no hardcoded styling.
 
 ### Setup
 
@@ -276,4 +276,4 @@ the page, overhanging evenly on both sides. `[human]`
 year, runtime and so on — but no buttons for changing or fetching them. `[human]`
 4.6 Shrink the window until the page becomes a single column. The synopsis should now read just
 after the studio card, and the tags and people should come before the "More with …" rows. `[human]`
-4.7 Repeat 4.1–4.6 in each of the three skins, then on the phone. `[human]`
+4.7 Repeat 4.1–4.6 in Cinémathèque, then on the phone. `[human]`

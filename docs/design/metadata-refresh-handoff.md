@@ -1,7 +1,7 @@
 # Design Handoff: Refresh Metadata (per-item re-extract + re-enrich) (F31)
 
 **Spec**: [Refresh Metadata (F31)](../specs/metadata-refresh.md) · **ADR**: [ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---
@@ -187,7 +187,7 @@ No confirm dialog — refresh is safe and idempotent. (Contrast delete, which al
 
 - **Spinner** — reuse the Regenerate button's `class:animate-spin` on the icon while `refreshing`.
   Honor `prefers-reduced-motion`: gate the spin so reduced-motion users get a static icon (+ the
-  "Refreshing…" label still conveys progress). Skin flourishes stay in `app.css` under `[data-theme]`,
+  "Refreshing…" label still conveys progress). Theme flourishes stay in `app.css`,
   never per-component.
 - **Status line** — appears instantly; an optional `prefers-reduced-motion: no-preference` opacity fade
   is fine. No transforms required.
@@ -203,15 +203,15 @@ No confirm dialog — refresh is safe and idempotent. (Contrast delete, which al
   relying on the spin.
 - The status line is `aria-live="polite"` so the outcome (synced / no change / failed) is announced
   without moving focus. Failure text is a full sentence (`text-warn` + words).
-- Focus ring uses `focus-visible:text-accent` like Write-to-file; visible on every skin's accent.
+- Focus ring uses `focus-visible:text-accent` like Write-to-file; visible on the accent.
 - Owner control is **absent from the DOM** for non-owners — nothing misleading in the a11y tree.
 - Reduced motion: the spinner does not convey anything the label doesn't; safe to freeze.
 
 ---
 
-## Three-skin QA checklist (required before merge — CLAUDE.md)
+## Cinémathèque QA checklist (required before merge — CLAUDE.md)
 
-> Numbered + verifier-tagged per the house convention. Switch skins via the header picker.
+> Numbered + verifier-tagged per the house convention.
 
 ### Setup
 - [ ] **0.1** `[smoke]` Set `ADMIN_TOKEN`, sign in on `/status` so `activity.isOwner` is true; index at
@@ -222,10 +222,10 @@ No confirm dialog — refresh is safe and idempotent. (Contrast delete, which al
       returns empty for the changed markup (raw hex only in `app.css`; `rounded-full` pills intentional).
 - [ ] **1.2** `[smoke]` `svelte-check` + `vitest` green.
 
-### Agent / human (per skin: Cinémathèque, Broadcast, Brutalist)
+### Agent / human (Cinémathèque)
 - [ ] **2.1** `[human]` On `/media/[id]` as owner, **Refresh** shows **first** in the Metadata controls
-      row (before Enrich / Clear / Write to file) as a quiet ghost button — readable against the header
-      on all three skins, and clearly **not** the accent CTA (Enrich keeps that).
+      row (before Enrich / Clear / Write to file) as a quiet ghost button — readable against the header,
+      and clearly **not** the accent CTA (Enrich keeps that).
 - [ ] **2.2** `[human]` Clearing the token removes Refresh (and the rest of the cluster) entirely — a
       non-owner sees no Refresh button.
 - [ ] **2.3** `[human]` Click Refresh on a provider-matched item: the icon **spins**, the label reads
@@ -239,9 +239,9 @@ No confirm dialog — refresh is safe and idempotent. (Contrast delete, which al
       changed` (muted, not warn).
 - [ ] **2.7** `[human]` With the provider sidecar stopped, Refresh → the file still updates and the
       line reads `TMDB lookup failed — file metadata still updated` in **`--warn`** (distinct from the
-      accent on every skin — load-bearing on Brutalist's bright accent).
-- [ ] **2.8** `[human]` Refresh radius/focus per skin (`--radius` 2px/0/0): no stray rounding; the
-      `focus-visible` accent ring is visible on each skin's accent; the ghost label hover→accent reads.
+      accent).
+- [ ] **2.8** `[human]` Refresh radius/focus (`--radius` 2px): no stray rounding; the
+      `focus-visible` accent ring is visible on the accent; the ghost label hover→accent reads.
 - [ ] **2.9** `[human]` Keyboard: Tab reaches Refresh, Enter/Space triggers it, focus stays put; the
       outcome line is announced (`aria-live`); reduced-motion freezes the spinner but the label still
       conveys progress.

@@ -3,7 +3,7 @@
 **Status**: Draft (developer handoff)
 **Date**: 2026-06-14
 **Spec**: [`docs/specs/system-activity.md`](../specs/system-activity.md) (F21)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 This handoff covers the two user-facing surfaces in F21: the **activity page** (F21.4)
 and the **header indicator** (F21.5), plus the **controls** (F21.6) and the
@@ -16,8 +16,7 @@ and the **header indicator** (F21.5), plus the **controls** (F21.6) and the
 - **Route:** `/status` (top-level, peer of `/keys`). Nav label **"Status"**, added to
   the header `<nav>` after "Keys". Rationale: short and memorable; the page is
   owner-facing but is *primarily* a status view, so `/status` reads truer than `/admin`.
-- **Header indicator:** a compact **pill in the header nav**, placed immediately left of
-  the skin switcher. It is **present only when work is active** (collapses to nothing
+- **Header indicator:** a compact **pill in the header nav**. It is **present only when work is active** (collapses to nothing
   when idle) — keeps the chrome quiet, satisfies "tell the system is busy at a glance."
 
 ---
@@ -69,9 +68,9 @@ Mounted once in [`+layout.svelte`](../../web/src/routes/+layout.svelte) inside t
 (opacity/scale), attached to `.activity-dot`. It **must** be wrapped in
 `@media (prefers-reduced-motion: no-preference)` exactly like the existing
 `.video-grid` / `thumb-sweep` rules; with reduced motion the dot is a static
-`bg-accent` circle. The dot is `bg-accent`, so it inherits each skin's accent
-automatically — **no per-skin markup**. Optional cinémathèque glow goes in `app.css`
-under `[data-theme='cinematheque'] .activity-dot` only.
+`bg-accent` circle. The dot is `bg-accent`, so it inherits the accent
+automatically. Optional cinémathèque glow goes in `app.css`
+under `.activity-dot` only.
 
 **A11y:** the anchor is an `aria-live="polite"` `role="status"` region so screen
 readers announce "Indexing…" when work starts and silence when it clears.
@@ -117,7 +116,7 @@ Each card: `rounded-theme border border-rule bg-surface p-4 space-y-2`.
   `text-accent` + a small reuse of the `.activity-dot`. Idle is `text-ink`.
 - **Errors > 0** on the last run render as a chip with an accent ring
   (`border border-accent text-ink`) — visible, not alarming-red (we have no
-  semantic "danger" token; accent is the attention color in all three skins).
+  semantic "danger" token; accent is the attention color).
 
 ### Controls (F21.6) — rendered only when `capabilities.owner` is true (F21.7)
 A row of buttons under the cards:
@@ -126,7 +125,7 @@ A row of buttons under the cards:
 
 **Confirm pattern (no native `confirm()` — it can't be themed):** click → the button
 swaps in place to a two-option inline confirm ("Rescan? **Yes** / Cancel") for ~3s.
-`Yes` fires the POST. This keeps keyboard focus in-flow and styles per skin.
+`Yes` fires the POST. This keeps keyboard focus in-flow and styles with tokens.
 
 **Result feedback:** a transient inline toast line under the row
 (`text-sm text-muted`):
@@ -177,21 +176,16 @@ Reuse the `/keys` **table** idiom (`w-full text-left text-sm`, `border-b border-
 - Section width `max-w-5xl`; page padding inherited from `<main class="px-6 py-6">`.
 - History table horizontally scrolls under ~640px (`overflow-x-auto`).
 - Header indicator: label text may hide under `sm` (icon-dot only) using the same
-  `hidden md:inline` trick the skin switcher already uses.
+  `hidden md:inline` trick.
 
 ---
 
-## Three-skin QA (required before merge — CLAUDE.md)
+## Cinémathèque QA (required before merge — CLAUDE.md)
 
-Render `/status` and trigger a running scan in **all three** skins:
+Render `/status` and trigger a running scan in Cinémathèque:
 
 - **Cinémathèque** (gold `#e8a33d`, radius 2px): pulsing dot glow reads on the warm
   surface; verify the accent-ring error chip is legible.
-- **Broadcast** (cyan `#36e0d0`, radius 0): note `.skin-title::after` adds an accent
-  underline to the heading — confirm it doesn't collide with the subtitle.
-- **Brutalist** (lime `#d6ff3f`, radius 0): high-chroma accent — confirm the primary
-  "Running" text and the `bg-accent` rescan button keep AA contrast (`accent-ink` is
-  near-black `#0a0a0a`, so the button is fine; check `text-accent` on `bg-surface`).
 
 Token self-check (must be empty for the new components):
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'`.
@@ -208,9 +202,9 @@ All color/radius/font via tokens; the pulse keyframes + any skin flourish live i
 4. `/status/+page.svelte` + `StatusCard.svelte` (cards + AsyncState).
 5. Controls + confirm + unauthenticated banner (gated on `capabilities.owner`).
 6. `JobHistory.svelte`.
-7. `app.css`: `@keyframes activity-pulse` (reduced-motion gated) + optional per-skin
+7. `app.css`: `@keyframes activity-pulse` (reduced-motion gated) + optional
    `.activity-dot` flourish.
-8. Three-skin QA + token self-check.
+8. Cinémathèque QA + token self-check.
 
 > Backend prerequisites (separate PRs): the `GET /admin/activity` read-model (F21.1,
 > ADR-028) and the `requireOwner` gate + `capabilities` signal (F21.7, ADR-030) must

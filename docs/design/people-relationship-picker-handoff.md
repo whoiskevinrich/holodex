@@ -36,8 +36,7 @@ The picker is a single popover, not a two-pane layout — same footprint class a
 ## Design Tokens Used
 
 All values are Holodex's existing semantic tokens (`web/src/app.css`) — no new tokens introduced.
-Cinémathèque (default) values shown; Broadcast and Brutalist substitute their own skin values for
-the same variable names, and the component must reference the variables, never the literals below.
+Cinémathèque values shown (the only look); the component must reference the variables, never the literals below.
 
 | Token | Cinémathèque value | Usage |
 |---|---|---|
@@ -153,6 +152,6 @@ grid itself already reflows via its existing `grid-cols-3 sm:grid-cols-4 md:grid
 - Attached-person chip `×`: `aria-label="Remove {name} ({role})"`.
 - Focus trap, Escape-to-close, and return-focus-to-trigger are inherited unchanged from
   `PickerShell` — no new work, just don't bypass it.
-- 3-skin QA required before this gate closes (Cinémathèque, Broadcast, Brutalist) per
+- Cinémathèque QA required before this gate closes per
   `.claude/rules/frontend-theming.md` — the role-pill selected state (`bg-accent`/`text-accent-ink`)
-  is the one new color pairing this component introduces; verify contrast in all three.
+  is the one new color pairing this component introduces; verify its contrast.

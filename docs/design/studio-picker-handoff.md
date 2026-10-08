@@ -133,7 +133,7 @@ today). No new responsive work needed.
 
 ## QA
 
-Tokens-only, three-skin QA (Cinémathèque, Broadcast, Brutalist) per
+Tokens-only, Cinémathèque QA per
 `.claude/rules/frontend-theming.md` — candidate chips and search/create rows are new markup and
 need the same contrast/hover-state check `SourceSelect` and `EntityPickerDialog` already pass.
 

@@ -132,7 +132,8 @@ Tokens only; no literal values in components (`.claude/rules/frontend-theming.md
 | All widths | The toolbar is one row and never wraps. `ml-auto` absorbs the slack. The sort select has `min-w-0` as insurance if a future label breaks the 20-character rule. |
 
 **The measured worst case at 375px** (`main px-6`, so 327px of content). The select's width is
-the widest option, measured with the skin's webfont; Brutalist's monospace is the widest.
+the widest option, measured with the retired Brutalist skin's monospace (the widest face); Cinémathèque's
+Archivo is narrower, so these are upper bounds.
 
 | Row (owner, Brutalist) | Items + gaps | Total | Spare |
 |---|---|---|---|
@@ -208,18 +209,15 @@ in `⋯`. Visitors on Media have no `⋯`, so the reroll takes its slot: 208 + 3
   affordance instead (frontend-theming rule). The rail's `opacity-30` absent letters are decorative
   and `aria-hidden`.
 
-## Three-skin QA checklist
+## Cinémathèque QA checklist
 
-1. `[agent]` At 375px, in all three skins, for the owner on Media and People: the toolbar is one
+1. `[agent]` At 375px, in Cinémathèque, for the owner on Media and People: the toolbar is one
    row with no horizontal page scroll. Check with `javascript_tool` geometry
    (`scrollWidth <= clientWidth`).
-2. `[agent]` Brutalist: the People owner sort select with "Completeness — least" selected isn't
-   visibly clipped (the 1px case above).
-3. `[agent]` Chips and the active view segment read in all skins. Brutalist's `#d6ff3f` accent
-   behind `#0a0a0a` ink is the one to eyeball.
+2. `[agent]` *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+3. `[agent]` Chips and the active view segment read in Cinémathèque.
 4. `[agent]` Sheet: focus trap, Escape and backdrop close; focus returns to the Filters button.
-5. `[human]` Skim the desktop popover and the mobile sheet in each skin (switch under Owner ›
-   Appearance).
+5. `[human]` Skim the desktop popover and the mobile sheet.
 6. `[smoke]` HOLODEX-473 regression: pick Completeness on People, then Name. Only one is ever
    selected, and the A–Z index appears.
 

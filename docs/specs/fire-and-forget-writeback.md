@@ -269,7 +269,7 @@ it was hidden — a quiet pill beside a filled one is not noise.
     it cannot clear another video's failed row.
 11. Gutter glyphs are distinct; the no-op row does not use a check.
 12. Overview and poster disclose on hover, on keyboard focus, and on tap, and dismiss on `Escape`.
-13. Three-skin QA passes per `.claude/rules/frontend-theming.md`.
+13. Cinémathèque QA passes per `.claude/rules/frontend-theming.md`.
 
 ## Testing
 

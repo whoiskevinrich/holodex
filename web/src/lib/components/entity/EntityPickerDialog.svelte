@@ -6,7 +6,7 @@
 	// no external round trip to resolve/apply, just a name to hand back. Confirming
 	// (existing entity or freeform) never writes anything itself; the caller (the
 	// extraction row) stages the picked name like any other manual edit. Tokens only;
-	// QA 3 skins.
+	// QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';

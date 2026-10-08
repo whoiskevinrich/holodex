@@ -1,7 +1,7 @@
 # Design Handoff: Metadata Enrichment UI for People (F22)
 
 **Spec**: [Metadata Source Plugins (F22)](../specs/metadata-plugins.md) · **ADR**: [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---
@@ -73,7 +73,7 @@ Two visually distinct, token-only treatments — chosen so neither reads as an e
 - **From file** (the baseline/truth): `rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted` → quiet, recedes.
 - **From TMDB** (enriched): `rounded-full border border-accent px-2 py-0.5 text-xs text-accent` → outlined accent, distinct from the *solid* accent used for active CTAs and from the muted file chip.
 
-> Rationale: `--warn` is reserved for error/attention (CLAUDE.md), so provenance must not use it. Accent doubles as the active/primary color, but here it's an **outline** (not a filled active state), which reads as "noteworthy source" without colliding. **QA note:** verify accent-on-surface legibility in all three skins (Brutalist lime `#d6ff3f` and Broadcast cyan `#36e0d0` are bright — the outlined treatment keeps text on `bg-surface`, which is fine, but eyeball it).
+> Rationale: `--warn` is reserved for error/attention (CLAUDE.md), so provenance must not use it. Accent doubles as the active/primary color, but here it's an **outline** (not a filled active state), which reads as "noteworthy source" without colliding. **QA note:** verify accent-on-surface legibility in Cinémathèque (the outlined treatment keeps text on `bg-surface`, which is fine, but eyeball it).
 
 ---
 
@@ -139,7 +139,7 @@ Optionally append the percentage in `text-muted text-xs tabular-nums`. The point
 - **Empty search results:** "No matches for '{query}'." (muted) + keep the input focused to retype.
 - **No embedded ID + ambiguous name:** the normal path — that's exactly what the picker is for. (For People, this is the *dominant* path; embedded-ID auto-match is rare until Series/Video generalization.)
 - **Long bio / disambiguation text:** bio wraps; disambiguation line single-line `truncate` with `title` full text; candidate label `truncate` at the row width.
-- **International text (CJK aliases, e.g. 宮崎駿):** must render in all skins — Broadcast/Brutalist use mono display faces; verify the field `<dl>` (body uses `font-ui`) shows CJK acceptably (mono UI fonts fall back for CJK — check it doesn't tofu).
+- **International text (CJK aliases, e.g. 宮崎駿):** must render correctly; verify the field `<dl>` (body uses `font-ui`) shows CJK acceptably (check it doesn't tofu).
 - **Photo asset:** if `assets.photo` present, show it; while downloading, reuse the `thumb-shimmer` hook; on failure, fall back to the existing no-photo treatment (don't block field display).
 - **Re-enrich:** identity already confirmed → skip the picker, go straight to `/enrich` with the stored `external_id`; toast on completion.
 - **Slow connection:** all provider calls are explicit and show loading; nothing auto-polls (unlike activity).
@@ -157,7 +157,7 @@ All motion gated behind `@media (prefers-reduced-motion: no-preference)`, consis
 | Candidate highlight | hover/active | background only (no transform) | instant/100 ms | — |
 | Enriching button | busy | none (opacity state only) | — | — |
 
-Skin flourishes (if any) belong in `app.css` gated by `[data-theme]`, attached to a shared hook class — **not** per-component markup. The picker likely needs no skin-specific flourish; keep it clean.
+Theme flourishes (if any) belong in `app.css`, attached to a shared hook class — **not** per-component markup. The picker likely needs no skin-specific flourish; keep it clean.
 
 ---
 
@@ -173,16 +173,16 @@ Skin flourishes (if any) belong in `app.css` gated by `[data-theme]`, attached t
 
 ---
 
-## Three-skin QA checklist (required before merge — CLAUDE.md)
+## Cinémathèque QA checklist (required before merge — CLAUDE.md)
 
-Render `/people/[id]` and exercise the picker in **Cinémathèque, Broadcast, Brutalist**:
+Render `/people/[id]` and exercise the picker in **Cinémathèque**:
 
-- [ ] **Provenance chips legible** in each skin — outlined-accent "from TMDB" reads on `bg-surface`; muted "from file" recedes; neither collides with the resolution badge / active accent.
-- [ ] **Picker panel + backdrop** correct per skin radius (`--radius`: 2px / 0 / 0) — no stray rounded corners on Broadcast/Brutalist.
-- [ ] **Confidence chips** — "Strong match" accent text legible on each accent (lime/cyan/gold).
-- [ ] **Heading** uses `.skin-title` (uppercase + caret on Broadcast, uppercase on Brutalist).
-- [ ] **CJK aliases** render (no tofu) in mono-faced skins.
-- [ ] **Focus ring** (`focus:border-accent`) visible on the input + buttons in each skin.
+- [ ] **Provenance chips legible** — outlined-accent "from TMDB" reads on `bg-surface`; muted "from file" recedes; neither collides with the resolution badge / active accent.
+- [ ] **Picker panel + backdrop** correct radius (`--radius`: 2px).
+- [ ] **Confidence chips** — "Strong match" accent text legible on the gold accent.
+- [ ] **Heading** uses `.skin-title` (Fraunces).
+- [ ] **CJK aliases** render (no tofu).
+- [ ] **Focus ring** (`focus:border-accent`) visible on the input + buttons.
 - [ ] **Reduced-motion**: picker open is instant when `prefers-reduced-motion: reduce`.
 - [ ] **Loading / empty / error / populated** states all themed (no raw white/black, no hardcoded color).
 - [ ] **Owner vs locked**: with `ADMIN_TOKEN` set and no token entered, controls are hidden and the unlock form shows; after unlock, the Enrich flow works.

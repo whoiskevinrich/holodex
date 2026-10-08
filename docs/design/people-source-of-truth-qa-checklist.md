@@ -63,24 +63,24 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **3.10** `[agent]` Keyboard: Tab lands on the selected chip, arrows rove + debounce to one PUT,
   Space/Enter activates; dialog traps focus and Escape exits.
 
-## §4 Human (3-skin eyeball — Cinémathèque, Broadcast, Brutalist)
+## §4 Human (Cinémathèque eyeball)
 
-Open a TMDB-enriched person page (e.g. People → any cast member of an enriched film), switch skins
-via the header picker, and check:
+Open a TMDB-enriched person page (e.g. People → any cast member of an enriched film)
+and check:
 
 - **4.1** `[human]` The chip rows read as one system with the media page: same pill shape, the
-  selected chip's dot + border stand out in every skin (accent gold / cyan / lime — reference:
+  selected chip's dot + border stand out (accent gold — reference:
   `border-accent` + accent-filled dot), idle chips stay quiet (muted text on `bg-surface-2`).
 - **4.2** `[human]` `·record` provenance reads muted (grey-ish), **not** accent-colored, on every
   chip it appears on — including a folded `·record + tmdb` chip (the provider name doesn't drag the
   whole suffix to accent).
-- **4.3** `[human]` The bio prose is comfortably readable above its chip row in all skins (no chip
+- **4.3** `[human]` The bio prose is comfortably readable above its chip row (no chip
   row crowding the text; wraps cleanly at narrow widths).
-- **4.4** `[human]` The rename dialog looks native to each skin (card surface, rule border, themed
-  radius; accent Rename button readable — check Brutalist's lime-on-dark) and nothing in it reads as
+- **4.4** `[human]` The rename dialog looks native (card surface, rule border, themed
+  radius; accent Rename button readable) and nothing in it reads as
   an error (no red/warn tones).
 - **4.5** `[human]` "Also known as" (chips, inside Details) and the "Aliases" routing card (below,
   with its add input) read as clearly different things at a glance — if they look like duplicates,
   flag it.
 - **4.6** `[human]` Fonts load offline and the loading/empty/error states of the person page are
-  themed in all three skins (standard theming sweep).
+  themed in Cinémathèque (standard theming sweep).

@@ -2,7 +2,7 @@
 	// Trash view (F24, ADR-037): owner-only list of soft-deleted items, each with
 	// Restore (safe — accent) and Delete permanently (destructive — warn, confirmed).
 	// A tab under the Owner hub (F35); the /owner gate hides it from non-owners and the
-	// API 401s. Tokens only; QA 3 skins.
+	// API 401s. Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { formatAgo, formatUntil, toMessage } from '$lib/format';

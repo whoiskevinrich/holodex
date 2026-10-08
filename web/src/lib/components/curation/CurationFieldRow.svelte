@@ -1,7 +1,7 @@
 <script lang="ts">
 	// One curated field row (F30): renders its values as chips and, for the owner,
 	// an inline "+ Add" affordance. Mutations call the curation API then ask the
-	// parent to reload so resolved[] reflects the new merged state. Tokens only; 3 skins.
+	// parent to reload so resolved[] reflects the new merged state. Tokens only; QA Cinémathèque.
 	//
 	// Entity-generic since F37: by default mutations hit the media curation endpoints
 	// (videoId), but a caller may supply its own `curate`/`clearCuration` transport (the

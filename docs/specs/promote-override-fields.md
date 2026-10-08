@@ -15,7 +15,7 @@ the tier-0 precedence ladder amending ADR-056 §D2, and per-entity candidate-sou
 `filterable` deferral and the candidate rule left open here)*
 **Design**: [promote-override-fields-handoff.md](../design/promote-override-fields-handoff.md) +
 [QA checklist](../design/promote-override-fields-qa-checklist.md) *(written — inline expander editor,
-shared promote+edit component, partition-move states, three-skin QA)*
+shared promote+edit component, partition-move states, Cinémathèque QA)*
 **Testing**: [testing-strategy.md](../testing-strategy.md) *(written — F44 §9 Phase-3 block, five cardinal
 invariants §4, E2E flow §6.19, three Given/When/Then examples §10; maps to the QA checklist §2 smoke items)*
 
@@ -252,7 +252,7 @@ New owner-gated routes in the `requireOwner` group (mirror `internal/api/person_
    cleaned; an unknown render mode coerces to `text`.
 9. An `image_url` promoted field whose value host is not allowlisted still renders as **text**, not `<img>`.
 10. No promotions present ⇒ **byte-identical** resolved output and rendering to F39 (the golden no-op case).
-11. All three skins (Cinémathèque, Broadcast, Brutalist) render the promote affordance, the inline editor, and
+11. Cinémathèque renders the promote affordance, the inline editor, and
     the post-promotion curatable row with tokens only, in loading/empty/populated states.
 
 ---
@@ -276,7 +276,7 @@ the source these were built from.*
 - **Security** — label sanitize/cap; render/group coercion; `image_url` allowlist gate on a promoted field;
   no canonical/`_` promotion; (if applicable) no unvalidated browse-facet injection.
 - **SPA** — owner-only affordance; the inline editor; partition move auto → mapped after promotion and back on
-  de-promote; three-skin QA.
+  de-promote; Cinémathèque QA.
 - **Backward compat** — golden no-op: no promotions ⇒ identical to pre-F44.
 
 ---

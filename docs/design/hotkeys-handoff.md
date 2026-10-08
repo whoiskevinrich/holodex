@@ -93,9 +93,9 @@ move that rule to `app.css` (or duplicate it) rather than importing `ConfirmDial
 - Every bound button carries `aria-keyshortcuts` — the WAI-ARIA hook for assistive tech to surface
   the key without the sheet.
 - Contrast: `text-ink` on `bg-surface`, `text-muted` group headings at 12 px are the same pairings
-  `ConfirmDialog` and `SourceBadge` already pass with across all three skins.
+  `ConfirmDialog` and `SourceBadge` already pass with in Cinémathèque.
 
-## Three-skin QA (numbered per `docs/design` convention)
+## Cinémathèque QA (numbered per `docs/design` convention)
 
 **Setup** — owner session, Admin mode on, a media detail page with ≥1 provider configured and
 `resolved.length > 0`.
@@ -106,11 +106,11 @@ move that rule to `app.css` (or duplicate it) rather than importing `ConfirmDial
 - 1.3 `[smoke]` With the sheet open press `e` → nothing fires; press Esc → sheet closes, focus back on `body`.
 
 **Agent** (computed style via `javascript_tool`, per [reference-holodex-skin-qa-without-screenshots])
-- 2.1 `[agent]` For each of Cinémathèque / Broadcast / Brutalist: `<kbd>` `background-color` equals `--surface-2`, `border-color` equals `--rule`, `color` equals `--ink`; panel `background-color` equals `--surface`.
+- 2.1 `[agent]` In Cinémathèque: `<kbd>` `background-color` equals `--surface-2`, `border-color` equals `--rule`, `color` equals `--ink`; panel `background-color` equals `--surface`.
 - 2.2 `[agent]` `getComputedStyle(panel).maxWidth === '28rem'` and `panel.scrollHeight === panel.clientHeight` (no scroll) in the stressed fixture (mount 9 dummy `use:hotkey` buttons).
 - 2.3 `[agent]` Row label with a 60-character label has `text-overflow: ellipsis` applied and the panel's `scrollWidth === clientWidth`.
 
 **Human**
-- 3.1 `[human]` On each skin, open the sheet: key caps read as small inset chips (a shade darker than the panel, thin border), not as pills or buttons; the group headings are small, quiet, and clearly above their rows.
+- 3.1 `[human]` Open the sheet: key caps read as small inset chips (a shade darker than the panel, thin border), not as pills or buttons; the group headings are small, quiet, and clearly above their rows.
 - 3.2 `[human]` Press `e` with the sheet closed: the Refresh all button visibly gets its focus ring and the page scrolls so you can see it, then it switches to "Refreshing…".
-- 3.3 `[human]` Brutalist skin (radius 0): the key caps and panel are square-cornered; Broadcast: the accent isn't used anywhere in the sheet (it's neutral by design).
+- 3.3 `[human]` The accent isn't used anywhere in the sheet (it's neutral by design).

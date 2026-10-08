@@ -6,7 +6,7 @@
 **Depends on**: the enrichment review workflow and its auto-apply routing ([enrichment-review-workflow.md](enrichment-review-workflow.md), F47; [ADR-066](../architecture/archive/ADR-066-enrichment-auto-apply-and-dismissal.md) D1 — `enrich.SingleStrongMatch`), the metadata provider contract ([metadata-provider-contract.md](metadata-provider-contract.md)), metadata source plugins ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), F22), the System Activity surface and job-run history ([ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md), F21; [ADR-071](../architecture/archive/ADR-071-job-run-attribution-and-paginated-history.md) — `batch_id`, `EntityType/EntityID`), the library-wide extraction pass as the background-job template ([ADR-067](../architecture/archive/ADR-067-filename-extraction-confidence-and-rollback.md), F48.5b — `extract.BatchRunner.TriggerAll`), per-field source-of-truth decisions for revert ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), F36), and the access-control gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)).
 **Amends**: F47 — lifts its *Queue-wide bulk/background resolution* Non-Goal / P2-1 by supplying the provider rate-limit contract that Non-Goal was waiting on (§ Provider traffic). F47's per-row lazy model is unchanged; this spec adds the bulk path beside it.
 **Architecture**: [ADR-103](../architecture/archive/ADR-103-provider-traffic-contract-and-enrich-sweep.md) — pacing on `enrich.Service` keyed by provider (D1, `x/time/rate` D2, ADR-080 carriage D3), `429` as a typed pause the *caller* decides to wait on (D4), monotonic injected clock (D5), per-sweep breaker in the runner (D6), shared `Service.RefreshPair` (D7), `SweepRunner` + `sweep` activity block (D8), `batch_id` audit key (D9), TMDB `429` pass-through (D10).
-**Design handoff**: [entity-refresh-sweep-handoff.md](../design/entity-refresh-sweep-handoff.md) — Option D, seven states, three-skin QA checklist.
+**Design handoff**: [entity-refresh-sweep-handoff.md](../design/entity-refresh-sweep-handoff.md) — Option D, seven states, Cinémathèque QA checklist.
 
 ---
 
@@ -363,7 +363,7 @@ are green) in this order, each step independently testable:
 2. **Job** — shared per-entity step, sweep runner, `enrich-sweep` kind, `batch_id` threading,
    `sweep` block, `LibraryCounts.Studios`, `?batch=` (P0-2, P0-3, P0-4).
 3. **UI** — status-page buttons/confirm/running, `SweepStatusLine`, history chip (P0-1, P0-5, P0-6, P0-7).
-4. **QA** — three skins, handoff checklist 1–10, mutation-check the `SingleStrongMatch` reuse.
+4. **QA** — Cinémathèque, handoff checklist 1–10, mutation-check the `SingleStrongMatch` reuse.
 
 Dependencies: none external. Nothing here blocks or is blocked by another in-flight epic; the
 `refreshOneProvider` extraction touches the same file as HOLODEX-418's Re-match change (merged).

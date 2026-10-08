@@ -96,35 +96,33 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
   `text-warn` message; nothing moves; a retry succeeds and reloads.
 - **3.13** `[agent]` Golden no-op: the entity with no promotions (1.2) is visually identical to pre-F44.
 
-## §4 Human eyes — 3-skin QA (Cinémathèque · Broadcast · Brutalist)
+## §4 Human eyes — Cinémathèque QA
 
-Switch skins via the header picker (top-right). Confirm tokens react — no hardcoded color/radius/font (the
+Confirm tokens are used — no hardcoded color/radius/font (the
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` guard stays empty). Navigate:
 open any **person** page (People → a person) with Admin mode **on**; the fields sit under the person's photo in
 the "Details" list, with provider extras under an **"Additional details"** subheading.
 
 - **4.1** `[human]` The **Promote** pill (a small outlined button with an up-arrow, at the end of a provider
   extra's row) looks and behaves like the "＋ Add" button used elsewhere on the page — thin outline at rest,
-  turning the accent color (gold in Cinémathèque, cyan in Broadcast, lime in Brutalist) on hover — in all three
-  skins. It should not crowd or overlap the small grey provider badge (e.g. "tmdb") on the same row.
+  turning the accent color (gold) on hover. It should not crowd or overlap the small grey provider badge (e.g. "tmdb") on the same row.
 - **4.2** `[human]` Clicking Promote opens a small **bordered editor box** directly under that row, with an
   **accent-colored outline** that clearly reads as "you're editing this" (distinct from the plain rows). The
-  rows below politely move down; nothing floats or overlaps. Confirm this in all three skins.
+  rows below politely move down; nothing floats or overlaps.
 - **4.3** `[human]` Inside the editor: the **Label** text box, the **Render** and **Group** dropdowns, and the
-  **Order** number box are all legible and correctly themed (corners are subtly rounded in Cinémathèque, square
-  in Broadcast/Brutalist — this is expected, not a bug). The primary **Promote / Save** button is a solid
-  accent-filled button with readable text on it in every skin.
+  **Order** number box are all legible and correctly themed (corners are subtly rounded). The primary **Promote / Save** button is a solid
+  accent-filled button with readable text on it.
 - **4.4** `[human]` In **edit** mode, the **Remove promotion** action is styled in the **warning** color (a
   red/orange, deliberately different from the accent) — it must never look like the primary button.
 - **4.5** `[human]` After promoting, the field **moves up** out of "Additional details" into the main details
   and gains value controls (either a row of selectable pills, or removable chips with a "＋ Add"). After
   **Remove promotion**, it moves back down to a plain read-only row. Confirm the move reads cleanly (no leftover
-  duplicate, no flicker of the old row) in all three skins.
+  duplicate, no flicker of the old row).
 - **4.6** `[human]` As a **visitor** (Admin mode off): there are **no** Promote or Edit buttons and **no**
   editor anywhere — promoted fields just show their curated label and value like any other field.
 - **4.7** `[human]` Empty/edge states read correctly: an entity with no provider extras shows no "Additional
   details" section at all; promoting the only extra makes that whole subheading disappear; a promoted
-  `image_url` from an untrusted host shows the link as plain text (no broken-image box) — in all three skins.
+  `image_url` from an untrusted host shows the link as plain text (no broken-image box).
 - **4.8** `[human]` Keyboard: Tab reaches the Promote button; opening the editor lands focus in the Label box;
   Tab walks Label → Render → Group → Order → (Remove) → Cancel → Promote; **Esc** closes the editor and returns
   focus to the button you opened it from. No keyboard trap.

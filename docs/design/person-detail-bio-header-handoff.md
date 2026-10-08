@@ -4,7 +4,7 @@
 **Issue:** HOLODEX-303
 **Supersedes:** none — extends [two-tier-field-editing-handoff.md](two-tier-field-editing-handoff.md)'s
 `SourceBadge` pattern with a second, parallel interaction pattern for `long_text` fields
-**Theming contract:** tokens-only, all three skins (`.claude/rules/frontend-theming.md`)
+**Theming contract:** tokens-only, QA Cinémathèque (`.claude/rules/frontend-theming.md`)
 **Stack:** SvelteKit, Svelte 5 runes, Tailwind v4 CSS-first
 
 ![Mockup](person-detail-bio-header-mockup.svg)

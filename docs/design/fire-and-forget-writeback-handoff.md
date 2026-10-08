@@ -51,7 +51,7 @@ Retry and Dismiss. The header row itself does not grow.
 
 ## Design tokens used
 
-Tokens only — no hardcoded values. QA all three skins per `.claude/rules/frontend-theming.md`.
+Tokens only — no hardcoded values. QA Cinémathèque per `.claude/rules/frontend-theming.md`.
 
 | Token | Usage |
 |---|---|

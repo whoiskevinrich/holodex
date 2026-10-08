@@ -3,7 +3,7 @@
 **Spec**: [tag-category-create-affordance.md](../specs/tag-category-create-affordance.md)
 **ADR**: none — spec confirms no new ADR ("UI-only addition on an already-decided data model").
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art**: [tag-categories-handoff.md](tag-categories-handoff.md) — the unified `/tags`
 type-filter/search this feature's pill sits inside, and its "design-system-fit audit" format this
 handoff follows. `CategoryPicker.svelte`'s inline "+ Create "query"" row is the create pattern

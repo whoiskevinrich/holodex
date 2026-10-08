@@ -57,5 +57,5 @@ removing the line (the skip would become invisible).
 
 ## QA
 
-Check all three skins (Cinémathèque, Broadcast, Brutalist): the accent link reads on
+Check Cinémathèque: the accent link reads on
 `--surface-2`, and a several-name line wraps without horizontal overflow at 375 px.

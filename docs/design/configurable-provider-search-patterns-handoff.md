@@ -3,7 +3,7 @@
 **Spec**: [configurable-provider-search-patterns.md](../specs/configurable-provider-search-patterns.md) ·
 **ADR**: [ADR-080](../architecture/archive/ADR-080-configurable-provider-search-patterns.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins** (applies to the optional P1 caption
+[theming.md](theming.md) — **tokens only, QA Cinémathèque** (applies to the optional P1 caption
 below; the P0 scope introduces no new markup).
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)
 (F22.5b) — the component this change deliberately does **not** modify.
@@ -143,5 +143,5 @@ caption describes the *seed*, not the current value — once the owner has typed
 ## Measured contrast
 
 No new color combination — the P1 caption (if built) reuses `text-muted` on `bg-surface`, already
-measured in `writeback-selection-handoff.md`'s contrast table (4.67–16.76:1 across all three skins).
+measured in `writeback-selection-handoff.md`'s contrast table (`text-muted` measures 6.00:1 there).
 Nothing to re-measure.

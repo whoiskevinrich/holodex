@@ -5,7 +5,7 @@
 	// these values are already decided (staged by the Extraction tab's row actions),
 	// not something the owner edits here. Each checked row is its own
 	// resolveExtractionReview call — sequential, so per-row status reflects real
-	// progress rather than a single all-or-nothing batch result. Tokens only; QA 3 skins.
+	// progress rather than a single all-or-nothing batch result. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { toMessage } from '$lib/format';
 	import type { ExtractionPreviewItem, ExtractionResolveAction } from '$lib/types';

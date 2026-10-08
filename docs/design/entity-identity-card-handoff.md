@@ -13,7 +13,7 @@
 EntityPicker) · [field-source-of-truth-handoff.md](field-source-of-truth-handoff.md) (ADR-051
 chip row) · [film-enrichment-handoff.md](film-enrichment-handoff.md) (F59 film header)
 **Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — tokens only, QA all three skins.
+[theming.md](theming.md) — tokens only, QA Cinémathèque.
 
 ![Entity identity card mockup](entity-identity-card-mockup.svg)
 
@@ -75,7 +75,7 @@ Not in the `NameEditControl` `trailing` snippet — people already use that slot
 Markup: `<button type="button" class="btn-pill font-ui text-xs text-ink">` containing the ref in a
 mono span (`font-mono` is not a token today — use `font-ui` and accept proportional digits, **or**
 add `--font-mono` to `app.css` `@theme inline` as part of this story; recommended: add it, one
-line, three skins inherit the system mono stack) plus a copy glyph (inline SVG, 12px,
+line, inheriting the system mono stack) plus a copy glyph (inline SVG, 12px,
 `text-muted`).
 
 Behaviour: click / Enter / Space → `navigator.clipboard.writeText(ref)`; label swaps to
@@ -327,11 +327,11 @@ canonical and shows no line; a re-enrich restores it.
 
 Tokens only. New class usage: `btn-pill` (exists), `border-dashed` (Tailwind utility, no token
 needed), `font-mono` **only if** `--font-mono` is added to `app.css` `@theme inline` (1c). Contrast
-targets to verify per skin (Cinémathèque / Broadcast / Brutalist): chip text on `bg-surface` ≥ 4.5:1;
+targets to verify in Cinémathèque: chip text on `bg-surface` ≥ 4.5:1;
 `text-accent` on the dashed link ≥ 4.5:1; pill `text-muted` on `bg-surface` ≥ 3:1 (it's a label,
-not body text — but check Broadcast, whose muted is the lightest).
+not body text).
 
-## 8. QA checklist (3-skin)
+## 8. QA checklist (Cinémathèque)
 
 ### §1 Setup
 
@@ -363,7 +363,7 @@ not body text — but check Broadcast, whose muted is the lightest).
 - **3.4** [agent] Person header: no "In files as" line when resolved = canonical; after choosing
   `tmdb` in the badge, the line appears with the mono canonical and a `tmdb` badge; the h1 shows
   the TMDB spelling; the pencil still opens rename with the **canonical** value prefilled.
-- **3.5** [agent] Contrast per §7 in all three skins via computed styles; no horizontal overflow
+- **3.5** [agent] Contrast per §7 in Cinémathèque via computed styles; no horizontal overflow
   at 375px on the media page with a 40-character custom edition.
 - **3.6** [agent] Display name (378): visitor sees the h1 in the display spelling and nothing
   beneath it (no "In files as" line, badge, link or pencil); owner with no decision sees the **Display as…** link and

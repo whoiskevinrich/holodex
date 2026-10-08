@@ -64,9 +64,9 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **2.10** `[smoke]` Focus trap: with one open row, Tab from the search box reaches row →
   `view source ↗` → `details` → footer; Shift+Tab from ✕ wraps back to the last toggle.
 
-## §3 Agent — live, all three skins — `[agent]`
+## §3 Agent — live, Cinémathèque — `[agent]`
 
-For each skin (1 Cinémathèque, 2, 3): open the media page, Enrich → `acme`, run the fixtures.
+In Cinémathèque: open the media page, Enrich → `acme`, run the fixtures.
 Screenshots time out on this picker — use `javascript_tool` for computed styles and geometry.
 
 - **3.1** `[agent]` Fixture (b): each row shows `details` after `view source ↗`; computed color of
@@ -74,7 +74,7 @@ Screenshots time out on this picker — use `javascript_tool` for computed style
 - **3.2** `[agent]` Click `details` on row 2: computed color of the toggle equals `text-ink`; the
   `<ul>` has `border-left-color` equal to the search field's `border-color` (`border-rule`); line
   color equals `text-muted`; contrast of line text against the **active** row background
-  (`bg-surface-2`) ≥ 4.5:1 in every skin.
+  (`bg-surface-2`) ≥ 4.5:1.
 - **3.3** `[agent]` Fixture (a): four rows open on first render, one closed; the open rows' toggle
   reads `hide details`.
 - **3.4** `[agent]` Fixture (e): scroll the listbox to the bottom; the last row's last line has a
@@ -87,8 +87,8 @@ Screenshots time out on this picker — use `javascript_tool` for computed style
   fixture (diff `outerHTML` after stripping Svelte hydration attributes).
 - **3.7** `[agent]` Refresh-all with (g): System Activity shows the entry with the `applied:`
   segment; it truncates on one line with the full text in `title`.
-- **3.8** `[agent]` Skins 2/3: `font-ui` is monospace there — confirm the lines and the toggle
-  inherit it (no hardcoded `font-family` on the new markup).
+- **3.8** `[agent]` Confirm the lines and the toggle
+  inherit `font-ui` (no hardcoded `font-family` on the new markup).
 
 ## §4 Human — `[human]`
 
@@ -118,9 +118,7 @@ the dev server on fixture (a) unless you ask for another.
   opens without selecting the row. Tapping the row itself still selects it. **Decided
   2026-09-13:** the toggle carries `py-1` (24 px target); the §12 assertion bounds the row at
   [70, 76] so the padding cannot silently disappear.
-- **4.7** `[human]` **All three skins.** Switch skin (owner menu) and repeat 4.2 once per skin:
-  the lines are readable against the highlighted row's background, the dotted underline is
-  visible, and in the two monospace skins the `Key: value` lines line up like a table.
+- **4.7** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - **4.8** `[human]` **The audit line reads as a sentence.** After a refresh-all on the (g) video,
   open System Activity: the enrich row ends with `… · applied: Harbor Lights — Studio: … · Record:
   …`. It should be obvious *which* record was bound without opening the video.
