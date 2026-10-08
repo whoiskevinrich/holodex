@@ -117,6 +117,9 @@ func TestVideoDuplicates_ListCompareKeepOne(t *testing.T) {
 		t.Fatalf("list = %d %v, want one pair", code, body)
 	}
 	row := pairs[0].(map[string]any)
+	if row["title"] != "Harbor Lights" {
+		t.Errorf("row title = %v, want the shared provider item's title", row["title"])
+	}
 	sideA := row["a"].(map[string]any)
 	if int64(sideA["id"].(float64)) != a || sideA["title"] != "Harbor Lights" || sideA["width"] != float64(3840) {
 		t.Fatalf("side a = %v, want resolved title and facts", sideA)

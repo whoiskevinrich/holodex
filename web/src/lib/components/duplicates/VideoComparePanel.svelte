@@ -158,7 +158,7 @@
 	{/if}
 {/snippet}
 
-<div id={panelId} class="border-t border-rule bg-surface-2 px-3 py-3" role="group" aria-label={`Compare the two files of ${pair.a.title}`}>
+<div id={panelId} class="border-t border-rule bg-surface-2 px-3 py-3" role="group" aria-label={`Compare the two files of ${pair.title}`}>
 	{#if loadError}
 		<p class="py-4 text-xs text-warn" role="alert">
 			Couldn't load these files.
@@ -169,7 +169,7 @@
 	{:else}
 		{@const d = data}
 		<table class="w-full table-fixed border-collapse text-xs">
-			<caption class="sr-only">Compare the two files of {pair.a.title}</caption>
+			<caption class="sr-only">Compare the two files of {pair.title}</caption>
 			<colgroup>
 				<col class="w-[76px] sm:w-26" />
 				<col />

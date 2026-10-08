@@ -37,9 +37,12 @@ type videoPairSide struct {
 	Duration int    `json:"duration_sec"`
 }
 
+// videoPairRow's Title labels the row: the shared provider item's title, falling back to
+// the first file's resolved title when the provider gave none.
 type videoPairRow struct {
-	A videoPairSide `json:"a"`
-	B videoPairSide `json:"b"`
+	Title string        `json:"title"`
+	A     videoPairSide `json:"a"`
+	B     videoPairSide `json:"b"`
 }
 
 func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +67,11 @@ func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 		return videoPairSide{ID: id, Title: titles[id], Width: f.Width, Height: f.Height, Duration: f.Duration}
 	}
 	for _, p := range pairs {
-		out = append(out, videoPairRow{A: side(p.A), B: side(p.B)})
+		row := videoPairRow{Title: p.Title, A: side(p.A), B: side(p.B)}
+		if row.Title == "" {
+			row.Title = row.A.Title
+		}
+		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"pairs": out})
 }

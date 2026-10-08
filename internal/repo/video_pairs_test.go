@@ -51,8 +51,12 @@ func TestVideoPairs_Detection(t *testing.T) {
 	matchVideo(t, r, b, "tmdb", "tmdb:1")
 	matchVideo(t, r, other, "otherdb", "tmdb:1") // same id string, different provider
 
-	if got := pairsOf(t, r); len(got) != 1 || got[0] != (repo.VideoPair{A: a, B: b}) {
+	if got := pairsOf(t, r); len(got) != 1 || got[0].A != a || got[0].B != b {
 		t.Fatalf("pairs = %+v, want only {%d %d}", got, a, b)
+	}
+	// The row is labeled with the shared provider item's title (F76).
+	if got := pairsOf(t, r); got[0].Title != "Harbor Lights" {
+		t.Fatalf("pair title = %q, want the provider's title", got[0].Title)
 	}
 
 	if err := r.SoftDelete(ctx, b); err != nil {

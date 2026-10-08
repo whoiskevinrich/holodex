@@ -17,8 +17,11 @@ against option A (F70's per-side cards) and an auto-opening queue.
 
 ### Design calls made here (not in the spec)
 
-1. **The row shows the title once.** Both files resolve the same provider title, so writing it twice
-   is noise. Each side is summarized as `{resolutionBucket} · {formatDuration}`, joined by `↔`.
+1. **The row shows one title: the shared provider item's.** The pair *is* that item, so its title is
+   the one label true of both files. Each file's own resolved title can differ (an undecided title
+   falls back to the file), and those names live in the panel's File row. With no provider title the
+   row falls back to the first file's title. Owner's choice, 2026-10-08, over showing the first file's
+   title or both. Each side is summarized as `{resolutionBucket} · {formatDuration}`, joined by `↔`.
 2. **Keep both is the only verdict in the row**, as `btn-row btn-ghost px-2` (an immediate resolve).
    Keeping one copy needs the facts, so **Keep this one** lives only in the panel, one per column.
    This differs from F70, where Keep separate was the dominant answer and took the accent. Here 19

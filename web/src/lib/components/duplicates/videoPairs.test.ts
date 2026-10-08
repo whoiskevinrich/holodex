@@ -37,6 +37,7 @@ function side(over: Partial<VideoCompareSide> = {}): VideoCompareSide {
 }
 
 const pair = (a: number, b: number): VideoDuplicatePair => ({
+	title: 't',
 	a: { id: a, title: 't', width: 1920, height: 1080, duration_sec: 60 },
 	b: { id: b, title: 't', width: 1920, height: 1080, duration_sec: 60 }
 });

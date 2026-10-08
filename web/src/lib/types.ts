@@ -86,6 +86,9 @@ export interface VideoPairSide {
 }
 
 export interface VideoDuplicatePair {
+	/** The shared provider item's title (both files are that item); the first file's own
+	 *  title when the provider gave none. */
+	title: string;
 	a: VideoPairSide;
 	b: VideoPairSide;
 }

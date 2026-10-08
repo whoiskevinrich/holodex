@@ -45,7 +45,15 @@ WITH winner AS (
        AND e.external_id <> ''
      GROUP BY e.entity_id, e.provider
 )
-SELECT a.vid, b.vid
+SELECT a.vid, b.vid,
+       -- The shared provider item's own title: the one label true of both files (F76).
+       -- min(a.provider) makes SQLite take a.provider/a.ext from that same row.
+       min(a.provider),
+       coalesce((SELECT t.value FROM entity_enrichment t
+                  WHERE t.entity_type = 'video' AND t.entity_id IN (a.vid, b.vid)
+                    AND t.provider = a.provider AND t.external_id = a.ext
+                    AND t.field_key = 'title' AND t.value <> ''
+                  ORDER BY t.fetched_at DESC LIMIT 1), '')
   FROM winner a
   JOIN winner b ON a.provider = b.provider AND a.ext = b.ext AND a.vid < b.vid
  WHERE NOT EXISTS (SELECT 1 FROM entity_keep_separate ks
@@ -57,10 +65,12 @@ SELECT a.vid, b.vid
 // scene (spec RD5).
 const carryExcludedFields = `'edition', 'part'`
 
-// VideoPair is one listed duplicate: the two video ids, low first.
+// VideoPair is one listed duplicate: the two video ids, low first, and the shared provider
+// item's title (” when the provider gave none).
 type VideoPair struct {
-	A int64
-	B int64
+	A     int64
+	B     int64
+	Title string
 }
 
 // VideoFileFacts are the file-level facts the compare panel lines up per side.
@@ -120,10 +130,15 @@ func listVideoPairs(ctx context.Context, q carryQuerier) ([]VideoPair, error) {
 	defer rows.Close()
 	var out []VideoPair
 	for rows.Next() {
-		var p VideoPair
-		if err := rows.Scan(&p.A, &p.B); err != nil {
+		var (
+			p        VideoPair
+			provider string
+		)
+		if err := rows.Scan(&p.A, &p.B, &provider, &p.Title); err != nil {
 			return nil, err
 		}
+		// A title is one value, but the column joins multi-values; keep the first.
+		p.Title, _, _ = strings.Cut(p.Title, enrichMultiSep)
 		out = append(out, p)
 	}
 	return out, rows.Err()

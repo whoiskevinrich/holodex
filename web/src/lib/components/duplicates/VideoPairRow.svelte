@@ -127,7 +127,7 @@
 <div
 	class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-rule px-3 py-2.5 text-sm"
 	role="group"
-	aria-label={`Possible duplicate files: ${pair.a.title}`}
+	aria-label={`Possible duplicate files: ${pair.title}`}
 >
 	<button
 		type="button"
@@ -136,7 +136,7 @@
 		onclick={() => onexpand?.(!open)}
 		aria-expanded={open}
 		aria-controls={videoPanelId(pair)}
-		aria-label={open ? `Hide the comparison for ${pair.a.title}` : `Compare the two files of ${pair.a.title}`}
+		aria-label={open ? `Hide the comparison for ${pair.title}` : `Compare the two files of ${pair.title}`}
 		title={open ? 'Hide comparison' : 'Compare'}
 		class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
 	>
@@ -156,7 +156,7 @@
 	<!-- Same wrap contract as DuplicatePairRow: from `sm` up the title truncates and the
 	     row stays one line; below it the facts wrap under the title. -->
 	<div class="flex min-w-64 flex-1 flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap">
-		<span class="truncate text-ink" title={pair.a.title}>{pair.a.title}</span>
+		<span class="truncate text-ink" title={pair.title}>{pair.title}</span>
 		<span class="shrink-0 text-xs text-muted">{sideSummary(pair.a)} ↔ {sideSummary(pair.b)}</span>
 		<span class="shrink-0 text-xs text-muted">· same provider match</span>
 	</div>
