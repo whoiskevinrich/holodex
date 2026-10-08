@@ -65,9 +65,7 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] After squash-merge: fill "Decided in" sha — `docs/architecture/entity-relationships.md`
-2. [ ] [—] After merge: move HOLODEX-494 to Done (fixed by this epic)
-3. [ ] [—] Should provider-fetched images count as authored (people + studios)? → HOLODEX-548
+1. [ ] [—] Should provider-fetched images count as authored (people + studios)? → HOLODEX-548
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -81,7 +79,7 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
 
 ### 2026-10-08 · reproduced the studio prune data loss; designed the shared orphan sweep
 - skills: architecture, handoff, implement, code-review
-- handoff: Built and green: migration 0059 triggers own the orphan stamp for people/studios/tags, `SweepOrphans` deletes only unauthored orphans past 30 days; every gate settled, PR #463 ready for review. Next: merge, then Up next 1–2.
+- handoff: Merged as dd6ca941 (#463); Decided-in sha filled and HOLODEX-494 closed. Only HOLODEX-548 (provider images as authored?) remains, as its own issue.
 
 ## Dropped — newest first (the reason is the point)
 
