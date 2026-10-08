@@ -2,8 +2,16 @@
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)
 **Builds on**: [Metadata Curation (F30)](metadata-curation-handoff.md) (chips/provenance), [Refresh Metadata (F31)](metadata-refresh-handoff.md) (header cluster, refetch idiom).
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
+
+> **Current control — F56.** The chip row below is no longer always on. Every Tier-2 replace field
+> now mounts **`SourceBadge`** (Title, People and Studio on Video keep their own Tier-1 controls): a collapsed `ProvenanceBadge` at rest that expands into this chip row, where
+> a click or arrow key only *stages* a pick and **Confirm** commits it. `long_text` fields use
+> **`SourceEditModal`** (the same staged-then-Confirm contract, as stacked radio rows in a modal).
+> Presentation: [Two-Tier Field Editing (F56) handoff](two-tier-field-editing-handoff.md). This doc
+> still owns the decision model, the chip vocabulary and RD1–RD5. `SourceSelect`, the always-on
+> auto-committing control described in the original handoff, is no longer mounted anywhere.
 
 > **Refinement — HOLODEX-112 (shipped on top of PR #71).** The original control was three stacked
 > elements: a read-only resolved chip, a segmented `Keep file · Adopt {provider} · Custom` control, and
@@ -56,11 +64,11 @@ write a file per toggle.
 - **Owner gating + refetch-after-mutate** — `activity.effectiveOwner`; reuse `applyMediaDetail`
   (`+page.svelte`) so `resolved[]` reflects the new decision.
 
-`SourceSelect` is now a thin **radiogroup wrapper** around `CurationChip` radios (roving tabindex,
-arrow-key debounce, optimistic selection). It uses **no new tokens** — `border-rule` / `bg-surface-2` /
+The chip row is a **radiogroup** of `CurationChip` radios (roving tabindex), rendered inside
+`SourceBadge`'s expanded state; selection is staged until Confirm. It uses **no new tokens** — `border-rule` / `bg-surface-2` /
 `text-muted` for idle chips, `border-accent` + an accent-filled dot for the selected one, `rounded-full`
 chip shape. The selected chip **stays on `bg-surface-2`** (not a filled `bg-accent`) so it doesn't read
-heavy in Brutalist; selection reads via the **dot + border + `aria-checked`**, never fill alone.
+heavy; selection reads via the **dot + border + `aria-checked`**, never fill alone.
 
 ### RD1, revised — shared chip vocabulary, distinct glyph
 
@@ -120,12 +128,12 @@ there is nothing left to mistake for a second alarm.
 
 ---
 
-## The source-of-truth chip radiogroup (`SourceSelect`)
+## The source-of-truth chip radiogroup (inside `SourceBadge`)
 
 A themed **single-select radiogroup** of `CurationChip` radios. Each chip: `rounded-full border
 px-2 py-0.5 text-xs bg-surface-2`, a leading `● dot` (`h-2 w-2 rounded-full`), the value, and the
 `·provenance` suffix. **Selected** = `border-accent` + an accent-filled dot + `aria-checked` (the chip
-background stays `bg-surface-2` — no filled `bg-accent`, so Brutalist doesn't read heavy). Idle chips
+background stays `bg-surface-2` — no filled `bg-accent`, so it doesn't read heavy). Idle chips
 are `text-muted` → `text-ink` on hover.
 
 | Chip | When present | Selecting it |
@@ -243,10 +251,10 @@ doesn't resize on select).
 
 ## Accessibility Notes
 
-- **`SourceSelect` = `role="radiogroup"`** (`tabindex="-1"`) with `role="radio"` **chips** and
+- **The chip row = `role="radiogroup"`** (`tabindex="-1"`) with `role="radio"` **chips** and
   `aria-checked` on the selected one. **Roving tabindex** (cf. [[feedback-keyboard-list-roving-tabindex]]
   / `EnrichPicker`): the group is one Tab stop landing on the checked chip; **Left/Right (and Up/Down)**
-  move and change selection; selection applies on arrow (debounced) or Space/Enter — native radio semantics.
+  move focus and stage the selection, as do Space/Enter; nothing commits until **Confirm**.
 - `aria-label` per chip names the value + provenance: `Blade Runner, from file`,
   `Blade Runner: Final Cut, from tmdb`, `Set a custom value for {field}` (opener) /
   `{literal}, from manual` (once set). The group has `aria-label="Source of truth for {field label}"`.
@@ -282,7 +290,7 @@ both detail pages — no new component, no resolver change.
 - **Raw enrichment disclosures (media only)** — the foot-of-page audit block is now **one collapsible
   per provider** (`Enrichment data: {p} ({n})`), grouped from `enriched` by `provider`; each has its own
   open/closed flag (`openEnriched[p]`).
-- **Chips are unchanged.** `SourceSelect` already renders one chip per *distinct* matched-provider value
+- **Chips are unchanged.** The chip row already renders one chip per *distinct* matched-provider value
   and folds agreeing providers into a shared `·{p1} + {p2}` chip (see the chip-row rules above). A
   provider only contributes a chip when it is a configured source for that field in
   `metadata-mappings.yaml` — the same rule as one provider; wiring a second provider into a field's
@@ -290,4 +298,4 @@ both detail pages — no new component, no resolver change.
 
 **Deliberately unchanged:** no new visual vocabulary, no new tokens, no writeback/curation change; the
 button group is the same accent/`rounded-theme` shell repeated per provider, wrapping via
-`flex-wrap`. QA all three skins (the button group + folded chips must read in each).
+`flex-wrap`. QA in Cinémathèque (the button group + folded chips must read).

@@ -59,12 +59,12 @@ Numbered, tagged, grouped by tag.
 2. Default: no studio `<img>` on the Studio page, the /studios row or the queue has a computed
    `filter` other than `none`.
 3. Toggling the logo on sets `aria-checked="true"`, gives the `<img>` the class `halo-dark`, and
-   gives it a computed filter of three `drop-shadow`s in that skin's `--logo-plate`:
-   `#e9e0d0` / `#e4ebf8` / `#f0f0f0` for Cinémathèque / Broadcast / Brutalist. It also makes
+   gives it a computed filter of three `drop-shadow`s in `--logo-halo` (the Cinémathèque
+   `--logo-plate`, `#e9e0d0`). It also makes
    `GET /studios/{id}` return `image_halo.logo = ["dark"]`.
 4. The /studios row for the same studio shows the same filter. The icon (not toggled) shows `none`.
-5. With `<html data-mode="light">`, a `halo-dark`-only image shows `none`. Adding `halo-light`
-   makes it glow `rgb(0, 0, 0)`.
+5. An image carrying only `halo-light` (a saved light-mode choice) shows `none`: Cinémathèque is
+   dark, so `.halo-light` deliberately matches nothing.
 6. Visitor view (Owner view off): no switch; the saved halo still renders.
 7. Re-uploading the logo keeps `image_halo.logo`.
 
@@ -73,6 +73,6 @@ Numbered, tagged, grouped by tag.
    halo on for the dark one only, then check that both read well on Cinémathèque.
 9. *(Retired with the custom palette, ADR-115: there is no light look to switch to.)*
 
-**Verified 2026-09-26** (driven browser, AMV testbed, Cinémathèque): 1, 2, 3 (all three skins
-checked by computed style), 4, 5 (via the `data-mode` attribute) and 6. Item 7 is asserted by the
+**Verified 2026-09-26** (driven browser, AMV testbed, Cinémathèque): 1, 2, 3 (by computed style), 4
+and 6. Item 5 was verified against the light mode since retired, so it is open as rewritten. Item 7 is asserted by the
 Go test `TestStudioImageHalo_DefaultOffThenPerModeToggle`. Items 8 and 9 are open.
