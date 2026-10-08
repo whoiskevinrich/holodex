@@ -45,9 +45,9 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
 - [x] spec `write-spec` → `docs/specs/**` — studio-entity RD1, studio-clear non-goal, tag-governance "Unused tags"
 - [x] architecture `architecture` → `docs/architecture/**` — entity-relationships.md "one orphan stamp and one sweep"
 - [~] design `design-handoff` → `docs/design/**` — no UI surface; lists already hide/show orphans as before
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**` — migration 0059 triggers, `repo.SweepOrphans`, `internal/orphansweep`
 - [~] frontend → `web/src/**` — no UI change; job digest renders the new kind generically
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy` — `internal/repo/orphans_test.go`, `internal/orphansweep/sweep_test.go`, testing-strategy.md §F40 + §F38
 - [~] security `security-review` — no auth, access or infrastructure change; owner-gated paths untouched
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -65,13 +65,9 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Migration 0059: `orphaned_at` (+ index) on studios and tags — `internal/db/migrations/`
-2. [ ] [backend] Generalize `personorphan` → `orphansweep` (kind `orphan-sweep`, per-kind `hasAuthoredData`, drop `entity_enrichment`) — `internal/personorphan/`
-3. [ ] [backend] Stamp/clear on studio reconcile, tag detach, rescan, bare tag create, and pre-delete in `HardDelete` — `internal/repo/`
-4. [ ] [testing] Fold the uncommitted repro into sweep tests per kind (pruned / authored survives / shared kept / purge stamps) — `internal/repo/studio_prune_repro_test.go`
-5. [ ] [testing] Update `docs/testing-strategy.md` for the sweep — `docs/testing-strategy.md`
-6. [ ] [—] After squash-merge: fill "Decided in" sha — `docs/architecture/entity-relationships.md`
-7. [ ] [—] After merge: move HOLODEX-494 to Done (fixed by this epic)
+1. [ ] [—] After squash-merge: fill "Decided in" sha — `docs/architecture/entity-relationships.md`
+2. [ ] [—] After merge: move HOLODEX-494 to Done (fixed by this epic)
+3. [ ] [—] Should provider-fetched images count as authored (people + studios)? → HOLODEX-548
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,8 +80,8 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
 -->
 
 ### 2026-10-08 · reproduced the studio prune data loss; designed the shared orphan sweep
-- skills: architecture, handoff, implement
-- handoff: Crossed into build (design [~], no sign-off needed); draft PR #463 open. Start at Up next item 1 (migration 0059).
+- skills: architecture, handoff, implement, code-review
+- handoff: Built and green: migration 0059 triggers own the orphan stamp for people/studios/tags, `SweepOrphans` deletes only unauthored orphans past 30 days; every gate settled, PR #463 ready for review. Next: merge, then Up next 1–2.
 
 ## Dropped — newest first (the reason is the point)
 
@@ -94,3 +90,6 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
      record, so its reason lives here. Shape:
 - [~] [testing] <thing you decided not to do> — dropped 2026-07-29, <why>
 -->
+
+- [~] [backend] Stamp/clear from each Go path that drops a link (incl. pre-delete in `HardDelete`) — dropped 2026-10-08, SQLite triggers on the link tables cover every path, FK cascade included, with no per-path code
+- [~] [backend] Index on `orphaned_at` — dropped 2026-10-08, the daily sweep scans small entity tables; people never had one
