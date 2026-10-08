@@ -18,7 +18,7 @@ export function pairKey(p: DuplicatePair): string {
 
 export const disclosureId = (p: DuplicatePair): string => `dup-disclosure-${pairKey(p)}`;
 export const panelId = (p: DuplicatePair): string => `dup-panel-${pairKey(p)}`;
-export const groupId = (type: EntityKind): string => `dup-group-${type}`;
+export const groupId = (type: EntityKind | 'video'): string => `dup-group-${type}`;
 /** The queue container — the one landing spot that outlives every group (P0-6). */
 export const QUEUE_ID = 'dup-queue';
 

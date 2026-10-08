@@ -162,7 +162,7 @@ There are no new tokens and no hex values.
 | Breakpoint | Changes |
 |---|---|
 | ≥ `sm` | As in panels 1–5 |
-| < `sm` (375 px, panel 6) | The label column narrows to 76 px and the cell padding to `px-1 py-1`. The two file columns stay side by side, and the posters shrink with their column. The row wraps: the facts and reason go to a second line under the title, and Keep both stays on the first line |
+| < `sm` (375 px, panel 6) | The label column narrows to 76 px and the cell padding to `px-1 py-1`. The two file columns stay side by side, and the posters shrink with their column. The row wraps the way the person row does: the facts and reason go under the title, and Keep both drops to its own line below them |
 
 ## Edge cases
 

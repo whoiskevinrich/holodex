@@ -27,21 +27,23 @@ the scene model (HOLODEX-520).
 - [x] architecture `architecture` → `docs/architecture/**` — reopened from `[~]`: the build found a real fork (pairs computed on demand vs stored in the review queue); recorded in `entity-identity.md` "Duplicate videos are computed on demand, not queued"
 - [x] design `design-handoff` → `docs/design/**` — `duplicate-videos-handoff.md` + measured SVG mockup; option B fact table, collapsed default (owner's choices 2026-10-08)
 - [x] backend → `{cmd,internal,providers}/**` — `repo/video_pairs.go` + `api/duplicates_video.go`; 11 repo + 5 API tests, full Go suite green; `/code-review high --fix` applied
-- [ ] frontend → `web/src/**`
+- [/] frontend → `web/src/**` — built and browser-verified on a seeded stress copy (desktop + 375 px); held on the owner's row-title call and the build-vs-mockup comparison
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Videos group, `VideoPairRow`, `VideoComparePanel` per the handoff, against `/owner/duplicates/videos*` — `web/src/lib/components/duplicates/`
-2. [ ] [—] Owner question: should clearing a prefilled edition in "Label as editions" clear it (spec says a blank side is untouched)? — `docs/specs/duplicate-videos.md`
-3. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
-4. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
+1. [ ] [frontend] Owner call: the row shows file A's title only, but undecided titles resolve file-first so copies usually differ — `web/src/lib/components/duplicates/VideoPairRow.svelte`
+2. [ ] [testing] `/testing-strategy` for F76 — `docs/testing-strategy.md`
+3. [ ] [security] `/security-review`: owner-only Trash action + multi-record carry-over + edition joins the clearable allowlist — `internal/api/duplicates_video.go`
+4. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
+5. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
+6. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-08 · session
 - skills: system-design, write-spec, handoff, design-handoff, implement
-- handoff: Backend done in draft PR #465 (pairs computed on demand; keep one with additive carry-over in one transaction; keep both; edition/part labels), tests green; architecture reopened and recorded. Next: the frontend Videos group per the handoff.
+- handoff: Backend, edition clearing (owner call) and the frontend Videos group are in draft PR #465, browser-verified on a seeded fixture copy. Next: the owner's call on the row title (Up next #1), then `/testing-strategy` and `/security-review`.
 
 ## Dropped — newest first (the reason is the point)

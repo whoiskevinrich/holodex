@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -146,10 +146,11 @@ func (h *Handlers) compareVideoDuplicate(w http.ResponseWriter, r *http.Request)
 	side := func(id, other int64) (videoCompareSide, error) {
 		f := facts[id]
 		f.Title = titles[id]
+		folder, name := splitFilePath(f.FilePath)
 		s := videoCompareSide{
 			VideoFileFacts: f,
-			FileName:       filepath.Base(f.FilePath),
-			Folder:         filepath.Dir(f.FilePath),
+			FileName:       name,
+			Folder:         folder,
 			Edition:        h.videoEdition(ctx, id),
 			Part:           parts[id],
 		}
@@ -178,6 +179,17 @@ func (h *Handlers) compareVideoDuplicate(w http.ResponseWriter, r *http.Request)
 		"a":                  sa,
 		"b":                  sb,
 	})
+}
+
+// splitFilePath splits a stored path into its folder and file name on the last separator
+// of either kind, keeping the path's own separators — filepath would rewrite a
+// forward-slash path to backslashes on a Windows host.
+func splitFilePath(p string) (folder, name string) {
+	i := strings.LastIndexAny(p, `/\`)
+	if i < 0 {
+		return "", p
+	}
+	return p[:i], p[i+1:]
 }
 
 // labelSettable reports whether this library's mapping declares fieldKey as a replace
