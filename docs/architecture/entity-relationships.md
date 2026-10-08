@@ -31,19 +31,56 @@ fields, so grouping, navigation and the media detail always read one resolution.
   and the resolved value flows to the file through the ordinary writeback map (`actors → Artist`,
   `studio → Publisher`). A studio entity has no file, but its value lives in the video's `Publisher`
   tag, so studios get the same link-and-write treatment as people.
-- **Pruning differs by kind.** `ReconcileVideoStudios` deletes a studio left with no link in the same
-  transaction. Studios now carry authored aliases, ids, images and decisions, so this may lose data;
-  it is under review as HOLODEX-535. `ReconcileVideoPeople` never deletes; it stamps `people.orphaned_at` (cleared when a
-  link returns), and `SweepOrphanedPeople` (`internal/personorphan`, an observable job) deletes people
-  orphaned longer than `GraceDays` (default 30) unless `personHasAuthoredIdentity` finds an alias
-  (covering merge history), a person image, a decision or a curation row.
+- **Neither reconcile deletes.** A person or studio left with no link is orphan-stamped, not pruned;
+  see the next section.
 
 **Rejected:** links from raw file extraction at scan time — an adopted or curated value would display
 one entity and group under another until the next rescan. **Rejected:** a separate manual-link table —
-every reader would union two tables. **Rejected:** immediate prune for people — a file pulled offline
-for maintenance would destroy curated identity.
+every reader would union two tables.
 
 Decided in [`9ccbdc2f`](https://github.com/whoiskevinrich/holodex/commit/9ccbdc2f).
+
+## People, studios and tags share one orphan stamp and one sweep
+
+An entity is never deleted in the transaction that removes its last video link. People, studios and
+tags each carry an `orphaned_at` column, and one sweep deletes them later under one rule.
+
+- **Stamp.** Triggers on `video_people`, `video_studios` and `video_tags` (migration 0059) own the
+  stamp. A delete that leaves the entity with no link stamps `orphaned_at`, keeping the earliest
+  stamp. An insert clears it. A tag insert stamps a bare tag. No Go path stamps. That covers
+  reconcile, tag attach and detach, rescan, merge, and the FK cascade of a purged video (cascade
+  deletes fire child-table triggers), plus any link path added later.
+- **FTS.** The `people_au`, `studios_au` and `tags_au` name mirrors fire only on `UPDATE OF name`.
+  Unscoped, every stamp would rewrite the FTS entry. The bare-tag stamp would also run before
+  `tags_ai` indexes the new row, which corrupts the index. For the same reason the completeness
+  trigger `cd_tags_au`, which dirties every video, fires only on `name`, `parent_tag_id` and
+  `writeback_enabled`.
+- **Sweep.** `internal/orphansweep` (the generalized `personorphan`, an observable job of kind
+  `orphan-sweep`) runs `SweepOrphans`. It deletes rows orphaned longer than `GraceDays` (default 30)
+  that still have no link, which makes a stale stamp harmless. It skips any row that has authored
+  data, and counts skips. One per-kind predicate (`orphanAuthoredSQL`) defines authored data:
+  - **all three:** an alias (which covers merge history), a keep-separate pair, a field decision, or
+    a curation row
+  - **person:** a person image or a film credit (`film_people_roles`, which would otherwise cascade
+    away)
+  - **studio:** a studio image
+  - **tag:** a category, a parent or child tag, or writeback exclusion
+- **Cleanup.** In the same transaction, the sweep deletes the row's `entity_enrichment` and
+  `identity_review_queue` rows. Both tables are polymorphic and have no trigger, and people and
+  studios can reuse an id, so a stale review pair would attach to a new entity. The FK cascades and
+  the `*_ad_*` triggers handle the rest.
+- **Visibility.** Studio and person lists already hide unlinked rows. `ListTags` lists zero-video
+  tags deliberately, so an orphaned tag stays visible until the sweep deletes it.
+
+**Rejected:** stamping from each Go path that removes a link. There are at least five such paths,
+plus an FK cascade with no Go code at all, and a future path would silently skip the stamp.
+**Rejected:** immediate prune guarded by authored data. A studio or tag that a rescan briefly
+unlinks would lose its id and provider enrichment, and studios and tags would follow a different rule
+from people. **Rejected:** never deleting orphans. Rescan churn would pile up without limit in
+`/tags` and the identity tables. **Rejected:** immediate prune for people. A file pulled offline for
+maintenance would destroy curated identity.
+
+Decided in *pending: HOLODEX-535 squash commit*.
 
 ## A people curation edit relinks inside the curation lock
 

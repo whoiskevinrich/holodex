@@ -685,10 +685,10 @@ in `/security-review`); the internal `adminMode` store/key are **unchanged** (th
 - **API parity**: person decision/curation endpoints mirror the media ones — owner-gated (401/403), 400 bad source/canonical/unmatched-provider, 404 unknown person/field; `manual_value` sanitized on the F30 path. `httptest` over a real repo. *(QA 2.4)*
 - **Frontend** (Vitest + a11y): `f36.ts` helpers gain a `baselineKey` param — `record` chips anchor/fold/select exactly as `file` chips do, and the **default keeps the media page byte-identical** (existing tests untouched); `CurationChip` treats `record` as muted baseline provenance; the rename confirm dialog is focus-trapped, Escape returns focus to the opening chip, and activating a non-record name chip fires **no** decision call; no Write button / out-of-sync pill in the person DOM; 3-skin `[human]` eyeball per QA §4. *(QA 2.8, §3–§4)*
 
-**Studio as an entity (F38, fast-follow ③ / HOLODEX-11, ADR-053)** — the third entity on the decision model; the new axis vs. person is **derived links**: `video_studios` follows the *resolved* `studio` field, not raw extraction. Fully CI-testable, no network. Cardinal invariants: **link-follows-resolved-value (RD1)**, **prune-on-empty**, **RD6 additivity**, and **zero resolver-core diffs**. Maps to the [F38 QA checklist](design/studio-entity-handoff.md#qa-checklist-3-skin).
+**Studio as an entity (F38, fast-follow ③ / HOLODEX-11, ADR-053)** — the third entity on the decision model; the new axis vs. person is **derived links**: `video_studios` follows the *resolved* `studio` field, not raw extraction. Fully CI-testable, no network. Cardinal invariants: **link-follows-resolved-value (RD1)**, **orphan-on-empty** (HOLODEX-535; was prune-on-empty), **RD6 additivity**, and **zero resolver-core diffs**. Maps to the [F38 QA checklist](design/studio-entity-handoff.md#qa-checklist-3-skin).
 - **`studioBaseline`** (`internal/resolver`, pure): `name` from the record, every other field an empty baseline; RD6 additivity (undecided enrichment resolves to the provider value) and the record blank-pin both hold; asserted with **zero resolver-core changes** (`internal/resolver/studio_baseline_test.go`). *(§2.2)*
-- **Derivation matrix — `ReconcileVideoStudios` (repo, sole writer)**: create / idempotent-repeat / replace / empty(blank-pin/soft-delete) each reconcile `video_studios` to exactly the resolved names; a studio shared by two videos is **not** pruned when only one is fixed; a multi-mapped field yields one link per value; empty names dropped (`internal/repo/studios_test.go`). *(derivation matrix + prune-on-empty)*
-- **Derivation via real endpoints (RD1)**: `PUT /media/{id}/fields/studio/decision` adopting a provider **moves** the derived link with no rescan (`GET /studios` reflects it); clearing reverts to the file-first value and **prunes** the adopted studio; `?studio_id=` filters media by the link (`internal/api/studios_test.go`). The relink also fires on video enrich apply/clear, refresh, and scan upsert (best-effort; startup backfill is the one-time catch-up, gated on an empty `video_studios`).
+- **Derivation matrix — `ReconcileVideoStudios` (repo, sole writer)**: create / idempotent-repeat / replace / empty(blank-pin/soft-delete) each reconcile `video_studios` to exactly the resolved names; a studio shared by two videos is **not** orphaned when only one is fixed; a multi-mapped field yields one link per value; empty names dropped; an id-deduped studio cleared from every video is kept and re-linked by the same id (`internal/repo/studios_test.go`). *(derivation matrix + orphan-on-empty)*
+- **Derivation via real endpoints (RD1)**: `PUT /media/{id}/fields/studio/decision` adopting a provider **moves** the derived link with no rescan (`GET /studios` reflects it); clearing reverts to the file-first value and drops the adopted studio from `GET /studios` (orphaned, not deleted); `?studio_id=` filters media by the link (`internal/api/studios_test.go`). The relink also fires on video enrich apply/clear, refresh, and scan upsert (best-effort; startup backfill is the one-time catch-up, gated on an empty `video_studios`).
 - **Studio entity endpoints (RD5)**: `/studios/{id}/fields/{canonical}/decision` + `/curation` mirror the person shapes — `name` → **400** (read-only identity), unknown field → 404, unknown studio → 404, visitor → 401/403; resolved payload carries **no `in_sync`** (studios have no file). Reuse the shared `record` vocabulary (extracted to `record_vocab.go`, exercised by the existing F37 person tests).
 - **Frontend** (verified live, 3 skins): `/studios` list + `/studios/{id}` detail (Details hidden until a field beyond `name` resolves), media-detail studio→entity link (target from `video_studios`, always matches the displayed value), search Studios group, nav link; tokens-only (token-guard clean, tokens react across Cinémathèque/Broadcast/Brutalist). *(§3–§4)*
 
@@ -790,13 +790,21 @@ authored-identity guard**. Maps to the [F40 design handoff](design/person-media-
   linked person whose file spelling was an **alias** is written as the **canonical** name, and the re-scan
   still resolves to the same entity via `resolveOrCreatePerson` (the property that keeps the round-trip
   stable). Reuses the F28 extractor round-trip fixture (`Artist="Audrey Tautou, Mathieu Kassovitz"` → 2).
-- **Orphan grace + sweep + authored-identity guard (P0-2/P0-9/RD8 — person only)**: clearing a person's
-  last link **stamps `orphaned_at`** (does **not** delete); a link returning **before** the sweep clears the
-  stamp. The sweep deletes `orphaned_at < now()−30d` **only** for people with **no authored identity** — an
-  orphaned person with an alias / merge history / curated headshot / manual field-edit or decision is
-  **kept and reported** past 40 days; a plain orphan is deleted past 30 days, kept before. **Studio keeps
-  immediate prune** (the F38 prune-on-empty test is unchanged — the grace is person-only). Enumerate the
-  "authored identity" predicate once and assert the sweep and its tests agree (spec Q7).
+- **Orphan grace + sweep + authored-data guard (P0-2/P0-9/RD8; people, studios and tags since
+  HOLODEX-535)**: losing an entity's last link **stamps `orphaned_at`** (does **not** delete); a link
+  returning **before** the sweep clears the stamp. The sweep deletes `orphaned_at < now()−30d` **only**
+  for entities with no link and **no authored data**; an authored orphan is **kept and counted as
+  skipped**. The predicate is enumerated once (`orphanAuthoredSQL`, `internal/repo/orphans.go`), and
+  `internal/repo/orphans_test.go` covers it. Cases: studio stamp / fresh-orphan kept / relink clears /
+  aged unauthored deleted with its `entity_enrichment`; aliased studio survives (the HOLODEX-535 repro);
+  a shared studio is never stamped; a stale stamp on a linked entity is never swept; tag detach stamps
+  and sweeps; a bare tag is stamped at creation and stays searchable (FTS untouched by the stamp); a tag
+  with an alias / category / parent / child / writeback exclusion survives; a purge cascade stamps
+  people, studios and tags; an aliased person survives while a plain one is swept; a film-credited person
+  survives (the credit would cascade away); a keep-separate tag survives while a review-queued one is
+  swept with its queue pair; a tag's stamp dirties no other video's completeness. The job wrapper
+  (`internal/orphansweep/sweep_test.go`) records `orphan-sweep` runs with counts, stays quiet when
+  nothing was due, and records errors.
 - **Homonym safety (F23, cardinal)**: linking/deriving a person by a name that collides with a *different*
   real person **never auto-merges** — `resolveOrCreatePerson` name routing is reused, so two same-name people
   stay distinct (the existing F23 collision tests cover the seam; the picker surfaces disambiguation, it does
@@ -3667,8 +3675,8 @@ that **deletes a replace field's tag from a file**, so most of the weight sits a
     and count by one.
   - A re-scan of the same file leaves it cleared.
   - `DELETE` restores `Acme` and the link.
-  - Prune-on-empty: a studio whose only video is cleared is gone from `/studios`. This pins today's
-    ADR-053 behaviour and is **expected**, not a bug (HOLODEX-494).
+  - Orphan-on-empty: a studio whose only video is cleared is gone from `/studios`, but kept and
+    orphan-stamped for the sweep (HOLODEX-535, which resolved HOLODEX-494).
 - **`film_studio_cascade_test.go`, scoped cascade clear (R5).**
   - Film with parts 1–2 on `Acme` and part 3 on `Beta`. Clearing with `studio_id=Acme`:
     - clears parts 1–2 and leaves part 3's decision and link untouched;
@@ -3774,8 +3782,8 @@ a replace field over `Publisher`, `Label`):
 ### 22.8 Standing gaps
 
 - The chip, focus order and busy state are live-QA only (no component harness, HOLODEX-395).
-- Prune-on-empty is pinned as *expected* behaviour here. HOLODEX-494 may reverse it, and then the
-  §22.3 prune assertion flips.
+- A cleared studio leaves `/studios` but is not deleted; the sweep, not the clear, decides deletion
+  (HOLODEX-535, `internal/repo/orphans_test.go`).
 - A revert of a clear rewrites the old value (works today). A revert of an *added* tag is still
   skipped (HOLODEX-495).
 

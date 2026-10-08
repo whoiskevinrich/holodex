@@ -32,8 +32,8 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
 	"holodex/internal/model"
+	"holodex/internal/orphansweep"
 	"holodex/internal/personimage"
-	"holodex/internal/personorphan"
 	"holodex/internal/purge"
 	"holodex/internal/refresh"
 	"holodex/internal/repo"
@@ -422,7 +422,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// Person orphan sweep (F40, ADR-072 §4/P0-9): a daily ticker that deletes people
 	// orphaned (zero video links) for more than the grace period, skipping anyone
 	// carrying authored identity (alias/curated image/manual decision or curation).
-	orphanSweeper := personorphan.New(repository, personorphan.Config{}, log)
+	orphanSweeper := orphansweep.New(repository, orphansweep.Config{}, log)
 
 	// Owner gate (F21.7, ADR-030): empty ADMIN_TOKEN keeps the single-user
 	// zero-config default; on a non-loopback bind that means the admin surface is

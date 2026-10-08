@@ -501,21 +501,21 @@ const (
 // Job kinds and statuses recorded in job_runs (F21.3, ADR-028). Kind is
 // extensible; scan is the only producer today, with enrichment (F22) the next.
 const (
-	JobKindScan              = "scan"
-	JobKindEnrich            = "enrich"
-	JobKindPurge             = "purge"               // grace-period hard-delete sweep (F24, ADR-037)
-	JobKindRefresh           = "refresh"             // per-item forced re-extract + re-enrich (F31, ADR-047)
-	JobKindWriteback         = "writeback"           // queued batch metadata write (F30, ADR-048)
-	JobKindStudioBackfill    = "studio-backfill"     // one-time video→studio link derivation (F38, ADR-053)
-	JobKindIdentityBackfill  = "identity-backfill"   // one-time near-miss review-queue seed (F43, ADR-061)
-	JobKindExtraction        = "extraction"          // library-wide filename extraction pass (F48.5b, ADR-067)
-	JobKindPersonBackfill    = "person-backfill"     // one-time video→person link derivation (F40, ADR-072)
-	JobKindPersonOrphanSweep = "person-orphan-sweep" // periodic unauthored-orphan prune (F40, ADR-072)
-	JobKindAliasBackfill     = "alias-backfill"      // one-time enrichment→spine alias promotion (F58, ADR-088)
-	JobKindEnrichSweep       = "enrich-sweep"        // owner-triggered refresh of every person/studio (F66, ADR-103)
-	JobKindSharedIDSweep     = "shared-id-sweep"     // every-boot shared-provider-id duplicate reconciliation (F71, ADR-107)
-	JobStatusOK              = "success"
-	JobStatusErr             = "error"
+	JobKindScan             = "scan"
+	JobKindEnrich           = "enrich"
+	JobKindPurge            = "purge"             // grace-period hard-delete sweep (F24, ADR-037)
+	JobKindRefresh          = "refresh"           // per-item forced re-extract + re-enrich (F31, ADR-047)
+	JobKindWriteback        = "writeback"         // queued batch metadata write (F30, ADR-048)
+	JobKindStudioBackfill   = "studio-backfill"   // one-time video→studio link derivation (F38, ADR-053)
+	JobKindIdentityBackfill = "identity-backfill" // one-time near-miss review-queue seed (F43, ADR-061)
+	JobKindExtraction       = "extraction"        // library-wide filename extraction pass (F48.5b, ADR-067)
+	JobKindPersonBackfill   = "person-backfill"   // one-time video→person link derivation (F40, ADR-072)
+	JobKindOrphanSweep      = "orphan-sweep"      // periodic unauthored-orphan prune: people, studios, tags (HOLODEX-535)
+	JobKindAliasBackfill    = "alias-backfill"    // one-time enrichment→spine alias promotion (F58, ADR-088)
+	JobKindEnrichSweep      = "enrich-sweep"      // owner-triggered refresh of every person/studio (F66, ADR-103)
+	JobKindSharedIDSweep    = "shared-id-sweep"   // every-boot shared-provider-id duplicate reconciliation (F71, ADR-107)
+	JobStatusOK             = "success"
+	JobStatusErr            = "error"
 )
 
 // Enrichment entity types stored in entity_enrichment (F22, ADR-033). Tag is not
