@@ -227,6 +227,20 @@ func TestVideoDuplicates_LabelClearsPrefilledEdition(t *testing.T) {
 	}
 }
 
+// F76 RD9 admitted edition to the clearable allowlist, so the media page's decision API
+// takes an explicit clear on it too (title stays refused).
+func TestVideoDuplicates_EditionClearableEverywhere(t *testing.T) {
+	srv, r := videoDupServer(t)
+	a, _ := seedMatchedPair(t, r, "six")
+	url := func(c string) string { return fmt.Sprintf("%s/api/v1/media/%d/fields/%s/decision", srv.URL, a, c) }
+	if code := sendDecision(t, http.MethodPut, url("edition"), "tok", map[string]any{"source": "manual", "clear": true}); code != http.StatusNoContent {
+		t.Fatalf("clear edition = %d, want 204", code)
+	}
+	if code := sendDecision(t, http.MethodPut, url("title"), "tok", map[string]any{"source": "manual", "clear": true}); code != http.StatusBadRequest {
+		t.Fatalf("clear title = %d, want 400 (identity field)", code)
+	}
+}
+
 // A library whose mapping doesn't declare edition can't label editions.
 func TestVideoDuplicates_LabelNotSettable(t *testing.T) {
 	srv, r := identityServer(t, "tok")
