@@ -6,6 +6,7 @@ studio, tag and film lanes; first slice of the scene model ([HOLODEX-520](https:
 **Owner**: Project owner
 **Date**: 2026-10-08
 **Jira**: [HOLODEX-521](https://whoiskevinrich.atlassian.net/browse/HOLODEX-521)
+**Design**: [handoff](../design/duplicate-videos-handoff.md) · [mockup](../design/duplicate-videos-mockup.svg)
 **Feature block**: **F76** — two files in the library that are matched to the **same provider
 item** are flagged as a possible duplicate. The owner compares them side by side and either
 **keeps one** (the other goes to Trash, and the owner's own work on it moves to the kept copy),
@@ -201,17 +202,17 @@ groups, and whether a pair starts expanded are for the design handoff.
 No hard deadline. Routing per `CLAUDE.md`:
 
 1. Spec (this document).
-2. `/design-handoff` for the Videos lane, the compare view, the keep-one confirm and the label actions.
+2. `/design-handoff`: done 2026-10-08, [duplicate-videos-handoff.md](../design/duplicate-videos-handoff.md).
 3. `/implement`: design sign-off and the draft PR.
 4. Build.
 5. `/testing-strategy`.
 6. `/security-review`: an owner-only surface, with a new destructive action (Trash) and a multi-record carry-over.
 7. `/code-review high --fix`.
 
-**Architecture:** likely no technology fork. The pairs ride the existing duplicate review queue,
-and nothing new is extracted from files in v1. The build PR records the queue's new video lane in
-[`entity-identity.md`](../architecture/entity-identity.md). If that turns out to be no fork at
-all, the worklog records `[~] architecture — no technology fork`.
+**Architecture:** no technology fork. The pairs are a new producer on the existing duplicate review
+queue, and nothing new is extracted from files in v1. The build PR adds that producer to the
+producer list in [`entity-identity.md`](../architecture/entity-identity.md) so the topic doc stays
+accurate.
 
 **Dependency:** [HOLODEX-457](https://whoiskevinrich.atlassian.net/browse/HOLODEX-457) plans to
 re-home the per-file provider match record that this detector reads. Whichever lands second keeps

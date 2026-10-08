@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 2070" width="720" height="2070" role="img" aria-labelledby="t d">
+<title id="t">Duplicate videos (F76) — Videos group, fact-table compare panel, keep-one confirm, edition and part labeling, mobile</title>
+<desc id="d">Seven panels in the Cinémathèque skin. 1: the Videos group on the owner Duplicates page, collapsed, three pair rows each showing the shared title once, a resolution and duration summary per side, "same provider match" and a Keep both button. 2: an expanded pair as one fact table with two posters on top and a column per file: File, Folder, Resolution, Duration, File size, Video codec, Bitrate, Container, Your work, then a Keep this one button and an Open link per column; the footer has Label as editions, Label as parts and Keep both. 3: the Move the other copy to Trash confirm dialog listing what moves to the kept copy. 4: label-as-editions editing state with edition inputs in an Edition row and a validation error. 5: label-as-parts editing state with an error for equal part numbers. 6: the expanded table at 375 px, still side by side. 7: the panel's loading and load-failure states.</desc>
+<style>
+text{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+.serif{font-family:Georgia,"Times New Roman",serif}
+.mono{font-family:ui-monospace,"SFMono-Regular",Consolas,monospace}
+.ink{fill:#f3ece1}.muted{fill:#9b9082}.accent{fill:#e8a33d}.warn{fill:#e2603f}.aink{fill:#1a1206}.wink{fill:#170e08}
+.s10{font-size:10px}.s12{font-size:12px}.s14{font-size:14px}.s18{font-size:18px}
+.b5{font-weight:500}.b6{font-weight:600}
+.lab{font-size:12px;letter-spacing:.6px;fill:#9b9082}
+.ttl{font-size:12px;font-weight:600;fill:#2c2c2a}
+.cap{font-size:11px;fill:#5f5e5a}
+</style>
+<rect width="720" height="2070" fill="#ffffff"/>
+
+<!-- 1 · collapsed group -->
+<text class="ttl" x="16" y="22">1 · Videos group, collapsed — one row per pair, one panel open at a time</text>
+<rect x="16" y="32" width="688" height="214" rx="2" fill="#0c0a09"/>
+<rect x="28" y="44" width="664" height="190" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text class="lab" x="40" y="68">VIDEOS · 21</text>
+<text class="muted s12" x="40" y="86">Files matched to the same provider item. Keep one, keep both, or label them as editions or parts.</text>
+<line x1="28" y1="98" x2="692" y2="98" stroke="#2a2622"/>
+<rect x="40" y="106" width="28" height="28" rx="2" fill="none" stroke="#9b9082" stroke-dasharray="2 2"/>
+<path d="M48 117l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text class="ink s14" x="80" y="125">Harbor Lights</text>
+<text class="muted s12" x="178" y="125">4K · 34:14 ↔ FHD · 34:12</text>
+<text class="muted s12" x="328" y="125">· same provider match</text>
+<rect x="607" y="108" width="73" height="24" rx="2" fill="none" stroke="#2a2622"/>
+<text class="muted s12" x="615" y="124">Keep both</text>
+<line x1="28" y1="142" x2="692" y2="142" stroke="#2a2622"/>
+<rect x="40" y="150" width="28" height="28" rx="2" fill="none" stroke="#9b9082" stroke-dasharray="2 2"/>
+<path d="M48 161l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text class="ink s14" x="80" y="169">A very long scene title that has t…</text>
+<text class="muted s12" x="306" y="169">FHD · 18:02 ↔ FHD · 41:30</text>
+<text class="muted s12" x="456" y="169">· same provider match</text>
+<rect x="607" y="152" width="73" height="24" rx="2" fill="none" stroke="#2a2622"/>
+<text class="muted s12" x="615" y="168">Keep both</text>
+<line x1="28" y1="186" x2="692" y2="186" stroke="#2a2622"/>
+<rect x="40" y="194" width="28" height="28" rx="2" fill="none" stroke="#9b9082" stroke-dasharray="2 2"/>
+<path d="M48 205l6 6 6-6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text class="ink s14" x="80" y="213">Night Market</text>
+<text class="muted s12" x="172" y="213">HD · 52:40 ↔ HD · 1:04:05</text>
+<text class="muted s12" x="328" y="213">· same provider match</text>
+<rect x="607" y="196" width="73" height="24" rx="2" fill="none" stroke="#2a2622"/>
+<text class="muted s12" x="615" y="212">Keep both</text>
+<text class="cap" x="16" y="262">The title appears once: both files carry the same provider title. Each side shows its resolution bucket and duration. The title truncates first;</text>
+<text class="cap" x="16" y="276">the facts and the reason never wrap. Keep both is the only verdict in the row (btn-row btn-ghost px-2): keeping one copy needs the facts.</text>
+
+<!-- 2 · expanded fact table -->
+<text class="ttl" x="16" y="310">2 · Expanded — one fact table, the two files as its columns</text>
+<rect x="16" y="320" width="688" height="600" rx="2" fill="#0c0a09"/>
+<rect x="28" y="332" width="664" height="576" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text class="lab" x="40" y="356">VIDEOS · 21</text>
+<line x1="28" y1="366" x2="692" y2="366" stroke="#2a2622"/>
+<rect x="40" y="374" width="28" height="28" rx="2" fill="none" stroke="#9b9082" stroke-dasharray="2 2"/>
+<path d="M48 391l6 -6 6 6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text class="ink s14" x="80" y="393">Harbor Lights</text>
+<text class="muted s12" x="178" y="393">4K · 34:14 ↔ FHD · 34:12</text>
+<text class="muted s12" x="328" y="393">· same provider match</text>
+<rect x="607" y="376" width="73" height="24" rx="2" fill="none" stroke="#2a2622"/>
+<text class="muted s12" x="615" y="392">Keep both</text>
+<rect x="29" y="410" width="662" height="497" fill="#181310"/>
+<line x1="28" y1="410" x2="692" y2="410" stroke="#2a2622"/>
+<rect x="152" y="422" width="252" height="142" rx="2" fill="#3a332c"/>
+<rect x="158" y="428" width="24" height="16" rx="2" fill="#e8a33d"/><text class="aink s10 b6" x="163" y="440">4K</text>
+<rect x="356" y="542" width="42" height="18" rx="2" fill="#000" fill-opacity=".7"/><text class="ink s12" x="362" y="555">34:14</text>
+<rect x="420" y="422" width="252" height="142" rx="2" fill="#4a4038"/>
+<rect x="426" y="428" width="32" height="16" rx="2" fill="#e8a33d"/><text class="aink s10 b6" x="431" y="440">FHD</text>
+<rect x="624" y="542" width="42" height="18" rx="2" fill="#000" fill-opacity=".7"/><text class="ink s12" x="630" y="555">34:12</text>
+<g>
+<line x1="40" y1="572" x2="680" y2="572" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="590">File</text><text class="ink s14" x="152" y="591">Harbor Lights (2019) 2160p.mkv</text><text class="ink s14" x="420" y="591">harbor_lights_1080p_alt_sour…</text>
+<line x1="40" y1="602" x2="680" y2="602" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="619">Folder</text><text class="muted s12" x="152" y="619">/media/scenes/Studio A/</text><text class="muted s12" x="420" y="619">/media/inbox/</text>
+<line x1="40" y1="628" x2="680" y2="628" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="645">Resolution</text><text class="ink s12" x="152" y="645">4K · 3840×2160</text><text class="ink s12" x="420" y="645">FHD · 1920×1080</text>
+<line x1="40" y1="654" x2="680" y2="654" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="671">Duration</text><text class="ink s12" x="152" y="671">34:14</text><text class="ink s12" x="420" y="671">34:12</text>
+<line x1="40" y1="680" x2="680" y2="680" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="697">File size</text><text class="ink s12" x="152" y="697">6.2 GB</text><text class="ink s12" x="420" y="697">1.4 GB</text>
+<line x1="40" y1="706" x2="680" y2="706" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="723">Video codec</text><text class="ink s12" x="152" y="723">hevc</text><text class="ink s12" x="420" y="723">h264</text>
+<line x1="40" y1="732" x2="680" y2="732" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="749">Bitrate</text><text class="ink s12" x="152" y="749">24.1 Mbps</text><text class="ink s12" x="420" y="749">5.5 Mbps</text>
+<line x1="40" y1="758" x2="680" y2="758" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="775">Container</text><text class="ink s12" x="152" y="775">mkv</text><text class="ink s12" x="420" y="775">mp4</text>
+<line x1="40" y1="784" x2="680" y2="784" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="801">Your work</text><text class="ink s12" x="152" y="801">2 playlists · film link · 3 edits</text>
+<line x1="40" y1="810" x2="680" y2="810" stroke="#2a2622"/>
+<rect x="152" y="818" width="98" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="162" y="834">Keep this one</text>
+<text class="accent s12" x="262" y="834">Open ↗</text>
+<rect x="420" y="818" width="98" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="430" y="834">Keep this one</text>
+<text class="accent s12" x="530" y="834">Open ↗</text>
+</g>
+<line x1="40" y1="854" x2="680" y2="854" stroke="#2a2622"/>
+<text class="muted s12" x="394" y="882">Label as editions…</text>
+<text class="muted s12" x="510" y="882">Label as parts…</text>
+<rect x="607" y="866" width="73" height="24" rx="2" fill="none" stroke="#2a2622"/>
+<text class="muted s12" x="615" y="882">Keep both</text>
+<text class="cap" x="16" y="938">A fact row appears when either side has a value; a side without one leaves its cell blank, so rows never shift. Labels and formats are</text>
+<text class="cap" x="16" y="952">the media page File section's (formatDuration, formatBytes, formatBitrate, resolutionBucket). Edition and Part rows appear only when set.</text>
+<text class="cap" x="16" y="966">No "better" marker (spec P1-3). Open ↗ opens the media page in a new tab, so the queue keeps its place.</text>
+
+<!-- 3 · confirm -->
+<text class="ttl" x="16" y="1000">3 · Keep this one → confirm (the existing ConfirmDialog; here keeping the FHD copy)</text>
+<rect x="16" y="1010" width="688" height="300" rx="2" fill="#0c0a09"/>
+<rect x="136" y="1030" width="448" height="262" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text class="serif ink s18 b6" x="152" y="1060">Move the other copy to Trash?</text>
+<text class="ink s14" x="152" y="1088"><tspan class="b6">Harbor Lights (2019) 2160p.mkv</tspan> (4K) will be hidden from</text>
+<text class="ink s14" x="152" y="1108">your library and permanently deleted in 30 days. You can</text>
+<text class="ink s14" x="152" y="1128">restore it from Trash until then.</text>
+<text class="ink s14" x="152" y="1156">Moving to the copy you keep:</text>
+<text class="muted s14" x="164" y="1176">2 playlist places</text>
+<text class="muted s14" x="164" y="1196">Film link — Harbor Lights (2019), scene 3</text>
+<text class="muted s14" x="164" y="1216">3 field edits</text>
+<circle cx="157" cy="1171" r="1.5" fill="#9b9082"/><circle cx="157" cy="1191" r="1.5" fill="#9b9082"/><circle cx="157" cy="1211" r="1.5" fill="#9b9082"/>
+<rect x="376" y="1244" width="70" height="32" rx="2" fill="none" stroke="#2a2622"/><text class="ink s14" x="389" y="1265">Cancel</text>
+<rect x="454" y="1244" width="114" height="32" rx="2" fill="#e2603f"/><text class="wink s14 b6" x="466" y="1265">Move to Trash</text>
+<text class="cap" x="16" y="1328">Names the copy going to Trash by file name and resolution (the titles are identical). The list holds only what will actually move: an edit the</text>
+<text class="cap" x="16" y="1342">kept copy already has stays its own and isn't counted. Nothing to move → the list becomes "It carries no playlists, film link or edits of its own."</text>
+<text class="cap" x="16" y="1356">Move to Trash → "Working…" while busy; a failure shows under the buttons and nothing changes (spec P0-5).</text>
+
+<!-- 4 · editions -->
+<text class="ttl" x="16" y="1390">4 · Label as editions… — the Edition row becomes the media page's edition input</text>
+<rect x="16" y="1400" width="688" height="150" rx="2" fill="#0c0a09"/>
+<rect x="28" y="1412" width="664" height="126" fill="#181310" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="1440">File</text><text class="ink s14" x="152" y="1441">Harbor Lights (2019) 2160p.mkv</text><text class="ink s14" x="420" y="1441">harbor_lights_1080p_alt_sour…</text>
+<line x1="40" y1="1452" x2="680" y2="1452" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="1474">Edition</text>
+<rect x="152" y="1460" width="160" height="22" rx="11" fill="#0c0a09" stroke="#e8a33d"/><text class="ink s12" x="160" y="1475">Director's Cut</text>
+<rect x="420" y="1460" width="160" height="22" rx="11" fill="#0c0a09" stroke="#e8a33d"/><text class="muted s12" x="428" y="1475">Edition</text>
+<line x1="40" y1="1494" x2="680" y2="1494" stroke="#2a2622"/>
+<text class="warn s12" x="40" y="1522">Give at least one file an edition.</text>
+<text class="muted s12" x="530" y="1522">Cancel</text>
+<rect x="580" y="1506" width="100" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="592" y="1522">Save editions</text>
+<text class="cap" x="16" y="1568">Prefilled with each file's current edition. One label is enough ("Director's Cut" against an unlabeled original). Enter in either input saves;</text>
+<text class="cap" x="16" y="1582">Escape or Cancel restores the panel. Saving sets both and resolves the pair as keep both. The action is hidden when edition isn't settable.</text>
+
+<!-- 5 · parts -->
+<text class="ttl" x="16" y="1616">5 · Label as parts… — numeric part inputs; the two must differ</text>
+<rect x="16" y="1626" width="688" height="150" rx="2" fill="#0c0a09"/>
+<rect x="28" y="1638" width="664" height="126" fill="#181310" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="1666">File</text><text class="ink s14" x="152" y="1667">Night Market pt1.mp4</text><text class="ink s14" x="420" y="1667">Night Market pt2.mp4</text>
+<line x1="40" y1="1678" x2="680" y2="1678" stroke="#2a2622"/>
+<text class="muted s12" x="48" y="1700">Part</text>
+<rect x="152" y="1686" width="112" height="22" rx="11" fill="#0c0a09" stroke="#e8a33d"/><text class="ink s12" x="160" y="1701">1</text>
+<rect x="420" y="1686" width="112" height="22" rx="11" fill="#0c0a09" stroke="#e8a33d"/><text class="ink s12" x="428" y="1701">1</text>
+<line x1="40" y1="1720" x2="680" y2="1720" stroke="#2a2622"/>
+<text class="warn s12" x="40" y="1748">The two files need different part numbers.</text>
+<text class="muted s12" x="544" y="1748">Cancel</text>
+<rect x="594" y="1732" width="86" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="606" y="1748">Save parts</text>
+<text class="cap" x="16" y="1794">Placeholder "Part number", inputmode numeric, prefilled when set. Both are required and must differ. Saving resolves the pair as keep both.</text>
+
+<!-- 6 · mobile -->
+<text class="ttl" x="16" y="1828">6 · 375 px — the table keeps both files side by side</text>
+<rect x="16" y="1838" width="375" height="216" rx="2" fill="#0c0a09"/>
+<rect x="24" y="1846" width="359" height="200" fill="#181310" stroke="#2a2622"/>
+<rect x="112" y="1854" width="126" height="71" rx="2" fill="#3a332c"/>
+<rect x="116" y="1858" width="24" height="16" rx="2" fill="#e8a33d"/><text class="aink s10 b6" x="121" y="1870">4K</text>
+<rect x="246" y="1854" width="126" height="71" rx="2" fill="#4a4038"/>
+<rect x="250" y="1858" width="32" height="16" rx="2" fill="#e8a33d"/><text class="aink s10 b6" x="255" y="1870">FHD</text>
+<line x1="32" y1="1932" x2="375" y2="1932" stroke="#2a2622"/>
+<text class="muted s12" x="36" y="1948">File</text><text class="ink s12" x="112" y="1948">Harbor Lights (2…</text><text class="ink s12" x="246" y="1948">harbor_lights_10…</text>
+<line x1="32" y1="1956" x2="375" y2="1956" stroke="#2a2622"/>
+<text class="muted s12" x="36" y="1972">Resolution</text><text class="ink s12" x="112" y="1972">4K · 3840×2160</text><text class="ink s12" x="246" y="1972">FHD · 1920×1080</text>
+<line x1="32" y1="1980" x2="375" y2="1980" stroke="#2a2622"/>
+<text class="muted s12" x="36" y="1996">Duration</text><text class="ink s12" x="112" y="1996">34:14</text><text class="ink s12" x="246" y="1996">34:12</text>
+<line x1="32" y1="2004" x2="375" y2="2004" stroke="#2a2622"/>
+<rect x="112" y="2012" width="94" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="120" y="2028">Keep this one</text>
+<rect x="246" y="2012" width="94" height="24" rx="12" fill="none" stroke="#e8a33d"/><text class="accent s12 b5" x="254" y="2028">Keep this one</text>
+
+<!-- 7 · states -->
+<text class="ttl" x="410" y="1828">7 · Panel states</text>
+<rect x="410" y="1838" width="294" height="60" rx="2" fill="#181310" stroke="#2a2622"/>
+<text class="muted s14" x="526" y="1873">Loading…</text>
+<rect x="410" y="1908" width="294" height="60" rx="2" fill="#181310" stroke="#2a2622"/>
+<text class="warn s12" x="422" y="1942">Couldn't load these files.</text>
+<text class="muted s12" x="580" y="1942">Retry</text>
+<text class="cap" x="410" y="1990">Keep both stays usable in the row while the</text>
+<text class="cap" x="410" y="2004">panel loads or fails: the row owns the verdicts.</text>
+<text class="cap" x="16" y="2064">Folder, Video codec, Bitrate, Container and Your work rows continue below the fold at 375 px; the footer's three actions fit one line.</text>
+</svg>
