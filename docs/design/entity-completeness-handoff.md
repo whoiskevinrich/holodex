@@ -2,7 +2,7 @@
 
 **Spec**: [entity-completeness-score.md](../specs/entity-completeness-score.md)
 **ADR**: [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) — facet criticality, `facet_not_applicable` table, compute-on-read scoring
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art**: `owner/extraction` + `ExtractionQueueRow.svelte` (HOLODEX-199) — reuses the "individual apply only, no bulk" idiom and the `tier: 'conflict' | 'weak' | null` badge vocabulary. Does **not** reuse the component itself: extraction groups rows by *video* with heterogeneous per-field editors (entity chips vs. scalar diffs); this queue groups by *facet* with a uniform row shape (apply / search / upload). Forcing one shared component across both would mean a wide union-typed prop surface for two genuinely different interaction models — the spec's own Frontend section calls this out explicitly ("visual language, not shared code").
 **Depends on**: F55.1–4 (registry criticality + tri-state resolution + score/actionability compute) and F55.10 (not-applicable mutation) — items #2–3 in the flightplan's Up next, not yet built. This handoff specs the UI to build against once that backend work lands; it does not block starting frontend scaffolding in parallel (empty/loading states don't need real data).
 **Surfaces**:
@@ -240,7 +240,7 @@ button roles.
 ## 8. Visual reference
 
 See the rendered mockup delivered alongside this handoff (Cinémathèque skin, both surfaces). Real
-token values used (Cinémathèque, for reference — QA all three skins before merging per § 10):
+token values used (Cinémathèque, for reference — QA in Cinémathèque before merging per § 10):
 `--surface:#15110e`, `--surface-2:#181310`, `--rule:#2a2622`, `--ink:#f3ece1`, `--muted:#9b9082`,
 `--accent:#e8a33d`, `--accent-ink:#1a1206`, `--warn:#e2603f`, `font-display: Fraunces Variable`.
 
@@ -264,9 +264,8 @@ Included here only for completeness of the design gate — this is pure reuse, n
 
 ## 10. QA gate
 
-Per `.claude/rules/frontend-theming.md`: render and eyeball **Cinémathèque, Broadcast, and
-Brutalist** for every state in § 5 before merging — loading/error/empty on the queue, and
-populated/fully-complete on the panel, in all three skins. `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` must stay empty for the new files. A dedicated QA
+Per `.claude/rules/frontend-theming.md`: render and eyeball **Cinémathèque** for every state in § 5 before
+merging — loading/error/empty on the queue, and populated/fully-complete on the panel. `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` must stay empty for the new files. A dedicated QA
 checklist doc (following this repo's numbered-`section.item`, `[smoke]`/`[agent]`/`[human]`-tagged
 convention) can be authored alongside frontend implementation or as part of the testing-strategy
 gate (flightplan item #7) — not required to land with this handoff.

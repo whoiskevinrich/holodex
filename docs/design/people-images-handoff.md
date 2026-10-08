@@ -3,7 +3,7 @@
 **Status**: Proposed
 **Date**: 2026-06-16
 **Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/archive/ADR-038-person-images.md) · **System pattern**: [people-images-design-system.md](people-images-design-system.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Stack: SvelteKit SPA + Tailwind v4 (CSS-first, `@theme inline`). All values below are **token
 > references**, never literals. "Owner" = the ADR-030 capability flag; non-owners never see mutation UI.
@@ -16,7 +16,7 @@ Give people faces. Four image **roles** per person — `headshot` (1:1), `banner
 and a free-form `extra` gallery — render across three surfaces (people list, person page, video page).
 Empty roles fall back to a **themed + gendered placeholder** (never a broken-image box). The owner can
 upload, replace, delete, reorder gallery extras, and **promote** a gallery extra into a core slot with a
-zoom/crop step. Everything is built on the shared `.portrait-frame` hook class so skins own the look.
+zoom/crop step. Everything is built on the shared `.portrait-frame` hook class so the look lives in one place.
 
 ## Surfaces & layout
 
@@ -58,16 +58,15 @@ Top-to-bottom:
 | Token (utility) | Usage |
 |---|---|
 | `--surface-2` (`bg-surface-2`) | Image well background / placeholder field |
-| `--rule` (`border-rule`) | Frame border (visible in mono skins) |
-| `--radius` (`rounded-theme`) | Frame corners (0 on Broadcast/Brutalist) |
+| `--rule` (`border-rule`) | Frame border |
+| `--radius` (`rounded-theme`) | Frame corners |
 | `--ink` (`text-ink`) | Person name |
 | `--muted` (`text-muted`) | Counts, placeholder glyph/label, role captions |
 | `--accent` (`bg-accent`/`text-accent`/`text-accent-ink`) | Focus/hover ring, owner action buttons, drag-active |
 | `--warn` (`text-warn`/`border-warn`) | Over-cap + upload-error messages (never the accent) |
 | `--font-display` (`.skin-title`) | Person name heading |
 
-No new tokens. Skin flourishes (letterbox/scanline/hairline) attach to `.portrait-frame` in `app.css`
-under `[data-theme]`, mirroring `.video-frame`.
+No new tokens. Flourishes attach to `.portrait-frame` in `app.css`, mirroring `.video-frame`.
 
 ## Components
 
@@ -109,8 +108,8 @@ under `[data-theme]`, mirroring `.video-frame`.
 - **No images at all** (new person): all three core surfaces show placeholders; gallery shows just the
   owner "Add image" tile (owner) or nothing (viewer). Page reads complete, not broken.
 - **Very long name**: truncates to 2 lines with ellipsis under avatars/posters; full name in `title`/`alt`.
-- **Non-Latin / accented names**: `alt` + placeholder initials must render real glyphs in the blocky
-  Broadcast/Brutalist fonts (CJK tofu check).
+- **Non-Latin / accented names**: `alt` + placeholder initials must render real glyphs in the theme's
+  display and UI fonts (CJK tofu check).
 - **Slow connection**: placeholder-first guarantees immediate paint; real image fades in when ready.
 - **Stale cache after replace**: the new `?v=` stamp guarantees the browser fetches the new image; verify
   no old image lingers.
@@ -128,11 +127,11 @@ under `[data-theme]`, mirroring `.video-frame`.
 
 ## Placeholder system (programmatic SVG)
 
-A resolver maps `(skin × role × gender-bucket)` → an SVG composed from the active skin's tokens: a
-role-shaped silhouette on `--surface-2`, accented per skin, neutral by default. **Three buckets only**
-(`male`/`female`/`neutral`); `nonbinary` and unknown → `neutral`. 27 generated cells; an owner override
-dir may replace any cell. The placeholder is requested with the active `?skin=` (gender resolved
-server-side). Placeholders carry `alt="No photo of {name}"` so they read as intentional, not broken.
+A resolver maps `(role × gender-bucket)` → an SVG composed from the Cinémathèque palette: a
+role-shaped silhouette on `--surface-2`, neutral by default. **Three buckets only**
+(`male`/`female`/`neutral`); `nonbinary` and unknown → `neutral`. 9 generated cells; an owner override
+dir may replace any cell (F25.14, not built yet). The placeholder URL carries no theme parameter (gender
+resolved server-side; a `?skin=` left on an old cached URL is ignored). Placeholders carry `alt="No photo of {name}"` so they read as intentional, not broken.
 
 ## Accessibility notes
 
@@ -144,5 +143,5 @@ server-side). Placeholders carry `alt="No photo of {name}"` so they read as inte
   "Delete image", "Reorder"). Reuse the `EnrichPicker` **roving-tabindex** pattern for any list-select.
 - **Keyboard**: upload control is keyboard-openable; gallery reorder offers a keyboard alternative
   (move-up/move-down buttons, not drag-only); crop editor zoom/pan operable by keyboard.
-- **Contrast**: placeholder glyph `--muted` on `--surface-2` must hit ≥3:1 in each skin (a11y review).
+- **Contrast**: placeholder glyph `--muted` on `--surface-2` must hit ≥3:1 (a11y review).
 - **Motion**: all transitions respect `prefers-reduced-motion` (as `.video-grid` does today).

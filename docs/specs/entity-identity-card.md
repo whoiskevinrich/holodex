@@ -70,7 +70,8 @@ enrichment — and the film cases produce wrong data, not just awkward data.
 4. **Editions are file facts.** A full-film file's edition is read from the container tag or the
    filename, settable by the owner, and written back through the tag — with zero new UI pattern.
 5. **Display ≠ canonical, safely.** The owner can show "Robert Downey Jr." while the file keeps
-   `robert downey jr`, and the file / aliases / search / writeback never see the display value.
+   `robert downey jr`, and the file / aliases / writeback never see the display value. Search
+   matches either spelling but always links by the canonical name.
 
 ## Non-Goals
 

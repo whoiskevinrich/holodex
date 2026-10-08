@@ -152,7 +152,7 @@ last chance to notice you left a row checked). A post-action status count only t
 can no longer act on field-by-field, because the write is atomic. Scope counts, status doesn't.
 
 This changes the existing `· {outOfSyncN} out of sync` text in the media page action row. The
-per-field `file out of sync` pill on individual rows (`SourceBadge` / `SourceSelect`) is unchanged
+per-field `file out of sync` pill on individual rows (`SourceBadge`) is unchanged
 and never carried a count — the section badge now matches its wording, which is what makes the two
 read as one system.
 
@@ -212,7 +212,7 @@ using a mouse. Each disclosure must open on **hover, on keyboard focus, and on t
 `Escape` and on blur. A native `title` attribute is not sufficient — it is unreliable for screen
 readers and absent on touch.
 
-The poster comparison stays read-only. Choosing a candidate is a `SourceSelect` decision (RD5) and is
+The poster comparison stays read-only. Choosing a candidate is a `SourceBadge` decision (RD5) and is
 never made from inside the writeback action.
 
 ## Job-level, not per-field
@@ -222,8 +222,8 @@ It lands whole or not at all. Per-field success or failure is therefore not a re
 distinction on this path, and per-field status UI would be fiction — the existing dialog
 comment already concedes this for the queued path.
 
-One job produces one chip. The error sentence names the fields the job carried, which is
-the honest granularity.
+One job produces one chip. The error sentence gives the job's cause, not a field list,
+which is the honest granularity — the field rows below it already show what the job carried.
 
 ## Edge cases
 
