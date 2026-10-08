@@ -66,6 +66,7 @@ Locked in the 2026-10-03 – 10-08 system-design session.
 | RD6 | **Labeling as editions or parts resolves the pair as keep-both.** | Two editions or two parts legitimately share a match. Once labeled, the pair is answered and must not come back. |
 | RD7 | **Keep both is durable for that pair of files.** It survives re-matching, rescans and restarts. | The same contract as keep-separate everywhere else on the Duplicates page. |
 | RD8 | **v1 evidence is poster plus technical facts plus a way to open each file. Frame strips are P1.** | Owner decision, 2026-10-08. It avoids a new frame-extraction capability in v1. |
+| RD9 | **Emptying a prefilled edition removes it, and edition becomes a field the owner can clear.** | Owner decision, 2026-10-08. Otherwise an edition from the file tag or file name would come straight back. Removing it from the file was checked on real files: the MP4 edition tag and the Matroska edition tag. The [studio clear spec](studio-clear.md) covers how a cleared field behaves. |
 
 ## User Stories
 
@@ -156,8 +157,13 @@ Acceptance criteria:
 the other none (for example "Director's Cut" against the unlabeled original). Saving sets the
 editions and resolves the pair as keep-both (RD6).
 
+An edition the owner empties is **removed** (RD9). A side that had no edition and is left empty
+stays as it was.
+
 - [ ] Given the owner saves edition labels, then each file's edition shows the label and the pair leaves the queue
 - [ ] Given both labels are left empty, then the owner can't save
+- [ ] Given a file shows an edition and the owner empties it before saving, then that file has no edition afterwards, even though its file tag or file name still carries one, and writing back to the file removes the tag
+- [ ] Given a file has no edition and its label is left empty, then nothing about that file changes
 - [ ] Given edition is not a settable field on this library, then the action is not offered
 
 **P0-8 · Label as parts.** The owner gives each file a part number. Saving sets them and resolves

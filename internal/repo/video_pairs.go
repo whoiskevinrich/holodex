@@ -418,18 +418,21 @@ func (r *Repo) DismissVideoPair(ctx context.Context, a, b int64) error {
 	return nil
 }
 
-// LabelVideoPair sets fieldKey (edition or part) as a manual decision on each video with
-// a non-empty value and resolves the pair as keep-both, in one transaction. A blank value
-// leaves that video's field untouched.
-func (r *Repo) LabelVideoPair(ctx context.Context, fieldKey string, values map[int64]string) error {
-	if len(values) != 2 {
-		return fmt.Errorf("label: want two videos, got %d", len(values))
+// VideoLabel is one side of a label: a value to set, Clear to store an owner-cleared
+// field (a manual decision with no value), or neither to leave the field untouched.
+type VideoLabel struct {
+	ID    int64
+	Value string
+	Clear bool
+}
+
+// LabelVideoPair writes fieldKey (edition or part) on each side as its label says and
+// resolves the pair as keep-both, in one transaction.
+func (r *Repo) LabelVideoPair(ctx context.Context, fieldKey string, labels [2]VideoLabel) error {
+	lo, hi := orderPair(labels[0].ID, labels[1].ID)
+	if lo == hi {
+		return fmt.Errorf("label: want two distinct videos")
 	}
-	var ids []int64
-	for id := range values {
-		ids = append(ids, id)
-	}
-	lo, hi := orderPair(ids[0], ids[1])
 
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
@@ -446,11 +449,12 @@ func (r *Repo) LabelVideoPair(ctx context.Context, fieldKey string, values map[i
 	if !live {
 		return ErrVideoPairNotLive
 	}
-	for _, id := range []int64{lo, hi} {
-		if v := values[id]; v != "" {
-			if err := upsertDecision(ctx, tx, model.EnrichEntityVideo, id, fieldKey, fieldsource.Manual, v); err != nil {
-				return err
-			}
+	for _, l := range labels {
+		if l.Value == "" && !l.Clear {
+			continue
+		}
+		if err := upsertDecision(ctx, tx, model.EnrichEntityVideo, l.ID, fieldKey, fieldsource.Manual, l.Value); err != nil {
+			return err
 		}
 	}
 	if _, err := tx.ExecContext(ctx,

@@ -262,20 +262,28 @@ func (h *Handlers) labelVideoPair(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, body.Field+" is not a settable field on this library")
 		return
 	}
-	values := make(map[int64]string, 2)
-	for _, l := range body.Labels {
-		values[l.ID] = enrich.SanitizeValue(l.Value)
+	ctx := r.Context()
+	var labels [2]repo.VideoLabel
+	for i, l := range body.Labels {
+		labels[i] = repo.VideoLabel{ID: l.ID, Value: enrich.SanitizeValue(l.Value)}
 	}
-	a, b := values[body.Labels[0].ID], values[body.Labels[1].ID]
 	switch body.Field {
 	case "edition":
-		if a == "" && b == "" {
+		if labels[0].Value == "" && labels[1].Value == "" {
 			writeError(w, http.StatusBadRequest, "give at least one file an edition")
 			return
 		}
+		// A blank side that currently shows an edition was cleared by the owner: store
+		// it as cleared so neither the file tag nor the filename brings it back. A blank
+		// side with no edition is left untouched.
+		for i := range labels {
+			if labels[i].Value == "" && h.videoEdition(ctx, labels[i].ID) != "" {
+				labels[i].Clear = true
+			}
+		}
 	case "part":
-		na, errA := strconv.Atoi(a)
-		nb, errB := strconv.Atoi(b)
+		na, errA := strconv.Atoi(labels[0].Value)
+		nb, errB := strconv.Atoi(labels[1].Value)
 		if errA != nil || errB != nil || na <= 0 || nb <= 0 {
 			writeError(w, http.StatusBadRequest, "give both files a part number")
 			return
@@ -284,9 +292,9 @@ func (h *Handlers) labelVideoPair(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "the two files need different part numbers")
 			return
 		}
-		values[body.Labels[0].ID], values[body.Labels[1].ID] = strconv.Itoa(na), strconv.Itoa(nb)
+		labels[0].Value, labels[1].Value = strconv.Itoa(na), strconv.Itoa(nb)
 	}
-	err := h.repo.LabelVideoPair(r.Context(), body.Field, values)
+	err := h.repo.LabelVideoPair(ctx, body.Field, labels)
 	if errors.Is(err, repo.ErrVideoPairNotLive) {
 		writeError(w, http.StatusConflict, "this pair has changed; reload")
 		return

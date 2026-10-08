@@ -192,6 +192,38 @@ func TestVideoDuplicates_LabelValidation(t *testing.T) {
 	}
 }
 
+// Clearing a side that shows an edition stores it as cleared, so the file tag or
+// filename can't bring it back; the other side gets its label.
+func TestVideoDuplicates_LabelClearsPrefilledEdition(t *testing.T) {
+	srv, r := videoDupServer(t)
+	a, b := seedMatchedPair(t, r, "five")
+	ctx := context.Background()
+	for _, id := range []int64{a, b} {
+		if err := r.SetDecision(ctx, model.EnrichEntityVideo, id, "edition", "manual", "Extended"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code, _ := postTok(t, srv.URL+"/api/v1/owner/duplicates/videos/label", "tok", map[string]any{
+		"field": "edition", "labels": []map[string]any{{"id": a, "value": "Extended"}, {"id": b, "value": ""}},
+	})
+	if code != http.StatusNoContent {
+		t.Fatalf("label = %d, want 204", code)
+	}
+	decs, err := r.DecisionsForEntity(ctx, model.EnrichEntityVideo, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleared := false
+	for _, d := range decs {
+		if d.FieldKey == "edition" && d.Source == "manual" && d.ManualValue == "" {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Fatalf("b's edition was not stored as cleared: %+v", decs)
+	}
+}
+
 // A library whose mapping doesn't declare edition can't label editions.
 func TestVideoDuplicates_LabelNotSettable(t *testing.T) {
 	srv, r := identityServer(t, "tok")

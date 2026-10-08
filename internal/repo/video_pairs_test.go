@@ -367,7 +367,7 @@ func TestVideoPairs_KeepOneNotLive(t *testing.T) {
 	if _, err := r.KeepOneVideo(ctx, a, b); !errors.Is(err, repo.ErrVideoPairNotLive) {
 		t.Fatalf("err = %v, want ErrVideoPairNotLive", err)
 	}
-	if err := r.LabelVideoPair(ctx, "edition", map[int64]string{a: "Cut", b: ""}); !errors.Is(err, repo.ErrVideoPairNotLive) {
+	if err := r.LabelVideoPair(ctx, "edition", [2]repo.VideoLabel{{ID: a, Value: "Cut"}, {ID: b}}); !errors.Is(err, repo.ErrVideoPairNotLive) {
 		t.Fatalf("label err = %v, want ErrVideoPairNotLive", err)
 	}
 }
@@ -380,7 +380,7 @@ func TestVideoPairs_LabelResolves(t *testing.T) {
 	b := seedVideo(t, r, "/m/b.mkv")
 	matchVideo(t, r, a, "tmdb", "tmdb:1")
 	matchVideo(t, r, b, "tmdb", "tmdb:1")
-	if err := r.LabelVideoPair(ctx, "edition", map[int64]string{a: "Director's Cut", b: ""}); err != nil {
+	if err := r.LabelVideoPair(ctx, "edition", [2]repo.VideoLabel{{ID: a, Value: "Director's Cut"}, {ID: b}}); err != nil {
 		t.Fatal(err)
 	}
 	if n := countT(t, d, `SELECT count(*) FROM field_source_decisions WHERE entity_type='video' AND field_key='edition' AND entity_id=? AND manual_value='Director''s Cut'`, a); n != 1 {

@@ -130,6 +130,7 @@ There are no new tokens and no hex values.
 | Confirm | success | The dialog closes and the pair row is removed. Focus moves per *Keyboard and focus* |
 | Label as editions… | press | The Edition row appears (if hidden), with an input per column (the media page's edition pill input: `w-40 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs`, placeholder `Edition`), prefilled. The footer becomes `[error] Cancel · Save editions` |
 | Label as editions… | invalid | Both inputs empty: `Give at least one file an edition.` |
+| Label as editions… | a prefilled side emptied | Saving removes that file's edition (spec RD9). No extra confirm: the empty input is the visible intent. A side that had no edition and stays empty is left as it was |
 | Label as parts… | press | Same pattern on the Part row: `w-28`, `inputmode="numeric"`, placeholder `Part number` |
 | Label as parts… | invalid | Either input empty: `Give both files a part number.` Equal numbers: `The two files need different part numbers.` |
 | Label save | success | Sets the values and resolves the pair as keep both, so the row is removed |
