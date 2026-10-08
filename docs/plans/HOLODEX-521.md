@@ -8,7 +8,7 @@ depends-on: []
 approved:
   design:
     on: 2026-10-08
-    at: 611d09d2
+    at: 83201455
 release_note: "The Duplicates page now flags two files matched to the same provider item, shows them side by side, and lets you keep one (your playlists, film links and edits move to it), keep both, or label them as editions or parts."
 ---
 
@@ -33,7 +33,7 @@ the scene model (HOLODEX-520).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner call: the row shows file A's title only, but undecided titles resolve file-first so copies usually differ — `web/src/lib/components/duplicates/VideoPairRow.svelte`
+1. [ ] [frontend] Owner compares the built page against the approved mockup (handoff §3d) to settle the frontend gate — `docs/design/duplicate-videos-mockup.svg`
 2. [ ] [testing] `/testing-strategy` for F76 — `docs/testing-strategy.md`
 3. [ ] [security] `/security-review`: owner-only Trash action + multi-record carry-over + edition joins the clearable allowlist — `internal/api/duplicates_video.go`
 4. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
@@ -44,6 +44,6 @@ the scene model (HOLODEX-520).
 
 ### 2026-10-08 · session
 - skills: system-design, write-spec, handoff, design-handoff, implement
-- handoff: Backend, edition clearing (owner call) and the frontend Videos group are in draft PR #465, browser-verified on a seeded fixture copy. Next: the owner's call on the row title (Up next #1), then `/testing-strategy` and `/security-review`.
+- handoff: Backend, edition clearing, the frontend Videos group and the provider-title row label are in draft PR #465, browser-verified on a seeded fixture copy; design sign-off re-confirmed at 83201455. Next: owner compares build vs mockup, then `/testing-strategy` and `/security-review`.
 
 ## Dropped — newest first (the reason is the point)
