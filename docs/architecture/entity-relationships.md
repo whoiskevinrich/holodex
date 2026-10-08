@@ -85,7 +85,7 @@ from people. **Rejected:** never deleting orphans. Rescan churn would pile up wi
 `/tags` and the identity tables. **Rejected:** immediate prune for people. A file pulled offline for
 maintenance would destroy curated identity.
 
-Decided in [`dd6ca941`](https://github.com/whoiskevinrich/holodex/commit/dd6ca941) (HOLODEX-535).
+Decided in [`a715b975`](https://github.com/whoiskevinrich/holodex/commit/a715b975) (HOLODEX-548).
 
 ## A people curation edit relinks inside the curation lock
 
