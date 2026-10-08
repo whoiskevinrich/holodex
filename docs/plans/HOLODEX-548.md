@@ -12,7 +12,7 @@ profile: backend             # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note: "People and studios whose only picture was downloaded from a metadata provider are now cleaned up 30 days after losing their last video; only pictures you uploaded keep them."  # the ONE user-facing sentence; authored once by /handoff, flows to the
+release_note: "People and studios whose only picture was downloaded from a metadata provider are now cleaned up 30 days after losing their last video; pictures you uploaded or chose, rejected headshots and logo halos still keep them."  # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
@@ -41,8 +41,8 @@ counting it kept every cast member created by video enrichment forever.
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**` — person-media-linking P0-9, studio-entity RD1
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] testing `testing-strategy`
+- [x] backend → `{cmd,internal,providers}/**` — `orphanAuthoredSQL` image predicates
+- [x] testing `testing-strategy` — `TestOrphanSweep_OnlyOwnerImagesProtect`, testing-strategy.md §F40
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -59,8 +59,6 @@ counting it kept every cast member created by video enrichment forever.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Narrow person/studio image predicates to `source = 'upload'` — `internal/repo/orphans.go`
-2. [ ] [testing] Enrichment-only image swept, uploaded kept; update testing-strategy — `internal/repo/orphans_test.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -73,8 +71,8 @@ counting it kept every cast member created by video enrichment forever.
 -->
 
 ### 2026-10-08 · owner chose uploads-only; spec edited
-- skills: handoff
-- handoff: Spec settled (only uploaded images count as authored); crossing into build, start at Up next item 1.
+- skills: handoff, implement, code-review
+- handoff: Built and green; review widened "uploaded" to any non-enrichment source (promoted headshots are owner-chosen) plus rejections and halos. PR #466 ready; nothing left but merge.
 
 ## Dropped — newest first (the reason is the point)
 
