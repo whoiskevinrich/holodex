@@ -260,7 +260,8 @@ All inside one transaction. An unused studio disappears from the studio list at 
 deleted 30 days later unless a video links it again in that time, or the owner has given it an
 alias, uploaded an image, made a field decision or a curation, or kept it separate from another
 studio. A studio with any of those is never deleted automatically. A logo downloaded from a
-metadata provider does not count; enriching again restores it (HOLODEX-548). Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
+metadata provider does not count; enriching again restores it (HOLODEX-548). A halo the owner
+turned on for a logo does count. Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
 studio survives. (Amended by HOLODEX-535: this used to delete the studio at once, along with its
 aliases, logo and enrichment.) Call sites: `UpsertVideo` (scan), enrich completion, decision PUT/DELETE for
 `studio`, curation add/suppress/clear for `studio`. Derivation never runs at read time.

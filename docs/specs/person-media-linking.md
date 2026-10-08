@@ -269,9 +269,10 @@ flagged people as still exposed to.
   `orphaned_at < now() − 30d` that carry **no** authored identity (no aliases/merge/uploaded
   headshot/manual edit or decision); authored orphans are skipped and reported, never deleted.
   A headshot downloaded from a metadata provider is not authored identity: enriching again restores
-  it (HOLODEX-548). Idempotent; observable in activity history.
-  - Given an orphaned person with a headshot the owner uploaded, When the sweep runs after 40 days,
-    Then she is **kept** (authored-identity guard).
+  it (HOLODEX-548). A headshot the owner uploaded or promoted is, and so is a downloaded headshot the
+  owner rejected (enriching again would bring it back). Idempotent; observable in activity history.
+  - Given an orphaned person with a headshot the owner uploaded or promoted, When the sweep runs after
+    40 days, Then she is **kept** (authored-identity guard).
   - Given an orphaned person whose only headshot was downloaded by enrichment (for example, cast
     created when a video was enriched), When the sweep runs after 40 days, Then she is deleted.
   - Given an orphaned plain person, When the sweep runs after 40 days, Then she is deleted; before 30
