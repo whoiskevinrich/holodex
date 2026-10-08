@@ -28,19 +28,17 @@ Styria, Austria") shows the **Austria** flag; `alt`/`title` = "Austria".
 resolves the **last** segment → `us.svg`; `alt`/`title` = "United States".
 2.3 **[agent]** Person with no `nationality` (no `place_of_birth`) shows **no flag element** and **no
 layout gap** (the name row has a single child).
-2.4 **[agent]** Flag chrome tracks each skin's tokens: `rounded-theme` = 2px / 0 / 0 and `border-rule`
-= `#2a2622` / `#1a2240` / `#333333` in Cinémathèque / Broadcast / Brutalist; flag height 16px.
+2.4 **[agent]** Flag chrome tracks the Cinémathèque tokens: `rounded-theme` = 2px and `border-rule`
+= `#2a2622`; flag height 16px.
 2.5 **[agent]** The flag SVG is served locally (`/…/flag-icons/flags/4x3/xx.svg`, `image/svg+xml`) —
 no external/CDN request; loads offline.
 
-## 3. Human eyeball — all three skins
+## 3. Human eyeball — Cinémathèque
 
 3.1 **[human]** **Cinémathèque**: the flag reads cleanly beside the serif name, corner slightly
 rounded, hairline visible; a long name ellipsizes before the flag is pushed off.
-3.2 **[human]** **Broadcast**: flag is square (no radius); the hairline and flag read against the deep
-blue surface; the `+N` (if any) is muted, not competing with the teal accent.
-3.3 **[human]** **Brutalist**: flag is square; hairline reads on near-black; nothing collides with the
-mono name or the video-count subline.
+3.2 **[human]** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+3.3 **[human]** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 3.4 **[human]** Hovering the flag shows the country name tooltip; with multiple nationalities the
 tooltip lists all and a muted **+N** follows the primary flag.
 3.5 **[human]** Visitor (Admin Mode off) still sees the flag — it is not owner-gated.

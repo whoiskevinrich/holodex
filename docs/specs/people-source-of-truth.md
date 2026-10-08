@@ -180,7 +180,7 @@ must not foreclose People/Studio") stays unproven until a second entity actually
   the `SourceSelect` chip radiogroup (record chip anchored first, `·record`, `—` when empty per
   RD3) and `aliases` as a `CurationFieldRow` merge field — reusing the existing components with
   an entity-generic baseline label (RD4). No write button, no sync pills. Owner-gated; visitors
-  see read-only resolved values. Tokens only; QA all three skins.
+  see read-only resolved values. Tokens only; QA Cinémathèque.
 
 ### Should-have (P1)
 
@@ -255,7 +255,7 @@ endpoints (400/401/403/404/409).
   placement/labeling).
 - **Website** keeps its `url` display treatment inside the chip value.
 - Owner-gated via `activity.effectiveOwner`; refetch-after-mutate as on media. Tokens only;
-  QA Cinémathèque / Broadcast / Brutalist.
+  QA Cinémathèque.
 
 ## Success Metrics
 
@@ -280,11 +280,11 @@ Single-owner consistency feature:
 No hard deadline. Per the change-routing rules, before/with implementation:
 1. **`/design-handoff`** — an addendum to the [F36 handoff](../design/field-source-of-truth-handoff.md):
    person page layout, `·record` label, the rename confirm dialog, aliases-row placement vs.
-   the F23 section, bio long-text treatment, 3-skin QA checklist items.
+   the F23 section, bio long-text treatment, Cinémathèque QA checklist items.
 2. **`/testing-strategy`** — extend §9 (or a new §) with: `personBaseline` resolution + RD6
    additivity, decision short-circuit for person fields, name-decision rejection, rename
    transaction (+ 409 collision → no auto-merge), merge cleanup (RD5), endpoint auth, chips
-   a11y/3-skin.
+   a11y/Cinémathèque.
 3. **`/security-review`** — new owner-gated surface: decisions/curation parity + the **rename**
    (identity mutation feeding FTS + scan routing) and untrusted `manual_value` (display-only
    here — no file writes).

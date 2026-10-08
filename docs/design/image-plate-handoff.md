@@ -102,7 +102,7 @@ No change: `alt` semantics are those of HOLODEX-432 / `EntityImageSlot`; the mon
 - 7.5 `[agent]` `/films/{id}` with a poster: hero wrapper transparent, `<img>` `padding: 4px` (was 2px) + halo; the banner `<img>` `object-cover`, no filter, no padding.
 - 7.6 `[agent]` `/owner/completeness` with an icon-bearing studio row: well transparent, `<img>` halo; monogram rows keep the plate. ✅ (monogram rows only on the testbed; icon path is the same class expression)
 - 7.7 `[agent]` `/media/{id}` and `/films/{id}` `StudioLinkCard` with an icon-only studio: bare icon + halo, name caption present (the caption rule is unchanged — icons are not bare *logos*, `showName` stays true).
-- 7.8 `[agent]` All three skins: 7.3 wrappers stay transparent; the monogram plate is that skin's `--logo-plate`.
+- 7.8 `[agent]` Cinémathèque: 7.3 wrappers stay transparent; the monogram plate is `--logo-plate`.
 
 **Human**
 - 7.9 `[human]` Studios list, studio detail Images, a film page with a poster, and the completeness queue: no cream boxes behind any image anywhere — every mark sits on the row with a faint light glow; the only cream boxes left are monograms.

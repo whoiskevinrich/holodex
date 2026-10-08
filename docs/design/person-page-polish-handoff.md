@@ -4,7 +4,7 @@
 **Date**: 2026-06-24
 **Spec**: [`docs/specs/people-images.md`](../specs/people-images.md) (F25 hero) — see the **F25.26–28 follow-ups** section
 **Architecture**: [ADR-038](../architecture/archive/ADR-038-person-images.md) (person images / hero), [ADR-032](../architecture/archive/ADR-032-browse-state-preservation.md) (browse-state preservation — the pattern reused for the people list)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 Three small, related changes to the **person experience**:
 
@@ -18,10 +18,9 @@ Three small, related changes to the **person experience**:
 All markup is **tokens only** — no `zinc-*`, `sky-*`, hex, or fixed `rounded-lg`/`px` radii. The banner
 parallax adds **no color/styling literals** (transform + aspect only); skin flourishes stay in `app.css`.
 
-> **Skin reminders that bite these surfaces:** Broadcast & Brutalist set `--radius: 0` (everything
-> `rounded-theme` is square). Broadcast washes scanlines over `.portrait-frame::after` — that includes
-> the banner and poster. The hero images already route through `.portrait-frame`, so these flourishes
-> apply automatically; no per-skin markup was added.
+> **Theme reminder for these surfaces:** Cinémathèque sets `--radius: 2px` (everything
+> `rounded-theme` is slightly rounded). The hero images already route through `.portrait-frame`, so any
+> frame flourish applies automatically; no theme-specific markup was added.
 
 ---
 
@@ -147,7 +146,7 @@ saved offset is dropped). No persistence, no URL change.
 | `.portrait-frame` (+`--banner`/`--2x3`) | `--surface-2`, `--rule`, `--radius` | banner & poster wells, aspect ratios |
 | `bg-bg/70` | `--bg` @ 70% | replace-button scrim over images |
 | `text-ink` / `hover:text-accent` | `--ink` / `--accent` | replace-button label |
-| `rounded-theme` | `--radius` | replace-button corners (square in Broadcast/Brutalist) |
+| `rounded-theme` | `--radius` | replace-button corners (2px in Cinémathèque) |
 | `border-rule` | `--rule` | (unchanged surrounding cards) |
 
 No new colors, fonts, or radii were introduced.

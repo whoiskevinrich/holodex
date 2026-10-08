@@ -7,7 +7,7 @@ This is an **addendum** to the [F38 studio-entity handoff](studio-entity-handoff
 list's leading logo well (§1b there) and the detail page's layout are unchanged in shape;
 this document specifies only what's new: the well's data source swap, and a new
 role-generic image control on the detail page. Tokens-only (no literal palette/radius/
-font — [theming.md](theming.md)); QA all three skins.
+font — [theming.md](theming.md)); QA Cinémathèque.
 
 The nearest existing pattern is Person's per-role image wrappers
 (`web/src/lib/components/person/PersonAvatar.svelte`, `PersonBanner.svelte`,
@@ -92,7 +92,7 @@ If the P1 provenance badge lands (spec P1-1), it renders as a small pill in the 
 `ProvenanceBadge` component/token vocabulary unchanged. Not required for the P0 cut; the
 control works identically without it, just without the provenance hint.
 
-## 4. Accessibility & 3-skin QA checklist
+## 4. Accessibility & Cinémathèque QA checklist
 
 1.1 `[smoke]` Each `StudioImageSlot` preview has `alt="{studio.name} {label}"` (or
     `alt=""` when decorative-only per role — logo/icon are meaningful, poster likewise).
@@ -106,7 +106,7 @@ control works identically without it, just without the provenance hint.
     (consistent spacing/border, not three unrelated widgets bolted on); the monogram and
     dashed-box empty states are visually distinct from each other (so an owner doesn't
     mistake "no icon yet" for "no poster yet, but uploadable").
-1.5 `[human]` Switch skins (Cinémathèque / Broadcast / Brutalist) on a studio detail page
+1.5 `[human]` In Cinémathèque, open a studio detail page
     with images set. **What should look right:** frame borders and the empty-state dashed
-    box use the skin's rule/border tokens, not a hardcoded gray — should look native to
-    each skin, not like a leftover default.
+    box use the rule/border tokens, not a hardcoded gray — should look native to
+    Cinémathèque, not like a leftover default.

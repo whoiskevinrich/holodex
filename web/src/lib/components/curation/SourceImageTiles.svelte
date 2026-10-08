@@ -6,7 +6,7 @@
 	// asset-host allowlist (ADR-039) and an owner upload has its own control on the page.
 	// Same staged contract as the other two: selecting a tile STAGES (binds `stagedKey`),
 	// never commits; the embedder owns Confirm. Keyboard is the chip row's, verbatim:
-	// roving tabindex, arrows move AND stage, Space/Enter stage. Tokens only; QA 3 skins.
+	// roving tabindex, arrows move AND stage, Space/Enter stage. Tokens only; QA Cinémathèque.
 	import type { SourceChip } from '$lib/f36';
 	import type { ResolvedField } from '$lib/types';
 

@@ -49,7 +49,7 @@ judgement about how it looks and reads.
 | 3.7 | `[agent]` Load the page as a visitor (Admin mode off, and again signed out). | No extract button, no panel, and neither appears anywhere in the DOM. Not merely hidden by CSS. |
 | 3.8 | `[agent]` Call `GET /owner/extraction-queue?video_id=...` without an owner session. | Rejected by `requireOwner`, same as the unfiltered route. |
 | 3.9 | `[agent]` Grep the diff for hex colours and raw Tailwind palette classes in the changed Svelte files. | None. Semantic tokens only (ADR-021). |
-| 3.10 | `[agent]` Tab through the panel; check computed contrast of the chip outlines and the staged pill against their backgrounds in all three skins. | Focus reaches every row control; contrast holds in Cinémathèque, Broadcast, and Brutalist. |
+| 3.10 | `[agent]` Tab through the panel; check computed contrast of the chip outlines and the staged pill against their backgrounds in Cinémathèque. | Focus reaches every row control; contrast holds in Cinémathèque. |
 
 ## 4. Human
 
@@ -69,5 +69,5 @@ Everything below happens in the **Metadata** block partway down that page.
 | 4.7a | `[human]` After confirming a write, keep watching the panel and the Metadata list for about half a minute. | The panel tells you it is waiting, and then the new value appears in the list below, labelled as coming from the file. You should never be left wondering whether anything happened, and never be shown the old value with no explanation. |
 | 4.7b | `[human]` Compare the "Extract from filename" control to "Refresh" beside it. | They are visually identical in weight — same size, same colour, neither boxed. If the extract control looks heavier or button-like, that is wrong. |
 | 4.8 | `[human]` Compare the panel against the Extraction tab under the owner area. | The two feel like the same feature in two places — same row rhythm, same wording, same buttons — not two different designs. |
-| 4.9 | `[human]` Switch skins (Cinémathèque, Broadcast, Brutalist) with the panel open. | Text stays readable and the chips stay distinguishable in all three. Nothing washes out or disappears. |
+| 4.9 | `[human]` Look at the panel open in Cinémathèque. | Text stays readable and the chips stay distinguishable. Nothing washes out or disappears. |
 | 4.10 | `[human]` Narrow the browser window to roughly phone width. | Rows wrap rather than overflowing sideways, and the buttons stay reachable. |

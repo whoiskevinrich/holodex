@@ -1,12 +1,12 @@
 # Manual QA Checklist: Entity name-identity — merge, alias & duplicate review (F43)
 
 **Spec**: [entity-identity.md](../specs/entity-identity.md) · **ADR**: [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md) · **Design**: [handoff](entity-identity-handoff.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`go test`, `svelte-check`, the token-guard `rg`). Green build = pass; the target test is named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/network/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, per-skin "look", CJK tofu).
+> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, the Cinémathèque "look", CJK tofu).
 >
 > §1 is one-time **setup** that §3 and §4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 > Test names are the **targets** the implementation creates (this checklist ships with the spec/handoff, ahead of code).
@@ -21,7 +21,7 @@
 - [ ] 1.2 Run the **one-time identity backfill** once (fresh boot post-migration), so the 14 hard pairs are folded and the ~56 near-misses are queued.
 - [ ] 1.3 Exercise **both token states**: `ADMIN_TOKEN` unset (open/owner) vs set (locked → unlock via `/owner`), and confirm `effectiveOwner` on/off.
 - [ ] 1.4 Have ready: a studio pair to merge (to test re-derivation), a tag to rename into an existing one (near-miss), and names with **diacritics** ("Beyoncé") and **CJK** ("宮崎駿") for §4.
-- [ ] 1.5 Devtools open (Network + Console); skin picker reachable; a `prefers-reduced-motion: reduce` profile ready.
+- [ ] 1.5 Devtools open (Network + Console); a `prefers-reduced-motion: reduce` profile ready.
 - [ ] 1.6 Keep the read-only probe handy to re-verify counts: `sqlite3 -readonly <db> ".read scripts/detect_entity_collisions.sql"` — **Tier A should read 0** after the backfill.
 
 ---
@@ -99,17 +99,17 @@
 
 ---
 
-## 4. Human — needs your eyes (all three skins)
+## 4. Human — needs your eyes (Cinémathèque)
 
-> **How to run this:** open the app in a browser. In the header there's a **skin picker** — run every item **three times**, once in each skin: **Cinémathèque · Broadcast · Brutalist**. You're checking things *look right* and read clearly — the agent already checked they work.
+> **How to run this:** open the app in a browser. Run every item in **Cinémathèque**, the only look. You're checking things *look right* and read clearly — the agent already checked they work.
 
-- [ ] 4.1 **Studio "Also known as" panel** looks like the person one you know — quiet alias pills on the card, ✕ turns the skin's highlight (never red/orange) on hover, the "Add" button is the skin's main highlight with legible text. Nothing looks like a different app.
-- [ ] 4.2 **Tag manage mode** reads clearly: a selected pill picks up the skin's accent edge and a check; the `⋯` menu is legible; plain (unmanaged) tags look unchanged.
-- [ ] 4.3 **The two prompts feel different on purpose** — the exact-collision card is a bordered box that clearly asks you to choose; the near-miss is a light, ignorable nudge with "Create anyway". On **Brutalist** especially, the error/warn color must stay clearly different from the bright-lime highlight (the merge action).
+- [ ] 4.1 **Studio "Also known as" panel** looks like the person one you know — quiet alias pills on the card, ✕ turns the gold highlight (never red/orange) on hover, the "Add" button is the main highlight with legible text. Nothing looks like a different app.
+- [ ] 4.2 **Tag manage mode** reads clearly: a selected pill picks up the accent edge and a check; the `⋯` menu is legible; plain (unmanaged) tags look unchanged.
+- [ ] 4.3 **The two prompts feel different on purpose** — the exact-collision card is a bordered box that clearly asks you to choose; the near-miss is a light, ignorable nudge with "Create anyway". The error/warn color must stay clearly different from the gold highlight (the merge action).
 - [ ] 4.4 **The duplicates banner** reads as an advisory (its marker is the warn color, not the highlight), and "Review" clearly leads somewhere.
 - [ ] 4.5 **The Duplicates tab reads like a tidy worklist**, not a wall: scanning the tag pairs and clearing a few feels quick; the two names + counts per row are easy to compare; merging shows you what you're folding in before it happens; the empty state feels like a healthy finish, not an error.
-- [ ] 4.6 **Accented + CJK names render** in every skin — add "Beyoncé" and "宮崎駿" as aliases and confirm no boxes/▯/garbled glyphs on the blocky Broadcast/Brutalist faces.
-- [ ] 4.7 **Card edges match the skin** — panels/rows softly rounded on Cinémathèque, square on Broadcast/Brutalist; only the alias pills and tag pills stay fully rounded (intentional).
+- [ ] 4.6 **Accented + CJK names render** — add "Beyoncé" and "宮崎駿" as aliases and confirm no boxes/▯/garbled glyphs.
+- [ ] 4.7 **Card edges match** — panels/rows softly rounded; only the alias pills and tag pills stay fully rounded (intentional).
 - [ ] 4.8 **Narrow window** — drag the window narrow: alias chips, tag pills, and duplicate-row actions wrap gracefully; nothing overlaps or collides.
 - [ ] 4.9 **Reduced motion** — with "reduce motion" on, the merge dialog and the Keep-separate row fade shouldn't animate distractingly.
 

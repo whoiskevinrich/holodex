@@ -1,14 +1,14 @@
 # Design Handoff: Entity name-identity — merge, alias & duplicate review (F43)
 
 **Spec**: [entity-identity.md](../specs/entity-identity.md) · **ADR**: [ADR-061](../architecture/archive/ADR-061-unified-entity-name-identity.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 This handoff **generalizes the F23 person-alias surfaces** ([person-aliases-handoff.md](person-aliases-handoff.md))
 to Studio and Tag, and adds two new things: the **editor near-miss soft-warning** and the **Duplicates
 review tab** in the Owner hub. The alias/merge chip, input, picker, and collision-card mechanics are
 **inherited from F23 unchanged**; this document specifies what is new per surface. Everything is
-**tokens-only** (no literal palette/radius/font — [theming.md](theming.md)) and QA'd in all three skins.
+**tokens-only** (no literal palette/radius/font — [theming.md](theming.md)) and QA'd in Cinémathèque.
 
 New/changed surfaces, in build order:
 1. **"Also known as" alias panel** — extract F23's inline block to `AliasPanel.svelte`; reuse on person + studio (not tag).
@@ -175,7 +175,7 @@ All inherited (no new tokens). For reference ([theming.md](theming.md)):
 | `skin-title` / `font-display` | page `<h1>`s (`/owner` tab uses the hub heading) |
 
 **Load-bearing separation:** the **banner/errors use `--warn`**; the **merge affordances use `--accent`**.
-On Brutalist (accent = bright lime) these must stay distinguishable — the same F36 regression risk.
+Against the gold accent these must stay distinguishable — the same F36 regression risk.
 
 **Token guard** stays clean: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'`
 empty (`rounded-full` pills OK).
@@ -218,8 +218,8 @@ No new breakpoints. The duplicates list is single-column at every width (a workl
 
 - **Long names** (romanized person, "Warner Bros. Pictures / United Artists") — pair row `truncate`s each
   name with the count outside the truncation; the merge confirm shows full names.
-- **International / CJK / diacritics** ("宮崎駿", "Beyoncé") — render in all skins (mono faces on
-  Broadcast/Brutalist); no tofu. Detection folds case/whitespace only — diacritic pairs surface as near-misses.
+- **International / CJK / diacritics** ("宮崎駿", "Beyoncé") — render in Cinémathèque's faces;
+  no tofu. Detection folds case/whitespace only — diacritic pairs surface as near-misses.
 - **Large queue** (56 today, could grow) — single scroll, grouped; no pagination v1 (personal scale). If it
   ever balloons, paginate per group — not designed now.
 - **Pair resolved elsewhere** (owner merges via the entity page while the tab is open) — the stale row 404s on
@@ -233,8 +233,7 @@ No new breakpoints. The duplicates list is single-column at every width (a workl
 ## Animation / motion
 
 Reuse F23/EnrichPicker: modal `merge-rise`/`enrich-rise` and the Keep-separate row fade are gated behind
-`@media (prefers-reduced-motion: no-preference)`. No transforms in markup; skin flourishes stay in `app.css`
-under `[data-theme]`. The banner does not animate in.
+`@media (prefers-reduced-motion: no-preference)`. No transforms in markup; look flourishes stay in `app.css`. The banner does not animate in.
 
 ---
 
@@ -256,11 +255,11 @@ under `[data-theme]`. The banner does not animate in.
 
 ---
 
-## QA checklist (3-skin)
+## QA checklist (Cinémathèque)
 
 Conventions ([[feedback-qa-checklist-numbering]]): every item numbered `section.item`, tagged by verifier —
-`[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Skins: **Cinémathèque ·
-Broadcast · Brutalist**, switched via the header picker. (The exhaustive matrix lives in the paired
+`[smoke]` automated, `[agent]` agent-driven live QA, `[human]` needs human eyes. Look: **Cinémathèque**,
+the only one. (The exhaustive matrix lives in the paired
 `entity-identity-qa-checklist.md` from `/testing-strategy`; this is the design-surface subset.)
 
 ### §1 Setup
@@ -274,24 +273,24 @@ Broadcast · Brutalist**, switched via the header picker. (The exhaustive matrix
 - **2.2** `[smoke]` `GET /owner/duplicates` returns pairs grouped by type with counts; `dismiss` records
   keep-separate and the pair never returns.
 
-### §3 Agent live QA (all 3 skins)
+### §3 Agent live QA (Cinémathèque)
 - **3.1** `[agent]` **Alias panel** on `/people/[id]` and `/studios/[id]`: chips read on the panel card; ✕
-  goes accent on hover; add input focus ring visible on each accent (gold/cyan/lime); "Add" solid-accent legible.
+  goes accent on hover; add input focus ring visible on the gold accent; "Add" solid-accent legible.
 - **3.2** `[agent]` **Studio merge survives derivation** (RD6): merge `WB`→`Warner Bros.`, trigger a rescan
   and a re-enrich, confirm `WB` does **not** reappear and both libraries sit under `Warner Bros.`.
 - **3.3** `[agent]` **Tag manage mode**: toggle on → pills selectable (`border-accent bg-surface-2` + ✓);
   select 2 → Merge opens the picker; a pill's `ti-dots` menu offers rename/alias/merge; default view unchanged.
 - **3.4** `[agent]` **Exact-collision card vs near-miss hint** render distinctly: the `409` card is bordered
   and blocks; the near-miss is a muted non-blocking line with "Create anyway". Confirm `--warn` (banner/errors)
-  and `--accent` (merge) stay distinguishable on **Brutalist**.
+  and `--accent` (merge) stay distinguishable.
 - **3.5** `[agent]` **Banner**: appears on a list with a non-empty queue, `text-warn` marker reads, "Review"
   deep-links the Duplicates tab filtered to that entity; hidden at zero and for visitors.
 - **3.6** `[agent]` **Duplicates tab**: pairs grouped (tags first), Option-A rows legible; Merge → informed
   confirm (both counts); Keep-separate fades the row and it doesn't re-surface on reload; empty state themed.
 
 ### §4 Human
-- **4.1** `[human]` Open a studio and a person with aliases in each skin. The "Also known as" panel should feel
-  identical to the person page you already know — same chips, same fonts reacting to the skin, nothing stray.
+- **4.1** `[human]` Open a studio and a person with aliases. The "Also known as" panel should feel
+  identical to the person page you already know — same chips, same fonts, nothing stray.
 - **4.2** `[human]` In the Owner area, open Duplicates. It should read like a tidy worklist, not a wall —
   scanning the tag pairs and clearing a few should feel quick. Merging shows you what you're about to fold in
   before it happens.

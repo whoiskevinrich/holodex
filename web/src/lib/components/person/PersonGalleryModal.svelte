@@ -6,7 +6,7 @@
 	// (promote/move/delete stay in the inline row) — this is browse-only. Escape is
 	// handled by the parent (PersonGallery), not this component, so it can route a
 	// single Escape press to the topmost of this modal and a stacked image viewer
-	// rather than closing both at once. Tokens only; QA 3 skins.
+	// rather than closing both at once. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import type { PersonImage } from '$lib/types';

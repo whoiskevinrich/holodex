@@ -71,10 +71,9 @@ Slice B only. Slice A (the resolver mechanism) is covered by
   truncates to one line rather than widening the Details column.
 - **3.8** `[agent]` Visitor view: no pill, no editor, no strip on the same entity.
 
-## §4 Human (all three skins — Cinémathèque, Broadcast, Brutalist)
+## §4 Human (Cinémathèque)
 
-Switch skins with the picker in the header (the three small buttons next to *Owner view*). Do each item in
-**all three** before moving on — regressions here routinely show up in only one skin.
+Do each item in Cinémathèque, the only look.
 
 - **4.1** `[human]` Go to a person page that has an *Additional details* section with a long paragraph row.
   The provider badge and the two pills should sit on their **own line under the paragraph, pushed to the right
@@ -88,10 +87,10 @@ Switch skins with the picker in the header (the three small buttons next to *Own
   into the page in any skin.
 - **4.4** `[human]` In that panel, the orange/red caution line about providers sharing a key name
   (`--warn`) sits right next to the panel's coloured border (`--accent`). Confirm the two colours don't fight
-  or read as the same thing. Brutalist is the risky one — lime border, hot red-orange text.
+  or read as the same thing — gold border, red-orange text.
 - **4.5** `[human]` Attach something, then look at the confirmation strip that replaces the row: dashed border,
   a check mark, and an outlined **Undo** at the right edge. The text must stay readable against the strip's
-  background in every skin.
+  background.
 - **4.6** `[human]` Go to **Owner → Attached keys**. The tab should look active in the same way the other owner
   tabs do. The `provider:key` column is monospaced and clearly darker/lighter than the surrounding text; the
   **Inactive** marker reads as a warning without being the loudest thing on the page.
@@ -100,8 +99,7 @@ Switch skins with the picker in the header (the three small buttons next to *Own
 
 ## §5 Known gaps
 
-- **5.1** The active owner-hub tab renders the same background in all three skins. This is the shared tab class
-  from F35, not something F49 changed — noted here so a skin pass does not re-discover it as new.
+- **5.1** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - **5.2** DD6's "attaching removes that promotion" warning is implemented but hard to reach from the Attach
   pill: a promoted key normally renders as its own first-class field, not as an auto-registered row. The server
   clears the promotion either way, so the warning stays as the honest thing to show if the state does occur.

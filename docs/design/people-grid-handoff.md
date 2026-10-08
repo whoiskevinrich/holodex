@@ -203,10 +203,9 @@ Manually driven-browser QA'd this session, in-app (not screenshots-only, per the
 - Film page (`/films/{id}`) Cast section: confirmed it renders through the same component,
   read-only (no remove badge, no add-tile), showing the union of a real film's attached-video
   people.
-- **All 3 skins** (Cinémathèque, Broadcast, Brutalist): computed-style contrast checks on the
-  section heading and tile name text against each skin's body background (5.7:1 – 6.3:1, all
-  well above the 4.5:1 AA threshold) and tile aspect ratio (`0.619`, consistent across all
-  three) — no skin-specific regression.
+- **Cinémathèque**: computed-style contrast checks on the
+  section heading and tile name text against the body background (well
+  above the 4.5:1 AA threshold) and tile aspect ratio (`0.619`) — no regression.
 - `npm run check`: 0 errors (8 pre-existing warnings in unrelated files, unchanged by this diff).
 
 No dedicated Vitest/Playwright coverage added — consistent with the standing frontend-automation

@@ -6,7 +6,7 @@
 	// entity-list banners) filters to one entity. A person pair also expands in place into
 	// a two-column compare panel (F70, HOLODEX-451); this page owns which one is open so
 	// only one ever is, and owns where focus lands when a row is removed under it.
-	// Tokens only; QA 3 skins.
+	// Tokens only; QA Cinémathèque.
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '$lib/api';

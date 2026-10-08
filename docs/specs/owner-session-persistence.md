@@ -197,7 +197,7 @@ The SPA authenticates via the exchange, then **relies on the cookie**, and refle
   at any point. The in-memory variable may remain only as a transient for the single exchange request, or be
   removed entirely.
 - **Theming.** Any new control (Sign out, session-expired hint) uses semantic tokens only and is QA'd in
-  **Cinémathèque, Broadcast, and Brutalist** (project frontend-theming rule). Use `--warn` tokens for the
+  **Cinémathèque** (project frontend-theming rule). Use `--warn` tokens for the
   "session expired" notice, not `--accent`.
 
 **Acceptance criteria — OS4**
@@ -210,7 +210,7 @@ The SPA authenticates via the exchange, then **relies on the cookie**, and refle
 - [ ] Given my session expires while the app is open, when I next trigger a gated action, then the UI cleanly
       returns to the token-prompt/read-only state (no unhandled error).
 - [ ] No code path writes the admin token to `localStorage` or `sessionStorage` (grep clean).
-- [ ] Sign-out control and any session notices render correctly in all three skins (warn-token styling for
+- [ ] Sign-out control and any session notices render correctly in Cinémathèque (warn-token styling for
       the expiry notice).
 
 #### OS5 — Tests cover both credential paths and the lifecycle
@@ -256,7 +256,7 @@ default bounded session.
       cookie attributes (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path`) are identical.
 - [ ] The lifetime is set **server-side** from the exchange parameter — a client cannot request an arbitrary
       `Max-Age` (only the two server-defined options).
-- [ ] The checkbox renders correctly in all three skins (semantic tokens only).
+- [ ] The checkbox renders correctly in Cinémathèque (semantic tokens only).
 
 #### OS7 — Sliding expiry on active use
 
@@ -311,8 +311,8 @@ Single-user personal server → qualitative / self-observed:
   protections ADR-030 established.
 - **No regression to the open default:** `ADMIN_TOKEN` unset still yields the zero-config, no-prompt,
   no-cookie experience; header-based API/script clients still authenticate exactly as before.
-- **Clean lifecycle:** sign-out and expiry both return the UI to the prompt state without errors, in all
-  three skins.
+- **Clean lifecycle:** sign-out and expiry both return the UI to the prompt state without errors, in
+  Cinémathèque.
 
 ## Open Questions
 
@@ -342,6 +342,6 @@ No hard deadline. Suggested order:
    gate accepts cookie-or-header, sliding re-issue on use, sign-out; backend tests (OS5).
 3. **OS4 + OS6 (frontend)** — wire the sign-in form to the exchange, the "trust this device" checkbox, rely
    on `capabilities.owner` on reload, sign-out control, graceful `401` fallback; remove token-in-memory
-   reliance; 3-skin QA.
+   reliance; Cinémathèque QA.
 4. **`/security-review` sign-off + testing-strategy update (OS5)** — required before merge; record the ADR-030
    amendment.

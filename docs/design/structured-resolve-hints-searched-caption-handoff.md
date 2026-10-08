@@ -4,7 +4,7 @@
 **ADR**: [ADR-095](../architecture/archive/ADR-095-structured-resolve-hints.md) D6 ·
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3 `searched[]`, §5 caps
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins**.
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**.
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)
 (F22.5b) — the status line at `:241` is the idiom this reuses; the optional P1 caption in
 [configurable-provider-search-patterns-handoff.md](configurable-provider-search-patterns-handoff.md)
@@ -97,7 +97,7 @@ should do.
 - `title` on truncated text is the hover affordance; keyboard users read the full string in the
   expanded list, which is why the first entry repeats there.
 - Contrast: label and toggle at `text-muted` are the picker's existing floor (≥ 4.5:1 on `--surface`
-  in all three skins per the HOLODEX-324 audit); the query at `text-ink` is well above it.
+  in Cinémathèque per the HOLODEX-324 audit); the query at `text-ink` is well above it.
 
 ## Responsive
 

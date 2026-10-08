@@ -41,7 +41,6 @@
 	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
 	import { hotkey } from '$lib/actions/hotkey.svelte';
 	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
-	import SourceSelect from '$lib/components/curation/SourceSelect.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
 	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';

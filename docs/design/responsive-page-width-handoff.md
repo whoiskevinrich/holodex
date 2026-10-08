@@ -74,7 +74,7 @@ was implemented immediately against the **current** column-count model, ahead of
   Mutation-checked: hardcoding the rung back to 6 fails 3 tests, and dropping `DENSITY_MAX` to 6
   fails 2. An earlier version of the test asserted `DENSITY_MAX === 8` alone and caught **neither**.
 
-Verified at 1920: 8 columns, 220px cards, identical across all three skins in both `wide` and
+Verified at 1920: 8 columns, 220px cards, identical in Cinémathèque in both `wide` and
 `poster` layouts, no horizontal overflow, and 1280/1024 unregressed. Stored preferences need no
 migration — an existing value of `6` still means six columns, it is simply no longer the maximum.
 
@@ -180,7 +180,7 @@ is what §4b means by "must ship together". At 768 the rail is full-width but `a
 resolves to one column because 705px is under two 320px tracks plus the gap.
 
 At 5120 the `<article>` measures exactly **2600px** with a left offset of **1253px** — capped and
-centred as specified. No horizontal overflow at any width, in any of the three skins.
+centred as specified. No horizontal overflow at any width.
 
 The player never needed its own `max-height`: at 1920 it renders 1069px wide (601px tall) and at
 5120 1501px wide (844px tall), both clearing the fold on their respective screens. Re-verify this
@@ -368,11 +368,11 @@ No new colors. One new sizing token; everything else already exists.
 | Token | Value | Usage |
 |---|---|---|
 | `--container-stage` | `2600px` | new — the outer stage cap, via `max-w-stage` |
-| `--color-rule` | per skin | rail card borders (`border-rule`), unchanged |
-| `--color-surface` | per skin | rail card fill (`bg-surface`), unchanged |
-| `--color-muted` | per skin | `<dt>` field labels and section headings |
-| `--color-ink` | per skin | `<dd>` field values |
-| `--radius-theme` | 2px / 0px / 0px | rail cards (`rounded-theme`) |
+| `--color-rule` | `#2a2622` | rail card borders (`border-rule`), unchanged |
+| `--color-surface` | `#15110e` | rail card fill (`bg-surface`), unchanged |
+| `--color-muted` | `#9b9082` | `<dt>` field labels and section headings |
+| `--color-ink` | `#f3ece1` | `<dd>` field values |
+| `--radius-theme` | 2px | rail cards (`rounded-theme`) |
 | `gap-6` | 1.5rem | between player zone and rail |
 | `gap-3` | 0.75rem | between field-grid cells |
 
@@ -475,7 +475,7 @@ drags and there is no user intent to acknowledge.
 
 ## 8. QA
 
-Three-skin QA is required (Cinémathèque, Broadcast, Brutalist) at each breakpoint, per
+Cinémathèque QA is required at each breakpoint, per
 `.claude/rules/frontend-theming.md`. Widths to check: **412, 768, 1024, 1280, 1920, 5120**.
 Reload at each width rather than resizing — the tier logic reads `window.innerWidth` at
 construction and a resize is a different code path.

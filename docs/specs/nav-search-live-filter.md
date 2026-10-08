@@ -349,7 +349,7 @@ No hard deadline. Suggested order:
    or be sequenced page-by-page (Media first, since it's highest-traffic and already has
    the most infrastructure to hook into). **Done** — landed together (HOLODEX-249).
 4. **`/testing-strategy`** pass covering the tab-mismatch/in-place routing logic (NS2) and
-   all three skins/mobile (per this repo's frontend-theming QA rule).
+   Cinémathèque/mobile (per this repo's frontend-theming QA rule).
 5. **NS6** — promoted P1→P0 once the engineering-tagged open question resolved it as cheap
    (unpaged lists, no backend work). **Done** — landed on `people/[id]`, `studios/[id]`,
    `tags/[id]` (HOLODEX-249).

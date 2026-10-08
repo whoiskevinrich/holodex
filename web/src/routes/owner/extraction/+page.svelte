@@ -6,7 +6,7 @@
 	// group render People → Studio → Title → Release date → other. "Keep
 	// tag"/"Dismiss" never touch the file and resolve immediately in place; the other
 	// actions stage a pending write the owner commits via the sticky commit bar's
-	// preview dialog (F48.7a). Tokens only; QA 3 skins.
+	// preview dialog (F48.7a). Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';

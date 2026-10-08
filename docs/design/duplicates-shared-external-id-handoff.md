@@ -67,9 +67,9 @@ case, which has no panel to move anything into.
 | Showing the external id itself in the row | It is a provider-internal string the owner cannot act on. It belongs in the compare panel's provider-link badges, which F70 already renders |
 | A compare panel for studio and film | F70 RD10 scoped the panel to person deliberately; ADR-107 does not revisit it |
 
-## QA — three skins
+## QA — Cinémathèque
 
-1. `[agent]` Chip contrast in Cinémathèque, Brutalist and the instance skin: read the computed
+1. `[agent]` Chip contrast in Cinémathèque: read the computed
    `background-color` / `color` off the chip and confirm both resolve from tokens, never hardcoded.
 2. `[agent]` Row height is unchanged at ≥ 640px for a `shared-external-id` pair with two long
    names — the chip replaced the slug, so the row must not gain a line.

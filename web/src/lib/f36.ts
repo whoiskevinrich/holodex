@@ -1,7 +1,8 @@
 // F36 — Per-field source-of-truth decisions (ADR-051). Pure view-model helpers for the
-// SourceSelect control: derive the segments/candidates from a ResolvedField's frozen
+// source-of-truth controls (SourceBadge, SourceEditModal, StudioPicker, the writeback dialog):
+// derive the segments/candidates from a ResolvedField's frozen
 // `decision` / `candidates` / `in_sync` payload. No I/O, no Svelte — unit-tested in isolation
-// (f36.test.ts), reused by SourceSelect.svelte and the media detail page.
+// (f36.test.ts), reused by those controls and the detail pages.
 //
 // F37 generalizes the baseline: the anchored first chip's source key is the entity's
 // `baselineKey` — 'file' for videos (the default, so every F36 call site is untouched),

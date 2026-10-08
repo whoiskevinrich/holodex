@@ -3,7 +3,7 @@
 **Spec**: [field-source-of-truth.md](../specs/field-source-of-truth.md) P1-5 (F36) · **Architecture**: [ADR-113](../architecture/archive/ADR-113-owner-offered-empty-fields.md)
 (owner-offered empty fields; this handoff is its first adopter) ·
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md): tokens only, QA all three skins.
+[theming.md](theming.md): tokens only, QA Cinémathèque.
 **Surfaces**: `routes/media/[id]/+page.svelte` (the Overview block in the rail), the existing
 `curation/SourceEditModal.svelte` (initial selection only), and the existing
 `writeback/WritebackFormDialog.svelte` (no change: it gains the row because the field now exists).
@@ -87,11 +87,11 @@ would.
 ## QA
 
 1. `[agent]` Owner, video with no overview on the file and no provider value: the OVERVIEW heading,
-   pencil and **+ Add overview** pill render. Check all three skins with computed styles.
+   pencil and **+ Add overview** pill render. Check Cinémathèque with computed styles.
 2. `[agent]` Visitor, same video: no Overview block at all.
 3. `[agent]` Pill → dialog opens with Custom selected and the textarea focused; Save with text →
    the page shows the text, and the pill is gone.
 4. `[agent]` Save with an empty Custom value → the existing validation line, and nothing saved.
 5. `[agent]` Write metadata to file on a video with no overview → the Overview row is present in
    "Not yet decided"; typing Custom moves it to the write state and the footer count increments.
-6. `[human]` Prod-skin look at the empty state in all three skins.
+6. `[human]` Cinémathèque look at the empty state.

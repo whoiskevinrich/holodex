@@ -1,7 +1,7 @@
 # Design Handoff: Person Aliases ("Also known as") (F23)
 
 **Spec**: [Person Aliases (F23)](../specs/person-aliases.md) · **ADR**: [ADR-036](../architecture/archive/ADR-036-person-alias-search-indexing.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---
@@ -138,8 +138,8 @@ named-font/fixed-radius in markup.**
 - **Many aliases** — chips wrap to multiple rows; no truncation needed at personal-library scale.
 - **Long single alias** (e.g. a full romanized name) — chip grows; allow it to wrap within the pill
   rather than truncating (a name you can't read defeats the purpose).
-- **International text / diacritics (e.g. "Beyoncé", CJK "宮崎駿")** — must render in all skins (mono
-  display faces on Broadcast/Brutalist); body text uses `font-ui`. Verify no tofu. Search folds
+- **International text / diacritics (e.g. "Beyoncé", CJK "宮崎駿")** — must render
+  correctly; body text uses `font-ui`. Verify no tofu. Search folds
   diacritics (ADR-036 tokenizer), so this is also a search-QA point.
 - **Duplicate add** — idempotent, silent (see states).
 - **Alias equal to the canonical name** — allowed (harmless); not specially handled. Search would match
@@ -153,7 +153,7 @@ named-font/fixed-radius in markup.**
 
 Minimal. No modal here. Chip add/remove can use a subtle background/opacity transition only, gated
 behind `@media (prefers-reduced-motion: no-preference)` — consistent with the rest of `app.css`. No
-transforms required. Skin flourishes (if any) belong in `app.css` gated by `[data-theme]`, not in markup.
+transforms required. Theme flourishes (if any) belong in `app.css`, not in markup.
 
 ---
 
@@ -205,7 +205,7 @@ selected row `border-accent`). A header **"Merge N selected"** (solid accent, di
 ### Tokens for merge surfaces
 
 Reuses the same token set as the alias panel. New utility: **`accent-accent`** on the checkbox/radio
-(`accent-color: var(--accent)`) so the native control themes per skin — verified gold/cyan/lime. No
+(`accent-color: var(--accent)`) so the native control follows the theme — verified gold. No
 hex, no palette literals; modal cards use `rounded-theme`, chips/pills stay `rounded-full`.
 
 ### Merge a11y
@@ -216,31 +216,29 @@ hex, no palette literals; modal cards use `rounded-theme`, chips/pills stay `rou
   top returns to the search box (mirrors `EnrichPicker`).
 - Confirm/collision buttons are real `<button>`s with words ("Yes, merge them in"), never color-only.
 
-## Three-skin QA checklist (required before merge — CLAUDE.md)
+## Cinémathèque QA checklist (required before merge — CLAUDE.md)
 
-Render `/people/[id]` with aliases present in **Cinémathèque, Broadcast, Brutalist**:
+Render `/people/[id]` with aliases present in **Cinémathèque**:
 
-- [ ] **Alias chips legible** in each skin — muted-surface pill reads on the panel card; ✕ glyph
+- [ ] **Alias chips legible** — muted-surface pill reads on the panel card; ✕ glyph
       visible and turns accent on hover/focus.
-- [ ] **Panel radius** correct per skin (`--radius`: 2px / 0 / 0) — `rounded-theme` card has no stray
-      rounded corners on Broadcast/Brutalist; only the chips stay pill (`rounded-full`, intentional).
-- [ ] **Heading** "Also known as" muted/uppercase reads in each skin.
-- [ ] **Add input focus ring** (`focus:border-accent`) visible on each accent (lime/cyan/gold).
-- [ ] **"Add" button** solid accent + `text-accent-ink` legible in each skin.
-- [ ] **Error state** (`text-warn`) distinct from accent in each skin (the warn/accent separation is
-      load-bearing on Brutalist where accent is bright lime).
-- [ ] **International/CJK alias** renders (no tofu) in mono-faced skins.
+- [ ] **Panel radius** correct (`--radius`: 2px) — `rounded-theme` card; only the chips stay pill (`rounded-full`, intentional).
+- [ ] **Heading** "Also known as" muted/uppercase reads.
+- [ ] **Add input focus ring** (`focus:border-accent`) visible on the gold accent.
+- [ ] **"Add" button** solid accent + `text-accent-ink` legible.
+- [ ] **Error state** (`text-warn`) distinct from accent.
+- [ ] **International/CJK alias** renders (no tofu).
 - [ ] **Empty (owner) / populated / read-only (non-owner)** states all themed.
 - [ ] **Owner vs locked** — with `ADMIN_TOKEN` set and no token entered, no add/remove controls; chips
       still show read-only; after unlock, add/remove work.
 - [ ] **Search-by-alias** — add "Ziggy" to a person, type "zig" in the global search box, the person
-      appears (cross-checks ADR-036 end-to-end, in any one skin).
-- [ ] **Merge picker** — dialog card radius per skin (2/0/0), active row accent left-bar, **Back**
+      appears (cross-checks ADR-036 end-to-end).
+- [ ] **Merge picker** — dialog card radius (2px), active row accent left-bar, **Back**
       (outlined) vs **Merge** (solid accent) legible; the informed-confirm text readable.
 - [ ] **Collision prompt** — the inline card reads on `bg-surface-2`; "Yes, merge them in" (accent) vs
       "No, keep separate" (outlined) clearly distinct.
-- [ ] **People-list select mode** — checkbox/radio `accent-accent` shows the skin accent (lime/cyan/
-      gold); selected-row `border-accent` visible; "Merge N selected" button legible.
+- [ ] **People-list select mode** — checkbox/radio `accent-accent` shows the skin accent
+      (gold); selected-row `border-accent` visible; "Merge N selected" button legible.
 
 > Verify with `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'`
 > returning empty for the changed markup.

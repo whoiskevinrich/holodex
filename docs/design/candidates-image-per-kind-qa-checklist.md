@@ -41,7 +41,7 @@ list covers only what the shape change adds or alters.
   9 skin/width cells; dropping `w-27` fails the width assertion on all 9, dropping `h-15` fails
   the row floor on all 9.
 
-## §3 Agent — live, all three skins — `[agent]`
+## §3 Agent — live, Cinémathèque — `[agent]`
 
 - **3.1** `[agent]` Media page picker: every row's slot `getBoundingClientRect()` is exactly
   108 × 60; the label `<span>` x is identical on every row (parity holds within the kind).
@@ -63,9 +63,9 @@ list covers only what the shape change adds or alters.
 - **3.8** `[agent]` Wire check (`/media/{id}/enrich/resolve` against the stub): the video row's
   `image_url` points at the `landscape-N` rendition, the poster-fallback row at `portrait-N`; the
   film page's resolve for the same stub title points at `portrait-N`.
-- **3.9** `[agent]` Three skins (`[data-theme]` = cinematheque / broadcast / brutalist): plate
-  radius 2 / 0 / 0 on the 108 and 120 boxes, monogram contrast on plate unchanged from F64's
-  12.2 / 13.0 / 15.3.
+- **3.9** `[agent]` Cinémathèque: plate
+  radius 2 on the 108 and 120 boxes, monogram contrast on plate unchanged from F64's
+  12.2.
 - **3.10** `[agent]` Below `sm` (`resize_window` 363 × 812, reload): media slot **80 × 45** and
   studio **80 × 40** (`h-11.25` = 45 — Tailwind v4 emits the fractional step); the match-strength
   span's `offsetTop` is below the label's (stacked); the label is not clipped for a 17-character

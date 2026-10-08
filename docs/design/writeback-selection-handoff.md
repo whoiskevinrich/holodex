@@ -4,7 +4,7 @@
 **ADRs**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) ·
 [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Issue**: HOLODEX-213 · **Surface**: `WritebackFormDialog.svelte`, opened from `/media/[id]`.
 
 ---
@@ -19,8 +19,8 @@ The dialog behind **Write decisions to file** had two problems that turned out t
    no file candidate, was always in that surplus, arming an image download and a cover-art embed
    (a full remux on MKV) the owner never asked for.
 2. Fixing (1) alone would leave a dialog whose default selection is empty and whose rows are
-   almost all `opacity-50` — where a `text-muted` label measures **2.0–2.4:1** against
-   `--surface` on every skin, below AA.
+   almost all `opacity-50` — where a `text-muted` label measures **2.4:1** against
+   `--surface`, below AA.
 
 Spec §Writeback already states the write action collects "all of the item's decided + out-of-sync
 fields." This handoff records the surface that makes that true and legible.
@@ -110,13 +110,13 @@ default selection changed.
 
 ---
 
-## Measured contrast (all three skins, dialog surface)
+## Measured contrast (Cinémathèque, dialog surface)
 
-| | Cinémathèque | Broadcast | Brutalist |
-|---|---|---|---|
-| Row label (`text-muted`), checked or not | 6.00 | 4.67 | 5.59 |
-| Disclosure label (`.btn-quiet`) | 6.00 | 4.67 | 5.59 |
-| Select all (`.btn-accent`) | 8.71 | 11.51 | 16.76 |
+| | Cinémathèque |
+|---|---|
+| Row label (`text-muted`), checked or not | 6.00 |
+| Disclosure label (`.btn-quiet`) | 6.00 |
+| Select all (`.btn-accent`) | 8.71 |
 
 Elements below `opacity: 1` inside the dialog: **0**. Before this change the dimmed row label
-measured 2.39 / 2.04 / 2.25.
+measured 2.39.

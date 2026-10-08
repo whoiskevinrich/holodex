@@ -45,7 +45,7 @@ existing "decided source currently unmatched" resolver path with no new schema/s
 
 **Design handoff**: pending `/design-handoff` — films list/detail layout, the two attach
 pickers (video-side and film-side), the two-region film detail page, the new films row on
-person/studio/tag pages, 3-skin QA.
+person/studio/tag pages, Cinémathèque QA.
 
 **Related**: [studio-entity.md](studio-entity.md) (the derived-link entity this spec's RD1
 explicitly contrasts against), [tag-categories.md](tag-categories.md) (a recent precedent for a
@@ -412,7 +412,7 @@ POST   /api/v1/media/{id}/writeback                            unchanged; film-s
 - **Global search** and **browse**: films appear as their own result group when
   `films_enabled` is true (mirroring the people/tags/studios FTS group pattern); full-film
   files never appear as browse/search video hits while the flag is on (RD6).
-- Tokens only; QA Cinémathèque / Broadcast / Brutalist, per every entity page in this codebase.
+- Tokens only; QA Cinémathèque, per every entity page in this codebase.
 
 ## Success Metrics
 
@@ -459,7 +459,7 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    `films_enabled` suspend semantics (RD6).
 2. ⬜ **`/design-handoff`** — films list/detail layout, the two attach pickers (RD9), the
    two-region film detail page (RD4), the new films row on three existing pages (RD6/P0-5),
-   3-skin QA.
+   Cinémathèque QA.
 3. ⬜ **`/testing-strategy`** — the RD1 non-participation regression test (P0-2, highest
    priority), flag-toggle round-trip idempotency (RD6/RD7), scene-number collision handling
    (RD5), multi-film-candidate resolution (Q1), video-list hiding correctness across all five

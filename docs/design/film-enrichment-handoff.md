@@ -11,7 +11,7 @@ D2 merge rule, D3 year identity write, D4 banner-replaces-thumb, D5 SPA widening
 longer the header's only image, the year is now an editable field, and the "All films" backlink is
 gone (the nav's Films link already goes there; the person page dropped its equivalent in #286)
 **Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
-**tokens only, QA all three skins.**
+**tokens only, QA Cinémathèque.**
 
 ![Film enrichment mockup](film-enrichment-mockup.svg)
 
@@ -72,8 +72,8 @@ the overlapping.
 | Scrim | Bottom-anchored gradient over the band's lower ~45% | Reuses the person-bio scrim from PR #290 |
 | Stacking | The overlap row and every child paint above the band | Same fix as PR #283 — the row must not sit behind |
 
-Measured as built — title over the scrim 16.84 / 16.38 / 18.97 and the year 6.31 / 4.90 / 5.73 across
-Cinémathèque, Broadcast and Brutalist. **Read that as a floor, not a guarantee:** it compares the text
+Measured as built — title over the scrim 16.84 and the year 6.31 in
+Cinémathèque. **Read that as a floor, not a guarantee:** it compares the text
 against the scrim's end colour (`--bg`). Higher up the gradient the text sits over partially visible
 artwork, so an unusually bright backdrop can still read worse than these numbers. If that shows up in
 practice, deepen the scrim rather than darkening the text.
@@ -219,8 +219,8 @@ rest of the curation context). It carries **no verb and no link** — a "use tha
 "the year is wrong" and nag the owner to change a value that is right. Why the two may differ:
 [spec Q0](../specs/film-provider-enrichment-ux.md#open-questions).
 
-Measured on the built control — `No year set` 6.31 / 4.90 / 5.73, verdict claim 16.00 / 15.59 /
-18.50, verdict rationale 6.00 / 4.67 / 5.59 across Cinémathèque, Broadcast and Brutalist. One `h1`
+Measured on the built control — `No year set` 6.31, verdict claim
+16.00, verdict rationale 6.00 in Cinémathèque. One `h1`
 on the page, confirmed in the DOM.
 
 ## 4f. Owner-only surfaces (owner request, 2026-09-04)
@@ -252,18 +252,18 @@ render — the `soleProvider` derived was removed rather than left as dead code.
   "billed but absent" framing, which is the entire meaning. Colour and dashes alone do not carry it.
 - Owner overlay buttons on both image roles keep discernible names: `Replace banner`, `Remove banner`,
   and the existing poster equivalents.
-- Chip contrast: the dashed accent chips must clear AA against `--surface` in all three skins — this
+- Chip contrast: the dashed accent chips must clear AA against `--surface` in Cinémathèque — this
   is the pairing most likely to fail, since accent-on-surface is decorative elsewhere but load-bearing
   text here.
 
 ## 7. Theming
 
 Tokens only. The band, scrim, chips and dashed borders all resolve from existing tokens — no new
-token is introduced. The scrim is the one risk: it is a gradient to `--surface`, and a skin whose
-surface is light inverts the legibility problem it solves. QA the banner + title contrast in all three
-skins explicitly, not by inspection of one.
+token is introduced. The scrim is the one risk: it is a gradient to `--surface`, and a
+light surface would invert the legibility problem it solves. QA the banner + title contrast in
+Cinémathèque explicitly.
 
-## 8. QA checklist (3-skin)
+## 8. QA checklist (Cinémathèque)
 
 Numbered `section.item`, grouped by verifier ([[feedback-qa-checklist-numbering]]).
 
@@ -283,10 +283,9 @@ Numbered `section.item`, grouped by verifier ([[feedback-qa-checklist-numbering]
 
 ### §3 Agent live QA (preview tools against the §1 stack)
 - **3.1** `[agent]` Enrich a film; confirm description, release date, year, poster and banner all
-  populate from one apply. **All 3 skins.**
-- **3.2** `[agent]` Measure computed contrast of the film title over the banner scrim. **All 3 skins.**
+  populate from one apply.
+- **3.2** `[agent]` Measure computed contrast of the film title over the banner scrim.
 - **3.3** `[agent]` Measure computed contrast of a dashed difference chip's label against `--surface`.
-  **All 3 skins.**
 - **3.4** `[agent]` Confirm via `getBoundingClientRect` that the poster overlaps the band and that no
   control sits beneath the scrim's hit area.
 - **3.5** `[agent]` Clear the provider; confirm the difference group and counts line disappear and the
@@ -302,8 +301,8 @@ Numbered `section.item`, grouped by verifier ([[feedback-qa-checklist-numbering]
   The dashed group below is people credited on the real film who aren't in any of your files. Is that
   distinction obvious without reading the labels twice? Is anyone listed in *both* groups? (Nobody
   should be.)
-- **4.3** `[human]` Switch skins using the theme control and repeat 4.1 and 4.2 in each. The wide image
-  and the title should stay readable in all three.
+- **4.3** `[human]` In Cinémathèque, re-check 4.1 and 4.2 at a narrow and a wide window. The wide image
+  and the title should stay readable in both.
 - **4.4** `[human]` Try enriching the film from §1.3 — the one that shares a name with another film.
   You should get a clear message naming the film it clashed with, and nothing on the page should
   change.

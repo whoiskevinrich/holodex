@@ -9,7 +9,7 @@ hover/zoom/header comparison/skeleton) still applies verbatim and is not repeate
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3
 `candidates[].image_url` — shape guidance per `entity_type` added.
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins**.
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**.
 **Prior art**: the F64 slot in
 [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte); the studio
 logo aspect rule from HOLODEX-411 (≥ 2:1 reads as a wordmark); `aspect-video` on the media
@@ -195,5 +195,5 @@ gap, verified by computed style at 1280. Rejected on the same mockup: shrinking 
 - **Rule to record** in `web/src/lib/components/enrichment/CLAUDE.md`, next to the F64 rule: *the
   candidate slot's box is kind-shaped (portrait / landscape / logo) but always 60 px tall; add a
   kind by adding a `SlotShape`, never by branching in the template.*
-- **Three skins**: nothing skin-specific. `rounded-theme` and `bg-logo-plate` behave exactly as in
+- **Cinémathèque**: nothing look-specific. `rounded-theme` and `bg-logo-plate` behave exactly as in
   F64; verify by computed style (screenshots time out on this picker).

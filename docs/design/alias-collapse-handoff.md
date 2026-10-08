@@ -70,8 +70,8 @@ Renders when `skipped_aliases` on the detail read is non-empty.
 ## Theming
 
 Tokens only, per `.claude/rules/frontend-theming.md`. The badge uses `text-muted` + `border-rule`;
-the review line uses `border-accent` on `bg-surface-2`. Both need a three-skin QA pass —
-Cinémathèque, Broadcast, Brutalist — with particular attention to the badge, since a low-contrast
+the review line uses `border-accent` on `bg-surface-2`. Both need a QA pass in
+Cinémathèque, with particular attention to the badge, since a low-contrast
 `text-muted` on `bg-surface-2` is the failure mode this codebase has hit before. Verify computed
 contrast rather than eyeballing.
 

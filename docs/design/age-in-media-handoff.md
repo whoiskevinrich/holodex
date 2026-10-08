@@ -4,7 +4,7 @@
 **Date**: 2026-07-12
 **Spec**: [`docs/specs/age-in-media.md`](../specs/age-in-media.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[`theming.md`](theming.md) — **tokens only, QA all three skins**
+[`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 A small corner badge on each cast member's poster card shows their age at the time of the video's
 release — a computed, read-only number with no home in the caption below the poster (see "Resolved
@@ -73,13 +73,12 @@ drops in as a sibling of the `<img>` with no new wrapper element.
 
 - **`bg-black/70` is a deliberate exception**, already established by `VideoCard`'s duration badge for
   exactly this reason: a translucent scrim needs to stay legible over *arbitrary* underlying imagery
-  (a person photo here, a video thumbnail there) regardless of which skin is active — a themed surface
+  (a person photo here, a video thumbnail there) whatever the theme's surface colours — a themed surface
   color would fight the photo instead of sitting on top of it. Reuse the literal as-is; don't reinvent
   it as a token.
-- Everything else is a token and reacts per skin: `rounded-theme` (2px Cinémathèque / 0 Broadcast /
-  0 Brutalist), `text-ink` (per-skin ink color).
+- Everything else is a token: `rounded-theme` (2px Cinémathèque), `text-ink` (the ink color).
 - QA note: verify the badge reads against both the `--surface-2` placeholder (person with no photo yet)
-  and a busy real poster photo, in all three skins — the black scrim is what keeps contrast stable
+  and a busy real poster photo, in Cinémathèque — the black scrim is what keeps contrast stable
   across both cases, same reasoning the duration badge already relies on.
 
 ## Edge cases

@@ -13,12 +13,12 @@
 	// confirming the RD6 winner actually creates the standing decision. Deliberately NOT an
 	// extension of SourceSelect.svelte (see the F56 design handoff's "Design-system fit"):
 	// it builds its own local staged-selection state directly against CurationChip's radio
-	// mode + f36.ts's sourceChips/resolveSelection. SourceSelect stays alive only for
-	// Person's onadopt-intercepted name field (Tier-1, HOLODEX-269).
+	// mode + f36.ts's sourceChips/resolveSelection. SourceSelect itself was later removed: its
+	// last Tier-1 mounts moved to NameEditControl (HOLODEX-269) and StudioPicker (HOLODEX-271).
 	//
 	// No `onadopt` — Tier-2 never intercepts into a rename/collision flow; every Confirm
 	// calls `decide` directly. Entity-agnostic like SourceSelect (`baselineKey`: 'file' for
-	// videos, 'record' for persons/studios). Tokens only; QA 3 skins.
+	// videos, 'record' for persons/studios). Tokens only; QA Cinémathèque.
 	import { tick, untrack } from 'svelte';
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import {

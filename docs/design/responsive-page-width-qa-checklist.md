@@ -7,7 +7,7 @@ Verifier tags: `[smoke]` runs in CI or a single command · `[agent]` an agent ca
 `javascript_tool` computed styles and geometry · `[human]` needs eyes on a real display.
 
 Widths under test: **412, 768, 1024, 1280, 1536, 1920, 2560, 3840, 5120**.
-Skins under test: **Cinémathèque, Broadcast, Brutalist**.
+Skin under test: **Cinémathèque** (the only look).
 
 > **Reload at each width — do not resize.** `viewportTierCap` reads `window.innerWidth` at
 > construction, so a resized window and a freshly-loaded one take different code paths. Resizing
@@ -81,10 +81,10 @@ Run each at a **fresh page load** at the stated width. Read values with `javascr
   on both zones). **Beware `[class*="order-"]` — it also matches `border-*`;** match
   `/^(?:[a-z0-9]+:)*order-/` against `classList` entries instead.
 - **3.12** `[agent]` Contrast: `--color-muted` on `--color-surface` (field labels on rail cards)
-  meets AA in all three skins. Read computed colors and compute the ratio.
+  meets AA in Cinémathèque. Read computed colors and compute the ratio.
 - **3.13** `[agent]` **Max density reaches 8 columns** (shipped; handoff §1b-i). With
   `holodex:media-density` = `8`: 8 columns at 1920 (~220px cards) **and** at 1536 (~172px cards —
-  the rung where 8 columns begins). Check both `wide` and `poster` layouts and all three skins;
+  the rung where 8 columns begins). Check both `wide` and `poster` layouts in Cinémathèque;
   assert no horizontal overflow. Confirm 1280 still gives 4 and 1024 still gives 3.
 - **3.14** `[agent]` **Slider ends map correctly.** Setting the range input to its `min` position
   stores the highest density (most columns); setting it to `max` stores `DENSITY_MIN` (fewest).
@@ -164,9 +164,8 @@ list.
   hidden behind a tab or a section you have to open. Nothing should be cut off at the right edge.
 - **5.5** `[human]` **On the phone, is anything uncomfortably small?** Tag chips and any buttons in
   the rail should still be easy to tap with a thumb.
-- **5.6** `[human]` **Switch skins on both devices** using the skin picker in the header. All three
-  should keep the same layout — only colors, fonts and corner rounding change. Watch for text that
-  becomes hard to read against its background in any one skin.
+- **5.6** `[human]` **Check legibility on both devices** in Cinémathèque. Watch for text that
+  becomes hard to read against its background.
 - **5.7** `[human]` **On a laptop, drag the window slowly from wide to narrow.** The rail should
   move below the video at around half-screen width. The change should be a clean jump, not a
   stutter or a flash of overlapping content.

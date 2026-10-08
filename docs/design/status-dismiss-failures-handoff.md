@@ -87,9 +87,8 @@ button, no row change. Requires `dismissed_at?: string` on `JobRun` in `types.ts
 | `text-muted`, `text-ink` | Row cells, `· dismissed` marker |
 | `rounded-theme`, `bg-surface` | Callout frame — unchanged |
 
-No new tokens. No hardcoded colours, sizes, or radii. QA all three skins (Cinémathèque, and
-the two others in `app.css` `[data-skin]` blocks) — the warn hue differs per skin and the
-`btn-quiet` hover underline must be visible against `bg-surface` in each.
+No new tokens. No hardcoded colours, sizes, or radii. QA Cinémathèque — the
+`btn-quiet` hover underline must be visible against `bg-surface`.
 
 ## States and interactions
 

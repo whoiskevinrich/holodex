@@ -47,8 +47,8 @@ away, meaning something entirely different (a destination vs. a view state).
    Owner view**; the tooling area is **Owner**. The word "Admin" disappears from the user-facing surface.
 5. **Grow without touching the nav again.** Future owner surfaces (enrichment runs, config, plugin
    management, writeback history) become new tabs under `/owner`, never new header links.
-6. **Keep all three skins clean.** The reworked bar and the `/owner` hub render correctly in Cinémathèque,
-   Broadcast, and Brutalist using semantic tokens only.
+6. **Keep Cinémathèque clean.** The reworked bar and the `/owner` hub render correctly in Cinémathèque
+   using semantic tokens only.
 
 ## Non-Goals
 
@@ -60,8 +60,8 @@ away, meaning something entirely different (a destination vs. a view state).
   Owner/Preview. The `adminMode` store, its `localStorage` key, and F29's code identifiers keep their names
   this change (Resolved Decisions #6). *(Why: a rename touches every owner-gated surface plus a
   localStorage migration — disproportionate to a nav change; tracked as tech-debt.)*
-- **Not touching search or the skin picker.** Both stay exactly where and how they are. *(Why: out of the
-  problem's scope; they're not owner tooling.)*
+- **Not touching search.** It stays exactly where and how it is. *(Why: out of the
+  problem's scope; it's not owner tooling.)*
 - **Not a new server permission model.** Reuses the existing `requireOwner` gate and `effectiveOwner`
   client gate; no new roles, capabilities, or auth flow. *(Why: ADR-030's seam already covers this; the
   change is which routes sit behind it.)*
@@ -72,7 +72,7 @@ away, meaning something entirely different (a destination vs. a view state).
 **As the library owner:**
 - I want my operational tools (Status, Metadata keys, Trash) in one place I reach from the header, so the
   top bar isn't cluttered and I'm not hunting across peer links.
-- I want a single **Owner** entry in the header's chrome cluster (next to Preview and the skin picker), so
+- I want a single **Owner** entry in the header's chrome cluster (next to Preview), so
   owner tooling visually reads as *my* controls, distinct from Media/People/Tags.
 - I want to switch between Status, Metadata keys, and Trash as **tabs** within `/owner`, so moving between
   my tools doesn't bounce me back to the top of the app.
@@ -105,13 +105,13 @@ pages move under this group; their `<script>`/content move essentially unchanged
 
 **P0-2 — Header entry point in the owner-chrome cluster.**
 A single **Owner** entry in the header's right-hand chrome group (the border-separated cluster with
-`ActivityIndicator`, the Preview toggle, and the skin picker) — **not** a peer of Media/People/Tags. It is a
+`ActivityIndicator` and the Preview toggle) — **not** a peer of Media/People/Tags. It is a
 **gear icon** (`ti-settings`-equivalent) that shows an "Owner" text label at `≥sm` and collapses to
-icon-only below `sm`, mirroring the skin picker's and Preview toggle's existing responsive label behavior
+icon-only below `sm`, mirroring the Preview toggle's existing responsive label behavior
 (Resolved Decisions #5). Rendered only on the effective owner gate (`activity.isOwner && adminMode.enabled`).
 - Given I am owner in owner view, when the header renders, then the Owner gear appears in the chrome
   cluster, to the right of the content nav's separator.
-- Given the viewport is below `sm`, then the gear shows icon-only (label hidden), like the skin picker.
+- Given the viewport is below `sm`, then the gear shows icon-only (label hidden), like the Preview toggle.
 - Given the Owner route is active, then the gear shows its active state via **`text-accent`** (the
   sanctioned active/primary semantic) — not a second solid fill.
 - Tokens-only styling; `aria-label="Owner tools"`; a real link/button with an accessible name.
@@ -160,15 +160,15 @@ leaves the UI entirely.
 - Given the header renders for an owner, then the view toggle reads in Owner/Preview terms and the word
   "Admin" appears nowhere in the header.
 
-**P0-8 — Tokens-only, all three skins, including the active-tab fix.**
+**P0-8 — Tokens-only, Cinémathèque, including the active-tab fix.**
 Every new surface (gear, hub heading, tab row, active/inactive tab states) uses semantic tokens only — no
-`zinc-*`/`sky-*`/hex/named fonts/fixed radii. The **active tab uses `bg-surface-2 text-ink`** (matching the
-skin picker's active-segment precedent), reserving the single solid `bg-accent` for a page's one primary
+`zinc-*`/`sky-*`/hex/named fonts/fixed radii. The **active tab uses `bg-surface-2 text-ink`**,
+reserving the single solid `bg-accent` for a page's one primary
 action (e.g. Status's "Rescan"). The `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)'` check stays
 empty.
-- Given any of the three skins, when I view `/owner` and each tab, then tokens/radius/contrast read
+- Given Cinémathèque, when I view `/owner` and each tab, then tokens/radius/contrast read
   correctly, the active tab is distinguishable without a second accent fill, and nothing overflows or
-  collides (including the `--radius: 0` square treatment in Broadcast/Brutalist).
+  collides.
 
 ### Nice-to-Have (P1)
 
@@ -222,7 +222,7 @@ Single-user personal server — metrics are usage-quality signals, not funnel nu
    view once at the group gate; nested routes don't each re-implement it. Consolidates F29's P0-6.
    *(See P0-6.)*
 5. **RESOLVED — entry affordance: gear icon, label below `sm`.** A gear in the chrome cluster showing an
-   "Owner" label at `≥sm`, icon-only below — mirroring the skin picker / Preview toggle responsive pattern.
+   "Owner" label at `≥sm`, icon-only below — mirroring the Preview toggle responsive pattern.
    *(See P0-2.)*
 6. **RESOLVED — defer the internal `adminMode` rename.** Only user-facing strings change now; the store,
    key, and code identifiers keep their names. Divergence tracked as tech-debt (P2-2). *(See Non-Goals.)*
@@ -237,9 +237,9 @@ No hard deadline. Suggested order:
 3. **Header rework (P0-2, P0-3, P0-7)** — Owner gear in the chrome cluster, content nav down to three,
    rename the toggle strings. → `/design-handoff` for the bar.
 4. **Hub shell + tabs + theming (P0-1 cont., P0-8)** — the tabbed shell, active-tab `bg-surface-2`
-   treatment, QA across all three skins in both Preview states.
+   treatment, QA in Cinémathèque in both Preview states.
 5. **P1 polish** (landing summary, tab persistence, keyboard) as fast follows.
 
 **Pre-merge gates (project working agreements):** `/simplify`; **`/security-review`** (owner-gating);
-`/design-handoff` (bar + hub); `/testing-strategy` updated for the new routes + gating; QA across **all
-three skins** in both Owner and Preview states.
+`/design-handoff` (bar + hub); `/testing-strategy` updated for the new routes + gating; QA in
+**Cinémathèque** in both Owner and Preview states.

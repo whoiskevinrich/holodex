@@ -4,7 +4,7 @@
 amended by this bug · **Prior handoff**: [enrichment-review-workflow-handoff.md](enrichment-review-workflow-handoff.md)
 (the queue row's "Try again") ·
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — tokens only, QA all three skins.
+[theming.md](theming.md) — tokens only, QA Cinémathèque.
 **Surfaces**: `EnrichPicker.svelte` (one new state), its four detail-page mounts (pass `retry`
 through), `api.ts` (the four `enrich*Resolve` methods), the four `/resolve` handlers. No new component.
 **Mockup**: ![EnrichPicker dismissed state in three skins](enrich-picker-undismiss-mockup.svg)
@@ -66,5 +66,5 @@ marks, not italics — the UI has no italic idiom.
    `/resolve` afterwards → 200 (dismissal cleared).
 3. `[agent]` Person page, dismissed person, nonsense query + Enter → "the dismissal stands"; plain
    `/resolve` afterwards → 409.
-4. `[agent]` Three skins by computed style: button border/color = `--accent`, notice = `--ink` 14 px,
-   rule = `--rule`, dialog 512 px with no horizontal overflow; Brutalist wraps the notice to two lines.
+4. `[agent]` Cinémathèque by computed style: button border/color = `--accent`, notice = `--ink` 14 px,
+   rule = `--rule`, dialog 512 px with no horizontal overflow.

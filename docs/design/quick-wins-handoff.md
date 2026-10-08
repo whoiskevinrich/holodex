@@ -4,18 +4,17 @@
 **Date**: 2026-06-14
 **Spec**: [`docs/specs/quick-wins.md`](../specs/quick-wins.md) (overlay bugfix · QW1 · QW2/QW3)
 **Architecture**: [ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md) (related-media endpoint)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 This handoff covers the three UI surfaces in the Quick Wins batch: the **media-page
 atmosphere overlay fix**, the **search-history dropdown** (QW1), and the shared
 **"More with …" shelf** (QW3). All markup below is **tokens only** — no `zinc-*`,
-`sky-*`, hex, or fixed `rounded-lg`/`px` radii. Skin flourishes live in `app.css`
-gated by `[data-theme]`, never in component markup.
+`sky-*`, hex, or fixed `rounded-lg`/`px` radii. Theme flourishes live in `app.css`,
+never in component markup.
 
-> **Skin reminders that bite these surfaces:** Broadcast & Brutalist set `--radius: 0`
-> (everything `rounded-theme` is square). Broadcast appends a `▮` caret after every
-> `.skin-title` and washes scanlines over `.app-atmosphere::after` and `.video-frame`.
-> Brutalist numbers `.video-frame` cards via a CSS `counter()` reset on `.video-grid`.
+> **Theme reminder for these surfaces:** Cinémathèque sets `--radius: 2px`
+> (everything `rounded-theme` is slightly rounded) and draws grain + vignette over
+> `.app-atmosphere::after` and letterbox bars on `.video-frame`.
 > Each surface below calls out where these interact.
 
 ---
@@ -24,10 +23,9 @@ gated by `[data-theme]`, never in component markup.
 
 **The bug.** `.app-atmosphere::after` ([`app.css:112`](../../web/src/app.css)) is a
 `position: fixed; inset: 0; z-index: 40; pointer-events: none` pseudo-element on
-`<body class="app-atmosphere">`. Its skin flourishes — Cinémathèque grain + vignette,
-**Broadcast scanlines + CRT vignette** (worst), Brutalist none — paint over the entire
+`<body class="app-atmosphere">`. Its flourish — Cinémathèque grain + vignette — paints over the entire
 viewport, *including the playing `<video>`* on the media detail page. There is no way
-to "watch cleanly": the scanlines/vignette sit on top of the picture.
+to "watch cleanly": the grain/vignette sit on top of the picture.
 
 **Decision — suppress the atmosphere while a media video plays, pure-CSS-gated.**
 The detail-page `<video>` toggles a single state class on `<body>`; `app.css` owns the
@@ -41,9 +39,9 @@ hide rule. No per-component overlay markup, no z-index war.
 	display: none;
 }
 ```
-> `display: none` (not `opacity: 0`) so the Broadcast `box-shadow` vignette is fully
-> gone, not just faded. The rule is skin-agnostic — it applies to all three because it
-> targets the shared `.app-atmosphere::after`, so each skin's flourish disappears
+> `display: none` (not `opacity: 0`) so the vignette is fully
+> gone, not just faded. The rule
+> targets the shared `.app-atmosphere::after`, so the whole flourish disappears
 > together.
 
 **Handler wiring in [`media/[id]/+page.svelte`](../../web/src/routes/media/[id]/+page.svelte)**
@@ -81,17 +79,13 @@ teardown so navigating away mid-play restores the overlay:
 
 | State | Atmosphere | Trigger |
 |-------|-----------|---------|
-| Not playing / paused / ended | Visible (per skin) | `onpause`, `onended`, initial |
+| Not playing / paused / ended | Visible | `onpause`, `onended`, initial |
 | Playing | Hidden (`display:none`) | `onplay` |
 | Navigate away mid-play | Restored | `$effect` teardown |
 
-**3-skin QA**
+**Cinémathèque QA**
 - **Cinémathèque:** grain + vignette gone during playback; returns on pause.
-- **Broadcast:** scanlines **and** CRT vignette gone during playback (the load-bearing
-  case) — picture fully clean; both return on pause/end.
-- **Brutalist:** no atmosphere flourish to begin with — confirm the toggle is a no-op
-  (no layout shift, no flicker) and nothing else moves.
-- All skins: start play → overlay off; pause → overlay on; let it end → overlay on;
+- Start play → overlay off; pause → overlay on; let it end → overlay on;
   hit ← Back mid-play → overlay on at the grid.
 
 ---
@@ -198,13 +192,10 @@ on the overlay is `none` regardless, so interaction is safe either way.
 + `aria-selected` on rows. ↓/↑ adjust `active`; Enter runs; Esc closes and returns focus
 to the input.
 
-**3-skin QA**
+**Cinémathèque QA**
 - **Cinémathèque:** rounded panel + rows (`rounded-theme` honored), accent border on
   input focus reads.
-- **Broadcast / Brutalist:** panel and input are **square** (`--radius: 0`) — confirm the
-  overflow-hidden corners look intentional, not clipped. The rows are **not** `.skin-title`,
-  so the Broadcast `▮` caret must **not** appear on any query text — verify.
-- All skins: active-row `bg-surface-2` is distinguishable from the `bg-surface` panel;
+- Active-row `bg-surface-2` is distinguishable from the `bg-surface` panel;
   the `×` and "Clear history" are legible against the panel; nothing collides with the
   Ctrl-K placeholder.
 
@@ -230,14 +221,8 @@ The shelf renders **only** when `items.length > 0`. A null block or empty `items
 renders **nothing** — no heading, no skeleton-forever, no "nothing here" text. The
 parent decides per block; the component self-omits as a guard.
 
-### The Brutalist counter fix (must-do)
-The Brutalist catalog number comes from `counter-reset: reel` on `.video-grid` +
-`counter-increment` on `.video-frame` ([`app.css:191`](../../web/src/app.css)). If a
-shelf's cards are **not** wrapped in a `counter-reset` context, the numbering
-**continues from the main grid** (or from the previous shelf) — e.g. the tag shelf would
-start at `06`. **Wrap each shelf's card row in `.video-grid`** so the counter restarts
-per shelf (`01…05`). `RecentlyAddedShelf` predates this and is a known minor
-inconsistency; `RelatedShelf` does it right.
+### The Brutalist counter fix (retired)
+*(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look and has no catalog counter.)*
 
 ### Markup (token-only)
 ```svelte
@@ -254,7 +239,6 @@ inconsistency; `RelatedShelf` does it right.
 			More with
 			<a {href} class="text-ink hover:text-accent">{title}</a>
 		</h2>
-		<!-- .video-grid resets the Brutalist `reel` counter so numbering restarts at 01 per shelf. -->
 		<div class="video-grid flex gap-4 overflow-x-auto pb-2">
 			{#each items as video (video.id)}
 				<div class="w-52 shrink-0 sm:w-56">
@@ -296,7 +280,7 @@ the whole `/related` call is in flight, simply render nothing until it resolves.
 > **Stable per page view (resolved design Q).** The `$effect` must track **only `id`** —
 > read `const current = id;` first and reference nothing else reactive — so the fetch
 > runs **once per media-page view** and the shelves do **not** reshuffle on incidental
-> re-renders (skin switch, thumbnail regenerate). Navigating to a different item changes
+> re-renders (e.g. a thumbnail regenerate). Navigating to a different item changes
 > `id` → one fresh fetch → a new draw. The server stays per-request random
 > ([ADR-031](../architecture/archive/ADR-031-related-media-endpoint.md)); holding the result
 > client-side is what makes the shelf stable while viewing. *(A hard reload is a new page
@@ -311,16 +295,10 @@ the whole `/related` call is in flight, simply render nothing until it resolves.
 | Error | `related = null` → both shelves omitted; page unaffected |
 | Populated | Heading + up to 5 cards, horizontal scroll |
 
-### 3-skin QA
+### Cinémathèque QA
 - **Cinémathèque:** cards show letterbox bars (`.video-frame::before/::after`); heading
   uses the display face; rounded corners honored.
-- **Broadcast:** scanline wash reads over each card still; `▮` caret appears after the
-  heading (it **is** a `.skin-title`) — confirm it sits after "More with `{title}`" and
-  doesn't crowd the link; square corners.
-- **Brutalist:** **catalog counter restarts at `01` on each shelf** (the whole point of
-  the `.video-grid` wrap) — verify the person shelf is `01…05` and the tag shelf is
-  **also** `01…05`, not `06…`. Heading uppercased; square corners.
-- All skins: cards are **visually identical** to the browse grid (same `VideoCard`);
+- Cards are **visually identical** to the browse grid (same `VideoCard`);
   horizontal scroll works; clicking a card → `/media/{id}`; clicking the heading link →
   entity page.
 
@@ -342,8 +320,8 @@ between "feels native" and "feels like a website reload":
 - **Filter change is *not* a Back restore** — changing a filter/sort legitimately resets
   to the top of a fresh result set (cache invalidated). That reset is expected and should
   feel like a new query, distinct from Back.
-- **Skin-agnostic.** This surface adds **no markup and no styling** — it touches only the
-  grid's data/scroll lifecycle. There is nothing per-skin to theme; the 3-skin QA below
+- **Theme-agnostic.** This surface adds **no markup and no styling** — it touches only the
+  grid's data/scroll lifecycle. There is nothing to theme; the Cinémathèque QA below
   is just confirming the *absence* of regressions (no flicker, grid flourishes still
   render after a cached restore).
 
@@ -355,31 +333,25 @@ between "feels native" and "feels like a website reload":
 
 ---
 
-## QA checklist (all three surfaces × three skins)
-
-> Switch skins via the header picker. Tick each per skin.
+## QA checklist (all three surfaces, Cinémathèque)
 
 ### Overlay fix
 - [ ] **Cinémathèque** — grain/vignette hidden during playback, restored on pause/end.
-- [ ] **Broadcast** — scanlines **and** vignette hidden during playback (clean picture), restored on pause/end.
-- [ ] **Brutalist** — toggle is a no-op; no layout shift / flicker on play/pause.
+- [ ] **All** — no layout shift / flicker on play/pause.
 - [ ] **All** — navigate ← Back mid-play → overlay restored on the grid.
 
 ### Search-history dropdown
 - [ ] **Cinémathèque** — rounded panel/rows; focus accent border reads.
-- [ ] **Broadcast** — square panel; **no `▮` caret** on any query row; active row distinguishable.
-- [ ] **Brutalist** — square panel; rows legible; `×` and "Clear history" legible.
+- [ ] **All** — active row distinguishable; `×` and "Clear history" legible.
 - [ ] **All** — opens on focus only when non-empty; ↓/↑/Enter/Esc work; click runs query before blur closes it; empty history shows no panel.
 
 ### "More with …" shelves
 - [ ] **Cinémathèque** — letterbox bars on cards; heading display face.
-- [ ] **Broadcast** — scanline wash on cards; `▮` caret after heading; square cards.
-- [ ] **Brutalist** — **counter restarts `01…05` per shelf** (person and tag both); uppercased heading.
 - [ ] **All** — cards identical to browse grid; empty/null block omits the shelf; loading/error never blocks the primary detail content; heading + card links navigate correctly.
 
 ### Fluid Back (QW4)
-- [ ] **All skins** — scroll the grid, open an item, Back → **same scroll position**, no jump-to-top.
-- [ ] **All skins** — "Load more" ×2 (150 items), open an item, Back → all 150 still rendered, item on screen.
-- [ ] **All skins** — Back shows **no `Loading…` flash** and fires **zero** `GET /api/v1/media` (check network panel).
-- [ ] **All skins** — change a filter → resets to top of a fresh set (cache invalidated); hard reload → top of page 0.
-- [ ] **All skins** — grid flourishes (letterbox / scanline / counter) still render correctly after a cached restore (no flicker).
+- [ ] **All** — scroll the grid, open an item, Back → **same scroll position**, no jump-to-top.
+- [ ] **All** — "Load more" ×2 (150 items), open an item, Back → all 150 still rendered, item on screen.
+- [ ] **All** — Back shows **no `Loading…` flash** and fires **zero** `GET /api/v1/media` (check network panel).
+- [ ] **All** — change a filter → resets to top of a fresh set (cache invalidated); hard reload → top of page 0.
+- [ ] **All** — grid flourishes (letterbox) still render correctly after a cached restore (no flicker).

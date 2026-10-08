@@ -223,8 +223,8 @@ field never reaches `SourceSelect` or `promotedEdit`:
 
 ## 9. QA
 
-The row has no skin-dependent styling (no icon/badge — just a plain `text-ink` value), so the three-skin
-matrix is trivial; still keep the token discipline
+The row has no skin-dependent styling (no icon/badge — just a plain `text-ink` value), so the Cinémathèque
+QA is trivial; still keep the token discipline
 (`rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` stays empty):
 
 1. The **Age** row reads correctly, value in `text-ink`, label in `text-muted`, sitting flush directly under
@@ -254,7 +254,7 @@ items.
   bare integer.
 - **Video / studio derived rows.** The genre is entity-generic, but F45 renders **person** only; a future
   computed field is a backend formula registration + this same one-branch render, not a new design.
-- **A new skin token or `[data-theme]` flourish.** F45 adds no styling at all — the value is a plain
+- **A new look token or flourish.** F45 adds no styling at all — the value is a plain
   `text-ink` vital; provenance lives in `title`/`aria-label`.
 - **A visible provenance mark** (icon, badge, pill, or inline text). Cut in D5-revised — provenance is
   hover-tooltip / SR only.

@@ -20,7 +20,7 @@
 	// write is *enqueued*, not once it lands — outcome (pending/failed) is a page-level
 	// signal near the Metadata section, not this dialog's job to poll or display. Focus
 	// is trapped + returned; Escape closes when idle (or once the single enqueue round
-	// trip finishes). Tokens only; QA 3 skins. Design: docs/design/writeback-cockpit-handoff.md.
+	// trip finishes). Tokens only; QA Cinémathèque. Design: docs/design/writeback-cockpit-handoff.md.
 	import { onMount } from 'svelte';
 	import { toMessage, providerFromWinningSource } from '$lib/format';
 	import {

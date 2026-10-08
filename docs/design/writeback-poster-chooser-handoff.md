@@ -9,7 +9,7 @@ there applies; this doc only adds the third chooser shape and the image rows' sy
 [writeback-poster-and-decision-legibility-handoff.md](writeback-poster-and-decision-legibility-handoff.md)
 (HOLODEX-245 — whose read-only comparison this replaces).
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (image rows join the
 cockpit) · new `web/src/lib/components/curation/SourceImageTiles.svelte` · `web/src/lib/writebackCockpit.ts`
 (`isCockpitRow` admits `image_url`) · backend `internal/resolver` + `internal/repo` + `internal/api`
@@ -132,11 +132,11 @@ Numbered `section.item`; tagged by verifier; grouped by tag.
   present, the served poster is the upload.
 - 8.7 `[agent]` Keyboard: Tab lands on the staged tile only; ArrowRight stages the next tile;
   Escape closes the dialog.
-- 8.8 `[agent]` Three skins via `javascript_tool`: staged tile border vs. `bg-surface` ≥ 3:1;
+- 8.8 `[agent]` Cinémathèque via `javascript_tool`: staged tile border vs. `bg-surface` ≥ 3:1;
   caption `text-accent` ≥ 4.5:1; placeholder text ≥ 4.5:1.
 
 #### Human
-- 8.9 `[human]` In each skin, the picked tile should be unmistakable at a glance (border + dot),
+- 8.9 `[human]` In Cinémathèque, the picked tile should be unmistakable at a glance (border + dot),
   and the dashed pending tile should read as "suggested, not chosen". The placeholder should
   not look like a broken image.
 

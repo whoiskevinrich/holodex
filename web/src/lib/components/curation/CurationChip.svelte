@@ -2,7 +2,7 @@
 	// One value chip in a curated field (F30). Shows the value, its provenance, and
 	// — for the owner — inline edit, remove (suppress), and a "don't write" toggle.
 	// Owner controls are revealed on hover/focus to keep dense fields calm (they stay
-	// in the DOM + focusable for keyboard/SR). Tokens only; QA 3 skins. Values render
+	// in the DOM + focusable for keyboard/SR). Tokens only; QA Cinémathèque. Values render
 	// as plain text (Svelte auto-escapes; never {@html}) per security condition C4.
 	//
 	// When `person` is supplied (actor/director fields), the value is a link to the

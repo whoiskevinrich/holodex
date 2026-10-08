@@ -18,7 +18,7 @@ which list state lives in the URL, in localStorage or in the session, and how ar
 removal exits restore it.
 
 **Design handoff**: [`list-toolbar-handoff.md`](../design/list-toolbar-handoff.md), with committed
-SVG mockups (desktop + 375px, three skins). **Test plan**: [testing-strategy §20](../testing-strategy.md#20-one-list-toolbar-and-the-list-state-model-f73-holodex-472-adr-114).
+SVG mockups (desktop + 375px, Cinémathèque). **Test plan**: [testing-strategy §20](../testing-strategy.md#20-one-list-toolbar-and-the-list-state-model-f73-holodex-472-adr-114).
 
 ---
 
@@ -59,8 +59,8 @@ shared or bookmarked, and saved filters can come back invisibly on a later visit
      action).
    - A plain nav click always shows the full, unfiltered list.
    - Anything visible is in the URL, so any view can be shared.
-5. **Tokens only, three skins.** Everything renders cleanly in Cinémathèque, Broadcast and
-   Brutalist, with no hardcoded styling.
+5. **Tokens only, Cinémathèque.** Everything renders cleanly in Cinémathèque,
+   with no hardcoded styling.
 
 ## Non-Goals
 
@@ -257,8 +257,8 @@ separate completeness state (see R2).
 - [ ] At 375px no A–Z letters sit above the first row. The rail doesn't overlap row content that
       you can tap.
 
-**R10. Three skins, tokens only, accessible controls.**
-- Tokens only (`.claude/rules/frontend-theming.md`), QA'd in all three skins.
+**R10. Cinémathèque, tokens only, accessible controls.**
+- Tokens only (`.claude/rules/frontend-theming.md`), QA'd in Cinémathèque.
 - The sort list is a single-choice control with radio semantics.
 - The Filters sheet traps focus and closes on Escape.
 - Chips have accessible names ("Remove filter: Resolution 4K").

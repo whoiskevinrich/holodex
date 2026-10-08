@@ -179,7 +179,7 @@ Each entity page's **read-only** field branch switches on `f.display`:
 Auto-registered fields render in this read-only branch for **owner and visitor alike** (no `SourceSelect`, no
 curation), each with a `ProvenanceBadge` for the supplying provider, in an "Additional details" grouping after
 the curatable fields. See the [design handoff](../design/provider-render-hints-handoff.md) for placement,
-tokens, and the three-skin QA.
+tokens, and the Cinémathèque QA.
 
 ### FR7 — Security (untrusted hints)
 
@@ -212,7 +212,7 @@ tokens, and the three-skin QA.
 8. Auto-registered fields expose **no** owner editing controls (no source chips, no curation, no writeback);
    promoting via a mapping restores full controls.
 9. Presence gate: an advertised non-canonical key with **no** stored value for the entity → **no** row.
-10. All three skins (Cinémathèque, Broadcast, Brutalist) render every mode (text/long_text/chips/url/image_url)
+10. Cinémathèque renders every mode (text/long_text/chips/url/image_url)
     with tokens only, in loading/empty/populated states.
 
 ---
@@ -229,7 +229,7 @@ tokens, and the three-skin QA.
 - **Security** — `image_url` allowlist gate (allowlisted → img, other → text); label sanitize/cap; render/group
   coercion; `_`-key invisibility.
 - **SPA** — the `chips` read-only renderer; auto-registered rows show a provenance badge and no controls;
-  three-skin QA.
+  Cinémathèque QA.
 - **Backward compat** — the golden case: a provider with no hints, an entity with no non-canonical values →
   byte-identical resolved output to pre-F39.
 

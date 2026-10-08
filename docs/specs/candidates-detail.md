@@ -261,8 +261,8 @@ built in v1.)
    `applied: <label> — <lines · joined>`; a `needs_review` or `no_candidates` outcome adds nothing;
    the entry still contains no file path.
 10. No `detail` text is stored in `entity_enrichment`, returned from `/enrich`, or sent to writeback.
-11. All three skins: the toggle, the expanded lines, and the auto-expanded state use tokens only
-    (`text-muted`, `text-accent`, `bg-surface-2`, `border-*`) and read correctly in each skin.
+11. Cinémathèque: the toggle, the expanded lines, and the auto-expanded state use tokens only
+    (`text-muted`, `text-accent`, `bg-surface-2`, `border-*`) and read correctly.
 
 ## Test Notes (for `/testing-strategy`)
 
@@ -283,7 +283,7 @@ built in v1.)
   confirming; row Enter still confirms; state preserved across ↑/↓; reset on new response;
   collision fixtures; the toggle as an extra tab stop inside the trap).
 - **Geometry** — a row with `detail` collapsed has the same `offsetHeight` as one without;
-  expanded lines at 25 candidates are inside the `<ul>`'s scroll box (no clipping); three-skin
+  expanded lines at 25 candidates are inside the `<ul>`'s scroll box (no clipping); Cinémathèque
   contrast on the muted lines against `bg-surface-2` for the active row (use the computed-style
   approach — screenshots time out on this picker).
 - **Contract stub (`testdata/enrich-stub/`)** — a `video` candidate set with four same-label
@@ -316,5 +316,5 @@ Folded from the maintainer review of the provider's proposal (2026-09-13):
 - No hard deadline. The partner provider can emit `detail` **before** this lands (unknown key,
   ignored) and has said it will once the merged contract text matches; either side can ship first.
 - Sequence: spec + contract amendment (this change, Draft PR) → design handoff (SVG mockup
-  committed) → backend FR1/FR2/FR5 + tests → frontend FR3/FR4 + tests + three-skin QA → testing
+  committed) → backend FR1/FR2/FR5 + tests → frontend FR3/FR4 + tests + Cinémathèque QA → testing
   strategy → mark ready. One story, one PR.

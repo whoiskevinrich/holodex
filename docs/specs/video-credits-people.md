@@ -93,7 +93,7 @@ The provider returns structured per-person credits with a stable `external_id` a
 1. **Data model + repo**: migration (person external-ids + `video_people.role`); `resolveOrCreatePerson` external-id match; link-with-role.
 2. **Provider**: TMDB emits `people[]` + `credits:true` (+ worked-example doc).
 3. **Core enrich**: parse `people[]`, resolve-or-create + link + per-person headshot download (generalize `downloadAssets`).
-4. **Frontend polish + QA**: confirm director links + headshots render; 3-skin QA.
+4. **Frontend polish + QA**: confirm director links + headshots render; Cinémathèque QA.
 
 ## Open questions
 1. **Name-only fallback** (no `external_id`): match to an existing Person by normalized name, or always create? Risk of merging two real people who share a name (homonyms) — reuse the F23 "never auto-merge same-name" caution. Lean: external_id is the only auto-merge key; name-only always resolve-or-create by exact name (existing behavior).

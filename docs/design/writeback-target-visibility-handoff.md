@@ -2,7 +2,7 @@
 
 **Epic**: HOLODEX-167 (Writeback)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art (same dialog)**: [writeback-selection-handoff.md](writeback-selection-handoff.md) —
 the "no dimming" rule and `.btn-*` disabled treatment this handoff follows.
 **Surface**: `WritebackFormDialog.svelte`'s `fieldRow` snippet only. No new component, no new
@@ -95,7 +95,7 @@ the provenance tag and behaves exactly as before (checkbox, was:/matches-file li
 1.3 [agent] Submit a batch mixing a writable and an unwritable field (only the writable one is
 checkable, so this exercises the dialog's own gating rather than a crafted request) — the
 unwritable row never enters `writing`/`done`.
-2.1 [human] Switch to Cinémathèque, Broadcast, and Brutalist in turn; confirm the circle-slash icon
-and the destination-tag chip read at full contrast against `bg-surface` in all three (muted-token
+2.1 [human] In Cinémathèque, confirm the circle-slash icon
+and the destination-tag chip read at full contrast against `bg-surface` (muted-token
 color, no hardcoded value) and that the unwritable row's label doesn't look like a disabled
 checkbox — it should read as informational, not "broken."

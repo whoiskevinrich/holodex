@@ -2,7 +2,7 @@
 
 **Spec**: [Two-Tier Field Editing Model (F56)](../specs/two-tier-field-editing.md) · **Issue**: [HOLODEX-268](https://whoiskevinrich.atlassian.net/browse/HOLODEX-268)
 **Supersedes** (for the fields in scope): [Per-field source-of-truth decisions (F36) handoff](field-source-of-truth-handoff.md) — the always-on chip radiogroup this spec replaces with a collapsed badge + explicit Confirm. F36's underlying decision model, API, and RD1–RD5 rules are **unchanged**; only the presentation for non-Tier-1 replace fields changes.
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ---

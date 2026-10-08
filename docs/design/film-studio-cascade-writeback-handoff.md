@@ -274,7 +274,7 @@ responsive behavior carries over unchanged too.
 
 ---
 
-## QA checklist (3-skin)
+## QA checklist (Cinémathèque)
 
 ### §1 Setup
 1.1 `[smoke]` `make web-dev`, open a film with 2+ attached videos as owner.
@@ -294,8 +294,8 @@ responsive behavior carries over unchanged too.
 3.4 `[agent]` `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)'` and the muted-disabled guard both return empty for every new/changed file.
 
 ### §4 Human
-For each of the three skins (Cinémathèque, Broadcast, Brutalist — switch via the header picker), open a film as owner and:
+In Cinémathèque, open a film as owner and:
 4.1 `[human]` Confirm the new pencil next to "Studios" looks like the pencil on a Media page's Studio field — same size, same hover brighten, same border treatment.
-4.2 `[human]` Open the picker and confirm the subhead/caption text is legible (not low-contrast) against the popover background in this skin.
+4.2 `[human]` Open the picker and confirm the subhead/caption text is legible (not low-contrast) against the popover background.
 4.3 `[human]` Trigger a mixed-outcome result (at least one collision) and confirm the Error/Collision text uses the warn color, not muted, and reads clearly at a glance.
 4.4 `[human]` Click through to "View writeback progress →" and confirm the progress bar renders correctly in this skin (this reuses existing `WritebackBatchDialog` styling — flag only if this specific change broke it).

@@ -12,7 +12,7 @@ auto-registered row, the editor it opens, and the **owner-tooling list** where a
 removed later (§3). One F44 layout detail is **amended** rather than inherited — see DD7.
 
 Everything is **tokens-only** — no literal palette, radius, or font (see [theming.md](theming.md) and
-`.claude/rules/frontend-theming.md`). All three skins are a required gate.
+`.claude/rules/frontend-theming.md`). Cinémathèque QA is a required gate.
 
 Scope is **slice B** ([spec §12](../specs/claimed-provider-keys.md#12-phasing)). Slice A (the resolver
 mechanism) has shipped and needs nothing from this document.
@@ -71,7 +71,7 @@ a claim may target a promoted field ([spec §6.2](../specs/claimed-provider-keys
 
 **A `<select>` is sufficient — no typeahead.** Person is 7 fields, studio 5, video is whatever the operator
 mapped (the shipped example maps 17 video-scoped entries). At that size a native select is faster, is already
-the idiom in `PromoteFieldEditor`, and inherits three-skin styling from `inputClass` for free.
+the idiom in `PromoteFieldEditor`, and inherits its styling from `inputClass` for free.
 
 This is also the guard that makes FR4's *422 — target is not a field of this entity type* unreachable from the
 UI. That validation stays server-side, but the client should never be able to provoke it.
@@ -152,7 +152,7 @@ For rows that already span both columns (`long_text`, `chips` — `sm:col-span-2
   prose. Pushed to the trailing edge it reads as chrome.
 
 QA note: this changes a **shipped** F44 surface, so the promote pill must be re-verified on `long_text` rows in
-all three skins, not just the new Attach pill.
+Cinémathèque, not just the new Attach pill.
 
 ### DD8 — Claims are listed in owner tooling — **accepted into slice B**
 
@@ -358,7 +358,7 @@ On the §3 list:
 
 ## 9. QA gate
 
-Three-skin QA is required (Cinémathèque, Broadcast, Brutalist) per
+Cinémathèque QA is required per
 `.claude/rules/frontend-theming.md`. The checklist is a separate document following the house convention —
 items numbered `section.item`, tagged `[smoke]` / `[agent]` / `[human]`, sections grouped by tag, `[human]`
 steps written so a stranger can run them; see
@@ -367,12 +367,11 @@ Written alongside the implementation as
 [claimed-provider-keys-qa-checklist.md](claimed-provider-keys-qa-checklist.md). The `[human]` items that need
 eyes:
 
-- The DD7 trailing control line — the two pills plus the provider badge, right-aligned under a paragraph, in
-  each skin. **Includes re-verifying F44's promote pill**, whose placement this changes on a shipped surface.
-- The accent editor box on each skin's `--surface-2`.
-- The `--warn` RD3 line against each skin's accent — Brutalist's lime accent and hot red-orange warn are the
-  pair most likely to fight.
-- The §3 list in each skin: the *Attached keys* tab in the hub's active/inactive treatment, the mono key column
+- The DD7 trailing control line — the two pills plus the provider badge, right-aligned under a paragraph.
+  **Includes re-verifying F44's promote pill**, whose placement this changes on a shipped surface.
+- The accent editor box on `--surface-2`.
+- The `--warn` RD3 line against the gold accent — the pair most likely to fight.
+- The §3 list: the *Attached keys* tab in the hub's active/inactive treatment, the mono key column
   against `text-ink`, and the DD9 *Inactive* marker (`--warn` again, this time on `--surface` rather than
   beside accent).
 

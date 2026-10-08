@@ -11,7 +11,7 @@ reach the row) ·
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3
 `candidates[].image_url`, §5 caps, §6 S7
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins**.
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**.
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)
 — the candidate row (`role="option"`, roving tabindex) and its F61 internals this must not
 disturb ([candidates-detail-handoff.md](candidates-detail-handoff.md)); the **2:3 plate idiom**
@@ -86,7 +86,7 @@ into the store.
 | Element | State | Behaviour |
 |---|---|---|
 | Row | Resting | Slot on plate, text block as today |
-| Row | Active (`i === active`, hover or ↑/↓) | `border-accent bg-surface-2` on the `<li>` as today; the plate colour is unchanged — `bg-logo-plate` is a light neutral in all three skins, so the thumb reads the same on the active row |
+| Row | Active (`i === active`, hover or ↑/↓) | `border-accent bg-surface-2` on the `<li>` as today; the plate colour is unchanged — `bg-logo-plate` is a light neutral, so the thumb reads the same on the active row |
 | Row | Click / Enter / Space | Confirms the candidate, as today. Clicking on the image is a click on the `<li>` |
 | Row | F61 `details` expanded | Row grows downward; slot stays pinned to the label line (`items-start`); expanded `<ul>` indents from the **text block's** left edge (it lives inside the text block), not the slot's |
 | Slot | Any | Not a tab stop, no hover state, no cursor change beyond the row's `cursor-pointer`, no zoom |
@@ -103,7 +103,7 @@ No transitions or animation. The image simply appears when decoded; no fade (a f
   accessibility tree entirely.
 - **Announcements**: none new. `role="option"` rows still announce the label + match text.
 - **Contrast**: the monogram is `text-logo-plate-ink` on `bg-logo-plate`, the same pair
-  `FilmsRow` and `StudioLinkCard` already ship — verify per skin in QA §3 anyway, since the
+  `FilmsRow` and `StudioLinkCard` already ship — verify in QA §3 anyway, since the
   active row's `bg-surface-2` sits behind the plate's edge.
 - **Reduced motion**: nothing animates, nothing to honour.
 
@@ -167,8 +167,8 @@ No transitions or animation. The image simply appears when decoded; no fade (a f
   on the stub's own host, (b) image on `img.other.example` (must arrive stripped), (c) no image,
   (d) an image path the stub 404s — so QA §3 can walk all four slot states against a real
   sidecar; and a `logos` studio persona with one wide logo for the letterbox check.
-- **Three skins**: nothing skin-specific. `rounded-theme` gives 2 / 0 / 0 px corners on the
-  plate per skin, exactly as `FilmsRow`. Verify by computed style, not screenshots (they time out
+- **Cinémathèque**: nothing look-specific. `rounded-theme` gives 2 px corners on the
+  plate, exactly as `FilmsRow`. Verify by computed style, not screenshots (they time out
   on this picker).
 - **Rule to record** in `web/src/lib/components/enrichment/CLAUDE.md` (a decision now made
   twice — here and in `entity/CLAUDE.md`): *an image slot whose source aspect is not gated

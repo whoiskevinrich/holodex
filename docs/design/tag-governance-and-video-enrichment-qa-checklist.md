@@ -47,19 +47,18 @@ tools, `[human]` needs a person's eyes (contrast, "does this look right" judgmen
 ## Human
 
 Navigate to a video with mixed-provenance tags (see Setup 0.2), toggle Admin/owner mode on, and
-switch skins via the header picker (Cinémathèque → Broadcast → Brutalist) for each of the
+check in Cinémathèque each of the
 following:
 
-- **3.1** `[human]` The `·tmdb` provenance suffix reads clearly in the skin's accent color and
-  doesn't collide visually with the chip's remove `×` — check Broadcast and Brutalist
-  specifically, both 0px-radius skins where a busy chip can look cramped.
+- **3.1** `[human]` The `·tmdb` provenance suffix reads clearly in the accent color and
+  doesn't collide visually with the chip's remove `×`.
 - **3.2** `[human]` The manual tag (no suffix) doesn't look "broken" or like something failed to
   load next to its suffixed siblings — it should read as intentionally plain.
 - **3.3** `[human]` The remove `×` is invisible until hover/focus on a chip, then appears
   without shifting layout (no jump/reflow of neighboring chips).
 - **3.4** `[human]` On the Deny-list page, the `border-warn` **Deny** button is legibly distinct
-  from the neutral **Remove** buttons in every skin (not just by color — check it still reads at
-  a glance in Brutalist's high-contrast/low-saturation palette).
+  from the neutral **Remove** buttons (not just by color — check it still reads at
+  a glance).
 - **3.5** `[human]` The near-miss card and denied-term rejection message are both readable and
   don't overflow their containers with a long tag name (test with a 40+ character tag name).
 - **3.6** `[human]` Fonts and layout hold with a deep hierarchy chain in the `/tags/{id}`

@@ -4,7 +4,7 @@
 	// accent-bordered sub-form (DD1 — an inline expander, no popover): label / render mode /
 	// group / order. Promote opens it empty (inherited label/render shown as placeholders);
 	// Edit opens it pre-filled and adds a Remove-promotion action. Both commit via PUT
-	// (api.promoteField); Remove issues the DELETE (api.unpromoteField). Tokens only; 3 skins.
+	// (api.promoteField); Remove issues the DELETE (api.unpromoteField). Tokens only; QA Cinémathèque.
 	import { untrack } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';

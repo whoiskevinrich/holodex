@@ -184,7 +184,7 @@ the ticket's own `needs-design` gate.
 
 - No visible element renders when `age_in_media` is `null`/absent (D5) — no "can't compute" placeholder.
 - Visible to owner and visitor alike — no admin-only gating (matches D5 / F45's D3 precedent).
-- Token-only styling; QA across all three skins (`cinematheque`/`broadcast`/`brutalist`) per this repo's
+- Token-only styling; QA Cinémathèque per this repo's
   frontend theming rule.
 
 ## Acceptance Criteria
@@ -211,8 +211,8 @@ the ticket's own `needs-design` gate.
    verified by a leap-day boundary case matching F45's existing test convention, not a re-derived formula.
 9. **No new curation surface.** `age_in_media` is never written to `field_source_decisions`, carries no
    promote/source-select affordance in the SPA — it is inline per-credit JSON, not a resolved-field row.
-10. **Renders cleanly across skins.** The age annotation uses only design tokens; QA'd in all three skins,
-    no skin-specific hardcoding.
+10. **Renders cleanly in Cinémathèque.** The age annotation uses only design tokens; QA'd in Cinémathèque,
+    no hardcoded styling.
 
 ## Test Notes (for `/testing-strategy`)
 
@@ -227,7 +227,7 @@ the ticket's own `needs-design` gate.
 - **No-`recorded_at`-fallback guard test** — video with `recorded_at` set but no `release_date` → zero ages
   rendered for any cast member.
 - **Frontend** — cast card renders the age annotation when present; renders nothing extra when absent (no
-  placeholder); visible identically to owner and visitor; skin QA (cinematheque/broadcast/brutalist).
+  placeholder); visible identically to owner and visitor; Cinémathèque QA.
 
 ## Open Items
 

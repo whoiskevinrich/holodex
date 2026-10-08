@@ -23,7 +23,7 @@
 	//
 	// `field` is the resolved `name` row. The resolver drops it when a decided provider
 	// has no stored spelling; the page then renders canonical and this line renders
-	// nothing — a re-enrich restores the row. Tokens only; QA 3 skins.
+	// nothing — a re-enrich restores the row. Tokens only; QA Cinémathèque.
 	import { tick, untrack } from 'svelte';
 	import type { DecisionSource, ResolvedField } from '$lib/types';
 	import { expandedField } from '$lib/expandedField.svelte';

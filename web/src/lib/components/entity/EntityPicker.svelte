@@ -5,7 +5,7 @@
 	// same-named entities). Entity-generic via `entityType` (person | studio | tag); dialog
 	// chrome (backdrop/focus-trap/Escape/animation) is shared with CategoryPicker via
 	// PickerShell. role=combobox + role=listbox with roving tabindex; Tab and ↑/↓ move through
-	// results, Enter/Space/click pick, Esc closes. Tokens only; QA 3 skins.
+	// results, Enter/Space/click pick, Esc closes. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { api } from '$lib/api';
 	import { toMessage, videoCount, refLabel } from '$lib/format';

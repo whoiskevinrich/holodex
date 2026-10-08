@@ -294,7 +294,7 @@ each capped at 4096 chars, control characters stripped — the `candidates[].lab
   detail column's no-path invariant holds.
 
 Design gate: [HOLODEX-369](https://whoiskevinrich.atlassian.net/browse/HOLODEX-369) — the stressed
-state at 10 entries and the three-skin QA are the handoff's to pin. **Shipped second**: FR6–FR8 land
+state at 10 entries and the Cinémathèque QA are the handoff's to pin. **Shipped second**: FR6–FR8 land
 without it; a provider may emit `searched[]` before Holodex reads it (unknown response keys are
 already ignored).
 

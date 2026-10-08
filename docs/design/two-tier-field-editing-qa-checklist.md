@@ -2,12 +2,12 @@
 
 **Spec**: [Two-Tier Field Editing Model (F56)](../specs/two-tier-field-editing.md) · **Issue**: [HOLODEX-268](https://whoiskevinrich.atlassian.net/browse/HOLODEX-268) · **Design**: [handoff](two-tier-field-editing-handoff.md)
 **Builds on**: [field-source-of-truth-qa-checklist.md](field-source-of-truth-qa-checklist.md) — F36's invariants (DB-only decisions, one batched write, file-first default, server-gate authority) are **unchanged**; this checklist covers only the new badge/expand/Confirm presentation layer.
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped **by verifier** — each actor runs only their section:
 > - **§2 Smoke** — automated test / build gate (`svelte-check`, token-guard `rg`, unit tests). Green = pass; pre-check `[x]` with the test named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/Network/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (per-skin "look", legibility, the at-a-glance read).
+> - **§4 Human** — needs a human's eye (the "look", legibility, the at-a-glance read).
 >
 > §1 is one-time **setup** §3/§4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 >
@@ -78,14 +78,14 @@
 
 ---
 
-## 4. Human — needs an eye (run in **all three skins**: Cinémathèque · Broadcast · Brutalist)
+## 4. Human — needs an eye (run in **Cinémathèque**)
 
-> **Nav:** open a Video, Person, and Studio detail page as **owner**, each with at least one Tier-2 field that has a matched provider. Switch skins via the header picker.
+> **Nav:** open a Video, Person, and Studio detail page as **owner**, each with at least one Tier-2 field that has a matched provider.
 
 - [ ] 4.1 **At rest, it looks like the visitor view.** Load the same page as owner and as visitor side by side (or toggle) — the Tier-2 fields are visually indistinguishable until you hover/click. No permanent radiogroup clutter anywhere on the page.
 - [ ] 4.2 **The click affordance is discoverable enough on hover, not sooner.** Hovering/focusing a badge reveals a subtle ring/cursor change; nothing shows before that interaction (confirms the Resolved Decision in the handoff — hover-only, not persistent).
 - [ ] 4.3 **Expand reads as a natural continuation, not a jarring pop-in.** Clicking a badge should feel like the field "opens up" in place — no layout jump elsewhere on the page, chip row wraps cleanly at both `sm` and mobile widths.
-- [ ] 4.4 **The RD6-pending chip is visually distinct pre-confirm.** The dashed ring / hollow dot on the pending chip reads clearly as "not yet decided" in every skin — confirm it doesn't get lost against Brutalist's high-contrast palette or blend into Cinémathèque's warm tones.
-- [ ] 4.5 **Confirm/Cancel read as a clear pair, not ambiguous twins.** Confirm (`.btn-accent`) is visually the affirmative action; Cancel (`.btn-ghost`/`.btn-quiet`) reads as neutral/dismissive — no confusion about which does what, in every skin.
+- [ ] 4.4 **The RD6-pending chip is visually distinct pre-confirm.** The dashed ring / hollow dot on the pending chip reads clearly as "not yet decided" — confirm it doesn't blend into Cinémathèque's warm tones.
+- [ ] 4.5 **Confirm/Cancel read as a clear pair, not ambiguous twins.** Confirm (`.btn-accent`) is visually the affirmative action; Cancel (`.btn-ghost`/`.btn-quiet`) reads as neutral/dismissive — no confusion about which does what.
 - [ ] 4.6 **The fix, felt.** As the owner, find a field where a provider suggestion is showing but nothing has been decided (the old bug case). Expand it, click Confirm without touching anything else, and confirm the value now shows as a real decision (e.g. reload the page — the choice persisted). This should feel obviously different from the old "nothing happens" bug.
 - [ ] 4.7 **Empty/edge states themed.** A single-source field shows no badge at all; a long candidate value truncates gracefully in the expanded row; nothing overflows the card in any skin.

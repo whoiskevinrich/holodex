@@ -187,8 +187,8 @@ replace field once it's present in the loaded mapping (P0-2).
   under the header (near Studio, per P0-10's relocation), hidden entirely when empty and not owner.
 - **Poster**: the existing hover-controls row over the `<video poster=…>` element
   ([`+page.svelte` L475-492](../../web/src/routes/media/[id]/+page.svelte#L475)) gains an "Upload"
-  button (native file input, no new modal) and a conditional "Remove" button. Tokens only; QA all
-  three skins (Cinémathèque / Broadcast / Brutalist), consistent with every other owner control on
+  button (native file input, no new modal) and a conditional "Remove" button. Tokens only; QA
+  Cinémathèque, consistent with every other owner control on
   this page.
 - **Studio near title**: `<h1 class="skin-title">` gains a sibling line (existing `border-rule`/
   `text-muted` link styling copied from the current studio line, just relocated).
@@ -213,7 +213,7 @@ Per the change-routing rules:
    linking's architecture is already **[ADR-072](../architecture/archive/ADR-072-person-link-resolved-derivation.md)**
    (Proposed → implemented by this branch).
 2. **`/design-handoff`** — [video-owner-mode-editing-handoff.md](../design/video-owner-mode-editing-handoff.md):
-   studio-near-title layout, Commentary block, poster upload/remove controls, 3-skin QA. (People/Studio
+   studio-near-title layout, Commentary block, poster upload/remove controls, Cinémathèque QA. (People/Studio
    *linking* UI is the existing [F40 handoff](../design/person-media-linking-handoff.md), unchanged.)
 3. **`/testing-strategy`** — [testing-strategy.md](../testing-strategy.md): new §9 block for F52
    (commentary zero-source field, poster upload/protect-from-sweep/revert, file-metadata gating) sitting

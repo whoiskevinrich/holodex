@@ -3,7 +3,7 @@
 **Spec**: [nav-search-live-filter.md](../specs/nav-search-live-filter.md)
 **ADRs**: None (extends existing patterns — see spec's "New ADRs required")
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Issue**: [HOLODEX-249](https://whoiskevinrich.atlassian.net/browse/HOLODEX-249)
 **Surface**: `web/src/routes/+layout.svelte` (nav box), new shared results-panel component,
 `web/src/routes/search/+page.svelte`, `web/src/routes/+page.svelte` (root/Media),
@@ -236,6 +236,5 @@ still have no filter") right after this spec ships everywhere else.
   `+layout.svelte` (today used for admin-mode announcements) to announce result counts
   ("14 results across 3 categories") when the panel's content changes — screen-reader
   users get no other signal that typing produced results.
-- All three skins: verify the group-header `text-muted uppercase` treatment and the
-  skeleton loading bars read correctly against Broadcast's blue surface and Brutalist's
-  near-black/lime combination, not just the default Cinémathèque skin.
+- Cinémathèque: verify the group-header `text-muted uppercase` treatment and the
+  skeleton loading bars read correctly against the surface.

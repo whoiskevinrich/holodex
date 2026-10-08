@@ -149,12 +149,11 @@ reduce` — skip both transitions (`transition: none`), toggle instantly.
 
 ## Theming
 
-Tokens-only, three-skin safe. One net-new rule needed: `.btn-quiet` today has no hover background
+Tokens-only. One net-new rule needed: `.btn-quiet` today has no hover background
 (only a color/underline change, appropriate for its existing inline-text call sites like "Cancel").
 A bare 28px icon button with no visible label needs a hover background to read as a clickable
 target at all — add `hover:bg-surface-2` as a Tailwind utility at this call site rather than
 changing the shared `.btn-quiet` class (other `.btn-quiet` call sites are inline text links where a
-background box would look wrong). QA collapsed and expanded states across Cinémathèque, Broadcast,
-and Brutalist — confirm the chevron hover fill and the 180ms transition read correctly against all
-three `--rule`/`--surface-2` pairs (Brutalist's `--radius: 0` means the button hover fill renders
-as a hard-cornered square, which is correct/expected, not a bug).
+background box would look wrong). QA collapsed and expanded states in Cinémathèque
+— confirm the chevron hover fill and the 180ms transition read correctly against the
+`--rule`/`--surface-2` pair.
