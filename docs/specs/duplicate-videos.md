@@ -209,10 +209,9 @@ No hard deadline. Routing per `CLAUDE.md`:
 6. `/security-review`: an owner-only surface, with a new destructive action (Trash) and a multi-record carry-over.
 7. `/code-review high --fix`.
 
-**Architecture:** no technology fork. The pairs are a new producer on the existing duplicate review
-queue, and nothing new is extracted from files in v1. The build PR adds that producer to the
-producer list in [`entity-identity.md`](../architecture/entity-identity.md) so the topic doc stays
-accurate.
+**Architecture:** pairs are worked out fresh each time the page loads rather than stored, so a
+file leaving the library or being re-matched removes its pair without any extra step. Keep both is
+remembered permanently. See [`entity-identity.md`](../architecture/entity-identity.md).
 
 **Dependency:** [HOLODEX-457](https://whoiskevinrich.atlassian.net/browse/HOLODEX-457) plans to
 re-home the per-file provider match record that this detector reads. Whichever lands second keeps

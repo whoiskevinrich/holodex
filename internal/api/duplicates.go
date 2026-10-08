@@ -23,6 +23,7 @@ func (h *Handlers) mountDuplicates(r chi.Router) {
 	r.Post("/owner/duplicates/dismiss", h.dismissDuplicate)
 	r.Get("/studios/{id}/near-miss", h.entityNearMiss(model.EnrichEntityStudio))
 	r.Get("/tags/{id}/near-miss", h.entityNearMiss(model.EntityTag))
+	h.mountVideoDuplicates(r)
 }
 
 // entityNearMiss backs the editor's non-blocking soft-warning (F43 P1-5): given a

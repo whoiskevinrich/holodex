@@ -24,24 +24,24 @@ the scene model (HOLODEX-520).
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/**` — F76 `docs/specs/duplicate-videos.md`; no open questions
-- [~] architecture — no technology fork: video pairs are a new producer on the existing review queue; the build PR adds it to `entity-identity.md`'s producer list
+- [x] architecture `architecture` → `docs/architecture/**` — reopened from `[~]`: the build found a real fork (pairs computed on demand vs stored in the review queue); recorded in `entity-identity.md` "Duplicate videos are computed on demand, not queued"
 - [x] design `design-handoff` → `docs/design/**` — `duplicate-videos-handoff.md` + measured SVG mockup; option B fact table, collapsed default (owner's choices 2026-10-08)
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**` — `repo/video_pairs.go` + `api/duplicates_video.go`; 11 repo + 5 API tests, full Go suite green; `/code-review high --fix` applied
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Video pair producer + keep-one (Trash + additive carry-over) / keep-both / label endpoints, with repo tests — `internal/repo/`, `internal/api/duplicates.go`
-2. [ ] [frontend] Videos group, `VideoPairRow`, `VideoComparePanel` per the handoff — `web/src/lib/components/duplicates/`
-3. [ ] [backend] Add the video producer to the review-queue producer list — `docs/architecture/entity-identity.md`
+1. [ ] [frontend] Videos group, `VideoPairRow`, `VideoComparePanel` per the handoff, against `/owner/duplicates/videos*` — `web/src/lib/components/duplicates/`
+2. [ ] [—] Owner question: should clearing a prefilled edition in "Label as editions" clear it (spec says a blank side is untouched)? — `docs/specs/duplicate-videos.md`
+3. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
 4. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-08 · session
 - skills: system-design, write-spec, handoff, design-handoff, implement
-- handoff: Crossed into build — design signed off at 611d09d2; draft PR open. Start at Up next #1, the backend video pair producer and resolution actions.
+- handoff: Backend done in draft PR #465 (pairs computed on demand; keep one with additive carry-over in one transaction; keep both; edition/part labels), tests green; architecture reopened and recorded. Next: the frontend Videos group per the handoff.
 
 ## Dropped — newest first (the reason is the point)
