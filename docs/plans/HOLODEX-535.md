@@ -65,7 +65,7 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Run /implement, then migration 0059: `orphaned_at` (+ index) on studios and tags — `internal/db/migrations/`
+1. [ ] [backend] Migration 0059: `orphaned_at` (+ index) on studios and tags — `internal/db/migrations/`
 2. [ ] [backend] Generalize `personorphan` → `orphansweep` (kind `orphan-sweep`, per-kind `hasAuthoredData`, drop `entity_enrichment`) — `internal/personorphan/`
 3. [ ] [backend] Stamp/clear on studio reconcile, tag detach, rescan, bare tag create, and pre-delete in `HardDelete` — `internal/repo/`
 4. [ ] [testing] Fold the uncommitted repro into sweep tests per kind (pruned / authored survives / shared kept / purge stamps) — `internal/repo/studio_prune_repro_test.go`
@@ -84,8 +84,8 @@ grace-period sweep deletes only orphans with no authored data. Also resolves HOL
 -->
 
 ### 2026-10-08 · reproduced the studio prune data loss; designed the shared orphan sweep
-- skills: architecture, handoff
-- handoff: Design settled (spec + architecture committed, owner chose the people orphan model for studios and tags, purge stamps all three); next is /implement, then Up next item 1.
+- skills: architecture, handoff, implement
+- handoff: Crossed into build (design [~], no sign-off needed); draft PR #463 open. Start at Up next item 1 (migration 0059).
 
 ## Dropped — newest first (the reason is the point)
 
