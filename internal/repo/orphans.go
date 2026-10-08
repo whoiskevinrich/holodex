@@ -19,19 +19,26 @@ import (
 // orphanAuthoredSQL is, per entity type, a predicate over the candidate row `e`
 // that is true when the entity carries authored data the sweep must never destroy.
 // An alias also covers merge history: a merge registers the loser's name as an
-// alias of the survivor. A keep-separate pair is an owner decision too.
+// alias of the survivor. A keep-separate pair is an owner decision too. An image
+// counts only when the owner made it (uploaded, or a promoted copy): a
+// provider-downloaded one comes back on the next enrich (HOLODEX-548), and every
+// cast member a video enrich creates carries one. Owner settings on a downloaded
+// image that an enrich cannot restore still count: a rejected headshot
+// (suppression) and a studio logo's halo choice.
 var orphanAuthoredSQL = map[string]string{
 	model.EnrichEntityPerson: `
 		EXISTS(SELECT 1 FROM entity_aliases WHERE entity_type = 'person' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM entity_keep_separate WHERE entity_type = 'person' AND e.id IN (id_lo, id_hi))
-		OR EXISTS(SELECT 1 FROM person_images WHERE person_id = e.id)
+		OR EXISTS(SELECT 1 FROM person_images WHERE person_id = e.id AND source != 'enrichment')
+		OR EXISTS(SELECT 1 FROM person_image_suppressions WHERE person_id = e.id)
 		OR EXISTS(SELECT 1 FROM film_people_roles WHERE person_id = e.id)
 		OR EXISTS(SELECT 1 FROM field_source_decisions WHERE entity_type = 'person' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM metadata_curation WHERE entity_type = 'person' AND entity_id = e.id)`,
 	model.EnrichEntityStudio: `
 		EXISTS(SELECT 1 FROM entity_aliases WHERE entity_type = 'studio' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM entity_keep_separate WHERE entity_type = 'studio' AND e.id IN (id_lo, id_hi))
-		OR EXISTS(SELECT 1 FROM studio_images WHERE studio_id = e.id)
+		OR EXISTS(SELECT 1 FROM studio_images WHERE studio_id = e.id AND source != 'enrichment')
+		OR EXISTS(SELECT 1 FROM studio_image_halo WHERE studio_id = e.id)
 		OR EXISTS(SELECT 1 FROM field_source_decisions WHERE entity_type = 'studio' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM metadata_curation WHERE entity_type = 'studio' AND entity_id = e.id)`,
 	model.EntityTag: `

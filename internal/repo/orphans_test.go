@@ -335,6 +335,86 @@ func TestOrphanPerson_FilmCreditSurvives(t *testing.T) {
 	}
 }
 
+// Only an owner-made image keeps an orphan (HOLODEX-548): an uploaded or promoted
+// one does, a provider-downloaded one does not (enriching again restores it).
+// Owner settings an enrich cannot restore still count: a rejected headshot and a
+// studio logo's halo choice.
+func TestOrphanSweep_OnlyOwnerImagesProtect(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+	vid := seedVideo(t, r, "/m/a.mkv")
+	names := []string{"Uploaded", "Promoted", "Rejected", "Fetched"}
+	links := make([]repo.PersonRoleName, len(names))
+	for i, n := range names {
+		links[i] = repo.PersonRoleName{Name: n}
+	}
+	if err := r.ReconcileVideoPeople(ctx, vid, links, nil); err != nil {
+		t.Fatalf("link people: %v", err)
+	}
+	people := map[string]int64{}
+	for _, n := range names {
+		people[n] = personIDByName(t, r, n)
+	}
+	for name, source := range map[string]string{
+		"Uploaded": model.PersonImageSourceUpload,
+		"Promoted": model.PersonImageSourcePromoted,
+		"Rejected": model.PersonImageSourceEnrichment,
+		"Fetched":  model.PersonImageSourceEnrichment,
+	} {
+		if _, err := db.Exec(`INSERT INTO person_images (person_id, role, source, width, height, byte_size, created_at)
+			VALUES (?, 'headshot', ?, 1, 1, 1, ?)`, people[name], source, longAgo); err != nil {
+			t.Fatalf("seed person image: %v", err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO person_image_suppressions (person_id, source_url, created_at) VALUES (?, 'https://p/x.jpg', ?)`,
+		people["Rejected"], longAgo); err != nil {
+		t.Fatalf("seed suppression: %v", err)
+	}
+	if err := r.ReconcileVideoPeople(ctx, vid, nil, nil); err != nil {
+		t.Fatalf("unlink people: %v", err)
+	}
+
+	studios := map[string]int64{}
+	for _, n := range []string{"Uploaded Co", "Halo Co", "Fetched Co"} {
+		v, sid := linkedStudio(t, r, "/m/"+n+".mkv", n)
+		studios[n] = sid
+		source := model.StudioImageSourceEnrichment
+		if n == "Uploaded Co" {
+			source = model.StudioImageSourceUpload
+		}
+		if _, err := db.Exec(`INSERT INTO studio_images (studio_id, role, source, width, height, byte_size, created_at)
+			VALUES (?, 'logo', ?, 1, 1, 1, ?)`, sid, source, longAgo); err != nil {
+			t.Fatalf("seed studio image: %v", err)
+		}
+		if err := r.ReconcileVideoStudios(ctx, v, nil, nil); err != nil {
+			t.Fatalf("unlink studio: %v", err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO studio_image_halo (studio_id, role, mode) VALUES (?, 'logo', 'dark')`, studios["Halo Co"]); err != nil {
+		t.Fatalf("seed halo: %v", err)
+	}
+
+	for _, id := range people {
+		ageOrphan(t, db, "people", id)
+	}
+	for _, id := range studios {
+		ageOrphan(t, db, "studios", id)
+	}
+	if d, s := sweep(t, r); d != 2 || s != 5 {
+		t.Fatalf("sweep = (%d deleted, %d skipped), want (2, 5)", d, s)
+	}
+	for name, want := range map[string]bool{"Uploaded": true, "Promoted": true, "Rejected": true, "Fetched": false} {
+		if got := exists(t, db, "people", people[name]); got != want {
+			t.Errorf("person %s kept = %v, want %v", name, got, want)
+		}
+	}
+	for name, want := range map[string]bool{"Uploaded Co": true, "Halo Co": true, "Fetched Co": false} {
+		if got := exists(t, db, "studios", studios[name]); got != want {
+			t.Errorf("studio %s kept = %v, want %v", name, got, want)
+		}
+	}
+}
+
 // A keep-separate pair is an owner decision (kept); a review-queue pair is a
 // machine suggestion and goes with the swept entity, since ids can be reused.
 func TestOrphanSweep_IdentityPairs(t *testing.T) {
