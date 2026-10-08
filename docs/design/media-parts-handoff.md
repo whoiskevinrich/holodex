@@ -9,7 +9,7 @@
 the edition pill, the "+ Set edition" empty row, `SourceBadge` for a single-source field) ·
 [film-enrichment-handoff.md](film-enrichment-handoff.md) (scene badge on `VideoCard`)
 **Theming contract:** [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — tokens only, QA all three skins.
+[theming.md](theming.md) — tokens only, QA Cinémathèque.
 
 ![Media parts mockup](media-parts-mockup.svg)
 
@@ -214,12 +214,10 @@ No pluralisation, no "of N" (RD1), no abbreviation (OQ3 resolved: long form ever
 Tokens only — nothing in §1–§5 introduces a literal value: `bg-black/70` is the duration badge's
 existing overlay (an opacity over the poster, not a palette colour), `text-ink`, `text-muted`,
 `bg-surface`, `border-rule`, `rounded-theme`, `rounded-full` (intentional pill shape). Skin
-flourishes on `.video-frame` (letterbox, scanlines, Brutalist index counter) sit at `z-index: 1`;
-the badge is `z-[2]` like duration, so it renders above them in every skin. **Brutalist** puts a
-reel counter on the frame — verify in QA that it does not occupy the bottom-left corner (it is
-the one skin most likely to collide; the duration badge's history is the precedent).
+flourishes on `.video-frame` (the Cinémathèque letterbox) sit at `z-index: 1`;
+the badge is `z-[2]` like duration, so it renders above them.
 
-## 9. QA checklist (3-skin)
+## 9. QA checklist (Cinémathèque)
 
 ### §1 Setup
 
@@ -240,32 +238,29 @@ the one skin most likely to collide; the duration badge's history is the precede
 
 ### §3 Agent live QA (computed style via `javascript_tool` — screenshots time out on this app; see [theming.md](theming.md))
 
-- 3.1 `[agent]` For each skin (Cinémathèque, Broadcast, Brutalist): on the browse grid at the
+- 3.1 `[agent]` In Cinémathèque: on the browse grid at the
   8-column tier, `getBoundingClientRect()` of the part badge and the duration badge on one card
   do not intersect, and the part badge's left edge ≥ the frame's left edge + 6px.
 - 3.2 `[agent]` Same at the 16-column ultrawide tier (set density to max, viewport ≥ 2648px).
-- 3.3 `[agent]` Brutalist: the `.video-frame` reel counter's rect does not intersect the part
-  badge's rect.
+- 3.3 *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - 3.4 `[agent]` Film page scenes grid with a scene that has a part: four badges, four distinct
   rects, none intersecting.
 - 3.5 `[agent]` Media header at 375px viewport with the long fixture title: pills wrap below the
   title, no horizontal overflow (`document.documentElement.scrollWidth === clientWidth`).
-- 3.6 `[agent]` Contrast: computed `color` / `background-color` of the card badge ≥ 4.5:1 in
-  all three skins (it is the duration pairing — should match its numbers).
+- 3.6 `[agent]` Contrast: computed `color` / `background-color` of the card badge ≥ 4.5:1
+  (it is the duration pairing — should match its numbers).
 - 3.7 `[agent]` Visitor mode: pill present on card, header, film row, no `#field-part` link, no
   custom chip reachable.
 
 ### §4 Human
 
-Navigate to the browse grid (home page) with the §1 fixture scanned and the skin picker in the
-header.
+Navigate to the browse grid (home page) with the §1 fixture scanned.
 
 - 4.1 `[human]` The three "Live at Budokan" cards each show "Part 1/2/3" in the poster's
   bottom-left corner, in the same small dark chip style as the running time in the
   bottom-right. It should read as a pair of facts along the bottom edge, not as a second
-  coloured badge competing with the resolution chip in the top-left. Switch skins: the chip
-  should stay readable on all three, and on Brutalist it must not sit on top of the reel
-  counter.
+  coloured badge competing with the resolution chip in the top-left. The chip
+  should stay readable.
 - 4.2 `[human]` Open Part 2. Beside the title you see two small rounded pills, "Extended" then
   "Part 2", in that order, in the muted text colour. They are not clickable. Scroll to
   Metadata → Part: the row shows "2" with a "filename" provenance tag; clicking the row opens

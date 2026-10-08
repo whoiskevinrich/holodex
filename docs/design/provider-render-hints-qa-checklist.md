@@ -75,16 +75,15 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **3.7** `[agent]` No-hint fallback: a non-canonical field returned **without** a `field_hints` entry renders
   with a title-cased label as plain text in the group (the floor, reached automatically).
 
-## §4 Human eyes — 3-skin QA (Cinémathèque · Broadcast · Brutalist)
+## §4 Human eyes — Cinémathèque QA
 
-Switch skins via the header picker. Confirm tokens react (no hardcoded color/radius/font — the
+Confirm tokens are used (no hardcoded color/radius/font — the
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)'` guard over `web/src` stays empty).
 
-- **4.1** `[human]` Each render mode reads correctly in all three skins: `text`/`long_text` against
+- **4.1** `[human]` Each render mode reads correctly in Cinémathèque: `text`/`long_text` against
   `bg-surface`; `chips` pills use `border-rule`/`text-ink`; `url` links use `text-accent`; `image_url`
   thumbnail uses `rounded-theme`/`border-rule`.
-- **4.2** `[human]` No badge-vs-chip collision on a `chips` row (the F36/F38 regression class) in any skin.
+- **4.2** `[human]` No badge-vs-chip collision on a `chips` row (the F36/F38 regression class).
 - **4.3** `[human]` The "Additional details" divider (`border-rule`) + heading (`text-muted`, `text-xs`,
   sentence case) sit correctly below the curatable fields; the group is absent when empty.
-- **4.4** `[human]` The non-allowlisted `image_url` text fallback is legible (no phantom image frame) in all
-  three skins.
+- **4.4** `[human]` The non-allowlisted `image_url` text fallback is legible (no phantom image frame).

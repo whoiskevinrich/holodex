@@ -12,7 +12,7 @@ the decided/undecided split and the three gutter tiers are ground truth here) ·
 [two-tier-field-editing-handoff.md](two-tier-field-editing-handoff.md) (the chip row this
 dialog now reuses).
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Surface**: `web/src/lib/components/writeback/WritebackFormDialog.svelte` (the only file whose
 behaviour changes) · reuses `curation/CurationChip.svelte` (radio mode), `f36.ts`
 (`sourceChips`, `resolveSelection`), and the stacked-row idiom of `curation/SourceEditModal.svelte`.
@@ -375,13 +375,13 @@ Numbered `section.item`; tagged by verifier; grouped by tag.
   the editor first, the dialog second.
 - 9.9 `[agent]` `rg 'zinc-|sky-|rounded-(lg|md|sm|xl)' web/src/lib/components/writeback` and
   `rg 'text-muted[^"]*disabled:opacity'` both empty.
-- 9.10 `[agent]` Three skins via `javascript_tool` computed styles: checked chip border vs.
+- 9.10 `[agent]` Cinémathèque via `javascript_tool` computed styles: checked chip border vs.
   `bg-surface` ≥ 3:1; `text-warn` note ≥ 4.5:1; stacked-row checked background does not swallow
   `text-ink` (see `reference-holodex-skin-qa-without-screenshots`).
 
 #### Human
 - 9.11 `[human]` Open a media page you own (owner mode), press **Write decisions to file**. In
-  each skin (header picker: Cinémathèque, Broadcast, Brutalist) the differing rows should read as
+  Cinémathèque the differing rows should read as
   "here are the candidates, this one is picked" without reading any labels — the picked chip is
   the only one with a filled dot and a coloured border. Rows with the `↧` arrow are the ones the
   Write button will touch; a hollow `○` row should read as "nothing happens here unless I pick".

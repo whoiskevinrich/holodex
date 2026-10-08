@@ -6,7 +6,7 @@
 Two surfaces: **(1) the link picker** — an owner-only entity-search combobox that replaces the bare
 "+ Add" text input on person-typed and studio fields; **(2) the role badge** — the person page grouping
 its videos by the derived `video_people.role`. Everything reuses existing components and **semantic
-tokens only** (ADR-021); QA all three skins.
+tokens only** (ADR-021); QA Cinémathèque.
 
 ---
 
@@ -48,14 +48,13 @@ to the "+ Add" button, using the WAI-ARIA **combobox + listbox** pattern:
 | `text-ink` | result name, input text, chip value |
 | `text-muted` | disambiguation subline, status hint, `·record`/`·manual` provenance, unset role tag |
 | `text-warn` / `border-warn` | error status line only (never accent for errors) |
-| `rounded-theme` | popover, input, result rows (radius flips per skin: 2px Cinémathèque, 0 Broadcast/Brutalist) |
+| `rounded-theme` | popover, input, result rows (2px radius in Cinémathèque) |
 | `rounded-full` | chips and the "+ Add" pill (intentional pill shape, per theming rules) |
 | `font-display` (`skin-title`) | field label; person-page name header |
 | `font-ui` | input, result rows, hints |
 
-The three skins resolve these to: Cinémathèque gold `#e8a33d` / serif+sans / 2px; Broadcast cyan
-`#36e0d0` / mono / 0px; Brutalist lime `#d6ff3f` / mono / 0px. Components must reference the tokens, so
-all three fall out for free — the mockup shows all three rendered from the same markup.
+Cinémathèque resolves these to gold `#e8a33d` / serif+sans / 2px. Components must reference the tokens, so
+a look change stays a one-file edit.
 
 ## Components
 
@@ -143,6 +142,6 @@ The person page groups the person's videos by the derived `video_people.role` an
   runs post-commit server-side.
 - `GET /api/v1/people?q=` exists; add `GET /api/v1/studios?q=` (or reuse global search scoped to studios)
   for the studio kind.
-- **QA all three skins** (Cinémathèque / Broadcast / Brutalist): confirm the accent left-border reads on
-  each surface, the mono skins' 0-radius popover looks intentional, and the role tags don't collide with
+- **QA Cinémathèque**: confirm the accent left-border reads on
+  each surface, the 2px-radius popover looks intentional, and the role tags don't collide with
   the accent used for active/selected state.

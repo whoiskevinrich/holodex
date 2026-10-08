@@ -4,7 +4,7 @@
 	// from PickerShell; this component owns only the two-step body: result rows
 	// carry a poster thumb + year (not a plain name row), and confirming a film
 	// advances to a second in-dialog step (scene number / full-film) instead of
-	// attaching immediately. Tokens only; QA 3 skins.
+	// attaching immediately. Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { toMessage, monogram } from '$lib/format';
 	import type { Film, FilmSceneCollision } from '$lib/types';

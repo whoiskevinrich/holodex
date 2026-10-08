@@ -39,7 +39,7 @@ regardless of score (F48.3e).
 2.6 **[smoke]** `npm --prefix web run check` passes with the new `ExtractionQueueRow` component and
 extraction-queue types.
 
-## §3 Agent live QA (all 3 skins)
+## §3 Agent live QA (Cinémathèque)
 
 3.1 **[agent]** **Extraction tab** renders grouped-by-video rows (not by field type), each video
 group showing its pending fields in People → Studio → Title → Release Date → other order; tab
@@ -74,22 +74,21 @@ is restored to its pre-write value (byte-for-byte on the affected tag).
 button (no special-cased UI) — clicking it re-applies the original (post-extraction) values.
 3.13 **[agent]** **Warn vs neutral separation** (F43/F47 regression risk, re-verified here):
 "Conflict"/"no suggestion"/confidence tier labels read `text-muted`/`text-ink`, never `text-warn`;
-only an actual resolve/write/revert failure shows `text-warn`. Check this holds on **Brutalist**
-(bright lime accent vs. hot red-orange warn), where the two are most likely to visually collide.
+only an actual resolve/write/revert failure shows `text-warn`. Check this holds on **Cinémathèque**
+(gold accent vs. red-orange warn).
 3.14 **[agent]** **Merge → writeback propagation** (F48.8): merging two People with N affected
 videos produces N writeback jobs in System Activity, each individually revertible; no second
 confirm dialog appears beyond the merge's own informed-confirm.
 
 ## §4 Human
 
-4.1 **[human]** Open the Extraction tab in each skin. It should feel like Duplicates/Enrichment's
+4.1 **[human]** Open the Extraction tab in Cinémathèque. It should feel like Duplicates/Enrichment's
 sibling — same density, same "tidy worklist" feeling — not a bespoke new screen.
 4.2 **[human]** Work a video group end-to-end: accept a filename value, accept a tag value, edit
 one manually, dismiss the last — confirm the group disappears once every field clears, with no
 jarring layout jump.
 4.3 **[human]** Trigger the preview dialog and read the diff line at a glance — the struck-through
-old value and the accent new value should be immediately distinguishable without close reading, in
-all three skins (especially Broadcast's cyan-on-navy and Brutalist's lime-on-black).
+old value and the accent new value should be immediately distinguishable without close reading.
 4.4 **[human]** Click Revert on a real batch, then open the affected file's detail page and confirm
 the resolved fields actually show the pre-extraction values again (not just the activity-row
 status text).

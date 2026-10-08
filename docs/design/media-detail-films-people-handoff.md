@@ -64,7 +64,7 @@ exists and never sees an owner-only control. Do not add a visitor empty state.
 ## 3. Design tokens
 
 Skin tokens per [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) / [theming.md](theming.md). **No
-hardcoded colors, fonts, or radii** — all three skins must be QA'd.
+hardcoded colors, fonts, or radii** — QA Cinémathèque.
 
 | Token / utility | Cinémathèque value | Usage |
 |---|---|---|
@@ -75,11 +75,11 @@ hardcoded colors, fonts, or radii** — all three skins must be QA'd.
 | `bg-logo-plate` / `text-logo-plate-ink` | `#e9e0d0` / `#2a2018` | Film poster monogram fallback |
 | `border-rule` | `#2a2622` | Dashed `+` tile, `×` button border |
 | `bg-surface-2` | `#181310` | `×` button plate (at `/90`) |
-| `rounded-theme` | `2px` (Cinémathèque), `0px` (Broadcast, Brutalist) | Every rect corner |
-| `font-display` | Fraunces / VT323 / Spline Sans Mono | Monogram glyph |
+| `rounded-theme` | `2px` | Every rect corner |
+| `font-display` | Fraunces | Monogram glyph |
 
-**Radius warning:** `--radius` is 2px on Cinémathèque and **0px on both other skins**. The pill and
-tiles are effectively square corners on two of three skins — do not introduce a literal
+**Radius warning:** `--radius` is 2px on Cinémathèque. The pill and
+tiles take their corners from the token — do not introduce a literal
 `rounded-md`/`rounded-full` anywhere. (The `×` button's `rounded-full` is pre-existing and stays.)
 
 ## 4. Layout
@@ -125,9 +125,9 @@ what makes a film chip the same height as a person chip.
 
 **The dim fill is `bg-bg`, not VideoCard's `bg-black/70`.** VideoCard's badge sits over a video
 thumbnail; this one sits over the light `bg-logo-plate` poster, and letting 30% of that plate
-bleed through drags `text-muted` to a measured **3.14 / 2.41 / 2.85** across Cinémathèque /
-Broadcast / Brutalist — an AA failure on 10px text. Opaque `bg-bg` restores it to **6.31 / 4.90 /
-5.73** and costs nothing visually, since the translucency was never doing work over a poster.
+bleed through drags `text-muted` to a measured **3.14** in Cinémathèque
+— an AA failure on 10px text. Opaque `bg-bg` restores it to **6.31**
+and costs nothing visually, since the translucency was never doing work over a poster.
 (`VideoCard` itself still uses `bg-black/70`; over a bright thumbnail it has the same latent
 problem, tracked separately — not changed here.)
 
@@ -204,12 +204,12 @@ position is the point of the change.
   not a bare styled `<span>`.
 - **Contrast: resolved.** The `—` / `Full` pill was the risky one (muted on a translucent dark
   chip over a light plate) and it did fail — see §5. Fixed by making the chip opaque; measured at
-  6.31 / 4.90 / 5.73 across the three skins. Re-measure if either token moves.
+  6.31 in Cinémathèque. Re-measure if either token moves.
 
 ## 9. QA
 
-Per the project's three-skin rule, every state below runs on **Cinémathèque, Broadcast, and
-Brutalist**, in **both** owner and visitor sessions.
+Per the project's theming rule, every state below runs on **Cinémathèque**,
+in **both** owner and visitor sessions.
 
 | # | Item | Verifier |
 |---|---|---|
@@ -225,7 +225,7 @@ Brutalist**, in **both** owner and visitor sessions.
 | 4.3 | Owner: clicking a scene pill opens the edit dialog; saving updates the pill in place | human |
 | 5.1 | Film detail page **Cast** section still looks right at the new tile size | human |
 | 5.2 | Keyboard: tab through a tile reaches link, pill, then remove — all visible when focused | human |
-| 5.3 | `text-muted` on the `—` pill passes AA on all three skins | agent |
+| 5.3 | `text-muted` on the `—` pill passes AA in Cinémathèque | agent |
 
 ## 10. Scope
 

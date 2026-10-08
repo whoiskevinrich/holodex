@@ -4,7 +4,7 @@
 [entity-refresh-sweep.md](../specs/entity-refresh-sweep.md) (F66) · **ADR**: *pending `/architecture`* — provider
 rate-limit contract (the initiative F47 deferred; see "Backend contract this UI needs")
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) —
-**tokens only, QA all three skins.**
+**tokens only, QA Cinémathèque.**
 **Stack**: SvelteKit (Svelte 5 runes) + Tailwind v4 CSS-first (ADR-025).
 
 ![Refresh sweep — trigger on System Activity, status line on the list pages](entity-refresh-sweep-mockup.svg)
@@ -264,7 +264,7 @@ Design-level requirements only; the spec and ADR decide the exact shapes.
 
 ---
 
-## Three-skin QA checklist
+## Cinémathèque QA checklist
 
 Numbered, tagged `[smoke]` / `[agent]` / `[human]`, grouped by tag (project convention).
 
@@ -275,7 +275,7 @@ Numbered, tagged `[smoke]` / `[agent]` / `[human]`, grouped by tag (project conv
 3. `Yes, refresh` → toast `Refresh started.`; buttons enter running/blocked states within one poll tick.
 
 **[agent]**
-4. Computed styles on all three skins (`javascript_tool`): buttons use `border-rule` / `text-ink`;
+4. Computed styles in Cinémathèque (`javascript_tool`): buttons use `border-rule` / `text-ink`;
    `Yes, refresh` uses `bg-accent` + `text-accent-ink`; status line `text-muted`; `N failed` `text-warn` —
    no hardcoded colors (`reference-holodex-skin-qa-without-screenshots`).
 5. Geometry at 375 px: confirm question wraps above the buttons; no horizontal scroll on either list page

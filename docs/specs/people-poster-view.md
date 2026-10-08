@@ -92,8 +92,8 @@ second way to browse the same list.
   headshot (the grid gap alone separates tiles — `gap-4`/16px, matching `VideoGrid`'s own gap,
   not the mockup's 14px); a card still showing the themed placeholder keeps
   `border: 1px solid var(--rule)`. Verified by comparing `--bg`/`--surface-2`
-  across skins: Brutalist (`#0a0a0a` vs `#111111`) and Broadcast (`#060814` vs `#0a0e1f`) sit
-  only ~4–11 units apart per channel — close enough that a borderless placeholder would read as
+  in Cinémathèque (`#0c0a09` vs `#181310`), which sit
+  only ~7–12 units apart per channel — close enough that a borderless placeholder would read as
   a blank hole in the page rather than an empty card. Cinémathèque has more natural separation
   but keeps the same rule for one consistent behavior across skins.
 - **RD4 — Hover is a lift, not a border-color swap; focus gets its own ring.** Hover:
@@ -107,12 +107,10 @@ second way to browse the same list.
   `.video-grid … .video-frame` only — `.portrait-frame` has never had this bar. The mockup added
   a parallel bar to `.portrait-frame` purely to preview the flourish; nothing in `app.css` needs
   removing. `PersonPosterCard` needs zero Cinémathèque-specific CSS.)*
-- **RD6 — Broadcast's scanline wash carries over automatically; there's no Brutalist counter to
-  carry over.** *(Corrected during `/design-handoff` grounding: only
-  `[data-theme='broadcast'] .portrait-frame::after` is a real, existing `.portrait-frame`
-  flourish — it applies to the new card for free. The Brutalist catalog-number counter is
-  `.video-frame`-only in `app.css`; there is no `.portrait-frame` equivalent today, so there's
-  nothing to preserve. The outcome RD6 wanted — no new per-skin branch — still holds.)*
+- **RD6 — There's no skin flourish to carry over.** *(Corrected during `/design-handoff` grounding:
+  the scanline wash and catalog-number counter belonged to the retired Broadcast/Brutalist skins;
+  there is no `.portrait-frame` flourish in `app.css` today, so there's
+  nothing to preserve. The outcome RD6 wanted — no new skin-specific branch — still holds.)*
 - **RD7 — List view: avatar row padding becomes `0 16px 0 0`** (was a uniform `10px 16px`), so
   the avatar sits flush against the row's top, left, *and* bottom edges; only the text column
   keeps 16px of right padding. Avatar size and the 3-column responsive grid/gap are unchanged.
@@ -133,7 +131,7 @@ second way to browse the same list.
 - As the owner, I want the People poster grid's density control to feel like the one on
   Videos, so I only have to learn one slider for both.
 - As the owner, I want a person with no headshot yet to still look like a deliberate empty
-  card (not a hole in the page) in every skin, so a partially-populated library doesn't look
+  card (not a hole in the page), so a partially-populated library doesn't look
   broken.
 - As a keyboard user, I want to see which poster card is focused as I tab through the grid, so
   I can operate the page without a mouse — something today's poster-style cards don't offer.
@@ -174,8 +172,8 @@ second way to browse the same list.
   the `Person` interface in `web/src/lib/types.ts`. `PersonPosterCard` shows the border iff
   `poster_version` is `0`/absent.
 - **P0-7 — Theming.** Tokens only, all new markup — `border-rule`, `bg-accent`/`text-accent`,
-  `rounded-theme`, no hardcoded palette/radius. QA'd in **Cinémathèque, Broadcast, and
-  Brutalist** (per the project's frontend-theming rule) before this ships — see Gate status.
+  `rounded-theme`, no hardcoded palette/radius. QA'd in **Cinémathèque**
+  (per the project's frontend-theming rule) before this ships — see Gate status.
 
 ### Should-Have (P1)
 
@@ -245,7 +243,7 @@ Single-owner personal server, so metrics are qualitative / self-observed:
   (not just built-and-forgotten) — the persisted preference (RD1) sticking on return visits is
   a proxy signal.
 - **Correctness:** a person with a poster image renders borderless; a person without one
-  renders with the placeholder border, in all three skins — verified against `poster_version`,
+  renders with the placeholder border, in Cinémathèque — verified against `poster_version`,
   not `headshot_version` (the P0-6 fix actually matters, not just exists).
 - **Accessibility:** Poster view is fully keyboard-navigable — Tab reaches every card with a
   visible focus ring, where none existed before this change.
@@ -282,7 +280,7 @@ No hard deadline. Per the project's change-routing rules:
    tracking entry. Covers `poster_version` correctness, the conditional-border render logic, the
    density formula's tier-cap lockstep, `viewPreference.svelte.ts`'s fallback-on-corrupt behavior
    (net-new coverage — `sortPreference.svelte.ts` has no test of its own to mirror today), and
-   the keyboard-focus adversarial check across all three skins.
+   the keyboard-focus adversarial check in Cinémathèque.
 3. **`/security-review`** — **not needed, explicit call.** The only backend change (P0-6) adds
    one additive, unauthenticated-read field to an already-public list endpoint — no new
    owner-gated mutation, no new input surface, no change to what's already exposed at the

@@ -352,7 +352,7 @@ Existing endpoints, behavior extended (no new routes):
 - **`/owner`**: a new **Deny-list** tab (P1-1), added to the existing tab row (`owner/+layout.svelte`) next
   to Duplicates.
 - **Writeback modal**: `genres` appears as one more checkable field, no layout change.
-- Tokens only; QA all three skins (Cinémathèque / Broadcast / Brutalist) per this project's standing rule.
+- Tokens only; QA Cinémathèque per this project's standing rule.
 
 ## Success Metrics
 
@@ -388,7 +388,7 @@ No hard deadline. Per this project's change-routing rules, before/with implement
    `video_tags` provenance column + `replaceAssociations` behavior change (flagged as the ADR's highest-risk
    decision), and the materialization pass's placement in the existing `afterEnrichApply` dispatcher.
 2. ✅ **`/design-handoff`** — media-page tag chip add/remove, deny-list management surface, `/tags` parent-setter
-   action, 3-skin QA. See
+   action, Cinémathèque QA. See
    [tag-governance-and-video-enrichment-handoff.md](../design/tag-governance-and-video-enrichment-handoff.md).
 3. ✅ **`/testing-strategy`** — rescan-preserves-non-file-tags (P0-1) is the single highest-value test in this
    spec; deny-list enforced on all three paths; cycle rejection; descendant-inclusive filter/search parity;

@@ -197,7 +197,7 @@ the resolver model.
   the ADR-051 precedence for that library (file baseline unless a decision says otherwise) and
   the `SourceBadge` shows both chips — same shape as the F60 edition conflict case.
 - [ ] Visitors see the pill wherever it exists and no edit affordance (owner/visitor gating rule).
-- [ ] Three-skin QA on every surface in RD9.
+- [ ] Cinémathèque QA on every surface in RD9.
 
 ### Should-have (P1)
 
@@ -255,7 +255,7 @@ canonical field does; the MCP `get_video` surface inherits it through the same p
 - Owner queue rows: marker beside the video title.
 - Writeback dialog: `part` listed.
 
-The handoff owns pill wording, placement on the card, and the three-skin tokens.
+The handoff owns pill wording, placement on the card, and the tokens.
 
 ## Success Metrics
 

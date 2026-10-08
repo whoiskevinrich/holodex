@@ -73,9 +73,9 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **3.8** `[agent]` Decision endpoint refuses computed: a `POST` (or SourceSelect attempt) naming `age` /
   `computed:age` returns **400** and writes nothing.
 
-## §4 Human eyes — 3-skin QA (Cinémathèque · Broadcast · Brutalist)
+## §4 Human eyes — Cinémathèque QA
 
-Switch skins via the header picker (top-right). Confirm tokens react — no hardcoded color/radius/font (the
+Confirm tokens are used — no hardcoded color/radius/font (the
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` guard stays empty). Navigate:
 open a **person** page (People → an enriched person, e.g. one with a birth year) with Admin mode **on**; the
 facts sit under the person's photo in the **Details** list.
@@ -85,9 +85,9 @@ facts sit under the person's photo in the **Details** list.
   skins.
 - **4.2** `[human]` There is **no** symbol, icon, or badge next to the age number — it looks like any other
   plain value. Resting the pointer on the number pops a tooltip reading **"calculated from Born."** Confirm the
-  line looks identical (no stray mark) in Cinémathèque, Broadcast, and Brutalist.
+  line looks identical (no stray mark) in Cinémathèque.
 - **4.3** `[human]` The Age line sits flush under Born with normal spacing — nothing crowds or overlaps the
-  number or the next line down, in any skin (check the tightest one, Brutalist).
+  number or the next line down.
 - **4.4** `[human]` Open a person who has **died** (has both a birth and a death date): the line reads **"Age at
   death"** with a number, and there is **no** separate running "Age" line. Hovering the number says "calculated
   from Born and Died".

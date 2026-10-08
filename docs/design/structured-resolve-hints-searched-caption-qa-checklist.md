@@ -50,12 +50,12 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **3.3** `[agent]` Tab order with response (a): search box → `+1 more` → active result row → None of
   these match → ✕; Shift+Tab reverses; Tab from ✕ wraps to the search box (trap intact).
 - **3.4** `[agent]` Tab order with `searched.length === 1`: the toggle is absent from the order.
-- **3.5** `[agent]` Three skins, via `javascript_tool` computed styles (screenshots time out here —
+- **3.5** `[agent]` Cinémathèque, via `javascript_tool` computed styles (screenshots time out here —
   see [[reference-holodex-skin-qa-without-screenshots]]): label/toggle color equals `--muted`, query
-  color equals `--ink`, on Cinémathèque / Broadcast / Brutalist; contrast of `--muted` on
-  `--surface` ≥ 4.5:1 in each.
+  color equals `--ink`; contrast of `--muted` on
+  `--surface` ≥ 4.5:1.
 - **3.6** `[agent]` No horizontal overflow: `document.documentElement.scrollWidth ===
-  clientWidth` with response (c) expanded, in all three skins.
+  clientWidth` with response (c) expanded.
 - **3.7** `[agent]` Batch path: run refresh-all on the same video with response (c); the Activity
   page's detail line for that run contains `searched:` followed by the entries joined with ` · `,
   and contains no `/` or `\` path separator.
@@ -77,8 +77,8 @@ that returns nothing.
   place, just above the results — it did not jump to the bottom.
 - **4.4** `[human]` Type one letter in the box. The **Searched** line disappears at once and comes
   back (for the new search) about a third of a second later.
-- **4.5** `[human]` Switch skins with the header picker (Cinémathèque → Broadcast → Brutalist). The
-  line stays legible in each; in the two monospace skins the filename lines up cleanly. Nothing looks
-  like a hardcoded color that ignored the skin.
+- **4.5** `[human]` In Cinémathèque the
+  line stays legible. Nothing looks
+  like a hardcoded color that ignored the theme tokens.
 - **4.6** `[human]` With the ten-query fixture, expand the list: it shows about four lines and
   scrolls inside itself; the dialog does not grow off the bottom of the window.

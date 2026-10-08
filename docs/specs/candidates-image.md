@@ -265,8 +265,8 @@ None. The scope is deliberately one column and one field.
    no path applies.
 10. No `image_url` value is stored in `entity_enrichment`, returned from `/enrich`, sent to
     writeback, or written to the activity log.
-11. All three skins: the plate, the monogram, and the image frame use tokens only
-    (`bg-logo-plate`, `text-muted`, `border-*`, `rounded-theme`) and read correctly in each skin.
+11. Cinémathèque: the plate, the monogram, and the image frame use tokens only
+    (`bg-logo-plate`, `text-muted`, `border-*`, `rounded-theme`) and read correctly.
 
 ## Test Notes (for `/testing-strategy`)
 
@@ -290,7 +290,7 @@ None. The scope is deliberately one column and one field.
   every row; `error` → monogram; no extra tab stop; F61 toggle still works on an image row).
 - **Geometry** — rows with and without an image share `offsetHeight` when collapsed and share the
   text block's `getBoundingClientRect().x`; the slot's `offsetWidth` equals the kind's px exactly
-  (120 on the studio page the `flood` persona runs on) so an `aspect-*` regression is caught; three-skin contrast of the monogram on
+  (120 on the studio page the `flood` persona runs on) so an `aspect-*` regression is caught; Cinémathèque contrast of the monogram on
   `bg-logo-plate` for both the resting and the active (`bg-surface-2`) row — computed-style
   approach, screenshots time out on this picker.
 - **Contract stub (`testdata/enrich-stub/`)** — a person candidate set mixing: image on the
@@ -335,5 +335,5 @@ Amended 2026-09-18 (HOLODEX-414, from a two-option inline mockup):
 - No hard deadline. The TMDB sidecar can emit `image_url` **before** core reads it (unknown key,
   ignored); either side can ship first.
 - Sequence: spec + contract amendment (this change, Draft PR) → design handoff (SVG committed) →
-  backend FR1/FR2 + tests → sidecar FR4 + test → frontend FR3 + tests + three-skin QA → testing
+  backend FR1/FR2 + tests → sidecar FR4 + test → frontend FR3 + tests + Cinémathèque QA → testing
   strategy → security review → mark ready. One story, one PR.

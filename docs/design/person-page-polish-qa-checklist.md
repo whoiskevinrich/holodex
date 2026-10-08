@@ -6,7 +6,7 @@ Design handoff [`person-page-polish-handoff.md`](person-page-polish-handoff.md) 
 
 **Legend** — verifier tags: **[smoke]** trivially confirmable the app runs · **[agent]** verified
 programmatically this session (DOM inspection / svelte-check) · **[human]** needs a person's eyes (live
-motion and per-skin look can't be captured in the headless preview — it produces **no animation frames**,
+motion and visual look can't be captured in the headless preview — it produces **no animation frames**,
 so scroll-driven motion and screenshots don't render there).
 
 ---
@@ -53,11 +53,10 @@ so scroll-driven motion and screenshots don't render there).
 - [ ] **3.2 [human] Reduced motion = no parallax.** Turn on your OS "reduce motion" setting (Windows:
   Settings → Accessibility → Visual effects → Animation effects **off**), reload the person page, and
   scroll. The banner should now be **completely still** (a normal cropped image) — no drift.
-- [ ] **3.3 [human] All three skins.** Switch skin via the header picker and re-check a person page in
-  **Cinémathèque, Broadcast, and Brutalist**. In each: the taller banner reads as a backdrop (not a wall),
-  the headshot + poster sit cleanly over its lower edge without colliding, and corners match the skin
-  (rounded in Cinémathèque; square in Broadcast/Brutalist). In **Broadcast**, the faint scanline wash
-  should sit over the banner and poster (they share `.portrait-frame`).
+- [ ] **3.3 [human] Cinémathèque look.** Re-check a person page in
+  **Cinémathèque**: the taller banner reads as a backdrop (not a wall),
+  the headshot + poster sit cleanly over its lower edge without colliding, and corners are
+  slightly rounded.
 - [ ] **3.4 [human] Poster visibility — present-only.** The hero poster shows **only when a real poster
   exists** (owner and visitor alike) — a person with no poster shows **no** poster card (no placeholder
   slot beside the headshot). An owner sets a missing poster from the **gallery** below ("Set as poster" →

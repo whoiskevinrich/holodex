@@ -4,7 +4,7 @@
 	// modal so it reads "on top" when stacked. Prev/next with no wraparound, a
 	// position counter, and a fit-to-modal image that never upscales past native
 	// resolution. Escape/arrow keys are handled by the parent (PersonGallery), not
-	// this component — see PersonGalleryModal.svelte for why. Tokens only; QA 3 skins.
+	// this component — see PersonGalleryModal.svelte for why. Tokens only; QA Cinémathèque.
 	import { onMount, tick } from 'svelte';
 	import { api } from '$lib/api';
 	import type { PersonImage } from '$lib/types';

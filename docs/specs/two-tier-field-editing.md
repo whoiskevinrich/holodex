@@ -180,7 +180,7 @@ only, not the sync signal.
 | F56.5 | A replace field with exactly one candidate source renders the value with no badge interactivity. | A field with only a file value (no matched providers) shows the value, non-interactive, matching the viewer's rendering exactly. |
 | F56.6 | Tier-1 fields (Title/People/Studio/Tags on Video; name on Person/Studio; all image fields) are unaffected by this spec — no wrapping in the new Tier-2 markup. | Video Title, Person/Studio name headers, and every image slot render exactly as they do before this change; their existing mechanisms (or lack thereof, pending HOLODEX-269–272) are untouched. |
 | F56.7 | Merge fields are unaffected. | Actors/genres/tags/aliases continue to render via `CurationFieldRow`, unchanged by this spec. |
-| F56.8 | Owner-gated, themed, accessible. | Expand/collapse and chip selection are keyboard-operable (roving tabindex within the expanded row, matching `SourceSelect`'s existing pattern); QA in Cinémathèque, Broadcast, and Brutalist; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new/changed components is empty. |
+| F56.8 | Owner-gated, themed, accessible. | Expand/collapse and chip selection are keyboard-operable (roving tabindex within the expanded row, matching `SourceSelect`'s existing pattern); QA in Cinémathèque; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new/changed components is empty. |
 
 ### Nice-to-have (P1)
 
@@ -213,7 +213,7 @@ frontend commit-path change (Confirm now calls `decide()` in the pending case, w
   depends on it — confirm at implementation time whether a shared component or two call sites
   remain until HOLODEX-269 lands.
 - Tokens only — no hardcoded palette/radii on the new component.
-- QA all three skins for every state: at-rest (single-source, multi-source-undecided,
+- QA Cinémathèque for every state: at-rest (single-source, multi-source-undecided,
   multi-source-decided, RD6-pending), expanded, post-Confirm, post-Cancel.
 
 ## Access control & security
@@ -229,7 +229,7 @@ genuinely new mutation surface and does need one.)
 Single-owner correctness/UX feature, not a funnel — mirrors F36's framing:
 
 - **Leading**: the bug is verifiably gone — an RD6-pending field can be confirmed with exactly
-  one Confirm click, in every skin (manual QA + a regression test asserting F56.4's acceptance
+  one Confirm click (manual QA + a regression test asserting F56.4's acceptance
   criterion).
 - **Leading**: a page with N fields shows zero always-on radiogroups — visual parity with the
   logged-out view, confirmed by a snapshot/DOM comparison in tests.
@@ -267,11 +267,11 @@ Single-owner correctness/UX feature, not a funnel — mirrors F36's framing:
 No hard deadline. Per the project's change-routing rules:
 
 1. **`/design-handoff`** — required (`needs-design` on HOLODEX-268). Covers the Tier-2 wrapper
-   component across all three skins and all four at-rest states, plus reconciling its
+   component in Cinémathèque and all four at-rest states, plus reconciling its
    discoverability language with HOLODEX-269's docked-pencil affordance so they read as one
    system (see Open Questions).
 2. **`/testing-strategy`** — add an F56 block: the RD6-confirm regression test (F56.4), viewer/owner
-   DOM-parity assertion (F56.1), staged-vs-committed selection (F56.2/F56.3), three-skin QA.
+   DOM-parity assertion (F56.1), staged-vs-committed selection (F56.2/F56.3), Cinémathèque QA.
 3. **`/security-review`** — not required (see § Access control & security).
 
 Suggested build order (informal, non-gating):
@@ -281,12 +281,12 @@ Suggested build order (informal, non-gating):
 3. Roll out to every remaining replace field across Video/Person/Studio.
 4. Retire `SourceSelect` for all converted call sites (see Open Questions on the Person-name
    exception).
-5. Three-skin QA pass.
+5. Cinémathèque QA pass.
 
 ## Artifacts to produce (project working agreements)
 
 - [x] This spec (`docs/specs/two-tier-field-editing.md`).
-- [ ] **Design handoff** — Tier-2 wrapper component, all states, all three skins. (`needs-design` on HOLODEX-268.)
+- [ ] **Design handoff** — Tier-2 wrapper component, all states, Cinémathèque. (`needs-design` on HOLODEX-268.)
 - [ ] **Testing strategy** — add an F56 block to `docs/testing-strategy.md`.
 - [x] **Security review** — not required, see § Access control & security.
 - [ ] Add this spec to the `docs/architecture/README.md` phase-specs index.

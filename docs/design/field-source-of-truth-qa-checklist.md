@@ -2,12 +2,12 @@
 
 **Spec**: [Per-field source-of-truth (F36)](../specs/field-source-of-truth.md) · **ADR**: [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) · **Design**: [handoff](field-source-of-truth-handoff.md)
 **Gate**: [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) · **Write safety**: [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)/[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped **by verifier** — each actor runs only their section:
 > - **§2 Smoke** — automated test / build gate (`svelte-check`, token-guard `rg`, unit/integration). Green = pass; pre-check `[x]` with the test named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/Network/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (per-skin "look", legibility, the at-a-glance read).
+> - **§4 Human** — needs a human's eye (the Cinémathèque "look", legibility, the at-a-glance read).
 >
 > §1 is one-time **setup** §3/§4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 >
@@ -94,14 +94,14 @@
 
 ---
 
-## 4. Human — needs an eye (run in **all three skins**: Cinémathèque · Broadcast · Brutalist)
+## 4. Human — needs an eye (run in **Cinémathèque**)
 
-> **Nav:** open a media item with a provider-matched replace field, in **owner** mode. Switch skins via the header picker. For each skin below, eyeball the Metadata section.
+> **Nav:** open a media item with a provider-matched replace field, in **owner** mode. Eyeball the Metadata section.
 
-- [ ] 4.1 **Selection reads at a glance, in every skin.** The **selected** chip is unmistakable via its **● filled dot + accent border** (not fill/colour alone), and the distinction survives Brutalist (the chip stays on `bg-surface-2` — confirm it reads "selected" without shouting). No clipped corners, no dot/value collision.
+- [ ] 4.1 **Selection reads at a glance.** The **selected** chip is unmistakable via its **● filled dot + accent border** (not fill/colour alone), and the distinction holds (the chip stays on `bg-surface-2` — confirm it reads "selected" without shouting). No clipped corners, no dot/value collision.
 - [ ] 4.2 **The row reads as one vocabulary with the merge chips.** The replace chips (● dot) and the merge chips (✕ on hover) sit in the same Metadata grid and clearly belong to one system; the `·source` suffix is readable but secondary; the field isn't cluttered at two-column width.
-- [ ] 4.3 **The dedup fix, felt.** On a field where file and provider **agree** (e.g. Studio), the value shows **once** as a single `·file + {provider}` chip — not twice. Confirm in all three skins.
-- [ ] 4.4 **Divergence is obvious without alarm.** Where file and provider (or two providers) **differ**, the two value chips make the disagreement self-evident at a glance; nothing reads as a warning (only a real out-of-sync decision shows the warn pill). Confirm warn-on-surface contrast in all three skins.
+- [ ] 4.3 **The dedup fix, felt.** On a field where file and provider **agree** (e.g. Studio), the value shows **once** as a single `·file + {provider}` chip — not twice.
+- [ ] 4.4 **Divergence is obvious without alarm.** Where file and provider (or two providers) **differ**, the two value chips make the disagreement self-evident at a glance; nothing reads as a warning (only a real out-of-sync decision shows the warn pill). Confirm warn-on-surface contrast.
 - [ ] 4.5 **Write button.** "Write decisions to file · {n} out of sync" is legible; the count reads as attention (warn) but the button doesn't look broken when the count is hidden (n=0).
 - [ ] 4.6 **The fix, felt.** Edit a file tag externally → Refresh → the field shows **your file value** by default (no provider masking). Then pick the provider chip, confirm the value switches; pick the file chip, confirm it switches back. The mental model ("file is the baseline, I choose") is clear without instruction.
 - [ ] 4.7 **Empty/edge states themed.** A file-only field shows just the **file** chip + **Custom**; an empty file baseline shows `—`; a long title truncates gracefully (full value on hover); nothing overflows the card in any skin.

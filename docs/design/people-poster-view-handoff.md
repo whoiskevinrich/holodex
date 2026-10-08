@@ -4,7 +4,7 @@
 **Date**: 2026-08-05
 **Spec**: [`docs/specs/people-poster-view.md`](../specs/people-poster-view.md) (F55, Jira [HOLODEX-255](https://whoiskevinrich.atlassian.net/browse/HOLODEX-255))
 **Architecture**: none required — see the spec header ("New ADRs required: none")
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA all three skins**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [`theming.md`](theming.md) — **tokens only, QA Cinémathèque.**
 
 A new **Poster View** for `/people`, toggled alongside the existing List view: a `PersonPosterGrid`
 of `PersonPosterCard`s (the 2:3 `.portrait-frame` well + name/count below, mirroring `VideoCard`'s
@@ -20,13 +20,7 @@ add transform + `ring-accent`/`shadow` only, no new color literals.
 >   bar.** The mockup added a parallel bar to `.portrait-frame` purely to preview what a shared
 >   flourish would look like. Nothing to suppress — `PersonPosterCard` needs **zero** Cinémathèque
 >   CSS.
-> - **RD6 (Brutalist counter):** same story — `[data-theme='brutalist'] .video-frame::before`
->   (`app.css:449`) is the *only* Brutalist counter rule in the file; there is no existing
->   `.portrait-frame` equivalent to "carry over." The outcome RD6 wanted (no new per-skin branch)
->   still holds — there's just nothing to carry over, either. Only **Broadcast's scanline**
->   (`[data-theme='broadcast'] .portrait-frame::after`, `app.css:381-391`) is a real, existing
->   `.portrait-frame` flourish, and it applies to `PersonPosterCard` automatically since the card
->   reuses `.portrait-frame` as-is.
+> - **RD6 (Brutalist counter):** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 > - **RD3 ("14px grid gap"):** `VideoGrid` uses Tailwind `gap-4` (16px), not 14px
 >   (`VideoGrid.svelte:22`). Use `gap-4` on `PersonPosterGrid` too, for the same reason RD3 gives
 >   (gap alone separates borderless tiles) and for visual consistency with the video grid.
@@ -429,9 +423,9 @@ still showing the placeholder image, which is the exact bug this field exists to
 | `border-accent` outline / `--accent` | `--accent` | `:focus-visible` ring (RD4) |
 | `bg-accent` / `text-accent-ink` | `--accent`, `--accent-ink` | `PersonViewToggle` / `SortToggle`-style active segment |
 | `border-rule` / `text-muted` / `hover:text-ink` | `--rule`, `--muted`, `--ink` | toggle inactive/hover segments |
-| `rounded-theme` | `--radius` | toggle container corners (square in Broadcast/Brutalist) |
+| `rounded-theme` | `--radius` | toggle container corners (2px in Cinémathèque) |
 | `accent-accent` (native range input) | `--accent` | density slider thumb/track |
-| `skin-title` | per-skin heading font | card name (mirrors `VideoCard`'s `<h3>`) |
+| `skin-title` | display heading font | card name (mirrors `VideoCard`'s `<h3>`) |
 
 No new color literals anywhere in this feature — the only new CSS (`.poster-card-frame` block,
 Surface 2) references `var(--rule)`/`var(--accent)`, and the hover shadow reuses the same

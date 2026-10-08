@@ -43,10 +43,10 @@ Legend: **[auto]** = already verified programmatically this session · **[eye]**
 - [x] **[eye]** With a token set + loopback bind, the `controls_unauthenticated` banner is **absent**.
 - [x] **[eye]** With `ADMIN_TOKEN` set, the backend startup log does **not** warn; with it unset on a non-loopback bind, it **does** warn.
 
-## Theming — all three skins (CLAUDE.md)
-- [x] **[auto]** Renders in **Cinémathèque** (gold, serif, soft radius), **Broadcast** (cyan, square), **Brutalist** (lime, mono, square) — screenshots captured.
-- [x] **[eye]** In each skin: the Rescan button (bg-accent) and the accent-ringed error/banner read legibly against the surface; nothing collides.
-- [x] **[eye]** The pulsing dot is visible against each skin's header/surface.
+## Theming — Cinémathèque (CLAUDE.md)
+- [x] **[auto]** Renders in **Cinémathèque** (gold, serif, soft radius) — screenshots captured.
+- [x] **[eye]** The Rescan button (bg-accent) and the accent-ringed error/banner read legibly against the surface; nothing collides.
+- [x] **[eye]** The pulsing dot is visible against the header/surface.
 - [x] **[eye]** Token-only check stays clean: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` is empty.
 
 ## States & responsive

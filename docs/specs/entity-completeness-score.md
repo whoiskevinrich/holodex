@@ -9,7 +9,7 @@ ADR-103 D7); see F65.8 and RD9. Amended 2026-09-18 — **F65 Completeness score 
 **Depends on**: per-field source-of-truth decisions and the baseline-source contract ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md), [ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)), metadata source plugins / the provider-agnostic enrichment model ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), F22), the access-control gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)), derived/computed fields precedent ([ADR-063](../architecture/archive/ADR-063-derived-computed-fields.md), F45), studio image roles ([ADR-079](../architecture/archive/ADR-079-studio-image-roles.md), F51), and frontend theming ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Realizes**: F55 (new). Builds on the extraction-queue UX precedent ([HOLODEX-199](https://whoiskevinrich.atlassian.net/browse/HOLODEX-199)) — its deliberate deferral of bulk-apply directly informs this feature's queue design (§ Scope).
 **Architecture**: [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) (facet criticality, not-applicable persistence, and the `imdb_id` → `external_provider_id` rename), [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md) (supersedes ADR-081 D5 only — the rename's value must be namespace-qualified, not a bare id), and [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) (F65 — supersedes ADR-081 D3 + D4: required-band score, separate extras, a materialized store with trigger-fed invalidation, and the owner-only list field the ring badge rides).
-**Design handoff**: [entity-completeness-handoff.md](../design/entity-completeness-handoff.md) (F55 — queue, panel, browse sort/filter) and, for F65, [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md) (the card ring badge, its overfill, the row placement on `/people` + `/studios`, three skins).
+**Design handoff**: [entity-completeness-handoff.md](../design/entity-completeness-handoff.md) (F55 — queue, panel, browse sort/filter) and, for F65, [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md) (the card ring badge, its overfill, the row placement on `/people` + `/studios`, Cinémathèque).
 
 ---
 
@@ -75,7 +75,7 @@ candidate sitting in cache, so "quick wins" are visually distinct from "needs re
   at a low score on one entity can see exactly why without leaving the page.
 - **One composite Studio `branding_image` facet** — the icon/logo/poster roles introduced by F51
   (ADR-079) score as a single facet ("has at least one branding image"), not three independent ones.
-- **Three-skin theming** (Cinémathèque, Broadcast, Brutalist) for every new surface, tokens-only.
+- **Cinémathèque theming** ([theming.md](../design/theming.md), the only look) for every new surface, tokens-only.
 
 ### Out of scope (tracked follow-ups, not gaps)
 
@@ -306,7 +306,7 @@ too.
 | F55.9 | A **per-entity completeness breakdown panel** on the video/person/studio detail page lists every scored facet with its resolved tier. **v2:** the panel headline shows `required` as the score and `extras` beside it; provenance (curated/provider) stays per-row via `ProvenanceBadge` since it no longer moves the number. | Opening Video A shows `100` with `extras 67`, and lists its 8 scored facets with their tier; optional facets are not listed in the panel (F60 RD6). |
 | F55.10 | The owner can **mark `external_provider_id` not-applicable** for a video via an owner-gated mutation; the flag persists and the facet is excluded from that video's score and from the queue. | An owner PATCH marking the facet not-applicable removes that video from any "missing external ID" queue group and excludes the facet from its score on the next read; a non-owner request is rejected by the gate. |
 | F55.11 | `imdb_id` is generalized to a provider-agnostic **`external_provider_id`** concept in the registry and API, without breaking existing resolver/decision plumbing for videos that already have an IMDb value stored. Resolved values are namespace-qualified (`"<provider>:<id>"`) so they stay unambiguous when more than one provider can populate the facet ([ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md)). | Existing videos with a stored `imdb_id` value continue to resolve correctly under the renamed/generalized facet, with their value namespace-qualified (`"imdb:tt..."`) by the migration; no data loss on migration. |
-| F55.12 | All new surfaces (browse filter chip, sort option, remediation queue, breakdown panel, not-applicable control, **v2: ring badge**) render correctly in **all three skins** using semantic tokens only. | QA in Cinémathèque, Broadcast, and Brutalist: `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty; every state (loading/empty/populated) reads correctly in each skin. |
+| F55.12 | All new surfaces (browse filter chip, sort option, remediation queue, breakdown panel, not-applicable control, **v2: ring badge**) render correctly in **Cinémathèque** using semantic tokens only. | QA in Cinémathèque: `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty; every state (loading/empty/populated) reads correctly. |
 | F65.1 | **Required-band score.** `required` is computed per § Scoring model over `critical` facets only, with binary presence; no provider/curated weighting anywhere in the number. | Video C (all four required present, two provider-resolved) reports `required: 100`. Video B reports `required: 75`. |
 | F65.2 | **Separate extras.** `extras` is computed over `nice_to_have` facets only and is never summed, averaged or weighted into `required`; both are integers 0–100 or `null` per § Edge rules. | Video B reports `extras: 100` and `required: 75` — no field in the payload combines them. A studio reports `required: null`. |
 | F65.3 | **Optional demotions.** The facets marked *Optional (F65)* in § Facet tables carry `optional` criticality: listed in the panel payload, never scored, never missing, never queued, never in the "Missing facet" chip. | The video "Missing facet" chip offers at most `title, studio, actors, poster_url, overview, release_date, genres, external_provider_id` (a facet no video is missing has no stored missing row and is not offered — there is nothing to filter to); a video with no `tagline` has no `tagline` entry in any queue group. |
@@ -382,9 +382,9 @@ too.
   `bg-black/70` chip idiom the duration pill already uses — **no new tokens**. Renders only when the item
   carries `completeness` (owner) — no `isOwner` check in the card, the payload is the gate. The second
   lap is drawn only when `required === 100` (or `required === null`: never). Design handoff to fix the
-  exact geometry and the three-skin QA list.
+  exact geometry and the QA list.
 - **Tokens only** — no hardcoded palette/radii/fonts on any new component.
-- **QA all three skins** for every state: loading, empty, populated, and the not-applicable control.
+- **QA in Cinémathèque** for every state: loading, empty, populated, and the not-applicable control.
 
 ---
 
@@ -507,7 +507,7 @@ Suggested internal build order (informal, non-gating — engineering may reseque
    can correctly exclude not-applicable facets.
 3. Browse sort/filter (F55.5–6) and remediation queue (F55.7–8) — share the backend predicate, reasonable
    to build together.
-4. Breakdown panel (F55.9) and three-skin QA pass (F55.12) last, once the data surfaces above are stable.
+4. Breakdown panel (F55.9) and the Cinémathèque QA pass (F55.12) last, once the data surfaces above are stable.
 
 **F65 amendment — ships as one PR on the epic branch (HOLODEX-412), all gates green before ready:**
 1. Registry demotions (F65.3) + `resolver.Complete` → `Required`/`Extras` with binary presence and the
@@ -517,7 +517,7 @@ Suggested internal build order (informal, non-gating — engineering may reseque
    (F65.6).
 3. List paths read the store — SQL composite sort, owner-only `completeness` on items, facets endpoint
    from the missing rows; detail self-heal (F65.5, F65.7). Queue untouched.
-4. Ring badge component + card wiring (F65.4); panel headline; three-skin QA per the design handoff.
+4. Ring badge component + card wiring (F65.4); panel headline; QA per the design handoff.
 
 ---
 
@@ -526,10 +526,10 @@ Suggested internal build order (informal, non-gating — engineering may reseque
 - [x] This spec (`docs/specs/entity-completeness-score.md`).
 - [ ] **ADR** — facet-criticality data model, tri-state not-applicable persistence shape, score-computation
       seam. Blocks P0 implementation. (`needs-adr` on HOLODEX-260.)
-- [ ] **Design handoff** — remediation queue, breakdown panel, browse filter/sort, all three skins.
+- [ ] **Design handoff** — remediation queue, breakdown panel, browse filter/sort.
       (`needs-design` on HOLODEX-260.)
 - [ ] **Testing strategy** — add an F55 block to `docs/testing-strategy.md` (scoring formula, tri-state
-      resolution, queue predicate parity with the browse filter, not-applicable mutation, three-skin QA).
+      resolution, queue predicate parity with the browse filter, not-applicable mutation, Cinémathèque QA).
       (`needs-testing-strategy` on HOLODEX-260.)
 - [ ] **Security review** before merge — new owner-gated mutation surface. (`needs-security-review` on
       HOLODEX-260.)
@@ -541,7 +541,7 @@ Suggested internal build order (informal, non-gating — engineering may reseque
       ADR-081 D3 + D4).
 - [x] **Design handoff** — [completeness-ring-badge-handoff.md](../design/completeness-ring-badge-handoff.md)
       + [completeness-ring-badge-mockup.svg](../design/completeness-ring-badge-mockup.svg) (ring geometry,
-      overfill, empty/`null` states, card + row placement, three-skin QA). Landed 2026-09-18.
+      overfill, empty/`null` states, card + row placement, QA). Landed 2026-09-18.
 - [ ] **Testing strategy** — F65 block: band formulas and `null` rules against § Worked examples,
       composite sort order, visitor redaction of `completeness`, trigger-coverage enumeration, detail
       self-heal.

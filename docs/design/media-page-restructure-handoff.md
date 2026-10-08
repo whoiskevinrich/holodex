@@ -5,7 +5,7 @@
 [ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md) ·
 [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Issue**: HOLODEX-220 · **Surface**: `web/src/routes/media/[id]/+page.svelte`,
 `EnrichProviderChips.svelte`, `SourceSelect.svelte`.
 
@@ -205,15 +205,15 @@ enrichment. Only `studio` reconciles into a real entity (`ReconcileVideoStudios`
 Part A and Part B reuse token pairs already measured for the writeback dialog against `--surface`
 (see `writeback-selection-handoff.md`):
 
-| | Cinémathèque | Broadcast | Brutalist |
-|---|---|---|---|
-| `text-muted` label | 6.00 | 4.67 | 5.59 |
-| `.btn-accent` | 8.71 | 11.51 | 16.76 |
+| | Cinémathèque |
+|---|---|
+| `text-muted` label | 6.00 |
+| `.btn-accent` | 8.71 |
 
 **Still to measure during implementation** — these pairs are new to this surface and are not
 carried over: solid `bg-accent` + `text-accent-ink` for the primary write button, `text-warn` on
 `--surface` at the `file differs` pill's final size, and the popover's `bg-surface` over
-`bg-surface-2` rows. Broadcast is the skin to check first; it is the weakest on every pair above.
+`bg-surface-2` rows.
 
 No element in either part may use `opacity` on a `text-muted` label — the theming rules treat that
 as a contrast bug, and the writeback dialog just removed its last instance.

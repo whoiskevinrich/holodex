@@ -5,7 +5,7 @@
 **Contract**: [metadata-provider-contract.md](../specs/metadata-provider-contract.md) §2.3
 `candidates[].detail`, §5 caps
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins**.
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**.
 **Prior art**: [`EnrichPicker.svelte`](../../web/src/lib/components/enrichment/EnrichPicker.svelte)
 — the candidate row (`role="option"`, roving tabindex) and its two in-row idioms this reuses: the
 `view source ↗` link that stops propagation (F47/RD6), and the `+N more` `.btn-quiet` dotted-underline

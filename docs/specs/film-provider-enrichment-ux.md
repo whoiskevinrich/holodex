@@ -232,7 +232,7 @@ backend already shipped.)*
 
 - **P0-10 — The header carries both images without either becoming unreadable.** Per the handoff:
   banner as a background band, the existing poster + title row overlapping it, a legibility scrim, and
-  `EntityImageSlot` owning upload/replace/remove for **both** roles. Acceptance: three-skin QA with
+  `EntityImageSlot` owning upload/replace/remove for **both** roles. Acceptance: Cinémathèque QA with
   banner-only, poster-only, both, and neither.
 
 - **P0-10a — The banner role refuses a portrait image at ingest (HOLODEX-386).** The band renders

@@ -5,7 +5,7 @@
 **Depends on**: the thumbnail pipeline ([ADR-009](../architecture/archive/ADR-009-thumbnail-strategy.md)), media-file/asset serving ([ADR-015](../architecture/archive/ADR-015-media-file-serving.md)), the data layout ([ADR-014](../architecture/archive/ADR-014-configuration-and-data-layout.md)), the access-control gating seam ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)), metadata source plugins / enrichment ([ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), F22), and frontend theming ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Realizes / supersedes**: [Phase 3 F14.3](phase-3-enrichment.md) (person profile image) and the deferred F22 photo-download follow-up — expanded from a single profile image to four image roles, themed/gendered placeholders, and an owner upload path.
 **Architecture**: [ADR-038](../architecture/archive/ADR-038-person-images.md) — person image on-disk store, typed real-or-placeholder serving (version-stamped cache), shared ingest normalization, and placeholder resolution. Access reuses the existing owner gate (ADR-030) — no access-model change.
-**Design handoff (to be produced)**: `docs/design/people-images-handoff.md` (placeholder artwork set across all three skins; upload/gallery UI; loading/empty/error states).
+**Design handoff**: [people-images-handoff.md](../design/people-images-handoff.md) (placeholder artwork set; upload/gallery UI; loading/empty/error states).
 
 ---
 
@@ -40,10 +40,10 @@ the gallery holds up to **20 extra images per person** on top of those.
   - **Poster — 2:3** (vertical). Shown wherever a person is represented on a video (video detail page).
   - **Extras — free-form gallery.** Arbitrary additional images, person-page only, no fixed ratio.
 - **Themed + gendered default placeholders.** Any unfilled headshot/banner/poster role resolves to a
-  built-in placeholder selected by **(active skin × role × gender)**. Gender resolves from **enrichment**
+  built-in placeholder selected by **(role × gender)**. Gender resolves from **enrichment**
   (a provider-supplied gender field); when unknown, a **gender-neutral** placeholder is used.
 - **Admin override of the global placeholder set.** The owner can replace the built-in default artwork
-  (the whole `skin × role × gender` matrix) with their own; the override applies to *every* person that
+  (the whole `role × gender` matrix) with their own; the override applies to *every* person that
   lacks a real image. (This is a global fallback swap, **not** a per-person override.)
 - **Two image sources:**
   - **Enrichment asset download** — activate the deferred F22 asset path: fetch image URLs returned by
@@ -61,8 +61,8 @@ the gallery holds up to **20 extra images per person** on top of those.
   dimensions/bytes) for both upload and enrichment-downloaded images.
 - **Typed serving routes** that always return a usable image (real image, else the resolved placeholder),
   mirroring the thumbnail route contract (cacheable, no client-supplied filesystem paths).
-- **Themed display across all three skins** (Cinémathèque, Broadcast, Brutalist) using semantic design
-  tokens only; placeholders and image frames honor the active skin.
+- **Themed display in the Cinémathèque look** ([theming.md](../design/theming.md) — the only look) using
+  semantic design tokens only; placeholders and image frames take their colours from those tokens.
 
 ### Out of scope (tracked follow-ups, not gaps)
 
@@ -107,8 +107,8 @@ Ordered by priority.
    a real profile, not a bare list of videos.
 3. **As a viewer on a video page, I want each credited person shown as a poster card** so I can see who's
    in it and click through.
-4. **As a viewer, when a person has no real image, I want a tasteful placeholder that matches the current
-   skin and the person's gender** so the layout never looks broken or empty.
+4. **As a viewer, when a person has no real image, I want a tasteful placeholder that matches the app's
+   look and the person's gender** so the layout never looks broken or empty.
 5. **As the owner, I want to upload an image for a person and choose which role it fills** so I can
    improve the library when a provider didn't supply art.
 6. **As the owner, I want to add extra images to a person's gallery** so notable people can have more
@@ -116,7 +116,7 @@ Ordered by priority.
 7. **As the owner, I want enrichment to auto-download provider images** so well-known people get art
    without my uploading anything.
 8. **As the owner, I want to replace the built-in placeholder artwork with my own set** so unfilled
-   slots match my instance's look across all three skins.
+   slots match my instance's look.
 9. **As the owner, I want to delete any image** so I can remove anything wrong or low-quality.
 10. **As the owner, when I hit the 20-extra gallery limit, I want a clear message** so I understand why
     the upload was rejected.
@@ -133,21 +133,21 @@ Ordered by priority.
 | F25.2 | **Headshot (1:1)** renders on the people list cards and as the person-page avatar. | Given a person with a headshot, the `/people` card and the person header show it cropped to a square; given none, both show the resolved placeholder. |
 | F25.3 | **Banner (16:9)** renders as the person-page hero. | Given a banner, the person page shows a 16:9 hero; given none, it shows the resolved 16:9 placeholder. |
 | F25.4 | **Poster (2:3)** renders for each person on the video detail page. | Given a video with people, each person appears as a 2:3 poster card linking to the person; missing posters show the placeholder. |
-| F25.5 | **Placeholder resolution** picks `(active skin × role × gender)`; gender comes from the enriched gender field, defaulting to **neutral** when absent. | Switching skins changes the placeholder; a person with enriched `gender=female` shows the female placeholder; a person with no enriched gender shows the neutral one. |
+| F25.5 | **Placeholder resolution** picks `(role × gender)`; gender comes from the enriched gender field, defaulting to **neutral** when absent. | A person with enriched `gender=female` shows the female placeholder; a person with no enriched gender shows the neutral one. |
 | F25.6 | **Typed serving route per role** returns the real image if present, else the resolved placeholder; never 404s for a valid person+role; never accepts a client-supplied filesystem path. Real-image URLs are **version-stamped** (`?v=<image_id>`) so a replace busts caches immediately. | `GET /api/v1/people/{id}/image/{role}` returns 200 with an image for any existing person and valid role; an unknown role → 400; an unknown person → 404. A real-image response carries a `?v=` stamp and a long `Cache-Control: public, max-age=…, immutable`; after a replace the read-model emits a new `?v=`. |
 | F25.7 | **The owner can upload** an image for a person and assign its role; the image is normalized server-side before storage. Uploading again for a **filled core role replaces** the current image (old asset cleaned up). Upload is behind the owner gate (ADR-030); non-owners cannot upload. | An owner POST with a valid image stores a normalized asset (re-encoded, metadata stripped, dimensions/bytes bounded) and it appears on the relevant surface; a second upload for a filled core role swaps it with no orphaned files; a non-owner POST is rejected by the gate. |
 | F25.8 | **Gallery cap on `extra` images per person** — default **20**, configurable via `PERSON_GALLERY_MAX` (core slots are separate and never counted; see F25.23–25). | An over-cap `extra` for a person is rejected with a clear, themed error; the cap is enforced server-side regardless of client. **Filling/replacing a core role (headshot/banner/poster) is never blocked by the gallery cap** — proven by repo + API tests inserting a core role at a full gallery (the F25.8 bug fix). |
 | F25.9 | **Upload validation**: only real raster images of an allowed type and within size/dimension bounds are accepted; the bytes are decoded to confirm they are an image (not a polyglot/renamed file). | A non-image, oversized, or malformed file is rejected with a clear error and nothing is written to disk. |
 | F25.10 | **Enrichment asset download**: provider-supplied image URLs are fetched (through the existing enrich SSRF allowlist + redirect refusal + response caps), normalized, and stored as person images with provenance. | After enriching a person whose provider returns an asset, the corresponding core role shows the downloaded image (replacing any current one for that role); the fetch obeys the F22 network guards. |
 | F25.11 | **Owner can delete any image** (a core-role image or a gallery extra). | An owner delete removes the asset and its DB row; a deleted core-role image leaves that role empty (placeholder resolves); a deleted extra leaves the gallery; a non-owner cannot delete. |
-| F25.12 | **All three skins** render every people image surface and every loading/empty/error state correctly, using semantic tokens only (no hardcoded palette/radii/fonts). | QA in Cinémathèque, Broadcast, and Brutalist: lists, person page, video page, gallery, and placeholders all read correctly; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty. |
+| F25.12 | **The Cinémathèque look** renders every people image surface and every loading/empty/error state correctly, using semantic tokens only (no hardcoded palette/radii/fonts). | QA in Cinémathèque: lists, person page, video page, gallery, and placeholders all read correctly; `rg 'zinc-\|sky-\|emerald-\|amber-\|rounded-(lg\|md\|sm\|xl)'` over new components is empty. |
 
 ### Nice-to-have (P1)
 
 | ID | Requirement | Acceptance criteria |
 |----|-------------|---------------------|
 | F25.13 | **Free-form gallery** on the person page: owner adds/removes/reorders extra images. | Extras render in an ordered gallery on the person page only; not shown on lists or video pages. |
-| F25.14 | **Admin override of the global placeholder set** — owner supplies replacement artwork for the `skin × role × gender` matrix; built-ins are the fallback when no override exists. | After the owner installs an override for `(brutalist, banner, neutral)`, every person lacking a banner shows the override under the Brutalist skin; other cells keep the built-in. |
+| F25.14 | **Admin override of the global placeholder set** — owner supplies replacement artwork for the `role × gender` matrix; built-ins are the fallback when no override exists. | After the owner installs an override for `(banner, neutral)`, every person with no banner whose gender resolves to the neutral bucket shows the override; other cells keep the built-in. |
 | F25.15 | **Promote a gallery extra into a core slot.** The owner picks a gallery image, **zooms/crops** it to the target role's aspect ratio in a client-side editor, and saves it as a **new core image — a copy**; the gallery original is left untouched. The cropped copy is normalized server-side like any upload. | Promoting an `extra` as `poster` opens a 2:3 crop tool; saving creates a `poster` (replacing any current one) from the cropped copy; the original `extra` still appears in the gallery; no orphaned files remain. |
 | F25.16 | **Lazy / progressive load** of images on grids; the placeholder shows immediately while a real image loads (no layout shift). | Scrolling the people list shows no broken-image flashes and no cumulative layout shift as images resolve. |
 | F25.17 | **Activity history** records image events (uploaded / downloaded-via-enrichment / deleted), consistent with F21/ADR-028. | Uploading and deleting an image each appear in the activity surface. |
@@ -157,7 +157,7 @@ Ordered by priority.
 | ID | Requirement | Notes |
 |----|-------------|-------|
 | F25.18 | Extend the crop editor to **direct upload** (and add rotate) — not just promote. | v1 ships zoom/crop on promote only (F25.15); applying it to every upload avoids "uploader must pre-crop". |
-| F25.18b | A distinct **nonbinary placeholder** art bucket (→ 36 assets across skins/roles). | v1 collapses nonbinary→neutral art while storing the true value; a 4th art bucket is purely additional artwork. |
+| F25.18b | A distinct **nonbinary placeholder** art bucket (→ 12 placeholders across roles). | v1 collapses nonbinary→neutral art while storing the true value; a 4th art bucket is purely additional artwork. |
 | F25.19 | Non-owner / contributor uploads (open contribution) with moderation queue, reporting, and identity-keyed rate limits. | A separate access-model change (own ADR + security review); reverted out of this spec. |
 | F25.20 | MCP `get_person` / `list_people` expose image URLs. | Mirrors deferred F22.5f / F14.5. |
 | F25.21 | Tag images reuse this storage/serving/placeholder model (F15.3). | Same machinery, different entity. |
@@ -311,7 +311,7 @@ owning its own window-level Escape listener, so one keypress can't close both la
 once. The inline row's owner-controls overlay uses `pointer-events-none` on the overlay
 with `pointer-events-auto` on its buttons, so a background click opens the viewer while a
 button click still only performs its own action — no click-target-equality guard needed.
-Tokens only; QA'd against all three skins.
+Tokens only; QA'd in Cinémathèque.
 
 ---
 
@@ -319,13 +319,13 @@ Tokens only; QA'd against all three skins.
 
 | Role | Ratio | Primary surface(s) | Placeholder? |
 |------|-------|--------------------|--------------|
-| `headshot` | 1:1 | People list cards; person-page avatar | Yes — `skin × 1:1 × gender` |
-| `banner` | 16:9 | Person-page hero | Yes — `skin × 16:9 × gender` |
-| `poster` | 2:3 | Video detail page (person cards) | Yes — `skin × 2:3 × gender` |
+| `headshot` | 1:1 | People list cards; person-page avatar | Yes — `1:1 × gender` |
+| `banner` | 16:9 | Person-page hero | Yes — `16:9 × gender` |
+| `poster` | 2:3 | Video detail page (person cards) | Yes — `2:3 × gender` |
 | `extra` | any | Person-page gallery **only** | No (gallery simply omits absent extras) |
 
-**Placeholder matrix.** 3 skins × 3 core roles × 3 gender buckets (`male`, `female`, `neutral`) = **27
-built-in placeholder assets**. The neutral bucket is the default and the fallback for every unknown or
+**Placeholder matrix.** 3 core roles × 3 gender buckets (`male`, `female`, `neutral`) = **9
+built-in placeholders**. The neutral bucket is the default and the fallback for every unknown or
 unmapped gender value. Placeholder selection is deterministic and computed at serve/display time —
 storing a placeholder against a person is not allowed (placeholders are never "real" images and never
 occupy a core slot or count against the gallery cap).
@@ -361,14 +361,14 @@ column/route names are settled in the new ADR.
   the disk file is the cache, as with thumbnails. Filenames are server-assigned; **no client-supplied
   path ever touches the filesystem**.
 - **Placeholder override store**: owner-supplied override artwork lives in a configurable dir keyed by
-  `{skin}-{role}-{gender}` with the embedded built-ins as the fallback when a cell is absent.
+  `{role}-{gender}` with the embedded built-ins as the fallback when a cell is absent.
 - **Serving**: typed routes only —
   - `GET /api/v1/people/{id}/image/{role}` → resolved real-or-placeholder image (the primary contract).
   - gallery list + per-image fetch for extras.
   - **Versioned caching**: real images serve `Cache-Control: public, max-age=…, immutable` and the
     read-model hands out the URL with a `?v=<image_id>` stamp, so a replace is picked up instantly while
-    every stamped URL stays long-cacheable. Placeholders cache long and bust via a placeholder-set
-    version. 404-contract discipline as `serveThumbnail`.
+    every stamped URL stays long-cacheable. Placeholders cache only briefly (minutes), so a later
+    upload shows without a version stamp. 404-contract discipline as `serveThumbnail`.
 - **Read model**: the person payload gives the frontend, per role, whether a real image exists and the
   current `?v=` stamp (and the ordered gallery image ids) — without leaking filesystem detail.
 
@@ -424,12 +424,12 @@ PII introduced.
 
 - **Tokens only.** All new components use semantic utilities (`bg-surface`, `text-ink`, `text-muted`,
   `border-rule`, `rounded-theme`, `font-display`/`font-ui`, `text-warn`/`border-warn` for errors) — no
-  literal palette, hex, named fonts, or fixed radii. Skin-specific image-frame flourishes belong in
-  `app.css` gated by `[data-theme]` on shared hook classes (e.g. `.video-frame`-style), not per-component.
+  literal palette, hex, named fonts, or fixed radii. Image-frame flourishes belong in `app.css` on
+  shared hook classes (e.g. `.video-frame`-style), not per-component.
 - **Reuse `EntityVideos`, `ProvenanceBadge`** and existing person-page structure; add an image
   frame/avatar component and a gallery component.
-- **QA all three skins** for every state: loading, empty (placeholder), error (upload rejected/over cap),
-  and the populated grid — regressions routinely show in only one skin.
+- **QA in Cinémathèque** for every state: loading, empty (placeholder), error (upload rejected/over cap),
+  and the populated grid.
 - **Provenance**: enrichment-sourced images carry the F22 provenance badge; owner-uploaded images are
   distinguishable from provider images where it matters (e.g. in the owner's delete view).
 
@@ -440,7 +440,7 @@ PII introduced.
 **Leading (days–weeks):**
 - **Coverage** — % of people (weighted by video count) with a real headshot. Target: a real headshot for
   the **top 50 most-credited people within 1 week** of enabling enrichment download.
-- **Placeholder correctness** — 0 broken-image / empty-frame states across all three skins in QA (hard
+- **Placeholder correctness** — 0 broken-image / empty-frame states in QA (hard
   gate, not a trend).
 - **Upload success rate** — % of upload attempts that succeed vs. fail validation; a high *malformed*
   reject rate flags a confusing UI or an abuse probe.
@@ -481,7 +481,7 @@ The feature is too large for one slice; ship in order, each independently valuab
 owner-gated throughout — there is no access-model change to sequence around.
 
 1. **Slice 1 — Storage, serving & placeholders (P0 core).** `person_images` table + disk layout + typed
-   routes + the 27 built-in themed/gendered placeholders + display on all three surfaces. Owner upload +
+   routes + the 9 built-in themed/gendered placeholders + display on all three surfaces. Owner upload +
    delete with ingest hardening. Delivers the visual win immediately. *(Realizes F14.3 fully.)*
 2. **Slice 2 — Enrichment asset download.** Activate the deferred F22 asset path → auto-populate the top
    people. Pure system actor; reuses existing network guards.
@@ -493,7 +493,7 @@ owner-gated throughout — there is no access-model change to sequence around.
 **Dependencies / gates:**
 - A **`/security-review`** sign-off before slice 1 merges (binary file ingest + serving, even though
   owner-sourced).
-- A **design handoff** (placeholder artwork across all three skins + upload/gallery UI) blocks the
+- A **design handoff** (placeholder artwork + upload/gallery UI) blocks the
   visual slices.
 
 ---
@@ -505,7 +505,7 @@ owner-gated throughout — there is no access-model change to sequence around.
       normalization, placeholder resolution. Access reuses ADR-030; no access-model change.
 - [x] **Design handoff**: [people-images-handoff.md](../design/people-images-handoff.md) + system pattern
       [people-images-design-system.md](people-images-design-system.md) (`.portrait-frame`, components,
-      placeholder system, all states ×3 skins). QA checklist tracked below.
+      placeholder system, all states). QA checklist tracked below.
 - [ ] **Provider-contract update**: add `gender` as a canonical person field in
       [metadata-provider-contract.md §4.2](metadata-provider-contract.md) (value vocabulary
       `male`/`female`/`nonbinary`/`unknown`) with a label + precedence entry per ADR-013/ADR-033, and

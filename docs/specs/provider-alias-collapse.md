@@ -258,7 +258,7 @@ identical either way. Not tag (Non-Goal 1).
 - **P0-9**: The "Also known as" `mergeFields` block is removed from the person detail page.
   Acceptance: no `aliases` row renders; the `mergeFields` loop itself remains (Non-Goal 6).
 - **P0-10**: `AliasPanel` renders a source badge on provider-sourced chips, the widened subcopy,
-  and the collision review line, per the design handoff — QA'd across all three skins with computed
+  and the collision review line, per the design handoff — QA'd in Cinémathèque with computed
   contrast checks on the badge.
 
 ### Should-have (P1)
@@ -353,7 +353,7 @@ goes. Four rejected alternatives are recorded there so they are not re-proposed.
 
 *(Resolved by the [design handoff](../design/alias-collapse-handoff.md): chip anatomy, the badge's
 component choice, ordering, the review line's copy and placement, the six rendering states, and the
-three-skin QA requirement.)*
+Cinémathèque QA requirement.)*
 
 *(Resolved by question cards while writing this spec, 2026-09-02: RD5 — a name the provider drops
 is kept, not removed; RD6 — import every AKA except punctuation/spacing near-duplicates of the

@@ -801,7 +801,9 @@ authored-identity guard**. Maps to the [F40 design handoff](design/person-media-
   and sweeps; a bare tag is stamped at creation and stays searchable (FTS untouched by the stamp); a tag
   with an alias / category / parent / child / writeback exclusion survives; a purge cascade stamps
   people, studios and tags; an aliased person survives while a plain one is swept; a film-credited person
-  survives (the credit would cascade away); a keep-separate tag survives while a review-queued one is
+  survives (the credit would cascade away); an uploaded or promoted headshot, a rejected
+  headshot, an uploaded logo and a logo halo protect, a provider-downloaded image alone does not
+  (HOLODEX-548); a keep-separate tag survives while a review-queued one is
   swept with its queue pair; a tag's stamp dirties no other video's completeness. The job wrapper
   (`internal/orphansweep/sweep_test.go`) records `orphan-sweep` runs with counts, stays quiet when
   nothing was due, and records errors.

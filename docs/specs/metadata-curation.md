@@ -10,7 +10,7 @@
 [F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) (shadow store, `entity_enrichment`) ·
 [ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) (job history / activity surface) ·
 [ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) (owner gating)
-**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in all three skins.
+**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in Cinémathèque.
 
 ---
 
@@ -210,7 +210,7 @@ survives re-fetch — answer: persistent suppression).
 | F30.3b | An "add value" affordance per field lets the owner type a new value | New value appears immediately as a `manual` chip; persisted via F30.2 |
 | F30.3c | Edit replaces a value in place; remove tombstones it; both reflect immediately and persist | After page reload the curated state is identical |
 | F30.3d | A per-value "don't write" toggle excludes a shown value from the file write | Toggling off marks `nowrite`; the value stays visible but is excluded from the next write |
-| F30.3e | All controls use semantic tokens; QA'd in Cinémathèque, Broadcast, Brutalist | No `zinc-*`/hex/`rounded-(lg\|md\|sm\|xl)` in the components; chips, toggles, and provenance read correctly in all three skins |
+| F30.3e | All controls use semantic tokens; QA'd in Cinémathèque | No `zinc-*`/hex/`rounded-(lg\|md\|sm\|xl)` in the components; chips, toggles, and provenance read correctly in Cinémathèque |
 | F30.3f | Keyboard-accessible: chips and the add-input are reachable and operable by keyboard | Roving-tabindex / focus rules consistent with existing pickers |
 
 ### F30.4 — Queued, atomic, batch writeback
@@ -381,7 +381,7 @@ All five open questions were resolved with the owner (2026-06-27):
    UI yet.
 2. **Curation store + manual source + tombstones** (F30.2) — migration, repo methods, resolver
    wiring; round-trip tested against the fake provider.
-3. **Inline curation UI** (F30.3) — chips, add/edit/remove, write toggle; QA all three skins.
+3. **Inline curation UI** (F30.3) — chips, add/edit/remove, write toggle; QA Cinémathèque.
 4. **Queued atomic batch writeback** (F30.4/F30.5) — the write queue, `kind=writeback` job
    runs, evolved endpoint; end-to-end CI against the fake provider.
 5. **Generalize to person** (fast-follow task per decision #5) — new `entity_type`, no

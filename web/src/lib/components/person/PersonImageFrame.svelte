@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Shared person-image frame (F25, ADR-038) backing PersonAvatar/Banner/Poster.
-	// Builds the role-serving URL with the active skin (so the backend's empty-slot
-	// placeholder matches the current skin) and the `?v=` cache-buster. The backend
+	// Builds the role-serving URL with the `?v=` cache-buster (there is one look, so no
+	// theme parameter — the empty-slot placeholder never varies). The backend
 	// always returns a usable image (real or themed placeholder), so an `img` error
 	// just keeps the framed well — never a broken-image glyph. The caller supplies the
 	// aspect/size via `frameClass` (e.g. "portrait-frame--1x1 w-20").
@@ -22,7 +22,7 @@
 		role: PersonImageRole;
 		// One specific gallery image instead of the role's current pick (F70's compare
 		// strip). `role` still types the slot for the caller; the by-id URL replaces the
-		// by-role one. Everything else — skin, cache-bust, placeholder, error — is shared.
+		// by-role one. Everything else — cache-bust, placeholder, error — is shared.
 		imageId?: number;
 		name: string;
 		frameClass: string;
@@ -33,7 +33,7 @@
 		alt?: string;
 	} = $props();
 
-	// The URL re-derives when the skin flips so the placeholder re-themes live.
+	// The URL re-derives when the person, role, image or version changes.
 	const src = $derived(
 		imageId === undefined
 			? api.personImageURL(personId, role, { version })

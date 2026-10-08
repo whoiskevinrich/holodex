@@ -28,7 +28,7 @@ deliberately *not* adopted in v1). Touches **access** (new owner-gated endpoints
 **Implementation design**: [studio-entity-implementation.md](../plans/studio-entity-implementation.md)
 (component map, the `RelinkVideoStudios` reconcile algorithm, per-trigger sequences, API↔handler
 mapping). **Design handoff**: [studio-entity-handoff.md](../design/studio-entity-handoff.md)
-(pages, `·record` baseline, media-detail link, facet switch, 3-skin QA).
+(pages, `·record` baseline, media-detail link, facet switch, Cinémathèque QA).
 
 **Related**: [F32 video credits](video-credits-people.md) (parallel; both add entity links to
 videos — keep the join-table idioms consistent), HOLODEX-118 (provider trust order —
@@ -184,7 +184,7 @@ until it rides the decision model as a real entity.
 - **P0-6 — Pages.** `/studios` (list, counts) and `/studios/{id}` (name header, video grid,
   Details section on `SourceSelect`/`CurationFieldRow` chips with `·record` baseline per RD5
   — rendered only when enrichment/decisions exist, so the pre-enrichment page is just name +
-  videos). Owner-gated mutations; visitors read-only. Tokens only; QA all three skins.
+  videos). Owner-gated mutations; visitors read-only. Tokens only; QA Cinémathèque.
 - **P0-7 — Entity-backed facet + links.** The browse studio facet lists studio entities with
   counts and filters via `?studio_id={id}`; facet entries and the media-detail studio value
   link to `/studios/{id}`. The legacy mapped string filter (`?studio=Acme`, MCP `fields`)
@@ -258,8 +258,10 @@ value — trim, drop empties, resolve-or-create each name in `studios`, replace 
 `video_studios` rows with exactly that set, and mark any studio left with zero links as unused.
 All inside one transaction. An unused studio disappears from the studio list at once. It is
 deleted 30 days later unless a video links it again in that time, or the owner has given it an
-alias, an image, a field decision or a curation, or kept it separate from another studio. A studio with any of those is never deleted
-automatically. Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
+alias, uploaded an image, made a field decision or a curation, or kept it separate from another
+studio. A studio with any of those is never deleted automatically. A logo downloaded from a
+metadata provider does not count; enriching again restores it (HOLODEX-548). A halo the owner
+turned on for a logo does count. Bogus names from a fixed file still disappear, as RD4 needs, but owner work on a
 studio survives. (Amended by HOLODEX-535: this used to delete the studio at once, along with its
 aliases, logo and enrichment.) Call sites: `UpsertVideo` (scan), enrich completion, decision PUT/DELETE for
 `studio`, curation add/suppress/clear for `studio`. Derivation never runs at read time.
@@ -305,7 +307,7 @@ GET    /api/v1/media?studio_id={id}                          entity filter (publ
   link target comes from `video_studios`, so it always matches the displayed value per RD1).
 - **Browse facet**: studio entries = entity name + count, click → filtered browse; a
   secondary affordance links to the studio page.
-- Tokens only; QA Cinémathèque / Broadcast / Brutalist.
+- Tokens only; QA Cinémathèque.
 
 ## Success Metrics
 
@@ -336,10 +338,10 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    [implementation design](../plans/studio-entity-implementation.md).
 2. ✅ **`/design-handoff`** — [studio-entity-handoff.md](../design/studio-entity-handoff.md):
    studios list/detail layout, facet block, media-detail link treatment, empty-Details rule,
-   3-skin QA.
+   Cinémathèque QA.
 3. ✅ **`/testing-strategy`** — derivation matrix (scan/enrich/decision/curation ×
    link outcomes), prune-on-empty, backfill idempotency, `studioBaseline` additivity,
-   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/3-skin (S1), plus the
+   endpoint auth, facet counts vs. soft delete, FTS triggers, chips a11y/Cinémathèque (S1), plus the
    **S3 TMDB company enrichment** coverage (provider/service/endpoint/registry/frontend).
 4. ✅ **`/security-review`** — new owner-gated surface (decisions/curation/enrich parity;
    untrusted provider company data through the existing sanitize + asset perimeter; no file

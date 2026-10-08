@@ -61,9 +61,14 @@ tags each carry an `orphaned_at` column, and one sweep deletes them later under 
   data, and counts skips. One per-kind predicate (`orphanAuthoredSQL`) defines authored data:
   - **all three:** an alias (which covers merge history), a keep-separate pair, a field decision, or
     a curation row
-  - **person:** a person image or a film credit (`film_people_roles`, which would otherwise cascade
-    away)
-  - **studio:** a studio image
+  - **person:** an owner-made person image (`upload` or `promoted`), a rejected headshot
+    (`person_image_suppressions`), or a film credit (`film_people_roles`, which would otherwise
+    cascade away)
+  - **studio:** an uploaded studio image, or a halo choice (`studio_image_halo`)
+
+  A provider-downloaded image (`source = 'enrichment'`) is not authored data: the next enrich fetches
+  it again, and every cast member a video enrich creates carries one. The owner settings on such an
+  image that an enrich cannot restore (a rejection, a halo) are.
   - **tag:** a category, a parent or child tag, or writeback exclusion
 - **Cleanup.** In the same transaction, the sweep deletes the row's `entity_enrichment` and
   `identity_review_queue` rows. Both tables are polymorphic and have no trigger, and people and
@@ -80,7 +85,7 @@ from people. **Rejected:** never deleting orphans. Rescan churn would pile up wi
 `/tags` and the identity tables. **Rejected:** immediate prune for people. A file pulled offline for
 maintenance would destroy curated identity.
 
-Decided in [`dd6ca941`](https://github.com/whoiskevinrich/holodex/commit/dd6ca941) (HOLODEX-535).
+Decided in [`a715b975`](https://github.com/whoiskevinrich/holodex/commit/a715b975) (HOLODEX-548).
 
 ## A people curation edit relinks inside the curation lock
 

@@ -168,7 +168,7 @@ the `z-index` raise lives outside the gate so keyboard users still get a stackin
 
 ## 9. QA
 
-Numbered `section.item`; tagged by verifier. Three skins each.
+Numbered `section.item`; tagged by verifier. QA Cinémathèque.
 
 ### Setup
 - 9.1 `[smoke]` `backend-films` testbed, a person with ≥ 4 films (≥ 1 with a poster, ≥ 1

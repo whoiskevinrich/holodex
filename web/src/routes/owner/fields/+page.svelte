@@ -11,7 +11,7 @@
 	// It also renders DD9's Inactive marker: ADR-074 §D4 keeps a claim whose target field
 	// no longer exists forever and inert, and this is the only place it can be seen. The
 	// check is client-side against the targets response the picker already uses — no
-	// backend work, no extra request. Tokens only; QA 3 skins.
+	// backend work, no extra request. Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import type { FieldClaim, FieldTarget, PromotionEntityType } from '$lib/types';

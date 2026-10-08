@@ -71,8 +71,6 @@ The cost is honest and worth naming: the header is 46px taller at 768px and 72px
   at the bottom of the window.
 - 3.4 `[human]` At a tablet-ish width, check the search box is a usable input again: wide enough
   to read the placeholder ("Search everything…"), not a 40px stub.
-- 3.5 `[human]` Repeat 3.3 in each of the three skins (the skin picker is the last control in the
-  header). Wrapping is layout, not theming, so all three should behave identically — if one of them
-  wraps at a noticeably different width, that is a font-metric difference worth reporting.
+- 3.5 `[human]` *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - 3.6 `[human]` At full desktop width, confirm the header looks exactly as it did before: one row,
   logo left, search in the middle, nav right.

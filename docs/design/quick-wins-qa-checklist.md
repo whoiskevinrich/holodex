@@ -11,10 +11,10 @@ Legend: **[auto]** = verified programmatically this session (`preview_eval` / sc
 ---
 
 ## 1. Overlay on playback (media detail page)
-- [x] **[auto]** Playing the media `<video>` adds `body.is-playing` and `.app-atmosphere::after` computes `display:none`; pausing/ending removes the class and restores it (verified in **Broadcast**, the worst case — scanlines + vignette).
-- [x] **[eye]** **Broadcast**: during playback the picture is fully clean (no scanlines, no CRT vignette over the frame); both return on pause/end.
+- [x] **[auto]** Playing the media `<video>` adds `body.is-playing` and `.app-atmosphere::after` computes `display:none`; pausing/ending removes the class and restores it.
+- [x] *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - [ ] **[eye]** **Cinémathèque**: grain + vignette gone during playback, restored on pause.
-- [ ] **[eye]** **Brutalist**: no atmosphere to begin with — confirm play/pause causes no flicker or layout shift.
+- [ ] **[eye]** Confirm play/pause causes no flicker or layout shift.
 - [ ] **[eye]** Start play → hit ← Back **mid-play** → the overlay is restored on the grid (no stuck-hidden atmosphere).
 - [ ] **[eye]** The codec-fallback branch (a file the browser can't decode) has no `<video>` and behaves normally (overlay unaffected).
 
@@ -23,7 +23,7 @@ Legend: **[auto]** = verified programmatically this session (`preview_eval` / sc
 - [x] **[auto]** Clicking a row runs the search (URL becomes `/search?q=…`, syntax like `editor:foo` preserved).
 - [x] **[auto]** ↓/↑ move a highlight; the input's `aria-activedescendant` tracks the highlighted `<option>` (combobox a11y); Esc closes.
 - [x] **[auto]** `×` removes a single entry (order preserved); "Clear history" empties the list and the `localStorage` key.
-- [x] **[auto]** **Broadcast/Brutalist**: panel + rows are square (`--radius:0`); **no `▮` caret** on any row (rows aren't `.skin-title`).
+- [x] *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - [ ] **[eye]** **Cinémathèque**: rounded panel/rows; focus accent border reads; active row (`bg-surface-2`) is distinguishable from the panel (`bg-surface`).
 - [ ] **[eye]** Re-running an existing query moves it to the top (no duplicate, case-insensitive); the list never exceeds 10.
 - [ ] **[eye]** Corrupt the `localStorage` value by hand → reload → search still works, history reads empty (no thrown error).
@@ -32,9 +32,9 @@ Legend: **[auto]** = verified programmatically this session (`preview_eval` / sc
 ## 3. "More with …" shelves (media detail page)
 - [x] **[auto]** On an item with shared people/tags, a "More with `<person>`" shelf (≤5 cards) and a "More with `<tag>`" shelf render below the detail; headings link to `/people/{id}` / `/tags/{id}`; current item is excluded.
 - [x] **[auto]** `GET /api/v1/media/{id}/related` returns the expected shape; near-universal tag is demoted in favor of the distinctive one (repo + handler tests green).
-- [x] **[auto]** **Brutalist**: the catalog counter **restarts at 01 per shelf** (person shelf 01…, tag shelf 01… — not continuing), because each shelf wraps its cards in `.video-grid`.
+- [x] *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 - [x] **[auto]** **Cinémathèque**: letterbox bars render on shelf cards (`.video-frame::before` = 9px).
-- [ ] **[eye]** **Broadcast**: scanline wash reads over shelf cards; the `▮` caret sits after the shelf heading (it *is* a `.skin-title`) without crowding the link.
+- [ ] **[eye]** **Cinémathèque**: the shelf heading (a `.skin-title`) sits cleanly without crowding the link.
 - [ ] **[eye]** An item with **no people** shows no person shelf; **no tags** shows no tag shelf; an item whose people/tags have no siblings shows **no empty rail** (shelf omitted, not a blank box).
 - [ ] **[eye]** Cards are visually identical to the browse grid; horizontal scroll works; clicking a card opens its detail page.
 - [ ] **[eye]** Shelves load **non-blocking** — the primary detail content is fully usable before `/related` resolves; if `/related` fails, the page is unaffected (shelves just absent).

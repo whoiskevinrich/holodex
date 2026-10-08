@@ -204,7 +204,7 @@ might not have):
 This is an internal owner-tooling feature on a personal media server with a single owner, not a
 multi-user product — there's no adoption funnel to measure. Success is binary and verified by
 manual QA, matching how HOLODEX-268/269/270/271/273 were each closed out: the People section
-renders correctly (including the zero-people empty state) across all three skins, attach/detach
+renders correctly (including the zero-people empty state) in Cinémathèque, attach/detach
 round-trips correctly through `video_people` on reload, and the collision gate fires on a real
 composite-key collision reproduced against a live backend instance (the same live-QA pattern
 HOLODEX-271 used for Studio).

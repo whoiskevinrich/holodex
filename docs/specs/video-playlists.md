@@ -262,8 +262,8 @@ the URL), then navigates to the new playlist page. Reports the item count.
 - [ ] Behaviour outside a playlist context is byte-for-byte today's (no `?playlist=` → no surface, no
       handlers, `ended` only clears the atmosphere class).
 
-**P0-10 — Three skins.** Every new surface (P0-5..P0-9) is tokens-only and QA'd in Cinémathèque,
-Broadcast, Brutalist per `.claude/rules/frontend-theming.md`.
+**P0-10 — Cinémathèque.** Every new surface (P0-5..P0-9) is tokens-only and QA'd in Cinémathèque
+per `.claude/rules/frontend-theming.md`.
 
 ### Nice-to-Have (P1)
 
@@ -343,7 +343,7 @@ Three surfaces plus one affordance:
 3. **Next-up surface on `/media/[id]`** — only with `?playlist=`; next tile + Next/Previous + playlist link.
 4. **Producers** — *Save as playlist* (browse, owner) · *Add to playlist* (detail action row, owner).
 
-Design handoff decides the exact placement and the three-skin treatment; this spec fixes only what
+Design handoff decides the exact placement and the Cinémathèque treatment; this spec fixes only what
 each surface must contain and who sees it.
 
 ## Success Metrics
@@ -394,6 +394,6 @@ ADR-104 land:
 Gates per the change-routing table: **spec** (this document) · **ADR** (ADR-104: container-not-entity,
 membership + sort, snapshot-only, persistent player element, visibility) · **design handoff** (S2 + the
 next-up surface, SVG committed) · **testing strategy** (P0-3 handler tests incl. the 404-not-403
-visitor case, P0-4 order parity with browse, P0-9 element-identity test, the three-skin QA matrix,
+visitor case, P0-4 order parity with browse, P0-9 element-identity test, the Cinémathèque QA matrix,
 manual PiP + Safari rows) · **security review** (new owner-gated writes; visibility as a read gate;
 `from_query` is parsed by the existing browse parser and never reaches SQL as text).

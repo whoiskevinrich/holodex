@@ -199,7 +199,7 @@ epic's originating brainstorm assumed, which changes the risk profile of "one sh
 This is an internal-tool consistency fix for a single-owner (or small-team) product with no
 external usage analytics pipeline — success is qualitative and verified via the standard
 `/testing-strategy` pass (Go + Vitest coverage for the parity requirements above) and live
-3-skin QA, not a metrics dashboard. The bar: an owner can rename any of the four entity types
+Cinémathèque QA, not a metrics dashboard. The bar: an owner can rename any of the four entity types
 using the identical gesture, and every existing collision/alias/merge guarantee still holds
 (zero regressions in the parity acceptance criteria above).
 

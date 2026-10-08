@@ -1,12 +1,12 @@
 # Manual QA Checklist: People Images (F25)
 
 **Spec**: [People Images (F25)](../specs/people-images.md) · **ADR**: [ADR-038](../architecture/archive/ADR-038-person-images.md) · **Design**: [handoff](people-images-handoff.md) + [system pattern](people-images-design-system.md)
-**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA all three skins.**
+**Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 
 > Run this **before merge**. Items are grouped into sections **by verifier**, so each actor runs only their own:
 > - **§2 Smoke** — covered by an automated test or build gate (`go test`, `svelte-check`, the token-guard `rg`). Green build = pass; pre-checked `[x]` with the test named.
 > - **§3 Agent** — an AI agent drives the running app (DOM/ARIA/network/computed-style). Deterministic, no human judgment.
-> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, per-skin "look").
+> - **§4 Human** — needs a human's eye (legibility, contrast, aesthetics, the Cinémathèque "look").
 >
 > §1 is one-time **setup** that §3 and §4 depend on. Every item is numbered `section.item` — cite the number when filing a miss.
 > A **`/security-review` sign-off is required before merge** in addition to these (binary file ingest + serving; threat model in spec §9).
@@ -21,7 +21,7 @@
 - [ ] 1.2 Exercise **both token states**: `ADMIN_TOKEN` unset (open/owner) vs set (locked → unlock via `/status`).
 - [ ] 1.3 Have test images ready: a normal **JPEG** and **PNG**; a **wrong-ratio** image (very wide and very tall); an image with **planted EXIF/GPS**; a **renamed non-image** (e.g. `evil.txt` → `evil.jpg`); an **oversized** image (> the configured byte/dimension bound).
 - [ ] 1.4 One person with an **enriched `gender`** value (female and male if possible) and one **without** any gender, to check placeholder buckets.
-- [ ] 1.5 Devtools open (Network + Console); skin picker reachable (header); a `prefers-reduced-motion: reduce` profile ready.
+- [ ] 1.5 Devtools open (Network + Console); a `prefers-reduced-motion: reduce` profile ready.
 
 ---
 
@@ -50,7 +50,7 @@
 - [ ] 3.1 `/people` cards show a **1:1 headshot** well above the name; with no image it's the themed placeholder, not a broken-image box; the grid does **not** reflow as images load (box reserved).
 - [ ] 3.2 `/people/[id]` shows a **16:9 banner** hero and a **1:1 avatar** by the name; empty → placeholders; the Aliases (F23) and Enrichment (F22) panels still render below, unchanged.
 - [ ] 3.3 `/media/[id]` renders each credited person as a **2:3 poster card** linking to `/people/{id}`; missing poster → placeholder; name reads beneath.
-- [ ] 3.4 **Placeholder bucket** follows enriched gender: the female-gender person shows the female silhouette, the male one the male, and the **no-gender** person the **neutral** one (F25.5). Switching skins swaps the placeholder art.
+- [ ] 3.4 **Placeholder bucket** follows enriched gender: the female-gender person shows the female silhouette, the male one the male, and the **no-gender** person the **neutral** one (F25.5).
 - [ ] 3.5 **Error fallback**: force a real image URL to 404 (e.g. bad `?v=`) → the frame shows the **placeholder**, never a broken-image glyph or a 404 box.
 
 **Owner gating & controls**
@@ -78,19 +78,19 @@
 
 ---
 
-## 4. Human — needs your eyes (all three skins)
+## 4. Human — needs your eyes (Cinémathèque)
 
-> **How to run this:** open the app in a browser. In the header there's a **skin picker** — run every item below **three times**, once in each skin: **Cinémathèque**, **Broadcast**, **Brutalist**. Visit **People** (list), then **a person's page**, then **a video that credits people**. You're checking it *looks right* and reads well — not that buttons work (the agent already checked that).
+> **How to run this:** open the app in a browser. Visit **People** (list), then **a person's page**, then **a video that credits people**. You're checking it *looks right* and reads well — not that buttons work (the agent already checked that).
 
 - [ ] 4.1 **Headshots read as portraits** on the people list — the square sits cleanly in the card, the name/count below are uncrowded, and nothing reflows as you scroll. *(token ref: `bg-surface-2` well, `text-ink` name.)*
-- [ ] 4.2 **The person page banner** looks intentional in each skin — the wide 16:9 image (or placeholder) spans the content, the headshot tucks against it by the name without colliding with the Aliases panel; spacing feels even. *(token ref: `.portrait-frame--16x9` / `--1x1`.)*
-- [ ] 4.3 **Placeholders look designed, not broken** — the silhouette + skin treatment (warm letterbox on Cinémathèque, scanline-tinted on Broadcast, hairline/square on Brutalist) reads as a deliberate "no photo yet", and the **neutral** one isn't jarringly different from the gendered ones. The placeholder glyph is clearly visible but quiet (a muted tone), never the bright accent. *(token ref: `text-muted` glyph on `bg-surface-2`.)*
-- [ ] 4.4 **Frame corners match the skin** — softly rounded on Cinémathèque, **square** on Broadcast and Brutalist. (A round `rounded-full` headshot, if used, stays round everywhere by design.) *(token ref: `rounded-theme`.)*
+- [ ] 4.2 **The person page banner** looks intentional — the wide 16:9 image (or placeholder) spans the content, the headshot tucks against it by the name without colliding with the Aliases panel; spacing feels even. *(token ref: `.portrait-frame--16x9` / `--1x1`.)*
+- [ ] 4.3 **Placeholders look designed, not broken** — the silhouette on its warm Cinémathèque well reads as a deliberate "no photo yet", and the **neutral** one isn't jarringly different from the gendered ones. The placeholder glyph is clearly visible but quiet (a muted tone), never the bright accent. *(token ref: `text-muted` glyph on `bg-surface-2`.)*
+- [ ] 4.4 **Frame corners match the theme** — softly rounded, like the rest of Cinémathèque. (A round `rounded-full` headshot, if used, stays round everywhere by design.) *(token ref: `rounded-theme`.)*
 - [ ] 4.5 **Poster cards on the video page** look like a cast strip — the 2:3 cards line up, names read beneath, and they clearly invite a click; placeholders among real posters don't look out of place.
-- [ ] 4.6 **Owner edit affordances** are legible and use the skin's highlight color (lime/cyan/gold), and the little camera/upload/✕ marks aren't lost on the image — but they stay out of the way until you hover/focus. *(token ref: `text-accent` controls; never `--warn` for normal actions.)*
-- [ ] 4.7 **Error wording** (upload a bad/oversized file; fill the gallery to 21) — the message is **words you can read** in the **error color (red/orange), clearly different from the highlight** — this separation matters most on Brutalist (bright lime highlight). *(token ref: `text-warn`/`border-warn`, distinct from `--accent`.)*
-- [ ] 4.8 **The crop editor** (promote a gallery image to poster) is usable and readable — you can see the 2:3 frame you're cropping to, the zoom control is obvious, and Save/Cancel read clearly with the skin's button styles.
-- [ ] 4.9 **Names render fully** under avatars/posters, including **accented and non-Latin** names ("Beyoncé", "宮崎駿") — actual characters, **no boxes/▯/garbled glyphs** — in all three skins (the Broadcast/Brutalist fonts are blocky).
+- [ ] 4.6 **Owner edit affordances** are legible and use the gold accent, and the little camera/upload/✕ marks aren't lost on the image — but they stay out of the way until you hover/focus. *(token ref: `text-accent` controls; never `--warn` for normal actions.)*
+- [ ] 4.7 **Error wording** (upload a bad/oversized file; fill the gallery to 21) — the message is **words you can read** in the **error color (red/orange), clearly different from the highlight**. *(token ref: `text-warn`/`border-warn`, distinct from `--accent`.)*
+- [ ] 4.8 **The crop editor** (promote a gallery image to poster) is usable and readable — you can see the 2:3 frame you're cropping to, the zoom control is obvious, and Save/Cancel read clearly with the shared button styles.
+- [ ] 4.9 **Names render fully** under avatars/posters, including **accented and non-Latin** names ("Beyoncé", "宮崎駿") — actual characters, **no boxes/▯/garbled glyphs**.
 - [ ] 4.10 **Narrow window** — drag the window narrow: the gallery reflows to fewer columns, the banner keeps its shape, the avatar/name stack gracefully, and poster cards scroll rather than squish.
 - [ ] 4.11 **Reduced motion** — with "reduce motion" on, images appear without a distracting shimmer/fade, and the gallery reorder/crop modal don't animate jarringly.
-- [ ] 4.12 **Overall it looks intentional** — across list, person page, and video page, the images make the app feel like a media library, nothing collides with existing badges/counters, and the three skins each feel coherent rather than an afterthought.
+- [ ] 4.12 **Overall it looks intentional** — across list, person page, and video page, the images make the app feel like a media library, nothing collides with existing badges/counters, and the images feel part of the Cinémathèque look rather than an afterthought.

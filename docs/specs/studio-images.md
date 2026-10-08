@@ -229,7 +229,7 @@ Removed: `GET /api/v1/studios/{id}/logo`, and the `logo` canonical field from
   `PersonBanner`/`PersonPoster` wrappers over `PersonImageFrame`
   (`web/src/lib/components/person/`), but without the gallery/viewer-modal surface Person
   needs and Studio doesn't. Owner-gated controls; visitors see read-only images.
-- Tokens only; QA Cinémathèque / Broadcast / Brutalist.
+- Tokens only; QA Cinémathèque.
 
 ## Image halo (HOLODEX-463, ADR-109) — amendment 2026-09-26
 
@@ -285,10 +285,10 @@ No hard deadline. Per the change-routing rules, before/with implementation:
 1. ✅ **`/architecture`** — [ADR-079](../architecture/archive/ADR-079-studio-image-roles.md)
    (table + entity-generic `ImageSink` + retiring the `logo` field; supersedes ADR-057).
 2. ✅ **`/design-handoff`** — [studio-images-handoff.md](../design/studio-images-handoff.md):
-   studio detail-page image controls, list icon well, empty states, 3-skin QA.
+   studio detail-page image controls, list icon well, empty states, Cinémathèque QA.
 3. ✅ **`/testing-strategy`** — migration data-carry-forward, provenance-lock matrix,
    entity-generic `downloadAssets` (Person regression + Studio new coverage), endpoint auth,
-   asset-perimeter reuse, serve-route cache headers, 3-skin a11y (`docs/testing-strategy.md`
+   asset-perimeter reuse, serve-route cache headers, Cinémathèque a11y (`docs/testing-strategy.md`
    §10).
 4. ✅ **`/security-review`** — **sign-off (2026-08-03): clean.** New owner-gated upload/
    delete endpoints correctly mounted inside `requireOwner`; the public serve route only

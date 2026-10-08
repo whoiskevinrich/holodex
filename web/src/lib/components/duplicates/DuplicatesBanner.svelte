@@ -2,7 +2,7 @@
 	// "N possible duplicates" banner (F43 S5, ADR-061) — an owner-only notice above an
 	// entity list that counts the review queue for that entity and deep-links the Owner
 	// hub's Duplicates tab. Self-gating and self-fetching so a list page mounts it with
-	// one line. Hidden for visitors and when the queue is empty. Tokens only; 3 skins.
+	// one line. Hidden for visitors and when the queue is empty. Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import type { EntityKind } from '$lib/types';

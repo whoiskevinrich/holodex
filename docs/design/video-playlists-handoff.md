@@ -213,8 +213,8 @@ Numbered, grouped by tag; smoke rows are the agent's, human rows are the owner's
 4. Reload that URL: strip shows, **no** autoplay.
 
 **[agent]**
-5. Three skins × panels 1, 2, 3, 5 — chip/segment/strip contrast, the `×` on hover, the solid
-   *Play all* against each accent; `javascript_tool` computed-style check per the skin-QA note.
+5. Cinémathèque × panels 1, 2, 3, 5 — chip/segment/strip contrast, the `×` on hover, the solid
+   *Play all* against the accent; `javascript_tool` computed-style check per the skin-QA note.
 6. Picker with 40 playlists scrolls; New playlist row stays visible.
 7. Long playlist name truncates in the row card, the picker row, and the strip.
 8. `document.querySelector('video')` identity holds across `Next ›`.

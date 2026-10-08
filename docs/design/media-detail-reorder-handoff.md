@@ -113,5 +113,4 @@ Completeness → Enrichment), matching the new visual order — no `tabindex` ov
 Only layout/spacing Tailwind utilities changed (`flex`, `gap-6`, `max-w-[50%]`, `flex-none`,
 `min-w-0`, `flex-1`, `shrink-0`, `flex-wrap`) — no new color/token classes were added, so the
 change is skin-invariant. QA'd via computed-style inspection (not screenshots, which time out on
-this page after scrolling — see `docs/design/` conventions) across Cinémathèque, Broadcast, and
-Brutalist: the 12px/24px spacing math holds identically in all three.
+this page after scrolling — see `docs/design/` conventions) in Cinémathèque: the 12px/24px spacing math holds.

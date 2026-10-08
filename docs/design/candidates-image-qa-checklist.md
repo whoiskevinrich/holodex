@@ -51,7 +51,7 @@ Items are numbered `section.item`.
 - **2.6** `[smoke]` `image_url` never appears in `entity_enrichment`, the `/enrich` response, a
   writeback payload, or an activity-log line (grep the Fake-driven API tests' outputs).
 
-## §3 Agent — live, all three skins — `[agent]`
+## §3 Agent — live, Cinémathèque — `[agent]`
 
 > **Reconciled 2026-09-17 (testing gate).** 3.3 (x-offset parity) is the §12 assertion
 > `candidate-slot-is-40-wide-on-every-row` — asserted by construction (every slot 40 wide), since
@@ -92,9 +92,9 @@ Items are numbered `section.item`.
   row — inside the `<ul>` scroll box, dialog overflow 0. (How many thumbs the browser requests at
   render is its lazy-load threshold's call, not ours — Chrome's ~1250 px margin covers the whole
   1900 px list on a tall viewport; record the count, don't assert it.)
-- **3.12** `[agent]` **Three skins** (`[data-theme]` = cinematheque / broadcast / brutalist):
-  monogram contrast `text-logo-plate-ink` on `bg-logo-plate` ≥ 4.5 : 1 in each; plate corner
-  radius = 2 / 0 / 0 px; the plate reads the same on the active row (`bg-surface-2` behind it)
+- **3.12** `[agent]` **Cinémathèque**:
+  monogram contrast `text-logo-plate-ink` on `bg-logo-plate` ≥ 4.5 : 1; plate corner
+  radius = 2 px; the plate reads the same on the active row (`bg-surface-2` behind it)
   and the resting row. Record the three contrast numbers in `docs/testing-strategy.md` §5.
 - **3.13** `[agent]` 375 px viewport (`resize_window` mobile, reload): slot still 40 × 60,
   label truncates, match-strength text intact, no horizontal scroll on the dialog.
@@ -114,9 +114,8 @@ Items are numbered `section.item`.
   above and below — not stretched, not cropped.
 - **4.4** `[human]` Click a row's `details`: the extra lines appear under the name, the tile stays
   where it was, the dialog stays open. Then click the photo itself: the candidate is applied.
-- **4.5** `[human]` Switch skins (Cinémathèque / Broadcast / Brutalist): the tile corners follow
-  the skin (slightly rounded / square / square) and the letter on the tile is easy to read in all
-  three.
+- **4.5** `[human]` In Cinémathèque: the tile corners are
+  slightly rounded and the letter on the tile is easy to read.
 - **4.6** `[human]` Does the 76 px row feel too tall on the 25-candidate list? Say if the slot
   should drop to 32 × 48 (the text stack would then set the height) — the spec chose 40 × 60 for
   face legibility; this is the one number open to taste. **Decided 2026-09-17: keep 40 × 60** — reviewed

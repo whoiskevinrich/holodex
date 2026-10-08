@@ -266,11 +266,15 @@ flagged people as still exposed to.
 - **P0-8 — Studio unchanged.** Generalizing the reconcile (RD6) must not change any F38 studio
   behavior; the derivation matrix regression-guards it.
 - **P0-9 — Orphan sweep job (RD8).** A periodic System Activity job deletes people with
-  `orphaned_at < now() − 30d` that carry **no** authored identity (no aliases/merge/curated
+  `orphaned_at < now() − 30d` that carry **no** authored identity (no aliases/merge/uploaded
   headshot/manual edit or decision); authored orphans are skipped and reported, never deleted.
-  Idempotent; observable in activity history.
-  - Given an orphaned person with a curated headshot, When the sweep runs after 40 days, Then she is
-    **kept** (authored-identity guard).
+  A headshot downloaded from a metadata provider is not authored identity: enriching again restores
+  it (HOLODEX-548). A headshot the owner uploaded or promoted is, and so is a downloaded headshot the
+  owner rejected (enriching again would bring it back). Idempotent; observable in activity history.
+  - Given an orphaned person with a headshot the owner uploaded or promoted, When the sweep runs after
+    40 days, Then she is **kept** (authored-identity guard).
+  - Given an orphaned person whose only headshot was downloaded by enrichment (for example, cast
+    created when a video was enriched), When the sweep runs after 40 days, Then she is deleted.
   - Given an orphaned plain person, When the sweep runs after 40 days, Then she is deleted; before 30
     days, kept.
 - **P0-10 — Studio link picker (RD11).** Owner-view picker on the `studio` field: search existing
@@ -353,7 +357,7 @@ Each curation/decision write on a person-typed field triggers `RelinkVideoPeople
 - **Writeback**: the existing writeback control; no change beyond `actors` being among the writable
   fields it already offers.
 - **Person page (P1-1)**: role badge/grouping from `video_people.role`.
-- Tokens only; QA **Cinémathèque / Broadcast / Brutalist**; verify loading/empty/error states.
+- Tokens only; QA **Cinémathèque**; verify loading/empty/error states.
 
 ## Success Metrics
 
@@ -390,12 +394,12 @@ No hard deadline. Per the change-routing rules, before/with implementation:
    Extends ADR-053; relates ADR-036/041/013/030/052/055. **Update F32's spec** to rebase onto it (pending).
 2. ✅ **`/design-handoff`** — [person-media-linking-handoff.md](../design/person-media-linking-handoff.md):
    the owner-view person + studio link picker (combobox popover reusing `EnrichPicker`'s keyboard model;
-   states, a11y, 3-skin QA) + person-page role badge (P1-1).
+   states, a11y, Cinémathèque QA) + person-page role badge (P1-1).
 3. ✅ **`/testing-strategy`** — [testing-strategy.md](../testing-strategy.md) §9 (F40 block) + §10
    example cases: derivation matrix (incl. **unset role**), canonical-name **round-trip** (person *and*
    studio), orphan grace + sweep + authored-identity guard (RD8/P0-9), **lossless-cutover loss-guard**
    (RD9/P0-4), backfill idempotency, **studio regression** under the generalized reconcile,
-   single-writer CI guard, homonym safety, owner-gating, 3-skin picker + role-badge QA.
+   single-writer CI guard, homonym safety, owner-gating, Cinémathèque picker + role-badge QA.
 4. **`/security-review`** — a **file-write path fed by owner-authored data** (person *and* studio):
    confirm curated person/studio names ride the existing `writeback` sanitize + `requireOwner` gate
    (no new perimeter, RD/Non-Goal), no name injection into the exiftool/mkv write, and the picker's

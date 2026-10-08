@@ -26,7 +26,7 @@ side by side, in the row you are deciding.
 | 2 | the expanded panel | two `PersonHoverCard`-shaped cards on a `bg-surface-2` well; `field-grid` |
 | 3 | loading / sparse / error | F68's "the card should feel like it *was* there"; absent-is-absent |
 | 4 | narrow / stacked | `field-grid`'s own auto-fit — no breakpoint written by hand |
-| 5 | Brutalist | `--radius: 0` — the mockup's only non-Cinémathèque panel, as a QA reminder |
+| 5 | Brutalist | `--radius: 0` — the mockup's only non-Cinémathèque panel; that skin is retired, ignore it |
 
 ### Open questions closed by this handoff
 
@@ -167,7 +167,7 @@ keeps today's left edge.
 | `bg-surface` | section shell, both column cards | |
 | `bg-surface-2` | the panel well, disclosure `hover:` | ~2 % from `--surface` in Cinémathèque — decorative only, never load-bearing |
 | `border-rule` | every hairline: row `border-t`, card borders, in-card dividers | |
-| `rounded-theme` | card corners, disclosure square | `2px` Cinémathèque, **`0px` Broadcast and Brutalist** — never assume a visible corner |
+| `rounded-theme` | card corners, disclosure square | `2px` Cinémathèque |
 | `text-ink` / `font-display` / `skin-title` | names | |
 | `text-muted` | counts, meta, aliases, provider badge text, chevron | |
 | `text-accent` / `border-accent` | `Videos` / `Films` links; the Keep separate pill | |
@@ -291,29 +291,22 @@ The strip does **not** reflow — five 44 px frames fit the 320 px minimum with 
   is noise. This is the documented use of that prop.
 - Per-side error: `role="alert"`, so the failure is announced without moving focus.
 - The chevron is `aria-hidden`; the button's `aria-label` carries the meaning.
-- Contrast: every pairing here is an existing token pairing already QA'd in the three skins. The
+- Contrast: every pairing here is an existing token pairing already QA'd in Cinémathèque. The
   one new one is `text-accent` on `bg-surface` for the Keep-separate pill, which is the existing
   `.btn-accent` treatment moved to a different button — same colours, same surface.
 
-## Three-skin QA
+## Cinémathèque QA
 
-Per `.claude/rules/frontend-theming.md`, QA Cinémathèque, Broadcast and Brutalist **plus the
-custom palette if one is configured**. Skin is set at Owner › Appearance (ADR-102); there is no
-header picker, so switching means changing the instance setting.
+Per `.claude/rules/frontend-theming.md`, QA Cinémathèque, the only look.
 
 What actually differs, and what to look for:
 
-1. **`--radius: 0` in Broadcast and Brutalist** (mockup panel 5). Column cards, image frames and
-   the disclosure square all go square. The Keep-separate pill stays round — `rounded-full` is
-   literal and sanctioned.
-2. **Broadcast's scanline `::after` on `.portrait-frame`** (`app.css:553`) now lands on five
-   frames per column, ten per panel. Check it doesn't read as a moiré at 44 px.
-3. **`--surface-2` vs `--surface`** differs by more in Broadcast/Brutalist than in Cinémathèque —
-   confirm the well doesn't start reading as a raised card instead of a recess.
+1. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+2. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+3. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 4. **`text-warn`** on the weak-signal label — now against `--surface-2` (the panel well) on a
    person pair, and still against `--surface` (the row) on any other kind. **Check both**: it is
-   a token pairing the row never had, and `--surface-2` differs from `--surface` by more in
-   Broadcast and Brutalist than in Cinémathèque.
+   a token pairing the row never had, and `--surface-2` differs from `--surface` only slightly.
 
 Greps that must stay empty for this change:
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` ·

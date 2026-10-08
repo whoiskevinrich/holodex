@@ -20,7 +20,7 @@ buttons, writeback, regenerate, delete, person-image management, merge, the Tras
 "Recently Added" home toggle, and the `/status` admin actions. There is no way to **see the library as a
 regular visitor sees it** without clearing the admin token and re-authenticating, and the persistent admin
 chrome adds visual noise while simply browsing. The owner both **curates** and **consumes** the same
-library; today those two modes are conflated, so QA-ing the public experience (across all three skins) and
+library; today those two modes are conflated, so QA-ing the public experience and
 distraction-free viewing are each awkward.
 
 ## Goals
@@ -30,7 +30,7 @@ distraction-free viewing are each awkward.
 2. **Preview fidelity.** With Admin mode OFF, the rendered UI matches what a non-owner sees: every
    owner-only **control _and_ owner-only data surface** is hidden, not just dimmed. (Decision: hide
    controls **and** admin data — faithful visitor view.)
-3. **Mirror the theme toggle's ergonomics.** The control lives in the header beside the skin picker,
+3. **Mirror the theme toggle's ergonomics.** The control lives in the header,
    persists per-device in `localStorage`, and applies reactively app-wide — the proven pattern owners
    already understand.
 4. **Zero security regression.** The toggle is a **presentation filter only**. It never changes what the
@@ -56,8 +56,8 @@ distraction-free viewing are each awkward.
 
 **As the library owner (admin):**
 - I want to turn Admin mode off with one click so that I can see exactly what a regular visitor sees —
-  across Cinémathèque, Broadcast, and Brutalist — without logging out.
-- I want the toggle to sit next to the skin picker in the header so that it's where I already reach for
+  without logging out.
+- I want the toggle to sit in the header so that it's where I already reach for
   view preferences, on every page.
 - I want my choice remembered on this device so that I'm not re-toggling every visit.
 - I want to turn Admin mode back on with one click so that I can resume curating (enrich, writeback,
@@ -82,7 +82,7 @@ distraction-free viewing are each awkward.
 ### Must-Have (P0)
 
 **P0-1 — Header toggle control (owner-only).**
-A control in the global header (`web/src/routes/+layout.svelte`), adjacent to the skin segmented control,
+A control in the global header (`web/src/routes/+layout.svelte`),
 rendered only when `activity.isOwner`. Labeled with the term **"Admin mode"** and communicating its two
 states clearly (ON = admin elements visible; OFF = visitor view). Exact affordance TBD in design handoff.
 - Given I am authenticated as owner, when the header renders, then I see the toggle.
@@ -158,14 +158,14 @@ page is usable rather than appearing empty/forbidden. The toggle reflects the ne
 This is a personal/self-hosted tool, so metrics are usage-quality signals rather than funnel numbers.
 
 **Leading indicators (immediate):**
-- Owner can complete a full visitor-preview sweep of all three skins **without ever entering/clearing the
+- Owner can complete a full visitor-preview sweep **without ever entering/clearing the
   admin token** (today this requires a token round-trip). Target: token round-trips for QA → **0**.
 - Toggle latency: state flips with **no page reload** and no visible reflow jank (< 1 frame of perceptible
   delay).
 
 **Lagging indicators:**
-- Skin-specific public-view regressions caught **before** merge increases (qualitative — the toggle makes
-  the "QA all three skins" pre-commit rule cheap to honor).
+- Public-view regressions caught **before** merge increases (qualitative — the toggle makes
+  the "QA Cinémathèque" pre-commit rule cheap to honor).
 - Zero security findings attributable to the toggle in `/security-review` (the gate stays server-side).
 
 ## Open Questions
@@ -174,8 +174,8 @@ This is a personal/self-hosted tool, so metrics are usage-quality signals rather
    flip Admin mode back ON. A separate follow-up consolidates `/status` + `/trash` + `/keys` into one tabbed
    **Admin page** (tracked in `TASKS.md`).
 2. **Control placement & affordance** _(design)_ — **Resolved in the handoff**: a single binary **switch**
-   (`role="switch"`) labeled "Admin", accent-filled when ON, placed between `ActivityIndicator` and the skin
-   picker. Open/closed-eye icon swap. (Binary = switch; the 3-way segmented shape stays the skin picker's.)
+   (`role="switch"`) labeled "Admin", accent-filled when ON, placed beside `ActivityIndicator`.
+   Open/closed-eye icon swap. (Binary = switch.)
 3. ~~**Naming**~~ — **Resolved: "Admin mode"** for the control, the indicator (P1-2), and docs.
 4. ~~**State location**~~ — **Resolved: dedicated `adminMode` store** mirroring `theme.svelte.ts` (not a
    property on the `activity` store).
@@ -190,5 +190,5 @@ This is a personal/self-hosted tool, so metrics are usage-quality signals rather
   **Admin page**. Sequencing note — landing it first would shrink F29's hide-set to a single Admin nav
   entry; either order works, so they can ship independently.
 - **Pre-merge gates (project working agreements):** `/simplify` on changed code; **`/security-review`**
-  (touches the owner-gate surface); `/design-handoff` for the control; QA across **all three skins** in
+  (touches the owner-gate surface); `/design-handoff` for the control; QA Cinémathèque in
   both toggle states; `/testing-strategy` updated for the new gating.

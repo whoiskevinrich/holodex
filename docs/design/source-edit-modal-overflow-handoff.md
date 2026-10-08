@@ -80,7 +80,7 @@ textarea `rows="5"`.
 | Long + expanded | Body scrolls inside the panel; Save/Cancel pinned below the scroll region |
 | Custom selected, long typed value | Textarea grows to 5 rows and stays inside the scroll region; no clamp on the textarea |
 
-## Three skins
+## Theming
 
 Tokens only (`border-rule`, `bg-surface`, `text-muted`, `text-accent`, `btn-quiet`). The
 scrollbar is the platform's; the footer has no added border — the panel's own padding

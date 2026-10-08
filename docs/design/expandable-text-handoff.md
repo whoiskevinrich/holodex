@@ -90,5 +90,5 @@ call sites.
 Tailwind build (not the static HTML mockup) to confirm: clamp renders and expands on click,
 `aria-expanded`/`aria-controls` wire correctly, and the chevron rotation (Tailwind v4's `rotate`
 CSS property, not `transform`) matches `CompletenessPanel`'s. Token compliance spot-checked
-across all three skins via computed style (`text-muted` and `rounded-theme` both track the active
-skin's `--muted`/`--radius`).
+in Cinémathèque via computed style (`text-muted` and `rounded-theme` both track
+`--muted`/`--radius`).

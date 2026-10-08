@@ -18,7 +18,7 @@
 	// staging is an accent-filled pill inside the content column; "Keep tag" and
 	// "Dismiss" never touch the file and resolve on click (the row drops out), so
 	// they are muted ghost buttons at the row's right edge. Staged picks are written
-	// together via the preview-before-write dialog (F48.7). Tokens only; QA 3 skins.
+	// together via the preview-before-write dialog (F48.7). Tokens only; QA Cinémathèque.
 	import { toMessage } from '$lib/format';
 	import EntityPickerDialog from '../entity/EntityPickerDialog.svelte';
 	import type { ExtractionQueueRow, ExtractionResolveAction } from '$lib/types';

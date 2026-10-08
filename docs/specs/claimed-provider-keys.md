@@ -395,7 +395,7 @@ an existing field*, with a picker over that entity type's canonical fields.
 - [x] On `long_text` / `chips` rows the owner controls move to their own trailing line
       ([handoff DD7](../design/claimed-provider-keys-handoff.md)) — this **amends F44's shipped layout**, so
       the promote pill is re-QA'd there too
-- [~] Three-skin QA (`.claude/rules/frontend-theming.md`) — checklist written
+- [~] Cinémathèque QA (`.claude/rules/frontend-theming.md`) — checklist written
       ([claimed-provider-keys-qa-checklist.md](../design/claimed-provider-keys-qa-checklist.md)); §2/§3 run,
       §4's human-eye items pending
 
@@ -424,7 +424,7 @@ after the gesture.
 - [x] A claim whose target canonical is absent from the effective field set is marked **Inactive** — this is
       the only surface where a dangling claim (RD-adjacent: ADR-074 §D4 keeps it, inert) is visible at all
 - [x] Remove does **not** restore a promotion that claiming cleared (§RD3), and the copy does not imply it does
-- [~] Three-skin QA — see FR5
+- [~] Cinémathèque QA — see FR5
 
 ### Should-have (P1)
 

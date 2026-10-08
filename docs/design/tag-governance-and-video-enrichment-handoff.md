@@ -3,7 +3,7 @@
 **Spec**: [tag-governance-and-video-enrichment.md](../specs/tag-governance-and-video-enrichment.md)
 **ADR**: [ADR-075](../architecture/archive/ADR-075-tag-governance-and-video-enrichment.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — tokens only, QA all three skins.
+[theming.md](theming.md) — tokens only, QA Cinémathèque.
 **Issue**: [HOLODEX-224](https://whoiskevinrich.atlassian.net/browse/HOLODEX-224) · **Surfaces**:
 `media/[id]/+page.svelte` (tag chips), `tags/+page.svelte` (hierarchy), `tags/[id]/+page.svelte`
 + `EntityVideos.svelte` (ancestor breadcrumb), a new `owner/tags/+page.svelte` (deny-list).
@@ -164,6 +164,6 @@ reuse of data the API already returns, not a new fetch.
 ## QA
 
 Companion checklist: [tag-governance-and-video-enrichment-qa-checklist.md](tag-governance-and-video-enrichment-qa-checklist.md).
-Tokens only, per `.claude/rules/frontend-theming.md`; QA Cinémathèque, Broadcast, and Brutalist
+Tokens only, per `.claude/rules/frontend-theming.md`; QA Cinémathèque
 for every new state above — the `·provenance` accent suffix and the `border-warn` Deny button
-are the two spots most likely to break contrast in an unfamiliar skin.
+are the two spots most likely to break contrast.

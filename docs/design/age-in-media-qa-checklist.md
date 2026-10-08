@@ -38,14 +38,12 @@ same as a living cast member — unaffected by `deathdate` (AC6).
 from the **resolved** (winning) value, not the raw file baseline (AC7) — matches what that person's own
 detail page shows for Age.
 
-## 3. Human eyeball — all three skins
+## 3. Human eyeball — Cinémathèque
 
 3.1 **[human]** **Cinémathèque**: badge corner is 2px rounded, legible against both the `--surface-2`
 placeholder (no-photo state) and a real, busy poster photo.
-3.2 **[human]** **Broadcast**: badge is square (0 radius); no collision with the CRT scanline flourish
-(`.portrait-frame::after`).
-3.3 **[human]** **Brutalist**: badge is square; reads cleanly on near-black; no collision with the mono
-name caption below the poster.
+3.2 *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
+3.3 *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
 3.4 **[human]** Visitor (Admin Mode off) sees badges identically to owner — no gating.
 3.5 **[human]** At the widest grid density (`md:grid-cols-6`, desktop), both a 1-digit and a 2–3-digit
 age fit the badge pill without wrapping or overflowing.

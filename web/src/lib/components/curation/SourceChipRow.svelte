@@ -10,7 +10,7 @@
 	// Keyboard: arrow keys move focus AND stage within the group; Space/Enter stage the
 	// focused chip; Escape inside the open Custom input cancels just the input and stops
 	// propagating, so an enclosing dialog's own Escape handler does not fire on the same
-	// keystroke (handoff §6). Tokens only; QA 3 skins.
+	// keystroke (handoff §6). Tokens only; QA Cinémathèque.
 	import { tick } from 'svelte';
 	import { chipToResolvedValue, type SourceChip } from '$lib/f36';
 	import type { ResolvedField } from '$lib/types';

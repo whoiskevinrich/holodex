@@ -2,7 +2,7 @@
 	// Destructive confirm dialog (F24, ADR-037): a warn-styled variant of the modal
 	// idiom used by EntityPicker/EnrichPicker — role=dialog, focus trap, Esc/backdrop
 	// cancel, focus returned to the trigger. Initial focus lands on Cancel so an
-	// accidental Enter never deletes. Tokens only; QA 3 skins.
+	// accidental Enter never deletes. Tokens only; QA Cinémathèque.
 	import { onMount, type Snippet } from 'svelte';
 
 	let {

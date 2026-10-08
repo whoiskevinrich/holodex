@@ -75,8 +75,8 @@ with no visible gap at 14 px). Arcs start at twelve o'clock and run clockwise (`
 
 `stroke-muted` / `stroke-accent` / `stroke-ink` are Tailwind v4 utilities over the existing
 `--color-*` tokens (`@theme inline`, ADR-025) — **no new tokens, no new CSS**. The track is `muted`,
-not `rule`: on the card the ring sits on a `bg-black/70` chip over a poster, where every skin's `rule`
-(`#2a2622` / `#1a2240` / `#333333`) is too close to the chip to read; `muted` reads on both the chip and
+not `rule`: on the card the ring sits on a `bg-black/70` chip over a poster, where `rule`
+(`#2a2622`) is too close to the chip to read; `muted` reads on both the chip and
 the row surface.
 
 ### Video card (`VideoCard.svelte`)
@@ -152,8 +152,8 @@ motion:** the busy quarter-arc spins (`ring-busy-spin`, 0.9 s linear) under
 - **Both `required` and `extras` are `null`** (an entity type with no scored facets at all — none today):
   render nothing. Don't mount an empty track for a type the score doesn't cover.
 - **`required` 100 and `extras` 100**: the ink lap covers the whole ring — a solid ink circle. That is the
-  intended "everything filled" glyph; it is distinct from the accent-only full ring at a glance on every
-  skin (ink is near-white on all three).
+  intended "everything filled" glyph; it is distinct from the accent-only full ring at a glance (ink is
+  near-white).
 - **Rounding**: 1 … 4 % renders as a 0.4–1.8 unit arc — visible as a tick. Don't clamp small values to
   zero; a tick means "something is there".
 - **Part badge + film scene badge + ring**: all three can coexist (a multi-part video attached to a film).
@@ -170,13 +170,11 @@ motion:** the busy quarter-arc spins (`ring-busy-spin`, 0.9 s linear) under
   the label is read as part of the link's content, one utterance per card, alongside the duration.
 - ~~Not focusable~~ **F65.8:** a `<button>` in the tab order directly after its card/row link; see § F65.8.
 - Colour is not the only channel: fill *fraction* carries the value, and the overfill is a second lap of
-  a different luminance, not a hue swap. On Broadcast (cyan accent) and Brutalist (lime) the accent/ink
-  contrast is lower than on Cinémathèque's gold — QA 3.2 checks it still reads.
-- Contrast: accent on the `bg-black/70` chip clears 4.5:1 on all three skins (gold `#e8a33d` ≈ 8:1,
-  cyan `#36e0d0` ≈ 10:1, lime `#d6ff3f` ≈ 16:1 against a near-black chip); the muted track is decorative
+  a different luminance, not a hue swap — QA 3.2 checks the gold accent and the ink still read apart.
+- Contrast: accent on the `bg-black/70` chip clears 4.5:1 (gold `#e8a33d` ≈ 8:1 against a near-black chip); the muted track is decorative
   and exempt.
 
-## Three-skin QA (numbered per `docs/design` convention)
+## QA (numbered per `docs/design` convention)
 
 **Setup** — owner session with the stress fixture (HOLODEX-342) or any library with ≥ 1 video missing a
 poster, ≥ 1 with everything filled, ≥ 1 multi-part video (`part` set), a person with no photo, a studio
@@ -190,16 +188,16 @@ visitor (log out or private window).
 - 1.4 `[smoke]` As owner on `/studios`: the studio with no branding shows an empty ring; one with branding shows a full accent ring and never any ink.
 
 **Agent** (computed style via `javascript_tool`, per `reference-holodex-skin-qa-without-screenshots`)
-- 2.1 `[agent]` For each skin: on a `.completeness-ring` circle, `getComputedStyle(track).stroke` equals the skin's `--muted`, the required arc's `stroke` equals `--accent`, the overfill arc's `stroke` equals `--ink`. (Resolve the vars from `getComputedStyle(document.documentElement)`.)
+- 2.1 `[agent]` On a `.completeness-ring` circle, `getComputedStyle(track).stroke` equals `--muted`, the required arc's `stroke` equals `--accent`, the overfill arc's `stroke` equals `--ink`. (Resolve the vars from `getComputedStyle(document.documentElement)`.)
 - 2.2 `[agent]` Ring chip `getBoundingClientRect().height` equals the duration pill's height (± 1 px) and its `left` equals the frame's `left + 6`; when a part badge is present, `part.left === chip.right + 4`.
 - 2.3 `[agent]` Visitor: `document.querySelectorAll('.completeness-ring').length === 0` on `/`, `/people`, `/studios`, and the `GET /media` response items have no `completeness` key.
 - 2.4 `[agent]` Overfill gating: for every card, the ink circle exists iff the item's `completeness.required === 100` and `extras > 0`.
 - 2.5 `[agent]` At 8 columns, on every card `chip.right + 4 + (part?.width ?? 0) < duration.left` — no overlap along the bottom edge.
 
 **Human**
-- 3.1 `[human]` On each skin at the default density, glance at a full grid for two seconds: you can tell which cards are "done" (full ring) from which are not without reading anything. If you have to squint at the ring to tell ¾ from full, the stroke is too thin — say so rather than accept it.
-- 3.2 `[human]` Broadcast and Brutalist: on a fully-filled card, the solid ink circle is clearly different from the accent-only full ring next to it (the ink one looks white/pale; the accent one looks cyan/lime).
-- 3.3 `[human]` Brutalist (radius 0): the ring chip is square-cornered like the duration pill beside it; Cinémathèque: the chip's corners match the duration pill's. The ring itself is round on every skin — it is a meter, not a chip.
+- 3.1 `[human]` At the default density, glance at a full grid for two seconds: you can tell which cards are "done" (full ring) from which are not without reading anything. If you have to squint at the ring to tell ¾ from full, the stroke is too thin — say so rather than accept it.
+- 3.2 `[human]` On a fully-filled card, the solid ink circle is clearly different from the accent-only full ring next to it (the ink one looks pale cream; the accent one looks gold).
+- 3.3 `[human]` The ring chip's corners match the duration pill's beside it. The ring itself is round — it is a meter, not a chip.
 - 3.4 `[human]` `/people` as owner: the rings sit visually on the same baseline as the counts and don't make the rows taller; toggle select mode — the rings are still there inside the checkbox rows.
 - 3.5 `[human]` `/people` as owner, Poster View: every card's count line carries the ring before the count; the person with no photo shows an empty muted ring under their placeholder portrait.
 

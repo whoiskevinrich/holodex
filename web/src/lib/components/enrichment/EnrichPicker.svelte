@@ -2,7 +2,7 @@
 	// Disambiguation picker (F22.5b): a modal listbox of provider candidates the
 	// owner searches and confirms. role=combobox + role=listbox with roving
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
-	// apply, Esc closes, focus is trapped + returned. Tokens only; QA 3 skins.
+	// apply, Esc closes, focus is trapped + returned. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { toMessage, isHttpUrl, monogram } from '$lib/format';
 	import { moreLabel, searchedCaption } from '$lib/searchedCaption';

@@ -76,5 +76,4 @@ in it.
 person's/studio's plain name, exactly as before this change — nothing here should look different.
 3.5 *(only if the P1 caption is built)* **[human]** Repeat 3.1–3.2 and look for a small muted line
 under the search box saying where the pre-filled text came from. It should read clearly (not
-washed-out) and disappear the moment you start typing. Check all three skins (header picker:
-Cinémathèque, Broadcast, Brutalist).
+washed-out) and disappear the moment you start typing. Check in Cinémathèque.

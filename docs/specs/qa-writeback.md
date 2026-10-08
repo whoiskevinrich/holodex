@@ -82,9 +82,9 @@
 
 ## 7. UI — tokens & theming
 
-**7.1** [human] Switch to **Cinémathèque** skin; confirm the write icon is `text-muted`, turns `text-accent` on hover; confirm dialog uses `bg-surface`, `border-rule`, `text-ink`, and the confirm button uses `bg-accent text-accent-ink` (not red/warn)  
-**7.2** [human] Switch to **Broadcast** skin; repeat 7.1 — no hardcoded colours visible  
-**7.3** [human] Switch to **Brutalist** skin; repeat 7.1 — icon, dialog, and confirm button all correctly themed  
+**7.1** [human] In **Cinémathèque**, confirm the write icon is `text-muted`, turns `text-accent` on hover; confirm dialog uses `bg-surface`, `border-rule`, `text-ink`, and the confirm button uses `bg-accent text-accent-ink` (not red/warn)  
+**7.2** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*  
+**7.3** *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*  
 **7.4** [human] "Written ✓" label uses `text-accent` (not `text-warn`) and persists until page reload
 
 ---

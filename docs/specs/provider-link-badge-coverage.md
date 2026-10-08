@@ -223,7 +223,7 @@ visitor/owner rule for entity data points):
   - Under a provider that treats the media file as the canonical unit, the pill opens that file's
     own page; under TMDB it opens the film's — the provider's `video` template decides.
 
-- **P0-8 · Three-skin QA** on the film and media headers, per `.claude/rules/frontend-theming.md`;
+- **P0-8 · Cinémathèque QA** on the film and media headers, per `.claude/rules/frontend-theming.md`;
   the pill's tokens are already skin-safe (ADR-083 handoff), so this is placement + wrap only.
   - [x] Film (2026-09-17, HOLODEX-393) and media (2026-09-17, HOLODEX-394): one line at desktop
     width in all three skins, pill text = the year's muted color (AA 4.9 / 5.7 / 6.3), no

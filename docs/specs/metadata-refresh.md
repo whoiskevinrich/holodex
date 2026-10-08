@@ -51,7 +51,7 @@ files it mirrors, with no owner-visible remedy.
    per-field "from file" vs "from TMDB" badges, and a refresh never silently destroys the other
    layer (re-extract leaves the enrichment store intact; re-enrich leaves file fields intact).
 5. **Make the action legible and safe** — owner-gated, visible only when admin features are,
-   honoring soft-delete, recorded in activity history, and themed across all three skins.
+   honoring soft-delete, recorded in activity history, and themed in Cinémathèque.
 
 ## Non-Goals
 
@@ -119,7 +119,7 @@ files it mirrors, with no owner-visible remedy.
 
 | ID | Requirement | Acceptance criteria |
 |---|---|---|
-| **F31.1** | **Owner-gated refresh endpoint.** A new owner route triggers a single-item refresh: `POST /api/v1/media/{id}/refresh` (behind `requireOwner`; per-item path mirrors `/media/{id}/enrich` and `/media/{id}/writeback`, **not** the `/admin/` library-wide group). | • Without a valid `X-Admin-Token` (when `ADMIN_TOKEN` is set) → **401/403**.<br>• Unknown `{id}` → **404**.<br>• Soft-deleted `{id}` → **409** (or **404**) with a body naming the reason; the row is **not** reactivated.<br>• Valid owner + live item → **202 Accepted** (async) and the work runs. |
+| **F31.1** | **Owner-gated refresh endpoint.** A new owner route triggers a single-item refresh: `POST /api/v1/media/{id}/refresh` (behind `requireOwner`; per-item path mirrors `/media/{id}/enrich` and `/media/{id}/writeback`, **not** the `/admin/` library-wide group). | • Without a valid `X-Admin-Token` (when `ADMIN_TOKEN` is set) → **401/403**.<br>• Unknown `{id}` → **404**.<br>• Soft-deleted `{id}` → **409** with a body naming the reason; the row is **not** reactivated.<br>• Valid owner + live item → **202 Accepted** (async) and the work runs. |
 | **F31.2** | **Forced file re-extract.** Refresh re-runs the exiftool + ffprobe extraction on the item's file **unconditionally**, bypassing the `(size, mtime)` change-detection fast-path, and updates the file-sourced layer (`videos` row + `video_metadata` extras + cover-art flag). | Given an item whose file's tags were changed **in place with mtime preserved**, When the owner refreshes, Then the new title/tags/people/codecs are stored and shown — proving the fast-path was bypassed. |
 | **F31.3** | **Re-enrich linked providers.** Refresh re-fetches **every provider the item is currently matched to**, reusing the persisted external match (no identity prompt), and updates the enrichment shadow store. | • An item matched to TMDB: refresh re-applies TMDB and the enrichment fields update.<br>• An item with **no** match: provider step is a clean no-op (no picker, no error).<br>• The match record is **not** cleared or changed by a refresh. |
 | **F31.4** | **Non-destructive layering (load-bearing invariant).** Re-extract updates **only** the `file:` layer; re-enrich updates **only** the `{provider}:` layer; refresh **never flattens** the two into a single stored value — the resolver remains the sole merge point and re-merges afterward with correct `file:` / `{provider}:` provenance. *This invariant is what keeps a future batch conflict-resolution policy (F31.11) implementable without re-extraction.* | After refresh, the media detail `resolved[]` reflects new values with the **same provenance semantics** as before (file-won badged "from file," provider-won "from <provider>"). No enrichment row is lost by the re-extract; no file field is lost by the re-enrich. **No code path writes a resolved/merged value back into `videos.*` or the enrichment store as the stored truth.** |
@@ -227,7 +227,7 @@ placement, label/icon, in-flight treatment, and how F31.8 feedback renders — i
 Metadata header cluster, an inline `aria-live` status line for feedback (no toast), and
 `sources_disagree` deliberately **not** surfaced single-item (the existing provenance chips suffice;
 rich triage waits for the batch feature, F31.11). No open questions remain; what's left is
-implementation, the embedded three-skin QA, `/security-review`, and a `/testing-strategy` update.
+implementation, the embedded Cinémathèque QA, `/security-review`, and a `/testing-strategy` update.
 
 ---
 
@@ -245,7 +245,7 @@ implementation, the embedded three-skin QA, `/security-review`, and a `/testing-
      invariant, per-source error handling, and the `RefreshReport` (incl. `sources_disagree`) —
      the full "refresh" semantics and the batch-ready outcome.
   3. **F31.6 + frontend control + F31.8** — activity recording (`kind=refresh`) and the
-     owner-facing button with "what changed" feedback; QA across all three skins.
+     owner-facing button with "what changed" feedback; QA in Cinémathèque.
 
 ---
 
@@ -271,7 +271,7 @@ implementation, the embedded three-skin QA, `/security-review`, and a `/testing-
 > **Change-routing reminder (per project working agreements).** This functional spec is the
 > **functionality** artifact. Status of the matching artifacts: **ADR — done**
 > ([ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)); **design handoff — done**
-> ([metadata-refresh-handoff.md](../design/metadata-refresh-handoff.md), with embedded three-skin
+> ([metadata-refresh-handoff.md](../design/metadata-refresh-handoff.md), with embedded Cinémathèque
 > QA). Still required before merge: a **`/testing-strategy`** update + tests (auth/validation,
 > forced-extract proof incl. the mtime-preserved case, provider isolation, soft-delete guard,
 > activity recording) and a **`/security-review`** (it touches access + file I/O + subprocess).

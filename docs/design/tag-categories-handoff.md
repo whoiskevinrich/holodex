@@ -6,7 +6,7 @@ reduced lifecycle vs. Tag/Person/Studio, the `tag_categories` junction shape, th
 query). This handoff's UI-reuse decisions are inputs that ADR should treat as settled; the "Open
 design decisions" section at the end lists what's still genuinely open.
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
-[theming.md](theming.md) — **tokens only, QA all three skins.**
+[theming.md](theming.md) — **tokens only, QA Cinémathèque.**
 **Prior art**: [tag-writeback-exclusion-handoff.md](tag-writeback-exclusion-handoff.md) — the
 `tags/[id]` `detail`-snippet and `/tags` Manage-mode-bar extension points this epic builds on,
 plus the "no dimming" / design-system-fit-audit format this handoff follows.
@@ -343,7 +343,7 @@ video roll-up on `/categories/{id}`, a separate top-level `/categories` list pag
 Reuses tokens already measured in
 [tag-writeback-exclusion-handoff.md](tag-writeback-exclusion-handoff.md) and
 [writeback-selection-handoff.md](writeback-selection-handoff.md) — `border-accent`,
-`bg-surface-2`, `text-accent`, `text-muted` (4.67–16.76:1 across all three skins for these
+`bg-surface-2`, `text-accent`, `text-muted` (6.00–8.71:1 in Cinémathèque for these
 tokens). No new color combination is introduced by this change. The new tag-glyph icon renders at
 `text-accent`, the same size class (`h-3.5 w-3.5`, close to `CurationChip`'s `h-3 w-3`) as icons
 already covered by that pass — QA re-verifies rather than re-measures once built.
