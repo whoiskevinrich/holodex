@@ -34,13 +34,12 @@ the scene model (HOLODEX-520).
 ## Up next — ordered (position = priority)
 
 1. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
-2. [ ] [—] After squash-merge: fill the "Decided in" sha — `docs/architecture/entity-identity.md`
-3. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
+2. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-08 · session
 - skills: system-design, write-spec, handoff, design-handoff, implement, testing-strategy, security-review
-- handoff: All seven gates settled and PR #465 marked ready; the owner confirmed the build matches the mockup. Next: run `make test-image` for the mkvpropedit edition-clear case, then after merge fill the "Decided in" sha.
+- handoff: Merged as bf65fb5f (#465) and the "Decided in" sha is filled. Next: run `make test-image` once for the mkvpropedit edition-clear case; HOLODEX-547 stays its own bug.
 
 ## Dropped — newest first (the reason is the point)

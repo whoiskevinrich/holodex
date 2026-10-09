@@ -205,4 +205,4 @@ files, so every way a file stops pairing would need its own hook to expire the r
 
 With about 20 pairs in a ~3,800-file library, the on-demand query costs nothing.
 
-Decided in *pending: HOLODEX-521 squash commit*.
+Decided in [`bf65fb5f`](https://github.com/whoiskevinrich/holodex/commit/bf65fb5f) (HOLODEX-521).
