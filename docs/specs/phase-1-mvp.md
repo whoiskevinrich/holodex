@@ -216,7 +216,7 @@ VideoMetadata  (extended/extra tags — see ADR-013)
 ## Open Questions (Phase 1 Specific)
 
 1. ~~**Symlinks**~~: **Resolved (ADR-011)** — follow symlinks by default, dedup by canonical path, allow targets outside `MEDIA_PATH`; configurable via `FOLLOW_SYMLINKS`.
-2. ~~**MKV tag priority**~~: **Resolved (ADR-010)** — Matroska target level 50 (MOVIE/EPISODE) and untargeted tags are authoritative; track/chapter (level 30) tags ignored; people/genres never inherited from higher levels.
+2. ~~**MKV tag priority**~~: **Resolved (ADR-010)** — Matroska target level 50 (MOVIE/EPISODE) and untargeted tags are authoritative; track/chapter (level 30) tags ignored; a single-value field such as the title falls back to the season (60), then collection (70) value when the episode has none; people/genres never inherited from higher levels.
 3. ~~**Cover art source**~~: **Resolved (ADR-009)** — embedded cover art is extracted at index time (Tier 1, near-free); generated frame thumbnails are a Phase 2 background job.
 4. ~~**Resolution buckets**~~: **Resolved (ADR-012)** — width-based buckets with 10% tolerance: SD <1152, HD 1152–1727, FHD 1728–3455, 4K+ ≥3456. The four buckets are fixed; a QHD/1440p split (2304–3455) may be added later if wanted.
 
