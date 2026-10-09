@@ -24,8 +24,9 @@ func mergeBatchID(entityType string, canonicalID, mergedID int64) string {
 	return fmt.Sprintf("merge-%s-%d-%d", entityType, canonicalID, mergedID)
 }
 
-// propagateMerge (F48.8a/b, ADR-067) syncs a completed Person/Studio merge to
-// every affected video's embedded tag: for each video previously linked to
+// propagateMerge (F48.8b, ADR-067) syncs a completed Studio merge to every
+// affected video's embedded tag (a Person merge goes through the role-aware
+// propagatePersonMerge instead): for each video previously linked to
 // the loser, the file's field tag is rewritten to the video's full current
 // (post-merge) name list for that field — the loser's name is already gone
 // from it and the survivor's already present, since the merge repointed the
@@ -83,29 +84,55 @@ func (h *Handlers) propagatePersonRename(ctx context.Context, personID int64) {
 		h.log.Warn("rename writeback: load people for videos", "person_id", personID, "err", err)
 		return
 	}
+	h.enqueueRename(ctx, model.EnrichEntityPerson, personID, personRoleJobs(videoIDs, people, personID, writequeue.SourceRename))
+}
+
+// propagatePersonMerge (F48.8a, HOLODEX-552) is propagateMerge for people, made
+// role-aware: each affected video's person-typed fields are rewritten through
+// personRoleJobs, so the survivor's name lands in the fields for the roles it holds
+// there and a co-credited director stays out of the cast tag. videoIDs is the
+// loser's affected-video list, captured inside the merge's own transaction.
+func (h *Handlers) propagatePersonMerge(ctx context.Context, survivorID, mergedID int64, videoIDs []int64) {
+	if h.writeQueue == nil || len(videoIDs) == 0 {
+		return
+	}
+	people, err := h.repo.PeopleForVideos(ctx, videoIDs)
+	if err != nil {
+		h.log.Warn("merge writeback: load people for videos", "err", err)
+		return
+	}
+	h.enqueuePropagation(ctx, mergeBatchID(model.EnrichEntityPerson, survivorID, mergedID),
+		personRoleJobs(videoIDs, people, survivorID, mergeWriteSource))
+}
+
+// personRoleJobs builds one writeback job per video for the person-typed fields
+// (registry.PersonTypedFields) whose role personID holds on that video. Each field
+// is rewritten to the video's linked people in that role, under their canonical
+// names, so co-credits are kept and one role never leaks into another's field.
+func personRoleJobs(videoIDs []int64, people map[int64][]model.Person, personID int64, source string) []writequeue.BatchJob {
 	personFields := registry.PersonTypedFields()
 	jobs := make([]writequeue.BatchJob, 0, len(videoIDs))
 	for _, videoID := range videoIDs {
 		var fields []writequeue.JobField
 		for _, def := range personFields {
 			var names []string
-			renamedHere := false
+			heldHere := false
 			for _, p := range people[videoID] {
 				if p.Role != def.Role {
 					continue
 				}
 				names = append(names, p.Name)
-				renamedHere = renamedHere || p.ID == personID
+				heldHere = heldHere || p.ID == personID
 			}
-			if renamedHere {
-				fields = append(fields, writequeue.JobField{Field: def.Canonical, Values: names, Source: writequeue.SourceRename})
+			if heldHere {
+				fields = append(fields, writequeue.JobField{Field: def.Canonical, Values: names, Source: source})
 			}
 		}
 		if len(fields) > 0 {
 			jobs = append(jobs, writequeue.BatchJob{VideoID: videoID, Fields: fields})
 		}
 	}
-	h.enqueueRename(ctx, model.EnrichEntityPerson, personID, jobs)
+	return jobs
 }
 
 // propagateStudioRename (HOLODEX-553) is propagatePersonRename for studios: every
@@ -140,9 +167,14 @@ func (h *Handlers) propagateStudioRename(ctx context.Context, field string, stud
 // An entity can be renamed again later, so unlike mergeBatchID the (type, id) pair
 // alone is not unique; the timestamp keeps each rename's revert batch its own.
 func (h *Handlers) enqueueRename(ctx context.Context, entityType string, id int64, jobs []writequeue.BatchJob) {
-	batchID := fmt.Sprintf("rename-%s-%d-%d", entityType, id, time.Now().UnixNano())
+	h.enqueuePropagation(ctx, fmt.Sprintf("rename-%s-%d-%d", entityType, id, time.Now().UnixNano()), jobs)
+}
+
+// enqueuePropagation enqueues a merge's or rename's jobs under one snapshot batch.
+// Failures are logged, not fatal: the identity change already committed.
+func (h *Handlers) enqueuePropagation(ctx context.Context, batchID string, jobs []writequeue.BatchJob) {
 	if _, err := h.writeQueue.EnqueueMany(ctx, jobs, batchID); err != nil {
-		h.log.Warn("rename writeback enqueue failed", "batch_id", batchID, "videos", len(jobs), "err", err)
+		h.log.Warn("writeback propagation enqueue failed", "batch_id", batchID, "videos", len(jobs), "err", err)
 	}
 }
 
