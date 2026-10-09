@@ -111,29 +111,29 @@ describe('person source-of-truth clients (F37)', () => {
 // into an opaque redirect (not a CORS-blocked follow); we detect it, raise
 // ReauthError (distinct from a 401 owner-expiry), and recover with one top-level
 // reload. A fresh module per test resets the one-shot reauth guard.
+// A `redirect: 'manual'` fetch returns an opaque redirect for a cross-origin 302;
+// there's no public constructor, so fake the shape checkRedirect() reads.
+function opaqueRedirect(): Response {
+	return {
+		type: 'opaqueredirect',
+		ok: false,
+		status: 0,
+		json: () => Promise.reject(new Error('opaque'))
+	} as unknown as Response;
+}
+
+function stubWindow(href = 'https://barclay.example/owner/status') {
+	const assign = vi.fn();
+	vi.stubGlobal('window', { location: { href, assign } });
+	return assign;
+}
+
 describe('ForwardAuth re-auth handling (HOLODEX-127)', () => {
 	afterEach(() => vi.unstubAllGlobals());
 
 	async function freshApi() {
 		vi.resetModules();
 		return import('./api');
-	}
-
-	// A `redirect: 'manual'` fetch returns an opaque redirect for a cross-origin 302;
-	// there's no public constructor, so fake the shape checkRedirect() reads.
-	function opaqueRedirect(): Response {
-		return {
-			type: 'opaqueredirect',
-			ok: false,
-			status: 0,
-			json: () => Promise.reject(new Error('opaque'))
-		} as unknown as Response;
-	}
-
-	function stubWindow(href = 'https://barclay.example/owner/status') {
-		const assign = vi.fn();
-		vi.stubGlobal('window', { location: { href, assign } });
-		return assign;
 	}
 
 	it('sends authed reads with redirect:manual and raises ReauthError on a ForwardAuth 302', async () => {
@@ -174,6 +174,119 @@ describe('ForwardAuth re-auth handling (HOLODEX-127)', () => {
 			vi.fn().mockResolvedValue(new Response(JSON.stringify({ owner: true }), { status: 200 }))
 		);
 		await expect(api.capabilities()).resolves.toEqual({ owner: true });
+	});
+});
+
+// HOLODEX-502: a reload that would lose something is held instead. A redirected
+// write never reached Holodex, and unsaved input would be wiped, so both leave the
+// page in place with `reauth.hold` set for the banner. A pass-through response ends
+// the hold; a failed write stays owed ('resubmit') until a write succeeds.
+describe('held re-auth (HOLODEX-502)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	// A fresh api module and the reauth state that copy imports.
+	async function fresh() {
+		vi.resetModules();
+		const mod = await import('./api');
+		const { reauth } = await import('./reauth.svelte');
+		const assign = stubWindow('https://barclay.example/media/1');
+		return { ...mod, reauth, assign };
+	}
+
+	const opaque = opaqueRedirect;
+	const ok = (body: unknown = {}) => new Response(JSON.stringify(body), { status: 200 });
+
+	it('a redirected write holds the reload and records that the change was not saved', async () => {
+		const { api, ReauthError, reauth, assign } = await fresh();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await expect(api.renameEntity('person', 3, 'x')).rejects.toBeInstanceOf(ReauthError);
+		expect(assign).not.toHaveBeenCalled();
+		expect(reauth.hold).toBe('write');
+	});
+
+	it('a redirected read holds the reload while the page has unsaved input', async () => {
+		const { api, ReauthError, reauth, assign } = await fresh();
+		reauth.dirty = true;
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await expect(api.activity()).rejects.toBeInstanceOf(ReauthError);
+		expect(assign).not.toHaveBeenCalled();
+		expect(reauth.hold).toBe('edit');
+	});
+
+	it('a later redirected read never downgrades a failed write to a plain edit hold', async () => {
+		const { api, reauth } = await fresh();
+		reauth.dirty = true;
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await api.rescan().catch(() => {});
+		await api.activity().catch(() => {});
+		expect(reauth.hold).toBe('write');
+	});
+
+	it('a failed write with no input event is not reloaded away by the next poll', async () => {
+		const { api, reauth, assign } = await fresh();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await api.rescan().catch(() => {});
+		await api.activity().catch(() => {});
+		expect(assign).not.toHaveBeenCalled();
+		expect(reauth.hold).toBe('write');
+	});
+
+	it('a second lapse after signing back in owes the change again', async () => {
+		const { api, reauth, assign } = await fresh();
+		reauth.hold = 'resubmit';
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await api.activity().catch(() => {});
+		expect(assign).not.toHaveBeenCalled();
+		expect(reauth.hold).toBe('write');
+	});
+
+	it('an open dialog holds the reload even without an input event', async () => {
+		const { api, reauth, assign } = await fresh();
+		vi.stubGlobal('document', { querySelector: (sel: string) => (sel === '[role="dialog"]' ? {} : null) });
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opaque()));
+		await api.activity().catch(() => {});
+		expect(assign).not.toHaveBeenCalled();
+		expect(reauth.hold).toBe('edit');
+	});
+
+	it('regenerateThumbnail goes through the same redirect handling', async () => {
+		const { api, ReauthError, reauth } = await fresh();
+		const fetchMock = vi.fn().mockResolvedValue(opaque());
+		await expect(api.regenerateThumbnail(7, fetchMock)).rejects.toBeInstanceOf(ReauthError);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/media/7/thumbnail',
+			expect.objectContaining({ method: 'POST', redirect: 'manual', credentials: 'same-origin' })
+		);
+		expect(reauth.hold).toBe('write');
+	});
+
+	it('an edit hold clears once a request gets through again', async () => {
+		const { api, reauth } = await fresh();
+		reauth.hold = 'edit';
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok()));
+		await api.activity();
+		expect(reauth.hold).toBeNull();
+	});
+
+	it('a failed write stays owed after sign-in until a write succeeds', async () => {
+		const { api, reauth } = await fresh();
+		reauth.hold = 'write';
+		reauth.dirty = true;
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok()));
+		await api.activity();
+		expect(reauth.hold).toBe('resubmit');
+		expect(reauth.dirty).toBe(true);
+		await api.rescan();
+		expect(reauth.hold).toBeNull();
+		expect(reauth.dirty).toBe(false);
+	});
+
+	it('a rejected write leaves the input counted as unsaved', async () => {
+		const { api, reauth } = await fresh();
+		reauth.dirty = true;
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 400 })));
+		await expect(api.rescan()).rejects.toMatchObject({ status: 400 });
+		expect(reauth.dirty).toBe(true);
 	});
 });
 
