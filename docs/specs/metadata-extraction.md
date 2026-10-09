@@ -350,7 +350,7 @@ video. Design: [media-page-extraction-handoff.md](../design/media-page-extractio
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F48.8a | Completing a Person merge ([F23.9](person-aliases.md)) enqueues one writeback job per affected video, rewriting the loser's name to the canonical name in the People tag | N affected videos → N writeback jobs; same writequeue as F48.4a |
+| F48.8a | Completing a Person merge ([F23.9](person-aliases.md)) enqueues one writeback job per affected video, rewriting the loser's name to the canonical name in the People tag. Each credit field carries only the people credited in that role, so a co-credited director never lands in the cast | N affected videos → N writeback jobs; same writequeue as F48.4a; a video crediting the loser as cast and someone else as director gets only the survivor in its cast tag |
 | F48.8b | Completing a Studio merge does the same for the Studio tag | Symmetric with F48.8a once studio merge exists ([studio-entity.md](studio-entity.md) P2) |
 | F48.8c | Merge-triggered writes do **not** require a second preview/confirm — the merge's own informed-confirm (F43 RD8: shows video count before committing) is the authorization | No additional dialog between merge-confirm and the writeback jobs enqueuing |
 | F48.8d | Merge-triggered writes are snapshotted the same as any other write (F48.9) | A bad merge is revertible via F48.9, not just via un-merging in the DB |

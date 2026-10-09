@@ -147,14 +147,7 @@ func (h *Handlers) mergePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(videoIDs) > 0 {
-		if names, err := h.repo.PeopleForVideos(r.Context(), videoIDs); err != nil {
-			h.log.Warn("merge writeback: load people for videos", "err", err)
-		} else {
-			batchID := mergeBatchID(model.EnrichEntityPerson, id, body.FromID)
-			h.propagateMerge(r.Context(), "actors", batchID, videoIDs, namesByVideo(names, func(p model.Person) string { return p.Name }))
-		}
-	}
+	h.propagatePersonMerge(r.Context(), id, body.FromID, videoIDs)
 
 	writeJSON(w, http.StatusOK, map[string]any{"person": p})
 }
