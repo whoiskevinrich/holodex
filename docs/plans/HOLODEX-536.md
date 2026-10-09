@@ -2,7 +2,7 @@
 # Flightplan worklog — one epic, one worklog, one definition of done.
 # Schema + design: see the Flightplan plugin's own README and ADR-001 (in the plugin repo).
 key: HOLODEX-536
-status: in-progress
+status: done
 profile: backend             # metadata-extraction behaviour, no UI surface
 depends-on: []
 release_note: "MKV files with tags at several levels now show the episode's own title, cast and genres, not a track's or the whole series'."
@@ -24,10 +24,14 @@ and never inherit. Files the reader can't walk keep exiftool's values.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Squash-merge once CI is green
-2. [ ] After merge: record the deciding squash sha on the media-ingest.md section ("Decided in")
+1. [x] Squash-merged as 7a59cde6 (#474)
+2. [x] Deciding sha recorded on the media-ingest.md section
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-09 · merged, deciding commit recorded
+- skills: —
+- handoff: Merged as 7a59cde6 (#474); deciding sha recorded in media-ingest.md — epic complete.
 
 ### 2026-10-09 · Go Matroska Tags reader replaces incidental first-wins
 - skills: code-review
