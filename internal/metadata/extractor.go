@@ -75,6 +75,13 @@ func (e *Extractor) Extract(ctx context.Context, path string) (Extracted, error)
 	if err != nil {
 		return Extracted{}, err
 	}
+	// exiftool flattens Matroska tags across target levels; re-select them by
+	// level (HOLODEX-536). A file the reader can't walk keeps exiftool's values.
+	if isMatroska(path) {
+		if mt, err := readMatroskaTags(path); err == nil {
+			exifRaw = selectMatroskaTags(exifRaw, mt)
+		}
+	}
 	ex := mapExiftool(exifRaw)
 
 	if probe, err := e.runFfprobe(ctx, path); err == nil {
@@ -99,8 +106,7 @@ func (e *Extractor) Extract(ctx context.Context, path string) (Extracted, error)
 // parsing it; measured at ~0.2 s on a 2 h file. Not used for other containers:
 // on MP4, -ee walks every timed-metadata sample.
 func MatroskaSeekArgs(path string) []string {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".mkv", ".mka", ".mks", ".webm":
+	if isMatroska(path) {
 		return []string{"-ee"}
 	}
 	return nil
