@@ -98,10 +98,8 @@ type Config struct {
 	ProviderIconPath         string `yaml:"-"` // derived: DataPath/provider-icons
 	ProviderIconMaxDimension int    `yaml:"provider_icon_max_dimension"`
 
-	// Cache (ADR-008)
-	CacheBackend     string `yaml:"cache_backend"`
-	CacheMaxMemoryMB int    `yaml:"cache_max_memory_mb"`
-	RedisURL         string `yaml:"redis_url"`
+	// Cache (docs/architecture/config-and-settings.md)
+	CacheBackend string `yaml:"cache_backend"`
 
 	// MCP (Phase 2, ADR-005)
 	MCPEnabled   bool   `yaml:"mcp_enabled"`
@@ -207,7 +205,6 @@ func Defaults() Config {
 		FilmImageMaxDimension: 1500,     // posters are portrait; downscale to ≤1500px longest side
 
 		CacheBackend:         "memory",
-		CacheMaxMemoryMB:     128,
 		MCPTransport:         "http",
 		MCPPort:              7801,
 		MetadataMappingsPath: "./metadata-mappings.yaml",
@@ -363,8 +360,6 @@ func applyEnv(c *Config) {
 	c.FilmImageMaxDimension = envInt("FILM_IMAGE_MAX_DIMENSION", c.FilmImageMaxDimension)
 
 	c.CacheBackend = envStr("CACHE_BACKEND", c.CacheBackend)
-	c.CacheMaxMemoryMB = envInt("CACHE_MAX_MEMORY_MB", c.CacheMaxMemoryMB)
-	c.RedisURL = envStr("REDIS_URL", c.RedisURL)
 
 	c.MCPEnabled = envBool("MCP_ENABLED", c.MCPEnabled)
 	c.MCPTransport = envStr("MCP_TRANSPORT", c.MCPTransport)

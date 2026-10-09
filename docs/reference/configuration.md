@@ -141,13 +141,11 @@ Poster/thumb images for films — owner-uploadable per role (only `poster` has a
 
 ## Cache
 
-Holodex caches query results and rendered metadata to reduce database pressure. (ADR-008)
+Holodex has no application cache yet; the setting is the seam a future backend plugs into.
 
 | `holodex.yaml` key | Env var | Default | Description |
 |--------------------|---------|---------|-------------|
-| `cache_backend` | `CACHE_BACKEND` | `memory` | `memory` — in-process Ristretto cache (zero config). `redis` — share cache across restarts or replicas. `none` — disable caching entirely (development / debugging). |
-| `cache_max_memory_mb` | `CACHE_MAX_MEMORY_MB` | `128` | Maximum memory for the in-process cache (MiB). Has no effect when `cache_backend` is `redis` or `none`. |
-| `redis_url` | `REDIS_URL` | *(none)* | Redis connection URL. Required when `cache_backend: redis`. Example: `redis://localhost:6379/0`. |
+| `cache_backend` | `CACHE_BACKEND` | `memory` | Accepts `memory` or `none`. Both resolve to the no-op cache today: no cache backend is built yet, and reads go straight to SQLite (see [config-and-settings.md](../architecture/config-and-settings.md)). |
 
 ---
 
