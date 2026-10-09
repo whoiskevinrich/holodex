@@ -28,9 +28,12 @@
 //   DRY_RUN            optional — "true" to validate + log without POSTing
 //   PR_DOCS_ONLY       optional — "true" if the merged PR touched only docs/**; guards
 //                       against a standalone gate-artifact PR firing a premature Done
-//                       (see the "Check changed paths" step in jira-sync.yml)
+//                       (see the "Check changed paths" step in jira-sync.yml). A key whose
+//                       worklog (in the checked-out merge commit) has a posture with no
+//                       design-phase gate is exempt — see docsOnlyExempt (HOLODEX-550)
 
-import { makeLog, extractKeys, makeJiraClient, syncKeys } from "./lib/jira-sync.mjs";
+import { existsSync, readFileSync } from "node:fs";
+import { makeLog, extractKeys, makeJiraClient, syncKeys, docsOnlyExempt } from "./lib/jira-sync.mjs";
 
 const log = makeLog("jira-branch-sync");
 const { warn, info } = log;
@@ -47,6 +50,17 @@ const {
 } = process.env;
 
 const dryRun = DRY_RUN === "true";
+
+// A repo file's text, or null when it doesn't exist. `key` is already constrained to
+// `<PREFIX>-<digits>` by extractKeys, so it can't steer the path outside the worklog dir.
+const readIfPresent = (path) => (existsSync(path) ? readFileSync(path, "utf8") : null);
+
+// The keys whose docs-only merge may still fire Done (docsOnlyExempt).
+function docsOnlyExemptKeys(keys) {
+  const flightplan = readIfPresent(".claude/flightplan.yaml");
+  const dir = flightplan?.match(/^\s*dir:\s*(\S+)/m)?.[1] ?? "docs/plans";
+  return new Set(keys.filter((k) => docsOnlyExempt(readIfPresent(`${dir}/${k}.md`), flightplan)));
+}
 
 // Never fail the workflow: any missing config is a warning + clean exit.
 function bailSoft(msg) {
@@ -80,13 +94,15 @@ async function main() {
     email: JIRA_USER_EMAIL,
     token: JIRA_API_TOKEN,
   });
+  const docsOnly = PR_DOCS_ONLY === "true";
   await syncKeys({
     keys,
     targetStatus: JIRA_TARGET_STATUS,
     client,
     dryRun,
     log,
-    docsOnly: PR_DOCS_ONLY === "true",
+    docsOnly,
+    docsOnlyExemptKeys: docsOnly ? docsOnlyExemptKeys(keys) : undefined,
   });
   info("Jira sync complete");
 }

@@ -22,6 +22,9 @@
 # deploy. A merged PR that touched nothing outside docs/** can't be the PR that
 # finishes an epic's implementation, so the "Check changed paths" step below detects
 # that case and the script skips the Done transition for it (scripts/lib/jira-sync.mjs).
+# Exception (HOLODEX-550): a key whose worklog, read from this checkout of the merge
+# commit, names a posture with no design-phase gate (e.g. `chore`) still fires Done —
+# that ticket's whole job was the docs, so there is no implementation PR to wait for.
 name: Jira sync
 
 on:

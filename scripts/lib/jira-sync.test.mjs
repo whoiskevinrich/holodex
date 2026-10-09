@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractKeys, isBackwards, selectTransitionId, syncKeys } from "./jira-sync.mjs";
+import { docsOnlyExempt, extractKeys, isBackwards, selectTransitionId, syncKeys } from "./jira-sync.mjs";
 
 test("extractKeys pulls the key from a branch name", () => {
   assert.deepEqual(extractKeys("HOLODEX-132-jira-transitions-rest-api"), ["HOLODEX-132"]);
@@ -228,4 +228,62 @@ test("isBackwards ranks new < indeterminate < done and ignores unranked", () => 
   assert.equal(isBackwards("new", "done"), false);
   assert.equal(isBackwards("undefined", "new"), false);
   assert.equal(isBackwards("done", null), false);
+});
+
+// HOLODEX-550: the docs-only guard stranded docs *tickets* (HOLODEX-542 sat In Review after
+// its merge). A worklog whose posture carries no design-phase gate can't be a gate artifact
+// landing ahead of its implementation, so its docs-only merge is the whole job.
+const FLIGHTPLAN = `postures:
+  feature: [spec, design, backend, frontend, testing]   # new user-facing behavior
+  backend: [spec, backend, testing]
+  chore:   []                                            # closeouts, tooling, bookkeeping
+
+phases:
+  design: [spec, architecture, design]
+  build:  [backend, frontend, testing, security]
+`;
+const worklog = (profile) => `---\nkey: HOLODEX-542\n${profile}\n---\n\n# HOLODEX-542\n`;
+
+test("docsOnlyExempt: a posture with no design-phase gate is exempt", () => {
+  assert.equal(docsOnlyExempt(worklog("profile: chore            # docs-only"), FLIGHTPLAN), true);
+});
+
+test("docsOnlyExempt: a posture carrying a design-phase gate is not", () => {
+  assert.equal(docsOnlyExempt(worklog("profile: backend"), FLIGHTPLAN), false);
+  assert.equal(docsOnlyExempt(worklog("profile: feature"), FLIGHTPLAN), false);
+});
+
+test("docsOnlyExempt: anything it can't read keeps the guard", () => {
+  assert.equal(docsOnlyExempt(null, FLIGHTPLAN), false); // no worklog
+  assert.equal(docsOnlyExempt(worklog("profile:   # unset"), FLIGHTPLAN), false);
+  assert.equal(docsOnlyExempt(worklog("profile: choree"), FLIGHTPLAN), false); // unknown posture
+  assert.equal(docsOnlyExempt(worklog("profile: c.ore"), FLIGHTPLAN), false); // not a pattern
+  assert.equal(docsOnlyExempt(worklog("profile: chore"), null), false); // no config
+  assert.equal(docsOnlyExempt(worklog("profile: chore"), "postures:\n  chore: []\n"), false); // no phases.design
+});
+
+test("docsOnlyExempt: a profile inside an HTML comment doesn't count", () => {
+  assert.equal(docsOnlyExempt(worklog("<!-- profile: chore -->\nprofile: backend"), FLIGHTPLAN), false);
+});
+
+test("syncKeys fires Done for a docs-only PR whose key is exempt", async () => {
+  const calls = [];
+  const client = {
+    currentStatus: async () => ({ status: "In Review", issueType: "Task" }),
+    findTransition: async () => ({ id: "41" }),
+    transition: async (key, id) => calls.push([key, id]),
+  };
+  const log = { info: () => {}, warn: () => {} };
+
+  const failures = await syncKeys({
+    keys: ["HOLODEX-542", "HOLODEX-173"],
+    targetStatus: "Done",
+    client,
+    log,
+    docsOnly: true,
+    docsOnlyExemptKeys: new Set(["HOLODEX-542"]),
+  });
+
+  assert.equal(failures, 0);
+  assert.deepEqual(calls, [["HOLODEX-542", "41"]]); // HOLODEX-173 still guarded
 });

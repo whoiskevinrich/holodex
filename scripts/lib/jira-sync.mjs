@@ -17,6 +17,8 @@
 // `https://api.atlassian.com/ex/jira/<cloudId>` — a scoped API token 401s against
 // the `<site>.atlassian.net` URL (ADR-058 trap #2).
 
+import { frontmatter, maskComments } from "./worklog.mjs";
+
 export function makeLog(label = "jira-sync") {
   return {
     warn: (msg) => console.log(`::warning::[${label}] ${msg}`),
@@ -117,7 +119,32 @@ export function makeJiraClient({ baseUrl, email, token }) {
   };
 }
 
-async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly }) {
+// A `name: [a, b]` flow list under a top-level `block:` of flightplan.yaml, or null. Enough YAML
+// for the two lists the docs-only exemption reads; a shape it doesn't recognise reads as absent.
+function flowList(yaml, block, name) {
+  if (!/^[\w-]+$/.test(name)) return null; // a posture name, never a pattern
+  const body = yaml.match(new RegExp(`^${block}:[^\\n]*\\n((?:[ \\t]+[^\\n]*\\n?|[ \\t]*\\n)*)`, "m"))?.[1];
+  const items = body?.match(new RegExp(`^[ \\t]+${name}:[ \\t]*\\[([^\\]]*)\\]`, "m"))?.[1];
+  return items === undefined ? null : items.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+// Whether a docs-only merge may fire Done for this key (HOLODEX-550). The guard below exists
+// for a gate artifact (spec/design/worklog) merging ahead of its implementation, and that
+// can only happen to an epic whose posture has a design-phase gate. A worklog whose
+// `profile:` names a posture with none (e.g. `chore`) is a ticket whose whole job is the
+// docs, so its merge is the finish. Anything unreadable — no worklog, an unset or unknown
+// profile, no `phases.design` — keeps the guard.
+export function docsOnlyExempt(worklogText, flightplanText) {
+  if (!worklogText || !flightplanText) return false;
+  const profile = frontmatter(maskComments(worklogText), "profile")?.replace(/^(['"])(.*)\1$/, "$2");
+  if (!profile) return false;
+  const gates = flowList(flightplanText, "postures", profile);
+  const designGates = flowList(flightplanText, "phases", "design");
+  if (!gates || !designGates) return false;
+  return !gates.some((g) => designGates.includes(g));
+}
+
+async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly, docsOnlyExemptKeys }) {
   const cur = await client.currentStatus(key);
   if (cur.missing) return log.warn(`${key}: not found in Jira — skipping`);
   // Epics roll up child work and their own gates (see docs/specs); CI has no
@@ -131,12 +158,16 @@ async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOn
   // that should have stayed inside the epic's one Draft PR (ADR-069). Firing Done here
   // is exactly the HOLODEX-173/220 incident: a premature Done that then cascades to
   // Released on the next deploy via jira-release-sync.mjs. Scoped to Done only — an
-  // early In Review doesn't cascade, so it isn't worth blocking.
+  // early In Review doesn't cascade, so it isn't worth blocking. A key whose worklog
+  // posture has no design-phase gate is exempt (docsOnlyExempt, HOLODEX-550).
   if (docsOnly && targetStatus.toLowerCase() === "done") {
-    return log.warn(
-      `${key}: merged PR only touched docs/** — skipping Done (looks like a standalone ` +
-        `gate-artifact PR, not the epic's implementation; see docs/reference/jira-pipeline.md)`,
-    );
+    if (!docsOnlyExemptKeys?.has(key)) {
+      return log.warn(
+        `${key}: merged PR only touched docs/** — skipping Done (looks like a standalone ` +
+          `gate-artifact PR, not the epic's implementation; see docs/reference/jira-pipeline.md)`,
+      );
+    }
+    log.info(`${key}: docs-only merge, but its worklog posture has no design-phase gate — firing Done`);
   }
   if (cur.status?.toLowerCase() === targetStatus.toLowerCase()) {
     return log.info(`${key}: already "${targetStatus}" — no-op`);
@@ -169,11 +200,11 @@ async function syncOne({ key, targetStatus, client, dryRun, log, context, docsOn
 
 // Transition every key toward targetStatus. Per-key try/catch — never throws;
 // returns the failure count so the caller can log a summary.
-export async function syncKeys({ keys, targetStatus, client, dryRun, log, context, docsOnly }) {
+export async function syncKeys({ keys, targetStatus, client, dryRun, log, context, docsOnly, docsOnlyExemptKeys }) {
   let failures = 0;
   for (const key of keys) {
     try {
-      await syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly });
+      await syncOne({ key, targetStatus, client, dryRun, log, context, docsOnly, docsOnlyExemptKeys });
     } catch (err) {
       failures++;
       log.warn(`${key}: ${err.message}`);
