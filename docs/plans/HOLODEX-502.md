@@ -26,19 +26,18 @@ goes through the same redirect handling.
 
 - [x] spec `write-spec` → `docs/specs/**` — OS8 in owner-session-persistence.md
 - [~] architecture `architecture` — no technology fork: same `redirect: 'manual'` detection, a held branch in `triggerReauth`
-- [x] design `design-handoff` → `docs/design/**` — session-expired-banner handoff + SVG (owner sign-off on the sticky z-[70] refinement pending)
+- [x] design `design-handoff` → `docs/design/**` — session-expired-banner handoff + SVG, signed off at 00e12565; build confirmed matching the mockup 2026-10-09
 - [~] backend — frontend-only change; no server route or behavior touched
 - [x] frontend → `web/src/**`
 - [x] testing `testing-strategy`
-- [ ] security `security-review` — touches the auth-recovery path
+- [x] security `security-review` — ran on 00e12565 (whole branch): no findings; client-side reload/banner logic only, server auth (`requireOwner`, session cookie) untouched, `window.open` same-origin + `noopener`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [security] `/security-review` ran clean on 00e12565 (no findings) — `/handoff` to settle the gate, then mark the PR ready
-2. [ ] [—] On merge, confirm CI moved HOLODEX-502 to Done
+1. [ ] [—] Squash-merge PR #480 on green CI, then confirm CI moved HOLODEX-502 to Done — `.github/workflows/jira-sync.yml`
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-09 · held re-auth + session-expired banner
-- skills: code-review high --fix, security-review, implement
-- handoff: Crossed into build — design signed off at 00e12565; draft PR open. Start at settling the security gate (review ran clean) and marking the PR ready.
+- skills: code-review high --fix, security-review, implement, handoff
+- handoff: All gates settled (security clean, build confirmed against the approved mockup) and PR #480 marked ready for review; next is squash-merge on green CI.
