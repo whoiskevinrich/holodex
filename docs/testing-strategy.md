@@ -4227,7 +4227,13 @@ folder and a whole-page failure when the video read fails. Item 6 is the owner's
 
 - Detection covers matched files only; unmatched copies are invisible until enriched (spec
   non-goal, HOLODEX-520).
-- Purge still orphans a video's polymorphic edit rows (HOLODEX-547); only the keep-separate row is
-  cleaned.
-- The mkvpropedit edition-clear case needs `make test-image`.
+
+### 24.9 Closed since merge (2026-10-09)
+
+- The mkvpropedit edition-clear case ran under `make test-image` and passed
+  (`TestEditionClear_RealFiles/Matroska/mkvpropedit`).
+- Purge no longer orphans a video's per-entity rows (HOLODEX-547): migration 0060's
+  `videos_ad_entity_rows` trigger deletes its enrichment, decisions, curation and not-applicable
+  rows, and a one-time sweep removed earlier orphans. `TestMigration0060VideoEntityRows` covers
+  both; dropping the trigger or the sweep each turns it red.
 - Keyboard order inside the panel and the Escape order (editor, then panel) are live-QA only.

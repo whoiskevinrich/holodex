@@ -33,8 +33,8 @@ the scene model (HOLODEX-520).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs (skipped locally) — `internal/writeback/edition_clear_integration_test.go`
-2. [ ] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → HOLODEX-547
+1. [x] [—] Run `make test-image` once so the mkvpropedit edition-clear case runs — passed 2026-10-09 (`TestEditionClear_RealFiles/Matroska/mkvpropedit`; all three image packages green)
+2. [x] [—] Permanent delete leaves a video's decisions/curation/dismissals orphaned (found writing F76) → fixed under HOLODEX-547 (migration 0060)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
