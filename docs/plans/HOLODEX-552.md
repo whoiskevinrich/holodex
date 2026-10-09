@@ -74,7 +74,7 @@ on #473.
 
 ### 2026-10-09 · merge propagation made role-aware
 - skills: code-review, handoff, implement
-- handoff: Fixed and green (go test ./...). It's stacked on #476, which is on #473: merge those in order, then merge main in here and mark this PR ready.
+- handoff: Fixed and green; draft PR #477 is stacked on #476, which is on #473. Merge those two in order, then merge main in here and mark #477 ready.
 
 ## Dropped — newest first (the reason is the point)
 
