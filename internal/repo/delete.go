@@ -125,7 +125,9 @@ func (r *Repo) PurgePath(ctx context.Context, id int64) (string, error) {
 // HardDelete removes a video row permanently (F24.4/F24.5). The ON DELETE CASCADE
 // foreign keys (video_people/video_tags/video_metadata/video_studios/
 // file_writebacks/writeback_queue) and the videos_ad FTS trigger clean up the
-// junctions and search index automatically. A no-op (0 rows) is not an error —
+// junctions and search index automatically; the videos_ad_* triggers drop the
+// FK-less per-entity rows (enrichment, decisions, curation, not-applicable marks,
+// dismissals). A no-op (0 rows) is not an error —
 // the desired end state is "the row is gone". Every video_* child table must
 // carry ON DELETE CASCADE on its video_id FK, or this fails with a FOREIGN KEY
 // constraint error for any video with rows there (see migration 0042 —
@@ -134,10 +136,20 @@ func (r *Repo) HardDelete(ctx context.Context, id int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+	if _, err := tx.ExecContext(ctx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("hard delete: %w", err)
 	}
-	return nil
+	// A kept-both duplicate-video pair (F76) has no FK to videos; drop it with the row.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM entity_keep_separate WHERE entity_type = 'video' AND ? IN (id_lo, id_hi)`, id); err != nil {
+		return fmt.Errorf("hard delete keep-separate: %w", err)
+	}
+	return tx.Commit()
 }
 
 // VideoVisible reports whether a video exists and is not soft-deleted — the cheap

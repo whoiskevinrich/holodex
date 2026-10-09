@@ -75,6 +75,69 @@ export interface DuplicatePair {
 	match_kind: 'canonical' | 'mixed' | 'alias';
 }
 
+// Duplicate videos (F76): two live files matched to the same provider item. Not an
+// entity pair — the verbs are keep one / keep both / label as editions or parts.
+export interface VideoPairSide {
+	id: number;
+	title: string;
+	width: number;
+	height: number;
+	duration_sec: number;
+}
+
+export interface VideoDuplicatePair {
+	/** The shared provider item's title (both files are that item); the first file's own
+	 *  title when the provider gave none. */
+	title: string;
+	a: VideoPairSide;
+	b: VideoPairSide;
+}
+
+export interface FilmLink {
+	film_id: number;
+	name: string;
+	scene_number?: number;
+	is_full_film: boolean;
+}
+
+/** The owner's own work on a file — the compare table's "Your work" row. */
+export interface VideoWork {
+	playlists: number;
+	films: FilmLink[];
+	edits: number;
+	manual_tags: number;
+}
+
+/** What keeping one copy moves onto it from the other (same shape as VideoWork). */
+export type CarryPreview = VideoWork;
+
+export interface VideoCompareSide {
+	id: number;
+	title: string;
+	file_path: string;
+	file_name: string;
+	folder: string;
+	file_size: number;
+	duration_sec: number;
+	width: number;
+	height: number;
+	video_codec?: string;
+	bitrate_kbps?: number;
+	container?: string;
+	edition?: string;
+	part?: string;
+	work: VideoWork;
+	/** What moves onto this side if the owner keeps it. */
+	if_kept: CarryPreview;
+}
+
+export interface VideoCompare {
+	can_label_editions: boolean;
+	can_label_parts: boolean;
+	a: VideoCompareSide;
+	b: VideoCompareSide;
+}
+
 export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)

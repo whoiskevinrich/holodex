@@ -146,7 +146,8 @@ Decided in [`28e2540d`](https://github.com/whoiskevinrich/holodex/commit/28e2540
 
 ## Suspected duplicates go to one review queue, never to a merge
 
-`identity_review_queue(entity_type, id_lo, id_hi, variation, …)` holds every suspected pair; every
+`identity_review_queue(entity_type, id_lo, id_hi, variation, …)` holds every suspected entity pair
+(duplicate videos are computed on demand instead, see the next section); every
 producer honors `entity_keep_separate` and none ever merges. Producers, by `variation`:
 
 - **Name near-miss** (`internal-whitespace`, `punctuation`, …) — a loose key (lowercase, strip
@@ -168,3 +169,40 @@ owner's mis-pick. **Rejected:** moving the skip record to its own table — a mi
 repointed readers for no visible difference.
 
 Decided in [`0f534581`](https://github.com/whoiskevinrich/holodex/commit/0f534581).
+
+## Duplicate videos are computed on demand, not queued
+
+Two live files whose current match for one provider is the same external id are a duplicate-video
+pair (F76). `ListVideoPairs` computes them on every read from `videoSharedMatchSQL`: per video
+and provider, the newest non-empty `entity_enrichment.external_id` (the same memo rule as
+`shared-external-id`), joined only over `videos` that are active and not soft-deleted, minus pairs
+with an `entity_keep_separate('video', …)` row. Nothing is written to `identity_review_queue`.
+
+- **Keep both** writes the keep-separate row, so it survives re-matches and rescans.
+  `HardDelete` drops it with the video, since the table has no foreign key.
+- **Keep one** (`KeepOneVideo`) runs in one transaction under `writeMu`. It:
+  1. re-checks that the pair is still live;
+  2. moves playlist places and film links from the trashed video to the kept one;
+  3. copies field decisions, curation, not-applicable marks and manual tags, but only for fields
+     the kept video has no edit on, and never part or edition;
+  4. soft-deletes the other video.
+
+  It writes no keep-separate row, so a restored copy's pair returns. The confirm's preview
+  (`PreviewCarry`) and the apply share one `planCarry`, so they cannot disagree.
+- **Labels** (`LabelVideoPair`) write manual edition or part decisions and the keep-separate row in
+  the same transaction.
+
+The memo column this reads is the one HOLODEX-457 plans to re-home. `videoSharedMatchSQL` is the
+single place that work has to update.
+
+**Rejected:** storing video pairs in `identity_review_queue`. A pair's liveness is a property of the
+files, so every way a file stops pairing would need its own hook to expire the row:
+
+- moved to Trash
+- restored
+- marked missing by the scanner
+- re-matched to another item
+
+With about 20 pairs in a ~3,800-file library, the on-demand query costs nothing.
+
+Decided in [`bf65fb5f`](https://github.com/whoiskevinrich/holodex/commit/bf65fb5f) (HOLODEX-521).

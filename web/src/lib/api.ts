@@ -2,6 +2,9 @@
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
 import type {
+	CarryPreview,
+	VideoCompare,
+	VideoDuplicatePair,
 	Activity,
 	Capabilities,
 	Category,
@@ -956,6 +959,28 @@ export const api = {
 			id_a: idA,
 			id_b: idB
 		}),
+
+	// Duplicate videos (F76). Owner-gated. Pairs are computed on demand: two live files
+	// matched to the same provider item.
+	videoDuplicates: () => getAuthed<{ pairs: VideoDuplicatePair[] }>(`/owner/duplicates/videos`),
+
+	videoDuplicateCompare: (a: number, b: number) =>
+		getAuthed<VideoCompare>(`/owner/duplicates/videos/${a}/${b}`),
+
+	/** Keep `keepId`; `trashId` goes to Trash and the owner's work on it moves over. */
+	keepVideo: (keepId: number, trashId: number) =>
+		sendAuthed<{ carried: CarryPreview }>('POST', `/owner/duplicates/videos/keep`, {
+			keep_id: keepId,
+			trash_id: trashId
+		}),
+
+	keepBothVideos: (a: number, b: number) =>
+		sendAuthed<Record<string, never>>('POST', `/owner/duplicates/videos/keep-both`, { id_a: a, id_b: b }),
+
+	/** Label the pair as editions or parts and resolve it as keep both. An empty edition on a
+	 *  side that shows one removes it. */
+	labelVideoPair: (field: 'edition' | 'part', labels: [{ id: number; value: string }, { id: number; value: string }]) =>
+		sendAuthed<Record<string, never>>('POST', `/owner/duplicates/videos/label`, { field, labels }),
 
 	// Tag deny-list (F50, ADR-075 D2) — the owner's /owner/tags "Deny-list" tab.
 	// A denied term is blocked from becoming a tag from any origin (scanner,

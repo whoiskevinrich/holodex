@@ -104,7 +104,9 @@ records.
 - **RD2 — it queues, it never merges.** ADR-107 D3. F70's rule governs: positive evidence can be
   decisive, but the panel reports and never adjudicates.
 - **RD3 — person, studio and film. Video and tag are excluded by construction**, with named tests,
-  not comments. ADR-107 D5.
+  not comments. ADR-107 D5. Two *files* sharing a match is a different question with file verbs
+  (keep one, keep both, label as editions or parts); it has its own lane in
+  [F76](duplicate-videos.md) and never enters this detector.
 - **RD4 — two producers.** A write-time guard at `Repo.AttachExternalID` closes the source; a boot
   sweep drains the backlog. ADR-107 D4.
 - **RD5 — the boot sweep is not gated on `HasSuccessfulJobRun`.** The identity backfill's gate

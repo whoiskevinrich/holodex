@@ -4130,3 +4130,112 @@ component harness doesn't exist (HOLODEX-395).
   non-gating `BenchmarkSmartPlaylistRead` over the stress fixture's largest facet. That makes the
   measurement exist before anyone argues for the cache.
 - Safari's autoplay after a run hand-off is a §14 human item, unchanged.
+
+## 24. Duplicate videos (F76, HOLODEX-521)
+
+[Spec](specs/duplicate-videos.md) · [architecture](architecture/entity-identity.md) (computed on
+demand, not queued) · [handoff](design/duplicate-videos-handoff.md). Two live files matched to the
+same provider item are a pair; the owner keeps one (the other goes to Trash and their work carries
+over), keeps both, or labels them as editions or parts. Clearing an emptied edition also made
+edition a clearable field everywhere (RD9). Most of the weight sits on the carry-over: it is the one
+step that writes to six tables for the owner in one go.
+
+### 24.1 Risks, ranked
+
+1. **Lost or wrong work on keep one.** A playlist place, film link or edit vanishes at purge, or the
+   kept copy's own choice is overwritten. Guard: additive-only SQL, part and edition never carry,
+   one transaction.
+2. **A carried decision that blanks a field.** A decision pinned to a provider the kept copy isn't
+   matched to (or a film it isn't linked to) resolves to nothing. Guard: `carryDecisionOK`.
+3. **The confirm lies.** It lists what would move, then something else moves. Guard: preview and
+   apply share `planCarry`.
+4. **A stale pair acted on.** A side was trashed, re-matched or kept-both since the panel loaded.
+   Guard: liveness re-checked inside the write transaction (409).
+5. **A clear that comes back.** An emptied edition reappears from the file tag or filename, or the
+   file tag survives writeback. Guard: the cleared decision, and the per-container delete proof.
+
+### 24.2 Go unit (`internal/repo/video_pairs_test.go`)
+
+- **Detection (P0-1):** a pair lists for one provider's shared id; the same id from another provider
+  doesn't pair; trash removes it and restore brings it back; re-match removes it; `active = 0`
+  removes it; the newest memo wins over an older row a narrower re-enrich left behind; three files
+  give three pairs; the pair carries the provider item's title.
+- **Keep both (P0-6):** durable across a re-match; `HardDelete` drops the keep-separate row.
+- **Keep one (P0-4/5):** the preview equals what moved; playlist place taken at the trashed copy's
+  position, and a playlist holding both is unchanged; the scene link moves with its number while
+  the kept copy's own film link stands; the kept copy's title edit wins; collection, curation and
+  a not-applicable mark carry; part and edition never carry; a file-sourced tag is upgraded to
+  manual; the trashed copy keeps its own decisions (restore is lossless).
+- **Unreadable decisions:** a provider decision the kept copy can't read stays behind; a readable
+  provider decision and a film decision whose link moves both carry.
+- **Atomicity:** a trigger that aborts the trash step leaves the playlist place, the carried
+  decision and the trashed copy's liveness all untouched.
+- **Not live:** keep one and label both return `ErrVideoPairNotLive` on a non-pair.
+- **Labels (P0-7/8):** labeling sets the value, leaves a blank side untouched, and resolves the pair.
+
+### 24.3 API integration (`internal/api/duplicates_video_test.go`, real repo, `httptest`)
+
+- Owner gate: all five routes 401 without a token.
+- List: the row title is the provider item's title; side facts come from the file.
+- Compare: `can_label_*` follow the mapping; `file_name` and `if_kept` present; a non-pair 404s.
+- Keep one: same ids 400; success returns `carried`; a second keep on the resolved pair 409s.
+- Keep both: 204 and the pair is gone.
+- Label validation: unknown field, both editions empty, equal parts, a missing part, a non-number
+  and zero all 400; valid parts 204.
+- Clear: emptying a side that shows an edition stores it as cleared (RD9); an unmapped edition 409s;
+  the media decision API now accepts a clear on edition and still refuses one on title.
+
+### 24.4 Per-container file proof (`-tags integration`, `make test-image`)
+
+`internal/writeback/edition_clear_integration_test.go`, `TestEditionClear_RealFiles`: plants an
+edition (MP4 `XMP-prism:Edition`, Matroska `EDITION`), clears it through `ClearTagNames` + each
+backend's write, and asserts no `Edition` remains, Title is untouched and no placeholder reached the
+file. **Run 2026-10-08 locally:** MP4/exiftool and Matroska/ffmpeg passed; Matroska/mkvpropedit
+skipped (not installed) and needs `make test-image`.
+
+### 24.5 SPA unit (Vitest)
+
+- `videoPairs.test.ts`: the `4K · 34:14` summary; fact-row presence (a row when either side has a
+  value, a blank cell otherwise; Edition and Part only when set); media-page formats; work and
+  carry-over lines; the label validation copy; the focus ladder.
+- `verdictOwnership.test.ts`: the video panel renders the row's `verdicts` and `keepThis` snippets,
+  carries no resolving call, and the row styles Keep both as the ghost and Keep this one as the pill.
+
+### 24.6 Live QA (Cinémathèque; no component harness, §16)
+
+1. `[agent]` Videos group renders last, `?type=video` filters to it, row title is the provider's.
+2. `[agent]` Fact table aligned, posters fall back to the themed empty frame, folder keeps the
+   path's own separators.
+3. `[agent]` Label as parts: equal numbers show the error; valid numbers save, the pair leaves and
+   focus lands on the next disclosure.
+4. `[agent]` Keep this one: the confirm names the trashed file and lists only what moves (or says
+   nothing does); confirming trashes it and removes the pair.
+5. `[agent]` 375 px: both columns side by side, no horizontal scroll, footer actions on one line.
+6. `[human]` Compare the built page against the approved mockup (handoff §3d).
+
+**Live run, 2026-10-08** (`backend-stress-dup`, a copy of the stress fixture with three seeded
+pairs): items 1–5 passed; the run found and fixed a broken-image glyph, Windows backslashes in the
+folder and a whole-page failure when the video read fails. Item 6 is the owner's.
+
+### 24.7 Mutation checks (run 2026-10-08, each turned its named test red)
+
+- `carryDecisionOK` always true → `TestVideoPairs_KeepOneSkipsUnreadableDecisions`.
+- Part/edition exclusion emptied → `TestVideoPairs_KeepOneCarriesWork`.
+- `edition` dropped from `clearableFields` → `TestVideoDuplicates_EditionClearableEverywhere`.
+- Keep-one liveness check skipped → `TestVideoPairs_KeepOneNotLive`.
+- Playlist carry ignoring the kept copy's membership → `TestVideoPairs_KeepOneCarriesWork`.
+
+### 24.8 Standing gaps
+
+- Detection covers matched files only; unmatched copies are invisible until enriched (spec
+  non-goal, HOLODEX-520).
+
+### 24.9 Closed since merge (2026-10-09)
+
+- The mkvpropedit edition-clear case ran under `make test-image` and passed
+  (`TestEditionClear_RealFiles/Matroska/mkvpropedit`).
+- Purge no longer orphans a video's per-entity rows (HOLODEX-547): migration 0060's
+  `videos_ad_entity_rows` trigger deletes its enrichment, decisions, curation and not-applicable
+  rows, and a one-time sweep removed earlier orphans. `TestMigration0060VideoEntityRows` covers
+  both; dropping the trigger or the sweep each turns it red.
+- Keyboard order inside the panel and the Escape order (editor, then panel) are live-QA only.
