@@ -296,6 +296,90 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 	}
 }
 
+// TestRenameEndpoint_PropagatesWritebackToLinkedVideos is HOLODEX-551: renaming a
+// person rewrites the cast tag on every video they are linked to, with the new
+// canonical name in place of the old and co-stars preserved. A co-linked director
+// stays out of the cast tag — each person-typed field writes only its own role.
+func TestRenameEndpoint_PropagatesWritebackToLinkedVideos(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+
+	var mu sync.Mutex
+	written := map[string][]string{} // file path -> Artist tag values written
+	q := writequeue.New(r, func(_ context.Context, path string, fields []writeback.FieldWrite) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, f := range fields {
+			if f.TagName == "Artist" {
+				written[path] = f.Values
+			}
+		}
+		return nil
+	}, log, 1, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q.Start(ctx)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	seed := func(path string, links ...repo.PersonRoleName) {
+		id, err := r.UpsertVideo(ctx, &model.Video{
+			FilePath: path, Title: path, Duration: 60, Width: 1920, Height: 1080,
+			Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+		}, nil)
+		if err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+		if err := r.ReconcileVideoPeople(ctx, id, links, nil); err != nil {
+			t.Fatalf("link %s: %v", path, err)
+		}
+	}
+	actor := func(n string) repo.PersonRoleName { return repo.PersonRoleName{Name: n, Role: "actor"} }
+	seed("/m/solo.mkv", actor("Bob"))
+	seed("/m/together.mkv", actor("Bob"), actor("Carol"), repo.PersonRoleName{Name: "Dan", Role: "director"})
+	seed("/m/carol.mkv", actor("Carol"))
+
+	bob, _, _ := r.PersonIDByName(ctx, "Bob")
+	if code, _ := postTok(t, srv.URL+"/api/v1/people/"+itoa(bob)+"/rename", "", map[string]string{"name": "Robert"}); code != http.StatusNoContent {
+		t.Fatalf("rename = %d, want 204", code)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("writeback queue did not drain")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(written) != 2 {
+		t.Errorf("files written = %v, want exactly 2 (one per video linked to the renamed person)", written)
+	}
+	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Robert" {
+		t.Errorf("solo.mkv written = %v, want [Robert]", got)
+	}
+	if got := written["/m/together.mkv"]; len(got) != 2 || got[0] != "Carol" || got[1] != "Robert" {
+		t.Errorf("together.mkv written = %v, want [Carol Robert] (Carol kept, director Dan left out)", got)
+	}
+	if _, wrote := written["/m/carol.mkv"]; wrote {
+		t.Error("carol.mkv was never linked to the renamed person, should not have been written")
+	}
+}
+
 func aliasList(t *testing.T, body map[string]any) []map[string]any {
 	t.Helper()
 	raw, _ := body["aliases"].([]any)

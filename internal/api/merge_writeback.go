@@ -3,7 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"holodex/internal/model"
+	"holodex/internal/registry"
 	"holodex/internal/writequeue"
 )
 
@@ -54,6 +57,59 @@ func (h *Handlers) propagateMerge(ctx context.Context, field, batchID string, vi
 	}
 	if _, err := h.writeQueue.EnqueueMany(ctx, jobs, batchID); err != nil {
 		h.log.Warn("merge writeback enqueue failed", "field", field, "batch_id", batchID, "videos", len(jobs), "err", err)
+	}
+}
+
+// propagatePersonRename (HOLODEX-551) syncs a completed person rename to every
+// video the person is linked to: each person-typed field (registry.PersonTypedFields)
+// whose role the person holds on that video is rewritten to the video's linked
+// people in that role, under their canonical names — so the new name replaces the
+// old one and co-credits are kept. Without it the old spelling stays on file, and
+// no other path rewrites a cast tag. All jobs share one snapshot batch, so a
+// single Revert undoes the rename's writes. Like propagateMerge, the rename's own
+// request is the authorization, and failures are logged, not fatal: the rename
+// already committed. No-op when writeback is disabled.
+func (h *Handlers) propagatePersonRename(ctx context.Context, personID int64) {
+	if h.writeQueue == nil {
+		return
+	}
+	videoIDs, err := h.repo.VideoIDsForPerson(ctx, personID)
+	if err != nil {
+		h.log.Warn("rename writeback: load linked videos", "person_id", personID, "err", err)
+		return
+	}
+	people, err := h.repo.PeopleForVideos(ctx, videoIDs)
+	if err != nil {
+		h.log.Warn("rename writeback: load people for videos", "person_id", personID, "err", err)
+		return
+	}
+	personFields := registry.PersonTypedFields()
+	jobs := make([]writequeue.BatchJob, 0, len(videoIDs))
+	for _, videoID := range videoIDs {
+		var fields []writequeue.JobField
+		for _, def := range personFields {
+			var names []string
+			renamedHere := false
+			for _, p := range people[videoID] {
+				if p.Role != def.Role {
+					continue
+				}
+				names = append(names, p.Name)
+				renamedHere = renamedHere || p.ID == personID
+			}
+			if renamedHere {
+				fields = append(fields, writequeue.JobField{Field: def.Canonical, Values: names, Source: writequeue.SourceRename})
+			}
+		}
+		if len(fields) > 0 {
+			jobs = append(jobs, writequeue.BatchJob{VideoID: videoID, Fields: fields})
+		}
+	}
+	// A person can be renamed again later, so unlike mergeBatchID the pair alone
+	// is not unique; the timestamp keeps each rename's revert batch its own.
+	batchID := fmt.Sprintf("rename-%s-%d-%d", model.EnrichEntityPerson, personID, time.Now().UnixNano())
+	if _, err := h.writeQueue.EnqueueMany(ctx, jobs, batchID); err != nil {
+		h.log.Warn("rename writeback enqueue failed", "batch_id", batchID, "videos", len(jobs), "err", err)
 	}
 }
 

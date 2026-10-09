@@ -355,6 +355,7 @@ video. Design: [media-page-extraction-handoff.md](../design/media-page-extractio
 | F48.8c | Merge-triggered writes do **not** require a second preview/confirm — the merge's own informed-confirm (F43 RD8: shows video count before committing) is the authorization | No additional dialog between merge-confirm and the writeback jobs enqueuing |
 | F48.8d | Merge-triggered writes are snapshotted the same as any other write (F48.9) | A bad merge is revertible via F48.9, not just via un-merging in the DB |
 | F48.8e | Filenames are **not** rewritten by a merge (Non-Goals) | Only embedded tags change; the filename retains the loser's name until the (future, separate) rename feature ships |
+| F48.8f | Renaming a Person rewrites the person's credits on every linked video too, the same way a merge does (F48.8c/d hold: no second confirm, one revertible batch). Each credit field carries only the people credited in that role, so a co-credited director never lands in the cast | Rename "Bob" → "Robert": every video crediting Bob as cast is rewritten with "Robert" in place of "Bob", co-stars kept; a video Bob isn't credited on is untouched; renaming to the identical name writes nothing. A display-name pick on the person page is not a rename and writes nothing |
 
 ### F48.9 — Rollback
 
