@@ -155,6 +155,16 @@ Design notes:
   ADR-106 a `PreToolUse` guard refuses `gh pr create` while a design gate is open. Symptom if
   this regresses: an issue is `Released` in Jira with only a spec/design/worklog PR merged and
   no feature code.
+  **Exception — docs tickets** (HOLODEX-550, 2026-10-08): the guard read "only `docs/**`
+  changed" as "a gate artifact ahead of its code", which is false for a ticket whose whole job
+  is docs — HOLODEX-542, a `chore`-posture Task, sat `In Review` after its merge with no
+  implementation PR ever coming. So `jira-branch-sync.mjs` reads each key's worklog
+  (`docs/plans/<KEY>.md`) from the checked-out merge commit, and `docsOnlyExempt` lets Done fire
+  when its `profile:` names a posture in `.claude/flightplan.yaml` with no `phases.design` gate
+  (today only `chore`). A gate artifact can only belong to a posture that has one, so the
+  original incident stays guarded. No worklog, an unset or unknown profile, or a config without
+  `phases.design` keeps the skip. Symptom if this regresses: a docs-only `chore` ticket stays
+  `In Review` after its PR merges, with the "skipping Done" warning in the run log.
 - **CI never moves an issue backwards** (HOLODEX-462, 2026-09-26) — `syncOne` refuses any
   transition whose destination `statusCategory` ranks earlier than the issue's current one
   (`new` → `indeterminate` → `done`) and logs a `::warning::`. Sideways moves still happen:
