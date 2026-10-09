@@ -208,6 +208,9 @@ func (h *Handlers) renamePerson(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is too long")
 		return
 	}
+	// The pre-rename name tells a real rename from the exact-name no-op, which must
+	// not rewrite every linked file (HOLODEX-551). A lookup error just propagates.
+	before, _ := h.repo.GetPerson(r.Context(), id)
 	conflictID, err := h.repo.RenamePerson(r.Context(), id, name)
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
@@ -227,6 +230,9 @@ func (h *Handlers) renamePerson(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		h.fail(w, "rename person", err)
 		return
+	}
+	if before == nil || before.Name != name {
+		h.propagatePersonRename(r.Context(), id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

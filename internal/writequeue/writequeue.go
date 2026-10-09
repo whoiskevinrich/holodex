@@ -58,12 +58,14 @@ type JobField struct {
 type ClearSourcesFunc func(canonical string) []string
 
 // Write-job sources whose values are already reconciled in the DB before the
-// file is touched: SourceMerge (the merge already repointed associations) and
-// SourceRevert (restoring a prior on-disk value). SourceMerge is also
-// referenced by internal/api's merge propagation so the string has one
+// file is touched: SourceMerge (the merge already repointed associations),
+// SourceRename (a person rename already set the canonical name, HOLODEX-551) and
+// SourceRevert (restoring a prior on-disk value). SourceMerge and SourceRename
+// are also referenced by internal/api's propagation so each string has one
 // definition.
 const (
 	SourceMerge  = "merge"
+	SourceRename = "rename"
 	SourceRevert = "revert"
 )
 

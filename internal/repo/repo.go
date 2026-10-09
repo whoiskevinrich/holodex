@@ -683,6 +683,28 @@ func (r *Repo) PeopleForVideos(ctx context.Context, ids []int64) (map[int64][]mo
 	return out, rows.Err()
 }
 
+// VideoIDsForPerson returns the active/non-deleted video ids a person is linked to
+// in any role — the rename-writeback scope (HOLODEX-551), mirroring VideoIDsForFilm.
+func (r *Repo) VideoIDsForPerson(ctx context.Context, personID int64) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT v.id FROM video_people vp JOIN videos v ON v.id = vp.video_id
+		WHERE vp.person_id = ? AND v.active = 1 AND v.deleted_at IS NULL
+		ORDER BY v.id`, personID)
+	if err != nil {
+		return nil, fmt.Errorf("video ids for person: %w", err)
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var videoID int64
+		if err := rows.Scan(&videoID); err != nil {
+			return nil, err
+		}
+		out = append(out, videoID)
+	}
+	return out, rows.Err()
+}
+
 // GetVideo returns a single (active-or-inactive) non-soft-deleted video with its
 // people, tags, and raw metadata, or ErrNotFound. A soft-deleted row 404s here
 // just as it is absent from every list surface (F24.2/ADR-037 §4).
