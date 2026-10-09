@@ -134,10 +134,20 @@ func (r *Repo) HardDelete(ctx context.Context, id int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+	if _, err := tx.ExecContext(ctx, `DELETE FROM videos WHERE id = ?`, id); err != nil {
 		return fmt.Errorf("hard delete: %w", err)
 	}
-	return nil
+	// A kept-both duplicate-video pair (F76) has no FK to videos; drop it with the row.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM entity_keep_separate WHERE entity_type = 'video' AND ? IN (id_lo, id_hi)`, id); err != nil {
+		return fmt.Errorf("hard delete keep-separate: %w", err)
+	}
+	return tx.Commit()
 }
 
 // VideoVisible reports whether a video exists and is not soft-deleted — the cheap

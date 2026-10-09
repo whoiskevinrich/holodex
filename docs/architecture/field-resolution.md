@@ -67,7 +67,9 @@ Decided in [`12a984b6`](https://github.com/whoiskevinrich/holodex/commit/12a984b
 "No value" is stored as `source = manual`, `manual_value = ''`; grammar, schema and resolver are
 unchanged (a standing decision keeps the empty field in `resolved[]`). The decision API writes it only
 on an explicit `clear: true`, only for the `clearableFields` allowlist in `internal/api/decisions.go`
-(replace fields that are neither identity keys nor images). An empty `manual` without `clear` is still
+(replace fields that are neither identity keys nor images, each admitted with a real-file tag-delete
+test per container: `studio`, `edition`). F76's label-as-editions writes the same cleared decision
+inside its own transaction. An empty `manual` without `clear` is still
 refused, so `manual` + `''` always means cleared; the SPA tests it through one helper, `isCleared`.
 
 **Rejected:** a new `none` source — "no value" is a value, and a new source widens every switch on it.

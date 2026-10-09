@@ -12,18 +12,25 @@
 	import { api } from '$lib/api';
 	import { toMessage } from '$lib/format';
 	import { groupByKind } from '$lib/entityGroups';
-	import type { DuplicatePair, EntityKind } from '$lib/types';
+	import type { DuplicatePair, EntityKind, VideoDuplicatePair } from '$lib/types';
 	import DuplicatePairRow from '$lib/components/duplicates/DuplicatePairRow.svelte';
+	import VideoPairRow from '$lib/components/duplicates/VideoPairRow.svelte';
 	import { focusLandingIds, groupId, pairKey, QUEUE_ID } from '$lib/components/duplicates/queue';
+	import { videoFocusLandingIds, videoPairKey } from '$lib/components/duplicates/videoPairs';
 
 	let pairs = $state<DuplicatePair[]>([]);
+	// Duplicate videos (F76): two files matched to the same provider item. Their own group,
+	// last, with file verbs instead of Merge / Keep separate.
+	let videoPairs = $state<VideoDuplicatePair[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 
-	// Optional ?type= filter (person|studio|tag|film) from a deep-link; invalid/absent shows all.
+	// Optional ?type= filter (person|studio|tag|film|video) from a deep-link; invalid/absent shows all.
 	const typeFilter = $derived.by(() => {
 		const t = page.url.searchParams.get('type');
-		return t === 'person' || t === 'studio' || t === 'tag' || t === 'film' ? (t as EntityKind) : null;
+		return t === 'person' || t === 'studio' || t === 'tag' || t === 'film' || t === 'video'
+			? (t as EntityKind | 'video')
+			: null;
 	});
 
 	// Group headings, tags first (the API already orders rows this way).
@@ -32,12 +39,19 @@
 
 	const shown = $derived(typeFilter ? pairs.filter((p) => p.entity_type === typeFilter) : pairs);
 	const groups = $derived(groupByKind(shown, groupOrder, (p) => p.entity_type));
+	const shownVideos = $derived(typeFilter && typeFilter !== 'video' ? [] : videoPairs);
 
 	async function load() {
 		loading = true;
 		error = '';
 		try {
-			pairs = (await api.duplicates()).pairs ?? [];
+			// A failing video read must not hide the entity pairs, so it degrades to none.
+			const [entity, video] = await Promise.all([
+				api.duplicates(),
+				api.videoDuplicates().catch(() => ({ pairs: [] as VideoDuplicatePair[] }))
+			]);
+			pairs = entity.pairs ?? [];
+			videoPairs = video.pairs ?? [];
 		} catch (e) {
 			error = toMessage(e);
 		} finally {
@@ -73,6 +87,27 @@
 		}
 	}
 
+	async function resolveVideo(pair: VideoDuplicatePair) {
+		const ids = videoFocusLandingIds(pair, shownVideos);
+		if (openKey === videoPairKey(pair)) openKey = null;
+		// Keeping one copy trashes a file that may sit in other pairs too; refetch rather than
+		// guess which rows it took with it.
+		videoPairs = videoPairs.filter((p) => p !== pair);
+		await tick();
+		for (const id of ids) {
+			const el = document.getElementById(id);
+			if (el) {
+				el.focus();
+				break;
+			}
+		}
+		try {
+			videoPairs = (await api.videoDuplicates()).pairs ?? [];
+		} catch {
+			// The optimistic removal already stands; the next load reconciles.
+		}
+	}
+
 	function mergePair(pair: DuplicatePair, survivorId: number, fromId: number): Promise<unknown> {
 		// One merge endpoint for all three entities (the person route is unified into it).
 		return api.mergeEntities(pair.entity_type, survivorId, fromId);
@@ -92,7 +127,7 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if error}
 		<p class="py-16 text-center text-sm text-warn" role="alert">{error}</p>
-	{:else if groups.length === 0}
+	{:else if groups.length === 0 && shownVideos.length === 0}
 		<p class="py-16 text-center text-sm text-muted">No possible duplicates.</p>
 	{:else}
 		{#each groups as g (g.type)}
@@ -118,5 +153,28 @@
 				{/each}
 			</section>
 		{/each}
+		{#if shownVideos.length}
+			<section class="space-y-0 rounded-theme border border-rule bg-surface">
+				<h2
+					id={groupId('video')}
+					tabindex="-1"
+					class="px-3 pb-2 pt-3 text-xs uppercase tracking-wide text-muted"
+				>
+					Videos · {shownVideos.length}
+				</h2>
+				<!-- The page intro describes name pairs; files need their own line. -->
+				<p class="px-3 pb-2 text-xs text-muted">
+					Files matched to the same provider item. Keep one, keep both, or label them as editions or parts.
+				</p>
+				{#each shownVideos as vp (videoPairKey(vp))}
+					<VideoPairRow
+						pair={vp}
+						onresolved={() => resolveVideo(vp)}
+						expanded={openKey === videoPairKey(vp)}
+						onexpand={(v) => (openKey = v ? videoPairKey(vp) : null)}
+					/>
+				{/each}
+			</section>
+		{/if}
 	{/if}
 </div>

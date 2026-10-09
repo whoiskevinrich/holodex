@@ -39,9 +39,10 @@ Studios-list filters, and in the file.
 
 ## Non-Goals
 
-- **Clearing other fields.** ADR-120 D2's allowlist starts at `{studio}`. Each further field needs
+- **Clearing other fields.** ADR-120 D2's allowlist started at `{studio}`. Each further field needs
   its own per-container delete proof, and identity fields (`title`, `external_provider_id`) and
-  images never qualify.
+  images never qualify. Edition has since joined it, through duplicate videos'
+  [label as editions](duplicate-videos.md) (F76 RD9).
 - **A film-level studio.** A film's studio stays the union of its videos' (HOLODEX-496 proposes a
   separate "released by" attachment). This spec clears *video* studios, from either page.
 - **What happens to a studio after its last video is cleared.** That belongs to

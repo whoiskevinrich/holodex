@@ -158,9 +158,9 @@ func rowCount(t *testing.T, db *sql.DB, table string) int {
 }
 
 // mustExec runs a statement, failing the test on error.
-func mustExec(t *testing.T, db *sql.DB, q string) {
+func mustExec(t *testing.T, db *sql.DB, q string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(q); err != nil {
+	if _, err := db.Exec(q, args...); err != nil {
 		t.Fatalf("exec %q: %v", q, err)
 	}
 }

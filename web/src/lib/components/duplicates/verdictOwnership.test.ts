@@ -44,6 +44,40 @@ describe('DuplicateComparePanel verdict ownership', () => {
 	});
 });
 
+// F76: the same rule for the Videos group. The panel renders the row's snippets and calls
+// the row's `label`; it never talks to the resolving endpoints itself.
+describe('VideoComparePanel verdict ownership', () => {
+	const panel = template(read('VideoComparePanel.svelte'));
+
+	it('renders Keep both and Keep this one through the row snippets', () => {
+		expect(panel).toMatch(/\{@render verdicts\(\)\}/);
+		expect(panel).toMatch(/\{@render keepThis\(/);
+		expect(panel).not.toMatch(/Keep both/);
+		expect(panel).not.toMatch(/Keep this one/);
+	});
+
+	it('carries no resolving call of its own', () => {
+		const src = read('VideoComparePanel.svelte');
+		expect(src).not.toMatch(/keepVideo|keepBothVideos|labelVideoPair/);
+	});
+});
+
+describe('VideoPairRow verdict ownership', () => {
+	const src = read('VideoPairRow.svelte');
+	const markup = template(src);
+
+	it('defines each verdict once and hands the same snippets to the panel', () => {
+		expect(src.match(/\{#snippet verdicts\(\)\}/g)).toHaveLength(1);
+		expect(src.match(/\{#snippet keepThis\(/g)).toHaveLength(1);
+		expect(markup).toMatch(/<VideoComparePanel[\s\S]*?\{verdicts\}[\s\S]*?\{keepThis\}[\s\S]*?\/>/);
+	});
+
+	it('styles Keep both as the bordered ghost and Keep this one as the accent pill', () => {
+		expect(src).toMatch(/GHOST\s*=\s*'btn-row btn-ghost px-2'/);
+		expect(src).toMatch(/PILL_ACTION\s*=\s*'btn-row btn-pill btn-accent'/);
+	});
+});
+
 describe('DuplicatePairRow verdict ownership', () => {
 	const src = read('DuplicatePairRow.svelte');
 	const markup = template(src);

@@ -46,7 +46,10 @@ type decisionBody struct {
 // clearableFields is the ADR-120 D2 allowlist: the replace fields an owner may
 // clear. Never an identity key (title, external_provider_id) or an image, and a
 // field joins only once its tag delete is proven on every container it maps to.
-var clearableFields = map[string]bool{"studio": true}
+var clearableFields = map[string]bool{
+	"studio":  true,
+	"edition": true, // F76: proven by writeback's edition_clear_integration_test (MP4 XMP-prism, Matroska EDITION)
+}
 
 // decodeDecisionBody decodes and validates a decisionBody request: JSON shape,
 // source validity, and (for a manual pick) a non-empty sanitized value, or an

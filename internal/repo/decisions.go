@@ -120,10 +120,17 @@ func (r *Repo) SetDecisionChecked(ctx context.Context, entityType string, entity
 // setDecisionLocked is SetDecision's implementation, assuming the caller already
 // holds writeMu — shared by SetDecision and SetDecisionChecked.
 func (r *Repo) setDecisionLocked(ctx context.Context, entityType string, entityID int64, fieldKey, source, manualValue string) error {
+	return upsertDecision(ctx, r.db, entityType, entityID, fieldKey, source, manualValue)
+}
+
+// upsertDecision writes one standing decision through ex — the db, or a caller's
+// transaction when the decision must commit together with other writes (F76's
+// label-and-keep-both).
+func upsertDecision(ctx context.Context, ex execer, entityType string, entityID int64, fieldKey, source, manualValue string) error {
 	if source != fieldsource.Manual {
 		manualValue = ""
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := ex.ExecContext(ctx, `
 		INSERT INTO field_source_decisions (entity_type, entity_id, field_key, source, manual_value, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(entity_type, entity_id, field_key) DO UPDATE SET
