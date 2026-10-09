@@ -234,7 +234,7 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
-	seed := func(path, title string, people ...string) {
+	seed := func(path, title string, people ...string) int64 {
 		v := &model.Video{
 			FilePath: path, Title: title, Duration: 60, Width: 1920, Height: 1080,
 			Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
@@ -249,10 +249,18 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 		if len(people) > 0 {
 			linkPeople(t, r, id, people...)
 		}
+		return id
 	}
 	seed("/m/solo.mkv", "Solo", "Bob")
 	seed("/m/together.mkv", "Together", "Bob", "Carol")
 	seed("/m/jenny.mkv", "Jenny", "Jenny")
+	// HOLODEX-552: a co-credited director must stay out of the cast tag.
+	directed := seed("/m/directed.mkv", "Directed")
+	if err := r.ReconcileVideoPeople(ctx, directed, []repo.PersonRoleName{
+		{Name: "Bob", Role: "actor"}, {Name: "Dan", Role: "director"},
+	}, nil); err != nil {
+		t.Fatalf("link directed.mkv: %v", err)
+	}
 
 	bob, _, _ := r.PersonIDByName(ctx, "Bob")
 	jenny, _, _ := r.PersonIDByName(ctx, "Jenny")
@@ -262,11 +270,11 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 		t.Fatalf("merge = %d, want 200", code)
 	}
 
-	// Two videos were linked to Bob (solo.mkv, together.mkv); jenny.mkv never was.
+	// Three videos were linked to Bob (solo, together, directed); jenny.mkv never was.
 	// Note: don't assert q.Depth() here — the worker starts draining as soon as
 	// EnqueueMany's kick fires, concurrently with this goroutine, so a depth
 	// snapshot taken right after the HTTP response races the drain and is
-	// flaky under load. The post-drain checks below (exactly 2 files written,
+	// flaky under load. The post-drain checks below (exactly 3 files written,
 	// with the right content, jenny.mkv untouched) fully cover "one writeback
 	// job per affected video, no more, no less" without racing.
 	deadline := time.Now().Add(3 * time.Second)
@@ -282,14 +290,17 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(written) != 2 {
-		t.Errorf("files written = %v, want exactly 2 (one writeback job per affected video)", written)
+	if len(written) != 3 {
+		t.Errorf("files written = %v, want exactly 3 (one writeback job per affected video)", written)
 	}
 	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Jenny" {
 		t.Errorf("solo.mkv written = %v, want [Jenny]", got)
 	}
 	if got := written["/m/together.mkv"]; len(got) != 2 || got[0] != "Carol" || got[1] != "Jenny" {
 		t.Errorf("together.mkv written = %v, want [Carol Jenny] (Carol preserved, Bob → Jenny)", got)
+	}
+	if got := written["/m/directed.mkv"]; len(got) != 1 || got[0] != "Jenny" {
+		t.Errorf("directed.mkv written = %v, want [Jenny] (director Dan kept out of the cast tag)", got)
 	}
 	if _, wrote := written["/m/jenny.mkv"]; wrote {
 		t.Error("jenny.mkv was never linked to Bob, should not have been written")
