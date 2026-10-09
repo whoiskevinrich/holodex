@@ -3,6 +3,10 @@ key: HOLODEX-502
 status: in-progress
 profile: full
 depends-on: []
+approved:
+  design:
+    on: 2026-10-09
+    at: 00e12565
 release_note: "Behind a single-sign-on proxy, an expired sign-in no longer throws away what you were editing. If you have unsaved input or a save fails, the page stays put and a notice offers to sign you in again in a new tab, then tells you if a change still needs saving. Regenerating a thumbnail now recovers the same way instead of failing with a generic error."
 ---
 
@@ -30,13 +34,11 @@ goes through the same redirect handling.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] Owner confirms the committed mockup (adds sticky, above-every-dialog placement found in QA) → record `approved:`
-2. [ ] [security] Run `/security-review` on the branch
-3. [ ] [—] `/implement` → Draft PR; mark ready once security is settled
-4. [ ] [—] On merge, confirm CI moved HOLODEX-502 to Done
+1. [ ] [security] `/security-review` ran clean on 00e12565 (no findings) — `/handoff` to settle the gate, then mark the PR ready
+2. [ ] [—] On merge, confirm CI moved HOLODEX-502 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-09 · held re-auth + session-expired banner
-- skills: code-review high --fix
-- handoff: Built option B: writes and unsaved input hold the ForwardAuth reload behind a sticky banner (edit / write / resubmit), regenerateThumbnail joined the redirect path, and it's verified in the browser on the stress testbed; next are owner sign-off on the committed mockup and /security-review.
+- skills: code-review high --fix, security-review, implement
+- handoff: Crossed into build — design signed off at 00e12565; draft PR open. Start at settling the security gate (review ran clean) and marking the PR ready.
