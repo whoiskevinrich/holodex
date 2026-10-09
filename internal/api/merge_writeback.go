@@ -105,9 +105,42 @@ func (h *Handlers) propagatePersonRename(ctx context.Context, personID int64) {
 			jobs = append(jobs, writequeue.BatchJob{VideoID: videoID, Fields: fields})
 		}
 	}
-	// A person can be renamed again later, so unlike mergeBatchID the pair alone
-	// is not unique; the timestamp keeps each rename's revert batch its own.
-	batchID := fmt.Sprintf("rename-%s-%d-%d", model.EnrichEntityPerson, personID, time.Now().UnixNano())
+	h.enqueueRename(ctx, model.EnrichEntityPerson, personID, jobs)
+}
+
+// propagateStudioRename (HOLODEX-553) is propagatePersonRename for studios: every
+// video linked to the studio gets its field tag rewritten to its linked studios'
+// current names, so the new name replaces the old and co-studios are kept.
+func (h *Handlers) propagateStudioRename(ctx context.Context, field string, studioID int64) {
+	if h.writeQueue == nil {
+		return
+	}
+	videoIDs, err := h.repo.VideoIDsForStudio(ctx, studioID)
+	if err != nil {
+		h.log.Warn("rename writeback: load linked videos", "studio_id", studioID, "err", err)
+		return
+	}
+	studios, err := h.repo.StudiosForVideos(ctx, videoIDs)
+	if err != nil {
+		h.log.Warn("rename writeback: load studios for videos", "studio_id", studioID, "err", err)
+		return
+	}
+	names := namesByVideo(studios, func(s model.Studio) string { return s.Name })
+	jobs := make([]writequeue.BatchJob, 0, len(videoIDs))
+	for _, videoID := range videoIDs {
+		jobs = append(jobs, writequeue.BatchJob{
+			VideoID: videoID,
+			Fields:  []writequeue.JobField{{Field: field, Values: names[videoID], Source: writequeue.SourceRename}},
+		})
+	}
+	h.enqueueRename(ctx, model.EnrichEntityStudio, studioID, jobs)
+}
+
+// enqueueRename enqueues one rename's writeback jobs under a shared snapshot batch.
+// An entity can be renamed again later, so unlike mergeBatchID the (type, id) pair
+// alone is not unique; the timestamp keeps each rename's revert batch its own.
+func (h *Handlers) enqueueRename(ctx context.Context, entityType string, id int64, jobs []writequeue.BatchJob) {
+	batchID := fmt.Sprintf("rename-%s-%d-%d", entityType, id, time.Now().UnixNano())
 	if _, err := h.writeQueue.EnqueueMany(ctx, jobs, batchID); err != nil {
 		h.log.Warn("rename writeback enqueue failed", "batch_id", batchID, "videos", len(jobs), "err", err)
 	}

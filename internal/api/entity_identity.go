@@ -196,6 +196,7 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 // renameEntity sets the entity's name and keeps the old name as an alias (mirrors
 // renamePerson). A collision with another entity's name is a 409 carrying that entity
 // (the F23 conflict shape) with no mutation. Renaming to the current name is a no-op 204.
+// A studio rename also propagates to every linked video's Studio tag (HOLODEX-553).
 func (h *Handlers) renameEntity(w http.ResponseWriter, r *http.Request, cfg identityRoutes) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -217,6 +218,13 @@ func (h *Handlers) renameEntity(w http.ResponseWriter, r *http.Request, cfg iden
 		writeError(w, http.StatusBadRequest, "name is too long")
 		return
 	}
+	// A type with a file field (studio) propagates the rename to its linked videos
+	// (HOLODEX-553), like renamePerson. The pre-rename name tells a real rename from
+	// the exact-name no-op, which must not rewrite every linked file.
+	var before *model.Studio
+	if cfg.writebackField != "" {
+		before, _ = h.repo.GetStudio(r.Context(), id)
+	}
 	conflictID, err := h.repo.RenameEntity(r.Context(), cfg.entityType, id, name)
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
@@ -228,6 +236,9 @@ func (h *Handlers) renameEntity(w http.ResponseWriter, r *http.Request, cfg iden
 	case err != nil:
 		h.fail(w, "rename "+cfg.noun, err)
 		return
+	}
+	if cfg.writebackField != "" && (before == nil || before.Name != name) {
+		h.propagateStudioRename(r.Context(), cfg.writebackField, id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

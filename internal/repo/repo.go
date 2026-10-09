@@ -686,12 +686,23 @@ func (r *Repo) PeopleForVideos(ctx context.Context, ids []int64) (map[int64][]mo
 // VideoIDsForPerson returns the active/non-deleted video ids a person is linked to
 // in any role — the rename-writeback scope (HOLODEX-551), mirroring VideoIDsForFilm.
 func (r *Repo) VideoIDsForPerson(ctx context.Context, personID int64) ([]int64, error) {
+	return r.videoIDsForLink(ctx, "video_people", "person_id", personID)
+}
+
+// VideoIDsForStudio is VideoIDsForPerson for studios (HOLODEX-553).
+func (r *Repo) VideoIDsForStudio(ctx context.Context, studioID int64) ([]int64, error) {
+	return r.videoIDsForLink(ctx, "video_studios", "studio_id", studioID)
+}
+
+// videoIDsForLink returns the active/non-deleted video ids linked to entityID through
+// an association table. assoc and fk are trusted literals, never user input.
+func (r *Repo) videoIDsForLink(ctx context.Context, assoc, fk string, entityID int64) ([]int64, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT DISTINCT v.id FROM video_people vp JOIN videos v ON v.id = vp.video_id
-		WHERE vp.person_id = ? AND v.active = 1 AND v.deleted_at IS NULL
-		ORDER BY v.id`, personID)
+		SELECT DISTINCT v.id FROM `+assoc+` a JOIN videos v ON v.id = a.video_id
+		WHERE a.`+fk+` = ? AND v.active = 1 AND v.deleted_at IS NULL
+		ORDER BY v.id`, entityID)
 	if err != nil {
-		return nil, fmt.Errorf("video ids for person: %w", err)
+		return nil, fmt.Errorf("video ids for %s: %w", assoc, err)
 	}
 	defer rows.Close()
 	var out []int64

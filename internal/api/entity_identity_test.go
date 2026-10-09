@@ -266,6 +266,89 @@ func TestStudioMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 	}
 }
 
+// TestStudioRenameEndpoint_PropagatesWritebackToLinkedVideos is HOLODEX-553 (the
+// studio twin of HOLODEX-551): renaming a studio rewrites the Studio tag on every
+// video it is linked to, with the new name in place of the old and co-studios
+// kept. A video the studio isn't on is untouched.
+func TestStudioRenameEndpoint_PropagatesWritebackToLinkedVideos(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
+
+	var mu sync.Mutex
+	written := map[string][]string{} // file path -> Publisher tag values written
+	q := writequeue.New(r, func(_ context.Context, path string, fields []writeback.FieldWrite) error {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, f := range fields {
+			if f.TagName == "Publisher" {
+				written[path] = f.Values
+			}
+		}
+		return nil
+	}, log, 1, "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q.Start(ctx)
+	h.SetWriteQueue(q)
+	h.SetAuth(api.NewAuth(""), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
+	t.Cleanup(srv.Close)
+
+	seed := func(path string, studios ...string) {
+		vid, err := r.UpsertVideo(ctx, &model.Video{
+			FilePath: path, Title: path, Duration: 60, Width: 1920, Height: 1080,
+			Container: "Matroska", FileMtime: time.Now().UTC().Truncate(time.Second),
+		}, nil)
+		if err != nil {
+			t.Fatalf("seed %s: %v", path, err)
+		}
+		if err := r.ReconcileVideoStudios(ctx, vid, studios, nil); err != nil {
+			t.Fatalf("reconcile studios for %s: %v", path, err)
+		}
+	}
+	seed("/m/solo.mkv", "WB")
+	seed("/m/together.mkv", "WB", "A24")
+	seed("/m/a24.mkv", "A24")
+
+	wb := studioIDFromList(t, r, "WB")
+	if code, _ := postTok(t, srv.URL+"/api/v1/studios/"+itoa(wb)+"/rename", "", map[string]string{"name": "Warner Bros. Pictures"}); code != http.StatusNoContent {
+		t.Fatalf("rename = %d, want 204", code)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("writeback queue did not drain")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(written) != 2 {
+		t.Errorf("files written = %v, want exactly 2 (one per video linked to the renamed studio)", written)
+	}
+	if got := written["/m/solo.mkv"]; len(got) != 1 || got[0] != "Warner Bros. Pictures" {
+		t.Errorf("solo.mkv written = %v, want [Warner Bros. Pictures]", got)
+	}
+	if got := written["/m/together.mkv"]; len(got) != 2 || got[0] != "A24" || got[1] != "Warner Bros. Pictures" {
+		t.Errorf("together.mkv written = %v, want [A24 Warner Bros. Pictures] (A24 kept)", got)
+	}
+	if _, wrote := written["/m/a24.mkv"]; wrote {
+		t.Error("a24.mkv was never linked to the renamed studio, should not have been written")
+	}
+}
+
 func studioIDFromList(t *testing.T, r *repo.Repo, name string) int64 {
 	t.Helper()
 	studios, err := r.ListStudios(context.Background(), false)
