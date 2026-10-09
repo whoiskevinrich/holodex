@@ -46,9 +46,7 @@ delete_remove_files: true            # DELETE_REMOVE_FILES (true = purge unlinks
 purge_interval_seconds: 3600         # PURGE_INTERVAL_SECONDS (how often the grace-period purge sweep runs)
 
 # --- Cache (ADR-008) ---
-cache_backend: "memory"    # CACHE_BACKEND (memory|redis|none)
-cache_max_memory_mb: 128    # CACHE_MAX_MEMORY_MB
-# redis_url: ""            # REDIS_URL (required when cache_backend=redis)
+cache_backend: "memory"    # CACHE_BACKEND (memory|none — both resolve to no cache today)
 
 # --- MCP server (Phase 2, ADR-005) ---
 mcp_enabled: false          # MCP_ENABLED

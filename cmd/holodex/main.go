@@ -173,7 +173,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	reg.SetQueueDepthSource(thumbs.QueueDepth)
 
 	// Configurable metadata field mapping (ADR-013) + facet cache (ADR-008/022).
-	cacheBackend := cache.New(cfg.CacheBackend, cfg.CacheMaxMemoryMB)
+	cacheBackend := cache.New(cfg.CacheBackend)
 	mappings, err := mapping.NewStore(cfg.MetadataMappingsPath)
 	if err != nil {
 		return fmt.Errorf("load metadata mappings: %w", err)

@@ -95,8 +95,7 @@ Decided in [`3561addf`](https://github.com/whoiskevinrich/holodex/commit/3561add
 
 `internal/cache` defines a `Cache` interface (`Get` / `Set` / `Invalidate` / `InvalidatePrefix`),
 and `cache.New` builds one at boot from `CACHE_BACKEND`. Only the **`Noop`** backend exists.
-`memory` (the default) and `none` both resolve to it. `CACHE_MAX_MEMORY_MB` and `REDIS_URL` are
-parsed but nothing reads them. The read paths go straight to SQLite, where WAL, covering indexes
+`memory` (the default) and `none` both resolve to it, and no other cache setting exists. The read paths go straight to SQLite, where WAL, covering indexes
 and FTS5 meet the search latency target on personal-library hardware. The `Cache` interface is
 injected into services so that a real backend can drop in without touching the service layer.
 
