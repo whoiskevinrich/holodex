@@ -73,7 +73,7 @@ reuses `writequeue.SourceRename` and the rename-propagation shape.
 
 ### 2026-10-09 · studio rename propagates writeback
 - skills: code-review, handoff, implement
-- handoff: Fixed and green (go test ./...). It's stacked on #473, so merge that first, then merge main in here before this PR merges.
+- handoff: Fixed and green; draft PR #476 is stacked on #473. Once #473 squash-merges, merge main in here, then mark #476 ready.
 
 ## Dropped — newest first (the reason is the point)
 
