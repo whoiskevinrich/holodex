@@ -8,7 +8,7 @@ depends-on: []
 approved:
   design:
     on: 2026-10-08
-    at: 83201455
+    at: 3e4d9cc3
 release_note: "The Duplicates page now flags two files matched to the same provider item, shows them side by side, and lets you keep one (your playlists, film links and edits move to it), keep both, or label them as editions or parts."
 ---
 
