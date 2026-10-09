@@ -240,6 +240,12 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   alias beside it.
   - Given a video tagged `sci-fi` whose file genre reads `Science Fiction` (an alias of `sci-fi`), When genre
     writeback runs, Then the file's genre lists `sci-fi` once and not `Science Fiction`.
+- **P0-11 — A person's alias collapses into their name on the video** (HOLODEX-554). When a video's cast or
+  director values include an alias of a person, that person is listed once. If they are linked to the
+  video, the value shown and offered for writeback is their canonical name.
+  - Given `John Doe` with alias `Johnny D`, linked to a video whose file credits `Johnny D` and whose provider
+    credits `John Doe`, When the owner opens the writeback dialog, Then the cast row lists `John Doe` once and
+    not `Johnny D`.
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 
