@@ -77,14 +77,17 @@ There is deliberately no foreign key. An audit row must outlive what it describe
 `REFERENCES` would either block deletion or cascade history away. An `entity_id` may dangle, and the
 read side renders a gone entity as `#<id>`.
 
-Reads are bounded by page or kind count, never by window density. The owner-gated `GET /api/v1/admin/activity/digest` is one `GROUP BY kind` (run count, undismissed
+The digest is bounded by kind count, never by window density. The owner-gated `GET /api/v1/admin/activity/digest` is one `GROUP BY kind` (run count, undismissed
 error count, last run, `last_status` taken from the newest row by SQLite's bare-column-with-`MAX`
 rule) plus the window's failures, capped at `digestFailureCap`. Its size scales with the number of
 job kinds, not rows. `GET …/activity/history` returns runs ordered `started_at DESC, id DESC`
 (matching `idx_job_runs_started_at`), optionally narrowed to one `?batch=`.
 
-The log is not yet paged. Its paging contract is a keyset cursor over `(started_at, id)`, opaque,
-degrading to the first page when malformed; both columns because a burst shares one timestamp.
+The log is deliberately unpaged: it returns the whole retention window, which the 30-day prune
+bounds. Paging and the kind/status/entity filters were dropped from the
+[job-history spec](../specs/job-history-digest-and-search.md) (P0-4, Q1). If the log ever needs
+paging, use a keyset cursor over `(started_at, id)`. It needs both columns because a burst shares
+one timestamp.
 
 **Rejected:** a `video_id` FK — encodes one entity type. **Rejected:** a join table — many-to-many
 nobody needs. **Rejected:** parsing ids from `detail`. **Rejected:** `LIMIT/OFFSET` — skips and
