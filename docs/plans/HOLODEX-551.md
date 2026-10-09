@@ -74,8 +74,8 @@ the fix is "linked name + auto-propagate". The writeback dialog never writes mul
 -->
 
 ### 2026-10-09 · rename propagates writeback
-- skills: code-review, handoff
-- handoff: Fixed and green (go test ./...). The rename now enqueues a role-aware revertible batch per linked video; spec F48.8f and testing-strategy are updated. Next is opening the PR; the follow-ups are HOLODEX-552/553.
+- skills: code-review, handoff, implement
+- handoff: Fixed and green; PR #473 marked ready with every gate settled, so only the merge is left. Follow-ups HOLODEX-552/553 are filed separately.
 
 ## Dropped — newest first (the reason is the point)
 
