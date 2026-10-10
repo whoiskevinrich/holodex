@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strconv"
 	"strings"
 
 	"holodex/internal/mapping"
@@ -121,10 +122,27 @@ func (h *Handlers) genreWritebackItemsFrom(ctx context.Context, videoID int64, r
 			continue
 		}
 		k := identity(item.Value)
-		if !seen[k] {
-			seen[k] = true
-			items = append(items, item)
+		if seen[k] {
+			continue
 		}
+		seen[k] = true
+		// A value naming a tag the video doesn't carry is still written as that tag's
+		// canonical name, never its alias spelling (F43 P0-10, HOLODEX-509).
+		if idStr, isTag := strings.CutPrefix(k, "id:"); isTag {
+			id, err := strconv.ParseInt(idStr, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			// ErrNotFound: the tag was deleted since the identity lookup — keep the raw value.
+			tag, err := h.repo.GetTag(ctx, id)
+			switch {
+			case err == nil:
+				item.Value = tag.Name
+			case !errors.Is(err, repo.ErrNotFound):
+				return nil, err
+			}
+		}
+		items = append(items, item)
 	}
 	return items, nil
 }

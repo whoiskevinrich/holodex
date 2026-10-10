@@ -193,6 +193,43 @@ func TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag(t *testing.T) {
 	}
 }
 
+// F43 P0-10 (HOLODEX-509): an alias of a tag the video does NOT carry — here, one the
+// owner detached while the provider still supplies it — is still written canonically.
+func TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically(t *testing.T) {
+	h, _, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+	tag, err := r.AttachTagToVideo(ctx, vid, "sci-fi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, tag.ID, "science fiction"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.DetachTagFromVideo(ctx, vid, tag.ID); err != nil {
+		t.Fatal(err)
+	}
+	// A case variant of an unattached tag's own name is written in the tag's spelling too.
+	drama, err := r.AttachTagToVideo(ctx, vid, "drama")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.DetachTagFromVideo(ctx, vid, drama.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
+		"genres": {"Science Fiction", "Drama"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	values, err := h.GenreWritebackValues(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 2 || values[0] != "sci-fi" || values[1] != "drama" {
+		t.Errorf("values = %v, want [sci-fi drama] — a value naming a tag is written as its name, attached or not", values)
+	}
+}
+
 // Tag-key fields are the write worker's own derived writes (ADR-110 D3); a
 // client naming one is refused before anything is written.
 func TestWritebackEndpoint_RejectsTagKeyField(t *testing.T) {

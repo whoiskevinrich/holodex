@@ -999,6 +999,8 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   - *Genre writeback (P0-10)*: `TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag` — a raw genre that is an
     alias of an attached tag is **not** written beside it (`[sci-fi Drama]`, never `[sci-fi Science Fiction
     Drama]`). Mutation-checked: reverting the identity dedup fails it with exactly that triple.
+    `TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically` (HOLODEX-509) — the same alias after the
+    owner detached the tag is still written as `sci-fi`; it failed with `[Science Fiction Drama]` before the fix.
   - *Frontend*: `AliasPanel` on `/tags/{id}` — live-QA'd on Cinémathèque against `backend-amv-9300`: add (stored
     lowercase), remove, visitor read-only chips with no controls, 375px with no horizontal overflow. No component
     harness exists for `web/` routes, so this is browser-driven only.
