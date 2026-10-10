@@ -22,13 +22,12 @@ spellings into one chip.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Merge #481 first, then merge main in here and retarget this PR to main — `git merge origin/main`
-2. [ ] [—] Sweep HOLODEX-555 to In Review when the PR is marked ready, Done on merge — Jira
+1. [ ] [—] Sweep HOLODEX-555 to In Review when the PR is marked ready, Done on merge — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-09 · person removal covers alias spellings
 - skills: code-review, handoff
-- handoff: Fixed and tested, stacked on #481 — merge #481, merge main in here, retarget to main and mark ready.
+- handoff: #481 merged; main merged in here and #482 retargeted to main — next move is review and merge of #482.
 
 ## Dropped — newest first (the reason is the point)
