@@ -1,5 +1,110 @@
 # Changelog
 
+## [2.0.0](https://github.com/whoiskevinrich/holodex/compare/v1.16.1...v2.0.0) (2026-10-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* smart playlists, and Play all and Shuffle from any video grid
+* **theming:** make Cinémathèque the only look
+
+### 🚀 Features
+
+* clear a studio from a video or a film ([4e2e782](https://github.com/whoiskevinrich/holodex/commit/4e2e782b0add3b3e110f5761f8ebbffb1a45938c))
+* **curation:** let owners add an Overview when no source supplies one ([#402](https://github.com/whoiskevinrich/holodex/issues/402)) ([e375c17](https://github.com/whoiskevinrich/holodex/commit/e375c173a920353e22a82a8a59ae9e1948fa447d))
+* **duplicates:** detect duplicates by shared provider external id ([6ecb3c5](https://github.com/whoiskevinrich/holodex/commit/6ecb3c5ed32fbb4bbeacf0a5e355de3637505fd2))
+* **duplicates:** find duplicate video files, compare them side by side, keep the right one ([bf65fb5](https://github.com/whoiskevinrich/holodex/commit/bf65fb5f5200454fe7bf2c650d9da5f881e94aff))
+* **duplicates:** provider-alias collisions leave the Duplicates queue ([#386](https://github.com/whoiskevinrich/holodex/issues/386)) ([0f53458](https://github.com/whoiskevinrich/holodex/commit/0f5345817103e45b0eb581726ac4083c06d7bfb9))
+* **duplicates:** side-by-side evidence so a person pair is decidable ([5e0ce90](https://github.com/whoiskevinrich/holodex/commit/5e0ce904dafecd79c9e4777956400669068e7f0b)), closes [#382](https://github.com/whoiskevinrich/holodex/issues/382)
+* **films:** list tiles and the film picker use the linked film's name ([46e1d7a](https://github.com/whoiskevinrich/holodex/commit/46e1d7a432741d2c1e8e52bc5a4115979dee14d6))
+* **films:** the linked film decides a video's Film and Title by default ([ceac625](https://github.com/whoiskevinrich/holodex/commit/ceac625371816099421a7092f01cf692dcee43ec))
+* **people:** collapse the person Details card by default ([#453](https://github.com/whoiskevinrich/holodex/issues/453)) ([23201ca](https://github.com/whoiskevinrich/holodex/commit/23201ca311a87f983e8406966f576ac37f675bf5))
+* smart playlists, and Play all and Shuffle from any video grid ([8ea55a0](https://github.com/whoiskevinrich/holodex/commit/8ea55a0edcee1ee11ed6609bac18234bb7317e87))
+* **studios:** owner toggle for the studio image halo per role and palette ([#394](https://github.com/whoiskevinrich/holodex/issues/394)) ([38f0775](https://github.com/whoiskevinrich/holodex/commit/38f0775f1b0cc07e573b5eaf155a6ec9b2e50652))
+* **tags:** manage tag aliases on the tag page and find tags by alias in search ([#428](https://github.com/whoiskevinrich/holodex/issues/428)) ([0052679](https://github.com/whoiskevinrich/holodex/commit/0052679f3962e6e7cf52e9f94eeeaab56462c223))
+* **tags:** media page tag input stays open, suggests tags, sorts by status ([#443](https://github.com/whoiskevinrich/holodex/issues/443)) ([a6c8400](https://github.com/whoiskevinrich/holodex/commit/a6c8400ad1366ea9f48e1e863cc69d25d930a04c))
+* **tags:** write tags to the file as a set, with on-file markers ([#398](https://github.com/whoiskevinrich/holodex/issues/398)) ([4e86e31](https://github.com/whoiskevinrich/holodex/commit/4e86e31f844b30623a0ae98dcc7c4cd03e3cef11))
+* **theming:** make Cinémathèque the only look ([4fec2ba](https://github.com/whoiskevinrich/holodex/commit/4fec2babf9eb38ccd54cec12478700f73f5d4d47))
+* **web:** offer "+ Set edition" in the media header and as a text CTA on film rows ([#418](https://github.com/whoiskevinrich/holodex/issues/418)) ([5b54bb7](https://github.com/whoiskevinrich/holodex/commit/5b54bb7b1b5b51abfcef1f0446b715f5faf1806b))
+* **web:** share one sort, filter and view toolbar across list pages ([#403](https://github.com/whoiskevinrich/holodex/issues/403)) ([de97c86](https://github.com/whoiskevinrich/holodex/commit/de97c861efd8deb234cb4db3bc405c8aab6c8097))
+* **writeback:** remux fragmented MP4 on write, restoring its tags ([ea57b67](https://github.com/whoiskevinrich/holodex/commit/ea57b67c5a9c0665f844d4c86e5fca1eb15ad58e))
+* **writeback:** witness fields writeback can't read back by the write ledger, and show the gap ([b72f35e](https://github.com/whoiskevinrich/holodex/commit/b72f35ea0960664222e7d69aef3c094c78a96e7f))
+
+
+### 🐛 Bug Fixes
+
+* **auth:** keep unsaved edits when the auth proxy session expires ([#480](https://github.com/whoiskevinrich/holodex/issues/480)) ([3c71012](https://github.com/whoiskevinrich/holodex/commit/3c71012710ec95b4d1f7a19f64ae25c63cd1c8f7))
+* **completeness:** score a video's film-derived Film and Title ([#436](https://github.com/whoiskevinrich/holodex/issues/436)) ([80c0eb9](https://github.com/whoiskevinrich/holodex/commit/80c0eb9cc20d415ec9192bca9364f8049865994b))
+* **completeness:** stop re-scoring every entity on the first page after a restart ([#401](https://github.com/whoiskevinrich/holodex/issues/401)) ([dbb4bfc](https://github.com/whoiskevinrich/holodex/commit/dbb4bfcd1ab7de12f8e69c95fdadc49e7a75ea0f))
+* **enrichment:** let the Enrich picker search again past a dismissed provider ([#399](https://github.com/whoiskevinrich/holodex/issues/399)) ([8065d7d](https://github.com/whoiskevinrich/holodex/commit/8065d7d772a85ff8d46ba096d7dd498509d4d3de))
+* **media:** close the delete confirm when a run advances to the next item ([#445](https://github.com/whoiskevinrich/holodex/issues/445)) ([f47d87f](https://github.com/whoiskevinrich/holodex/commit/f47d87fb012d1fe91fd2956b1e748892fa116eab))
+* **media:** show the whole title while renaming a long one ([#431](https://github.com/whoiskevinrich/holodex/issues/431)) ([9e9aeaf](https://github.com/whoiskevinrich/holodex/commit/9e9aeaffe64264f02a4d8e122442b496f55cbc1b))
+* **metadata:** pick Matroska tags by target level, not first occurrence ([#474](https://github.com/whoiskevinrich/holodex/issues/474)) ([7a59cde](https://github.com/whoiskevinrich/holodex/commit/7a59cde6c831e8656c459e4029803d036d76880d))
+* never delete studios or tags carrying owner-authored data ([#463](https://github.com/whoiskevinrich/holodex/issues/463)) ([dd6ca94](https://github.com/whoiskevinrich/holodex/commit/dd6ca941d9f68fd4c2e093069e0676695138f935))
+* only owner-made images keep an orphan person or studio ([#466](https://github.com/whoiskevinrich/holodex/issues/466)) ([a715b97](https://github.com/whoiskevinrich/holodex/commit/a715b975f91a965b29a1fe71b14d47f6859560dc))
+* **people:** fold a linked person's alias into their name in the writeback row ([#481](https://github.com/whoiskevinrich/holodex/issues/481)) ([6f71540](https://github.com/whoiskevinrich/holodex/commit/6f715403244f915015b309bf98dd6422efe1f00d))
+* **people:** merging people keeps each credit in its own file field ([#477](https://github.com/whoiskevinrich/holodex/issues/477)) ([3660bf5](https://github.com/whoiskevinrich/holodex/commit/3660bf58c70a806af043813989ab466f7448d94c))
+* **people:** removing a person from a video covers every spelling of them ([#482](https://github.com/whoiskevinrich/holodex/issues/482)) ([14264cf](https://github.com/whoiskevinrich/holodex/commit/14264cf6f0b25d32121ae17c99f7d15b28023861))
+* **people:** renaming a person rewrites their name on linked video files ([#473](https://github.com/whoiskevinrich/holodex/issues/473)) ([7157b9e](https://github.com/whoiskevinrich/holodex/commit/7157b9e7cc5cd3981464c5bfdad3735c6dcfc243))
+* **people:** show people by their Displayed As name outside the person page ([e2ca6fe](https://github.com/whoiskevinrich/holodex/commit/e2ca6feb947d996b1d671114c6777d63cc657bcb))
+* **scanner:** fill file tags for unchanged files indexed before migration 0054 ([#400](https://github.com/whoiskevinrich/holodex/issues/400)) ([ed88378](https://github.com/whoiskevinrich/holodex/commit/ed88378cdf909fb449ff5c1aa2a8da5b9033ba50))
+* **search:** find a studio by any of its aliases in global search ([#430](https://github.com/whoiskevinrich/holodex/issues/430)) ([1c60edb](https://github.com/whoiskevinrich/holodex/commit/1c60edb849a7a8e54acb59ffc9cb51060351bbc1))
+* **search:** return a matched studio's and tag's videos in global search ([#433](https://github.com/whoiskevinrich/holodex/issues/433)) ([cebafd1](https://github.com/whoiskevinrich/holodex/commit/cebafd173443eee695aa9c713cf48e44b612dc6c))
+* **studios:** drop the palette mode from the halo switch label ([9074238](https://github.com/whoiskevinrich/holodex/commit/90742382c1fd29a0c2ac7149a6dfc4d6f0fc870b))
+* **studios:** renaming a studio rewrites its name on linked video files ([#476](https://github.com/whoiskevinrich/holodex/issues/476)) ([6698050](https://github.com/whoiskevinrich/holodex/commit/66980503cedf7ee5ee285601b6a0b5e233d4d430))
+* **tags:** write an alias of an unattached tag as its canonical name ([#483](https://github.com/whoiskevinrich/holodex/issues/483)) ([4a1a921](https://github.com/whoiskevinrich/holodex/commit/4a1a921feedbb219a2501604dbf97e53d053dcfd))
+* **trash:** permanently deleting a video removes its edits too ([#472](https://github.com/whoiskevinrich/holodex/issues/472)) ([2b93919](https://github.com/whoiskevinrich/holodex/commit/2b93919d2bba3c58935ffbfd45129c8a5c08803d))
+* **web:** keep a list's scroll position across a full page reload ([8d8ce85](https://github.com/whoiskevinrich/holodex/commit/8d8ce859557be5864323f35cb7833b6c0cc10615))
+* **web:** make "+ Add overview" and "+ Set part" the page's text CTA ([#417](https://github.com/whoiskevinrich/holodex/issues/417)) ([11c7b7d](https://github.com/whoiskevinrich/holodex/commit/11c7b7dac2a38cccfc0021b4fd062b8aa3c89140))
+* **writeback:** bound a char-ref code point before converting it to a rune ([#457](https://github.com/whoiskevinrich/holodex/issues/457)) ([03de784](https://github.com/whoiskevinrich/holodex/commit/03de7840ef73b41085d2a675b9eadaa5692c9aa8))
+* **writeback:** drop character references to XML-illegal code points in MKV tags ([#438](https://github.com/whoiskevinrich/holodex/issues/438)) ([2fc2f2a](https://github.com/whoiskevinrich/holodex/commit/2fc2f2a5d938a9ddf102f0d9e0334d9aa736a8c4))
+* **writeback:** make a genres writeback match every tag key on the file to the UI ([#397](https://github.com/whoiskevinrich/holodex/issues/397)) ([99f6195](https://github.com/whoiskevinrich/holodex/commit/99f61954b52e06b965092ef1041686801a07cceb))
+* **writeback:** never reuse a finished job's id, so each write takes its own snapshot ([#429](https://github.com/whoiskevinrich/holodex/issues/429)) ([0607557](https://github.com/whoiskevinrich/holodex/commit/060755768e0ec3106cb344d0320f10f225ed200f))
+* **writeback:** read back an MKV cover that mkvpropedit moved past the video data ([#426](https://github.com/whoiskevinrich/holodex/issues/426)) ([505753b](https://github.com/whoiskevinrich/holodex/commit/505753ba5b65d8ccd91267147da712da101bbe7e))
+* **writeback:** read MKV tags correctly when they or the path are non-ASCII ([#442](https://github.com/whoiskevinrich/holodex/issues/442)) ([9fc0f2d](https://github.com/whoiskevinrich/holodex/commit/9fc0f2dfebb32264ac5b0382c48836864cf9cefe))
+* **writeback:** read MKV tags past the first Cluster before filtering or snapshotting them ([#427](https://github.com/whoiskevinrich/holodex/issues/427)) ([910224a](https://github.com/whoiskevinrich/holodex/commit/910224aed5e2e574585ad726b30dfce4fbec97c8))
+* **writeback:** refuse fragmented MP4 with a remux hint instead of a raw exiftool error ([0634d6f](https://github.com/whoiskevinrich/holodex/commit/0634d6ff6027f6ca9bf1986b2ec6ee0cb8337276))
+* **writeback:** replace a cover of any format on the mkvpropedit path too ([af2157b](https://github.com/whoiskevinrich/holodex/commit/af2157bb098c3919e986ab39d517d1f199fcbcc1))
+* **writeback:** replace an MKV cover of any format without breaking the remux ([f0c2847](https://github.com/whoiskevinrich/holodex/commit/f0c2847774a6ea885bb83a1e3c88d67a211c4a20))
+* **writeback:** strip XML-illegal characters from MKV tag documents ([#425](https://github.com/whoiskevinrich/holodex/issues/425)) ([c0be0e6](https://github.com/whoiskevinrich/holodex/commit/c0be0e64807ccd18655eef188ea848683ab808fd))
+* **writeback:** write MKV tags beside per-track tags instead of silently dropping them ([175035d](https://github.com/whoiskevinrich/holodex/commit/175035d812169ff53961eb21b27137ddccd16b47))
+* **writeback:** write multi-value genres as one comma-delimited string ([#396](https://github.com/whoiskevinrich/holodex/issues/396)) ([4968630](https://github.com/whoiskevinrich/holodex/commit/4968630be1bb0f83f910042f80059e7f188b7718))
+
+
+### 🚜 Refactor
+
+* **config:** remove unused cache_max_memory_mb and redis_url settings ([#479](https://github.com/whoiskevinrich/holodex/issues/479)) ([392fa46](https://github.com/whoiskevinrich/holodex/commit/392fa468e1daa7bf7bd5e9d5f2fc57d1b9564f73))
+
+
+### 📚 Documentation
+
+* **architecture:** fold foundation ADRs into four topic docs ([#446](https://github.com/whoiskevinrich/holodex/issues/446)) ([64e1c11](https://github.com/whoiskevinrich/holodex/commit/64e1c11e6e22ada6b85568c1d26055aafe0487d1))
+* **architecture:** fold relationship, image and ingest ADRs into topic docs ([#449](https://github.com/whoiskevinrich/holodex/issues/449)) ([ea5978c](https://github.com/whoiskevinrich/holodex/commit/ea5978c47c88fbd244a6e062d3d473e47f11b9be))
+* **architecture:** fold resolver, provider and identity ADRs into topic docs ([#447](https://github.com/whoiskevinrich/holodex/issues/447)) ([d3e1078](https://github.com/whoiskevinrich/holodex/commit/d3e107822d7ff8c5da02fafd450ac67838f478c0))
+* **architecture:** fold writeback, jobs and browse ADRs into topic docs ([#450](https://github.com/whoiskevinrich/holodex/issues/450)) ([b92c91e](https://github.com/whoiskevinrich/holodex/commit/b92c91effa6b72637900ec69005b5c4b5da9894d))
+* **architecture:** link the hotfix-lane decision to its squash commit ([9a3d806](https://github.com/whoiskevinrich/holodex/commit/9a3d8067c97a6d433038a4416edb5eb7fbadae18))
+* **ci:** describe the enforced merge gate and the gate check's real name ([b643959](https://github.com/whoiskevinrich/holodex/commit/b6439593c97fd160dc11fa0e531e8ca4ce928e1d))
+* **ci:** record the release-tags ruleset next to the merge gate ([cfd743d](https://github.com/whoiskevinrich/holodex/commit/cfd743d5350fadbf657eda0dfc5a1034b8f9e89b))
+* **films:** record search and title sort reading the file title as deliberate ([#437](https://github.com/whoiskevinrich/holodex/issues/437)) ([f83a593](https://github.com/whoiskevinrich/holodex/commit/f83a593387d922d4c1e5f24792597d92650d2ff9))
+* **people:** drop the hover card's alias-overflow follow-up ([#389](https://github.com/whoiskevinrich/holodex/issues/389)) ([1b817ea](https://github.com/whoiskevinrich/holodex/commit/1b817eaf4ff17986c1b8dfd2ca2274cdc5e311f7))
+* **specs:** carry foundation ADR rules into their specs and operator docs ([#452](https://github.com/whoiskevinrich/holodex/issues/452)) ([0e9a57a](https://github.com/whoiskevinrich/holodex/commit/0e9a57a7c35bb44ea2a02b4db4a1c70d109ad822))
+* **specs:** carry the remaining ADR product and UI rules into specs and designs ([#454](https://github.com/whoiskevinrich/holodex/issues/454)) ([c8106d9](https://github.com/whoiskevinrich/holodex/commit/c8106d91a276c39f1225ec8fda76920bfb04e06d))
+
+
+### 🧪 Testing
+
+* **geometry:** person hover card clamp and no-scroll rungs ([#390](https://github.com/whoiskevinrich/holodex/issues/390)) ([ecc5207](https://github.com/whoiskevinrich/holodex/commit/ecc5207c4129a0009c4b4eb67a3f09d2f7ab10fe))
+* **web:** add a Playwright navigation harness for list-page state ([#409](https://github.com/whoiskevinrich/holodex/issues/409)) ([4003b25](https://github.com/whoiskevinrich/holodex/commit/4003b259e708fe82da248576568a0b2f69b197da))
+
+
+### ⚙️ CI / Build
+
+* bundle MKVToolNix on a trixie runtime so MKV writeback edits in place ([c7d7bd1](https://github.com/whoiskevinrich/holodex/commit/c7d7bd1e9b729854bb77e75342adb4047a61c8c3))
+* **image:** cross-compile build stages and give each workflow its own cache scope ([#448](https://github.com/whoiskevinrich/holodex/issues/448)) ([e59110f](https://github.com/whoiskevinrich/holodex/commit/e59110f43ce3cb6a2db518104ec52165cca15893))
+* **jira:** let a docs-only merge fire Done when the worklog posture has no design gate ([#471](https://github.com/whoiskevinrich/holodex/issues/471)) ([c1a5aeb](https://github.com/whoiskevinrich/holodex/commit/c1a5aeb262f888a91fcfa5f657828e49a0192297))
+* **release:** add a hotfix lane that promotes from release/vX.Y branches ([7e2389d](https://github.com/whoiskevinrich/holodex/commit/7e2389d3e06a6ae3deb47a4f20abba43fc43abda))
+* **scan:** limit Trivy SARIF uploads to the CRITICAL,HIGH threshold ([17782ba](https://github.com/whoiskevinrich/holodex/commit/17782baeb1e788def9b00c9f847b2c80c89e13c3))
+
 ## [1.16.1](https://github.com/whoiskevinrich/holodex/compare/v1.16.0...v1.16.1) (2026-09-23)
 
 
