@@ -75,7 +75,9 @@ class ActivityState {
 			if (e instanceof ReauthError) {
 				// The upstream ForwardAuth session lapsed (HOLODEX-127). A top-level
 				// re-auth is already underway (api.ts) — keep the last-good surface and
-				// don't flash an error before the document reloads.
+				// don't flash an error before the document reloads. When the reload is
+				// held (HOLODEX-502) the poll keeps running, and its first success
+				// is what clears the held state.
 				return;
 			}
 			if (e instanceof ApiError && e.status === 401) {

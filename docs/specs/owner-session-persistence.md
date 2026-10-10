@@ -283,6 +283,45 @@ An actively-used session does not expire out from under the owner; an idle one s
 - [ ] (If ADR-046 sets an absolute cap) a session cannot be renewed indefinitely past the absolute maximum
       age.
 
+#### OS8 — An auth-proxy sign-in expiry never loses an edit
+
+Some instances sit behind a single-sign-on proxy whose sign-in lapses on its own schedule, separately
+from the owner session above. When it lapses, the app signs back in by reloading the page (HOLODEX-127).
+A reload is the right recovery for a page with nothing on it to lose, and the wrong one for a page where
+the owner is mid-edit (HOLODEX-502).
+
+- **Nothing to lose: recover silently.** With no unsaved input and no failed save, the page reloads and
+  signs back in exactly as before. No notice.
+- **Unsaved input: hold the reload.** If the owner has typed or changed anything since their last
+  successful save on this page, or has an edit dialog open, the page does not reload. A notice says the sign-in expired and that
+  their edits are still here, and offers to sign in again in a new tab. Moving to another page
+  leaves that input behind, so it no longer holds a reload. The header search box is not an edit.
+- **A save that didn't arrive is said so.** A save made after the sign-in lapsed never reaches the
+  server. The page never reloads over it, not even later and not for an action that involved no
+  typing, and the owner is told that the change wasn't saved, both by the control that sent it and by
+  the notice.
+- **Back in: say what's still owed.** Once a request gets through again, the notice for unsaved input
+  goes away by itself. After a failed save, it changes to say the owner is signed in again and the
+  change still needs saving. That notice stays until a save succeeds or the owner dismisses it.
+- **Regenerating a thumbnail** follows the same rules as every other owner action, rather than failing
+  with a generic error.
+- **Distinct from OS4's expiry.** Holodex's own owner-session expiry still drops to the token prompt
+  (OS4). This requirement covers only the proxy's sign-in in front of it.
+- **Theming.** The notice uses `--warn` and stays reachable above any open dialog. Design:
+  [session-expired-banner-handoff.md](../design/session-expired-banner-handoff.md).
+
+**Acceptance criteria:**
+- [x] Given the proxy sign-in lapses on a page with no unsaved input, then the page reloads once and signs
+      back in, with no notice.
+- [x] Given the owner has typed into an edit field, when the proxy sign-in lapses, then the page does not
+      reload, the typed text stays, and the notice says the edits are still here.
+- [x] Given the proxy sign-in has lapsed, when the owner saves, then the page does not reload, the field
+      keeps its text, and both the control and the notice say the change wasn't saved.
+- [x] Given a failed save, when the owner signs in again in the other tab, then the notice says they are
+      signed in again and the change still needs saving, and it goes away after the next successful save.
+- [x] Given the proxy sign-in has lapsed, when the owner regenerates a thumbnail, then it is held and
+      reported like any other save, not a generic failure.
+
 ### Nice-to-Have (P1)
 
 - **Session-expired toast.** A small, themed notice ("Your owner session expired — re-enter your token") on

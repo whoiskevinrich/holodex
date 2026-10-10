@@ -44,7 +44,7 @@ export interface WaitOptions {
 // session that expired mid-poll) and rethrows immediately instead of waiting out
 // the cap; duck-typed to keep this module free of an $lib/api import — a
 // ReauthError has no status and is swallowed on purpose, since it already kicked
-// off a top-level reload.
+// off a top-level reload (or the held-reload banner, HOLODEX-502).
 async function pollUntilSettled<T>(
 	fetchStatus: () => Promise<T>,
 	isSettled: (state: T) => boolean,
