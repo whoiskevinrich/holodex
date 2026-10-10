@@ -235,11 +235,13 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   here, the same way.)*
   - Given studio `Warner Bros.` with alias `WB`, When a visitor searches `WB`, Then `Warner Bros.` appears in
     the Studios results exactly once.
-- **P0-10 — Alias values collapse in genre writeback** (HOLODEX-507). When a video's raw genre values
-  include an alias of a tag the video already carries, writeback emits the canonical tag once — never the
-  alias beside it.
+- **P0-10 — Alias values collapse in genre writeback** (HOLODEX-507, widened HOLODEX-509). Any raw genre
+  value that names a tag — by its name, an alias, or a name merged into it — is written as that tag's
+  canonical name, whether or not the video carries the tag, and never beside it.
   - Given a video tagged `sci-fi` whose file genre reads `Science Fiction` (an alias of `sci-fi`), When genre
     writeback runs, Then the file's genre lists `sci-fi` once and not `Science Fiction`.
+  - Given a video the owner has removed `sci-fi` from while a provider still supplies `Science Fiction`,
+    When genre writeback runs, Then the file's genre lists `sci-fi`, not `Science Fiction`. *(HOLODEX-509)*
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 
