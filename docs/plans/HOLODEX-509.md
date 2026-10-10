@@ -17,12 +17,11 @@ that tag's canonical name**, attached or not.
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/**` — widen P0-10 in entity-identity.md
-- [ ] backend → `internal/api/genre_writeback.go`
-- [ ] testing `testing-strategy` — unattached-alias case in genre_writeback_test.go
+- [x] backend → `internal/api/genre_writeback.go`
+- [x] testing `testing-strategy` — unattached-alias + case-variant cases in genre_writeback_test.go
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Spec P0-10 edit, push, `/implement`
-2. [ ] Write the failing test, then canonicalize raw values in `genreWritebackItemsFrom`
+1. [ ] Squash-merge the PR on green CI, then confirm CI moved HOLODEX-509 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
