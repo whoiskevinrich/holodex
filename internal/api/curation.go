@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -73,6 +74,11 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
+	values, err := h.curationSpellings(r.Context(), body.Field, value, body.Action)
+	if err != nil {
+		h.fail(w, "look up person spellings", err)
+		return
+	}
 
 	// People composite-key collision gate (HOLODEX-272, reusing HOLODEX-270/271's
 	// mechanism): a person-typed field (actors/director) add or suppress changes
@@ -103,7 +109,7 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 		// loadRelinkContext + resolver.Resolve pass immediately afterward (HOLODEX-274).
 		check = func() (*repo.VideoCollision, error) {
 			var err error
-			links, err = h.proposedPeopleLinks(r.Context(), id, value, body.Field, body.Action)
+			links, err = h.proposedPeopleLinks(r.Context(), id, values, body.Field, body.Action)
 			if err != nil {
 				return nil, err
 			}
@@ -126,7 +132,7 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 			h.relinkPeopleWithContext(r.Context(), id, links)
 		}
 	}
-	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, value, body.Action, check, commit)
+	collision, err := h.repo.SetCurationChecked(r.Context(), model.EnrichEntityVideo, id, body.Field, values, body.Action, check, commit)
 	if err != nil {
 		h.fail(w, "set curation", err)
 		return
@@ -157,8 +163,10 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 // both the field's role (actors → 'actor', director → 'director') and the target
 // name — a person linked under both roles has two video_people rows sharing a name,
 // and suppressing one role must leave the other's link (and its contribution to the
-// collision key) in place.
-func (h *Handlers) proposedPeopleLinks(ctx context.Context, videoID int64, value, field, action string) ([]repo.PersonRoleName, error) {
+// collision key) in place. values are the request value first, then (for a suppress)
+// the person's other spellings (curationSpellings) — so suppressing an alias drops the
+// link of the person it names, whose link carries the canonical name.
+func (h *Handlers) proposedPeopleLinks(ctx context.Context, videoID int64, values []string, field, action string) ([]repo.PersonRoleName, error) {
 	people, err := h.repo.PeopleForVideos(ctx, []int64{videoID})
 	if err != nil {
 		return nil, err
@@ -168,13 +176,15 @@ func (h *Handlers) proposedPeopleLinks(ctx context.Context, videoID int64, value
 	links := make([]repo.PersonRoleName, 0, len(current)+1)
 	for _, p := range current {
 		if action == repo.CurationSuppress && p.Role == fieldRole &&
-			strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(value)) {
+			slices.ContainsFunc(values, func(v string) bool {
+				return strings.EqualFold(strings.TrimSpace(p.Name), strings.TrimSpace(v))
+			}) {
 			continue
 		}
 		links = append(links, repo.PersonRoleName{Name: p.Name, Role: p.Role})
 	}
 	if action == repo.CurationAdd {
-		links = append(links, repo.PersonRoleName{Name: value, Role: fieldRole})
+		links = append(links, repo.PersonRoleName{Name: values[0], Role: fieldRole})
 	}
 	return links, nil
 }
@@ -194,7 +204,12 @@ func (h *Handlers) clearCuration(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
-	if _, err := h.repo.ClearCuration(r.Context(), model.EnrichEntityVideo, id, body.Field, body.Value, body.Action); err != nil {
+	values, err := h.curationSpellings(r.Context(), body.Field, body.Value, body.Action)
+	if err != nil {
+		h.fail(w, "look up person spellings", err)
+		return
+	}
+	if _, err := h.repo.ClearCurations(r.Context(), model.EnrichEntityVideo, id, body.Field, values, body.Action); err != nil {
 		h.fail(w, "clear curation", err)
 		return
 	}

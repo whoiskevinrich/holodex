@@ -242,6 +242,15 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
     writeback runs, Then the file's genre lists `sci-fi` once and not `Science Fiction`.
   - Given a video the owner has removed `sci-fi` from while a provider still supplies `Science Fiction`,
     When genre writeback runs, Then the file's genre lists `sci-fi`, not `Science Fiction`. *(HOLODEX-509)*
+- **P0-11 — A person's alias collapses into their name on the video** (HOLODEX-554). When a video's cast or
+  director values include an alias of a person, that person is listed once. If they are linked to the
+  video, the value shown and offered for writeback is their canonical name.
+  - Given `John Doe` with alias `Johnny D`, linked to a video whose file credits `Johnny D` and whose provider
+    credits `John Doe`, When the owner opens the writeback dialog, Then the cast row lists `John Doe` once and
+    not `Johnny D`.
+  - Removing a person from a video's cast or director row, or marking them not to write, covers every spelling
+    of that person (HOLODEX-555). Given the video above, When the owner removes `John Doe` from the cast, Then
+    neither `John Doe` nor `Johnny D` appears; When they undo the removal, Then `John Doe` returns.
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 

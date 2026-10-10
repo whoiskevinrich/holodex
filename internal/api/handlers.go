@@ -896,6 +896,11 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 					resolved = h.stampTagSetSync(r.Context(), resolved, field, v)
 				}
 			}
+			// HOLODEX-554: one person, one value — an alias on file folds into the
+			// linked person's canonical name instead of being listed beside it.
+			if perr := h.collapsePersonAliases(r.Context(), v.ID, resolved); perr != nil {
+				h.log.Warn("collapse person aliases for detail", "id", id, "err", perr)
+			}
 			// HOLODEX-216: last mutation of `resolved` before the response is built, so
 			// every row present in the final slice — including a "genres" row appended by
 			// applyGenreWriteback above — gets a WriteTarget stamp. Stamping before either
