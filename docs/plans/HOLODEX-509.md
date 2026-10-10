@@ -25,3 +25,7 @@ that tag's canonical name**, attached or not.
 1. [ ] Squash-merge the PR on green CI, then confirm CI moved HOLODEX-509 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-09 · canonical spelling for unattached-tag aliases
+- skills: code-review high --fix, implement
+- handoff: Crossed into build — spec P0-10 widened (owner picked canonical spelling), fix + tests landed, main merged (kept P0-11 beside P0-10); every gate settled and the PR marked ready. Start at squash-merge on green CI.
