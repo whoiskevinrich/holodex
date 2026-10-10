@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 560" width="800" height="560" font-family="Archivo, 'Helvetica Neue', Arial, sans-serif" role="img">
+  <title>Session-expired banner: the three held states</title>
+  <desc>A sticky warning strip under the Holodex header. Edit: the sign-in expired while the page has unsaved input. Write: a save was redirected by the proxy, shown above an open edit dialog. Resubmit: signed in again, the failed change still needs saving.</desc>
+  <rect width="800" height="560" fill="#0c0a09"/>
+
+  <!-- 1. edit -->
+  <text x="16" y="22" font-size="12" fill="#9b9082">1 · edit — sign-in lapsed while the page has unsaved input (role=status)</text>
+  <rect x="16" y="32" width="768" height="40" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="32" y="57" font-size="17" font-weight="600" fill="#f3ece1" font-family="Fraunces, Georgia, serif">Holodex</text>
+  <rect x="200" y="42" width="300" height="20" rx="3" fill="#15110e" stroke="#2a2622"/>
+  <text x="208" y="56" font-size="12" fill="#9b9082">Search everything…  (Ctrl-K)</text>
+  <rect x="16" y="72" width="768" height="38" fill="#15110e"/>
+  <line x1="16" y1="110" x2="784" y2="110" stroke="#e2603f"/>
+  <text x="40" y="96" font-size="14"><tspan font-weight="600" fill="#e2603f">Your sign-in expired.</tspan><tspan fill="#f3ece1"> Your edits are still here. Sign in again before you save.</tspan></text>
+  <rect x="650" y="79" width="118" height="24" rx="3" fill="none" stroke="#2a2622"/>
+  <text x="709" y="96" font-size="14" fill="#f3ece1" text-anchor="middle">Sign in again ↗</text>
+
+  <!-- 2. write, over an open dialog -->
+  <text x="16" y="152" font-size="12" fill="#9b9082">2 · write — a save was redirected and never reached Holodex (role=alert); sticky z-[70], above the dialog backdrop</text>
+  <rect x="16" y="162" width="768" height="230" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="32" y="187" font-size="17" font-weight="600" fill="#f3ece1" font-family="Fraunces, Georgia, serif">Holodex</text>
+  <rect x="16" y="202" width="768" height="190" fill="#0c0a09" fill-opacity="0.7"/>
+  <rect x="250" y="226" width="300" height="156" rx="4" fill="#15110e" stroke="#2a2622"/>
+  <text x="266" y="250" font-size="16" font-weight="600" fill="#f3ece1" font-family="Fraunces, Georgia, serif">Edit Overview</text>
+  <rect x="266" y="262" width="268" height="54" rx="3" fill="#0c0a09" stroke="#e8a33d"/>
+  <text x="276" y="282" font-size="12" fill="#f3ece1">An overview the owner typed before</text>
+  <text x="276" y="298" font-size="12" fill="#f3ece1">the session lapsed</text>
+  <text x="266" y="334" font-size="12" fill="#e2603f">Your sign-in expired, so this change wasn't saved.</text>
+  <rect x="420" y="348" width="54" height="24" rx="3" fill="none"/>
+  <text x="447" y="364" font-size="13" fill="#f3ece1" text-anchor="middle">Cancel</text>
+  <rect x="480" y="348" width="54" height="24" rx="3" fill="#e8a33d"/>
+  <text x="507" y="364" font-size="13" fill="#1a1206" text-anchor="middle">Save</text>
+  <rect x="16" y="202" width="768" height="38" fill="#15110e"/>
+  <line x1="16" y1="240" x2="784" y2="240" stroke="#e2603f"/>
+  <text x="40" y="226" font-size="14"><tspan font-weight="600" fill="#e2603f">Your sign-in expired, so your last change wasn't saved.</tspan><tspan fill="#f3ece1"> Sign in again, then save it again.</tspan></text>
+  <rect x="650" y="209" width="118" height="24" rx="3" fill="none" stroke="#2a2622"/>
+  <text x="709" y="226" font-size="14" fill="#f3ece1" text-anchor="middle">Sign in again ↗</text>
+
+  <!-- 3. resubmit -->
+  <text x="16" y="434" font-size="12" fill="#9b9082">3 · resubmit — the poll got through again after a failed write; clears on the next successful save or Dismiss</text>
+  <rect x="16" y="444" width="768" height="40" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="32" y="469" font-size="17" font-weight="600" fill="#f3ece1" font-family="Fraunces, Georgia, serif">Holodex</text>
+  <rect x="16" y="484" width="768" height="38" fill="#15110e"/>
+  <line x1="16" y1="522" x2="784" y2="522" stroke="#e2603f"/>
+  <text x="40" y="508" font-size="14"><tspan font-weight="600" fill="#e2603f">You're signed in again.</tspan><tspan fill="#f3ece1"> Your last change still isn't saved. Save it again.</tspan></text>
+  <text x="740" y="508" font-size="14" fill="#f3ece1" text-anchor="middle">Dismiss</text>
+
+  <text x="16" y="548" font-size="12" fill="#9b9082">No banner when nothing would be lost: an idle page still reloads silently (HOLODEX-127).</text>
+</svg>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, afterNavigate } from '$app/navigation';
 	import { adminMode } from '$lib/adminMode.svelte';
 	import { activity } from '$lib/activity.svelte';
 	import { searchHistory } from '$lib/searchHistory.svelte';
@@ -12,6 +12,8 @@
 	import HotkeySheet from '$lib/components/shared/HotkeySheet.svelte';
 	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '$lib/actions/hotkey.svelte';
 	import { silenceMediaInDev } from '$lib/devSilence';
+	import { reauth, trackEdits } from '$lib/reauth.svelte';
+	import SessionExpiredBanner from '$lib/components/activity/SessionExpiredBanner.svelte';
 
 	let { children } = $props();
 
@@ -58,6 +60,14 @@
 	$effect(() => {
 		activity.start();
 		return () => activity.stop();
+	});
+
+	// Unsaved input holds an auth-proxy re-auth reload instead of wiping it
+	// (HOLODEX-502). Moving to another page leaves that input behind, so it no
+	// longer counts; a query-string or hash change on the same page doesn't.
+	$effect(trackEdits);
+	afterNavigate(({ from, to }) => {
+		if (from?.url.pathname !== to?.url.pathname) reauth.dirty = false;
 	});
 
 	// Ctrl-/Cmd-K focuses the global search (F4.10).
@@ -436,6 +446,8 @@
 		</span>
 	</nav>
 </header>
+
+<SessionExpiredBanner />
 
 <!-- Announces Admin-mode changes that don't originate from the toggle itself
      (auto-reveal on owner-only routes, F29 P0-6); the switch announces its own

@@ -1,6 +1,7 @@
 // Typed client for the Holodex REST API. In dev, Vite proxies /api -> :7800;
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
+import { reauth, editing } from './reauth.svelte';
 import type {
 	CarryPreview,
 	VideoCompare,
@@ -115,7 +116,9 @@ export class ApiError extends Error {
 // with `redirect: 'manual'` and recover via a top-level navigation instead.
 export class ReauthError extends Error {
 	constructor() {
-		super('auth session expired (upstream redirect)');
+		// Owner-facing: a held write (HOLODEX-502) leaves the caller's inline error on
+		// screen beside the banner, so it reads as copy, not a diagnostic.
+		super("Your sign-in expired, so this change wasn't saved.");
 		this.name = 'ReauthError';
 	}
 }
@@ -126,9 +129,22 @@ export class ReauthError extends Error {
 // cleanly landing on the login flow if that has lapsed too). Guarded so the many
 // concurrent authed requests (the 3 s poll, in-flight loads) trigger at most one
 // reload; the flag resets naturally when the fresh document loads.
+//
+// The reload is *held* instead (HOLODEX-502) when it would lose something: a
+// redirected write never reached Holodex, and unsaved input would be wiped. The
+// layout then shows a banner and the owner signs in again in another tab.
 let reauthTriggered = false;
-export function triggerReauth(): void {
-	if (reauthTriggered || typeof window === 'undefined') return;
+export function triggerReauth(write = false): void {
+	if (typeof window === 'undefined') return;
+	// A change already owed ('write'/'resubmit') stays owed: a later background
+	// read must not reload it away, even when no input event marked the page dirty
+	// (a button-only action), and a second lapse after signing back in owes it again.
+	const owed = write || reauth.hold === 'write' || reauth.hold === 'resubmit';
+	if (owed || editing()) {
+		reauth.hold = owed ? 'write' : 'edit';
+		return;
+	}
+	if (reauthTriggered) return;
 	reauthTriggered = true;
 	window.location.assign(window.location.href);
 }
@@ -137,12 +153,19 @@ export function triggerReauth(): void {
 // signal. With `redirect: 'manual'` the browser returns an opaque redirect
 // (type 'opaqueredirect', status 0) rather than following it into a CORS failure;
 // we kick off the top-level re-auth and throw ReauthError so callers can suppress
-// their transient error UI while the document reloads. Called before res.ok/json()
-// (json() would throw on an opaque response).
-function checkRedirect(res: Response): void {
+// their transient error UI. Called before res.ok/json() (json() would throw on an
+// opaque response). Any other response means the proxy let us through again, so
+// a held re-auth is over; a failed write still needs saving ('resubmit').
+function checkRedirect(res: Response, write = false): void {
 	if (res.type === 'opaqueredirect') {
-		triggerReauth();
+		triggerReauth(write);
 		throw new ReauthError();
+	}
+	if (reauth.hold === 'edit') reauth.hold = null;
+	else if (reauth.hold === 'write') reauth.hold = 'resubmit';
+	if (write && res.ok) {
+		reauth.dirty = false;
+		if (reauth.hold === 'resubmit') reauth.hold = null;
 	}
 }
 
@@ -208,7 +231,7 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 		headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) },
 		body: body ? JSON.stringify(body) : undefined
 	});
-	checkRedirect(res);
+	checkRedirect(res, true);
 	if (!res.ok && res.status !== 204) {
 		// The body's `error` is the owner-facing line when the server wrote one (a
 		// paused provider's "tmdb is rate-limiting — try again in 42 s", ADR-103 D4);
@@ -237,7 +260,7 @@ async function sendConflictable<TReq, TConflict = VideoCollisionRef>(
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
 	});
-	checkRedirect(res);
+	checkRedirect(res, true);
 	if (res.status === 409) {
 		const conflictBody = (await res.json().catch(() => ({}))) as { conflict?: TConflict };
 		if (conflictBody.conflict) return { conflict: conflictBody.conflict };
@@ -259,7 +282,7 @@ async function uploadAuthed<T>(path: string, form: FormData): Promise<T> {
 		redirect: 'manual',
 		body: form
 	});
-	checkRedirect(res);
+	checkRedirect(res, true);
 	if (!res.ok) {
 		const body = (await res.json().catch(() => ({}))) as { error?: string };
 		throw new ApiError(res.status, path, body.error);
@@ -365,7 +388,12 @@ export const api = {
 	// Request re-extraction. Returns the HTTP status: 200 = embedded art extracted
 	// synchronously, 202 = queued for frame generation.
 	regenerateThumbnail: async (id: number, fetchFn: typeof fetch = fetch): Promise<number> => {
-		const res = await fetchFn(`${BASE}/media/${id}/thumbnail`, { method: 'POST' });
+		const res = await fetchFn(`${BASE}/media/${id}/thumbnail`, {
+			method: 'POST',
+			credentials: CREDS,
+			redirect: 'manual'
+		});
+		checkRedirect(res, true);
 		if (!res.ok && res.status !== 202) {
 			throw new Error(`regenerate thumbnail failed: ${res.status}`);
 		}
@@ -470,7 +498,7 @@ export const api = {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ parent_id: parentId })
 		});
-		checkRedirect(res);
+		checkRedirect(res, true);
 		const body = (await res.json().catch(() => ({}))) as { cycle?: boolean };
 		if (res.status === 400) {
 			if (body.cycle) return { cycle: true };
@@ -889,7 +917,7 @@ export const api = {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ alias })
 		});
-		checkRedirect(res);
+		checkRedirect(res, true);
 		if (res.status === 409) {
 			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef };
 			return { conflict: body.conflict };
@@ -929,7 +957,7 @@ export const api = {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name })
 		});
-		checkRedirect(res);
+		checkRedirect(res, true);
 		if (res.status === 409) {
 			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef } & EntityRef;
 			return { conflict: body.conflict ?? body };

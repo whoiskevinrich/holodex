@@ -139,7 +139,8 @@
 		} catch (e) {
 			if (e instanceof ReauthError) {
 				// Upstream ForwardAuth session lapsed — a top-level re-auth is already
-				// underway (api.ts); don't flash a wrong-token error before the reload.
+				// underway (api.ts: a reload, or the held-reload banner once a token is
+				// typed, HOLODEX-502); don't flash a wrong-token error.
 				return;
 			}
 			tokenError = 'Incorrect token — try again.';
