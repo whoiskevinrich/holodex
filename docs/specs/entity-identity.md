@@ -246,6 +246,9 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   - Given `John Doe` with alias `Johnny D`, linked to a video whose file credits `Johnny D` and whose provider
     credits `John Doe`, When the owner opens the writeback dialog, Then the cast row lists `John Doe` once and
     not `Johnny D`.
+  - Removing a person from a video's cast or director row, or marking them not to write, covers every spelling
+    of that person (HOLODEX-555). Given the video above, When the owner removes `John Doe` from the cast, Then
+    neither `John Doe` nor `Johnny D` appears; When they undo the removal, Then `John Doe` returns.
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 

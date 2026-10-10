@@ -95,7 +95,7 @@ func (r *Repo) CurationForEntities(ctx context.Context, entityType string, ids [
 func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
-	return r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
+	return r.setCurationLocked(ctx, r.db, entityType, entityID, fieldKey, value, action)
 }
 
 // SetCurationChecked runs check() and, absent a collision, the curation write, as one
@@ -116,7 +116,11 @@ func (r *Repo) SetCuration(ctx context.Context, entityType string, entityID int6
 // that assume writeMu is already held — see ReconcileVideoPeopleLocked
 // (person_links.go) for that contract and why it's doc-comment- rather than
 // compiler-enforced.
-func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string, check func() (*VideoCollision, error), commit func()) (*VideoCollision, error) {
+//
+// values holds every spelling the one decision covers — more than one when a person's
+// suppress reaches their aliases too (HOLODEX-555) — written in one transaction, so a
+// failure leaves none of them behind.
+func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entityID int64, fieldKey string, values []string, action string, check func() (*VideoCollision, error), commit func()) (*VideoCollision, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	if check != nil {
@@ -124,21 +128,33 @@ func (r *Repo) SetCurationChecked(ctx context.Context, entityType string, entity
 			return collision, err
 		}
 	}
-	err := r.setCurationLocked(ctx, entityType, entityID, fieldKey, value, action)
-	if err == nil && commit != nil {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("set curation: begin: %w", err)
+	}
+	defer tx.Rollback()
+	for _, value := range values {
+		if err := r.setCurationLocked(ctx, tx, entityType, entityID, fieldKey, value, action); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("set curation: commit: %w", err)
+	}
+	if commit != nil {
 		commit()
 	}
-	return nil, err
+	return nil, nil
 }
 
 // setCurationLocked is SetCuration's implementation, assuming the caller already
 // holds writeMu — shared by SetCuration and SetCurationChecked.
-func (r *Repo) setCurationLocked(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) error {
+func (r *Repo) setCurationLocked(ctx context.Context, ex execer, entityType string, entityID int64, fieldKey, value, action string) error {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return fmt.Errorf("curation: empty value")
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := ex.ExecContext(ctx, `
 		INSERT INTO metadata_curation (entity_type, entity_id, field_key, norm_value, value, action, source, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, 'manual', ?)
 		ON CONFLICT(entity_type, entity_id, field_key, norm_value, action) DO UPDATE SET
@@ -154,12 +170,25 @@ func (r *Repo) setCurationLocked(ctx context.Context, entityType string, entityI
 // ClearCuration removes one decision so the underlying source value is restored
 // (F30.2e). Matching is by normalized value + action. Returns rows removed.
 func (r *Repo) ClearCuration(ctx context.Context, entityType string, entityID int64, fieldKey, value, action string) (int64, error) {
+	return r.ClearCurations(ctx, entityType, entityID, fieldKey, []string{value}, action)
+}
+
+// ClearCurations is ClearCuration over several spellings of one decision, under one
+// lock (HOLODEX-555: clearing a person's suppress restores every spelling it covered).
+func (r *Repo) ClearCurations(ctx context.Context, entityType string, entityID int64, fieldKey string, values []string, action string) (int64, error) {
+	if len(values) == 0 {
+		return 0, nil
+	}
+	args := []any{entityType, entityID, fieldKey, action}
+	for _, v := range values {
+		args = append(args, curationNorm(v))
+	}
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	res, err := r.db.ExecContext(ctx, `
 		DELETE FROM metadata_curation
-		WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND norm_value = ? AND action = ?`,
-		entityType, entityID, fieldKey, curationNorm(value), action)
+		WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND action = ?
+		  AND norm_value IN (?`+strings.Repeat(",?", len(values)-1)+`)`, args...)
 	if err != nil {
 		return 0, fmt.Errorf("clear curation: %w", err)
 	}

@@ -3,11 +3,49 @@ package api
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"holodex/internal/model"
 	"holodex/internal/registry"
+	"holodex/internal/repo"
 	"holodex/internal/resolver"
 )
+
+// curationSpellings returns the values a curation decision on field covers
+// (HOLODEX-555). collapsePersonAliases shows a person once, under one spelling, so a
+// suppress or no-write on a person-typed field must reach every spelling of that
+// person — canonical name and aliases — or an uncovered spelling still resolves and
+// the person comes back. Anything else (an add, a non-person field, a value naming no
+// one) covers just the value itself, which is always first.
+func (h *Handlers) curationSpellings(ctx context.Context, field, value, action string) ([]string, error) {
+	out := []string{value}
+	if registry.Lookup(field).EntityKind != registry.EntityKindPerson ||
+		(action != repo.CurationSuppress && action != repo.CurationNoWrite) {
+		return out, nil
+	}
+	id, ok, err := h.repo.LookupEntityIDByName(ctx, model.EnrichEntityPerson, value)
+	if err != nil || !ok {
+		return out, err
+	}
+	p, err := h.repo.GetPerson(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	aliases, err := h.repo.AliasesForPerson(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	add := func(s string) {
+		if !slices.ContainsFunc(out, func(o string) bool { return strings.EqualFold(strings.TrimSpace(o), strings.TrimSpace(s)) }) {
+			out = append(out, s)
+		}
+	}
+	add(p.Name)
+	for _, a := range aliases {
+		add(a.Alias)
+	}
+	return out, nil
+}
 
 // collapsePersonAliases dedups each person-typed row (registry.EntityKindPerson) by
 // person identity, not spelling (HOLODEX-554): the resolver's merge keys values by
