@@ -14,6 +14,8 @@ package scanner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -43,6 +45,7 @@ type Repository interface {
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
 	DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, error)
 	Reactivate(ctx context.Context, id int64) error
+	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
 // Extractor reads embedded metadata for one file.
@@ -192,7 +195,15 @@ type stats struct {
 	mu                                    sync.Mutex
 	seen, added, updated, skipped, errors int
 	seenIDs                               []int64
+	failures                              []string // first maxReportedFailures per-file failures
+	// root is the canonical media root, set by the walk before it sends any path
+	// (so workers read it after the channel handoff, without the lock).
+	root string
 }
+
+// maxReportedFailures caps how many failing files a scan's job row names; the
+// rest are counted as "+N more" (HOLODEX-560).
+const maxReportedFailures = 3
 
 func (s *stats) recordSeen(id int64) {
 	s.mu.Lock()
@@ -204,7 +215,15 @@ func (s *stats) incSeen()    { s.mu.Lock(); s.seen++; s.mu.Unlock() }
 func (s *stats) incAdded()   { s.mu.Lock(); s.added++; s.mu.Unlock() }
 func (s *stats) incUpdated() { s.mu.Lock(); s.updated++; s.mu.Unlock() }
 func (s *stats) incSkipped() { s.mu.Lock(); s.skipped++; s.mu.Unlock() }
-func (s *stats) incErrors()  { s.mu.Lock(); s.errors++; s.mu.Unlock() }
+
+func (s *stats) fail(failure string) {
+	s.mu.Lock()
+	s.errors++
+	if len(s.failures) < maxReportedFailures {
+		s.failures = append(s.failures, failure)
+	}
+	s.mu.Unlock()
+}
 
 // ScanOnce performs a single reconciliation pass over MediaPath. Concurrent
 // callers (the periodic ticker and the fs-watcher) are serialized so two passes
@@ -281,10 +300,21 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	// from a mount glitch, so err toward keeping rows — a later walk that sees the
 	// files reactivates them, whereas a wrongful sweep hides everything until manual
 	// recovery. (When the library is truly empty there are no active rows to sweep.)
+	//
+	// An empty walk over a library that still has active videos is most likely an
+	// unmounted share, so it is also recorded as a failed run (HOLODEX-560).
 	var removed int64
+	var activeWhenEmpty int
 	if st.seen == 0 {
 		s.log.Warn("scan saw zero media files; skipping deactivation to avoid hiding a transiently-empty media root",
 			"media_path", s.cfg.MediaPath)
+		if walkErr == nil {
+			if c, err := s.repo.LibraryCounts(ctx); err != nil {
+				s.log.Warn("library count after empty walk failed", "err", err)
+			} else {
+				activeWhenEmpty = c.VideosActive
+			}
+		}
 	} else if n, err := s.repo.DeactivateExcept(ctx, st.seenIDs); err != nil {
 		s.log.Error("reconcile removed files failed", "err", err)
 	} else {
@@ -304,7 +334,7 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		Removed: int(removed), Skipped: st.skipped, Errors: st.errors,
 	}
 	s.markDone(sum)
-	s.recordRun(start, sum, walkErr)
+	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st))
 
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
@@ -315,25 +345,55 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	return walkErr
 }
 
-// recordRun persists a completed pass to the activity history (F21.3). Only a
-// pass-level failure (walkErr) marks the run "error"; per-file extraction errors
-// are surfaced via the Errors count, consistent with the never-abort NFR. The
-// write uses a detached, bounded context so a pass that finished during shutdown
-// still records. Best-effort: errors are logged, never propagated.
-func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, walkErr error) {
+// scanFailure says why a pass should be recorded as a failed run, or "" when it
+// ran clean (HOLODEX-560). Per-file failures still never abort the pass, but they
+// mark it failed so the digest's Recent Failures surfaces them, naming the first
+// few files relative to the media root.
+func scanFailure(walkErr error, activeWhenEmpty int, st *stats) string {
+	var parts []string
+	if walkErr != nil {
+		parts = append(parts, walkErr.Error())
+	}
+	if activeWhenEmpty > 0 {
+		parts = append(parts, fmt.Sprintf(
+			"media root has no media files while %s active; is it mounted?",
+			plural(activeWhenEmpty, "video is", "videos are")))
+	}
+	if st.errors > 0 {
+		msg := fmt.Sprintf("%s failed: %s", plural(st.errors, "file", "files"), strings.Join(st.failures, "; "))
+		if more := st.errors - len(st.failures); more > 0 {
+			msg += fmt.Sprintf("; +%d more", more)
+		}
+		parts = append(parts, msg)
+	}
+	return strings.Join(parts, "; ")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return fmt.Sprintf("%d %s", n, many)
+}
+
+// recordRun persists a completed pass to the activity history (F21.3). A non-empty
+// failure (see scanFailure) marks the run "error". The write uses a detached,
+// bounded context so a pass that finished during shutdown still records.
+// Best-effort: errors are logged, never propagated.
+func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure string) {
 	if s.recorder == nil {
 		return
 	}
-	status, msg := model.JobStatusOK, ""
-	if walkErr != nil {
-		status, msg = model.JobStatusErr, walkErr.Error()
+	status := model.JobStatusOK
+	if failure != "" {
+		status = model.JobStatusErr
 	}
 	run := model.JobRun{
 		Kind: model.JobKindScan, Trigger: sum.Trigger, Status: status,
 		StartedAt: start.UTC(), FinishedAt: sum.FinishedAt, DurationMs: sum.DurationMs,
 		Seen: sum.Seen, Added: sum.Added, Updated: sum.Updated,
 		Removed: sum.Removed, Skipped: sum.Skipped, Errors: sum.Errors,
-		ErrorMessage: msg,
+		ErrorMessage: failure,
 	}
 	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -342,12 +402,30 @@ func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, walkErr erro
 	}
 }
 
+// fileFailed counts and logs one per-file failure, keeping it for the scan's job
+// row under its media-root-relative path — a job row never carries the absolute
+// path (HOLODEX-560).
+func (s *Scanner) fileFailed(st *stats, path, msg string, err error) {
+	s.log.Warn(msg, "path", path, "err", err)
+	rel := relPath(st.root, path)
+	st.fail(rel + ": " + strings.ReplaceAll(err.Error(), path, rel))
+}
+
+// relPath returns a canonical path relative to the canonical media root, falling
+// back to the bare file name for a file reached through a symlink pointing
+// outside the root.
+func relPath(root, path string) string {
+	if rel, err := filepath.Rel(root, path); err == nil && filepath.IsLocal(rel) {
+		return filepath.ToSlash(rel)
+	}
+	return filepath.Base(path)
+}
+
 // index handles one media file: change-detect, extract, upsert.
 func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	info, err := os.Stat(path)
 	if err != nil {
-		st.incErrors()
-		s.log.Warn("stat failed", "path", path, "err", err)
+		s.fileFailed(st, path, "stat failed", err)
 		return
 	}
 	mtime := info.ModTime().UTC().Truncate(time.Second)
@@ -357,8 +435,7 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	// recently-modified files (e.g. after a metadata writeback changes mtime).
 	prev, ok, err := s.repo.StatByPath(ctx, path)
 	if err != nil {
-		st.incErrors()
-		s.log.Warn("stat lookup failed", "path", path, "err", err)
+		s.fileFailed(st, path, "stat lookup failed", err)
 		return
 	}
 
@@ -393,8 +470,7 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		if prev.Active {
 			st.incSkipped()
 		} else if err := s.repo.Reactivate(ctx, prev.ID); err != nil {
-			st.incErrors()
-			s.log.Warn("reactivate failed", "path", path, "err", err)
+			s.fileFailed(st, path, "reactivate failed", err)
 			return
 		} else {
 			st.incUpdated()
@@ -405,16 +481,14 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 
 	ex, err := s.ext.Extract(ctx, path)
 	if err != nil {
-		st.incErrors()
-		s.log.Warn("extract failed; skipping", "path", path, "err", err)
+		s.fileFailed(st, path, "extract failed; skipping", err)
 		return
 	}
 
 	v := buildVideo(path, info, mtime, ex)
 	id, err := s.repo.UpsertVideo(ctx, v, ex.Extra)
 	if err != nil {
-		st.incErrors()
-		s.log.Warn("upsert failed", "path", path, "err", err)
+		s.fileFailed(st, path, "upsert failed", err)
 		return
 	}
 	st.recordSeen(id)
@@ -531,10 +605,18 @@ func (s *Scanner) walkDir(ctx context.Context, dir string, depth int, visitedDir
 	if s.cfg.MaxDepth > 0 && depth > s.cfg.MaxDepth {
 		return nil
 	}
+	// A subdirectory that can't be resolved or read is skipped (never-abort), but
+	// the media root itself failing fails the pass (HOLODEX-560).
 	canonDir, err := s.canonical(dir)
 	if err != nil {
 		s.log.Warn("resolve dir failed", "path", dir, "err", err)
+		if depth == 0 {
+			return rootFailure("resolve", err)
+		}
 		return nil
+	}
+	if depth == 0 {
+		st.root = canonDir
 	}
 	if _, seen := visitedDirs[canonDir]; seen {
 		return nil // symlink loop or already-visited real dir
@@ -544,6 +626,9 @@ func (s *Scanner) walkDir(ctx context.Context, dir string, depth int, visitedDir
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		s.log.Warn("read dir failed", "path", dir, "err", err)
+		if depth == 0 {
+			return rootFailure("read", err)
+		}
 		return nil
 	}
 	for _, e := range entries {
@@ -578,6 +663,17 @@ func (s *Scanner) walkDir(ctx context.Context, dir string, depth int, visitedDir
 		}
 	}
 	return nil
+}
+
+// rootFailure reports the media root failing to resolve or read. It keeps the
+// OS reason but drops the path: MEDIA_PATH is configuration, and the error is
+// recorded on the scan's job row.
+func rootFailure(op string, err error) error {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		err = pe.Err
+	}
+	return fmt.Errorf("%s media root: %w", op, err)
 }
 
 // entryInfo resolves an entry's info, following symlinks only when configured.

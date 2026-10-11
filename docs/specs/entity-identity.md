@@ -136,7 +136,10 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   rule goes one way only, spaces to dashes: a tag named with a dash gets no spaced alias, because a name like
   `x-men` is spelled with a dash on purpose. The alias is never added at the cost of merging tags. If the
   dashed spelling already belongs to a different tag, the alias is skipped and the pair is left to the
-  near-miss review queue, which already flags it (P1-1). The homonym rule (RD4) holds.
+  near-miss review queue, which already flags it (P1-1). The homonym rule (RD4) holds. A spelling the owner
+  has blocked is never added as an automatic alias *(HOLODEX-558)*. Like blocking a tag name, this is
+  forward-only: blocking a term later leaves an automatic alias that already has that spelling, which the
+  owner can remove from the Aliases panel.
 - **RD8 — Merge is irreversible + informed confirm** (card). Both entry points show each side's video count
   and what moves before committing; merge is one-way. Undo/split is P2.
 - **RD9 — Review queue: banner → `/owner` Duplicates tab; editor near-miss = soft warning** (cards). Entity
@@ -288,6 +291,10 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
     both `sci-fi` and `science-fiction`.
   - Given the owner removed `science-fiction` from tag `science fiction`, When the library is rescanned or the
     app restarts, Then the alias is not added back.
+  - Given the owner has blocked `science-fiction`, When tag `science fiction` is created, renamed to, or
+    reached by the one-time pass, Then it gets no dashed alias. *(HOLODEX-558)*
+  - Given tag `science fiction` already carries `science-fiction`, When the owner blocks `science-fiction`,
+    Then the alias stays until the owner removes it. *(HOLODEX-558)*
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 
