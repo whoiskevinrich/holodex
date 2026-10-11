@@ -56,8 +56,11 @@ below). `kind` is open-ended: a new job is a new `model.JobKind*` constant, neve
   insert under `writeMu`, and `PruneJobRuns` runs once at startup. The same constant clamps every
   `days=` read.
 - **`detail` is a human sentence and nothing parses it.** Anything a program reads is a column.
-  No row carries paths, env values or tokens; entities appear as ids, provider errors as a generic
-  message.
+  No row carries absolute paths, env values or tokens; entities appear as ids, provider errors as a
+  generic message. The one exception is a scan's `error_message`, which names its first failing files
+  **relative to the media root**. The owner needs the file to act on, and a relative path exposes
+  neither `MEDIA_PATH` nor the mount layout (HOLODEX-560). The rejected alternative was a count
+  alone, which sends the owner to the server logs.
 - **Grain.** Whole-library passes (scan, purge, extraction, backfills, orphan sweep)
   record one row per pass. Per-item kinds record one row per item: `writeback` per video,
   `enrich` per provider × entity, `refresh` one row per refresh covering both halves.
