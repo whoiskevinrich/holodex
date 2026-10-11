@@ -10,7 +10,7 @@
 **Architecture**: [writeback.md](../architecture/writeback.md) (to be extended: a second kind of
 file write, one that replaces the picture rather than the tags) ·
 [observability-and-jobs.md](../architecture/observability-and-jobs.md).
-**Design handoff**: _pending (`/design-handoff`)_.
+**Design handoff**: [video-file-maintenance-handoff.md](../design/video-file-maintenance-handoff.md).
 
 ---
 
@@ -50,8 +50,8 @@ discards the original early. When the window expires, the held original is delet
 ### In scope
 - A **Maintenance** section on the Media Details page, visible only to the owner in Admin mode, that
   lists the available operations. v1 has one: **Flip horizontally**.
-- **Per file.** A maintenance operation targets one file. On a multi-part video the owner picks which
-  part's file to act on, and the other parts are not touched.
+- **Per file.** A maintenance operation targets one file: the file of the page it's run from. Each
+  part of a multi-part video is its own item with its own file, so the other parts are not touched.
 - **A confirm step** that names the file, says the video will be re-encoded, gives the free-space
   requirement, and gives the date the held original will be deleted.
 - **Background execution.** The operation runs asynchronously, like a tag write. Its status (queued,
@@ -149,9 +149,10 @@ operation is refused before it starts. It never produces a file that "mostly" ma
 - [ ] The server rejects maintenance requests from non-owners. Hiding the button is not the control.
 
 **R2. Per-file targeting.**
-- [ ] On a single-file video, Flip targets that file.
-- [ ] On a multi-part video, the owner chooses one part's file, and only that file changes.
-- [ ] The confirm step names the targeted file by filename (and part number when there are parts).
+- [ ] Flip acts on the file of the video whose page it is on, and no other file.
+- [ ] Each part of a multi-part video has its own page and its own file, so flipping one part never
+      touches its siblings.
+- [ ] The confirm step names the targeted file by filename.
 
 **R3. Preflight refusals.** Before anything is queued, Holodex checks the operation can succeed,
 refuses with a plain-language reason when it can't, and creates no job:
@@ -199,7 +200,8 @@ refuses with a plain-language reason when it can't, and creates no job:
 - [ ] The held original never appears in the library as an item of its own, and scans never ingest it.
 - [ ] The video page tells the owner an original is being held and when it expires, and offers
       **Restore original** and **Keep change**.
-- [ ] **Keep change** deletes the held original immediately.
+- [ ] **Keep change** deletes the held original immediately, after a confirmation, because there's
+      no undo.
 - [ ] **Restore original** puts the original back in place of the flipped file, refreshes file facts
       and the thumbnail, and deletes nothing else. Before restoring, the owner is warned that any tag
       writes to this file since the operation will be lost from the file. The library's own values
