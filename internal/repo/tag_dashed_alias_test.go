@@ -215,6 +215,62 @@ func TestDashedTagAlias_RenameReaddsRemoved(t *testing.T) {
 	}
 }
 
+// HOLODEX-558: a blocked spelling is never added as the automatic alias — on create,
+// rename, or the backfill.
+func TestDashedTagAlias_SkipsDeniedSpelling(t *testing.T) {
+	r, db := newRepoDB(t)
+	ctx := context.Background()
+	if _, err := r.DenyTag(ctx, "science-fiction"); err != nil {
+		t.Fatalf("deny: %v", err)
+	}
+
+	created, err := r.ResolveOrCreateTag(ctx, "science fiction")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if got := tagAliases(t, r, created.ID); len(got) != 0 {
+		t.Errorf("created tag aliases = %v, want none", got)
+	}
+
+	if _, err := r.DenyTag(ctx, "space-opera"); err != nil {
+		t.Fatalf("deny space-opera: %v", err)
+	}
+	renamed, err := r.ResolveOrCreateTag(ctx, "space")
+	if err != nil {
+		t.Fatalf("create space: %v", err)
+	}
+	if _, err := r.RenameEntity(ctx, model.EntityTag, renamed.ID, "Space Opera"); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	if got := tagAliases(t, r, renamed.ID); !slices.Equal(got, []string{"space"}) {
+		t.Errorf("renamed tag aliases = %v, want [space] (old name only)", got)
+	}
+
+	mustExec(t, db, `INSERT INTO tags (name) VALUES ('science-fiction movies'), ('film noir')`)
+	if _, err := r.DenyTag(ctx, "science-fiction-movies"); err != nil {
+		t.Fatalf("deny 2: %v", err)
+	}
+	if added, err := r.BackfillDashedTagAliases(ctx); err != nil || added != 1 {
+		t.Errorf("backfill added %d (err %v), want 1 (film-noir only)", added, err)
+	}
+}
+
+// HOLODEX-558 is forward-only: blocking a spelling later leaves the alias in place.
+func TestDashedTagAlias_LaterDenyLeavesAlias(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	tg, err := r.ResolveOrCreateTag(ctx, "science fiction")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := r.DenyTag(ctx, "science-fiction"); err != nil {
+		t.Fatalf("deny: %v", err)
+	}
+	if got := tagAliases(t, r, tg.ID); !slices.Equal(got, []string{"science-fiction"}) {
+		t.Errorf("aliases = %v, want [science-fiction]", got)
+	}
+}
+
 // The automatic alias is not authored data: an aged, unattached multi-word tag is swept.
 func TestDashedTagAlias_DoesNotShieldOrphan(t *testing.T) {
 	r, db := newRepoDB(t)
