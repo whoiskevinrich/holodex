@@ -373,6 +373,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("maintenance: recovered interrupted swaps", "count", n)
 	}
 	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, postWrite, writeQ.Kick, log)
+	handlers.SetMaintenance(maintWorker)
 
 	// Filename extraction (F48, ADR-067): the orchestrator ties pattern
 	// matching (F48.1), the filename shadow-store write (F48.2), and

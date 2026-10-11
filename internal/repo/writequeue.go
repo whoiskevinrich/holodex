@@ -350,35 +350,65 @@ type VideoWritebackStatus struct {
 // exists. `id ASC` breaks ties within updated_at's one-second (RFC3339) resolution —
 // two failures landing in the same second would otherwise sort in whatever order SQLite
 // happens to return equal keys in, which is not something this code should rely on.
+//
+// Tag writes only: a maintenance job's state is GetVideoMaintenanceStatus, shown in its own
+// section of the page (F77).
 func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (VideoWritebackStatus, error) {
+	s, _, err := r.videoQueueStatus(ctx, videoID, WritebackKindWrite)
+	return s, err
+}
+
+// MaintenanceStatus is a video's maintenance-lane state (F77): the VideoWritebackStatus shape
+// plus the payload of the job it describes (the pending one if any, else the latest failure),
+// so the caller can name the operation. Error carries the same absolute-path exposure as a
+// tag write's, so it is owner-only too.
+type MaintenanceStatus struct {
+	VideoWritebackStatus
+	Payload string `json:"-"`
+}
+
+// GetVideoMaintenanceStatus reports a video's maintenance-lane status.
+func (r *Repo) GetVideoMaintenanceStatus(ctx context.Context, videoID int64) (MaintenanceStatus, error) {
+	s, payload, err := r.videoQueueStatus(ctx, videoID, WritebackKindMaintenance)
+	return MaintenanceStatus{VideoWritebackStatus: s, Payload: payload}, err
+}
+
+// videoQueueStatus aggregates one lane's rows for a video, oldest first. payload is the
+// pending row's if there is one, else the most recent failure's.
+func (r *Repo) videoQueueStatus(ctx context.Context, videoID int64, kind string) (out VideoWritebackStatus, payload string, err error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT status, error FROM writeback_queue
-		WHERE video_id = ? ORDER BY updated_at ASC, id ASC`, videoID)
+		SELECT status, error, payload FROM writeback_queue
+		WHERE video_id = ? AND kind = ? ORDER BY updated_at ASC, id ASC`, videoID, kind)
 	if err != nil {
-		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+		return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
 	}
 	defer rows.Close()
 
-	var out VideoWritebackStatus
+	var pendingPayload, failedPayload string
 	for rows.Next() {
-		var status, errMsg string
-		if err := rows.Scan(&status, &errMsg); err != nil {
-			return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+		var status, errMsg, p string
+		if err := rows.Scan(&status, &errMsg, &p); err != nil {
+			return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
 		}
 		switch status {
 		case WritebackPending, WritebackRunning:
 			out.Pending = true
+			pendingPayload = p
 		case WritebackFailed:
 			// Ascending order means the last failed row scanned is the most recent —
 			// unconditional overwrite is simplest way to keep only that one's message.
 			out.Failed = true
 			out.Error = errMsg
+			failedPayload = p
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return VideoWritebackStatus{}, fmt.Errorf("get video writeback status: %w", err)
+		return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
 	}
-	return out, nil
+	if pendingPayload != "" {
+		return out, pendingPayload, nil
+	}
+	return out, failedPayload, nil
 }
 
 // RetryFailedWriteback resets a video's failed writeback row(s) back to pending (spec
@@ -387,15 +417,26 @@ func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (Vide
 // RecoverRunningWritebacks resets only 'running' ones left by a crash. Returns the
 // number of rows reset; 0 is a safe no-op (nothing was failed for this video), not an
 // error, mirroring GetWritebackJobStatus's "absent row" posture.
+//
+// Tag writes only; RetryFailedMaintenance is the maintenance lane's.
 func (r *Repo) RetryFailedWriteback(ctx context.Context, videoID int64) (int64, error) {
+	return r.retryFailed(ctx, videoID, WritebackKindWrite)
+}
+
+// RetryFailedMaintenance resets a video's failed maintenance row back to pending (F77).
+func (r *Repo) RetryFailedMaintenance(ctx context.Context, videoID int64) (int64, error) {
+	return r.retryFailed(ctx, videoID, WritebackKindMaintenance)
+}
+
+func (r *Repo) retryFailed(ctx context.Context, videoID int64, kind string) (int64, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE writeback_queue SET status = 'pending', error = '', updated_at = ?
-		WHERE video_id = ? AND status = 'failed'`,
-		time.Now().UTC().Format(timeLayout), videoID)
+		WHERE video_id = ? AND kind = ? AND status = 'failed'`,
+		time.Now().UTC().Format(timeLayout), videoID, kind)
 	if err != nil {
-		return 0, fmt.Errorf("retry writeback: %w", err)
+		return 0, fmt.Errorf("retry %s: %w", kind, err)
 	}
 	return res.RowsAffected()
 }
@@ -405,13 +446,24 @@ func (r *Repo) RetryFailedWriteback(ctx context.Context, videoID int64) (int64, 
 // (kind=writeback, status=err), so writeback_queue stays a work queue rather than a
 // log — this mirrors FinishWriteback's own delete-on-success. Returns the number of
 // rows removed; 0 is a safe no-op.
+//
+// Tag writes only; DismissFailedMaintenance is the maintenance lane's.
 func (r *Repo) DismissFailedWriteback(ctx context.Context, videoID int64) (int64, error) {
+	return r.dismissFailed(ctx, videoID, WritebackKindWrite)
+}
+
+// DismissFailedMaintenance deletes a video's failed maintenance row without retrying (F77).
+func (r *Repo) DismissFailedMaintenance(ctx context.Context, videoID int64) (int64, error) {
+	return r.dismissFailed(ctx, videoID, WritebackKindMaintenance)
+}
+
+func (r *Repo) dismissFailed(ctx context.Context, videoID int64, kind string) (int64, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	res, err := r.db.ExecContext(ctx, `
-		DELETE FROM writeback_queue WHERE video_id = ? AND status = 'failed'`, videoID)
+		DELETE FROM writeback_queue WHERE video_id = ? AND kind = ? AND status = 'failed'`, videoID, kind)
 	if err != nil {
-		return 0, fmt.Errorf("dismiss writeback: %w", err)
+		return 0, fmt.Errorf("dismiss %s: %w", kind, err)
 	}
 	return res.RowsAffected()
 }

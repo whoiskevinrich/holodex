@@ -74,11 +74,11 @@ func (g *workerRig) runOne(t *testing.T, ctx context.Context, op string) {
 
 func (g *workerRig) queueStatus(t *testing.T) repo.VideoWritebackStatus {
 	t.Helper()
-	s, err := g.r.GetVideoWritebackStatus(context.Background(), g.videoID)
+	s, err := g.r.GetVideoMaintenanceStatus(context.Background(), g.videoID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s
+	return s.VideoWritebackStatus
 }
 
 func (g *workerRig) lastRun(t *testing.T) model.JobRun {

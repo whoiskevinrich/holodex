@@ -73,6 +73,7 @@ type Handlers struct {
 	enrich     *enrich.Service   // metadata source plugins (F22, ADR-033); nil disables them
 	writeback  WriteBatchFunc    // file tag write (F28, ADR-041); nil disables the endpoint
 	writeQueue *writequeue.Queue // durable batch-write queue (F30, ADR-048); nil → synchronous write
+	maint      Maintenance       // video file maintenance (F77); nil → maintenance routes 503
 	refresh    *refresh.Service  // per-item forced re-extract + re-enrich (F31, ADR-047); nil disables it
 
 	// Filename extraction triggers (F48.5, ADR-067). extract/extractBatch nil
@@ -442,6 +443,7 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
 		h.mountWriteback(r)
+		h.mountMaintenance(r)
 		// Value-level metadata curation — manual add/suppress/nowrite (F30, ADR-048).
 		h.mountCuration(r)
 		// Per-field source-of-truth decisions — pin file/provider/manual (F36, ADR-051).
@@ -981,7 +983,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		playlists = []model.Playlist{}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"video":            v,
 		"playlists":        playlists,
 		"metadata":         extra,
@@ -994,7 +996,17 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		"completeness":     completeness,
 		"writeback_status": wbStatus,
 		"external_links":   links,
-	})
+	}
+	// Video file maintenance (F77): owner-only, and absent rather than redacted for a
+	// visitor — the lane's state, its error (absolute paths) and the hold are all theirs alone.
+	if authorized && h.maint != nil {
+		if mv, err := h.maintenanceFor(r.Context(), id); err != nil {
+			h.log.Warn("maintenance status for detail", "id", id, "err", err)
+		} else {
+			resp["maintenance"] = mv
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // getRelated handles GET /media/{id}/related — the "More with …" shelves (ADR-031):

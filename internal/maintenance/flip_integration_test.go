@@ -17,15 +17,6 @@ import (
 // committed. The picture is testsrc2 with a box drawn in the top-left quadrant only, so the
 // mirror oracle is independent of Verify.
 
-func requireTools(t *testing.T, names ...string) {
-	t.Helper()
-	for _, n := range names {
-		if _, err := exec.LookPath(n); err != nil {
-			t.Skipf("%s not installed", n)
-		}
-	}
-}
-
 func sh(t *testing.T, bin string, args ...string) string {
 	t.Helper()
 	out, err := exec.Command(bin, args...).CombinedOutput()
@@ -93,6 +84,12 @@ func TestFlip_RealFiles_MP4(t *testing.T) {
 		t.Fatal(err)
 	}
 	avail := map[string]bool{"libx264": true}
+	if pf, err := CheckFlip(ctx, localTools, avail, src); err != nil || !pf.OK || pf.NeedBytes == 0 {
+		t.Fatalf("preflight on a flippable file: %+v %v", pf, err)
+	}
+	if pf, _ := CheckFlip(ctx, localTools, map[string]bool{}, src); pf.OK || pf.Reason != ReasonEncoderMissing {
+		t.Errorf("preflight without libx264: %+v", pf)
+	}
 	if err := Rebuild(ctx, localTools, FamilyMP4, OpHFlip, avail, src, dst, p); err != nil {
 		t.Fatalf("rebuild: %v", err)
 	}

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -56,6 +55,14 @@ func NewWorker(r *repo.Repo, s *Swapper, t Tools, encoders map[string]bool, post
 	w.runFlip = w.flip
 	return w
 }
+
+// CheckFlip runs the flip preflight against path with this worker's tools and encoders.
+func (w *Worker) CheckFlip(ctx context.Context, path string) (Preflight, error) {
+	return CheckFlip(ctx, w.tools, w.encoders, path)
+}
+
+// Hold is how long a flipped file's original is held.
+func (w *Worker) Hold() time.Duration { return w.swap.hold }
 
 // Kick wakes the worker after an enqueue.
 func (w *Worker) Kick() {
@@ -205,7 +212,7 @@ func familyOf(path string) (string, error) {
 	case ".mp4", ".m4v", ".mov":
 		return FamilyMP4, nil
 	}
-	return "", errors.New("maintenance supports .mp4 and .mkv files only")
+	return "", &RefusalError{Reason: ReasonUnsupportedFile, Detail: filepath.Ext(path)}
 }
 
 // DetectEncoders lists the video encoders the installed ffmpeg offers (`ffmpeg -encoders`),

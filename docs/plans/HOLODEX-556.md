@@ -58,8 +58,8 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner` (enqueue calls `maintWorker.Kick`); status gains `kind` + visitor redaction; expiry pass (queues `discard` jobs); purge honours RemoveFiles; stream URL `?v=<mtime>` — `internal/api/`, `internal/purge/`
-2. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
+1. [ ] [backend] Expiry pass (queues `discard` jobs, records a job run); purge honours `delete_remove_files` for a held original; stream URL `?v=<file mtime>` — `internal/maintenance/`, `internal/purge/`, `internal/api/`
+2. [ ] [frontend] Maintenance rail section + dialogs per handoff (a failed preflight request — e.g. an unreadable file, 500 — needs a clear error state; a dedicated refusal copy line would need a design re-confirm) — `web/src/routes/media/[id]/+page.svelte`
 3. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
 4. [ ] [security] Implementation security review against the 7 design checks — branch diff
 5. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
@@ -76,7 +76,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review
-- handoff: The maintenance worker runs in its own lane (flip/restore/discard → job run → thumbnail reset for frame thumbnails → wakes the write lane), wired in main.go with swap recovery before the orphan sweep; no route enqueues yet. Start at Up next #1, the routes.
+- handoff: Owner-gated maintenance API is live (preflight, flip, restore, discard, retry, dismiss) with an owner-only `maintenance` block on the media payload; tag-write status/retry/dismiss now scoped to tag writes. Start at Up next #1: expiry pass, purge vs held originals, stream URL version.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
