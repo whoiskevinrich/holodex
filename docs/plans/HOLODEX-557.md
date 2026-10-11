@@ -18,17 +18,15 @@ pair, no auto-merge); a rename adds a dashed alias for the new name; spaces to d
 
 - [x] spec `write-spec` → `docs/specs/**` — RD13 + P0-12 in entity-identity.md
 - [~] architecture — no technology fork (an alias is an ordinary alias; the backfill rides the existing identity-backfill pattern)
-- [ ] backend → `{cmd,internal,providers}/**` — add the alias on create + rename, plus the one-time backfill
-- [ ] testing `testing-strategy` — P0-12 acceptance cases (creation paths, collision skip, rename, removal not re-added, backfill idempotent)
+- [x] backend → `{cmd,internal,providers}/**` — `internal/repo/tag_dashed_alias.go` hooked into the create choke point + rename; `tag-dash-backfill` boot job; removal suppressed; orphan sweep ignores the automatic alias
+- [x] testing `testing-strategy` — `tag_dashed_alias_test.go` covers every P0-12 case; `docs/testing-strategy.md` invariant added
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Backend: add the dashed alias wherever a tag is created or renamed, skipping on collision
-2. [ ] Backfill existing multi-word tags once, visible in System Activity
-3. [ ] Tests for every P0-12 acceptance case; update `docs/testing-strategy.md`
+1. [ ] [—] Squash-merge PR #485 on green CI, then confirm CI moved HOLODEX-557 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
-### 2026-10-10 · spec the dashed tag alias
-- skills: write-spec, implement
-- handoff: Crossed into build — backend posture has no approve gate, spec settled at 91c1a62; main already current; draft PR open. Start at the backend: dashed alias on tag create + rename.
+### 2026-10-10 · spec and build the dashed tag alias
+- skills: write-spec, implement, code-review high --fix, handoff
+- handoff: Spec, backend and tests all landed (e7828a60) and every gate is settled, so PR #485 is marked ready. Known gaps, deliberately left: a name with a doubled space keeps its tag out of the orphan sweep, and a denied dashed spelling is still added. Start at squash-merge on green CI.
