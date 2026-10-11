@@ -60,7 +60,7 @@ media-root-relative paths) · [media-ingest.md](../architecture/media-ingest.md)
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Open the PR via /implement, then mark it ready once CI is green — `internal/scanner/scanner.go`
+1. [ ] [—] Squash-merge the PR once CI is green (clean `fix(scanner): …` subject) — `internal/scanner/scanner.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -73,11 +73,11 @@ media-root-relative paths) · [media-ingest.md](../architecture/media-ingest.md)
 -->
 
 ### 2026-10-11 · scan failures recorded as failed runs
-- skills: code-review (high --fix), handoff
+- skills: code-review (high --fix), handoff, implement
 - notes: owner chose media-root-relative paths in the row (amends the observability no-paths rule
   for scan rows) and including the empty-mount case. Review skipped: a persistent bad file re-records
   a failure each pass (inherent to the ask); no portable test for an unreadable subdirectory.
-- handoff: Fix committed (28d864b6) with spec/architecture/testing docs; all gates settled — next move is /implement to open the PR.
+- handoff: Crossed into build (no approve gate in the backend posture), with fix 28d864b6 plus spec/architecture/testing docs and all gates settled; the PR is open and marked ready, so the next step is to squash-merge it once CI is green, which moves the Jira issue to Done.
 
 ## Dropped — newest first (the reason is the point)
 
