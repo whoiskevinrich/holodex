@@ -58,14 +58,13 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Settle purge vs `purge.RemoveFiles` for held originals, and add visitor redaction of `kind`/held fields — `docs/architecture/file-maintenance.md`
-2. [ ] [backend] Migration: `writeback_queue.kind` + `held_originals`; lane-aware `ClaimNextWriteback` — `internal/db/migrations/`, `internal/repo/writequeue.go`
-3. [ ] [backend] `internal/maintenance`: encoder table, argv via `ffmpegArg()` with `-protocol_whitelist file -nostdin`, Verify, journaled swap + boot recovery before sweep — `internal/maintenance/`
-4. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; `O_EXCL` probe; `Lstat`-refuse symlinked siblings; expiry pass — `internal/api/`
-5. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
-6. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
-7. [ ] [security] Implementation security review against the 7 design checks — branch diff
-8. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [backend] Migration: `writeback_queue.kind` + `held_originals`; lane-aware `ClaimNextWriteback` — `internal/db/migrations/`, `internal/repo/writequeue.go`
+2. [ ] [backend] `internal/maintenance`: encoder table, hardened argv, Verify, journaled swap + boot recovery before sweep — `internal/maintenance/`
+3. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; visitor redaction; expiry pass; purge honours RemoveFiles — `internal/api/`, `internal/purge/`
+4. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
+5. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
+6. [ ] [security] Implementation security review against the 7 design checks — branch diff
+7. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -79,7 +78,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement
-- handoff: Crossed into build — design signed off at 65e40cb4; draft PR #486 open. Start at Up next #1 (purge vs RemoveFiles + visitor redaction in file-maintenance.md).
+- handoff: Crossed into build (design signed off at 65e40cb4, draft PR #486); the security follow-ups are folded into file-maintenance.md (purge follows delete_remove_files, visitor redaction, hardened argv/siblings). Start at Up next #1: the migration.
 
 ## Dropped — newest first (the reason is the point)
 

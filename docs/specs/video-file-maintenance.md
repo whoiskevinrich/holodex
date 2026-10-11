@@ -212,6 +212,10 @@ refuses with a plain-language reason when it can't, and creates no job:
 - [ ] A periodic pass deletes held originals whose window has expired, and the pass is recorded in
       activity like other background passes. An original that can't be deleted (for example after a
       permission change) is retried and surfaced, never silently forgotten.
+- [ ] **Purging a video with a held original follows the delete setting.** When purge removes files
+      from disk (the default), both the current file and the held original are removed. When it
+      doesn't, nothing is deleted: the original is put back in place of the flipped file, and that
+      is the file left on disk.
 - [ ] **At most one held original per file.** If a second operation runs while an original is held,
       the held copy stays the one from *before the first operation*, so Restore always returns the
       file to how it was before maintenance began. The window does not restart.

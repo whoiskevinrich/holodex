@@ -33,6 +33,11 @@ already gives a tag write:
 - Retry and Dismiss on failed rows;
 - the rule that job status is a property of the video. The media payload's writeback state gains the
   row's `kind` so the page can tell "flipping" from "writing to file".
+- **Visitors see none of it.** The payload's writeback state is visible to visitors today, with only
+  `Error` blanked by `redactWritebackStatusForVisitor`. That helper is extended so a non-owner gets
+  no `kind`, no pending or failed state from a maintenance row, and no held-original block. A
+  maintenance row is invisible to them, and `held_path` (an absolute filesystem path) never leaves
+  the server for a visitor, which is the same rule as `redactFileMetadataForVisitor`.
 
 - **Two lanes.** Tag-write workers claim only `kind='write'`. One dedicated maintenance worker claims
   only `kind='maintenance'`. That worker's concurrency is fixed at 1, because a re-encode saturates
@@ -86,7 +91,15 @@ cannot decode, and its own `encoder` tags. So each container goes through two st
 - The scanner admits only `.mp4` and `.mkv` (`scanner.mediaExts`), so those two families are the
   whole surface. WebM and others never reach the page.
 - ffmpeg runs under `nice`/`ionice -c 3` on Unix (`thumbnail.wrapNice`), with argv only. Every path
-  comes from the `videos` row, never from a request.
+  comes from the `videos` row, never from a request, and every path argument to ffmpeg, mkvmerge and
+  exiftool goes through `ffmpegArg()`, so a name can never be read as an option or an `@` option
+  file.
+- **The input is opened as the file it claims to be**, the way `fragments.go` does it:
+  `-nostdin -protocol_whitelist file` and a forced demuxer (`-f matroska` / `-f mov`). A playlist
+  disguised as `.mkv` can't make ffmpeg fetch URLs or pull in other local files.
+- **The sibling files are never followed.** Before writing `.holodex-new`, renaming to
+  `.holodex-orig`, or restoring from it, the worker `Lstat`s the name and refuses a symlink. The
+  preflight probe is created with `O_CREATE|O_EXCL`, never `os.Create`, which truncates.
 
 **Rejected:** ffmpeg alone with `-map_metadata 0`. It drops XMP-held fields and fails on Matroska
 attachments, which breaks output-contract rules 3 and 4.
@@ -183,8 +196,13 @@ that already existed.
   (default 7) in `holodex.yaml`.
 - The scanner admits only `.mp4`/`.mkv`, so `.holodex-orig` is never ingested. This is a test, not an
   assumption: adding the suffix to `mediaExts` must fail it.
-- A video purged while an original is held also deletes the held file. The purge job reads
-  `held_originals` before it removes the row.
+- **Purge honours `delete_remove_files`.** The purge job reads `held_originals` before it removes
+  the video row:
+  - **On (the default):** both the current file and `.holodex-orig` are unlinked.
+  - **Off:** purge deletes no media file, so `.holodex-orig` is renamed back over the current file
+    and the file left on disk is the unflipped original. Either way the row goes with the video.
+- `held_path` is never stored from a request. It is derived as `file_path + ".holodex-orig"`, and
+  restore, discard, expiry and purge each re-derive it and refuse if the stored value disagrees.
 
 **Rejected:** a central `.holodex/held/` directory at the library root. The library can span mounts,
 so a hold could become a cross-volume copy (slow, and twice the space) and a restore could fail
@@ -197,7 +215,8 @@ Decided in _(pending: HOLODEX-556 squash)_.
 
 `GET /media/{id}/maintenance/preflight?op=hflip` returns `{ok, reason, need_bytes, free_bytes}`. The
 dialog calls it on open, and enqueue re-runs it so a stale dialog can't bypass it. It checks:
-- **Writable directory:** create and remove a zero-byte `.holodex-probe` beside the file. That catches
+- **Writable directory:** create (exclusively) and remove a zero-byte `.holodex-probe` beside the
+  file. That catches
   `:ro` mounts, permissions and EROFS on every OS without parsing mount tables.
 - **Free space:** `statfs` (or `GetDiskFreeSpaceEx` on Windows, via `golang.org/x/sys`).
 - **Tools:** the boot-time encoder and MKVToolNix probe.

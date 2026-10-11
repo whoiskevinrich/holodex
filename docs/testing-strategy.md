@@ -4342,7 +4342,21 @@ Dolby Vision can't be synthesized. Its refusal is a unit test over a captured ff
   - `maintenance_hold_days` is read from config with a default of 7.
 - **Scanner:** a `.holodex-orig` next to a scanned `.mkv` is never ingested. This test fails if
   anyone adds the suffix to `mediaExts`.
-- **Purge:** purging a video with a `held` row deletes the held file too.
+- **Purge:**
+  - With `RemoveFiles` on, purging a video with a `held` row unlinks both the current file and
+    `.holodex-orig`.
+  - With it off, no file is deleted: `.holodex-orig` is renamed back over the current file, so the
+    path holds the original bytes.
+  - In both cases the `held_originals` row is gone.
+- **Redaction:** a visitor's media payload carries no `kind`, no maintenance pending or failed
+  state and no held-original block. The owner's carries all three. This sits beside the existing
+  `redactWritebackStatusForVisitor` test.
+- **Hardening:**
+  - a symlinked `.holodex-new` or `.holodex-orig` is refused before any write or rename;
+  - the preflight probe uses `O_EXCL`, so a pre-existing `.holodex-probe` is never truncated;
+  - golden argv carries `-nostdin -protocol_whitelist file -f <demuxer>`;
+  - a `held_path` that disagrees with `file_path + ".holodex-orig"` is refused by restore, discard,
+    expiry and purge.
 
 ### 25.4 API integration (real repo, `httptest`)
 
