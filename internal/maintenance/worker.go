@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -91,6 +92,82 @@ func (w *Worker) Run(ctx context.Context) {
 		case <-time.After(w.pollEvery):
 		}
 	}
+}
+
+// RunExpiry queues a discard for every held original past its window, every interval, until
+// ctx is cancelled. Discards go through the lane like Keep change, so they serialize with any
+// other job on the same file; a video whose lane is busy is simply picked up next pass.
+func (w *Worker) RunExpiry(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = time.Hour
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		w.ExpireHeld(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// ExpireHeld runs one expiry pass and returns how many discards it queued. A pass that queued
+// or failed anything is recorded in activity; an idle one is not.
+func (w *Worker) ExpireHeld(ctx context.Context) int {
+	started := time.Now()
+	held, err := w.repo.ListHeldOriginals(ctx, repo.HeldHeld)
+	if err != nil {
+		w.log.Warn("held-original expiry", "err", err)
+		return 0
+	}
+	payload, _ := json.Marshal(Payload{Op: OpDiscard})
+	queued, failed := 0, 0
+	var lastErr error
+	for _, h := range held {
+		if h.ExpiresAt.After(started) {
+			continue
+		}
+		// Queuing replaces the video's failed maintenance row. A failed flip the owner hasn't
+		// dealt with yet must not vanish from the page, so that video waits; a failed discard
+		// (this pass's own earlier attempt) is fine to replace.
+		ms, err := w.repo.GetVideoMaintenanceStatus(ctx, h.VideoID)
+		if err != nil {
+			failed++
+			lastErr = err
+			continue
+		}
+		var prior Payload
+		if ms.Failed && (json.Unmarshal([]byte(ms.Payload), &prior) != nil || prior.Op != OpDiscard) {
+			continue
+		}
+		_, err = w.repo.EnqueueMaintenance(ctx, h.VideoID, string(payload))
+		switch {
+		case errors.Is(err, repo.ErrMaintenanceInFlight):
+			// busy with another job; next pass
+		case err != nil:
+			failed++
+			lastErr = err
+		default:
+			queued++
+		}
+	}
+	if queued > 0 {
+		w.Kick()
+	}
+	if queued+failed > 0 {
+		run := model.JobRun{Kind: model.JobKindHeldExpiry, Trigger: model.TriggerPeriodic, Status: model.JobStatusOK,
+			StartedAt: started, FinishedAt: time.Now(), DurationMs: time.Since(started).Milliseconds(),
+			Updated: queued, Errors: failed}
+		if lastErr != nil {
+			run.Status, run.ErrorMessage = model.JobStatusErr, lastErr.Error()
+		}
+		if err := w.repo.RecordJobRun(ctx, run); err != nil {
+			w.log.Warn("record held-expiry job run", "err", err)
+		}
+	}
+	return queued
 }
 
 func (w *Worker) process(ctx context.Context, job *repo.WritebackJob) {

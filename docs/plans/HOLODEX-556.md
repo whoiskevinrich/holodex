@@ -38,7 +38,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
 - [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10 at 65e40cb4
-- [/] backend → `{cmd,internal,providers}/**` — migration 0062 + queue lanes landed; maintenance package, worker and routes to go
+- [/] backend → `{cmd,internal,providers}/**` — feature-complete (migration, lanes, pipeline, verifier, swap, worker, API, expiry, purge); MKV pipeline still to prove in the image
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy` — §25 written; the tests land with the build
 - [/] security `security-review` — design reviewed 2026-10-10 (no findings ≥8/10); the implementation review is still owed
@@ -58,11 +58,10 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Expiry pass (queues `discard` jobs, records a job run); purge honours `delete_remove_files` for a held original; stream URL `?v=<file mtime>` — `internal/maintenance/`, `internal/purge/`, `internal/api/`
-2. [ ] [frontend] Maintenance rail section + dialogs per handoff (a failed preflight request — e.g. an unreadable file, 500 — needs a clear error state; a dedicated refusal copy line would need a design re-confirm) — `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
-4. [ ] [security] Implementation security review against the 7 design checks — branch diff
-5. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [frontend] Maintenance rail section + dialogs per handoff, against the `maintenance` payload block and `/media/{id}/maintenance/*` routes; stream URL gains `?v=<file_mtime>` in `api.ts`; a failed preflight request (e.g. an unreadable file, 500) needs a clear error state — a dedicated refusal copy line would need a design re-confirm — `web/src/routes/media/[id]/+page.svelte`
+2. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
+3. [ ] [security] Implementation security review against the 7 design checks — branch diff
+4. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -76,7 +75,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review
-- handoff: Owner-gated maintenance API is live (preflight, flip, restore, discard, retry, dismiss) with an owner-only `maintenance` block on the media payload; tag-write status/retry/dismiss now scoped to tag writes. Start at Up next #1: expiry pass, purge vs held originals, stream URL version.
+- handoff: Backend for F77 is feature-complete — API, worker, expiry pass, and purge honouring delete_remove_files for held originals; next is the frontend (Up next #1), then the test-image MKV matrix and the implementation security review.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review

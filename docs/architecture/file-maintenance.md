@@ -197,9 +197,11 @@ that already existed.
 - **Restore** is a `maintenance` job (so it serialises with tag writes): set `restoring`, rename
   `.holodex-orig` over the current file, delete the row. **Discard** ("Keep change") is a
   `maintenance` job that deletes `.holodex-orig` and then the row.
-- **Expiry** is a periodic pass (`kind=held_original_expiry` in `job_runs`, on the same ticker as the
-  soft-delete purge). It runs a discard for every `held` row past `expires_at`. A file that cannot be
-  deleted keeps its row and is retried on the next pass. The window is `maintenance_hold_days`
+- **Expiry** is a periodic pass (`kind=held-expiry` in `job_runs`, on the purge interval). It
+  **queues** a `discard` job for every `held` row past `expires_at`, rather than deleting files
+  itself, so a discard serialises with any other job on the same file exactly like Keep change.
+  A video whose lane is busy is picked up next pass. A pass that queued or failed nothing records
+  no run. A file that cannot be deleted leaves its row `held` and is retried on the next pass. The window is `maintenance_hold_days`
   (default 7) in `holodex.yaml`.
 - The scanner admits only `.mp4`/`.mkv`, so `.holodex-orig` is never ingested. This is a test, not an
   assumption: adding the suffix to `mediaExts` must fail it.
@@ -246,7 +248,8 @@ thumbnail shows no frame of the video, so it is left alone. A discard changes no
 both steps. The worker then wakes the tag-write lane, whose same-file jobs were skipped while this
 one ran. The thumbnail URL already carries `?v=<image mtime>`
 (`imageVersion`, `internal/api/handlers.go`), so it changes when the thumbnail is regenerated. The
-stream URL gains the same treatment, `?v=<file mtime>`, so the player doesn't keep showing a cached
-mirrored picture after the swap.
+stream URL gets the same treatment from the SPA, `?v=<file_mtime>` (already in the media payload,
+and ignored by the stream handler), so the player doesn't keep showing a cached mirrored picture
+after the swap.
 
 Decided in _(pending: HOLODEX-556 squash)_.

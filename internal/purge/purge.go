@@ -24,6 +24,8 @@ type Repo interface {
 	SoftDelete(ctx context.Context, id int64) error
 	HardDelete(ctx context.Context, id int64) error
 	RecordJobRun(ctx context.Context, run model.JobRun) error
+	GetHeldOriginal(ctx context.Context, videoID int64) (*repo.HeldOriginal, error)
+	GetVideoMaintenanceStatus(ctx context.Context, videoID int64) (repo.MaintenanceStatus, error)
 }
 
 // Config carries the purge knobs (from the app config, in seconds upstream).
@@ -125,12 +127,56 @@ func (p *Purger) PurgeNow(ctx context.Context, id int64) error {
 // permission/read-only failure aborts before the row delete, leaving the row
 // soft-deleted for retry so disk and DB never desync (F24.8).
 func (p *Purger) purgeItem(ctx context.Context, id int64, path string) error {
+	if err := p.settleHeldOriginal(ctx, id, path); err != nil {
+		return err // leave the row soft-deleted, retry later
+	}
 	if p.cfg.RemoveFiles {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err // permission / read-only — leave the row soft-deleted, retry later
 		}
 	}
-	return p.repo.HardDelete(ctx, id)
+	return p.repo.HardDelete(ctx, id) // cascades the held_originals row
+}
+
+// errHeldUnsettled: a maintenance job is queued or running on the video, or its held original
+// is mid-swap, mid-restore or mid-discard, or the journal disagrees with the file it belongs
+// to. Purge waits (the lane drains; boot recovery settles a stuck row) rather than guess.
+var errHeldUnsettled = errors.New("purge: held original not settled; retrying later")
+
+// settleHeldOriginal deals with a video's held original (F77) before the video goes, following
+// delete_remove_files: on, it is unlinked along with the file; off, purge deletes no media file,
+// so it is put back over the flipped file and the original is what stays on disk.
+func (p *Purger) settleHeldOriginal(ctx context.Context, id int64, path string) error {
+	// A maintenance job queued or running on this file renames it; purging under it would
+	// leave the worker swapping a file that no longer exists. Wait for the lane to drain.
+	ms, err := p.repo.GetVideoMaintenanceStatus(ctx, id)
+	if err != nil {
+		return err
+	}
+	if ms.Pending {
+		return errHeldUnsettled
+	}
+	h, err := p.repo.GetHeldOriginal(ctx, id)
+	if err != nil || h == nil {
+		return err
+	}
+	held := path + repo.HeldPathSuffix // re-derived, never trusted from the row
+	if h.State != repo.HeldHeld || h.HeldPath != held {
+		return errHeldUnsettled
+	}
+	fi, err := os.Lstat(held)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil // already gone; the row cascades with the video
+	} else if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return errHeldUnsettled // never rename or follow a planted link
+	}
+	if p.cfg.RemoveFiles {
+		return os.Remove(held)
+	}
+	return os.Rename(held, path)
 }
 
 // record writes a job_runs row (kind=purge) so a purge pass appears in the activity

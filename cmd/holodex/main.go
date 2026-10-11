@@ -493,6 +493,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go orphanSweeper.Run(ctx)
 	go writeQ.Start(ctx)    // boot recovery + orphan sweep + worker pool (F30, ADR-048)
 	go maintWorker.Run(ctx) // the maintenance lane (F77); RecoverSwaps ran above
+	go maintWorker.RunExpiry(ctx, time.Duration(cfg.PurgeIntervalSeconds)*time.Second)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).

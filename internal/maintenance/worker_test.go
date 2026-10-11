@@ -208,6 +208,83 @@ func TestWorker_CorruptPayloadSaysSo(t *testing.T) {
 	}
 }
 
+// The expiry pass queues a discard only past the window, through the lane, and an idle pass
+// leaves no activity row.
+func TestExpireHeld_QueuesDiscardsPastTheWindow(t *testing.T) {
+	ctx := context.Background()
+	g := newWorkerRig(t, model.ThumbnailGenerated)
+	g.runOne(t, ctx, string(OpHFlip))
+	before := len(mustRuns(t, g))
+
+	if n := g.w.ExpireHeld(ctx); n != 0 {
+		t.Fatalf("queued %d discards inside the window", n)
+	}
+	if len(mustRuns(t, g)) != before {
+		t.Error("an idle pass recorded a job run")
+	}
+
+	// Age the hold past its window (journal rows are written in UTC RFC3339).
+	if err := g.r.DeleteHeldOriginal(ctx, g.videoID); err != nil {
+		t.Fatal(err)
+	}
+	past := time.Now().Add(-8 * 24 * time.Hour)
+	if err := g.r.BeginSwap(ctx, g.videoID, HeldPath(g.path), "hflip", past, past.Add(week)); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.r.SetHeldState(ctx, g.videoID, repo.HeldHeld); err != nil {
+		t.Fatal(err)
+	}
+	if n := g.w.ExpireHeld(ctx); n != 1 {
+		t.Fatalf("queued %d discards past the window, want 1", n)
+	}
+	if run := g.lastRun(t); run.Kind != model.JobKindHeldExpiry || run.Updated != 1 {
+		t.Errorf("expiry run = %+v", run)
+	}
+	if n := g.w.ExpireHeld(ctx); n != 0 {
+		t.Errorf("a second pass queued %d more while the first discard waits", n)
+	}
+
+	job, _ := g.r.ClaimNextMaintenance(ctx)
+	g.w.process(ctx, job)
+	if read(HeldPath(g.path)) != "<missing>" || read(g.path) != "flipped" {
+		t.Errorf("after expiry discard: path=%q held=%q", read(g.path), read(HeldPath(g.path)))
+	}
+}
+
+// An unacknowledged failed flip keeps its line on the page: expiry waits for the owner.
+func TestExpireHeld_KeepsAnUnacknowledgedFailure(t *testing.T) {
+	ctx := context.Background()
+	g := newWorkerRig(t, model.ThumbnailGenerated)
+	past := time.Now().Add(-8 * 24 * time.Hour)
+	write(t, HeldPath(g.path), "original")
+	_ = g.r.BeginSwap(ctx, g.videoID, HeldPath(g.path), "hflip", past, past.Add(week))
+	_ = g.r.SetHeldState(ctx, g.videoID, repo.HeldHeld)
+	g.w.runFlip = func(context.Context, string, string) error { return &RuleError{Rule: RuleTags, Detail: "x"} }
+	g.runOne(t, ctx, string(OpHFlip)) // a second flip fails
+
+	if n := g.w.ExpireHeld(ctx); n != 0 {
+		t.Fatalf("expiry queued %d discards over an unacknowledged failure", n)
+	}
+	if s := g.queueStatus(t); !s.Failed {
+		t.Error("the failure line vanished")
+	}
+	if _, err := g.r.DismissFailedMaintenance(ctx, g.videoID); err != nil {
+		t.Fatal(err)
+	}
+	if n := g.w.ExpireHeld(ctx); n != 1 {
+		t.Errorf("after dismiss, expiry queued %d, want 1", n)
+	}
+}
+
+func mustRuns(t *testing.T, g *workerRig) []model.JobRun {
+	t.Helper()
+	runs, err := g.r.ListJobRuns(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runs
+}
+
 func TestParseEncoders(t *testing.T) {
 	out := []byte("Encoders:\n V..... = Video\n A..... = Audio\n ------\n" +
 		" V....D libx264              libx264 H.264\n V..... libsvtav1  SVT-AV1\n A....D aac  AAC\n")
