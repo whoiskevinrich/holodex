@@ -4243,3 +4243,213 @@ folder and a whole-page failure when the video read fails. Item 6 is the owner's
   rows, and a one-time sweep removed earlier orphans. `TestMigration0060VideoEntityRows` covers
   both; dropping the trigger or the sweep each turns it red.
 - Keyboard order inside the panel and the Escape order (editor, then panel) are live-QA only.
+
+## 25. Video file maintenance — flip horizontally (F77, HOLODEX-556)
+
+[Spec](specs/video-file-maintenance.md) · [architecture](architecture/file-maintenance.md) ·
+[handoff](design/video-file-maintenance-handoff.md). This is the first feature that **rewrites a
+file's picture** and the first that **holds a second copy of a media file**. Every risk is data loss
+or a silent change, so most of the weight sits in real-file tests inside the built image, not in
+mocks.
+
+### 25.1 Risks, ranked
+
+1. **Silent metadata loss.** The new file replaces the original while missing a tag, a stream, a
+   chapter, an attachment or cover art. ffmpeg and mkvmerge both exit 0 when they do this. The
+   verification gate is the only guard, so **the gate itself must be tested adversarially**: hand it
+   a bad candidate and confirm it refuses.
+2. **Losing the original.** A crash between the two renames, a sweep that deletes `.holodex-orig`, an
+   expiry that fires early, a restore that crosses volumes, or a purge that leaves the held file
+   behind.
+3. **A wrong-but-valid output.** The picture isn't actually mirrored, a cover-art stream got
+   flipped, the colour or pixel format drifted, the length drifted, or the audio slipped out of sync.
+4. **Interleaved writes.** A tag write and a flip run on the same file at once, so one overwrites
+   the other's rename.
+5. **Lane starvation.** A flip blocks tag writes for other files, or the reverse.
+6. **Exposure.** A visitor, or the owner with Admin mode off, sees or triggers maintenance.
+
+### 25.2 Fixtures (synthesized in-test; nothing committed)
+
+Each fixture is built with ffmpeg `lavfi` inside the test's temp dir, in the §3.1 style. The picture
+source is **`testsrc2` with a `drawbox` in the top-left quadrant only**, so a flip is detectable from
+a single pixel region. The verifier is not the oracle; the box is.
+
+| ID | Container | Video | Also carries | Proves |
+|---|---|---|---|---|
+| M1 | MP4 | H.264 yuv420p | AAC stereo, `mov_text` subtitle, 3 chapters, cover art (`attached_pic`), XMP `Edition`, iTunes title/genre | MP4 path, cover art not flipped, XMP restored |
+| M2 | MP4, **fragmented** (`-movflags frag_keyframe`) | H.264 | AAC, tags | Output comes out progressive with tags intact |
+| K1 | MKV | HEVC yuv420p10le, BT.2020/PQ, HDR10 mastering + MaxCLL | 2 audio tracks (eng/jpn), SRT subtitle, a font attachment (any bytes, `application/x-truetype-font`), 3 chapters, global + track tags at levels 50/70/30, a Holodex-written `PUBLISHER` | mkvmerge path, track order and flags, `_STATISTICS` recompute, HDR carry-over |
+| K2 | MKV | VP9 | Opus, tags | VP9 row of the encoder table |
+| K3 | MKV | AV1 (libsvtav1) | Opus | AV1 row |
+| K4 | MKV, video **not** track 0 | H.264 | audio first, then video | `<n>` index selection and `--track-order` |
+| R1 | MKV | MPEG-2 | — | Unsupported-codec refusal |
+| R2 | MKV | none (audio only) | — | No-video refusal |
+
+Dolby Vision can't be synthesized. Its refusal is a unit test over a captured ffprobe JSON
+(`dovi_configuration_record` side data).
+
+### 25.3 Go unit
+
+- **`internal/maintenance/encoders_test.go`.**
+  - The table maps every supported codec to exactly one invocation.
+  - Each invocation pins `-pix_fmt` and all four colour flags from the probe.
+  - HEVC with HDR10 side data yields `-x265-params` carrying `master-display` and `max-cll`.
+  - Unknown codec, Dolby Vision, and an encoder missing from a stubbed `ffmpeg -encoders` list each
+    give `ErrUnsupported` with the reason the dialog copy needs.
+- **`internal/maintenance/args_test.go`.**
+  - Golden argv for MP4 and MKV, including `<n>` when cover art or audio precedes the video, so the
+    filter never targets `attached_pic`.
+  - For MKV: `--no-global-tags --no-track-tags --no-chapters` on the intermediate, `-d !<n>` on the
+    original, and `--track-order` restoring position.
+  - No shell anywhere; paths only from the row.
+- **`internal/maintenance/verify_test.go` (table, probe JSON in, rule out).** One failing case per
+  output-contract rule, each asserting the rule it names:
+  - a dropped stream;
+  - reordered streams;
+  - a changed language or default flag;
+  - a changed copied-stream packet digest;
+  - a missing tag, a changed tag value, and an extra tag (ffmpeg's `encoder`);
+  - a missing chapter;
+  - changed width, pix_fmt or colour primaries;
+  - duration off by two frames.
+
+  It also pins the exceptions (spec rule 4, architecture):
+  - `_STATISTICS` tags differing on the re-encoded track **pass**;
+  - the same tags differing on a *copied* track **fail**;
+  - writing-application differences pass.
+
+  Duration off by under one frame passes. Flip relaxes no rules; a stub op that relaxes `width`
+  passes only a width change.
+- **`internal/maintenance/swap_test.go`** (temp dir, fake renamer that can fail at each step).
+  - Happy path leaves `path` = new bytes, `.holodex-orig` = original bytes, row `held`.
+  - Failure injected after the row insert, after rename 1, and after rename 2; then
+    `RecoverSwaps` runs. Each case asserts the file at `path` is one complete version, no bytes are
+    lost, and the row's final state matches the §"swap" table.
+  - **Second op while held:** `.holodex-orig` keeps the *first* original's bytes and `expires_at` is
+    unchanged.
+  - Restore and discard each delete the row only after the file operation succeeds.
+- **`internal/writequeue` lanes.**
+  - `ClaimNextWriteback(kind)` returns only that kind.
+  - With a `running` maintenance row for video A, a pending write for A is skipped, a pending write
+    for B is claimed, and A's write is claimed once the maintenance row finishes. The reverse holds.
+  - Enqueueing a second maintenance row for A while one is pending or running is refused.
+  - `RecoverRunningWritebacks` resets both kinds.
+- **Boot order:** swap recovery runs before `sweepOrphans` (a `.holodex-new` referenced by a
+  `swapping` row survives the boot). The sweep never removes `.holodex-orig`.
+- **Expiry pass:**
+  - fake clock; a row exactly at `expires_at` is discarded, one second before is not;
+  - an undeletable file keeps its row and records a failed `job_runs` entry;
+  - `maintenance_hold_days` is read from config with a default of 7.
+- **Scanner:** a `.holodex-orig` next to a scanned `.mkv` is never ingested. This test fails if
+  anyone adds the suffix to `mediaExts`.
+- **Purge:** purging a video with a `held` row deletes the held file too.
+
+### 25.4 API integration (real repo, `httptest`)
+
+- Every maintenance route returns `401` to a visitor and to an owner session with Admin mode off
+  (the `requireOwner` table gains the new routes).
+- **Preflight.**
+  - Read-only directory (chmod 0555 on Unix; skipped on Windows) → `ok:false` with the read-only
+    reason.
+  - A stubbed free-space function below `1.5 × size` → `need_bytes` and `free_bytes` populated.
+  - Missing file and soft-deleted video → refused.
+  - **Enqueue re-runs preflight:** a preflight that passes, then the dir goes read-only, then enqueue
+    → refused, and no row is created.
+- **Status.** The media payload reports `kind` alongside pending and failed, so the page can tell
+  "flipping" from "writing to file".
+- **Held status.** The payload exposes `held: {created_at, expires_at}`; it disappears after discard
+  or restore.
+- **Retry and Dismiss** act on failed maintenance rows exactly as on write rows.
+
+### 25.5 Per-container file proof (`-tags integration`, `make test-image`)
+
+`internal/maintenance/flip_integration_test.go`, `TestFlip_RealFiles`, runs inside the built image
+(real ffmpeg, mkvmerge, exiftool). For each of M1, M2, K1–K4:
+
+1. Flip it through the real worker.
+2. **Mirror oracle:** decode frame 0 of the original, `hflip` it to PNG, and compare it with frame 0
+   of the output; PSNR > 40 dB. Also check that the drawbox region moved to the top-right.
+3. **Cover art oracle (M1):** the cover art stream's bytes are unchanged, i.e. it was not flipped.
+4. **Metadata oracle, independent of `Verify`.** `exiftool -a -G1 -j` and `ffprobe` dumps of the
+   original and the output are diffed by the test's own code, with only the documented exceptions
+   allowed.
+5. **K1:** the font attachment, both audio tracks, the subtitle and every tag level survive. The
+   video track's `_STATISTICS` tags match the new stream's real byte count, not the old one. Mastering
+   display and MaxCLL are present on the output.
+6. **A/V sync:** the first audio packet's pts offset relative to the first video pts is unchanged.
+7. Restore returns the original bytes; discard leaves only the flipped file.
+
+Then **gate adversarial cases on real files**: feed `Verify` a real candidate damaged by
+`mkvpropedit --tags global:` (tags dropped) and one remuxed by ffmpeg without `-map_metadata`. Each
+is refused, and the original is untouched (hash before and after).
+
+Then **refusals**: R1, R2, and K1 with `mkvmerge` removed from PATH, each refused at preflight
+before any temp file appears.
+
+**Runtime budget:** fixtures are 2 s at 320×240, so the matrix stays under about 60 s in the image.
+
+### 25.6 SPA unit (Vitest)
+
+`web/src/lib/maintenance.test.ts` covers the pure helpers the page uses:
+- state selection from the payload: rest, queued, running, held, failed, restoring;
+- the held-expiry date format ("17 Oct", and the year only when it isn't the current year);
+- GB formatting to one decimal place;
+- refusal-reason → copy mapping, one case per §3 row of the handoff, with no raw stderr passed
+  through.
+
+### 25.7 Live QA (Cinémathèque; numbered and tagged)
+
+Run against the dev server (`web`), never a backend port, because the dev environment must not emit
+audio. Use a testbed whose media mount is read-write and holds a disposable copy of M1 and K1.
+
+1. `[agent]` Visitor, and owner with Admin mode off: no Maintenance heading in the rail.
+2. `[agent]` Owner with Admin mode on: Maintenance sits between Metadata and Manage, with one
+   **Flip horizontally…** ghost button. Geometry harness (§12): no overflow at 375 px.
+3. `[agent]` Opening the dialog shows "Checking…" with no confirm button, then the ready state. Size
+   and expiry lines are present.
+4. `[agent]` With the mount read-only: the refused dialog shows only **Close**.
+5. `[agent]` Confirm: the button is replaced by the **flipping** pill at once. Navigating away and
+   back keeps the pill (the status belongs to the video).
+6. `[agent]` On completion: the held notice appears, the player and the thumbnail show the mirrored
+   picture with no hard refresh, and the duration and resolution are unchanged.
+7. `[agent]` **Keep change** → warn confirm with focus on Cancel; confirming removes the notice.
+   `.holodex-orig` is gone on disk.
+8. `[agent]` **Restore original** → accent confirm naming the date; afterwards the picture is
+   unmirrored and the notice is gone.
+9. `[agent]` A tag write ("Write decisions to file") during a flip shows its pending pill and lands
+   after the flip finishes. The final file is mirrored and carries the new tag.
+10. `[agent]` Screen reader check: the live region announces flipping, then flipped.
+11. `[human]` Compare the built section and dialogs with the approved mockup
+    (`docs/design/video-file-maintenance-mockup.svg`).
+12. `[human]` Watch a flipped real library file end to end: no visible quality loss, and the audio is
+    in sync.
+
+### 25.8 Mutation checks (run once the code exists)
+
+Each change must turn its named test red:
+- Remove `-map_metadata`/TagsFromFile restore → `TestFlip_RealFiles/M1` metadata oracle.
+- Drop the `_STATISTICS` exception scope (allow on all tracks) → `verify_test` copied-track case.
+- Apply `hflip` to every video stream → M1 cover art oracle.
+- Swap rename order (new over path first) → `swap_test` crash-after-rename-1 case.
+- Run `sweepOrphans` before `RecoverSwaps` → boot-order test.
+- Remove the `video_id NOT IN running` clause → the lane test for the same file.
+- Claim maintenance rows in the write pool → the lane-starvation test.
+- Expiry at `<` instead of `<=` → the expiry boundary test.
+- Skip enqueue-time preflight → the API stale-dialog test.
+
+### 25.9 Coverage targets and standing gaps
+
+- **Targets:**
+  - `internal/maintenance` ≥ 90% statements, with every output-contract rule owning at least one
+    failing case;
+  - every crash point in the swap is injected;
+  - `maintenance` is added to `IMAGE_TEST_PKGS`, and the real-file matrix passes under
+    `make test-image` before the PR is marked ready.
+- **Not in CI:** `make test-image` isn't wired into any workflow today. The real-file proof is a
+  pre-ready local gate, like the other §22–24 file proofs, and is recorded in the worklog.
+- **Gaps:**
+  - Dolby Vision is unit-only (no synthesizable fixture).
+  - The read-only preflight is Unix-only in CI. Windows runs only the free-space and tool checks.
+  - Visual quality is judged by a human (item 12). PSNR proves the mirror, not imperceptibility.
+  - Multi-hour re-encodes (shutdown mid-encode on a large file) are covered by the unit-level
+    cancel-and-requeue test, not a real long encode.
