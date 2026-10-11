@@ -23,9 +23,14 @@ pair, no auto-merge); a rename adds a dashed alias for the new name; spaces to d
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Squash-merge PR #485 on green CI, then confirm CI moved HOLODEX-557 to Done
+1. [ ] [backend] Skip a blocked dashed spelling as an automatic alias → HOLODEX-558
+2. [ ] [backend] Fold legacy tab-spelled tag names safely at boot → HOLODEX-559
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-11 · merged; gaps spun out
+- skills: —
+- handoff: Merged as #485 → fdc368c5; CI moved HOLODEX-557 to Done. The two known gaps are their own tickets now (HOLODEX-558 blocked dashed spelling, HOLODEX-559 legacy tab names), both linked Relates. Nothing left on this epic.
 
 ### 2026-10-10 · spec and build the dashed tag alias
 - skills: write-spec, implement, code-review high --fix, handoff, claude-md-improver
