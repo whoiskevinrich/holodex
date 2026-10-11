@@ -120,15 +120,15 @@ The list uses a **roving tabindex**: one row has `tabindex=0` and the rest `-1`.
 
 ## Loading and missing data
 
-- The run only holds ids, so a row's title, thumbnail and duration may not have arrived yet. Until
-  they do, the row shows its **number** with `bg-surface-2` blocks where the thumbnail and title
-  will be (panel 2 of the mockup, rows 145 and later). The row is clickable and plays the item
-  either way.
-- Rows load for what's in view plus the buffer, as you scroll. A fast wheel past rows that never
-  finished loading leaves them as placeholders and doesn't stop the scrolling.
-- A title search has to see every title. While those are still arriving, the caption reads
-  "Searching…" and matches appear as they're found. Where the titles come from is the spec's
-  question.
+- Opening the popover fetches the details for the **whole run** at once (spec RD14). Until they
+  arrive, every row shows its **number** with `bg-surface-2` blocks where the thumbnail and title
+  will be (panel 2 of the mockup, rows 145 and later). Rows are clickable and play the item either
+  way, and number entry works right away.
+- Thumbnails still load lazily as rows scroll into view (`loading="lazy"`). Only the text arrives
+  up front.
+- Title words typed before the details arrive wait for them. The caption reads "Searching…" and
+  the matches appear together. If the fetch fails, the caption reads "Couldn't load titles" in
+  `text-warn`, and number entry still works.
 - A row whose item fails to load keeps its number and shows "Unavailable" in `text-muted` where
   the title goes. It still navigates, and the media page explains the rest.
 - A video with no thumbnail gets the same `bg-black` box the strip's tile shows.

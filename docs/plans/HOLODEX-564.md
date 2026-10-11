@@ -15,20 +15,25 @@ HOLODEX-438 (video playlists, Done).
 
 ## Gates — definition of done
 
-- [ ] spec — add jump-to-position to `docs/specs/smart-playlists.md` (run strip). Settle where a grid run's titles come from, since the run holds only ids
+- [x] spec → `docs/specs/smart-playlists.md` RD14 + P0-13 (title search covers the whole run, for every run source)
+- [~] architecture — no technology fork (one more visibility-gated read beside the existing run-ids read)
 - [x] design → `docs/design/run-position-jump-handoff.md` + `run-position-jump-mockup.svg` (owner sign-off is recorded at `/implement`)
-- [ ] backend — only if the spec needs a batch title read for a run's ids
+- [ ] backend — a read that returns title, length and thumbnail for a run's ids, gated per item like browse
 - [ ] frontend → `NextUpStrip.svelte` trigger + new `video/RunJumpPopover.svelte`
 - [ ] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] `/write-spec` edit: jump-to-position in the run strip, plus the title source for grid runs (the handoff's "Loading and missing data")
-2. [ ] `/implement` — owner signs off on the handoff, then the Draft PR opens
-3. [ ] Build: trigger, a virtualised wheel-scrolling list, number and title query, roving tabindex
+1. [ ] `/implement` — owner signs off on the handoff, then the Draft PR opens
+2. [ ] Backend: a whole-run details read (title, length, thumbnail), gated per item like browse, with a handler test that a visitor gets nothing for a private item
+3. [ ] Frontend: trigger, a virtualised wheel-scrolling list, number and title query, roving tabindex
 4. [ ] Clear the `needs-design` label in Jira once the design is signed off
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-11 · spec edit, RD14 + P0-13
+- skills: write-spec
+- handoff: The owner chose title search over the whole run for every run source, so the spec and the handoff's loading section now say that. Next is `/implement`, then the backend details read before the popover.
 
 ### 2026-10-11 · design handoff for option A
 - skills: design-handoff
