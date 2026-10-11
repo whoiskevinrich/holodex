@@ -25,7 +25,9 @@ on every row not seen.
 - **Empty-walk guard.** A pass that sees zero media files skips deactivation, so a transiently empty
   mount cannot hide the library. An unchanged file on an `active = 0` row is reactivated without
   re-extraction.
-- Per-file failures increment an error count and never abort the pass.
+- Per-file failures increment an error count and never abort the pass, but they do record the
+  pass's job row as `error`, as do an unresolvable or unreadable media root (only a *subdirectory*
+  is skipped) and an empty walk while active videos exist.
 
 **Rejected:** content hashing — a full read of every file per pass is too costly at library scale.
 
