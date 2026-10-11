@@ -13,8 +13,8 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: "Owners can flip a mirrored video horizontally from its details page; every tag, track and chapter is kept, and the original is held for a week in case you want it back."
 approved:
   design:
-    on: 2026-10-10
-    at: 65e40cb4
+    on: 2026-10-11
+    at: d58dadc4
 ---
 
 # HOLODEX-556 · F77 Video file maintenance — flip horizontally
@@ -39,7 +39,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
 - [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10 at 65e40cb4
 - [/] backend → `{cmd,internal,providers}/**` — feature-complete (migration, lanes, pipeline, verifier, swap, worker, API, expiry, purge); MKV pipeline still to prove in the image
-- [/] frontend → `web/src/**` — Maintenance section + dialogs built and live-QA'd; awaiting the design re-confirm and the owner's mockup comparison
+- [/] frontend → `web/src/**` — Maintenance section + dialogs built and live-QA'd; design re-confirmed 2026-10-11; awaiting the owner's build-vs-mockup comparison
 - [/] testing `testing-strategy` — §25 written; the tests land with the build
 - [/] security `security-review` — design reviewed 2026-10-10 (no findings ≥8/10); the implementation review is still owed
 
@@ -74,7 +74,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review
-- handoff: Frontend built and live-QA'd (flip, restore, keep change, refused, failed, 375 px); QA caught and fixed a lost MP4 ©too tag. Design handoff copy grew new rows — re-confirm pending. Next: test-image MKV matrix, then the implementation security review.
+- handoff: Frontend built and live-QA'd (flip, restore, keep change, refused, failed, 375 px); QA caught and fixed a lost MP4 ©too tag. Design handoff copy grew new rows — re-confirmed by the owner. Next: test-image MKV matrix, then the implementation security review.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
