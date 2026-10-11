@@ -46,7 +46,7 @@ type thumbnailer interface {
 // rescanner triggers an out-of-band full library re-index (F13.3). Nil in tests
 // or when the scanner is not wired (health-only mode).
 type rescanner interface {
-	TriggerRescan() bool
+	TriggerRescan() (bool, error)
 }
 
 // searchMetrics records search latency (F13.2). Optional — nil disables it.
@@ -1164,13 +1164,18 @@ func (h *Handlers) adminStatus(w http.ResponseWriter, _ *http.Request) {
 
 // adminRescan triggers a full library re-index (F13.3) and returns 202 Accepted
 // immediately; the scan runs in the background. "started":false means a scan was
-// already in progress, which already satisfies the request.
+// already in progress, which already satisfies the request. A scanner that can't
+// scan at all (no media path) is 503 with its reason (HOLODEX-563).
 func (h *Handlers) adminRescan(w http.ResponseWriter, _ *http.Request) {
 	if h.scanner == nil {
 		writeError(w, http.StatusServiceUnavailable, "rescan unavailable")
 		return
 	}
-	started := h.scanner.TriggerRescan()
+	started, err := h.scanner.TriggerRescan()
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "rescan unavailable: "+err.Error())
+		return
+	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "accepted", "started": started})
 }
 
