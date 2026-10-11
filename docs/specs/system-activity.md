@@ -173,6 +173,7 @@ Expose the **already-existing** admin endpoints as confirmable buttons on the ac
 - **Acceptance criteria**:
   - Destructive/expensive actions (rescan) require an explicit confirm before firing.
   - A `409`/`started:false` response is shown as informational ("a scan is already running"), not an error.
+  - With no media folder configured, Rescan says so as an error, never "a scan is already running" ([HOLODEX-563](https://whoiskevinrich.atlassian.net/browse/HOLODEX-563)).
   - **Security gate (CLAUDE.md):** because this exposes infrastructure-affecting controls, `/security-review` must sign off before merge. The review must explicitly address that these endpoints are currently **unauthenticated** and reachable by anyone who can load the app, with the F21.7 gating seam (also P0) as the required mitigation.
 
 #### F21.7 — Owner-only gating seam ("Pro mode" ready) — *promoted to P0*
