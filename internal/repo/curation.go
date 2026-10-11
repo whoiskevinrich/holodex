@@ -25,6 +25,11 @@ type CurationRow struct {
 // curationNorm is the dedup/match key. Must match resolver.normKey (trim + lower).
 func curationNorm(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
+// tagNorm is how a tag name or tag alias is stored (F43 RD12): curationNorm plus each
+// internal run of whitespace collapsed to one space. The tag nameKey already ignores
+// spaces, so this changes the spelling only, never which tag a name resolves to.
+func tagNorm(s string) string { return strings.Join(strings.Fields(curationNorm(s)), " ") }
+
 // CurationForEntity returns all curation rows for one entity, ordered by field then
 // value for stable display (F30.2).
 func (r *Repo) CurationForEntity(ctx context.Context, entityType string, entityID int64) ([]CurationRow, error) {

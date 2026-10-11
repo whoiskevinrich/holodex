@@ -292,6 +292,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	seedIdentityReviewQueue(ctx, repository, log)
 	sweepSharedExternalIDs(ctx, repository, log)
 	promoteEnrichmentAliases(ctx, repository, log)
+	backfillDashedTagAliases(ctx, repository, log)
 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
@@ -806,5 +807,41 @@ func promoteEnrichmentAliases(ctx context.Context, r *repo.Repo, log *slog.Logge
 	}
 	if err == nil && promoted > 0 {
 		log.Info("alias promotion complete", "promoted", promoted)
+	}
+}
+
+// backfillDashedTagAliases gives every tag that predates F43 P0-12 its dashed alias
+// ("science fiction" → "science-fiction"), once, gated on its own successful job run.
+// The pass is idempotent (an existing alias is a no-op, a removed one is suppressed), so
+// a pruned gate only costs a re-run. Best-effort — a failure logs (status=error, so the
+// next boot retries) and never blocks startup.
+func backfillDashedTagAliases(ctx context.Context, r *repo.Repo, log *slog.Logger) {
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindTagDashBackfill); err != nil {
+		log.Warn("tag dash backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	started := time.Now()
+	added, err := r.BackfillDashedTagAliases(ctx)
+	finished := time.Now()
+	status := model.JobStatusOK
+	var errs int
+	detail := fmt.Sprintf("tag dash backfill: added %d dashed tag aliases", added)
+	if err != nil {
+		status, errs, detail = model.JobStatusErr, 1, "tag dash backfill: failed"
+		log.Warn("tag dash backfill: failed", "err", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindTagDashBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Added:      int(added),
+		Errors:     errs,
+		Detail:     detail,
+	}); err != nil {
+		log.Warn("tag dash backfill: record job run failed", "err", err)
 	}
 }

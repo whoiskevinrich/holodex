@@ -336,8 +336,13 @@ func TestTagMergeSurvivesRescan(t *testing.T) {
 	if tg.VideoCount != 2 {
 		t.Errorf("survivor count = %d, want 2", tg.VideoCount)
 	}
-	if len(tg.Aliases) != 1 || tg.Aliases[0].Alias != "science fiction" {
-		t.Errorf("aliases after merge = %+v, want [science fiction]", tg.Aliases)
+	// The loser's name and its own dashed alias (F43 P0-12) both move to the survivor.
+	got := map[string]bool{}
+	for _, a := range tg.Aliases {
+		got[a.Alias] = true
+	}
+	if len(tg.Aliases) != 2 || !got["science fiction"] || !got["science-fiction"] {
+		t.Errorf("aliases after merge = %+v, want [science fiction, science-fiction]", tg.Aliases)
 	}
 
 	// Re-scan a file still tagged "science fiction" → routes to sci-fi, no re-creation.
