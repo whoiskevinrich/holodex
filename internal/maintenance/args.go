@@ -47,7 +47,15 @@ func MP4Args(p Probe, op Op, available map[string]bool, format, src, dst string)
 		return nil, err
 	}
 	args := inputArgs("mov", src)
-	args = append(args, "-map", "0", "-c", "copy")
+	for _, s := range p.Streams {
+		// The QuickTime chapter track is regenerated, in place, by -map_chapters; mapping the
+		// source's copy too writes it twice (seen with two or more chapters).
+		if len(p.Chapters) > 0 && isQTChapterTrack(s) {
+			continue
+		}
+		args = append(args, "-map", "0:"+strconv.Itoa(s.Index))
+	}
+	args = append(args, "-c", "copy")
 	args = append(args, enc...)
 	args = append(args, "-filter:"+spec, op.Filter())
 	if e := v.Tags["encoder"]; e != "" {
@@ -79,9 +87,11 @@ func MKVEncodeArgs(p Probe, op Op, available map[string]bool, src, intermediate 
 // MKVMergeArgs builds step 2: dst is the original with its main video track removed plus the
 // intermediate's track, put back in the original's position with the original's name,
 // language and flags. Everything else (tracks, attachments, chapters, global and track tags)
-// comes from the original byte for byte; mkvmerge regenerates the statistics tags. p must
-// have a main video stream (MKVEncodeArgs refuses one without, and runs first).
-func MKVMergeArgs(p Probe, src, intermediate, dst string) []string {
+// comes from the original byte for byte; mkvmerge regenerates the statistics tags. The
+// original video track's own tags vanish with the removed track, so trackTags (from
+// PrepareTrackTags; "" when there are none) carries them onto the new one. p must have a
+// main video stream (MKVEncodeArgs refuses one without, and runs first).
+func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 	v, _ := p.MainVideo()
 	vid := mkvTrackID(p, v)
 	var order []string
@@ -105,10 +115,16 @@ func MKVMergeArgs(p Probe, src, intermediate, dst string) []string {
 	}
 	args = append(args,
 		"--default-track-flag", "0:"+flag(v.Disposition["default"]),
-		"--forced-display-flag", "0:"+flag(v.Disposition["forced"]),
-		toolArg(intermediate), "--track-order", strings.Join(order, ","))
-	return args
+		"--forced-display-flag", "0:"+flag(v.Disposition["forced"]))
+	if trackTags != "" {
+		args = append(args, "--tags", "0:"+toolArg(trackTags))
+	}
+	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
 }
+
+// isQTChapterTrack reports whether s is an MP4/MOV chapter text track: a data stream whose
+// sample entry is 'text' (a subtitle track is 'tx3g' and typed subtitle).
+func isQTChapterTrack(s Stream) bool { return s.CodecType == "data" && s.CodecTag == "text" }
 
 // mkvTrackID is s's mkvmerge track id: its position among the file's tracks. ffprobe lists
 // Matroska attachments as streams too, but they are not tracks.

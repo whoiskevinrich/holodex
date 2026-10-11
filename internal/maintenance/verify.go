@@ -63,7 +63,8 @@ func Verify(orig, cand Snapshot) error {
 	}
 
 	if len(orig.Probe.Streams) != len(cand.Probe.Streams) {
-		return fail(RuleStreams, "%d streams, want %d", len(cand.Probe.Streams), len(orig.Probe.Streams))
+		return fail(RuleStreams, "%d streams (%s), want %d (%s)", len(cand.Probe.Streams), streamKinds(cand.Probe),
+			len(orig.Probe.Streams), streamKinds(orig.Probe))
 	}
 	for i, os := range orig.Probe.Streams {
 		cs := cand.Probe.Streams[i]
@@ -146,6 +147,15 @@ func Verify(orig, cand Snapshot) error {
 		return fail(RuleDuration, "%.3fs, want %.3fs (±%.3fs)", cd, od, frame)
 	}
 	return nil
+}
+
+// streamKinds summarises a file's streams as "video/h264,audio/aac,…" for failure messages.
+func streamKinds(p Probe) string {
+	kinds := make([]string, len(p.Streams))
+	for i, s := range p.Streams {
+		kinds[i] = s.CodecType + "/" + s.CodecName
+	}
+	return strings.Join(kinds, ",")
 }
 
 // isContainerStamp: the container's writing-application field records the mux, not content.

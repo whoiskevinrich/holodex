@@ -4,11 +4,9 @@
 package maintenance
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -28,6 +26,7 @@ type Stream struct {
 	Index          int               `json:"index"`
 	CodecType      string            `json:"codec_type"`
 	CodecName      string            `json:"codec_name"`
+	CodecTag       string            `json:"codec_tag_string"`
 	Profile        string            `json:"profile"`
 	Width          int               `json:"width"`
 	Height         int               `json:"height"`
@@ -79,13 +78,10 @@ type Format struct {
 // file protocol allowed: a playlist named .mkv must not be able to make ffprobe fetch URLs or
 // read the local files it lists.
 func RunProbe(ctx context.Context, ffprobe, demuxer, path string) (Probe, error) {
-	cmd := exec.CommandContext(ctx, ffprobe, "-v", "error", "-protocol_whitelist", "file", "-f", demuxer,
+	out, err := run(ctx, ffprobe, "-v", "error", "-protocol_whitelist", "file", "-f", demuxer,
 		"-of", "json", "-show_format", "-show_streams", "-show_chapters", toolArg(path))
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
 	if err != nil {
-		return Probe{}, fmt.Errorf("ffprobe: %w: %s", err, strings.TrimSpace(stderr.String()))
+		return Probe{}, err
 	}
 	var p Probe
 	if err := json.Unmarshal(out, &p); err != nil {

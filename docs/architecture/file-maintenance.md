@@ -79,13 +79,17 @@ cannot decode, and its own `encoder` tags. So each container goes through two st
   refuses. There is no ffmpeg-remux fallback here, because that fallback is exactly what fails on
   attachments.
 - **MP4 (`.mp4`, `.m4v`, `.mov`).**
-  1. ffmpeg writes `<file>.holodex-new` with `-map 0 -c copy -c:v:<n> <encoder> -filter:v:<n> hflip
-     -map_metadata 0 -map_chapters 0 -movflags +faststart`, matching the extension's container.
-     Cover art is an `attached_pic` video stream, so it is excluded from the filter by index and
-     copied.
-  2. exiftool runs `-TagsFromFile <original> -all:all` on the output, the same restore the
-     fragmented-MP4 remux uses ([writeback.md](writeback.md)). It also strips ffmpeg's
-     `encoder`/`handler_name` rewrites by restoring the original values.
+  1. ffmpeg writes `<file>.holodex-new` with every stream mapped explicitly (`-map 0:<i>` each),
+     `-c copy -c:v:<n> <encoder> -filter:v:<n> hflip -map_metadata 0 -map_chapters 0 -fflags
+     +bitexact -movflags +faststart`, matching the extension's container.
+     - Cover art is an `attached_pic` video stream, so it is excluded from the filter by index
+       and copied.
+     - The QuickTime chapter track (a `data` stream tagged `text`) is **not** mapped when the
+       file has chapters. `-map_chapters` regenerates it in the same position, and mapping the
+       source copy as well writes it twice (seen with two or more chapters).
+  2. exiftool runs `-TagsFromFile <original> -XMP:all` on the output: ffmpeg's `-map_metadata`
+     carries the iTunes/udta tags but drops XMP, where MP4 `edition` lives. Not `-all:all`,
+     which also turns the container's brand fields into new `Keys` tags the original never had.
 - `<n>` is the first video stream that is not `attached_pic`. A file with no such stream is refused at
   preflight.
 - The scanner admits only `.mp4` and `.mkv` (`scanner.mediaExts`), so those two families are the

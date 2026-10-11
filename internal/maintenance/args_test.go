@@ -28,7 +28,7 @@ func TestMP4Args_TargetsTheMainVideoNotCoverArt(t *testing.T) {
 	got := strings.Join(args, " ")
 	for _, want := range []string{
 		"-nostdin", "-protocol_whitelist file -f mov -i " + m("a.mp4"),
-		"-map 0 -c copy -c:v:1 libx264", "-filter:v:1 hflip",
+		"-map 0:0 -map 0:1 -map 0:2 -c copy -c:v:1 libx264", "-filter:v:1 hflip",
 		"-metadata:s:v:1 encoder=Old Encoder",
 		"-map_metadata 0 -map_chapters 0 -fflags +bitexact -movflags +faststart -f mp4 " + m("a.mp4.holodex-new"),
 	} {
@@ -38,6 +38,29 @@ func TestMP4Args_TargetsTheMainVideoNotCoverArt(t *testing.T) {
 	}
 	if strings.Contains(got, "-filter:v:0") {
 		t.Errorf("filter targets cover art: %s", got)
+	}
+}
+
+func TestMP4Args_ChapterTrackIsRegeneratedNotCopied(t *testing.T) {
+	p := Probe{Streams: []Stream{
+		{Index: 0, CodecType: "video", CodecName: "h264"},
+		{Index: 1, CodecType: "subtitle", CodecName: "mov_text", CodecTag: "tx3g"},
+		{Index: 2, CodecType: "data", CodecName: "bin_data", CodecTag: "text"},
+		{Index: 3, CodecType: "data", CodecName: "bin_data", CodecTag: "tmcd"},
+	}, Chapters: []Chapter{{StartTime: "0"}}}
+	args, err := MP4Args(p, OpHFlip, allEncoders, "mp4", m("a.mp4"), m("b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(args, " ")
+	if !strings.Contains(got, "-map 0:0 -map 0:1 -map 0:3 -c copy") || !strings.Contains(got, "-map_chapters 0") {
+		t.Errorf("chapter track mapped, or another stream dropped: %s", got)
+	}
+	// Without chapters, a text data track is ordinary data and is copied.
+	p.Chapters = nil
+	args, _ = MP4Args(p, OpHFlip, allEncoders, "mp4", m("a.mp4"), m("b"))
+	if !strings.Contains(strings.Join(args, " "), "-map 0:2") {
+		t.Errorf("text data track dropped from a file with no chapters: %v", args)
 	}
 }
 
@@ -66,14 +89,19 @@ func TestMKVEncodeArgs_OnlyTheMainVideo(t *testing.T) {
 }
 
 func TestMKVMergeArgs_RestoresPositionAndProperties(t *testing.T) {
-	args := MKVMergeArgs(audioFirstMKV, m("a.mkv"), m("a.mkv.holodex-enc"), m("a.mkv.holodex-new"))
+	args := MKVMergeArgs(audioFirstMKV, m("a.mkv"), m("a.mkv.holodex-enc"), m("tags.xml"), m("a.mkv.holodex-new"))
 	want := []string{"-o", m("a.mkv.holodex-new"), "-d", "!1", m("a.mkv"),
 		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments",
 		"--track-name", "0:Main", "--language", "0:jpn",
 		"--default-track-flag", "0:1", "--forced-display-flag", "0:0",
+		"--tags", "0:" + m("tags.xml"),
 		m("a.mkv.holodex-enc"), "--track-order", "0:0,1:0,0:2"}
 	if !slices.Equal(args, want) {
 		t.Errorf("argv\n got %q\nwant %q", args, want)
+	}
+	// No track tags of its own: no --tags at all.
+	if args := MKVMergeArgs(audioFirstMKV, m("a.mkv"), m("e"), "", m("n")); slices.Contains(args, "--tags") {
+		t.Errorf("--tags without a file: %q", args)
 	}
 }
 
