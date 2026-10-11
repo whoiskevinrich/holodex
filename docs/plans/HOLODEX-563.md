@@ -55,7 +55,7 @@ toast shows, while an in-flight scan still answers `202 started:false`. Spun out
 
 ### 2026-10-11 · rescan reports a missing media path
 - skills: code-review (high --fix), handoff
-- notes: the frontend is unchanged, since the existing error toast already shows the server's 503 `error` line.
+- notes: the frontend is unchanged, since the existing error toast already shows the server's 503 `error` line. I merged main after #490 landed; the only conflict was the `scanner.go` import block (both changes added `errors`).
 - handoff: Fix 40dcc411 is committed with spec and testing-strategy rows, and all gates are settled; the PR is open and ready, so squash-merge it once CI is green.
 
 ## Dropped — newest first (the reason is the point)
