@@ -38,9 +38,9 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
 - [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10 at 65e40cb4
-- [/] backend → `{cmd,internal,providers}/**` — feature-complete (migration, lanes, pipeline, verifier, swap, worker, API, expiry, purge); MKV pipeline still to prove in the image
+- [/] backend → `{cmd,internal,providers}/**` — feature-complete and proven on real MP4 and MKV files in the runtime image; ready for /handoff to tick
 - [/] frontend → `web/src/**` — Maintenance section + dialogs built and live-QA'd; design re-confirmed 2026-10-11; awaiting the owner's build-vs-mockup comparison
-- [/] testing `testing-strategy` — §25 written; the tests land with the build
+- [/] testing `testing-strategy` — §25 built: unit, API, live QA and the `make test-image` real-file matrix all pass (coverage 87.3% vs a 90% target, gap = deep tool-failure branches); owner items 11–12 open
 - [/] security `security-review` — design reviewed 2026-10-10 (no findings ≥8/10); the implementation review is still owed
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -58,9 +58,8 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
-2. [ ] [security] Implementation security review against the 7 design checks — branch diff
-3. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [security] Implementation security review against the 7 design checks — branch diff
+2. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -74,7 +73,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review
-- handoff: Frontend built and live-QA'd (flip, restore, keep change, refused, failed, 375 px); QA caught and fixed a lost MP4 ©too tag. Design handoff copy grew new rows — re-confirmed by the owner. Next: test-image MKV matrix, then the implementation security review.
+- handoff: Real-file matrix passes in the runtime image (MP4 + five MKV shapes + refusals + worker flips); the image run fixed MKV mux-date and statistics handling. Next: the implementation security review (Up next #1), then owner QA items 11–12.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review

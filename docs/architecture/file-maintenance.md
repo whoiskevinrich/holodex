@@ -71,13 +71,21 @@ cannot decode, and its own `encoder` tags. So each container goes through two st
   2. `mkvmerge` builds `<file>.holodex-new` from the **original**, with that track removed (`-d !<n>`),
      plus the intermediate's video track. The intermediate is added with `--no-global-tags
      --no-track-tags --no-chapters`. `--track-order` puts the new track in the original's position.
-     Its track name, language, default and forced flags are copied from the original track.
+     Its track name, language, default and forced flags are copied from the original track, and
+     the original track's own tags are carried onto it with `--tags 0:<file>`.
+     - `--no-date`: mkvmerge would stamp its own mux date (Segment Info `DateUTC`, ffprobe's
+       `creation_time`). When the original had one, `mkvpropedit --edit info --set date=` puts it
+       back, in the `YYYY-mm-ddTHH:MM:SSZ` form mkvpropedit accepts.
+     - **Statistics follow the original.** If any track carries mkvmerge's `_STATISTICS_TAGS`
+       (the file was written by mkvmerge), mkvmerge regenerates them. The re-encoded track's
+       change, and the copied tracks' come out identical apart from the mux stamps. If none
+       does, `--disable-track-statistics-tags` keeps mkvmerge from adding new tags to tracks
+       that were only copied.
 
   Every other track, attachment, chapter, edition and global or track tag comes from the original
-  byte for byte. mkvmerge also regenerates the `_STATISTICS` tags, which is the recompute the spec
-  asks for. **MKVToolNix is therefore required for Matroska maintenance.** Without it, the preflight
-  refuses. There is no ffmpeg-remux fallback here, because that fallback is exactly what fails on
-  attachments.
+  byte for byte. **MKVToolNix (mkvmerge, mkvextract, mkvpropedit) is therefore required for
+  Matroska maintenance.** Without it, the preflight refuses. There is no ffmpeg-remux fallback
+  here, because that fallback is exactly what fails on attachments.
 - **MP4 (`.mp4`, `.m4v`, `.mov`).**
   1. ffmpeg writes `<file>.holodex-new` with every stream mapped explicitly (`-map 0:<i>` each),
      `-c copy -c:v:<n> <encoder> -filter:v:<n> hflip -map_metadata 0 -map_chapters 0 -fflags

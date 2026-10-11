@@ -105,8 +105,16 @@ func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 			order = append(order, "0:"+strconv.Itoa(tid))
 		}
 	}
-	args := []string{"-o", toolArg(dst), "-d", "!" + strconv.Itoa(vid), toolArg(src),
-		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments"}
+	// --no-date: mkvmerge would stamp its own mux date (Segment Info DateUTC, ffprobe's
+	// creation_time); Rebuild puts the original's back with mkvpropedit when it had one.
+	args := []string{"-o", toolArg(dst), "--no-date"}
+	if !hasTrackStatistics(p) {
+		// A file mkvmerge never wrote carries no statistics tags; adding them would put new
+		// tags on tracks that were only copied. One it did write gets them regenerated.
+		args = append(args, "--disable-track-statistics-tags")
+	}
+	args = append(args, "-d", "!"+strconv.Itoa(vid), toolArg(src),
+		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments")
 	if name := v.Tags["title"]; name != "" {
 		args = append(args, "--track-name", "0:"+name)
 	}
@@ -120,6 +128,18 @@ func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 		args = append(args, "--tags", "0:"+toolArg(trackTags))
 	}
 	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
+}
+
+// hasTrackStatistics reports whether any track carries mkvmerge's statistics tags.
+func hasTrackStatistics(p Probe) bool {
+	for _, s := range p.Streams {
+		for k := range s.Tags {
+			if hasTagBase(k, []string{"_STATISTICS_TAGS"}) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // isQTChapterTrack reports whether s is an MP4/MOV chapter text track: a data stream whose

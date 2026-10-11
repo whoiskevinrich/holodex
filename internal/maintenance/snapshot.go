@@ -282,7 +282,15 @@ func run(ctx context.Context, bin string, args ...string) ([]byte, error) {
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %s", bin, err, strings.TrimSpace(stderr.String()))
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			// MKVToolNix reports its errors on stdout.
+			msg = strings.TrimSpace(string(out))
+		}
+		if len(msg) > 500 {
+			msg = msg[:500] + "…"
+		}
+		return out, fmt.Errorf("%s: %w: %s", bin, err, msg)
 	}
 	return out, nil
 }

@@ -4485,9 +4485,31 @@ Each change must turn its named test red:
     `make test-image` before the PR is marked ready.
 - **Not in CI:** `make test-image` isn't wired into any workflow today. The real-file proof is a
   pre-ready local gate, like the other §22–24 file proofs, and is recorded in the worklog.
+- **Image run, 2026-10-11** (`holodex:test-image`: trixie, ffmpeg with libx264/libx265/libvpx-vp9/
+  libsvtav1, MKVToolNix, exiftool 13.25):
+  - **All pass.** Every `maintenance` test passes, including real-file M1, K1 (HDR10, two
+    languages, subtitle, font attachment, chapters, global and video-track tags), VP9, AV1,
+    video-not-first, mkvmerge-written (statistics and mux date), the R1/R2 refusals, and a flip
+    through the worker for both families.
+  - **Statement coverage is 87.3%**, measured in the image, against the 90% target. Every
+    output-contract rule and every swap crash point is covered. What's uncovered is tool-failure
+    branches deeper than "the tool is missing" (an exiftool restore or mkvpropedit failing
+    mid-rebuild, unparseable XMP, a rename failing during recovery).
+  - **The run found and fixed three things the unit tests couldn't:**
+    1. mkvmerge stamped a new mux date (`creation_time` added). Now `--no-date`, plus a
+       `mkvpropedit` restore of the original's date.
+    2. mkvmerge added statistics tags to copied tracks of a file it never wrote. Now
+       `--disable-track-statistics-tags` in that case.
+    3. MKVToolNix errors were invisible because they're printed on stdout.
+  - **Unrelated failure:** `metadata`'s `TestExtract_MatroskaTargetLevels` fails under exiftool
+    13.25 (its own guard says exiftool now picks the title unaided). This branch doesn't touch
+    that package; it's flagged as its own task.
 - **Gaps:**
   - Dolby Vision is unit-only (no synthesizable fixture).
   - The read-only preflight is Unix-only in CI. Windows runs only the free-space and tool checks.
   - Visual quality is judged by a human (item 12). PSNR proves the mirror, not imperceptibility.
   - Multi-hour re-encodes (shutdown mid-encode on a large file) are covered by the unit-level
     cancel-and-requeue test, not a real long encode.
+  - An MKV where only some tracks carry mkvmerge statistics is refused, not flipped: mkvmerge's
+    statistics switch is all-or-nothing, so the copied tracks that lacked them gain them and the
+    verifier objects. It fails safe, and nothing is changed.

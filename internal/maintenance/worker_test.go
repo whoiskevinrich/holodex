@@ -285,6 +285,66 @@ func mustRuns(t *testing.T, g *workerRig) []model.JobRun {
 	return runs
 }
 
+// The lane loop: a queued job is picked up after a Kick, and the loop stops on cancel.
+func TestWorker_RunDrainsTheLane(t *testing.T) {
+	g := newWorkerRig(t, model.ThumbnailGenerated)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { g.w.Run(ctx); close(done) }()
+	if _, err := g.r.EnqueueMaintenance(context.Background(), g.videoID, `{"op":"hflip"}`); err != nil {
+		t.Fatal(err)
+	}
+	g.w.Kick()
+	deadline := time.Now().Add(5 * time.Second)
+	for read(HeldPath(g.path)) == "<missing>" && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	cancel()
+	<-done
+	if read(g.path) != "flipped" || read(HeldPath(g.path)) != "original" {
+		t.Errorf("Run didn't process the job: path=%q held=%q", read(g.path), read(HeldPath(g.path)))
+	}
+}
+
+// RunExpiry runs a pass at once, then on each tick, and stops on cancel.
+func TestWorker_RunExpiryPassesImmediately(t *testing.T) {
+	ctx := context.Background()
+	g := newWorkerRig(t, model.ThumbnailGenerated)
+	past := time.Now().Add(-8 * 24 * time.Hour)
+	write(t, HeldPath(g.path), "original")
+	_ = g.r.BeginSwap(ctx, g.videoID, HeldPath(g.path), "hflip", past, past.Add(week))
+	_ = g.r.SetHeldState(ctx, g.videoID, repo.HeldHeld)
+	runCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() { g.w.RunExpiry(runCtx, time.Hour); close(done) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for !g.queueStatus(t).Pending && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	cancel()
+	<-done
+	if !g.queueStatus(t).Pending {
+		t.Error("the first expiry pass didn't queue the discard")
+	}
+}
+
+func TestWorker_Accessors(t *testing.T) {
+	g := newWorkerRig(t, model.ThumbnailGenerated)
+	if g.w.Hold() != week {
+		t.Errorf("Hold = %v", g.w.Hold())
+	}
+	pf, err := g.w.CheckFlip(context.Background(), filepath.Join(t.TempDir(), "gone.mkv"))
+	if err != nil || pf.Reason != ReasonFileMissing {
+		t.Errorf("CheckFlip = %+v %v", pf, err)
+	}
+	if got := (&RefusalError{Reason: ReasonCodec, Detail: "vc1"}).Error(); got != "maintenance refused: unsupported_codec (vc1)" {
+		t.Errorf("Error() = %q", got)
+	}
+	if got := (&RefusalError{Reason: ReasonNoVideo}).Error(); got != "maintenance refused: no_video" {
+		t.Errorf("Error() = %q", got)
+	}
+}
+
 func TestParseEncoders(t *testing.T) {
 	out := []byte("Encoders:\n V..... = Video\n A..... = Audio\n ------\n" +
 		" V....D libx264              libx264 H.264\n V..... libsvtav1  SVT-AV1\n A....D aac  AAC\n")

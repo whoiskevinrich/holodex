@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Rebuild writes dst: src with op applied to its main video stream and everything else kept
@@ -65,6 +66,21 @@ func Rebuild(ctx context.Context, t Tools, family string, op Op, available map[s
 		}
 		if err := runMkvmerge(ctx, t.Mkvmerge, MKVMergeArgs(p, src, intermediate, tags, dst)); err != nil {
 			return fmt.Errorf("rebuild: %w", err)
+		}
+		// The mux date is part of the file as Matroska tools and libraries read it (often as
+		// "date created"); keep the original's rather than mkvmerge's.
+		if date := p.Format.Tags["creation_time"]; date != "" {
+			// mkvpropedit takes YYYY-mm-ddTHH:MM:SSZ only, not ffprobe's six-decimal form.
+			// mkvmerge stamps whole seconds; an original with sub-second precision fails the
+			// verifier rather than being silently rounded.
+			ts, err := time.Parse(time.RFC3339Nano, date)
+			if err != nil {
+				return fmt.Errorf("restore mux date: unreadable %q: %w", date, err)
+			}
+			if err := runMkvmerge(ctx, "mkvpropedit", []string{toolArg(dst), "--edit", "info",
+				"--set", "date=" + ts.UTC().Format("2006-01-02T15:04:05Z")}); err != nil {
+				return fmt.Errorf("restore mux date: %w", err)
+			}
 		}
 		return nil
 	}

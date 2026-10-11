@@ -49,7 +49,7 @@ func CheckFlip(ctx context.Context, t Tools, encoders map[string]bool, path stri
 	}
 	tools := []string{t.FFmpeg, t.FFprobe, t.Exiftool}
 	if family == FamilyMKV {
-		tools = []string{t.FFmpeg, t.FFprobe, t.Mkvmerge, "mkvextract"}
+		tools = []string{t.FFmpeg, t.FFprobe, t.Mkvmerge, "mkvextract", "mkvpropedit"}
 	}
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool); err != nil {

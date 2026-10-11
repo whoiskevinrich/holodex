@@ -90,7 +90,7 @@ func TestMKVEncodeArgs_OnlyTheMainVideo(t *testing.T) {
 
 func TestMKVMergeArgs_RestoresPositionAndProperties(t *testing.T) {
 	args := MKVMergeArgs(audioFirstMKV, m("a.mkv"), m("a.mkv.holodex-enc"), m("tags.xml"), m("a.mkv.holodex-new"))
-	want := []string{"-o", m("a.mkv.holodex-new"), "-d", "!1", m("a.mkv"),
+	want := []string{"-o", m("a.mkv.holodex-new"), "--no-date", "--disable-track-statistics-tags", "-d", "!1", m("a.mkv"),
 		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments",
 		"--track-name", "0:Main", "--language", "0:jpn",
 		"--default-track-flag", "0:1", "--forced-display-flag", "0:0",
@@ -98,6 +98,13 @@ func TestMKVMergeArgs_RestoresPositionAndProperties(t *testing.T) {
 		m("a.mkv.holodex-enc"), "--track-order", "0:0,1:0,0:2"}
 	if !slices.Equal(args, want) {
 		t.Errorf("argv\n got %q\nwant %q", args, want)
+	}
+	// A file mkvmerge wrote keeps its statistics: they are regenerated, not disabled.
+	withStats := audioFirstMKV
+	withStats.Streams = append([]Stream(nil), audioFirstMKV.Streams...)
+	withStats.Streams[0].Tags = map[string]string{"_STATISTICS_TAGS-eng": "BPS DURATION"}
+	if slices.Contains(MKVMergeArgs(withStats, m("a.mkv"), m("e"), "", m("n")), "--disable-track-statistics-tags") {
+		t.Error("disabled statistics on a file that has them")
 	}
 	// No track tags of its own: no --tags at all.
 	if args := MKVMergeArgs(audioFirstMKV, m("a.mkv"), m("e"), "", m("n")); slices.Contains(args, "--tags") {
