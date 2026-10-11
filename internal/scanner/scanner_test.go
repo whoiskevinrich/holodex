@@ -178,6 +178,23 @@ func TestScanStatusAndRecord(t *testing.T) {
 	}
 }
 
+// With no media path there is nothing to scan: TriggerRescan says so rather than
+// reporting a scan as already running (HOLODEX-563), and a held scanMu still
+// reads as already running.
+func TestTriggerRescanNoMediaPath(t *testing.T) {
+	s := newTestScanner("", newFakeRepo())
+	if started, err := s.TriggerRescan(); started || err != ErrNoMediaPath {
+		t.Errorf("TriggerRescan() = %v, %v; want false, ErrNoMediaPath", started, err)
+	}
+
+	s = newTestScanner(t.TempDir(), newFakeRepo())
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+	if started, err := s.TriggerRescan(); started || err != nil {
+		t.Errorf("TriggerRescan() while running = %v, %v; want false, nil", started, err)
+	}
+}
+
 func TestThumbnailHook(t *testing.T) {
 	cases := []struct {
 		name          string

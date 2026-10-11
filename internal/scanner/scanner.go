@@ -14,6 +14,7 @@ package scanner
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -225,19 +226,25 @@ func (s *Scanner) scanTriggered(ctx context.Context, trigger string) error {
 	return s.scanLocked(ctx, trigger)
 }
 
+// ErrNoMediaPath is returned by TriggerRescan when no media path is configured,
+// so the caller can say so instead of reporting a scan as already running
+// (HOLODEX-563).
+var ErrNoMediaPath = errors.New("no media path is configured (MEDIA_PATH)")
+
 // TriggerRescan starts a full reconciliation pass in the background (F13.3),
 // returning true if it started one and false if a scan was already running — in
-// which case the in-flight pass already satisfies the request. It is the seam
-// behind POST /api/v1/admin/rescan: the handler returns 202 immediately while the
+// which case the in-flight pass already satisfies the request — or
+// ErrNoMediaPath when there is nothing to scan. It is the seam behind
+// POST /api/v1/admin/rescan: the handler returns 202 immediately while the
 // scan proceeds. Concurrent triggers are deduplicated by the same scanMu that
 // serializes the periodic and watch-driven passes, so spamming the endpoint can
 // never stack up passes.
-func (s *Scanner) TriggerRescan() bool {
+func (s *Scanner) TriggerRescan() (bool, error) {
 	if s.cfg.MediaPath == "" {
-		return false
+		return false, ErrNoMediaPath
 	}
 	if !s.scanMu.TryLock() {
-		return false
+		return false, nil
 	}
 	ctx := s.baseCtx
 	if ctx == nil {
@@ -249,7 +256,7 @@ func (s *Scanner) TriggerRescan() bool {
 			s.log.Error("admin rescan failed", "err", err)
 		}
 	}()
-	return true
+	return true, nil
 }
 
 // scanLocked runs one reconciliation pass tagged with its trigger. The caller
