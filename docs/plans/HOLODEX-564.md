@@ -4,6 +4,10 @@ status: in-progress
 profile: feature
 depends-on: []
 release_note: ""
+approved:
+  design:
+    on: 2026-10-11
+    at: 166ac812
 ---
 
 # HOLODEX-564 · Jump to any position in a run from the run strip
@@ -24,12 +28,16 @@ HOLODEX-438 (video playlists, Done).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] `/implement` — owner signs off on the handoff, then the Draft PR opens
-2. [ ] Backend: a whole-run details read (title, length, thumbnail), gated per item like browse, with a handler test that a visitor gets nothing for a private item
-3. [ ] Frontend: trigger, a virtualised wheel-scrolling list, number and title query, roving tabindex
-4. [ ] Clear the `needs-design` label in Jira once the design is signed off
+1. [ ] Backend: a whole-run details read (title, length, thumbnail), gated per item like browse, with a handler test that a visitor gets nothing for a private item
+2. [ ] Frontend: trigger, a virtualised wheel-scrolling list, number and title query, roving tabindex
+3. [ ] Testing: add a section to `docs/testing-strategy.md` (`/testing-strategy`)
+4. [ ] Consider `/security-review` for the whole-run details read (visitor gating). It isn't in the `feature` posture
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-11 · crossed into build
+- skills: implement
+- handoff: Crossed into build. Design signed off at 166ac812, fresh main merged in, and the Draft PR is open. Start at Up next item 1, the backend whole-run details read.
 
 ### 2026-10-11 · spec edit, RD14 + P0-13
 - skills: write-spec
