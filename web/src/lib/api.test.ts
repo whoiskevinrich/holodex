@@ -104,6 +104,44 @@ describe('person source-of-truth clients (F37)', () => {
 		stub(400);
 		await expect(api.renameEntity('person', 3, 'x')).rejects.toMatchObject({ status: 400 });
 	});
+
+	// F78 RD6: a film in Trash still holds its name and year; both the rename and the
+	// create 409s name it under `trashed` so the UI offers its restore, not a merge.
+	const trashed = { film_id: 4, film_name: 'Heat', year: 1995, trashed: true };
+
+	it('renameEntity(film) surfaces a trashed holder as `trashed`, not `conflict`', async () => {
+		stub(409, { error: 'Heat (1995) is in Trash', trashed });
+		await expect(api.renameEntity('film', 3, 'Heat')).resolves.toEqual({ trashed });
+	});
+
+	it('createFilm returns the film on 201 and a trashed holder on 409', async () => {
+		const film = { id: 8, name: 'Fire', year: 1995 };
+		const fetchMock = stub(201, { film });
+		await expect(api.createFilm('Fire', 1995)).resolves.toEqual({ film });
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films',
+			expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Fire', year: 1995 }) })
+		);
+		stub(409, { error: 'Heat (1995) is in Trash', trashed });
+		await expect(api.createFilm('Heat', 1995)).resolves.toEqual({ trashed });
+		stub(500, { error: 'boom' });
+		await expect(api.createFilm('x')).rejects.toMatchObject({ status: 500 });
+	});
+
+	it('deleteFilm / restoreFilm hit the film routes', async () => {
+		let fetchMock = stub(204);
+		await api.deleteFilm(4, { purge: true });
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/4?purge=true',
+			expect.objectContaining({ method: 'DELETE' })
+		);
+		fetchMock = stub(200, { film: { id: 4, name: 'Heat', year: 1995 } });
+		await api.restoreFilm(4);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/api/v1/films/4/restore',
+			expect.objectContaining({ method: 'POST' })
+		);
+	});
 });
 
 // HOLODEX-127: when the upstream Authentik ForwardAuth session lapses, an authed

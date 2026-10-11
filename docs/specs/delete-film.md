@@ -60,7 +60,9 @@ All settled by the owner on 2026-10-11.
   a visitor or the owner could meet it: the Films list, search, the Films section of every media
   page, the Films row on person, studio and tag pages, and the film pickers. Opening its page
   directly shows not-found. Nothing about it is dropped while it waits, so a restore puts it back
-  in every one of those places, with its scenes in their original order.
+  in every one of those places, with its scenes in their original order. Its full-film files,
+  which the media list normally hides because the film stands in for them, show in the media list
+  again while it is in Trash, because nothing stands in for them.
 - **RD6, a trashed film still holds its name.** If the owner creates or renames a film to the same
   name and year as a film in Trash, the action is refused and the owner is offered a restore. The
   wording is roughly: "*Heat (1995)* is in Trash. Restore it instead?"
@@ -71,7 +73,10 @@ All settled by the owner on 2026-10-11.
   the same setting.
 - **RD9, a trashed film stops naming its videos.** A film offers its name as a candidate for its
   videos' title and album. While the film is in Trash it withdraws that candidate, and restoring it
-  brings the candidate back. Nothing already written to a file changes.
+  brings the candidate back. Nothing already written to a file changes. A video whose owner
+  explicitly chose this film as its title or album source shows no value for that field while
+  the film is in Trash, the same as when a film is detached. The choice is kept so a restore
+  brings it back. Only a purge clears it (RD10).
 - **RD10, a standing choice of a purged film falls through.** If the owner chose this film as a
   video's title or album source, that choice behaves like any other chosen source that's no longer
   there once the film is permanently deleted: the video shows its next source. The stale choice is
@@ -110,9 +115,9 @@ All settled by the owner on 2026-10-11.
 - **P0-4, After a delete.** On success the owner lands as described in RD4. On failure the dialog
   stays open and shows the error, exactly as on the media page.
 - **P0-5, Hidden while trashed (RD5).** A trashed film is absent from every surface listed in RD5,
-  and from search and listing counts. Its page shows not-found. Its videos show no link to it. Any
-  owner action on a trashed film other than restore or permanent delete is refused with "this film
-  is in Trash. Restore it first."
+  and from search and listing counts. Its page and its images show not-found. Its videos show no
+  link to it. Every owner action on a trashed film other than restore or permanent delete answers
+  not-found, as its page does.
 - **P0-6, Trash lists films (RD7).** The Trash page shows trashed films alongside trashed media,
   each with its kind label, when it was deleted, and when it will be purged. It offers Restore and
   Delete permanently. Restoring a film returns it to every surface in RD5 untouched.

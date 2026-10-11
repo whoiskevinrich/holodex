@@ -163,6 +163,38 @@ func TestMigration0058_FilmNameInputsDirtyLinkedVideos(t *testing.T) {
 	}
 }
 
+// F78 (migration 0062): a film entering or leaving Trash withdraws or restores its
+// title/collection candidate, so its linked videos re-score; a write that leaves
+// deleted_at alone dirties nothing.
+func TestMigration0062_FilmTrashDirtiesLinkedVideos(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	mustExec(t, db, `INSERT INTO videos (id, file_path, file_size, title, duration_sec, width, height, indexed_at, file_mtime, active) VALUES (2, '/m/b.mkv', 1, 'B', 1, 1, 1, '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z', 1)`)
+	mustExec(t, db, `INSERT INTO film_videos (film_id, video_id, created_at) VALUES (2, 2, '2026-09-18T00:00:00Z')`)
+
+	for _, w := range []struct{ name, write string }{
+		{"trash", `UPDATE films SET deleted_at = '2026-10-11T00:00:00Z' WHERE id = 2`},
+		{"restore", `UPDATE films SET deleted_at = NULL WHERE id = 2`},
+	} {
+		t.Run(w.name, func(t *testing.T) {
+			mustExec(t, db, `DELETE FROM completeness_dirty`)
+			mustExec(t, db, w.write)
+			if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE entity_type = 'video' AND entity_id IN (1, 2)`); n != 2 {
+				t.Errorf("dirtied %d of the film's 2 videos, want 2", n)
+			}
+		})
+	}
+
+	mustExec(t, db, `DELETE FROM completeness_dirty`)
+	mustExec(t, db, `UPDATE films SET deleted_at = NULL, year = 2001 WHERE id = 2`)
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty`); n != 0 {
+		t.Errorf("a write leaving deleted_at unchanged dirtied %d rows, want 0", n)
+	}
+}
+
 // Upgrading re-scores every film-linked video: their stored scores predate the
 // film sources.
 func TestMigration0058_DirtiesFilmLinkedVideosOnUpgrade(t *testing.T) {

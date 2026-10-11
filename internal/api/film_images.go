@@ -103,6 +103,15 @@ func (h *Handlers) serveFilmImage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "image not available")
 		return
 	}
+	// A film in Trash 404s its images like its page (F78 RD5), as VideoVisible does
+	// for a trashed video's cover.
+	if visible, err := h.repo.FilmVisible(r.Context(), id); err != nil {
+		h.fail(w, "film visible", err)
+		return
+	} else if !visible {
+		writeError(w, http.StatusNotFound, "no image")
+		return
+	}
 	img, err := h.repo.GetFilmImageDisplayed(r.Context(), id, role)
 	if err != nil {
 		if errors.Is(err, repo.ErrNotFound) {

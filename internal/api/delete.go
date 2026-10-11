@@ -15,6 +15,7 @@ import (
 // from main; nil leaves purge-now disabled (the soft-delete + Trash paths still work).
 type purger interface {
 	PurgeNow(ctx context.Context, id int64) error
+	PurgeFilmNow(ctx context.Context, id int64) error // F78
 }
 
 // SetDelete wires the soft-delete/purge surface (F24, ADR-037): the purge-now
@@ -101,14 +102,16 @@ func (h *Handlers) restoreMedia(w http.ResponseWriter, r *http.Request) {
 // is nil when auto-purge is disabled (grace == 0) — the item stays until purged.
 type trashItem struct {
 	ID        int64      `json:"id"`
+	Kind      string     `json:"kind"` // "media" | "film" (F78 RD7)
 	Title     string     `json:"title"`
-	Path      string     `json:"path"` // shown in the owner-only permanent-delete confirm
+	Path      string     `json:"path,omitempty"` // media only: shown in the owner-only permanent-delete confirm
 	DeletedAt time.Time  `json:"deleted_at"`
 	PurgeAt   *time.Time `json:"purge_at"`
 }
 
-// listTrash returns the soft-deleted items for the owner's Trash view (F24.7),
-// each with deleted_at and the computed purge_at.
+// listTrash returns the soft-deleted media items and films for the owner's Trash
+// view (F24.7, F78 RD7) as one list, each with deleted_at and the computed purge_at.
+// Films are left out while films_enabled is off, like every other film surface.
 func (h *Handlers) listTrash(w http.ResponseWriter, r *http.Request) {
 	items, err := h.repo.Trash(r.Context())
 	if err != nil {
@@ -117,7 +120,10 @@ func (h *Handlers) listTrash(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]trashItem, 0, len(items))
 	for _, it := range items {
-		t := trashItem{ID: it.ID, Title: it.Title, Path: it.FilePath, DeletedAt: it.DeletedAt}
+		if it.Kind == repo.TrashKindFilm && !h.filmsEnabled {
+			continue
+		}
+		t := trashItem{ID: it.ID, Kind: it.Kind, Title: it.Title, Path: it.FilePath, DeletedAt: it.DeletedAt}
 		if h.deleteGrace > 0 {
 			pa := it.DeletedAt.Add(h.deleteGrace)
 			t.PurgeAt = &pa
