@@ -7,8 +7,8 @@
 ([metadata refresh](metadata-refresh.md)); [media parts](media-parts.md).
 **Related**: [delete media](delete-media.md) (the grace-window pattern reused for held originals);
 [video poster sizes](video-poster-multi-size.md) (thumbnail regeneration).
-**Architecture**: [writeback.md](../architecture/writeback.md) (to be extended: a second kind of
-file write, one that replaces the picture rather than the tags) ·
+**Architecture**: [file-maintenance.md](../architecture/file-maintenance.md) ·
+[writeback.md](../architecture/writeback.md) ·
 [observability-and-jobs.md](../architecture/observability-and-jobs.md).
 **Design handoff**: [video-file-maintenance-handoff.md](../design/video-file-maintenance-handoff.md).
 
@@ -158,9 +158,12 @@ operation is refused before it starts. It never produces a file that "mostly" ma
 refuses with a plain-language reason when it can't, and creates no job:
 - [ ] Media library not writable (the common read-only mount). The message says the library must be
       mounted read-write.
-- [ ] Not enough free space on the file's volume for the output plus the held original. The message
-      gives the space needed and the space available.
-- [ ] No encoder available for the file's video codec, or no video stream at all.
+- [ ] Not enough free space on the file's volume for the new file. Holding the original costs no
+      extra space, because it is set aside rather than copied. The message gives the space needed and
+      the space available.
+- [ ] No encoder available for the file's video codec, a picture format that can't survive a
+      re-encode (Dolby Vision), a missing media tool the file's container needs, or no video stream
+      at all.
 - [ ] The file is missing on disk, or the video is soft-deleted.
 
 **R4. Confirm step.**
@@ -257,12 +260,10 @@ Holodex is a single-owner, self-hosted library, so success is correctness rather
 
 - ~~Q1~~ **Resolved 2026-10-10:** stream-statistics tags on the re-encoded video stream are
   recomputed (output contract rule 4).
-- **Q2 (engineering, non-blocking).** Is "visually lossless" a fixed quality setting per codec, or
-  should a bitrate band relative to the original also be enforced, so a flip never doubles or halves
-  file size? A decision for the architecture doc, not the spec.
-- **Q3 (engineering, non-blocking).** Where held originals live (beside the file, or in a
-  Holodex-managed area on the same volume) is an architecture decision. The spec requires only R8:
-  held originals are never ingested, and a restore never crosses volumes.
+- ~~Q2~~ **Resolved 2026-10-10:** a fixed constant-quality setting per codec, with no bitrate band.
+  See [file-maintenance.md](../architecture/file-maintenance.md).
+- ~~Q3~~ **Resolved 2026-10-10:** held originals sit beside the file. See
+  [file-maintenance.md](../architecture/file-maintenance.md).
 
 ---
 
@@ -274,7 +275,7 @@ Holodex is a single-owner, self-hosted library, so success is correctness rather
   their absence hurts most.
 - **Phase 3:** aspect-ratio operations, each as its own small spec edit adding a Maintenance entry.
 
-**Gates this feature will need:** architecture (`writeback.md`: a re-encode write class, held
-originals, and serializing with tag writes), design handoff (the Maintenance section, the
-held-original notice, the confirm step), testing strategy (fixture matrix for the output contract),
+**Gates this feature will need:** architecture
+([file-maintenance.md](../architecture/file-maintenance.md)), design handoff
+([video-file-maintenance-handoff.md](../design/video-file-maintenance-handoff.md)), testing strategy (fixture matrix for the output contract),
 and security review (a new destructive write path into the media library).

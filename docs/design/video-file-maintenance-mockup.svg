@@ -87,7 +87,7 @@
   <text x="36" y="452" class="t14 ink">The picture in <tspan font-weight="600">Example (1999).mkv</tspan> is mirrored left</text>
   <text x="36" y="472" class="t14 ink">to right. The video is re-encoded; audio, subtitles,</text>
   <text x="36" y="492" class="t14 ink">chapters, cover art and every tag are kept as they are.</text>
-  <text x="36" y="518" class="t12 muted">Needs 8.2 GB free · 41 GB available</text>
+  <text x="36" y="518" class="t12 muted">Needs 6.2 GB free · 41 GB available</text>
   <text x="36" y="536" class="t12 muted">Original kept until 17 Oct, then deleted. Restore it before then.</text>
   <rect x="318.5" y="560.5" width="66" height="32" rx="2" class="rule"/>
   <text x="333" y="581" class="t14 ink">Cancel</text>
@@ -100,7 +100,7 @@
   <text x="508" y="452" class="t14 ink">The media library is mounted read-only. Remount it</text>
   <text x="508" y="472" class="t14 ink">read-write, then try again.</text>
   <text x="508" y="498" class="t12 muted">Same dialog, other reasons:</text>
-  <text x="508" y="516" class="t12 muted">· Not enough free space — needs 8.2 GB, 3.1 GB available.</text>
+  <text x="508" y="516" class="t12 muted">· Not enough free space — needs 6.2 GB, 3.1 GB available.</text>
   <text x="508" y="534" class="t12 muted">· No encoder for this file's video codec (VC-1).</text>
   <text x="508" y="552" class="t12 muted">· This file has no video stream.</text>
   <rect x="858.5" y="560.5" width="66" height="32" rx="2" class="rule"/>
