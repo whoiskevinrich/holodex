@@ -3,7 +3,7 @@ key: HOLODEX-564
 status: in-progress
 profile: feature
 depends-on: []
-release_note: ""
+release_note: "Click the n of N count in the run strip to jump to any item in the run, by number or by part of its title. The list scrolls with the mouse wheel and shows each item's thumbnail, title and length."
 approved:
   design:
     on: 2026-10-11
@@ -19,20 +19,23 @@ HOLODEX-438 (video playlists, Done).
 
 ## Gates — definition of done
 
-- [x] spec → `docs/specs/smart-playlists.md` RD14 + P0-13 (title search covers the whole run, for every run source)
+- [x] spec → `docs/specs/smart-playlists.md` RD14 + P0-13 (title search covers the whole run, for every run source; after a jump, *Previous* is the run neighbour)
 - [~] architecture — no technology fork (one more visibility-gated read beside the existing run-ids read)
 - [x] design → `docs/design/run-position-jump-handoff.md` + `run-position-jump-mockup.svg` (owner sign-off is recorded at `/implement`)
-- [x] backend → `internal/api/media_brief.go` (`POST /media/brief {ids}`, ≤1000 ids per request, request order, soft-deleted or unknown ids left out)
-- [ ] frontend → `NextUpStrip.svelte` trigger + new `video/RunJumpPopover.svelte`
-- [ ] testing `testing-strategy`
+- [x] backend → `internal/api/media_brief.go` (`POST /media/brief {ids}`, ≤1000 ids per request, request order, soft-deleted or unknown ids left out); `/security-review` clean 2026-10-11
+- [x] frontend → `NextUpStrip.svelte` trigger + `video/RunJumpPopover.svelte` + `$lib/runJump.ts`; verified live on the 183-item stress run
+- [x] testing → `docs/testing-strategy.md` §23.10; `media_brief_test.go`, `runJump.test.ts`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Frontend: an `api.mediaBrief` client that asks in chunks of 1000 ids, then the trigger and a virtualised wheel-scrolling list with number and title query and a roving tabindex
-2. [ ] Testing: add a section to `docs/testing-strategy.md` (`/testing-strategy`)
-3. [ ] Consider `/security-review` for `POST /media/brief` (a public read by arbitrary id). It isn't in the `feature` posture; the owner decides
+1. [ ] Owner: §23.10 item 8 `[human]`, a screen-reader pass on the trigger and rows
+2. [ ] `/handoff` to mark #493 ready for review (every gate is settled), then squash-merge on green CI
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-11 · frontend jump list + security review
+- skills: security-review, code-review high --fix
+- handoff: The security review came back clean. The jump list is built and verified live (wheel scrolling, number jump, title search, keyboard, phone width), and code review fixed a blank-list re-mount and focus loss on scroll. The owner settled *Previous* after a jump as the run neighbour, so the spec was corrected. Every gate is settled. Start with the owner's screen-reader pass, then `/handoff` to mark #493 ready.
 
 ### 2026-10-11 · backend whole-run details read
 - skills: code-review high --fix

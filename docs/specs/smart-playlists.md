@@ -143,8 +143,9 @@ page under-reports the very set the owner wants to watch.
   number goes to that position. Typing words finds titles **anywhere in the run**, not just the part
   that has loaded, and that holds for every run source: a playlist, a person, a tag, a studio, a film
   or browse. Positions are play order, so a shuffled run numbers its items the way it will play them,
-  the same numbers `n of N` shows. Jumping works like *Next*: it moves within the same run. History,
-  mode and repeat carry on, and no new run starts.
+  the same numbers `n of N` shows. Jumping works like *Next*: it moves within the same run, without
+  reordering it. *Previous* and *Next* are then the new item's neighbours in the run (after a jump
+  from 1 to 142, *Previous* is 141). Mode and repeat carry on, and no new run starts.
 
 ## User Stories
 
@@ -278,8 +279,8 @@ a press autoplays, and a middle-click or a copied link doesn't.
 - [ ] Matches keep their run positions and stay in run order.
 - [ ] In a shuffled run, position *n* in the list is the *n*th item to play, and choosing it doesn't
   reshuffle.
-- [ ] After a jump, *Previous* walks back through what actually played (RD11). Repeat and shuffle are
-  unchanged.
+- [ ] After a jump from 1 to 142, *Previous* goes to 141 and *Next* to 143. The run's order, repeat
+  and shuffle are unchanged.
 - [ ] A number outside 1 to N plays nothing and says what range is valid.
 - [ ] A visitor's list never shows a title, thumbnail or length for an item they couldn't open from
   browse (RD9).

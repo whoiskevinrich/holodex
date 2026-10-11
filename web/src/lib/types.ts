@@ -646,6 +646,14 @@ export interface RelatedResponse {
 	tag: RelatedShelf | null;
 }
 
+/** One row of the run strip's jump list (spec RD14): enough to recognise an item. */
+export interface MediaBrief {
+	id: number;
+	title: string;
+	duration_sec: number;
+	thumbnail_url?: string;
+}
+
 // Video playlists (F69, ADR-104): a container of videos with a sort — not an entity.
 // `sort` is any browse sort key or 'manual' (the stored position order).
 export interface Playlist {

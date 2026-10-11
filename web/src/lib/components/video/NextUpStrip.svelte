@@ -3,6 +3,8 @@
 	import type { Video } from '$lib/types';
 	import { formatDuration } from '$lib/format';
 	import { hotkey } from '$lib/actions/hotkey.svelte';
+	import { dismissable } from '$lib/actions/dismissable';
+	import RunJumpPopover from './RunJumpPopover.svelte';
 	import { setPlayIntent } from '$lib/playlistContext';
 	import { neighbours, runHref, type Run } from '$lib/run';
 	import { nextTile } from '$lib/runContext';
@@ -56,19 +58,32 @@
 	});
 
 	const lead = $derived(nav.index === -1 ? 'Not in' : nav.next == null && !run.repeat ? 'Last in' : 'Playing from');
-	const position = $derived(
-		nav.index === -1
-			? 'this video was removed, or the link is stale'
-			: `${nav.index + 1} of ${run.order.length}${shuffled ? ' · shuffled' : ''}${
-					nav.next == null && !run.repeat ? ' — playback stops here' : ''
-				}`
+	const count = $derived(`${nav.index + 1} of ${run.order.length}`);
+	const suffix = $derived(
+		`${shuffled ? ' · shuffled' : ''}${nav.next == null && !run.repeat ? ' — playback stops here' : ''}`
 	);
+	const position = $derived(nav.index === -1 ? 'this video was removed, or the link is stale' : count + suffix);
 
 	const go = (id: number) => () => setPlayIntent(id);
+
+	// `n of N` opens the jump list (spec RD14, run-position-jump-handoff.md). There is no
+	// count to press when the video isn't in the run; *Play from start* is the way back.
+	let jumpOpen = $state(false);
+	let jumpTrigger = $state<HTMLButtonElement>();
+	function closeJump(refocus: boolean) {
+		jumpOpen = false;
+		if (refocus) jumpTrigger?.focus();
+	}
+	// Tabbing out of the trigger and list closes it; a click elsewhere is `dismissable`'s.
+	function onJumpFocusOut(e: FocusEvent) {
+		const to = e.relatedTarget;
+		if (to instanceof Node && !(e.currentTarget as HTMLElement).contains(to)) closeJump(false);
+	}
 </script>
 
-<div class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-theme border border-rule bg-surface px-3 py-2 text-sm">
-	<p class="min-w-0 flex-1 basis-48">
+<div class="relative flex flex-wrap items-center gap-x-4 gap-y-2 rounded-theme border border-rule bg-surface px-3 py-2 text-sm">
+	<!-- A div, not a <p>: the jump list's popover sits inside it. -->
+	<div class="min-w-0 flex-1 basis-48">
 		<span class="text-xs uppercase tracking-wide text-muted">{lead}</span>
 		{#if label.name}
 			{#if label.kind}<span class="text-muted">{label.kind} ·</span>{/if}
@@ -81,9 +96,34 @@
 			<!-- No name known (a browse run, or one rebuilt from a URL): the kind is the link. -->
 			<a href={label.href} class="font-medium text-accent hover:underline">{label.kind || 'Playlist'}</a>
 		{/if}
-		<span class="text-muted" aria-live="polite">· {position}</span>
+		{#if nav.index === -1}
+			<span class="text-muted" aria-live="polite">· {position}</span>
+		{:else}
+			<span class="text-muted" aria-hidden="true">·</span>
+			<span
+				data-run-jump
+				class="sm:relative"
+				onfocusout={onJumpFocusOut}
+				use:dismissable={{ enabled: jumpOpen, inside: '[data-run-jump]', onclose: closeJump }}
+			>
+				<button
+					type="button"
+					bind:this={jumpTrigger}
+					onclick={() => (jumpOpen = !jumpOpen)}
+					aria-haspopup="dialog"
+					aria-expanded={jumpOpen}
+					aria-label="Go to a position, {count}"
+					class="border-b border-dashed border-muted text-muted hover:border-accent hover:text-ink focus-visible:border-accent focus-visible:text-ink focus-visible:outline-none"
+					>{count}</button
+				>
+				{#if jumpOpen}
+					<RunJumpPopover {run} current={nav.index} onclose={() => closeJump(false)} />
+				{/if}
+			</span><span class="text-muted" aria-hidden="true">{suffix}</span>
+			<span class="sr-only" aria-live="polite">{position}</span>
+		{/if}
 		<span class="sr-only" aria-live="polite">{announce}</span>
-	</p>
+	</div>
 
 	{#if nav.next != null && tile?.id === nav.next}
 		<a

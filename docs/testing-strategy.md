@@ -4138,6 +4138,51 @@ component harness doesn't exist (HOLODEX-395).
   measurement exist before anyone argues for the cache.
 - Safari's autoplay after a run hand-off is a §14 human item, unchanged.
 
+### 23.10 Jump to a position (RD14 / P0-13, HOLODEX-564)
+
+[Handoff](design/run-position-jump-handoff.md). The run strip's `n of N` opens a list of the whole
+run, fed by `POST /media/brief`, a read by arbitrary id. **Risks, ranked:**
+
+1. **A leak through the brief.** It returns a title for a video `GET /media/{id}` would 404, or
+   carries a field a visitor can't otherwise see. The id list comes from the caller, so the gate has
+   to be per item.
+2. **Wrong item.** The list's position *n* isn't the run's *n*th item, in a shuffled run in
+   particular, or a title match loses its run position.
+3. **A list that can't reach the end of a long run.** Virtualisation draws the wrong slice, or the
+   wheel scrolls the page instead.
+
+| Layer | Test | Pins |
+|---|---|---|
+| API | `TestMediaBrief_RequestOrderAndGating` | request order (not a sort); soft-deleted and unknown ids left out; a repeated id once; asked as a visitor |
+| API | `TestMediaBrief_Bounds` | an empty list is 200 and empty; 1001 ids is a 400 |
+| Vitest | `runJump.test.ts` | digits are a 1-based position, out of range is refused, anything else is title words; matches keep run order and positions in a shuffled order; the virtual window and centring clamp at both ends |
+| Live QA | below | everything the component wires together |
+
+The response struct has no file-metadata fields, so there's nothing to redact and no redaction call
+to forget. That is why risk 1 has no redaction test.
+
+**Live QA** (Cinémathèque, `backend-stress` 183-item browse run; verified 2026-10-11):
+
+1. `[agent]` `n of N` has a dashed underline and opens the list centred on the playing item, marked
+   with the gold bar and `▶ now`.
+2. `[agent]` Wheel over the rows: the list scrolls and the page doesn't. The drawn rows follow
+   (16–37 after five notches).
+3. `[agent]` Type `142`: the list centres and highlights #142 without filtering. Enter plays it and
+   the strip reads `142 of 183` in the same run. *Previous* then goes to 141 (spec RD14).
+4. `[agent]` Type `baseline`: 4 matches at their run positions, match underlined, caption
+   "4 matches".
+5. `[agent]` ↓ from the box focuses a row with exactly one row at `tabindex=0`, ↑ on the first row
+   returns to the box, and Esc closes and focuses the trigger.
+6. `[agent]` `500` shows "Pick a number from 1 to 183" in `text-warn`.
+7. `[agent]` At 375px the list spans the strip, the length column is hidden, and there's no
+   horizontal scroll. At 650px with the trigger pushed right, the panel stops 16px from the edge.
+8. `[human]` A screen reader announces the trigger as "Go to a position, n of N", and each row as
+   "position, title, length".
+
+**Gaps:** the popover has no component harness (HOLODEX-395, as in §14 and §22), so items 1–7 are
+live QA. The wheel's containment at the ends is browser behaviour (`overscroll-behavior: contain`)
+and is checked by eye only.
+
 ## 24. Duplicate videos (F76, HOLODEX-521)
 
 [Spec](specs/duplicate-videos.md) · [architecture](architecture/entity-identity.md) (computed on
