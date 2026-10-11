@@ -24,13 +24,17 @@ func dashedTagAlias(name string) string {
 
 // addDashedTagAliasTx gives tag id its dashed alias inside the caller's transaction
 // (F43 P0-12). It never merges: a dashed spelling that already resolves to another tag
-// is skipped, leaving that pair to the near-miss queue (RD13). Owner-authored source
+// is skipped, leaving that pair to the near-miss queue (RD13). A spelling on the tag
+// deny-list is skipped too (HOLODEX-558, forward-only). Owner-authored source
 // (empty), so the alias reads as an ordinary alias in the panel. Reports whether a row
 // was written.
 func addDashedTagAliasTx(ctx context.Context, tx *sql.Tx, id int64, name string) (bool, error) {
 	alias := dashedTagAlias(name)
 	if alias == "" {
 		return false, nil
+	}
+	if denied, err := isTagDenied(ctx, tx, alias); err != nil || denied {
+		return false, err
 	}
 	if _, conflict, err := entityConflict(ctx, tx, model.EntityTag, id, alias); err != nil {
 		return false, err
@@ -49,7 +53,7 @@ func addDashedTagAliasTx(ctx context.Context, tx *sql.Tx, id int64, name string)
 
 // BackfillDashedTagAliases gives every existing multi-word tag its dashed alias
 // (F43 P0-12), skipping any the owner has removed (a suppression, recorded by
-// DeleteEntityAlias) and any that resolve to another tag. Idempotent — a re-run finds
+// DeleteEntityAlias), any on the deny-list, and any that resolve to another tag. Idempotent — a re-run finds
 // every alias already present — because job_runs retention can prune the boot gate.
 // Returns the number of aliases added.
 func (r *Repo) BackfillDashedTagAliases(ctx context.Context) (int64, error) {

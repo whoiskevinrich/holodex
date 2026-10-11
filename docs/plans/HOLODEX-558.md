@@ -17,16 +17,15 @@ later leaves an existing one for the owner to remove.
 
 - [x] spec `write-spec` → `docs/specs/**` — RD13 + two P0-12 cases in entity-identity.md
 - [~] architecture — no technology fork (one more skip condition on an existing path)
-- [ ] backend → `{cmd,internal,providers}/**` — skip a denied spelling in the dashed-alias helper
-- [ ] testing `testing-strategy` — create / rename / backfill skip a blocked spelling; a later block leaves the alias
+- [x] backend → `{cmd,internal,providers}/**` — `addDashedTagAliasTx` skips a denied spelling (covers create, rename, backfill)
+- [x] testing `testing-strategy` — two tests in `tag_dashed_alias_test.go`, mutation-checked; `docs/testing-strategy.md` line widened
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Skip a denied spelling in `addDashedTagAliasTx` — `internal/repo/tag_dashed_alias.go`
-2. [ ] [testing] Cover create, rename, backfill, and the forward-only later block — `internal/repo/tag_dashed_alias_test.go`
+1. [ ] [—] Squash-merge the PR on green CI, then confirm CI moved HOLODEX-558 to Done
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
-### 2026-10-11 · spec the deny-list skip
-- skills: —
-- handoff: Spec amended (RD13 sentence + two P0-12 cases) with the owner's forward-only pick; branch keyed. Start at /implement.
+### 2026-10-11 · spec and build the deny-list skip
+- skills: implement, code-review high --fix, handoff
+- handoff: Spec (forward-only, owner's pick), the one-line skip and its tests all landed; every gate settled and the PR marked ready. Start at squash-merge on green CI.
