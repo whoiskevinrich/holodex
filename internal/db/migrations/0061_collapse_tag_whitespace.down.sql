@@ -1,0 +1,2 @@
+-- Down for 0061. Collapsing whitespace is lossy -- the original spacing is not preserved
+-- anywhere -- so this cannot be reversed (same precedent as 0034 / 0056 down). No-op.

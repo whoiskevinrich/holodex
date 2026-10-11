@@ -40,7 +40,7 @@ Go backend + SvelteKit SPA. Where things live, and the one model that ties them 
 |---|---|
 | `cmd/holodex` | Entrypoint + bootstrap — runs migrations, one-time backfills, wires services |
 | `internal/api` | HTTP handlers (chi); owner-gated mutations via `requireOwner` |
-| `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free) |
+| `internal/repo` | SQLite data access; a single writer serialized under `writeMu` (WAL reads lock-free). Tag names/aliases are spelled by `tagNorm` (lowercase, whitespace runs → one space) at each write and conflict check — never normalize a tag elsewhere |
 | `internal/resolver` | **Pure** unified field resolution over `BaselineSource` + enrichment + curation + decisions; entity-generic (video/person/studio) |
 | `internal/enrich` | Provider HTTP client + `entity_enrichment` shadow store; the SSRF/asset perimeter. Providers are declared (not compiled in) in `metadata-sources.yaml` — `base_url` **is** the SSRF allowlist, `asset_hosts` the image-download allowlist |
 | `internal/mapping`, `internal/registry` | Canonical field mapping (`metadata-mappings.yaml`, see `field-resolution.md`) + per-field metadata (labels/display) |
@@ -159,8 +159,7 @@ automatically when you open a `web/**/*.svelte` file (the token mechanism is in
    it keeps the session log **append-only**, archiving over-cap entries to `docs/plans/archive/`
    instead of editing or deleting them. Hand-editing the worklog is how it drifts from the code:
    every field above is one a session can forget, and the banner you read at start-of-work is
-   derived from them. *(This file used to say the skill was "not yet built" — it is. Corrected
-   2026-09-25; don't reinstate that claim without checking `~/.claude/skills/`.)*
+   derived from them.
 3. Re-confirm the pre-commit checklist above is satisfied for everything in the push.
 4. Scan the working tree for secrets / PII (see "Secrets & publishing").
 5. **No PR during design; Draft unless the gates are green.** While any design-phase gate

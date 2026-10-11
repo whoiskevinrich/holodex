@@ -118,7 +118,7 @@ Decided in [`f8e7e8af`](https://github.com/whoiskevinrich/holodex/commit/f8e7e8a
 
 Startup data passes run in `cmd/holodex` after migrations and before the server listens, each
 best-effort (logged, never fatal) and each recording one `job_runs` row. A one-time backfill
-(`studio-backfill`, `person-backfill`, `identity-backfill`, `alias-backfill`) skips when
+(`studio-backfill`, `person-backfill`, `identity-backfill`, `alias-backfill`, `tag-dash-backfill`) skips when
 `HasSuccessfulJobRun(kind)` finds a prior `ok` run, after any cheaper "already done" check. An
 `error` row leaves the gate open, so the next boot retries. Because retention prunes the marker,
 every one-time pass must also be idempotent. Every-boot passes (`shared-id-sweep`) skip the gate.
