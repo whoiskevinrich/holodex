@@ -58,13 +58,12 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Journaled swap + `RecoverSwaps` before the orphan sweep; `held_originals` repo CRUD — `internal/maintenance/swap.go`, `internal/repo/`
-2. [ ] [backend] Maintenance worker: claims via `ClaimNextMaintenance`, runs pipeline → Verify → swap → PostWrite + thumbnail reset (unless `ThumbnailUploaded`); finishing kicks the write lane — `internal/maintenance/`, `cmd/holodex/main.go`
-3. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; status gains `kind` + visitor redaction; expiry pass; purge honours RemoveFiles — `internal/api/`, `internal/purge/`
-4. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
-5. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
-6. [ ] [security] Implementation security review against the 7 design checks — branch diff
-7. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [backend] Maintenance worker: claims via `ClaimNextMaintenance`, runs Rebuild → Verify → `Swapper.Swap` → PostWrite + thumbnail reset (unless `ThumbnailUploaded`); finishing kicks the write lane; call `RecoverSwaps` synchronously in main.go BEFORE `go writeQ.Start` (its orphan sweep deletes `.holodex-new`) — `internal/maintenance/`, `cmd/holodex/main.go`
+2. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; status gains `kind` + visitor redaction; expiry pass; purge honours RemoveFiles — `internal/api/`, `internal/purge/`
+3. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
+4. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
+5. [ ] [security] Implementation security review against the 7 design checks — branch diff
+6. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -78,7 +77,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review
-- handoff: `internal/maintenance` can rebuild and verify a file — MP4 flip proven end to end on a real file (verifier, XMP, mirror PSNR, metadata-strip refused); MKV path unit-tested only (no local mkvmerge). Start at Up next #1, the journaled swap.
+- handoff: `internal/maintenance` can rebuild, verify and swap — the journaled swap, restore, discard and boot recovery are tested at every crash point; MKV pipeline still unproven against real mkvmerge. Start at Up next #1, the worker (and wire RecoverSwaps before the orphan sweep).
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
