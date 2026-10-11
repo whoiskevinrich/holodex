@@ -1,0 +1,88 @@
+<svg width="900" height="700" viewBox="0 0 900 700" xmlns="http://www.w3.org/2000/svg" role="img" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<title>Delete a film mockup (F78)</title>
+<desc>Cinémathèque mockup of film deletion, approved 2026-10-11. A: the owner-only Manage section at the bottom of the film detail rail with the Move to Trash split button, resting and with the chevron menu open on Delete permanently. B: the Move to Trash confirm dialog. C: the Delete permanently confirm dialog. D: the Trash page listing a film and a media item, each with a kind label. E: the in-Trash verdict shown when a rename, year edit or create lands on a trashed film's name and year.</desc>
+<rect width="900" height="700" fill="#0c0a09"/>
+
+<text x="24" y="28" font-size="11" letter-spacing="1" fill="#9b9082">A · FILM DETAIL RAIL, BOTTOM (OWNER ONLY), RESTING AND OPEN</text>
+<rect x="24" y="40" width="414" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="44" y="64" font-size="11" fill="#9b9082">… Tags · People · Details · Full film</text>
+<line x1="44" y1="78" x2="418" y2="78" stroke="#2a2622"/>
+<text x="44" y="98" font-size="10" letter-spacing="1.2" fill="#9b9082">MANAGE</text>
+<rect x="44" y="108" width="112" height="30" rx="2" fill="none" stroke="#e2603f"/>
+<text x="100" y="128" font-size="12" fill="#e2603f" text-anchor="middle">Move to Trash</text>
+<rect x="156" y="108" width="28" height="30" rx="2" fill="none" stroke="#e2603f"/>
+<path d="M163 119 l7 7 l7 -7" fill="none" stroke="#e2603f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="200" y="122" font-size="10" fill="#9b9082">Same split button as /media/[id]:</text>
+<text x="200" y="136" font-size="10" fill="#9b9082">markup, classes and keyboard unchanged.</text>
+<rect x="44" y="158" width="112" height="30" rx="2" fill="none" stroke="#e2603f"/>
+<text x="100" y="178" font-size="12" fill="#e2603f" text-anchor="middle">Move to Trash</text>
+<rect x="156" y="158" width="28" height="30" rx="2" fill="none" stroke="#e2603f"/>
+<path d="M163 173 l7 -7 l7 7" fill="none" stroke="#e2603f" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="44" y="192" width="164" height="30" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="48" y="196" width="156" height="22" rx="2" fill="#e2603f"/>
+<text x="126" y="211" font-size="11" fill="#170e08" text-anchor="middle">Delete permanently…</text>
+
+<text x="462" y="28" font-size="11" letter-spacing="1" fill="#9b9082">D · OWNER › TRASH, ONE MIXED LIST</text>
+<rect x="462" y="40" width="414" height="196" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="478" y="56" width="382" height="52" rx="2" fill="none" stroke="#2a2622"/>
+<rect x="490" y="66" width="32" height="16" rx="2" fill="none" stroke="#2a2622"/>
+<text x="506" y="78" font-size="10" fill="#9b9082" text-anchor="middle">Film</text>
+<text x="530" y="79" font-size="12" fill="#f3ece1">Heat (1995)</text>
+<text x="490" y="98" font-size="10" fill="#9b9082">deleted 2 minutes ago · purges in 7 days</text>
+<rect x="716" y="68" width="60" height="26" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="746" y="85" font-size="11" fill="#e8a33d" text-anchor="middle">Restore</text>
+<rect x="782" y="68" width="68" height="26" rx="2" fill="none" stroke="#e2603f"/>
+<text x="816" y="85" font-size="11" fill="#e2603f" text-anchor="middle">Delete…</text>
+<rect x="478" y="116" width="382" height="52" rx="2" fill="none" stroke="#2a2622"/>
+<rect x="490" y="126" width="40" height="16" rx="2" fill="none" stroke="#2a2622"/>
+<text x="510" y="138" font-size="10" fill="#9b9082" text-anchor="middle">Media</text>
+<text x="538" y="139" font-size="12" fill="#f3ece1">heat-scene-04.mkv</text>
+<text x="490" y="158" font-size="10" fill="#9b9082">deleted 1 day ago · purges in 6 days</text>
+<rect x="716" y="128" width="60" height="26" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="746" y="145" font-size="11" fill="#e8a33d" text-anchor="middle">Restore</text>
+<rect x="782" y="128" width="68" height="26" rx="2" fill="none" stroke="#e2603f"/>
+<text x="816" y="145" font-size="11" fill="#e2603f" text-anchor="middle">Delete…</text>
+<text x="478" y="194" font-size="10" fill="#9b9082">The kind label is the only new element. Rows are otherwise</text>
+<text x="478" y="208" font-size="10" fill="#9b9082">today's media rows (button text here abbreviated for width;</text>
+<text x="478" y="222" font-size="10" fill="#9b9082">the real row keeps "Delete permanently").</text>
+
+<text x="24" y="270" font-size="11" letter-spacing="1" fill="#9b9082">B · MOVE TO TRASH CONFIRM</text>
+<rect x="24" y="282" width="414" height="186" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="44" y="314" font-size="17" fill="#f3ece1" font-family="Georgia, serif">Move to Trash?</text>
+<text x="44" y="342" font-size="12" fill="#f3ece1"><tspan font-weight="600">Heat (1995)</tspan> will be hidden from your library and</text>
+<text x="44" y="360" font-size="12" fill="#f3ece1">permanently deleted in 7 days. You can restore it</text>
+<text x="44" y="378" font-size="12" fill="#f3ece1">from Trash until then.</text>
+<text x="44" y="402" font-size="11" fill="#9b9082">Its 12 linked videos stay in your library.</text>
+<rect x="250" y="424" width="66" height="28" rx="2" fill="none" stroke="#2a2622"/>
+<text x="283" y="442" font-size="12" fill="#f3ece1" text-anchor="middle">Cancel</text>
+<rect x="322" y="424" width="100" height="28" rx="2" fill="#e2603f"/>
+<text x="372" y="442" font-size="12" fill="#170e08" text-anchor="middle">Move to Trash</text>
+
+<text x="462" y="270" font-size="11" letter-spacing="1" fill="#9b9082">C · DELETE PERMANENTLY CONFIRM</text>
+<rect x="462" y="282" width="414" height="186" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="482" y="314" font-size="17" fill="#f3ece1" font-family="Georgia, serif">Delete permanently?</text>
+<text x="482" y="342" font-size="12" fill="#f3ece1"><tspan font-weight="600">Heat (1995)</tspan>, its cast, images and aliases will be</text>
+<text x="482" y="360" font-size="12" fill="#f3ece1"><tspan font-weight="600">permanently removed</tspan>. This cannot be undone.</text>
+<text x="482" y="386" font-size="11" fill="#9b9082">Its 12 linked videos stay in your library, unlinked</text>
+<text x="482" y="402" font-size="11" fill="#9b9082">from this film. No media file is touched.</text>
+<rect x="660" y="424" width="66" height="28" rx="2" fill="none" stroke="#2a2622"/>
+<text x="693" y="442" font-size="12" fill="#f3ece1" text-anchor="middle">Cancel</text>
+<rect x="732" y="424" width="128" height="28" rx="2" fill="#e2603f"/>
+<text x="796" y="442" font-size="12" fill="#170e08" text-anchor="middle">Delete permanently</text>
+
+<text x="24" y="502" font-size="11" letter-spacing="1" fill="#9b9082">E · IN-TRASH VERDICT (RENAME, YEAR EDIT, OR CREATE IN THE ATTACH PICKER)</text>
+<rect x="24" y="514" width="852" height="166" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="44" y="546" font-size="20" fill="#f3ece1" font-family="Georgia, serif">Heat</text>
+<rect x="44" y="560" width="420" height="96" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="60" y="584" font-size="12" fill="#f3ece1"><tspan font-weight="600">Heat (1995)</tspan> is in Trash.</text>
+<text x="60" y="602" font-size="10" fill="#9b9082">A film in Trash keeps its name and year until it's purged.</text>
+<rect x="60" y="616" width="122" height="28" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="121" y="634" font-size="12" fill="#e8a33d" text-anchor="middle">Restore that film</text>
+<text x="212" y="634" font-size="12" fill="#f3ece1" text-anchor="middle">Cancel</text>
+<text x="490" y="580" font-size="10" fill="#9b9082">Same card as today's "already uses that name and year"</text>
+<text x="490" y="594" font-size="10" fill="#9b9082">verdict. The trashed film has no page to link to, so the</text>
+<text x="490" y="608" font-size="10" fill="#9b9082">name is plain text and the action is Restore (btn-accent),</text>
+<text x="490" y="622" font-size="10" fill="#9b9082">not "View that film". After a restore, the owner is taken</text>
+<text x="490" y="636" font-size="10" fill="#9b9082">to the restored film (rename/year) or it's chosen as the</text>
+<text x="490" y="650" font-size="10" fill="#9b9082">attach target (picker).</text>
+</svg>

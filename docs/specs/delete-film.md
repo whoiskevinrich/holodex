@@ -1,6 +1,6 @@
 # Spec: Delete a film (F78)
 
-**Status**: Draft
+**Status**: Accepted
 **Phase**: F78 (Jira [HOLODEX-562](https://whoiskevinrich.atlassian.net/browse/HOLODEX-562))
 **Owner**: Project owner
 **Date**: 2026-10-11
@@ -11,8 +11,7 @@ runs out, or delete it permanently.
 **Depends on** (all shipped): [Delete a media item (F24)](delete-media.md), which provides the Trash,
 the grace period and the purge, and [Films as a first-class entity (F56)](films-entity.md).
 
-**Design handoff**: pending `/design-handoff`. The mockup approved in chat becomes the committed
-asset there.
+**Design handoff**: [`docs/design/delete-film-handoff.md`](../design/delete-film-handoff.md).
 
 ---
 
@@ -70,6 +69,13 @@ All settled by the owner on 2026-10-11.
   kinds.
 - **RD8, one grace period.** A trashed film is purged on the same schedule as trashed media, under
   the same setting.
+- **RD9, a trashed film stops naming its videos.** A film offers its name as a candidate for its
+  videos' title and album. While the film is in Trash it withdraws that candidate, and restoring it
+  brings the candidate back. Nothing already written to a file changes.
+- **RD10, a standing choice of a purged film falls through.** If the owner chose this film as a
+  video's title or album source, that choice behaves like any other chosen source that's no longer
+  there once the film is permanently deleted: the video shows its next source. The stale choice is
+  cleared at purge, so it can't come back.
 
 ## User Stories
 
@@ -126,11 +132,4 @@ None.
 
 ## Open Questions
 
-1. **A trashed film's name in its videos' Title/Album.** A film offers its name as a candidate for
-   its videos' title and album. While the film is in Trash, should that candidate be withdrawn and
-   come back on restore? Withdrawing it is consistent with RD5 and is the recommended answer, but
-   it isn't settled yet. Either way, nothing already written to a file changes. *(owner)*
-2. **An owner's standing choice of this film as a video's title source**, once the film is
-   permanently deleted. The recommended answer is that it behaves like any other decided source
-   that is no longer there: the video falls back to its next source, and the stale choice is
-   cleared on purge. *(owner)*
+None.
