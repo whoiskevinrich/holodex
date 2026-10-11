@@ -277,8 +277,19 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 	// A provider-sourced alias would come straight back on the next enrich, so removing
 	// it has to be durable to mean anything (ADR-088 D4). An owner-authored one records
 	// nothing — no path would re-add it, and a suppression there would only get in the
-	// owner's way later.
-	if source != "" {
+	// owner's way later. A tag's own dashed alias is the exception: the backfill would
+	// re-add it (F43 P0-12), so removing it is recorded too.
+	suppress := source != ""
+	if !suppress && entityType == model.EntityTag {
+		var name string
+		switch err := tx.QueryRowContext(ctx, `SELECT name FROM tags WHERE id = ?`, id).Scan(&name); {
+		case err == nil:
+			suppress = alias == dashedTagAlias(name)
+		case !errors.Is(err, sql.ErrNoRows): // a stray alias of a gone tag just deletes
+			return fmt.Errorf("delete %s alias: %w", entityType, err)
+		}
+	}
+	if suppress {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO entity_alias_suppressions (entity_type, entity_id, alias_key)
 			VALUES (?, ?, `+nameKeyExpr(entityType, "?")+`)`,
@@ -563,6 +574,14 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	} {
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
 			return 0, fmt.Errorf("rename (%s): %w", step.desc, err)
+		}
+	}
+	// 4. A tag's new multi-word name carries its dashed spelling too (F43 P0-12); the
+	//    old name's aliases stay. A rename is the owner's act, so it re-adds a dashed
+	//    alias they once removed — only the backfill honors that suppression.
+	if entityType == model.EntityTag {
+		if _, err := addDashedTagAliasTx(ctx, tx, id, newName); err != nil {
+			return 0, fmt.Errorf("rename (dashed alias): %w", err)
 		}
 	}
 	// Check both the new canonical name and the old name (now an alias, step 2 above)

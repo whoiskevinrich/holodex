@@ -218,6 +218,12 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	if err := FlagNearMiss(ctx, tx, entityType, id); err != nil {
 		return 0, err
 	}
+	// 5. A new multi-word tag carries its dashed spelling (F43 P0-12).
+	if entityType == model.EntityTag {
+		if _, err := addDashedTagAliasTx(ctx, tx, id, name); err != nil {
+			return 0, err
+		}
+	}
 	return id, attachExternalID(ctx, tx, entityType, id, externalID)
 }
 

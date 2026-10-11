@@ -42,7 +42,8 @@ var orphanAuthoredSQL = map[string]string{
 		OR EXISTS(SELECT 1 FROM field_source_decisions WHERE entity_type = 'studio' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM metadata_curation WHERE entity_type = 'studio' AND entity_id = e.id)`,
 	model.EntityTag: `
-		EXISTS(SELECT 1 FROM entity_aliases WHERE entity_type = 'tag' AND entity_id = e.id)
+		EXISTS(SELECT 1 FROM entity_aliases WHERE entity_type = 'tag' AND entity_id = e.id
+		       AND alias <> replace(e.name, ' ', '-')) -- its own dashed alias is automatic (F43 P0-12), not authored
 		OR EXISTS(SELECT 1 FROM entity_keep_separate WHERE entity_type = 'tag' AND e.id IN (id_lo, id_hi))
 		OR EXISTS(SELECT 1 FROM field_source_decisions WHERE entity_type = 'tag' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM metadata_curation WHERE entity_type = 'tag' AND entity_id = e.id)
