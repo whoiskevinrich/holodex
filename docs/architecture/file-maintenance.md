@@ -118,9 +118,12 @@ not config, because each row is validated against the verifier.
 | VP9 | `libvpx-vp9 -row-mt 1` | `-crf 20 -b:v 0` |
 | AV1 | `libsvtav1 -preset 6` | `-crf 22` |
 
-- Every invocation pins `-pix_fmt`, `-color_primaries`, `-color_trc`, `-colorspace`, `-color_range` and
-  frame rate to the ffprobe values of the source stream. HEVC HDR10 static metadata
-  (mastering display, MaxCLL) is passed through `-x265-params` from the source's side data.
+- Every invocation pins `-pix_fmt`, `-color_primaries`, `-color_trc`, `-colorspace` and `-color_range`
+  to the ffprobe values of the source stream.
+- Frame timing passes through with `-fps_mode passthrough`, never `-r`. Forcing a rate would drop
+  or duplicate frames on a variable-frame-rate source and break the length rule.
+- HEVC HDR10 static metadata (mastering display, MaxCLL) is passed through `-x265-params` from the
+  source's side data.
 - **Refused at preflight:**
   - a codec outside the table (VC-1, MPEG-2, MPEG-4 Part 2 and so on);
   - an encoder the installed ffmpeg lacks (checked with `ffmpeg -encoders` once at boot);
