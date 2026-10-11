@@ -240,8 +240,11 @@ Decided in _(pending: HOLODEX-556 squash)_.
 The maintenance worker calls the queue's existing `PostWriteFunc` (cover-art re-extract, then
 `refresh.Service.ReExtract`), so duration, resolution, size and mtime are refreshed on the same row.
 The video's identity is its path, which hasn't changed. It then calls `repo.ResetThumbnailState`
-unless the video's poster is owner-uploaded (tier 0), so the thumbnail worker regenerates the
-thumbnail from the new picture. The thumbnail URL already carries `?v=<image mtime>`
+**only when the thumbnail was generated from a video frame** (`ThumbnailGenerated`), so the
+thumbnail worker regenerates it from the new picture. An embedded-cover-art or owner-uploaded
+thumbnail shows no frame of the video, so it is left alone. A discard changes no file and skips
+both steps. The worker then wakes the tag-write lane, whose same-file jobs were skipped while this
+one ran. The thumbnail URL already carries `?v=<image mtime>`
 (`imageVersion`, `internal/api/handlers.go`), so it changes when the thumbnail is regenerated. The
 stream URL gains the same treatment, `?v=<file mtime>`, so the player doesn't keep showing a cached
 mirrored picture after the swap.

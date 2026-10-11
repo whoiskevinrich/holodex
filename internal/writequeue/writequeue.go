@@ -208,6 +208,10 @@ func (q *Queue) Start(ctx context.Context) {
 	}
 }
 
+// Kick wakes a tag-write worker. The maintenance lane calls it when a job finishes, because a
+// tag write for that file was skipped while the job ran and would otherwise wait for the poll.
+func (q *Queue) Kick() { q.kick() }
+
 func (q *Queue) kick() {
 	select {
 	case q.notify <- struct{}{}:

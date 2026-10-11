@@ -515,6 +515,7 @@ const (
 	JobKindEnrichSweep      = "enrich-sweep"      // owner-triggered refresh of every person/studio (F66, ADR-103)
 	JobKindSharedIDSweep    = "shared-id-sweep"   // every-boot shared-provider-id duplicate reconciliation (F71, ADR-107)
 	JobKindTagDashBackfill  = "tag-dash-backfill" // one-time dashed alias for every multi-word tag (F43 P0-12)
+	JobKindMaintenance      = "maintenance"       // owner-queued picture re-encode, restore or discard (F77)
 	JobStatusOK             = "success"
 	JobStatusErr            = "error"
 )

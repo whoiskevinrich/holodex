@@ -27,6 +27,7 @@ import (
 	"holodex/internal/enrich"
 	"holodex/internal/extract"
 	"holodex/internal/imagesink"
+	"holodex/internal/maintenance"
 	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
@@ -340,7 +341,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		}
 		return f.FileTagSources()
 	})
-	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
+	postWrite := func(ctx context.Context, id int64, path string) {
 		if thumbs != nil && thumbs.Enabled() {
 			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
 				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
@@ -353,8 +354,25 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		if err := refreshSvc.ReExtract(ctx, id); err != nil {
 			log.Warn("post-writeback re-extract", "id", id, "err", err)
 		}
-	})
+	}
+	writeQ.SetPostWrite(postWrite)
 	handlers.SetWriteQueue(writeQ)
+
+	// Video file maintenance (F77, file-maintenance.md): picture re-encodes run in their own
+	// lane of the same queue, one at a time. The swap journal is recovered here, before
+	// writeQ.Start's orphan sweep, which would delete a .holodex-new a mid-swap row needs.
+	maintTools := maintenance.Tools{FFmpeg: "ffmpeg", FFprobe: "ffprobe", Exiftool: "exiftool", Mkvmerge: "mkvmerge"}
+	maintEncoders, err := maintenance.DetectEncoders(ctx, maintTools.FFmpeg)
+	if err != nil {
+		log.Warn("maintenance: no ffmpeg encoders found; flips will be refused", "err", err)
+	}
+	swapper := maintenance.NewSwapper(repository, time.Duration(cfg.MaintenanceHoldDays)*24*time.Hour)
+	if n, err := swapper.RecoverSwaps(ctx); err != nil {
+		log.Warn("maintenance: swap recovery left rows unsettled", "settled", n, "err", err)
+	} else if n > 0 {
+		log.Info("maintenance: recovered interrupted swaps", "count", n)
+	}
+	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, postWrite, writeQ.Kick, log)
 
 	// Filename extraction (F48, ADR-067): the orchestrator ties pattern
 	// matching (F48.1), the filename shadow-store write (F48.2), and
@@ -472,7 +490,8 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go thumbs.Run(ctx)
 	go purger.Run(ctx)
 	go orphanSweeper.Run(ctx)
-	go writeQ.Start(ctx) // boot recovery + orphan sweep + worker pool (F30, ADR-048)
+	go writeQ.Start(ctx)    // boot recovery + orphan sweep + worker pool (F30, ADR-048)
+	go maintWorker.Run(ctx) // the maintenance lane (F77); RecoverSwaps ran above
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).
