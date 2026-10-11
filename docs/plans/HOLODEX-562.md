@@ -29,20 +29,19 @@ Design package: [spec](../specs/delete-film.md) · [handoff](../design/delete-fi
 - [~] architecture — no technology fork (films ride the existing `deleted_at` axis and the purge ticker in media-ingest.md)
 - [x] design `design-handoff` → `docs/design/**` — `delete-film-handoff.md` + `delete-film-mockup.svg`
 - [x] backend → `{cmd,internal,providers}/**` — migration 0062 (`films.deleted_at`, completeness + per-entity cleanup triggers), `repo/film_delete.go`, live-film filter on every film read, `purge` sweeps films, `api/film_delete.go`
-- [/] frontend → `web/src/**` — Manage split button + dialogs, Trash kind label, `TrashedFilmVerdict` in rename/year/attach-create; browser-verified on :9600; held on the owner's build-vs-mockup comparison
+- [x] frontend → `web/src/**` — Manage split button + dialogs, Trash kind label, `TrashedFilmVerdict` in rename/year/attach-create; browser-verified on :9600; owner confirmed the build matches mockup panels A–E
 - [x] testing `testing-strategy` — `repo/film_delete_test.go`, `api/film_delete_test.go`, purge + 0062 trigger tests, `api.test.ts`; three rows in `docs/testing-strategy.md`
 - [x] security `security-review` — no findings (owner gate, path, SQL, data exposure, XSS checked)
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner compares the built film page / dialogs / Trash against `docs/design/delete-film-mockup.svg`, then settle frontend and `gh pr ready 491`
-2. [ ] [—] Sweep HOLODEX-562 → In Review on ready, → Done on merge
+1. [ ] [—] Squash-merge #491 once CI is green (CI moves HOLODEX-562 → Done)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-11 · build
 - skills: code-review high --fix, security-review, handoff
-- handoff: Built and pushed in 044c9a2f (all Go + web tests green, browser-verified); PR #491 stays Draft until the owner compares the build to the approved mockup — start at Up next 1.
+- handoff: Built in 044c9a2f, all gates settled; owner confirmed the build matches the mockup and PR #491 is marked ready — next is squash-merge on green CI.
 
 ### 2026-10-11 · spec, design, crossing into build
 - skills: design-handoff, implement
