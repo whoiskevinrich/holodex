@@ -34,6 +34,10 @@ shipped (F50 hierarchy, HOLODEX-269 rename), so RD7's "no detail page" no longer
 amendment revises **RD7**, adds **RD12** (tag alias text is lowercase) and **P0-10** (alias values collapse in
 genre writeback), and records that **P0-9** was never met for tags. Marked inline as *(HOLODEX-507)*.
 
+**Amendment — dashed tag aliases (HOLODEX-557, 2026-10-10).** A multi-word tag automatically gets an alias
+that spells its name with dashes, so `science fiction` is also found and routed as `science-fiction`. Adds
+**RD13** and **P0-12**, marked inline as *(HOLODEX-557)*.
+
 ---
 
 ## Problem Statement
@@ -121,6 +125,14 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   (migration 0034), and the same house rule now covers a tag's aliases: alias text is lowercased on write, and
   existing tag aliases are lowercased once by migration. Person / studio / film aliases keep their casing.
   Identity is unaffected — `alias_key` already folds case — so this changes display only, and cannot collide.
+- **RD13 — A multi-word tag carries its dashed spelling as an alias** (HOLODEX-557; owner policy). A tag's
+  identity ignores case and whitespace but not punctuation (RD2), so `science fiction` and `science-fiction`
+  are different names, and a file spelling the genre with dashes would otherwise create a second tag. The tag
+  is given its dashed spelling as an ordinary alias, which it can show, remove and merge like any other. The
+  rule goes one way only, spaces to dashes: a tag named with a dash gets no spaced alias, because a name like
+  `x-men` is spelled with a dash on purpose. The alias is never added at the cost of merging tags. If the
+  dashed spelling already belongs to a different tag, the alias is skipped and the pair is left to the
+  near-miss review queue, which already flags it (P1-1). The homonym rule (RD4) holds.
 - **RD8 — Merge is irreversible + informed confirm** (card). Both entry points show each side's video count
   and what moves before committing; merge is one-way. Undo/split is P2.
 - **RD9 — Review queue: banner → `/owner` Duplicates tab; editor near-miss = soft warning** (cards). Entity
@@ -251,6 +263,25 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   - Removing a person from a video's cast or director row, or marking them not to write, covers every spelling
     of that person (HOLODEX-555). Given the video above, When the owner removes `John Doe` from the cast, Then
     neither `John Doe` nor `Johnny D` appears; When they undo the removal, Then `John Doe` returns.
+- **P0-12 — A multi-word tag gets its dashed alias automatically** (HOLODEX-557, RD13). When a tag whose name
+  has more than one word comes into existence (by scan, provider enrichment or the owner), it receives an
+  alias that spells the name with each run of spaces replaced by a single dash. A rename does the same for the
+  new name, and the tag keeps its earlier aliases. Tags that already exist get the alias once, when this
+  ships, and the run is visible in System Activity like the other identity backfills. Nothing re-adds an alias
+  the owner has removed, except a later rename to a name that produces it again.
+  - Given no tag `science fiction` exists, When a scan finds the genre `Science Fiction`, Then tag
+    `science fiction` is created with the alias `science-fiction`, and its Aliases panel lists it.
+  - Given tag `science fiction` with that alias, When a later scan finds the genre `Science-Fiction`, Then the
+    video is tagged `science fiction` and no second tag is created. Genre writeback writes `science fiction`
+    (P0-10), and searching `science-fiction` finds the tag (P0-9).
+  - Given a single-word tag `horror`, or a tag already named with a dash like `x-men`, When it is created,
+    Then it gets no automatic alias.
+  - Given a separate tag `science-fiction` already exists, When tag `science fiction` is created, Then it gets
+    no dashed alias, both tags are left as they are, and the pair appears in the Duplicates queue.
+  - Given tag `sci fi` with alias `sci-fi`, When the owner renames it to `science fiction`, Then it carries
+    both `sci-fi` and `science-fiction`.
+  - Given the owner removed `science-fiction` from tag `science fiction`, When the library is rescanned or the
+    app restarts, Then the alias is not added back.
 
 ### Should-have (P1) — the near-miss review queue (tag-hygiene tool)
 
