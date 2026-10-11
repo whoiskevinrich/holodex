@@ -28,5 +28,5 @@ pair, no auto-merge); a rename adds a dashed alias for the new name; spaces to d
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-10 · spec and build the dashed tag alias
-- skills: write-spec, implement, code-review high --fix, handoff
-- handoff: Owner widened RD12: tag names and aliases now collapse whitespace runs to one space (tagNorm on every write; migration 0061 for existing names). That closes the doubled-space gap; the only gap left is that a denied dashed spelling is still added. PR #485 stays ready; start at squash-merge on green CI.
+- skills: write-spec, implement, code-review high --fix, handoff, claude-md-improver
+- handoff: CLAUDE.md audit fixed stale AliasPanel/TagPicker notes and added the tagNorm rule. Owner widened RD12: tag names and aliases now collapse whitespace runs to one space (tagNorm on every write; migration 0061 for existing names). That closes the doubled-space gap; the only gap left is that a denied dashed spelling is still added. PR #485 stays ready; start at squash-merge on green CI.
