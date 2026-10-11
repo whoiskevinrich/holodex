@@ -525,3 +525,60 @@ func TestGetMedia_GenresRow_WriteTarget(t *testing.T) {
 	}
 	t.Fatalf("genres row missing for a tag-only video")
 }
+
+// TestGetMedia_EmptyGenresRow_WriteTarget: removing a video's LAST tag leaves an empty
+// write set, so applyTagSetSync synthesizes a valueless genres row (the file still has
+// the tag — that write deletes Genre, ADR-110 D6). The mapper skips a valueless field,
+// so without asking for the target the row went out unwritable and the owner could not
+// write the removal back unless some other field also differed.
+func TestGetMedia_EmptyGenresRow_WriteTarget(t *testing.T) {
+	_, srv, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+
+	// Re-read the file with one tag: attaches it and records it as on the file.
+	if _, err := r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/a.mkv", FileSize: 1, Title: "A", Container: "Matroska",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+		Tags:      []model.Tag{{Name: "comedy"}},
+	}, nil); err != nil {
+		t.Fatalf("re-read video: %v", err)
+	}
+	tagID, ok, err := r.TagIDByName(ctx, "comedy")
+	if err != nil || !ok {
+		t.Fatalf("tag id: ok=%v err=%v", ok, err)
+	}
+	if err := r.DetachTagFromVideo(ctx, vid, tagID); err != nil {
+		t.Fatalf("detach tag: %v", err)
+	}
+
+	resp, err := http.Get(srv.URL + "/api/v1/media/" + itoa(vid))
+	if err != nil {
+		t.Fatalf("GET media: %v", err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Resolved []struct {
+			Canonical   string   `json:"canonical"`
+			Values      []string `json:"values"`
+			WriteTarget string   `json:"write_target"`
+			InSync      *bool    `json:"in_sync"`
+			FileOnly    []string `json:"file_only"`
+		} `json:"resolved"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode media: %v", err)
+	}
+	for _, f := range body.Resolved {
+		if !strings.EqualFold(f.Canonical, "genres") {
+			continue
+		}
+		if len(f.Values) != 0 || f.InSync == nil || *f.InSync || len(f.FileOnly) != 1 {
+			t.Fatalf("genres row = values %v in_sync %v file_only %v, want empty, out of sync, [comedy] on file only", f.Values, f.InSync, f.FileOnly)
+		}
+		if f.WriteTarget == "" {
+			t.Fatalf("empty genres row has no write_target — the last tag's removal can never be written back")
+		}
+		return
+	}
+	t.Fatalf("genres row missing after the last tag was removed (the file still has it)")
+}
