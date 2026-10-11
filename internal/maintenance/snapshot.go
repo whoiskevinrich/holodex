@@ -38,7 +38,7 @@ func CollectSnapshot(ctx context.Context, t Tools, family, path string, p Probe)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	s := Snapshot{Probe: p, StreamHashes: hashes}
+	s := Snapshot{Family: family, Probe: p, StreamHashes: hashes}
 	switch family {
 	case FamilyMP4:
 		out, err := run(ctx, t.Exiftool, "-j", "-G1", "-XMP:all", toolArg(path))

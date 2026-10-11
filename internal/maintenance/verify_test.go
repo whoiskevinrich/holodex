@@ -9,6 +9,7 @@ import (
 // an attachment, global and track tags, two chapters.
 func baseSnapshot() Snapshot {
 	return Snapshot{
+		Family: FamilyMKV,
 		Probe: Probe{
 			Streams: []Stream{
 				{Index: 0, CodecType: "audio", CodecName: "opus", Disposition: map[string]int{"default": 1},
@@ -108,6 +109,21 @@ func TestVerify_VFRToleranceUsesAverageFrame(t *testing.T) {
 	cand.Probe.Format.Duration = "120.020000"
 	if err := Verify(orig, cand); err != nil {
 		t.Fatalf("20 ms on a 30 fps VFR file refused: %v", err)
+	}
+}
+
+// In MP4 `encoder` is the iTunes ©too tag, not a mux stamp: losing it is a tags failure (the
+// exemption is Matroska-only).
+func TestVerify_MP4EncoderTagIsARealTag(t *testing.T) {
+	orig := baseSnapshot()
+	orig.Family = FamilyMP4
+	orig.Probe.Format.Tags["encoder"] = "Lavf63.1.102"
+	cand := candidate()
+	cand.Family = FamilyMP4
+	cand.Probe.Format.Tags["ENCODER"] = "libebml v1" // keep the base's own key equal
+	var re *RuleError
+	if err := Verify(orig, cand); !errors.As(err, &re) || re.Rule != RuleTags {
+		t.Fatalf("an MP4 that lost its encoder tag passed: %v", err)
 	}
 }
 

@@ -2,6 +2,7 @@
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
 import { reauth, editing } from './reauth.svelte';
+import type { MaintenancePreflight } from './maintenance';
 import type {
 	CarryPreview,
 	VideoCompare,
@@ -272,6 +273,33 @@ async function sendConflictable<TReq, TConflict = VideoCollisionRef>(
 	return {};
 }
 
+// sendMaintenance queues a maintenance job (F77). A 409 carrying a refusal reason (the
+// re-run preflight, or another job already in flight) resolves as `{ refused }`; any other
+// failure throws like sendAuthed.
+async function sendMaintenance(
+	path: string,
+	body?: unknown
+): Promise<{ refused?: MaintenancePreflight }> {
+	const res = await fetch(`${BASE}${path}`, {
+		method: 'POST',
+		credentials: CREDS,
+		redirect: 'manual',
+		headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) },
+		body: body ? JSON.stringify(body) : undefined
+	});
+	checkRedirect(res, true);
+	if (res.status === 409) {
+		const refused = (await res.json().catch(() => ({}))) as MaintenancePreflight & { error?: string };
+		if (refused.reason) return { refused };
+		throw new ApiError(res.status, path, refused.error);
+	}
+	if (!res.ok) {
+		const err = (await res.json().catch(() => ({}))) as { error?: string };
+		throw new ApiError(res.status, path, err.error);
+	}
+	return {};
+}
+
 // uploadAuthed POSTs multipart FormData on the owner surface with the session
 // cookie (no Content-Type — the browser sets the multipart boundary). Returns the
 // decoded JSON body. A 409 is surfaced verbatim so callers can show "gallery is full".
@@ -374,7 +402,10 @@ export const api = {
 	removePlaylistVideo: (id: number, videoId: number) =>
 		sendAuthed<Record<string, never>>('DELETE', `/playlists/${id}/videos/${videoId}`),
 
-	streamURL: (id: number) => `${BASE}/media/${id}/stream`,
+	// `version` (the file's mtime) busts the browser's media cache when the file changes in
+	// place, e.g. after a flip (F77); the stream handler ignores the query.
+	streamURL: (id: number, version?: string) =>
+		`${BASE}/media/${id}/stream${version ? `?v=${encodeURIComponent(version)}` : ''}`,
 
 	thumbnailURL: (id: number) => `${BASE}/media/${id}/thumbnail`,
 
@@ -1182,6 +1213,19 @@ export const api = {
 		sendAuthed<{ retried: boolean }>('POST', `/media/${id}/writeback/retry`),
 	dismissWriteback: (id: number) =>
 		sendAuthed<{ dismissed: boolean }>('POST', `/media/${id}/writeback/dismiss`),
+
+	// Video file maintenance (F77, internal/api/maintenance.go). The preflight answers the
+	// confirm dialog; a flip re-runs it server-side and answers 409 with the refusal, which
+	// comes back as `{ refused }` so the dialog can switch to its refused state.
+	maintenancePreflight: (id: number) =>
+		getAuthed<MaintenancePreflight>(`/media/${id}/maintenance/preflight?op=hflip`),
+	flipMedia: (id: number) => sendMaintenance(`/media/${id}/maintenance`, { op: 'hflip' }),
+	restoreOriginal: (id: number) => sendMaintenance(`/media/${id}/maintenance/restore`),
+	discardOriginal: (id: number) => sendMaintenance(`/media/${id}/maintenance/discard`),
+	retryMaintenance: (id: number) =>
+		sendAuthed<{ retried: boolean }>('POST', `/media/${id}/maintenance/retry`),
+	dismissMaintenance: (id: number) =>
+		sendAuthed<{ dismissed: boolean }>('POST', `/media/${id}/maintenance/dismiss`),
 
 	// Tag writeback exclusion (HOLODEX-239, ADR-077 D1/D2). Toggling the flag alone
 	// never enqueues a write; the sync endpoints batch-enqueue via the durable

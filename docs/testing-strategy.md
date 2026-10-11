@@ -4439,6 +4439,29 @@ audio. Use a testbed whose media mount is read-write and holds a disposable copy
 12. `[human]` Watch a flipped real library file end to end: no visible quality loss, and the audio is
     in sync.
 
+**Live run, 2026-10-11** (`backend-f77` + `web-f77`, a disposable `data/f77/media` holding an MP4
+with chapters, XMP edition and iTunes tags, plus an MKV; no local mkvmerge):
+- **Passed:** items 2, 3, 5, 6, 7 and 8. Also:
+  - item 4's refused dialog (mkvmerge missing: Close only);
+  - the failed line, seeded with a path-bearing verifier error, rendered in plain words with no
+    path, and Dismiss cleared it;
+  - at 375 px there is no overflow;
+  - the API reports `running` + `started_at` mid-job.
+- **Found and fixed:** a flip dropped the MP4's iTunes `©too` (Encoder) tag. `+bitexact` stops
+  ffmpeg writing it, and the verifier exempted container `encoder` for every container, so the gap
+  was hidden. The exiftool restore now copies ItemList and UserData, the exemption is Matroska-only,
+  and the real-file test gained an independent exiftool tag oracle. Removing the restore turns it
+  red.
+- **Found and fixed:** the running line lacked "Started 14:02" and the queued pill; the payload now
+  carries `running` and `started_at`.
+- **Not run:**
+  - items 1 and 9–10 are covered by API and unit tests;
+  - item 11 is the owner's;
+  - item 12 needs a real library file.
+
+  Pre-existing and unrelated: console errors (`pathname` of null in the root `+page`/`+layout`
+  navigation hooks on hard `location.href` loads).
+
 ### 25.8 Mutation checks (run once the code exists)
 
 Each change must turn its named test red:

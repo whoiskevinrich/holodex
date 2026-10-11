@@ -354,8 +354,8 @@ type VideoWritebackStatus struct {
 // Tag writes only: a maintenance job's state is GetVideoMaintenanceStatus, shown in its own
 // section of the page (F77).
 func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (VideoWritebackStatus, error) {
-	s, _, err := r.videoQueueStatus(ctx, videoID, WritebackKindWrite)
-	return s, err
+	q, err := r.videoQueueStatus(ctx, videoID, WritebackKindWrite)
+	return q.status, err
 }
 
 // MaintenanceStatus is a video's maintenance-lane state (F77): the VideoWritebackStatus shape
@@ -365,50 +365,67 @@ func (r *Repo) GetVideoWritebackStatus(ctx context.Context, videoID int64) (Vide
 type MaintenanceStatus struct {
 	VideoWritebackStatus
 	Payload string `json:"-"`
+	// Running is true once the worker has claimed the job (Pending covers queued too), and
+	// StartedAt is when it did: the claim stamps updated_at. The page says "Started 14:02".
+	Running   bool
+	StartedAt time.Time
 }
 
 // GetVideoMaintenanceStatus reports a video's maintenance-lane status.
 func (r *Repo) GetVideoMaintenanceStatus(ctx context.Context, videoID int64) (MaintenanceStatus, error) {
-	s, payload, err := r.videoQueueStatus(ctx, videoID, WritebackKindMaintenance)
-	return MaintenanceStatus{VideoWritebackStatus: s, Payload: payload}, err
+	q, err := r.videoQueueStatus(ctx, videoID, WritebackKindMaintenance)
+	return MaintenanceStatus{VideoWritebackStatus: q.status, Payload: q.payload, Running: q.running, StartedAt: q.startedAt}, err
 }
 
-// videoQueueStatus aggregates one lane's rows for a video, oldest first. payload is the
-// pending row's if there is one, else the most recent failure's.
-func (r *Repo) videoQueueStatus(ctx context.Context, videoID int64, kind string) (out VideoWritebackStatus, payload string, err error) {
+// laneStatus is one lane's aggregate for a video.
+type laneStatus struct {
+	status    VideoWritebackStatus
+	payload   string // the pending row's if there is one, else the latest failure's
+	running   bool
+	startedAt time.Time
+}
+
+// videoQueueStatus aggregates one lane's rows for a video, oldest first.
+func (r *Repo) videoQueueStatus(ctx context.Context, videoID int64, kind string) (laneStatus, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT status, error, payload FROM writeback_queue
+		SELECT status, error, payload, updated_at FROM writeback_queue
 		WHERE video_id = ? AND kind = ? ORDER BY updated_at ASC, id ASC`, videoID, kind)
 	if err != nil {
-		return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
+		return laneStatus{}, fmt.Errorf("get video %s status: %w", kind, err)
 	}
 	defer rows.Close()
 
+	var out laneStatus
 	var pendingPayload, failedPayload string
 	for rows.Next() {
-		var status, errMsg, p string
-		if err := rows.Scan(&status, &errMsg, &p); err != nil {
-			return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
+		var status, errMsg, p, updated string
+		if err := rows.Scan(&status, &errMsg, &p, &updated); err != nil {
+			return laneStatus{}, fmt.Errorf("get video %s status: %w", kind, err)
 		}
 		switch status {
 		case WritebackPending, WritebackRunning:
-			out.Pending = true
+			out.status.Pending = true
 			pendingPayload = p
+			if status == WritebackRunning {
+				out.running = true
+				out.startedAt, _ = time.Parse(timeLayout, updated)
+			}
 		case WritebackFailed:
 			// Ascending order means the last failed row scanned is the most recent —
 			// unconditional overwrite is simplest way to keep only that one's message.
-			out.Failed = true
-			out.Error = errMsg
+			out.status.Failed = true
+			out.status.Error = errMsg
 			failedPayload = p
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return VideoWritebackStatus{}, "", fmt.Errorf("get video %s status: %w", kind, err)
+		return laneStatus{}, fmt.Errorf("get video %s status: %w", kind, err)
 	}
+	out.payload = failedPayload
 	if pendingPayload != "" {
-		return out, pendingPayload, nil
+		out.payload = pendingPayload
 	}
-	return out, failedPayload, nil
+	return out, nil
 }
 
 // RetryFailedWriteback resets a video's failed writeback row(s) back to pending (spec

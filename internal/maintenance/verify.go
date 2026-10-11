@@ -36,6 +36,7 @@ func fail(rule, format string, a ...any) error {
 // digest per stream index (ffmpeg's streamhash muxer); Extra holds container-specific facts
 // ffprobe can't see (XMP for MP4, attachment name/type/size for Matroska), keyed uniquely.
 type Snapshot struct {
+	Family       string // FamilyMP4 or FamilyMKV
 	Probe        Probe
 	StreamHashes map[int]string
 	Extra        map[string]string
@@ -89,7 +90,11 @@ func Verify(orig, cand Snapshot) error {
 		}
 	}
 
-	if d := diffTags(orig.Probe.Format.Tags, cand.Probe.Format.Tags, isContainerStamp); d != "" {
+	containerIgnore := func(string) bool { return false }
+	if orig.Family == FamilyMKV {
+		containerIgnore = isContainerStamp
+	}
+	if d := diffTags(orig.Probe.Format.Tags, cand.Probe.Format.Tags, containerIgnore); d != "" {
 		return fail(RuleTags, "container %s", d)
 	}
 	for i, os := range orig.Probe.Streams {
@@ -158,7 +163,9 @@ func streamKinds(p Probe) string {
 	return strings.Join(kinds, ",")
 }
 
-// isContainerStamp: the container's writing-application field records the mux, not content.
+// isContainerStamp: Matroska's writing-application field records the mux, not content. Only
+// Matroska: in MP4 `encoder` is the iTunes ©too tag, a real tag the restore must keep (F77 QA
+// caught a flip dropping it while this exemption hid the loss).
 func isContainerStamp(k string) bool { return strings.EqualFold(k, "encoder") }
 
 func isMuxStamp(k string) bool { return hasTagBase(k, muxStampTags) }

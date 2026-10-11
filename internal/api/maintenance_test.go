@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -194,6 +195,30 @@ func TestGetMedia_MaintenanceBlockIsOwnerOnly(t *testing.T) {
 	_, visitor := getTok(t, srv.URL+"/api/v1/media/"+itoa(id), "")
 	if _, has := visitor["maintenance"]; has {
 		t.Errorf("visitor payload carries a maintenance key: %v", visitor["maintenance"])
+	}
+}
+
+// Queued vs running: the page's pill says "queued" until the worker claims the job, then the
+// operation and "Started 14:02" (handoff §2 state 2).
+func TestGetMedia_MaintenanceQueuedThenRunning(t *testing.T) {
+	srv, r, id, _ := maintServer(t, "secret")
+	ctx := context.Background()
+	if _, err := r.EnqueueMaintenance(ctx, id, `{"op":"hflip"}`); err != nil {
+		t.Fatal(err)
+	}
+	_, body := getTok(t, srv.URL+"/api/v1/media/"+itoa(id), "secret")
+	m := body["maintenance"].(map[string]any)
+	if m["pending"] != true || m["running"] != false || m["started_at"] != nil {
+		t.Errorf("queued block = %v", m)
+	}
+	if _, err := r.ClaimNextMaintenance(ctx); err != nil {
+		t.Fatal(err)
+	}
+	_, body = getTok(t, srv.URL+"/api/v1/media/"+itoa(id), "secret")
+	m = body["maintenance"].(map[string]any)
+	started, err := time.Parse(time.RFC3339, fmt.Sprint(m["started_at"]))
+	if m["running"] != true || err != nil || time.Since(started) > time.Minute {
+		t.Errorf("running block = %v (%v)", m, err)
 	}
 }
 

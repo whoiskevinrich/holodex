@@ -38,11 +38,12 @@ func Rebuild(ctx context.Context, t Tools, family string, op Op, available map[s
 		if _, err := run(ctx, t.FFmpeg, args...); err != nil {
 			return fmt.Errorf("re-encode: %w", err)
 		}
-		// ffmpeg's -map_metadata carries the iTunes/udta tags but drops XMP (where MP4 edition
-		// lives); copy XMP back. Not -all:all: that also turns the container's brand fields
-		// into new Keys tags the original never had.
+		// Put the original's tags back. ffmpeg drops XMP (where MP4 edition lives), and with
+		// +bitexact it writes no ©too, so the original's Encoder tag would vanish; restore
+		// the iTunes item list and udta too. Not -all:all: that also turns the container's
+		// brand fields into new Keys tags the original never had.
 		if _, err := run(ctx, t.Exiftool, "-overwrite_original", "-TagsFromFile", toolArg(src),
-			"-XMP:all", toolArg(dst)); err != nil {
+			"-XMP:all", "-ItemList:all", "-UserData:all", toolArg(dst)); err != nil {
 			return fmt.Errorf("restore tags: %w", err)
 		}
 		return nil

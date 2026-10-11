@@ -4,6 +4,8 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,6 +70,37 @@ func psnrMirror(t *testing.T, orig, cand string) float64 {
 	return v
 }
 
+// exifTagDiff compares the tag groups a person or a tagger reads (ItemList, XMP, UserData,
+// Keys) between two files, by exiftool's own JSON. "" when they match.
+func exifTagDiff(t *testing.T, a, b string) string {
+	t.Helper()
+	read := func(p string) map[string]any {
+		out, err := exec.Command("exiftool", "-j", "-G1", "-a", "-ItemList:all", "-XMP:all", "-UserData:all", "-Keys:all", p).Output()
+		if err != nil {
+			t.Fatalf("exiftool %s: %v", p, err)
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(out, &rows); err != nil || len(rows) != 1 {
+			t.Fatalf("exiftool output: %v", err)
+		}
+		delete(rows[0], "SourceFile")
+		return rows[0]
+	}
+	ma, mb := read(a), read(b)
+	var diffs []string
+	for k, v := range ma {
+		if w, ok := mb[k]; !ok || fmt.Sprint(w) != fmt.Sprint(v) {
+			diffs = append(diffs, fmt.Sprintf("  %s: %v -> %v", k, v, mb[k]))
+		}
+	}
+	for k, v := range mb {
+		if _, ok := ma[k]; !ok {
+			diffs = append(diffs, fmt.Sprintf("  %s: (absent) -> %v", k, v))
+		}
+	}
+	return strings.Join(diffs, "\n")
+}
+
 func TestFlip_RealFiles_MP4(t *testing.T) {
 	requireTools(t, "ffmpeg", "ffprobe", "exiftool")
 	ctx := context.Background()
@@ -115,6 +148,11 @@ func TestFlip_RealFiles_MP4(t *testing.T) {
 	}
 	if !strings.Contains(candSnap.Extra["xmp:XMP-prism:Edition"], "Director") {
 		t.Errorf("XMP edition lost: %v", candSnap.Extra)
+	}
+	// Metadata oracle independent of Verify (testing-strategy §25.5 step 4): every user-facing
+	// tag group exiftool sees must match. This is what caught the lost ©too in live QA.
+	if diff := exifTagDiff(t, src, dst); diff != "" {
+		t.Errorf("exiftool sees different tags after the flip:\n%s", diff)
 	}
 	if got := psnrMirror(t, src, dst); got < 40 {
 		t.Errorf("mirror PSNR %.1f dB, want > 40: the picture is not the mirror of the original", got)

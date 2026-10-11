@@ -212,11 +212,13 @@ func (h *Handlers) dismissMaintenance(w http.ResponseWriter, r *http.Request) {
 // all (spec R1): the state, the error (absolute paths) and the held path never leave the
 // server for them.
 type maintenanceView struct {
-	Pending bool      `json:"pending"`
-	Failed  bool      `json:"failed"`
-	Error   string    `json:"error,omitempty"`
-	Op      string    `json:"op,omitempty"`
-	Held    *heldView `json:"held"`
+	Pending   bool       `json:"pending"`
+	Running   bool       `json:"running"` // claimed by the worker; pending and not running = queued
+	StartedAt *time.Time `json:"started_at,omitempty"`
+	Failed    bool       `json:"failed"`
+	Error     string     `json:"error,omitempty"`
+	Op        string     `json:"op,omitempty"`
+	Held      *heldView  `json:"held"`
 }
 
 type heldView struct {
@@ -229,7 +231,10 @@ func (h *Handlers) maintenanceFor(ctx context.Context, id int64) (*maintenanceVi
 	if err != nil {
 		return nil, err
 	}
-	v := &maintenanceView{Pending: ms.Pending, Failed: ms.Failed, Error: ms.Error}
+	v := &maintenanceView{Pending: ms.Pending, Running: ms.Running, Failed: ms.Failed, Error: ms.Error}
+	if ms.Running && !ms.StartedAt.IsZero() {
+		v.StartedAt = &ms.StartedAt
+	}
 	var p maintenance.Payload
 	if json.Unmarshal([]byte(ms.Payload), &p) == nil {
 		v.Op = p.Op

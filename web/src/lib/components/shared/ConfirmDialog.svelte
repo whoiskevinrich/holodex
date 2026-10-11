@@ -17,7 +17,8 @@
 		oncancel
 	}: {
 		title: string;
-		confirmLabel: string;
+		/** Omit with onconfirm for an informational state with no action (e.g. a refusal). */
+		confirmLabel?: string;
 		/** Ghost-button label; override when "Cancel" misreads (e.g. "Keep separate", F37). */
 		cancelLabel?: string;
 		body: Snippet;
@@ -25,7 +26,8 @@
 		error?: string;
 		/** 'destructive' (default) uses warn colours; 'accent' for non-destructive confirmations. */
 		variant?: 'destructive' | 'accent';
-		onconfirm: () => void;
+		/** Omitted → no confirm button: the dialog only reports, and cancelLabel closes it. */
+		onconfirm?: () => void;
 		oncancel: () => void;
 	} = $props();
 
@@ -100,15 +102,17 @@
 			>
 				{cancelLabel}
 			</button>
-			<button
-				onclick={onconfirm}
-				disabled={busy}
-				class="rounded-theme px-3 py-1.5 text-sm font-semibold disabled:opacity-60 {variant === 'accent'
-					? 'bg-accent text-accent-ink'
-					: 'bg-warn text-warn-ink'}"
-			>
-				{busy ? 'Working…' : confirmLabel}
-			</button>
+			{#if onconfirm}
+				<button
+					onclick={onconfirm}
+					disabled={busy}
+					class="rounded-theme px-3 py-1.5 text-sm font-semibold disabled:opacity-60 {variant === 'accent'
+						? 'bg-accent text-accent-ink'
+						: 'bg-warn text-warn-ink'}"
+				>
+					{busy ? 'Working…' : confirmLabel}
+				</button>
+			{/if}
 		</div>
 	</div>
 </div>
