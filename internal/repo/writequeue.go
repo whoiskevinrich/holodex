@@ -20,10 +20,22 @@ const (
 	WritebackDone = "done"
 )
 
+// Writeback queue kinds (F77, migration 0062). Each kind is claimed by its own worker lane;
+// see docs/architecture/file-maintenance.md.
+const (
+	WritebackKindWrite       = "write"
+	WritebackKindMaintenance = "maintenance"
+)
+
+// ErrMaintenanceInFlight is returned by EnqueueMaintenance when the video already has a
+// pending or running maintenance job (spec R5: a second operation is refused, not queued).
+var ErrMaintenanceInFlight = errors.New("maintenance already queued or running for this video")
+
 // WritebackJob is one durable enqueued batch-write (F30, ADR-048).
 type WritebackJob struct {
 	ID       int64
 	VideoID  int64
+	Kind     string
 	Payload  string
 	Attempts int
 	// BatchID is the caller-supplied snapshot batch id (F48.8, ADR-067,
@@ -104,30 +116,91 @@ func (r *Repo) EnqueueWritebackBatch(ctx context.Context, jobs []WritebackJobIns
 	return ids, nil
 }
 
-// ClaimNextWriteback atomically picks the oldest pending job and marks it running,
-// incrementing attempts. Returns (nil, nil) when the queue is empty. The
-// select-then-update runs under the write lock so two workers can't claim the same
-// row (F30.4c).
-func (r *Repo) ClaimNextWriteback(ctx context.Context) (*WritebackJob, error) {
+// EnqueueMaintenance durably appends one maintenance job (F77) and returns its id. It
+// refuses with ErrMaintenanceInFlight when the video already has a pending or running
+// maintenance row; the check and the insert share writeMu, so two requests can't both pass.
+// A prior FAILED maintenance row for the video is deleted in the same transaction (job_runs
+// keeps its audit): left behind, a later Retry would reset it to pending beside the new job
+// and run the operation twice — two flips cancel out.
+func (r *Repo) EnqueueMaintenance(ctx context.Context, videoID int64, payload string) (int64, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	var job WritebackJob
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	var n int
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM writeback_queue
+		WHERE video_id = ? AND kind = ? AND status IN ('pending','running')`,
+		videoID, WritebackKindMaintenance).Scan(&n); err != nil {
+		return 0, fmt.Errorf("enqueue maintenance: %w", err)
+	}
+	if n > 0 {
+		return 0, ErrMaintenanceInFlight
+	}
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM writeback_queue WHERE video_id = ? AND kind = ? AND status = 'failed'`,
+		videoID, WritebackKindMaintenance); err != nil {
+		return 0, fmt.Errorf("enqueue maintenance: clear prior failure: %w", err)
+	}
+	now := time.Now().UTC().Format(timeLayout)
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO writeback_queue (video_id, kind, payload, status, enqueued_at, updated_at)
+		VALUES (?, ?, ?, 'pending', ?, ?)`, videoID, WritebackKindMaintenance, payload, now, now)
+	if err != nil {
+		return 0, fmt.Errorf("enqueue maintenance: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("enqueue maintenance: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit maintenance enqueue: %w", err)
+	}
+	return id, nil
+}
+
+// ClaimNextWriteback claims the next tag-write job (the write lane).
+func (r *Repo) ClaimNextWriteback(ctx context.Context) (*WritebackJob, error) {
+	return r.claimNext(ctx, WritebackKindWrite)
+}
+
+// ClaimNextMaintenance claims the next maintenance job (the maintenance lane, F77).
+func (r *Repo) ClaimNextMaintenance(ctx context.Context) (*WritebackJob, error) {
+	return r.claimNext(ctx, WritebackKindMaintenance)
+}
+
+// claimNext atomically picks the oldest pending job of kind and marks it running,
+// incrementing attempts. Returns (nil, nil) when nothing is claimable. A pending row whose
+// video already has a running row of EITHER kind is skipped, so a tag write and a re-encode
+// never touch one file at once (F77). The select-then-update runs under the write lock so
+// two workers can't claim the same row (F30.4c), and so the running check can't go stale.
+func (r *Repo) claimNext(ctx context.Context, kind string) (*WritebackJob, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	job := WritebackJob{Kind: kind}
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, video_id, payload, attempts, batch_id FROM writeback_queue
-		WHERE status = 'pending' ORDER BY enqueued_at, id LIMIT 1`).
+		WHERE status = 'pending' AND kind = ?
+		  AND video_id NOT IN (SELECT video_id FROM writeback_queue WHERE status = 'running')
+		ORDER BY enqueued_at, id LIMIT 1`, kind).
 		Scan(&job.ID, &job.VideoID, &job.Payload, &job.Attempts, &job.BatchID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("claim writeback: %w", err)
+		return nil, fmt.Errorf("claim %s job: %w", kind, err)
 	}
 	job.Attempts++
 	if _, err := r.db.ExecContext(ctx, `
 		UPDATE writeback_queue SET status = 'running', attempts = ?, updated_at = ?
 		WHERE id = ?`, job.Attempts, time.Now().UTC().Format(timeLayout), job.ID); err != nil {
-		return nil, fmt.Errorf("mark writeback running: %w", err)
+		return nil, fmt.Errorf("mark %s job running: %w", kind, err)
 	}
 	return &job, nil
 }
@@ -232,12 +305,14 @@ func (r *Repo) RecoverRunningWritebacks(ctx context.Context) (int64, error) {
 	return res.RowsAffected()
 }
 
-// PendingWritebackCount returns the number of jobs waiting or in-flight — the queue
-// depth surfaced for observability and the SPA's "queued (position N)" hint.
+// PendingWritebackCount returns the number of tag-write jobs waiting or in-flight — the
+// queue depth surfaced for observability and the SPA's "queued (position N)" hint.
+// Maintenance jobs run in their own lane and never delay a tag write's position.
 func (r *Repo) PendingWritebackCount(ctx context.Context) (int, error) {
 	var n int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM writeback_queue WHERE status IN ('pending','running')`).Scan(&n)
+		SELECT COUNT(*) FROM writeback_queue
+		WHERE kind = ? AND status IN ('pending','running')`, WritebackKindWrite).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("pending writeback count: %w", err)
 	}

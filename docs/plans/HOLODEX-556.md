@@ -38,7 +38,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
 - [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10 at 65e40cb4
-- [ ] backend → `{cmd,internal,providers}/**`
+- [/] backend → `{cmd,internal,providers}/**` — migration 0062 + queue lanes landed; maintenance package, worker and routes to go
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy` — §25 written; the tests land with the build
 - [/] security `security-review` — design reviewed 2026-10-10 (no findings ≥8/10); the implementation review is still owed
@@ -58,13 +58,12 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Migration: `writeback_queue.kind` + `held_originals`; lane-aware `ClaimNextWriteback` — `internal/db/migrations/`, `internal/repo/writequeue.go`
-2. [ ] [backend] `internal/maintenance`: encoder table, hardened argv, Verify, journaled swap + boot recovery before sweep — `internal/maintenance/`
-3. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; visitor redaction; expiry pass; purge honours RemoveFiles — `internal/api/`, `internal/purge/`
-4. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
-5. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
-6. [ ] [security] Implementation security review against the 7 design checks — branch diff
-7. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [backend] `internal/maintenance` + its worker (claims via `ClaimNextMaintenance`; finishing a job kicks the write lane too): encoder table, hardened argv, Verify, journaled swap + boot recovery before sweep — `internal/maintenance/`
+2. [ ] [backend] Preflight/enqueue/restore/discard routes under `requireOwner`; status gains `kind` + visitor redaction; expiry pass; purge honours RemoveFiles — `internal/api/`, `internal/purge/`
+3. [ ] [frontend] Maintenance rail section + dialogs per handoff — `web/src/routes/media/[id]/+page.svelte`
+4. [ ] [testing] §25 tests incl. `make test-image` real-file matrix (add `maintenance` to `IMAGE_TEST_PKGS`) — `internal/maintenance/*_test.go`
+5. [ ] [security] Implementation security review against the 7 design checks — branch diff
+6. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -77,8 +76,8 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 -->
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
-- skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement
-- handoff: Crossed into build (design signed off at 65e40cb4, draft PR #486); the security follow-ups are folded into file-maintenance.md (purge follows delete_remove_files, visitor redaction, hardened argv/siblings). Start at Up next #1: the migration.
+- skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
+- handoff: Build started on PR #486 — migration 0062 (`writeback_queue.kind`, `held_originals`) and lane-aware claims with one-running-job-per-file are in and tested (mutation-checked); start at Up next #1, the `internal/maintenance` package and its worker.
 
 ## Dropped — newest first (the reason is the point)
 
