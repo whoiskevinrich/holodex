@@ -79,7 +79,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement
-- handoff: Crossed into build — design signed off at 65e40cb4; draft PR open. Start at Up next #1 (purge vs RemoveFiles + visitor redaction in file-maintenance.md).
+- handoff: Crossed into build — design signed off at 65e40cb4; draft PR #486 open. Start at Up next #1 (purge vs RemoveFiles + visitor redaction in file-maintenance.md).
 
 ## Dropped — newest first (the reason is the point)
 
