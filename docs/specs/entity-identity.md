@@ -36,7 +36,8 @@ genre writeback), and records that **P0-9** was never met for tags. Marked inlin
 
 **Amendment — dashed tag aliases (HOLODEX-557, 2026-10-10).** A multi-word tag automatically gets an alias
 that spells its name with dashes, so `science fiction` is also found and routed as `science-fiction`. Adds
-**RD13** and **P0-12**, marked inline as *(HOLODEX-557)*.
+**RD13** and **P0-12**, and widens **RD12** so tag names and aliases collapse runs of whitespace. Marked
+inline as *(HOLODEX-557)*.
 
 ---
 
@@ -125,6 +126,9 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   (migration 0034), and the same house rule now covers a tag's aliases: alias text is lowercased on write, and
   existing tag aliases are lowercased once by migration. Person / studio / film aliases keep their casing.
   Identity is unaffected — `alias_key` already folds case — so this changes display only, and cannot collide.
+  *(HOLODEX-557: the same rule collapses whitespace. A run of spaces inside a tag name or tag alias is stored
+  as one space, so `sci  fi` is kept as `sci fi`. Identity already ignores spaces, so this too changes only
+  how the name reads, and existing names are collapsed once.)*
 - **RD13 — A multi-word tag carries its dashed spelling as an alias** (HOLODEX-557; owner policy). A tag's
   identity ignores case and whitespace but not punctuation (RD2), so `science fiction` and `science-fiction`
   are different names, and a file spelling the genre with dashes would otherwise create a second tag. The tag
@@ -276,6 +280,8 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
     (P0-10), and searching `science-fiction` finds the tag (P0-9).
   - Given a single-word tag `horror`, or a tag already named with a dash like `x-men`, When it is created,
     Then it gets no automatic alias.
+  - Given a file genre `Sci   Fi`, When the scan creates its tag, Then the tag is named `sci fi` and its
+    alias is `sci-fi` (RD12's whitespace collapse).
   - Given a separate tag `science-fiction` already exists, When tag `science fiction` is created, Then it gets
     no dashed alias, both tags are left as they are, and the pair appears in the Duplicates queue.
   - Given tag `sci fi` with alias `sci-fi`, When the owner renames it to `science fiction`, Then it carries

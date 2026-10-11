@@ -54,17 +54,20 @@ func TestDashedTagAlias_OnlyMultiWordNames(t *testing.T) {
 	r := newRepo(t)
 	ctx := context.Background()
 	cases := []struct {
-		name string
-		want []string
+		name, stored string
+		want         []string
 	}{
-		{"horror", []string{}},
-		{"x-men", []string{}},
-		{"sci   fi", []string{"sci-fi"}}, // a run of whitespace is one dash
+		{"horror", "horror", []string{}},
+		{"x-men", "x-men", []string{}},
+		{"Sci \t  Fi", "sci fi", []string{"sci-fi"}}, // RD12: a whitespace run is stored as one space
 	}
 	for _, c := range cases {
 		tg, err := r.ResolveOrCreateTag(ctx, c.name)
 		if err != nil {
 			t.Fatalf("create %q: %v", c.name, err)
+		}
+		if tg.Name != c.stored {
+			t.Errorf("%q stored as %q, want %q", c.name, tg.Name, c.stored)
 		}
 		if got := tagAliases(t, r, tg.ID); !slices.Equal(got, c.want) {
 			t.Errorf("%q aliases = %v, want %v", c.name, got, c.want)
@@ -104,12 +107,41 @@ func TestDashedTagAlias_RenameAddsAndKeepsOld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := r.RenameEntity(ctx, model.EntityTag, tg.ID, "Science Fiction"); err != nil {
+	if _, err := r.RenameEntity(ctx, model.EntityTag, tg.ID, "Science   Fiction"); err != nil {
 		t.Fatalf("rename: %v", err)
 	}
 	want := []string{"sci fi", "sci-fi", "science-fiction"}
 	if got := tagAliases(t, r, tg.ID); !slices.Equal(got, want) {
 		t.Errorf("aliases = %v, want %v", got, want)
+	}
+	if renamed, _ := r.GetTag(ctx, tg.ID); renamed.Name != "science fiction" {
+		t.Errorf("renamed to %q, want %q", renamed.Name, "science fiction")
+	}
+}
+
+// RD12: an owner-added tag alias collapses its whitespace runs too.
+func TestTagAlias_CollapsesWhitespace(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	tg, err := r.ResolveOrCreateTag(ctx, "noir")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	a, err := r.AddEntityAlias(ctx, model.EntityTag, tg.ID, "Film   Noir")
+	if err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	if a.Alias != "film noir" {
+		t.Errorf("alias stored as %q, want %q", a.Alias, "film noir")
+	}
+
+	// The conflict check sees the stored spelling, so a tab can't slip past it.
+	other, err := r.ResolveOrCreateTag(ctx, "sci fi")
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	if cid, found, err := r.EntityConflict(ctx, model.EntityTag, tg.ID, "sci\tfi"); err != nil || !found || cid != other.ID {
+		t.Errorf("conflict = (%d, %v, %v), want (%d, true, nil)", cid, found, err, other.ID)
 	}
 }
 

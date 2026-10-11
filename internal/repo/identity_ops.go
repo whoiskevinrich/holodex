@@ -213,7 +213,7 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 	// rename store an already-lowercase tag name, so this is the one free-text path.
 	// Normalized before the empty guard so a whitespace-only tag alias is refused.
 	if entityType == model.EntityTag {
-		alias = curationNorm(alias)
+		alias = tagNorm(alias)
 	}
 	if alias == "" {
 		return model.EntityAlias{}, errors.New("empty alias")
@@ -307,8 +307,12 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 // resolves to — by canonical nameKey or by being another entity's alias — with
 // found=false when the name is free. Used to refuse a silent merge of possibly-distinct
 // same-named entities (the homonym rule, F23/RD4): the caller surfaces it for the owner
-// to confirm. selfID is the entity the name is being attached to (excluded).
+// to confirm. selfID is the entity the name is being attached to (excluded). A tag name
+// is checked in its stored spelling (tagNorm), the key AddEntityAlias will write.
 func (r *Repo) EntityConflict(ctx context.Context, entityType string, selfID int64, name string) (int64, bool, error) {
+	if entityType == model.EntityTag {
+		name = tagNorm(name)
+	}
 	return entityConflict(ctx, r.db, entityType, selfID, name)
 }
 
@@ -518,7 +522,7 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 		return 0, errors.New("empty name")
 	}
 	if entityType == model.EntityTag {
-		newName = curationNorm(newName)
+		newName = tagNorm(newName)
 	}
 	table := canonicalTable(entityType)
 	if table == "" {

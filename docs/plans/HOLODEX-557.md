@@ -16,7 +16,7 @@ pair, no auto-merge); a rename adds a dashed alias for the new name; spaces to d
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` → `docs/specs/**` — RD13 + P0-12 in entity-identity.md
+- [x] spec `write-spec` → `docs/specs/**` — RD13 + P0-12 in entity-identity.md; RD12 widened to collapse whitespace
 - [~] architecture — no technology fork (an alias is an ordinary alias; the backfill rides the existing identity-backfill pattern)
 - [x] backend → `{cmd,internal,providers}/**` — `internal/repo/tag_dashed_alias.go` hooked into the create choke point + rename; `tag-dash-backfill` boot job; removal suppressed; orphan sweep ignores the automatic alias
 - [x] testing `testing-strategy` — `tag_dashed_alias_test.go` covers every P0-12 case; `docs/testing-strategy.md` invariant added
@@ -29,4 +29,4 @@ pair, no auto-merge); a rename adds a dashed alias for the new name; spaces to d
 
 ### 2026-10-10 · spec and build the dashed tag alias
 - skills: write-spec, implement, code-review high --fix, handoff
-- handoff: Spec, backend and tests all landed (e7828a60) and every gate is settled, so PR #485 is marked ready. Known gaps, deliberately left: a name with a doubled space keeps its tag out of the orphan sweep, and a denied dashed spelling is still added. Start at squash-merge on green CI.
+- handoff: Owner widened RD12: tag names and aliases now collapse whitespace runs to one space (tagNorm on every write; migration 0061 for existing names). That closes the doubled-space gap; the only gap left is that a denied dashed spelling is still added. PR #485 stays ready; start at squash-merge on green CI.
