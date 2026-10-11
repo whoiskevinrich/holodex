@@ -28,4 +28,4 @@ later leaves an existing one for the owner to remove.
 
 ### 2026-10-11 · spec and build the deny-list skip
 - skills: implement, code-review high --fix, handoff
-- handoff: Spec (forward-only, owner's pick), the one-line skip and its tests all landed; every gate settled and the PR marked ready. Start at squash-merge on green CI.
+- handoff: Spec (forward-only, owner's pick), the one-line skip and its tests all landed; every gate settled, main (#488) merged in cleanly, and PR #489 marked ready. Start at squash-merge on green CI.
