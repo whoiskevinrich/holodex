@@ -339,6 +339,7 @@ func (h *Handlers) controlsUnauthenticated() bool {
 func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media", h.listMedia)
 	r.Get("/media/ids", h.listMediaIDs) // static segment; chi matches it ahead of {id}
+	r.Post("/media/brief", h.mediaBriefs)
 	r.Get("/media/{id}", h.getMedia)
 	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
