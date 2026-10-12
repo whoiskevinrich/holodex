@@ -6,8 +6,8 @@
 	// (backdrop, focus trap, Escape-to-close) is copied from that dialog's existing
 	// pattern. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { toMessage } from '$lib/format';
-	import { waitForWritebackBatch, type BatchStatus } from '$lib/writebackJob';
+	import { toMessage } from '#lib/format.ts';
+	import { waitForWritebackBatch, type BatchStatus } from '#lib/writebackJob.ts';
 
 	let {
 		scopeLabel,

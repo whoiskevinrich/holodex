@@ -1,5 +1,5 @@
-import { api } from '$lib/api';
-import type { PlaylistResponse } from '$lib/types';
+import { api } from '#lib/api.ts';
+import type { PlaylistResponse } from '#lib/types.ts';
 
 // Playback plumbing shared by every run (F69 P0-9 / ADR-104 D4; F75 / ADR-121 D7): the
 // play-on-load intent, and the per-(id, seed) playlist fetch cache a playlist-source run

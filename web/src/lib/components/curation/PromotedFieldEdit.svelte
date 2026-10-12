@@ -6,7 +6,7 @@
 	// pill that opens the shared PromoteFieldEditor (edit mode) in-flow beneath the row.
 	// The visibility gate (`isOwner && field.promoted`) lives here so every call site is
 	// unconditional — a visitor, or a non-promoted row, renders nothing.
-	import type { PromotionEntityType, ResolvedField } from '$lib/types';
+	import type { PromotionEntityType, ResolvedField } from '#lib/types.ts';
 	import PromoteFieldEditor from './PromoteFieldEditor.svelte';
 
 	let {

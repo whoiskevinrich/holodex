@@ -12,9 +12,9 @@
 	// no longer exists forever and inert, and this is the only place it can be seen. The
 	// check is client-side against the targets response the picker already uses — no
 	// backend work, no extra request. Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { FieldClaim, FieldTarget, PromotionEntityType } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { FieldClaim, FieldTarget, PromotionEntityType } from '#lib/types.ts';
 
 	type Group = { type: PromotionEntityType; label: string; claims: FieldClaim[] };
 

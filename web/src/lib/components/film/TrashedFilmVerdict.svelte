@@ -4,9 +4,9 @@
 	// to link to and can't be merged into, so the one way forward is to restore it. The
 	// card shell is the film page's year-collision card; the caller decides what a
 	// restore leads to (go to the film, or pick it as the attach target).
-	import { api } from '$lib/api';
-	import { refLabel, toMessage } from '$lib/format';
-	import type { Film, FilmYearCollision } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { refLabel, toMessage } from '#lib/format.ts';
+	import type { Film, FilmYearCollision } from '#lib/types.ts';
 
 	let {
 		trashed,

@@ -2,8 +2,8 @@
 	// List/Poster display-mode toggle for the People index (F55) — a 2-way switch, so it
 	// carries aria-pressed. Below `sm` each cell is a 32×32 icon (the F73 toolbar's 375px
 	// budget has no room for the words); the aria-label keeps the name at every width.
-	import type { PersonView } from '$lib/viewPreference.svelte';
-	import { segmentedToggleWrapperClass } from '$lib/components/sort/segmentedToggle';
+	import type { PersonView } from '#lib/viewPreference.svelte.ts';
+	import { segmentedToggleWrapperClass } from '#lib/components/sort/segmentedToggle.ts';
 
 	let { view = $bindable() }: { view: PersonView } = $props();
 

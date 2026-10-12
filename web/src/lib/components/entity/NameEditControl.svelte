@@ -13,8 +13,8 @@
 	// parameter — no call-site changes. Video Title's onCommit resolves
 	// {conflict: VideoCollisionRef} instead, which Svelte infers from that prop alone.
 	import type { Snippet } from 'svelte';
-	import type { EntityRef } from '$lib/types';
-	import { toMessage } from '$lib/format';
+	import type { EntityRef } from '#lib/types.ts';
+	import { toMessage } from '#lib/format.ts';
 
 	let {
 		name,

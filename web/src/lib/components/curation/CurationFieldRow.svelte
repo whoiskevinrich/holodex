@@ -7,9 +7,9 @@
 	// (videoId), but a caller may supply its own `curate`/`clearCuration` transport (the
 	// person page passes the /people/{id}/curation pair) and hide the "don't write" toggle
 	// (`showWriteToggle={false}` — persons have no writeback).
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { CurationRequest, Person, ResolvedField, ResolvedValue } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { CurationRequest, Person, ResolvedField, ResolvedValue } from '#lib/types.ts';
 	import CurationChip from './CurationChip.svelte';
 	import EntityPickerDialog from '../entity/EntityPickerDialog.svelte';
 

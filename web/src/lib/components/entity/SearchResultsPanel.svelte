@@ -8,11 +8,11 @@
 	// Roving tabindex for both the tab row and result rows (NS5), matching the pattern
 	// established by EnrichPicker.svelte — not aria-activedescendant.
 	import type { Snippet } from 'svelte';
-	import type { Film, Person, SearchResponse, Studio, Tag, Video } from '$lib/types';
-	import { SEARCH_TABS, type SearchTab } from '$lib/navSearch.svelte';
-	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
-	import { monogram } from '$lib/format';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
+	import type { Film, Person, SearchResponse, Studio, Tag, Video } from '#lib/types.ts';
+	import { SEARCH_TABS, type SearchTab } from '#lib/navSearch.svelte.ts';
+	import PersonLinkChip from '#lib/components/person/PersonLinkChip.svelte';
+	import { monogram } from '#lib/format.ts';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
 
 	let {
 		results,

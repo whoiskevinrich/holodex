@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
 	import { segmentedToggleClass, segmentedToggleWrapperClass } from '../sort/segmentedToggle';
 
 	// *Save as playlist…* (F75 handoff "Save form", P0-4): one form for every query-backed

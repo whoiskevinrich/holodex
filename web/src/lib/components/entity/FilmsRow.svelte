@@ -12,10 +12,10 @@
 	// the column count and the card layout — so the shelf and the grid can't disagree.
 	// EntityVideos' grid is never stage-aligned (that mode is the film page's Scenes list
 	// only), so the plain `repeat(cols, minmax(0,1fr))` track width is the right target.
-	import { monogram } from '$lib/format';
-	import { activity } from '$lib/activity.svelte';
-	import { effectiveDensity } from '$lib/density.svelte';
-	import type { Film } from '$lib/types';
+	import { monogram } from '#lib/format.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { effectiveDensity } from '#lib/density.svelte.ts';
+	import type { Film } from '#lib/types.ts';
 
 	let { films }: { films: Film[] } = $props();
 

@@ -5,10 +5,10 @@
 	// (replicating the preview's object-fit:contain + translate/scale transform) and
 	// uploaded as the core-role image — so what you frame is exactly what's stored, no
 	// server-side crop geometry needed. The gallery original is untouched.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from '$lib/cropGeometry';
-	import type { CoreRole, PersonImage } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from '#lib/cropGeometry.ts';
+	import type { CoreRole, PersonImage } from '#lib/types.ts';
 
 	let {
 		personId,

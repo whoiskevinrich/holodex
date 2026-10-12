@@ -3,9 +3,9 @@
 	// entity list that counts the review queue for that entity and deep-links the Owner
 	// hub's Duplicates tab. Self-gating and self-fetching so a list page mounts it with
 	// one line. Hidden for visitors and when the queue is empty. Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import type { EntityKind } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import type { EntityKind } from '#lib/types.ts';
 
 	// `inline` renders it as a " · N duplicates" link inside a list's count line (F73:
 	// the toolbar count line absorbs it, so it no longer stacks above the data).

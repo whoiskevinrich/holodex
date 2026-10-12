@@ -1,10 +1,10 @@
 <script lang="ts">
 	// 30-day job history (F21.3 + F22.6b): scans and enrich runs, newest first.
-	import type { JobRun } from '$lib/types';
-	import { formatAgo, formatDurMs, toMessage } from '$lib/format';
-	import { api } from '$lib/api';
-	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import type { JobRun } from '#lib/types.ts';
+	import { formatAgo, formatDurMs, toMessage } from '#lib/format.ts';
+	import { api } from '#lib/api.ts';
+	import JobStatusBadge from '#lib/components/activity/JobStatusBadge.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 
 	// batch (from ?batch= on the status route, F66 P0-7) scopes the list to one
 	// sweep's runs; the chip's x asks the page to clear the query param.

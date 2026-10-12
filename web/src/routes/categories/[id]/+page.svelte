@@ -7,12 +7,12 @@
 	// a category's: add resolves-or-creates the tag by name (no video attach) then
 	// assigns it; remove unassigns rather than detaching a video link.
 	import { page } from '$app/state';
-	import { api, ApiError } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { toMessage, tagCount, videoCount } from '$lib/format';
-	import type { Category, EntityRef } from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
+	import { api, ApiError } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { toMessage, tagCount, videoCount } from '#lib/format.ts';
+	import type { Category, EntityRef } from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import TagLinkChip from '#lib/components/entity/TagLinkChip.svelte';
 
 	let category = $state<Category | null>(null);
 	let loading = $state(true);

@@ -6,7 +6,7 @@
 //
 // Pure and DOM-free so it is unit-testable and neither page owns it.
 
-import type { ExtractionPreviewItem, ExtractionQueueRow, ExtractionResolveAction } from '$lib/types';
+import type { ExtractionPreviewItem, ExtractionQueueRow, ExtractionResolveAction } from '#lib/types.ts';
 
 /** reviewId -> the owner's staged-but-unwritten pick (F48.7a). */
 export type StagedPicks = Record<number, { action: ExtractionResolveAction; value: string }>;

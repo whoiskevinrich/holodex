@@ -5,10 +5,10 @@
 	// carry a poster thumb + year (not a plain name row), and confirming a film
 	// advances to a second in-dialog step (scene number / full-film) instead of
 	// attaching immediately. Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { toMessage, monogram } from '$lib/format';
-	import type { Film, FilmSceneCollision, FilmYearCollision } from '$lib/types';
-	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, monogram } from '#lib/format.ts';
+	import type { Film, FilmSceneCollision, FilmYearCollision } from '#lib/types.ts';
+	import PickerShell, { focusOptionIn } from '#lib/components/entity/PickerShell.svelte';
 	import TrashedFilmVerdict from './TrashedFilmVerdict.svelte';
 	import { parseSceneNumberInput } from './sceneNumber';
 

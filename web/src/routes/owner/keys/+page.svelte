@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import type { MetadataKey } from '$lib/types';
-	import { toMessage } from '$lib/format';
+	import { api } from '#lib/api.ts';
+	import type { MetadataKey } from '#lib/types.ts';
+	import { toMessage } from '#lib/format.ts';
 
 	let keys = $state<MetadataKey[]>([]);
 	let loading = $state(true);

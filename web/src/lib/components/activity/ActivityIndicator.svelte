@@ -2,7 +2,7 @@
 	// Compact header pill (F21.5): shown only while background work is active,
 	// links to the Status tab under the Owner hub (F35). The pulsing dot uses bg-accent so it picks up the
 	// accent; the pulse lives in app.css gated by prefers-reduced-motion.
-	import { activity } from '$lib/activity.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
 
 	const d = $derived(activity.data);
 </script>

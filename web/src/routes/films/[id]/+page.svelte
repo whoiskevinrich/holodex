@@ -2,9 +2,9 @@
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { exitAfterRemoval } from '$lib/listState';
-	import { dismissable } from '$lib/actions/dismissable';
+	import { api } from '#lib/api.ts';
+	import { exitAfterRemoval } from '#lib/listState.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
 	import {
 		toMessage,
 		resolutionBucket,
@@ -14,11 +14,11 @@
 		videoCount,
 		sortExternalLinks,
 		refLabel
-	} from '$lib/format';
-	import { activity } from '$lib/activity.svelte';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
-	import { isReplaceField, providerOf } from '$lib/f36';
+	} from '#lib/format.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { isReplaceField, providerOf } from '#lib/f36.ts';
 	import type {
 		DecisionSource,
 		EnrichSource,
@@ -36,37 +36,37 @@
 		Studio,
 		Tag,
 		Video
-	} from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-	import TrashedFilmVerdict from '$lib/components/film/TrashedFilmVerdict.svelte';
-	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
-	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
-	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
-	import { expandedField } from '$lib/expandedField.svelte';
-	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
-	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
-	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
-	import { sortScenes } from '$lib/filmScenes';
-	import { beginRun } from '$lib/runContext';
-	import type { RunMode } from '$lib/run';
-	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
-	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
-	import FilmBulkAttachDialog from '$lib/components/film/FilmBulkAttachDialog.svelte';
-	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
-	import FilmStudioCascadeDialog from '$lib/components/film/FilmStudioCascadeDialog.svelte';
-	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
-	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
-	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
-	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
-	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
-	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
-	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
-	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
+	} from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
+	import TrashedFilmVerdict from '#lib/components/film/TrashedFilmVerdict.svelte';
+	import ExpandableText from '#lib/components/shared/ExpandableText.svelte';
+	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
+	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
+	import SourceEditModal from '#lib/components/curation/SourceEditModal.svelte';
+	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
+	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
+	import { sortScenes } from '#lib/filmScenes.ts';
+	import { beginRun } from '#lib/runContext.ts';
+	import type { RunMode } from '#lib/run.ts';
+	import WritebackFormDialog from '#lib/components/writeback/WritebackFormDialog.svelte';
+	import WritebackBatchDialog from '#lib/components/writeback/WritebackBatchDialog.svelte';
+	import FilmBulkAttachDialog from '#lib/components/film/FilmBulkAttachDialog.svelte';
+	import EditSceneNumberDialog from '#lib/components/film/EditSceneNumberDialog.svelte';
+	import FilmStudioCascadeDialog from '#lib/components/film/FilmStudioCascadeDialog.svelte';
+	import EntityImageSlot from '#lib/components/entity/EntityImageSlot.svelte';
+	import StudioLinkCard from '#lib/components/entity/StudioLinkCard.svelte';
+	import PeopleGrid from '#lib/components/entity/PeopleGrid.svelte';
+	import PersonLinkChip from '#lib/components/person/PersonLinkChip.svelte';
+	import TagLinkChip from '#lib/components/entity/TagLinkChip.svelte';
+	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '#lib/components/entity/DisplayNameLine.svelte';
+	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
+	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
 
 	// Film detail (F56, design handoff §2): two hard-separated regions below the header —
 	// full-film file(s) (§2b, the only place a film-page writeback button appears) and the
@@ -420,7 +420,7 @@
 	}
 
 	// "Refresh" (F47 RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the
-	// video/person/studio detail pages via $lib/enrichRefresh, which is already generic
+	// video/person/studio detail pages via #lib/enrichRefresh, which is already generic
 	// over EnrichEntityKind; only the busy/error state and reload differ. Films needed no
 	// change there at all once the kind union widened (ADR-089 D5).
 	async function refreshProvider(p: string) {

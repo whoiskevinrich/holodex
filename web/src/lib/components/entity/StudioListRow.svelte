@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Studio } from '$lib/types';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
+	import type { Studio } from '#lib/types.ts';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import StudioLogoBox from './StudioLogoBox.svelte';
 	import { showName as showNameFor, type Wordmark } from './studioLogo';
 

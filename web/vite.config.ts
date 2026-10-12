@@ -19,9 +19,6 @@ export default defineConfig({
 		tailwindcss(),
 		sveltekit({
 			preprocess: vitePreprocess(),
-			// SvelteKit 3 dropped the built-in `$lib` alias in favour of `#lib`; keep the
-			// existing imports working rather than rewriting every file.
-			alias: { $lib: 'src/lib' },
 			// Svelte Inspector (dev server only, never in the build): Alt+X, hover an element,
 			// click to open its source in the editor, right-click for the component stack.
 			// Svelte 5 has no DevTools panel — the browser extension is Svelte 4 only.

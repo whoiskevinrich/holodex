@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Tag } from '$lib/types';
+import type { Tag } from '#lib/types.ts';
 import { SUGGESTION_CAP, sortTagsByStatus, suggestTags, tagStatusRank } from './tagInput';
 
 const tag = (id: number, name: string, extra: Partial<Tag> = {}): Tag => ({ id, ref: `tag:${id}`, name, ...extra });

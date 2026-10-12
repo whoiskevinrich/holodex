@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Video } from '$lib/types';
+	import type { Video } from '#lib/types.ts';
 	import VideoCard from './VideoCard.svelte';
-	import { activity } from '$lib/activity.svelte';
-	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
+	import PersonLinkChip from '#lib/components/person/PersonLinkChip.svelte';
 
 	// One "More with <name>" shelf (QW3). Rendered only when it has items — the parent
 	// passes an empty array for an entity with no siblings, and we self-omit so there's

@@ -6,10 +6,10 @@
 	// not the roving tabindex the picker dialogs use (D3). It owns the input and its list only;
 	// the caller owns the add itself, its errors, the near-miss nudge and the Add/Done buttons.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { suggestTags } from '$lib/tagInput';
-	import { videoCount } from '$lib/format';
-	import type { Tag } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { suggestTags } from '#lib/tagInput.ts';
+	import { videoCount } from '#lib/format.ts';
+	import type { Tag } from '#lib/types.ts';
 
 	let {
 		value = $bindable(''),

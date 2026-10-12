@@ -1,8 +1,8 @@
 import { goto } from '$app/navigation';
-import { api } from '$lib/api';
-import { forgetPlaylist, loadPlaylist, setPlayIntent } from '$lib/playlistContext';
-import type { Video } from '$lib/types';
-import { sortScenes } from '$lib/filmScenes';
+import { api } from '#lib/api.ts';
+import { forgetPlaylist, loadPlaylist, setPlayIntent } from '#lib/playlistContext.ts';
+import type { Video } from '#lib/types.ts';
+import { sortScenes } from '#lib/filmScenes.ts';
 import {
 	loadRun,
 	newRunId,
@@ -16,7 +16,7 @@ import {
 	type RunMode,
 	type RunParam,
 	type RunSource
-} from '$lib/run';
+} from '#lib/run.ts';
 
 // The impure half of a run (ADR-121 D7): fetching a source's ids, starting a run from a
 // grid or a playlist page, and rebuilding one from the URL when its stored copy is gone
@@ -30,7 +30,7 @@ function storage(): Storage | undefined {
 	}
 }
 
-export { queryLabel } from '$lib/run';
+export { queryLabel } from '#lib/run.ts';
 
 export interface SourceIds {
 	ids: number[];

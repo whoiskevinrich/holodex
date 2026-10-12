@@ -6,17 +6,17 @@
 	// $derived groups, $effect load-once — except rows update chips in place on
 	// resolve instead of dropping out (the handoff's Animation/Motion table). Tokens
 	// only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import { groupByKind } from '$lib/entityGroups';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { groupByKind } from '#lib/entityGroups.ts';
 	import type {
 		EnrichCandidate,
 		EnrichedField,
 		EnrichEntityKind,
 		EnrichQueueProviderState,
 		EnrichQueueRow as QueueRow
-	} from '$lib/types';
-	import EnrichQueueRow from '$lib/components/enrichment/EnrichQueueRow.svelte';
+	} from '#lib/types.ts';
+	import EnrichQueueRow from '#lib/components/enrichment/EnrichQueueRow.svelte';
 
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);

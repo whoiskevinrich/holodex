@@ -12,9 +12,9 @@
 	// attach/detach calls, so the conflict verdict is owned by the page, not this
 	// popover — on a conflict this just closes, and the page renders the shared
 	// CollisionOfferCard where the tile was.
-	import { api } from '$lib/api';
-	import { personKey, toMessage } from '$lib/format';
-	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { personKey, toMessage } from '#lib/format.ts';
+	import type { Person, ResolvedPerson, VideoCollisionRef } from '#lib/types.ts';
 	import AttachedChip from './AttachedChip.svelte';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 

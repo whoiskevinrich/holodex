@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '$lib/format';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
-	import { activity } from '$lib/activity.svelte';
-	import { providerOf } from '$lib/f36';
-	import { expandedField } from '$lib/expandedField.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '#lib/format.ts';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { providerOf } from '#lib/f36.ts';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import type {
 		Completeness,
 		DecisionSource,
@@ -20,26 +20,26 @@
 		StudioDetailResponse,
 		StudioImageRole,
 		Video
-	} from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
-	import EntityImageSlot from '$lib/components/entity/EntityImageSlot.svelte';
-	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
-	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
-	import { filmsRow } from '$lib/filmsRow.svelte';
-	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
-	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
-	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
-	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
-	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
-	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
-	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
-	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
+	} from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
+	import EntityImageSlot from '#lib/components/entity/EntityImageSlot.svelte';
+	import EntityVideos from '#lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '#lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '#lib/filmsRow.svelte.ts';
+	import EntityVideoMeta from '#lib/components/entity/EntityVideoMeta.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '#lib/components/entity/DisplayNameLine.svelte';
+	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
+	import CompletenessPanel from '#lib/components/completeness/CompletenessPanel.svelte';
+	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
+	import UrlValueList from '#lib/components/curation/UrlValueList.svelte';
+	import AutoFieldRows from '#lib/components/curation/AutoFieldRows.svelte';
+	import CurationFieldRow from '#lib/components/curation/CurationFieldRow.svelte';
+	import PromotedFieldEdit from '#lib/components/curation/PromotedFieldEdit.svelte';
 
 	// Studio detail (F38, ADR-053): name header + video grid + a Details section that
 	// reuses the F36 source-chip radiogroup with the `record` baseline (RD5), plus an
@@ -226,7 +226,7 @@
 	}
 
 	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the video/person
-	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
+	// detail pages via #lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
 		await runEnrichRefresh(
 			'studio',

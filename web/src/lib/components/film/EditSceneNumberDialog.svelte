@@ -7,9 +7,9 @@
 	// card (unlike NameEditControl's name collisions, which offer a merge). Shared by
 	// the film detail page's scenes grid and the media detail page's Films chip row --
 	// the only difference between the two call sites is which name `contextLabel` shows.
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-	import { toMessage } from '$lib/format';
-	import type { FilmSceneCollision } from '$lib/types';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
+	import { toMessage } from '#lib/format.ts';
+	import type { FilmSceneCollision } from '#lib/types.ts';
 	import { parseSceneNumberInput } from './sceneNumber';
 
 	let {

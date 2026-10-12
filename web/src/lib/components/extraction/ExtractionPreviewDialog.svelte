@@ -7,8 +7,8 @@
 	// resolveExtractionReview call — sequential, so per-row status reflects real
 	// progress rather than a single all-or-nothing batch result. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { toMessage } from '$lib/format';
-	import type { ExtractionPreviewItem, ExtractionResolveAction } from '$lib/types';
+	import { toMessage } from '#lib/format.ts';
+	import type { ExtractionPreviewItem, ExtractionResolveAction } from '#lib/types.ts';
 
 	let {
 		items,

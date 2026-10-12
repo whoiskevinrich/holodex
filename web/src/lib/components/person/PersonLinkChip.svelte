@@ -13,8 +13,8 @@
 	// The card's data is fetched on intent (aborted on leave) and cached per session.
 	import type { Snippet } from 'svelte';
 	import { onDestroy, tick } from 'svelte';
-	import type { PersonCard } from '$lib/types';
-	import { dismissable } from '$lib/actions/dismissable';
+	import type { PersonCard } from '#lib/types.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
 	import PersonHoverCard from './PersonHoverCard.svelte';
 	import {
 		cannotHover,

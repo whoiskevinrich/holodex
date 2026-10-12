@@ -1,4 +1,4 @@
-import { toMessage } from '$lib/format';
+import { toMessage } from '#lib/format.ts';
 
 export interface PopoverMenuOptions {
 	/** Extra reset to run alongside the built-in value/error reset when a menu opens. */

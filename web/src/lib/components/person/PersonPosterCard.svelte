@@ -5,9 +5,9 @@
 	// focus-visible:ring-* convention); the hover-lift transform/shadow lives in
 	// app.css's .poster-card-frame block, scoped to this card so PersonAvatar/PersonBanner/
 	// the person-detail PersonPoster are unaffected.
-	import type { Person } from '$lib/types';
+	import type { Person } from '#lib/types.ts';
 	import PersonImageFrame from './PersonImageFrame.svelte';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 
 	let { person, eager = false }: { person: Person; eager?: boolean } = $props();
 

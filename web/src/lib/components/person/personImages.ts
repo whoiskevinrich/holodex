@@ -6,8 +6,8 @@
 // only half the payload. The browser's network log is what caught it.
 //
 // Module-level, so every panel on the page shares one entry per person.
-import { api } from '$lib/api';
-import type { PersonImage, PersonImageSet } from '$lib/types';
+import { api } from '#lib/api.ts';
+import type { PersonImage, PersonImageSet } from '#lib/types.ts';
 
 const cache = new Map<number, Promise<PersonImageSet>>();
 

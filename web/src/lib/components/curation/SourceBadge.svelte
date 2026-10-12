@@ -20,7 +20,7 @@
 	// calls `decide` directly. Entity-agnostic like SourceSelect (`baselineKey`: 'file' for
 	// videos, 'record' for persons/studios). Tokens only; QA Cinémathèque.
 	import { tick, untrack } from 'svelte';
-	import type { DecisionSource, ResolvedField } from '$lib/types';
+	import type { DecisionSource, ResolvedField } from '#lib/types.ts';
 	import {
 		chipToResolvedValue,
 		isProviderSource,
@@ -28,10 +28,10 @@
 		resolveSelection,
 		sourceChips,
 		type SourceChip
-	} from '$lib/f36';
-	import { toMessage } from '$lib/format';
-	import { dismissable } from '$lib/actions/dismissable';
-	import { expandedField } from '$lib/expandedField.svelte';
+	} from '#lib/f36.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import CurationChip from './CurationChip.svelte';
 	import ProvenanceBadge from '../enrichment/ProvenanceBadge.svelte';
 

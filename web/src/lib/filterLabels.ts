@@ -1,5 +1,5 @@
-import { api } from '$lib/api';
-import type { MediaQuery } from '$lib/listState';
+import { api } from '#lib/api.ts';
+import type { MediaQuery } from '#lib/listState.ts';
 
 // The human words for an active /media filter: browse's removable chips (F73 R3/R5) and
 // a smart playlist's filter summary (F75 handoff §4) read the same labels from here, so

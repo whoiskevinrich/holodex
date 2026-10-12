@@ -1247,13 +1247,13 @@ export const api = {
 
 	// One queued write's state, for polling it to completion (ADR-073): "pending" /
 	// "running" while in flight, "done" once the queue row is gone (it deletes on
-	// success), "failed" + `error` when it gave up. See $lib/writebackJob.
+	// success), "failed" + `error` when it gave up. See #lib/writebackJob.
 	writebackJobStatus: (jobId: number) =>
 		getAuthed<{ status: string; error?: string }>(`/writeback/jobs/${jobId}`),
 
 	// Aggregate progress across every job sharing a batchID (HOLODEX-239, ADR-077
 	// D3) — the tag-scoped manual-sync dialog polls this instead of fanning out to
-	// one /writeback/jobs/{id} call per video. See $lib/writebackJob.
+	// one /writeback/jobs/{id} call per video. See #lib/writebackJob.
 	writebackBatchStatus: (batchId: string) =>
 		getAuthed<{ pending: number; running: number; done: number; failed: number }>(
 			`/writeback/batches/${batchId}/status`

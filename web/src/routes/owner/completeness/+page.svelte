@@ -3,10 +3,10 @@
 	// §1). The backend (GET /owner/completeness-queue) already groups by facet, orders
 	// critical-first-then-count-desc, and splits candidate-ready/needs-research (DD1) — this
 	// page renders that shape directly with zero client-side grouping/sorting.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import CompletenessQueueRow from '$lib/components/completeness/CompletenessQueueRow.svelte';
-	import type { CompletenessFacetGroup, CompletenessQueueRow as QueueRow, DecisionRequest } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import CompletenessQueueRow from '#lib/components/completeness/CompletenessQueueRow.svelte';
+	import type { CompletenessFacetGroup, CompletenessQueueRow as QueueRow, DecisionRequest } from '#lib/types.ts';
 
 	let groups = $state<CompletenessFacetGroup[]>([]);
 	let loading = $state(true);

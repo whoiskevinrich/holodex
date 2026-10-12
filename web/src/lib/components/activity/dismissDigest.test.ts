@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { JobDigest, JobRun } from '$lib/types';
+import type { JobDigest, JobRun } from '#lib/types.ts';
 import { totalFailures, withoutFailures, withoutRun } from './dismissDigest';
 
 // The digest's local mutation after a dismiss (HOLODEX-416). The server applies

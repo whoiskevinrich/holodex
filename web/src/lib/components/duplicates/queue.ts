@@ -8,7 +8,7 @@
 // label renders, and where focus lands when a row is removed — are the ones the
 // 2026-09-23 QA pass found by hand. They live here so `queue.test.ts` can pin them
 // without a component harness (there is none; see docs/testing-strategy.md §5).
-import type { DuplicatePair, EntityKind } from '$lib/types';
+import type { DuplicatePair, EntityKind } from '#lib/types.ts';
 
 /** One stable key per pair. The `{#each}` key, the panel's id and the disclosure's id
  *  all derive from it, so focus can be moved by id without threading refs up the tree. */

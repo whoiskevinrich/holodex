@@ -7,11 +7,11 @@
 	// tag"/"Dismiss" never touch the file and resolve immediately in place; the other
 	// actions stage a pending write the owner commits via the sticky commit bar's
 	// preview dialog (F48.7a). Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
-	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import ExtractionQueueRow from '#lib/components/extraction/ExtractionQueueRow.svelte';
+	import ExtractionPreviewDialog from '#lib/components/extraction/ExtractionPreviewDialog.svelte';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
 	import {
 		buildPreviewItems,
 		groupByVideo,
@@ -20,8 +20,8 @@
 		stagePick,
 		unstagePick,
 		type StagedPicks
-	} from '$lib/extraction';
-	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
+	} from '#lib/extraction.ts';
+	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '#lib/types.ts';
 
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);
@@ -41,7 +41,7 @@
 	// canonical field key -> label, from the shared facet registry (the same
 	// labels every other field surface in the app uses). The lookup, the
 	// people→actors alias, the field ordering, the grouping and the preview-item
-	// construction all live in $lib/extraction so the media page's inline panel
+	// construction all live in #lib/extraction so the media page's inline panel
 	// (F48.6i) runs the exact same logic — ADR-090 D2's "one code path" rule.
 	let labelByField = $state<Record<string, string>>({});
 	const fieldLabel = $derived(makeFieldLabel(labelByField));

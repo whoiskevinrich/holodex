@@ -5,11 +5,11 @@
 	// Rename lives on the entity's own NameEditControl now (HOLODEX-269, both person and
 	// studio) — this panel is add/remove/merge only. Reused verbatim on person, studio,
 	// film and tag detail (tag since HOLODEX-507, revised RD7). Tokens only.
-	import { api } from '$lib/api';
-	import { toMessage, videoCount } from '$lib/format';
-	import type { EntityKind, EntityRef, PersonAlias, SkippedAlias } from '$lib/types';
-	import EntityPicker from '$lib/components/entity/EntityPicker.svelte';
-	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, videoCount } from '#lib/format.ts';
+	import type { EntityKind, EntityRef, PersonAlias, SkippedAlias } from '#lib/types.ts';
+	import EntityPicker from '#lib/components/entity/EntityPicker.svelte';
+	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
 
 	let {
 		entityType,

@@ -13,10 +13,10 @@
 	// candidates — and the Save/Cancel footer — stay on screen together at paragraph length.
 	// The rows themselves live in SourceRadioList (HOLODEX-400) so the writeback dialog can
 	// embed the same chooser; this modal only supplies the chrome and the Save commit.
-	import type { DecisionSource, ResolvedField } from '$lib/types';
+	import type { DecisionSource, ResolvedField } from '#lib/types.ts';
 	import { onMount } from 'svelte';
-	import { resolveSelection, sourceChips, startsOnCustom } from '$lib/f36';
-	import { toMessage } from '$lib/format';
+	import { resolveSelection, sourceChips, startsOnCustom } from '#lib/f36.ts';
+	import { toMessage } from '#lib/format.ts';
 	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
 	import SourceRadioList from './SourceRadioList.svelte';
 

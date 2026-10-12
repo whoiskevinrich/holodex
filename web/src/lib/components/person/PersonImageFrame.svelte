@@ -5,8 +5,8 @@
 	// always returns a usable image (real or themed placeholder), so an `img` error
 	// just keeps the framed well — never a broken-image glyph. The caller supplies the
 	// aspect/size via `frameClass` (e.g. "portrait-frame--1x1 w-20").
-	import { api } from '$lib/api';
-	import type { PersonImageRole } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { PersonImageRole } from '#lib/types.ts';
 
 	let {
 		personId,

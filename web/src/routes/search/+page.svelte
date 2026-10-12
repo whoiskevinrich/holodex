@@ -2,12 +2,12 @@
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { beforeNavigate } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { listScroll } from '$lib/listScroll.svelte';
-	import { toMessage } from '$lib/format';
-	import type { SearchResponse } from '$lib/types';
-	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
-	import { type SearchTab } from '$lib/navSearch.svelte';
+	import { api } from '#lib/api.ts';
+	import { listScroll } from '#lib/listScroll.svelte.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { SearchResponse } from '#lib/types.ts';
+	import SearchResultsPanel from '#lib/components/entity/SearchResultsPanel.svelte';
+	import { type SearchTab } from '#lib/navSearch.svelte.ts';
 
 	let results = $state<SearchResponse | null>(null);
 	let loading = $state(true);

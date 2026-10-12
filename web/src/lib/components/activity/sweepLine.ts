@@ -1,6 +1,6 @@
 // Pure pieces of SweepStatusLine (F66 RD10) — kept out of the component so the
 // running→idle edge and the done-line derivation are unit-testable without a DOM.
-import type { SweepKind, SweepSkippedProvider, SweepStatus, SweepSummary } from '$lib/types';
+import type { SweepKind, SweepSkippedProvider, SweepStatus, SweepSummary } from '#lib/types.ts';
 
 // The done line is last_run for this kind, unless the owner dismissed that batch.
 export function doneLineFor(

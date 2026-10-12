@@ -4,13 +4,13 @@
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
 	// apply, Esc closes, focus is trapped + returned. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { toMessage, isHttpUrl, monogram } from '$lib/format';
-	import { moreLabel, searchedCaption } from '$lib/searchedCaption';
-	import { collisionOpen, detailLabel, hasDetail } from '$lib/candidateDetail';
-	import { SLOT_CLASS, showThumb, slotShape } from '$lib/candidateImage';
-	import { autoApplyPick } from '$lib/autoApply';
-	import { ApiError } from '$lib/api';
-	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '$lib/types';
+	import { toMessage, isHttpUrl, monogram } from '#lib/format.ts';
+	import { moreLabel, searchedCaption } from '#lib/searchedCaption.ts';
+	import { collisionOpen, detailLabel, hasDetail } from '#lib/candidateDetail.ts';
+	import { SLOT_CLASS, showThumb, slotShape } from '#lib/candidateImage.ts';
+	import { autoApplyPick } from '#lib/autoApply.ts';
+	import { ApiError } from '#lib/api.ts';
+	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '#lib/types.ts';
 
 	let {
 		entityName,

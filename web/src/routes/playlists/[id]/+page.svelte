@@ -1,25 +1,25 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount } from '$lib/format';
-	import { MEDIA_SORTS } from '$lib/filters';
-	import { filterLabels, loadScopeNames } from '$lib/filterLabels';
-	import { mediaSchema } from '$lib/listState';
-	import { forgetPlaylist } from '$lib/playlistContext';
-	import { beginRun } from '$lib/runContext';
-	import type { RunMode } from '$lib/run';
-	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
-	import PlaylistVisibilityChip from '$lib/components/video/PlaylistVisibilityChip.svelte';
-	import type { Playlist, PlaylistResponse, PlaylistStaleRef, Video } from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-	import Switch from '$lib/components/shared/Switch.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
-	import SortReroll from '$lib/components/sort/SortReroll.svelte';
-	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { toMessage, videoCount } from '#lib/format.ts';
+	import { MEDIA_SORTS } from '#lib/filters.ts';
+	import { filterLabels, loadScopeNames } from '#lib/filterLabels.ts';
+	import { mediaSchema } from '#lib/listState.ts';
+	import { forgetPlaylist } from '#lib/playlistContext.ts';
+	import { beginRun } from '#lib/runContext.ts';
+	import type { RunMode } from '#lib/run.ts';
+	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
+	import PlaylistVisibilityChip from '#lib/components/video/PlaylistVisibilityChip.svelte';
+	import type { Playlist, PlaylistResponse, PlaylistStaleRef, Video } from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
+	import Switch from '#lib/components/shared/Switch.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
+	import SortReroll from '#lib/components/sort/SortReroll.svelte';
+	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
 
 	// /playlists/[id] (F69 P0-6, design handoff §2). A container page, not an entity
 	// page: name, count + sort, the owner's controls, the browse tile grid in the

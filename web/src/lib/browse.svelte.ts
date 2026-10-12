@@ -6,8 +6,8 @@
 // re-fetch, no flash. The key is the filter/sort param string; see navSnapshot for the
 // shared one-shot/stale-on-mismatch mechanics. Session-scoped: a full reload rebuilds
 // from the URL.
-import type { Video } from '$lib/types';
-import { createNavSnapshot, type Keyed } from '$lib/navSnapshot.svelte';
+import type { Video } from '#lib/types.ts';
+import { createNavSnapshot, type Keyed } from '#lib/navSnapshot.svelte.ts';
 
 export interface BrowseSnapshot extends Keyed {
 	videos: Video[];

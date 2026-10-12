@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DuplicatePair, EntityKind } from '$lib/types';
+import type { DuplicatePair, EntityKind } from '#lib/types.ts';
 import {
 	disclosureId,
 	focusLandingIds,

@@ -9,13 +9,13 @@
 	// place; Needs-research shows a single Search link that navigates to the entity's
 	// detail page anchored at that facet, plus — for the three image-typed facets —
 	// a lighter "or upload an image directly" link to the page's upload control.
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
-	import { monogram } from '$lib/format';
-	import { toMessage } from '$lib/format';
-	import { haloClass } from '$lib/halo';
-	import { api, ENRICH_ENTITY_BASE } from '$lib/api';
-	import type { CompletenessQueueRow } from '$lib/types';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import PersonAvatar from '#lib/components/person/PersonAvatar.svelte';
+	import { monogram } from '#lib/format.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { haloClass } from '#lib/halo.ts';
+	import { api, ENRICH_ENTITY_BASE } from '#lib/api.ts';
+	import type { CompletenessQueueRow } from '#lib/types.ts';
 
 	let {
 		row,

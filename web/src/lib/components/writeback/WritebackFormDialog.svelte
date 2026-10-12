@@ -22,7 +22,7 @@
 	// is trapped + returned; Escape closes when idle (or once the single enqueue round
 	// trip finishes). Tokens only; QA Cinémathèque. Design: docs/design/writeback-cockpit-handoff.md.
 	import { onMount } from 'svelte';
-	import { toMessage, providerFromWinningSource } from '$lib/format';
+	import { toMessage, providerFromWinningSource } from '#lib/format.ts';
 	import {
 		fileCandidateValue,
 		isTagSetRow,
@@ -31,7 +31,7 @@
 		resolveSelection,
 		sourceChips,
 		type SourceChip
-	} from '$lib/f36';
+	} from '#lib/f36.ts';
 	import {
 		isBlankCustom,
 		isCockpitRow,
@@ -46,8 +46,8 @@
 		tagSetDiff,
 		willWrite,
 		writeEntry
-	} from '$lib/writebackCockpit';
-	import type { DecisionSource, ResolvedField, WritebackRequest } from '$lib/types';
+	} from '#lib/writebackCockpit.ts';
+	import type { DecisionSource, ResolvedField, WritebackRequest } from '#lib/types.ts';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
 	import SourceImageTiles from '../curation/SourceImageTiles.svelte';
 	import SourceRadioList from '../curation/SourceRadioList.svelte';

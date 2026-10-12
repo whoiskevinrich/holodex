@@ -9,9 +9,9 @@
 	// callers: the /tags Manage-bar bulk actions and a tag pill's own ⋯ menu
 	// "Add to category…" (single tag). Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage, tagCount, filterByName } from '$lib/format';
-	import type { Category } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage, tagCount, filterByName } from '#lib/format.ts';
+	import type { Category } from '#lib/types.ts';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {

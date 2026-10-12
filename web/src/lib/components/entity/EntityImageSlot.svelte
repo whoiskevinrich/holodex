@@ -14,9 +14,9 @@
 	// `variant="frame"` (HOLODEX-307) drops the label/Replace/Remove row for hero placement
 	// (e.g. the Film detail header) — just the image frame plus small owner overlay buttons
 	// (pencil = replace, × = remove) in the frame's corners, instead of a dedicated section.
-	import { toMessage, monogram } from '$lib/format';
-	import { PALETTE_MODE, haloClass } from '$lib/halo';
-	import type { HaloMode } from '$lib/types';
+	import { toMessage, monogram } from '#lib/format.ts';
+	import { PALETTE_MODE, haloClass } from '#lib/halo.ts';
+	import type { HaloMode } from '#lib/types.ts';
 	import Switch from '../shared/Switch.svelte';
 
 	let {

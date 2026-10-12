@@ -5,8 +5,8 @@
 	// record): the choice is "View existing video" / "Save anyway, keep both", both
 	// non-destructive. Presentational only — the caller owns busy/error state and the
 	// navigate/resubmit calls themselves.
-	import { formatYear } from '$lib/format';
-	import type { VideoCollisionRef } from '$lib/types';
+	import { formatYear } from '#lib/format.ts';
+	import type { VideoCollisionRef } from '#lib/types.ts';
 
 	let {
 		video,

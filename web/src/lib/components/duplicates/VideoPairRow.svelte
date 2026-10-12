@@ -9,11 +9,11 @@
 	// failed panel fetch can never disable an action and the row and panel can't disagree
 	// about `busy`. The keep-one confirm is the row's too.
 	// Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { resolutionBucket, toMessage } from '$lib/format';
-	import type { VideoCompareSide, VideoDuplicatePair } from '$lib/types';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { resolutionBucket, toMessage } from '#lib/format.ts';
+	import type { VideoCompareSide, VideoDuplicatePair } from '#lib/types.ts';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 	import VideoComparePanel from './VideoComparePanel.svelte';
 	import { carryLines, sideSummary, videoDisclosureId, videoPanelId, type LabelField } from './videoPairs';
 
