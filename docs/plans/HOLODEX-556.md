@@ -13,8 +13,8 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: "Owners can flip a mirrored video horizontally from its details page; every tag, track and chapter is kept, and the original is held for a week in case you want it back."
 approved:
   design:
-    on: 2026-10-11
-    at: d58dadc4
+    on: 2026-10-12
+    at: 04dd6cad
 ---
 
 # HOLODEX-556 · F77 Video file maintenance — flip horizontally
@@ -37,7 +37,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
-- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10, re-confirmed 2026-10-11 at d58dadc4
+- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10, re-confirmed 2026-10-11 at d58dadc4; re-pinned 2026-10-12 to the squash 04dd6cad with the owner's yes (d58dadc4 lived only on the deleted epic branch; F77's design files unchanged)
 - [x] backend → `{cmd,internal,providers}/**` — migration 0062, queue lanes, `internal/maintenance` (pipeline, verifier, swap, worker, expiry), owner API, purge; proven on real MP4 and five MKV shapes in the runtime image
 - [x] frontend → `web/src/**` — Maintenance section + dialogs; live-QA'd; owner confirmed the build matches the approved mockup 2026-10-11
 - [x] testing `testing-strategy` — §25: unit, API, live QA and the `make test-image` real-file matrix all pass; coverage 87.3% vs a 90% target (gap = deep tool-failure branches, recorded in §25.9)
@@ -58,8 +58,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Sweep HOLODEX-556 to Done when #486 merges (epics skip jira-sync) — Jira
-2. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
+1. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -70,6 +69,14 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-12 · design sign-off re-pinned
+- skills: —
+- handoff: The design sign-off is re-pinned from d58dadc4 to 04dd6cad, with the owner's yes. d58dadc4 was unreachable after the squash-merge, so the `gate` check failed on #495. The owner's real-file watch (Up next #1) is the only open item.
+
+### 2026-10-12 · merged; Decided-in links
+- skills: —
+- handoff: #486 merged as 04dd6cad and HOLODEX-556 swept to Done; file-maintenance.md's eight Decided-in lines now link 04dd6cad. Only the owner's real-file watch (Up next #1) remains.
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review, security-review, handoff
