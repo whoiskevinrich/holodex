@@ -90,7 +90,7 @@ func Verify(orig, cand Snapshot) error {
 		}
 	}
 
-	containerIgnore := func(string) bool { return false }
+	containerIgnore := isFileTypeBrand
 	if orig.Family == FamilyMKV {
 		containerIgnore = isContainerStamp
 	}
@@ -167,6 +167,13 @@ func streamKinds(p Probe) string {
 // Matroska: in MP4 `encoder` is the iTunes ©too tag, a real tag the restore must keep (F77 QA
 // caught a flip dropping it while this exemption hid the loss).
 func isContainerStamp(k string) bool { return strings.EqualFold(k, "encoder") }
+
+// isFileTypeBrand: an MP4's ftyp box declares the brands its muxer wrote to, and ffmpeg writes
+// its own; neither -brand (major only) nor exiftool can put an arbitrary original's back
+// (spec rule 4's second exception).
+func isFileTypeBrand(k string) bool {
+	return k == "major_brand" || k == "minor_version" || k == "compatible_brands"
+}
 
 func isMuxStamp(k string) bool { return hasTagBase(k, muxStampTags) }
 
