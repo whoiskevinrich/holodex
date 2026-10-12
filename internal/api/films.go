@@ -38,6 +38,7 @@ func (h *Handlers) mountFilms(r chi.Router) {
 	h.mountFilmDecisions(r)
 	h.mountFilmStudioCascade(r)
 	h.mountFilmPeopleRoles(r)
+	h.mountFilmDelete(r)
 }
 
 // listFilms handles GET /films (F56): name-sorted films with active-video counts.
@@ -234,6 +235,11 @@ func (h *Handlers) createFilm(w http.ResponseWriter, r *http.Request) {
 	id, err := h.repo.CreateFilm(r.Context(), name, body.Year)
 	status := http.StatusCreated
 	switch {
+	case errors.Is(err, repo.ErrFilmTrashed):
+		if !h.writeTrashedConflict(w, r, id) {
+			h.fail(w, "create film", err) // restored between the two reads: retryable
+		}
+		return
 	case errors.Is(err, repo.ErrFilmExists):
 		status = http.StatusOK
 	case err != nil:

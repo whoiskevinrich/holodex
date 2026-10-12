@@ -64,9 +64,11 @@ func (r *Repo) FilmsForVideos(ctx context.Context, ids []int64) (map[int64][]Fil
 	if len(ids) == 0 {
 		return map[int64][]FilmAttachment{}, nil
 	}
+	// A trashed film is no attachment at all (F78 RD5/RD9): this one read feeds the
+	// media page's chips, the resolver's film candidates, completeness and the pickers.
 	q := `SELECT fv.video_id, f.id, f.name, fv.is_full_film, fv.scene_number
 	      FROM film_videos fv JOIN films f ON f.id = fv.film_id
-	      WHERE fv.video_id IN (` + placeholders(len(ids)) + `)
+	      WHERE fv.video_id IN (` + placeholders(len(ids)) + `) AND ` + liveFilm + `
 	      ORDER BY fv.video_id, f.name COLLATE NOCASE`
 	rows, err := r.db.QueryContext(ctx, q, toAnySlice(ids)...)
 	if err != nil {
@@ -148,6 +150,11 @@ func (r *Repo) AttachFilmDisplayNames(ctx context.Context, groups ...[]FilmAttac
 // video→film picker's "create new" action is idempotent against a duplicate submit.
 var ErrFilmExists = errors.New("film already exists")
 
+// ErrFilmTrashed is returned by CreateFilm when name+year names a film in Trash
+// (F78 RD6): the key stays held, so the caller offers that film's restore instead —
+// the returned id is the trashed film's.
+var ErrFilmTrashed = errors.New("film is in Trash")
+
 // ErrSceneNumberTaken is returned by AttachFilmVideo/BulkAttachFilmVideos when the
 // requested scene number is already occupied within the film (spec: reject naming
 // the current occupant, never a silent swap or auto-bump renumber).
@@ -174,6 +181,9 @@ type FilmYearCollision struct {
 	FilmID   int64  `json:"film_id"`
 	FilmName string `json:"film_name"`
 	Year     int    `json:"year"`
+	// Trashed marks an occupant that is in Trash (F78 RD6): the SPA offers its restore
+	// rather than a link to a page that 404s.
+	Trashed bool `json:"trashed,omitempty"`
 }
 
 // nullableYear turns a zero-or-negative "no year" sentinel into SQL NULL --
@@ -248,22 +258,26 @@ func (r *Repo) CreateFilm(ctx context.Context, name string, year int) (int64, er
 
 	nameKey := nameKeyExpr(model.EnrichEntityFilm, "?")
 	var existing int64
+	var trashed bool
 	err = tx.QueryRowContext(ctx,
-		`SELECT id FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+` AND year IS ?`,
-		name, nullableYear(year)).Scan(&existing)
+		`SELECT id, deleted_at IS NOT NULL FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+` AND year IS ?`,
+		name, nullableYear(year)).Scan(&existing, &trashed)
 	switch {
+	case err == nil && trashed:
+		return existing, ErrFilmTrashed
 	case err == nil:
 		return existing, ErrFilmExists
 	case !errors.Is(err, sql.ErrNoRows):
 		return 0, fmt.Errorf("check film exists: %w", err)
 	}
 
-	// Same-title films under any other year: canonical name ∪ alias (step 2).
+	// Same-title films under any other year: canonical name ∪ alias (step 2). A film
+	// in Trash is never a routing target (F78 RD5).
 	rows, err := tx.QueryContext(ctx, `
-		SELECT id, year FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+`
+		SELECT f.id, f.year FROM films f WHERE `+nameKeyExpr(model.EnrichEntityFilm, "f.name")+` = `+nameKey+` AND `+liveFilm+`
 		UNION
 		SELECT f.id, f.year FROM entity_aliases a JOIN films f ON f.id = a.entity_id
-		WHERE a.entity_type = 'film' AND a.alias_key = `+nameKey,
+		WHERE a.entity_type = 'film' AND a.alias_key = `+nameKey+` AND `+liveFilm,
 		name, name)
 	if err != nil {
 		return 0, fmt.Errorf("check film aliases: %w", err)
@@ -333,6 +347,7 @@ func queueFilmSameTitle(ctx context.Context, ex execer, filmID int64, name strin
 		FROM (SELECT id FROM films WHERE `+nameKeyExpr(model.EnrichEntityFilm, "name")+` = `+nameKey+`
 		      UNION SELECT entity_id FROM entity_aliases WHERE entity_type = 'film' AND alias_key = `+nameKey+`) o
 		WHERE o.id <> ?1
+		  AND o.id IN (SELECT id FROM films WHERE deleted_at IS NULL)
 		  AND NOT EXISTS (SELECT 1 FROM entity_keep_separate ks
 		                  WHERE ks.entity_type = 'film' AND ks.id_lo = min(o.id, ?1) AND ks.id_hi = max(o.id, ?1))`,
 		filmID, name)
@@ -383,12 +398,13 @@ func (r *Repo) FillFilmYear(ctx context.Context, filmID int64, year int) (*FilmY
 	// that trap from being introduced later.
 	var occupantID int64
 	var occupantName string
+	var occupantTrashed bool
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
-		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName)
+		`SELECT id, name, deleted_at IS NOT NULL FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
+		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName, &occupantTrashed)
 	switch {
 	case err == nil:
-		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year}, nil
+		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year, Trashed: occupantTrashed}, nil
 	case !errors.Is(err, sql.ErrNoRows):
 		return nil, fmt.Errorf("check film year collision: %w", err)
 	}
@@ -431,12 +447,13 @@ func (r *Repo) SetFilmYear(ctx context.Context, filmID int64, year int) (*FilmYe
 
 	var occupantID int64
 	var occupantName string
+	var occupantTrashed bool
 	err := r.db.QueryRowContext(ctx,
-		`SELECT id, name FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
-		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName)
+		`SELECT id, name, deleted_at IS NOT NULL FROM films WHERE name = ? COLLATE NOCASE AND year IS ? AND id <> ?`,
+		name, nullableYear(year), filmID).Scan(&occupantID, &occupantName, &occupantTrashed)
 	switch {
 	case err == nil:
-		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year}, nil
+		return &FilmYearCollision{FilmID: occupantID, FilmName: occupantName, Year: year, Trashed: occupantTrashed}, nil
 	case !errors.Is(err, sql.ErrNoRows):
 		return nil, fmt.Errorf("check film year collision: %w", err)
 	}
@@ -453,7 +470,7 @@ func (r *Repo) SetFilmYear(ctx context.Context, filmID int64, year int) (*FilmYe
 // legitimate, persistent record -- e.g. just created and not yet attached to
 // anything, or every scene since detached.
 func (r *Repo) ListFilms(ctx context.Context) ([]model.Film, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f ORDER BY f.name COLLATE NOCASE`)
+	rows, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE `+liveFilm+` ORDER BY f.name COLLATE NOCASE`)
 	if err != nil {
 		return nil, fmt.Errorf("list films: %w", err)
 	}
@@ -474,7 +491,7 @@ func (r *Repo) ListFilms(ctx context.Context) ([]model.Film, error) {
 // pages (F56). Zero-valued ids are ignored; a call with every id zero behaves
 // like ListFilms. Multiple non-zero ids AND together (mirrors VideoFilter).
 func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID int64) ([]model.Film, error) {
-	where := "1=1"
+	where := liveFilm
 	var args []any
 	for _, dim := range []struct {
 		id           int64
@@ -515,7 +532,7 @@ func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID
 func (r *Repo) CountFilmsForPerson(ctx context.Context, personID int64) (int, error) {
 	var n int
 	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM films f WHERE EXISTS (
+		SELECT COUNT(*) FROM films f WHERE `+liveFilm+` AND EXISTS (
 			SELECT 1 FROM film_videos fv JOIN video_people vp ON vp.video_id = fv.video_id
 			WHERE fv.film_id = f.id AND vp.person_id = ?)`, personID).Scan(&n)
 	if err != nil {
@@ -524,9 +541,11 @@ func (r *Repo) CountFilmsForPerson(ctx context.Context, personID int64) (int, er
 	return n, nil
 }
 
-// GetFilm returns a film by id with its active-video count, or ErrNotFound.
+// GetFilm returns a live film by id with its active-video count, or ErrNotFound — a
+// film in Trash is not found (F78 RD5), which is also what refuses every /films/{id}
+// mutation on it.
 func (r *Repo) GetFilm(ctx context.Context, id int64) (*model.Film, error) {
-	row := r.db.QueryRowContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id = ?`, id)
+	row := r.db.QueryRowContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id = ? AND `+liveFilm, id)
 	f, err := scanFilm(row.Scan)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -574,7 +593,7 @@ func (r *Repo) SearchFilms(ctx context.Context, query string, limit int) ([]mode
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT `+filmSelectCols+`
 		FROM films_fts ft JOIN films f ON f.id = ft.rowid
-		WHERE films_fts MATCH ?
+		WHERE films_fts MATCH ? AND `+liveFilm+`
 		ORDER BY f.name COLLATE NOCASE LIMIT ?`, match, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search films: %w", err)

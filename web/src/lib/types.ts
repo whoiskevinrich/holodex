@@ -596,8 +596,11 @@ export interface WritebackRequest {
 // when auto-purge is disabled (grace = 0) — it lingers until purged manually.
 export interface TrashEntry {
 	id: number;
+	// What the row is (F78 RD7). A film's title is already "Name (Year)".
+	kind: 'media' | 'film';
 	title: string;
-	path: string;
+	// Media only: the file the permanent-delete confirm names. A film has no file.
+	path?: string;
 	deleted_at: string;
 	purge_at: string | null;
 }
@@ -1110,6 +1113,8 @@ export interface FilmYearCollision {
 	film_id: number;
 	film_name: string;
 	year: number;
+	// The occupant is in Trash (F78 RD6): offer its restore, never a link to its page.
+	trashed?: boolean;
 }
 
 // FilmBilledCredit is one cast member the provider billed on the release who appears in
