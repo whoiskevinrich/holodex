@@ -28,10 +28,14 @@ HOLODEX-438 (video playlists, Done).
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Owner: §23.10 item 8 `[human]`, a screen-reader pass on the trigger and rows
-2. [ ] `/handoff` to mark #493 ready for review (every gate is settled), then squash-merge on green CI
+1. [ ] Squash-merge #493 on green CI with subject `feat(playlists): jump to any position in a run from the run strip`, then confirm CI moved HOLODEX-564 to Done
+2. [ ] Owner: §23.10 item 8 `[human]`, a screen-reader pass on the trigger and rows
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-10-11 · handoff, build matches the approved mockup
+- skills: handoff
+- handoff: Every gate is settled and the owner confirmed the built jump list matches the approved mockup, so #493 is marked ready for review. Next: squash-merge on green CI.
 
 ### 2026-10-11 · frontend jump list + security review
 - skills: security-review, code-review high --fix
