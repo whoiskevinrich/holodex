@@ -53,7 +53,9 @@ probes that measure the live library.
 | `detect_entity_collisions.sql` | Name collisions across all four spine kinds: case/whitespace (Tier A, migration blockers), punctuation/spacing near-misses (Tier B), and film's same-title-different-year pairs. |
 | `review_kept_separate_shared_id_pairs.sql` | **The P1-2 decision sheet** (HOLODEX-452, spec F71 P1-2): the pairs a provider says are one record that the owner dismissed *before* that signal existed. Deliberately out of queue — ADR-061's durable no stays intact and no detector re-proposes them — so this is the one-time reconciliation, worked by hand. Leads with `shared_videos`, because a co-appearance is the one fact that ends the question without opening the app. |
 
-All four conform to the rules above as of 2026-09-25.
+| `detect_indexed_at_drift.sql` | How far `videos.indexed_at` (today's "Date added" sort) has drifted from arrival order (HOLODEX-567), using `id` as the insertion-order yardstick, and the two `first_seen_at` backfill candidates side by side. Counts and buckets only. |
+
+All five conform to the rules above (the first four as of 2026-09-25).
 
 **Film keys on `(nameKey, year)`, and the probe carries that through.** `ux_films_namekey`
 (migration 0047, ADR-096 D3) makes two films sharing a title across different years legal, so
