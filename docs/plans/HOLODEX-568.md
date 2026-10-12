@@ -62,14 +62,13 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] /implement — design gates settled; crosses to build and opens the Draft PR
-2. [ ] [testing] Testing-strategy section for move match, fold and ambiguity — `docs/testing-strategy.md`
-3. [ ] [backend] Migration: `videos.content_fp` + sampled-hash helper + lazy backfill in the scanner worker — `internal/scanner/`, `internal/db/migrations/`
-4. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
-5. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
-6. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
-7. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-8. [ ] [—] After merge: ask HOLODEX-567 to revisit F12.8 ("moved files rank by when moved") — `docs/specs/phase-2-mcp-polish.md`
+1. [ ] [testing] Testing-strategy section for move match, fold and ambiguity — `docs/testing-strategy.md`
+2. [ ] [backend] Migration: `videos.content_fp` + sampled-hash helper + lazy backfill in the scanner worker — `internal/scanner/`, `internal/db/migrations/`
+3. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
+4. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
+5. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
+6. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+7. [ ] [—] After merge: ask HOLODEX-567 to revisit F12.8 ("moved files rank by when moved") — `docs/specs/phase-2-mcp-polish.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,10 +81,10 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 -->
 
 ### 2026-10-12 · own worktree + spec draft
-- skills: write-spec, handoff, architecture
+- skills: write-spec, handoff, architecture, implement
 - Moved 568 off the "Media sorting" session into its own worktree/branch; reserved F79. Owner decided: auto-heal past moves, newest owner edit wins on fold, ambiguity declined, no time limit on inactive matches; posture `full` with design/frontend/security skipped.
 - Owner accepted the spec. Architecture (owner-chosen): SHA-256 over size + three 64 KiB samples; legacy hidden rows match on exact recorded facts; size-twin new files held and matched after the walk; fold reuses `planCarry`.
-- handoff: Spec and architecture settled (media-ingest.md § moves); design phase is complete (fp:ready-to-build) — next is /implement to open the Draft PR, then the testing-strategy section and the content_fp migration.
+- handoff: Crossed into build — no sign-off needed (design skipped, no UI); main merged, draft PR open. Start at the testing-strategy section, then the content_fp migration.
 
 ## Dropped — newest first (the reason is the point)
 
