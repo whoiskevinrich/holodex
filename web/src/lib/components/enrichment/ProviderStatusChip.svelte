@@ -13,8 +13,8 @@
 	// shell (icon + name), but the *row's* action drives resolution, not the chip
 	// itself — so this carries no button/menu, just a state label. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';
-	import { providers as providerDir } from '$lib/providers.svelte';
-	import type { EnrichQueueProviderState } from '$lib/types';
+	import { providers as providerDir } from '#lib/providers.svelte.ts';
+	import type { EnrichQueueProviderState } from '#lib/types.ts';
 
 	let {
 		provider,

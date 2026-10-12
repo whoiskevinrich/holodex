@@ -2,8 +2,8 @@
 // them without a component harness — the same reason `queue.ts` exists. The row, the
 // panel and the page derive their per-pair ids from here; the fact table, the confirm's
 // carry-over list and the label validation are pure functions of the API payload.
-import { formatBitrate, formatBytes, formatDuration, resolutionBucket } from '$lib/format';
-import type { CarryPreview, VideoCompareSide, VideoDuplicatePair, VideoPairSide, VideoWork } from '$lib/types';
+import { formatBitrate, formatBytes, formatDuration, resolutionBucket } from '#lib/format.ts';
+import type { CarryPreview, VideoCompareSide, VideoDuplicatePair, VideoPairSide, VideoWork } from '#lib/types.ts';
 import { groupId, QUEUE_ID } from './queue';
 
 export function videoPairKey(p: VideoDuplicatePair): string {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PersonImage, PersonImageSet } from '$lib/types';
+import type { PersonImage, PersonImageSet } from '#lib/types.ts';
 import { loadPersonImages, stripGallery, STRIP_GALLERY_SLOTS } from './personImages';
 
 const img = (id: number, role: PersonImage['role'], sort_order = id): PersonImage => ({

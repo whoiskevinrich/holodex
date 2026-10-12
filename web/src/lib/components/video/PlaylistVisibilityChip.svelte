@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Playlist } from '$lib/types';
+	import type { Playlist } from '#lib/types.ts';
 
 	// The outline chip on a playlist row (F69, handoff §1): muted for Private and accent
 	// for Public, owner-only — every row a visitor is shown is public by construction.

@@ -10,10 +10,10 @@
 	// collision check, generalized to Studio). Known candidates (today's SourceSelect
 	// chip set) stay one click away via `sourceChips` — no regression vs today's speed.
 	import { tick, type Snippet } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import { isCleared, sourceChips } from '$lib/f36';
-	import type { DecisionSource, ResolvedField, Studio, VideoCollisionRef } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { isCleared, sourceChips } from '#lib/f36.ts';
+	import type { DecisionSource, ResolvedField, Studio, VideoCollisionRef } from '#lib/types.ts';
 	import AttachedChip from './AttachedChip.svelte';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 

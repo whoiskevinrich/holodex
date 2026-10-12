@@ -13,9 +13,9 @@
 	// "[icon] themoviedb.org" instead of a long raw URL, folding provenance into the
 	// link (the caller then drops the separate ProvenanceBadge). A provider implies the
 	// hostname text. Falls back to the raw value if it doesn't parse.
-	import { isHttpUrl } from '$lib/format';
+	import { isHttpUrl } from '#lib/format.ts';
 	import ProviderIcon from '../enrichment/ProviderIcon.svelte';
-	import { providers as providerDir } from '$lib/providers.svelte';
+	import { providers as providerDir } from '#lib/providers.svelte.ts';
 
 	let {
 		values,

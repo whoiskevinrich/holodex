@@ -1,30 +1,30 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { forgetPlaylist } from '$lib/playlistContext';
-	import SavePlaylistForm from '$lib/components/video/SavePlaylistForm.svelte';
-	import { activity } from '$lib/activity.svelte';
-	import { browseCache } from '$lib/browse.svelte';
-	import { navSearch } from '$lib/navSearch.svelte';
-	import { DEFAULT_SORT, filtersToParams } from '$lib/filters';
-	import { filterLabels, loadScopeNames } from '$lib/filterLabels';
-	import { beginRun, queryLabel } from '$lib/runContext';
-	import type { RunMode } from '$lib/run';
-	import PlaySplitButton from '$lib/components/video/PlaySplitButton.svelte';
-	import { toMessage, videoCount } from '$lib/format';
-	import type { Facet, MediaFilters, Resolution, Video } from '$lib/types';
-	import VideoGrid from '$lib/components/video/VideoGrid.svelte';
-	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
-	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
-	import FilterPanel from '$lib/components/sort/FilterPanel.svelte';
-	import FilterChip from '$lib/components/sort/FilterChip.svelte';
-	import RecentlyAddedShelf from '$lib/components/video/RecentlyAddedShelf.svelte';
-	import MappedFacets from '$lib/components/curation/MappedFacets.svelte';
-	import { shuffleSeed } from '$lib/sortPreference.svelte';
-	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
-	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '$lib/listState';
-	import { listController } from '$lib/listController.svelte';
+	import { api } from '#lib/api.ts';
+	import { forgetPlaylist } from '#lib/playlistContext.ts';
+	import SavePlaylistForm from '#lib/components/video/SavePlaylistForm.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { browseCache } from '#lib/browse.svelte.ts';
+	import { navSearch } from '#lib/navSearch.svelte.ts';
+	import { DEFAULT_SORT, filtersToParams } from '#lib/filters.ts';
+	import { filterLabels, loadScopeNames } from '#lib/filterLabels.ts';
+	import { beginRun, queryLabel } from '#lib/runContext.ts';
+	import type { RunMode } from '#lib/run.ts';
+	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
+	import { toMessage, videoCount } from '#lib/format.ts';
+	import type { Facet, MediaFilters, Resolution, Video } from '#lib/types.ts';
+	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
+	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
+	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
+	import FilterChip from '#lib/components/sort/FilterChip.svelte';
+	import RecentlyAddedShelf from '#lib/components/video/RecentlyAddedShelf.svelte';
+	import MappedFacets from '#lib/components/curation/MappedFacets.svelte';
+	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
+	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '#lib/listState.ts';
+	import { listController } from '#lib/listController.svelte.ts';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -185,7 +185,8 @@
 	// link (ADR-114 D4, exitAfterRemoval's rule).
 	let editFromPlaylist = false;
 	afterNavigate(({ from }) => {
-		editFromPlaylist ||= from?.url.pathname === `/playlists/${editId}`;
+		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
+		editFromPlaylist ||= from?.url?.pathname === `/playlists/${editId}`;
 	});
 	const cancelEdit = () => exitAfterRemoval(editFromPlaylist, `/playlists/${editId}`);
 

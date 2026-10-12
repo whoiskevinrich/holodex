@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
-	import { exitAfterRemoval } from '$lib/listState';
-	import { api, ApiError } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Tag, Video, VideoCollisionRef, VideoWritebackStatus } from '$lib/types';
+	import { exitAfterRemoval } from '#lib/listState.ts';
+	import { api, ApiError } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Tag, Video, VideoCollisionRef, VideoWritebackStatus } from '#lib/types.ts';
 	import {
 		formatBitrate,
 		formatBytes,
@@ -17,49 +17,49 @@
 		resolutionBucket,
 		toMessage,
 		videoCount
-	} from '$lib/format';
-	import { dismissable } from '$lib/actions/dismissable';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
-	import { isReplaceField, outOfSyncCount } from '$lib/f36';
-	import { expandedField } from '$lib/expandedField.svelte';
-	import RelatedShelf from '$lib/components/video/RelatedShelf.svelte';
-	import NextUpStrip from '$lib/components/video/NextUpStrip.svelte';
-	import PlaylistPicker from '$lib/components/video/PlaylistPicker.svelte';
-	import { setPlayIntent, takePlayIntent } from '$lib/playlistContext';
-	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '$lib/run';
-	import { fetchSourceIds, resolveRun, storeRun } from '$lib/runContext';
-	import type { Playlist } from '$lib/types';
-	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
-	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
-	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
-	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
-	import WritebackFormDialog from '$lib/components/writeback/WritebackFormDialog.svelte';
-	import { hotkey } from '$lib/actions/hotkey.svelte';
-	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
-	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
-	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
-	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import CollisionOfferCard from '$lib/components/entity/CollisionOfferCard.svelte';
-	import StudioPicker from '$lib/components/entity/StudioPicker.svelte';
-	import StudioLinkCard from '$lib/components/entity/StudioLinkCard.svelte';
-	import PeopleGrid from '$lib/components/entity/PeopleGrid.svelte';
-	import PosterTile from '$lib/components/entity/PosterTile.svelte';
-	import { filmsPeopleLayout } from '$lib/filmsPeopleLayout';
-	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
-	import TagLinkChip from '$lib/components/entity/TagLinkChip.svelte';
-	import TagAddInput from '$lib/components/entity/TagAddInput.svelte';
-	import { sortTagsByStatus } from '$lib/tagInput';
-	import FilmAttachDialog from '$lib/components/film/FilmAttachDialog.svelte';
-	import EditSceneNumberDialog from '$lib/components/film/EditSceneNumberDialog.svelte';
-	import ExtractionQueueRow from '$lib/components/extraction/ExtractionQueueRow.svelte';
-	import ExtractionPreviewDialog from '$lib/components/extraction/ExtractionPreviewDialog.svelte';
+	} from '#lib/format.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { isReplaceField, outOfSyncCount } from '#lib/f36.ts';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
+	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
+	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
+	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
+	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
+	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '#lib/run.ts';
+	import { fetchSourceIds, resolveRun, storeRun } from '#lib/runContext.ts';
+	import type { Playlist } from '#lib/types.ts';
+	import UrlValueList from '#lib/components/curation/UrlValueList.svelte';
+	import AutoFieldRows from '#lib/components/curation/AutoFieldRows.svelte';
+	import PromotedFieldEdit from '#lib/components/curation/PromotedFieldEdit.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
+	import ExpandableText from '#lib/components/shared/ExpandableText.svelte';
+	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
+	import WritebackFormDialog from '#lib/components/writeback/WritebackFormDialog.svelte';
+	import { hotkey } from '#lib/actions/hotkey.svelte.ts';
+	import CurationFieldRow from '#lib/components/curation/CurationFieldRow.svelte';
+	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
+	import SourceEditModal from '#lib/components/curation/SourceEditModal.svelte';
+	import CompletenessPanel from '#lib/components/completeness/CompletenessPanel.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import CollisionOfferCard from '#lib/components/entity/CollisionOfferCard.svelte';
+	import StudioPicker from '#lib/components/entity/StudioPicker.svelte';
+	import StudioLinkCard from '#lib/components/entity/StudioLinkCard.svelte';
+	import PeopleGrid from '#lib/components/entity/PeopleGrid.svelte';
+	import PosterTile from '#lib/components/entity/PosterTile.svelte';
+	import { filmsPeopleLayout } from '#lib/filmsPeopleLayout.ts';
+	import { sceneBadgeLabel } from '#lib/components/film/sceneNumber.ts';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
+	import TagLinkChip from '#lib/components/entity/TagLinkChip.svelte';
+	import TagAddInput from '#lib/components/entity/TagAddInput.svelte';
+	import { sortTagsByStatus } from '#lib/tagInput.ts';
+	import FilmAttachDialog from '#lib/components/film/FilmAttachDialog.svelte';
+	import EditSceneNumberDialog from '#lib/components/film/EditSceneNumberDialog.svelte';
+	import ExtractionQueueRow from '#lib/components/extraction/ExtractionQueueRow.svelte';
+	import ExtractionPreviewDialog from '#lib/components/extraction/ExtractionPreviewDialog.svelte';
 	import {
 		buildPreviewItems,
 		isEntityField,
@@ -68,9 +68,9 @@
 		stagePick,
 		unstagePick,
 		type StagedPicks
-	} from '$lib/extraction';
-	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
-	import { waitForWritebackJob, waitForVideoWriteback } from '$lib/writebackJob';
+	} from '#lib/extraction.ts';
+	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '#lib/types.ts';
+	import { waitForWritebackJob, waitForVideoWriteback } from '#lib/writebackJob.ts';
 	import {
 		MAINTENANCE_IDLE,
 		clockTime,
@@ -82,7 +82,7 @@
 		type MaintenanceOp,
 		type MaintenancePreflight,
 		type MaintenanceState
-	} from '$lib/maintenance';
+	} from '#lib/maintenance.ts';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -145,7 +145,7 @@
 	// fires once on entry when `loading` flips, where the load effect's own call has
 	// already done the work — expand + scrollIntoView are idempotent.
 	$effect(() => {
-		const hash = $page.url.hash;
+		const hash = page.url.hash;
 		if (!hash || loading) return;
 		// untrack: the landing's own reads (hasPageAnchor → overviewField) must not become
 		// dependencies, or a reloadDetail() after Confirm would re-expand the badge just closed.
@@ -272,7 +272,7 @@
 	let filmRemoveError = $state('');
 	let filmAttachOpen = $state(false);
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// The owner reads tag chips pending-writeback-first (HOLODEX-519 D4); visitors see no
 	// status glyph, so a status order would look random to them — name order stays.
@@ -400,7 +400,7 @@
 	// a value creates the standing decision, after which the resolver keeps the field itself.
 	const deepLinkedMissing = $derived.by((): ResolvedField | null => {
 		if (!isOwner || !completeness) return null;
-		const m = /^#field-([\w-]+)$/.exec($page.url.hash);
+		const m = /^#field-([\w-]+)$/.exec(page.url.hash);
 		if (!m) return null;
 		const facet = completeness.facets.find(
 			(f) => f.canonical === m[1] && f.tier === 'missing' && f.curatable
@@ -425,7 +425,7 @@
 		return canonical === 'studio' || canonical === 'title' || canonical === 'genres' || canonical === 'actors';
 	}
 	// Films + People (HOLODEX-328, docs/design/media-detail-films-people-handoff.md §2).
-	// The four-state rule lives in $lib/filmsPeopleLayout so its matrix can be unit-tested
+	// The four-state rule lives in #lib/filmsPeopleLayout so its matrix can be unit-tested
 	// — the old filmsVisible/peopleVisible booleans conflated "has content" with "shows
 	// the owner's empty CTA", which are now different layout positions.
 	const layout = $derived(
@@ -495,7 +495,7 @@
 	});
 
 	// Labels, ordering, staging and preview-item construction all come from
-	// $lib/extraction — the same module the owner tab uses, so the two surfaces
+	// #lib/extraction — the same module the owner tab uses, so the two surfaces
 	// cannot drift (ADR-090 D2).
 	const extractLabel = $derived(makeFieldLabel(extractLabels));
 	const extractSorted = $derived(sortRows(extractRows));
@@ -1206,7 +1206,7 @@
 	// playlist) leaves `run` null and the params inert: the video still plays, no error.
 	let videoEl = $state<HTMLVideoElement | null>(null);
 	let run = $state<Run | null>(null);
-	const runParam = $derived(parseRunParam($page.url));
+	const runParam = $derived(parseRunParam(page.url));
 	$effect(() => {
 		const p = runParam;
 		// A hop within the run keeps it mounted — the in-memory run is authoritative (it
@@ -1546,7 +1546,7 @@
 	}
 
 	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the person/studio
-	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
+	// detail pages via #lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
 		await runEnrichRefresh(
 			'video',

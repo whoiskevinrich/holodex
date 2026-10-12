@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The one toolbar every list page renders (F73, design handoff list-toolbar-handoff.md).
 	// Layout only — it owns the row, the slot order and the chips row, never list state
-	// (that is $lib/listState). One row that never wraps:
+	// (that is #lib/listState). One row that never wraps:
 	//   [Sort] [Reroll?] [Filters?]  ···ml-auto···  [View?] [⋯?]
 	// An empty slot renders nothing. The right group is pushed over by one `ml-auto` wrapper,
 	// not a spacer element: in a gap-2 row a spacer adds a gap the 375px budget lacks.

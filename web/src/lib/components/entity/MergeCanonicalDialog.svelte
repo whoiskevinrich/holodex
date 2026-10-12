@@ -5,9 +5,9 @@
 	// Entity-generic via `kind`; api.mergeEntities does the fold. The parent owns selection: it
 	// passes the chosen `items` and reacts to `onmerged` (reload + clear) / `onclose` (dismiss).
 	// Modal chrome (focus trap, Esc, backdrop, focus-return) delegates to ConfirmDialog.
-	import { api } from '$lib/api';
-	import { toMessage, videoCount } from '$lib/format';
-	import type { EntityKind, EntityRef } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage, videoCount } from '#lib/format.ts';
+	import type { EntityKind, EntityRef } from '#lib/types.ts';
 	import ConfirmDialog from '../shared/ConfirmDialog.svelte';
 
 	let {

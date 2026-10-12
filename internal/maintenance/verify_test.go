@@ -127,6 +127,26 @@ func TestVerify_MP4EncoderTagIsARealTag(t *testing.T) {
 	}
 }
 
+// ffmpeg writes its own ftyp, so an MP4's brands may differ (spec rule 4's second exception) —
+// but only in MP4, and only those three keys.
+func TestVerify_MP4FileTypeBrandsMayDiffer(t *testing.T) {
+	orig, cand := baseSnapshot(), candidate()
+	orig.Family, cand.Family = FamilyMP4, FamilyMP4
+	cand.Probe.Format.Tags["ENCODER"] = orig.Probe.Format.Tags["ENCODER"] // isolate the brands
+	orig.Probe.Format.Tags["major_brand"], cand.Probe.Format.Tags["major_brand"] = "mp42", "isom"
+	orig.Probe.Format.Tags["minor_version"], cand.Probe.Format.Tags["minor_version"] = "1", "512"
+	orig.Probe.Format.Tags["compatible_brands"] = "isomavc1iso2"
+	cand.Probe.Format.Tags["compatible_brands"] = "isomiso2avc1mp41"
+	if err := Verify(orig, cand); err != nil {
+		t.Fatalf("differing ftyp brands failed an MP4: %v", err)
+	}
+	orig.Family = FamilyMKV
+	var re *RuleError
+	if err := Verify(orig, cand); !errors.As(err, &re) || re.Rule != RuleTags {
+		t.Fatalf("the brand exemption reached Matroska: %v", err)
+	}
+}
+
 // The MP4 shape: cover art is a video stream before the real one, and must count as copied.
 func TestVerify_CoverArtIsACopiedStream(t *testing.T) {
 	orig := Snapshot{

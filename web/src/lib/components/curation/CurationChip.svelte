@@ -8,7 +8,7 @@
 	// When `person` is supplied (actor/director fields), the value is a link to the
 	// person page. Faces live in the page's dedicated People section, so the chip stays
 	// text-only here to avoid showing the same cast twice in two treatments.
-	import type { ResolvedValue } from '$lib/types';
+	import type { ResolvedValue } from '#lib/types.ts';
 
 	let {
 		item,

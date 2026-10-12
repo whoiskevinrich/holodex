@@ -10,10 +10,10 @@
 	// The mutation is applied locally (dismissDigest.ts) and reported up through
 	// `onchange`, so the row leaves instantly and the next loadDigest() agrees.
 	import { tick } from 'svelte';
-	import type { JobDigest, JobRun } from '$lib/types';
-	import { api } from '$lib/api';
-	import { formatAgo, toMessage } from '$lib/format';
-	import JobStatusBadge from '$lib/components/activity/JobStatusBadge.svelte';
+	import type { JobDigest, JobRun } from '#lib/types.ts';
+	import { api } from '#lib/api.ts';
+	import { formatAgo, toMessage } from '#lib/format.ts';
+	import JobStatusBadge from '#lib/components/activity/JobStatusBadge.svelte';
 	import { totalFailures as sumFailures, withoutFailures, withoutRun } from './dismissDigest';
 
 	let {

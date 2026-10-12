@@ -47,21 +47,29 @@ func MP4Args(p Probe, op Op, available map[string]bool, format, src, dst string)
 		return nil, err
 	}
 	args := inputArgs("mov", src)
+	var names []string
+	out := 0
 	for _, s := range p.Streams {
 		// The QuickTime chapter track is regenerated, in place, by -map_chapters; mapping the
 		// source's copy too writes it twice (seen with two or more chapters).
 		if len(p.Chapters) > 0 && isQTChapterTrack(s) {
 			continue
 		}
+		// A track's udta `name` atom reads back as a `name` tag, but the muxer writes that atom
+		// only from `title`, so -map_metadata alone drops it (HandBrake names audio tracks).
+		if n, ok := s.Tags["name"]; ok && s.Tags["title"] == "" {
+			names = append(names, "-metadata:s:"+strconv.Itoa(out), "title="+n)
+		}
 		args = append(args, "-map", "0:"+strconv.Itoa(s.Index))
+		out++
 	}
 	args = append(args, "-c", "copy")
+	args = append(args, names...)
 	args = append(args, enc...)
 	args = append(args, "-filter:"+spec, op.Filter())
-	if e := v.Tags["encoder"]; e != "" {
-		// ffmpeg only stamps its own encoder name when the stream carries none.
-		args = append(args, "-metadata:s:"+spec, "encoder="+e)
-	}
+	// ffmpeg stamps its own encoder name ("Lavc libx264") on a re-encoded stream unless one is
+	// set; the original's, or an empty value when it had none, keeps the stream's tag as it was.
+	args = append(args, "-metadata:s:"+spec, "encoder="+v.Tags["encoder"])
 	return append(args, "-map_metadata", "0", "-map_chapters", "0", "-fflags", "+bitexact",
 		"-movflags", "+faststart", "-f", format, toolArg(dst)), nil
 }

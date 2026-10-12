@@ -8,9 +8,9 @@
 	// extraction row) stages the picked name like any other manual edit. Tokens only;
 	// QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { EntityKind, Person, Studio } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { EntityKind, Person, Studio } from '#lib/types.ts';
 
 	let {
 		kind,

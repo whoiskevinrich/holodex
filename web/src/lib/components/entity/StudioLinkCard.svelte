@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { videoCount } from '$lib/format';
-	import type { Studio } from '$lib/types';
+	import { videoCount } from '#lib/format.ts';
+	import type { Studio } from '#lib/types.ts';
 	import StudioLogoBox from './StudioLogoBox.svelte';
 	import { showName as showNameFor, type Wordmark } from './studioLogo';
 

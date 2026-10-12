@@ -10,10 +10,10 @@
 	// FilmAttachDialog, which is why this stays its own component. Tokens only; QA 3
 	// skins.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage, resolutionBucket } from '$lib/format';
-	import type { FilmSceneCollision, FilmVideoCandidate, Person, Studio } from '$lib/types';
-	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, resolutionBucket } from '#lib/format.ts';
+	import type { FilmSceneCollision, FilmVideoCandidate, Person, Studio } from '#lib/types.ts';
+	import PickerShell, { focusOptionIn } from '#lib/components/entity/PickerShell.svelte';
 
 	let {
 		filmId,

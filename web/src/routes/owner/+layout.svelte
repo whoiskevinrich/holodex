@@ -5,8 +5,8 @@
 	// sole authority — this layout is navigation, not a security boundary.
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { activity } from '$lib/activity.svelte';
-	import { adminMode } from '$lib/adminMode.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { adminMode } from '#lib/adminMode.svelte.ts';
 
 	let { children } = $props();
 

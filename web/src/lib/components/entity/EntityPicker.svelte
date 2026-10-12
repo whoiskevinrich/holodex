@@ -7,9 +7,9 @@
 	// PickerShell. role=combobox + role=listbox with roving tabindex; Tab and ↑/↓ move through
 	// results, Enter/Space/click pick, Esc closes. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage, videoCount, refLabel } from '$lib/format';
-	import type { EntityKind, EntityRef } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage, videoCount, refLabel } from '#lib/format.ts';
+	import type { EntityKind, EntityRef } from '#lib/types.ts';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {

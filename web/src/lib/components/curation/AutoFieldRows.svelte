@@ -29,9 +29,9 @@
 	//         paragraph they drift far from the label they act on, and a second pill
 	//         doubles the drift. This AMENDS F44's shipped layout — the promote pill
 	//         moves too, so re-QA it here, not just the new one.
-	import type { PromotionEntityType, ResolvedField } from '$lib/types';
-	import { api } from '$lib/api';
-	import { providerFromWinningSource, toMessage } from '$lib/format';
+	import type { PromotionEntityType, ResolvedField } from '#lib/types.ts';
+	import { api } from '#lib/api.ts';
+	import { providerFromWinningSource, toMessage } from '#lib/format.ts';
 	import ProvenanceBadge from '../enrichment/ProvenanceBadge.svelte';
 	import UrlValueList from './UrlValueList.svelte';
 	import ChipValueList from './ChipValueList.svelte';

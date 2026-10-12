@@ -13,18 +13,18 @@
 	// are exactly the cross-side comparison the epic forbids. The footer carries verdicts
 	// and nothing else, rendered from the row's own snippet so the two verdict pairs can
 	// never drift apart or disagree about `busy`.
-	import type { DuplicatePair, EntityRef, PersonCard, PersonImage } from '$lib/types';
+	import type { DuplicatePair, EntityRef, PersonCard, PersonImage } from '#lib/types.ts';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
-	import { videoCount, refLabel, sortExternalLinks } from '$lib/format';
-	import { loadPersonCard, type CardLease } from '$lib/components/person/personCard.svelte';
+	import { videoCount, refLabel, sortExternalLinks } from '#lib/format.ts';
+	import { loadPersonCard, type CardLease } from '#lib/components/person/personCard.svelte.ts';
 	import {
 		loadPersonImages,
 		stripGallery,
 		STRIP_GALLERY_SLOTS
-	} from '$lib/components/person/personImages';
-	import PersonImageFrame from '$lib/components/person/PersonImageFrame.svelte';
-	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
-	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
+	} from '#lib/components/person/personImages.ts';
+	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
+	import NationalityFlags from '#lib/components/person/NationalityFlags.svelte';
+	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
 
 	let {
 		pair,

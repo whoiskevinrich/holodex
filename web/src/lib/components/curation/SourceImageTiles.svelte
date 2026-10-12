@@ -7,8 +7,8 @@
 	// Same staged contract as the other two: selecting a tile STAGES (binds `stagedKey`),
 	// never commits; the embedder owns Confirm. Keyboard is the chip row's, verbatim:
 	// roving tabindex, arrows move AND stage, Space/Enter stage. Tokens only; QA Cinémathèque.
-	import type { SourceChip } from '$lib/f36';
-	import type { ResolvedField } from '$lib/types';
+	import type { SourceChip } from '#lib/f36.ts';
+	import type { ResolvedField } from '#lib/types.ts';
 
 	let {
 		field,

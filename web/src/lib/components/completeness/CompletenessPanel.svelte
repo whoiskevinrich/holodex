@@ -3,10 +3,10 @@
 	// docs/design/entity-completeness-handoff.md §2 DD4-DD8). Shared across
 	// video/person/studio detail pages — the panel itself is entity-agnostic;
 	// only the not-applicable toggle (DD8, video-only in v1) needs an id.
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { Completeness } from '$lib/types';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { Completeness } from '#lib/types.ts';
 
 	let {
 		completeness,

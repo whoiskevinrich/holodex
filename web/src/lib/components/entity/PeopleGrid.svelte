@@ -19,9 +19,9 @@
 	// An EMPTY editable grid renders the bare "+ Add person" CTA with NO section and
 	// NO heading (HOLODEX-328): a heading over nothing reads as a section that failed
 	// to load, and the media detail page positions that CTA itself.
-	import { personKey } from '$lib/format';
-	import type { Person, ResolvedPerson, VideoCollisionRef } from '$lib/types';
-	import PersonPoster from '$lib/components/person/PersonPoster.svelte';
+	import { personKey } from '#lib/format.ts';
+	import type { Person, ResolvedPerson, VideoCollisionRef } from '#lib/types.ts';
+	import PersonPoster from '#lib/components/person/PersonPoster.svelte';
 	import PersonPicker from './PersonPicker.svelte';
 	import PosterTile from './PosterTile.svelte';
 

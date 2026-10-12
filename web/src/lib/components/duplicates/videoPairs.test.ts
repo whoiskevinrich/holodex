@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { VideoCompareSide, VideoDuplicatePair, VideoWork } from '$lib/types';
+import type { VideoCompareSide, VideoDuplicatePair, VideoWork } from '#lib/types.ts';
 import {
 	carryLines,
 	factRows,

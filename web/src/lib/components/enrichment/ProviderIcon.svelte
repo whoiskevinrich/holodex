@@ -6,7 +6,7 @@
 	// icon_url (from the providers store). Tokens only.
 	// Consumed by the provenance badge, enrich controls, and website label
 	// (HOLODEX-135/136/137).
-	import { monogram } from '$lib/format';
+	import { monogram } from '#lib/format.ts';
 
 	let {
 		name,

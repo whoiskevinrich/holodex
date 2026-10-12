@@ -1,29 +1,29 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { navSearch } from '$lib/navSearch.svelte';
-	import { toMessage, filterByName } from '$lib/format';
-	import type { Person } from '$lib/types';
-	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
-	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
-	import PersonAvatar from '$lib/components/person/PersonAvatar.svelte';
-	import PersonPosterGrid from '$lib/components/person/PersonPosterGrid.svelte';
-	import PersonViewToggle from '$lib/components/person/PersonViewToggle.svelte';
-	import MergeCanonicalDialog from '$lib/components/entity/MergeCanonicalDialog.svelte';
-	import AlphaIndex from '$lib/components/entity/AlphaIndex.svelte';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
-	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
-	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
-	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
-	import { listScroll } from '$lib/listScroll.svelte';
-	import { shuffleSeed } from '$lib/sortPreference.svelte';
-	import { readView, writeView, type PersonView } from '$lib/viewPreference.svelte';
-	import { seededShuffle } from '$lib/shuffle';
-	import { ENTITY_SORTS, peopleSchema } from '$lib/listState';
-	import { listController } from '$lib/listController.svelte';
-	import DensitySlider from '$lib/components/sort/DensitySlider.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { navSearch } from '#lib/navSearch.svelte.ts';
+	import { toMessage, filterByName } from '#lib/format.ts';
+	import type { Person } from '#lib/types.ts';
+	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
+	import PersonAvatar from '#lib/components/person/PersonAvatar.svelte';
+	import PersonPosterGrid from '#lib/components/person/PersonPosterGrid.svelte';
+	import PersonViewToggle from '#lib/components/person/PersonViewToggle.svelte';
+	import MergeCanonicalDialog from '#lib/components/entity/MergeCanonicalDialog.svelte';
+	import AlphaIndex from '#lib/components/entity/AlphaIndex.svelte';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
+	import DuplicatesBanner from '#lib/components/duplicates/DuplicatesBanner.svelte';
+	import SweepStatusLine from '#lib/components/activity/SweepStatusLine.svelte';
+	import { firstLetter, letterAnchors as computeLetterAnchors } from '#lib/peopleNav.ts';
+	import { listScroll } from '#lib/listScroll.svelte.ts';
+	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import { readView, writeView, type PersonView } from '#lib/viewPreference.svelte.ts';
+	import { seededShuffle } from '#lib/shuffle.ts';
+	import { ENTITY_SORTS, peopleSchema } from '#lib/listState.ts';
+	import { listController } from '#lib/listController.svelte.ts';
+	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
 
 	// People index. Controls are the F73 list toolbar; the sort is one value held by
 	// ListController (ADR-114) — completeness is an owner-only entry in it, never a second
@@ -67,7 +67,7 @@
 
 	const selectedPeople = $derived(people.filter((p) => selectedIds.includes(p.id)));
 
-	// A–Z jump-navigation (alphabetical sort only). Logic lives in $lib/peopleNav.
+	// A–Z jump-navigation (alphabetical sort only). Logic lives in #lib/peopleNav.
 	const letterAnchors = $derived(computeLetterAnchors(people.map((p) => p.display_name ?? p.name)));
 	function jumpTo(letter: string) {
 		const el = document.getElementById(`pl-${letter}`);

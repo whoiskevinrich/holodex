@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { page } from '$app/stores';
-	import { api } from '$lib/api';
-	import { toMessage, aliasHint } from '$lib/format';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
-	import { activity } from '$lib/activity.svelte';
+	import { page } from '$app/state';
+	import { api } from '#lib/api.ts';
+	import { toMessage, aliasHint } from '#lib/format.ts';
+	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { activity } from '#lib/activity.svelte.ts';
 	import type {
 		Completeness,
 		DecisionSource,
@@ -19,34 +19,34 @@
 		PersonImageSet,
 		ResolvedField,
 		Video
-	} from '$lib/types';
-	import { providerOf } from '$lib/f36';
-	import { expandedField } from '$lib/expandedField.svelte';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
-	import CurationFieldRow from '$lib/components/curation/CurationFieldRow.svelte';
-	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
-	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
-	import { filmsRow } from '$lib/filmsRow.svelte';
-	import ProvenanceBadge from '$lib/components/enrichment/ProvenanceBadge.svelte';
-	import EntityVideoMeta from '$lib/components/entity/EntityVideoMeta.svelte';
-	import EnrichPicker from '$lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '$lib/components/enrichment/EnrichProviderChips.svelte';
-	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
-	import PersonBanner from '$lib/components/person/PersonBanner.svelte';
-	import PersonImageFrame from '$lib/components/person/PersonImageFrame.svelte';
-	import NationalityFlags from '$lib/components/person/NationalityFlags.svelte';
-	import PersonGallery from '$lib/components/person/PersonGallery.svelte';
-	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
-	import SourceEditModal from '$lib/components/curation/SourceEditModal.svelte';
-	import UrlValueList from '$lib/components/curation/UrlValueList.svelte';
-	import AutoFieldRows from '$lib/components/curation/AutoFieldRows.svelte';
-	import PromotedFieldEdit from '$lib/components/curation/PromotedFieldEdit.svelte';
-	import CompletenessPanel from '$lib/components/completeness/CompletenessPanel.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import DisplayNameLine from '$lib/components/entity/DisplayNameLine.svelte';
-	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
-	import { providerFromWinningSource, calculatedFrom } from '$lib/format';
+	} from '#lib/types.ts';
+	import { providerOf } from '#lib/f36.ts';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import ExpandableText from '#lib/components/shared/ExpandableText.svelte';
+	import CurationFieldRow from '#lib/components/curation/CurationFieldRow.svelte';
+	import EntityVideos from '#lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '#lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '#lib/filmsRow.svelte.ts';
+	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
+	import EntityVideoMeta from '#lib/components/entity/EntityVideoMeta.svelte';
+	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
+	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
+	import PersonBanner from '#lib/components/person/PersonBanner.svelte';
+	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
+	import NationalityFlags from '#lib/components/person/NationalityFlags.svelte';
+	import PersonGallery from '#lib/components/person/PersonGallery.svelte';
+	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
+	import SourceEditModal from '#lib/components/curation/SourceEditModal.svelte';
+	import UrlValueList from '#lib/components/curation/UrlValueList.svelte';
+	import AutoFieldRows from '#lib/components/curation/AutoFieldRows.svelte';
+	import PromotedFieldEdit from '#lib/components/curation/PromotedFieldEdit.svelte';
+	import CompletenessPanel from '#lib/components/completeness/CompletenessPanel.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import DisplayNameLine from '#lib/components/entity/DisplayNameLine.svelte';
+	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
+	import { providerFromWinningSource, calculatedFrom } from '#lib/format.ts';
 
 	let person = $state<Person | null>(null);
 	// The grid's unfiltered count, bound up from EntityVideos (HOLODEX-501).
@@ -111,7 +111,7 @@
 	// SourceEditModal owns its own staged-selection/Confirm state, this just tracks open/closed.
 	let bioEditOpen = $state(false);
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Banner renders only when a real one is set — for everyone, including the owner
 	// (F25.30). Not every person has a banner-sized image; an empty 8:3 placeholder band
@@ -213,7 +213,7 @@
 	// it lands on a row clipped and `inert` (HOLODEX-398's hazard on the media page). Keyed
 	// on the hash itself because SvelteKit runs no afterNavigate for a same-page hash change.
 	$effect(() => {
-		const hash = $page.url.hash;
+		const hash = page.url.hash;
 		if (!hash || loading) return;
 		untrack(() => void openDeepLinkedDetail(hash));
 	});
@@ -299,7 +299,7 @@
 	}
 
 	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the video/studio
-	// detail pages via $lib/enrichRefresh; only the busy/error state and reload differ.
+	// detail pages via #lib/enrichRefresh; only the busy/error state and reload differ.
 	async function refreshProvider(p: string) {
 		await runEnrichRefresh(
 			'person',

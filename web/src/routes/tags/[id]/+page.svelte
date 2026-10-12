@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { toMessage, videoCount, tagCount, aliasHint } from '$lib/format';
-	import { findTagByName, cycleMessage } from '$lib/tagHierarchy';
-	import type { Category, EntityRef, PersonAlias, Tag, Video } from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import EntityVideos from '$lib/components/entity/EntityVideos.svelte';
-	import FilmsRow from '$lib/components/entity/FilmsRow.svelte';
-	import { filmsRow } from '$lib/filmsRow.svelte';
-	import CategoryPicker from '$lib/components/entity/CategoryPicker.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
-	import WritebackBatchDialog from '$lib/components/writeback/WritebackBatchDialog.svelte';
-	import NameEditControl from '$lib/components/entity/NameEditControl.svelte';
-	import MergeOfferCard from '$lib/components/entity/MergeOfferCard.svelte';
-	import AliasPanel from '$lib/components/person/AliasPanel.svelte';
+	import { page } from '$app/state';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { toMessage, videoCount, tagCount, aliasHint } from '#lib/format.ts';
+	import { findTagByName, cycleMessage } from '#lib/tagHierarchy.ts';
+	import type { Category, EntityRef, PersonAlias, Tag, Video } from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import EntityVideos from '#lib/components/entity/EntityVideos.svelte';
+	import FilmsRow from '#lib/components/entity/FilmsRow.svelte';
+	import { filmsRow } from '#lib/filmsRow.svelte.ts';
+	import CategoryPicker from '#lib/components/entity/CategoryPicker.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
+	import WritebackBatchDialog from '#lib/components/writeback/WritebackBatchDialog.svelte';
+	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
+	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
+	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
 
 	let tag = $state<Tag | null>(null);
 	// Read from the tag payload and bound into AliasPanel (F43 RD7, HOLODEX-507), which
@@ -28,7 +28,7 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
 	let toggleBusy = $state(false);
@@ -154,7 +154,7 @@
 	// ── Parent (F50 S8, ADR-075 D1, HOLODEX-259) ─────────────────────────────────────
 	// Typeahead resolves against a lazily-loaded full tag list, same discipline as the
 	// /tags list's Manage-mode parent control (existing-tags-only, no create-on-typo) —
-	// the matching logic itself is shared via $lib/tagHierarchy.
+	// the matching logic itself is shared via #lib/tagHierarchy.
 	let allTags = $state<Tag[]>([]);
 	let parentOpen = $state(false);
 	let parentValue = $state('');

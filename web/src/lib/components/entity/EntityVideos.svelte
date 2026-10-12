@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import type { MediaFilters, Video } from '$lib/types';
+	import type { MediaFilters, Video } from '#lib/types.ts';
 	import VideoGrid from '../video/VideoGrid.svelte';
-	import { api } from '$lib/api';
-	import { listScroll } from '$lib/listScroll.svelte';
-	import { toMessage, videoCount } from '$lib/format';
-	import { filtersToParams } from '$lib/filters';
-	import { beginRun, queryLabel } from '$lib/runContext';
-	import type { RunMode } from '$lib/run';
+	import { api } from '#lib/api.ts';
+	import { listScroll } from '#lib/listScroll.svelte.ts';
+	import { toMessage, videoCount } from '#lib/format.ts';
+	import { filtersToParams } from '#lib/filters.ts';
+	import { beginRun, queryLabel } from '#lib/runContext.ts';
+	import type { RunMode } from '#lib/run.ts';
 	import PlaySplitButton from '../video/PlaySplitButton.svelte';
 	import SavePlaylistForm from '../video/SavePlaylistForm.svelte';
-	import { activity } from '$lib/activity.svelte';
-	import { navSearch } from '$lib/navSearch.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { navSearch } from '#lib/navSearch.svelte.ts';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
 	// hero, and the reused grid. The optional `detail` snippet renders an entity-specific

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Video } from '$lib/types';
-	import { formatDuration } from '$lib/format';
-	import { hotkey } from '$lib/actions/hotkey.svelte';
-	import { dismissable } from '$lib/actions/dismissable';
+	import type { Video } from '#lib/types.ts';
+	import { formatDuration } from '#lib/format.ts';
+	import { hotkey } from '#lib/actions/hotkey.svelte.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
 	import RunJumpPopover from './RunJumpPopover.svelte';
-	import { setPlayIntent } from '$lib/playlistContext';
-	import { neighbours, runHref, type Run } from '$lib/run';
-	import { nextTile } from '$lib/runContext';
+	import { setPlayIntent } from '#lib/playlistContext.ts';
+	import { neighbours, runHref, type Run } from '#lib/run.ts';
+	import { nextTile } from '#lib/runContext.ts';
 
 	// The next-up strip under the media page's player (F69 P0-9; F75 run strip, design
 	// handoff §3). A sibling of the player box, never a wrapper — it mounts and unmounts

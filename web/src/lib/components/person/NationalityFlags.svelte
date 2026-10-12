@@ -4,8 +4,8 @@
 	// there is more than one, and renders NOTHING when none resolve (no flag, no layout
 	// gap). The flag is imagery; the "+N" chrome uses tokens. alt/title name the country
 	// (or the full list) for the tooltip and screen readers.
-	import { countriesFromNationality } from '$lib/nationality';
-	import { flagUrl } from '$lib/flags';
+	import { countriesFromNationality } from '#lib/nationality.ts';
+	import { flagUrl } from '#lib/flags.ts';
 
 	let { values }: { values: string[] } = $props();
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Video } from '$lib/types';
+	import type { Video } from '#lib/types.ts';
 	import VideoCard from './VideoCard.svelte';
 
 	// The 20 newest videos (F12.3), sliced from the grid's already-loaded page so

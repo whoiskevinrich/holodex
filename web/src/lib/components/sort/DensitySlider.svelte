@@ -7,7 +7,7 @@
 	// The range spans DENSITY_MIN..capForWidth(viewport) rather than ..DENSITY_MAX. With a fixed
 	// DENSITY_MAX a 1920px window would show eight inert positions at the dense end, since the
 	// grids render min(density, cap) — the same dead-stop defect the ladder extension removed.
-	import { mediaDensity, viewportTierCap, DENSITY_MIN, invertDensity, effectiveDensity } from '$lib/density.svelte';
+	import { mediaDensity, viewportTierCap, DENSITY_MIN, invertDensity, effectiveDensity } from '#lib/density.svelte.ts';
 
 	// `label` also opts into the caption's reserved width: the media list wants a captioned
 	// control sized to match its sibling filters, while the People index deliberately runs an

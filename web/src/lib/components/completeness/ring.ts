@@ -2,7 +2,7 @@
 // what the accent arc shows, whether an ink "second lap" is drawn over it, and
 // the aria-label — pure, so the geometry is unit-tested off the component.
 
-import type { CompletenessSummary } from '$lib/types';
+import type { CompletenessSummary } from '#lib/types.ts';
 
 /** Circumference used for stroke-dasharray: 2π·7 ≈ 43.98, and 44 closes a full
  * ring with no visible gap at 14 px (handoff § Ring component). */

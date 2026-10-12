@@ -4,9 +4,9 @@
 	// A denied term blocks a tag from being created, from any origin (scanner, manual
 	// attach, materialization) — exact match, case-insensitive; it never retroactively
 	// removes an existing tag of the same name.
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { DeniedTag } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { DeniedTag } from '#lib/types.ts';
 
 	let terms = $state<DeniedTag[]>([]);
 	let loading = $state(true);

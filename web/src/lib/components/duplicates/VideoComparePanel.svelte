@@ -10,9 +10,9 @@
 	// handed and calls `label`, so a failed fetch here can't disable an action.
 	// Tokens only; QA Cinémathèque.
 	import { tick, type Snippet } from 'svelte';
-	import { api } from '$lib/api';
-	import { formatDuration, resolutionBucket, toMessage } from '$lib/format';
-	import type { VideoCompare, VideoCompareSide, VideoDuplicatePair } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { formatDuration, resolutionBucket, toMessage } from '#lib/format.ts';
+	import type { VideoCompare, VideoCompareSide, VideoDuplicatePair } from '#lib/types.ts';
 	import { factRows, labelError, type LabelField } from './videoPairs';
 
 	let {

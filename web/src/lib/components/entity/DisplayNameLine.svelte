@@ -25,9 +25,9 @@
 	// has no stored spelling; the page then renders canonical and this line renders
 	// nothing — a re-enrich restores the row. Tokens only; QA Cinémathèque.
 	import { tick, untrack } from 'svelte';
-	import type { DecisionSource, ResolvedField } from '$lib/types';
-	import { expandedField } from '$lib/expandedField.svelte';
-	import { isProviderSource, providerOf } from '$lib/f36';
+	import type { DecisionSource, ResolvedField } from '#lib/types.ts';
+	import { expandedField } from '#lib/expandedField.svelte.ts';
+	import { isProviderSource, providerOf } from '#lib/f36.ts';
 	import SourceBadge from '../curation/SourceBadge.svelte';
 
 	let {

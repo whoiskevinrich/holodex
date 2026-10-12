@@ -2,18 +2,18 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto, afterNavigate } from '$app/navigation';
-	import { adminMode } from '$lib/adminMode.svelte';
-	import { activity } from '$lib/activity.svelte';
-	import { searchHistory } from '$lib/searchHistory.svelte';
-	import { navSearch, pageScopeFor } from '$lib/navSearch.svelte';
-	import { dismissable } from '$lib/actions/dismissable';
-	import ActivityIndicator from '$lib/components/activity/ActivityIndicator.svelte';
-	import SearchResultsPanel from '$lib/components/entity/SearchResultsPanel.svelte';
-	import HotkeySheet from '$lib/components/shared/HotkeySheet.svelte';
-	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '$lib/actions/hotkey.svelte';
-	import { silenceMediaInDev } from '$lib/devSilence';
-	import { reauth, trackEdits } from '$lib/reauth.svelte';
-	import SessionExpiredBanner from '$lib/components/activity/SessionExpiredBanner.svelte';
+	import { adminMode } from '#lib/adminMode.svelte.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { searchHistory } from '#lib/searchHistory.svelte.ts';
+	import { navSearch, pageScopeFor } from '#lib/navSearch.svelte.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
+	import ActivityIndicator from '#lib/components/activity/ActivityIndicator.svelte';
+	import SearchResultsPanel from '#lib/components/entity/SearchResultsPanel.svelte';
+	import HotkeySheet from '#lib/components/shared/HotkeySheet.svelte';
+	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '#lib/actions/hotkey.svelte.ts';
+	import { silenceMediaInDev } from '#lib/devSilence.ts';
+	import { reauth, trackEdits } from '#lib/reauth.svelte.ts';
+	import SessionExpiredBanner from '#lib/components/activity/SessionExpiredBanner.svelte';
 
 	let { children } = $props();
 
@@ -67,7 +67,8 @@
 	// longer counts; a query-string or hash change on the same page doesn't.
 	$effect(trackEdits);
 	afterNavigate(({ from, to }) => {
-		if (from?.url.pathname !== to?.url.pathname) reauth.dirty = false;
+		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
+		if (from?.url?.pathname !== to?.url.pathname) reauth.dirty = false;
 	});
 
 	// Ctrl-/Cmd-K focuses the global search (F4.10).

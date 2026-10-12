@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { toMessage, monogram } from '$lib/format';
-	import type { Film } from '$lib/types';
-	import { listScroll } from '$lib/listScroll.svelte';
-	import { shuffleSeed } from '$lib/sortPreference.svelte';
-	import { seededShuffle } from '$lib/shuffle';
-	import { FILM_SORTS, filmsSchema } from '$lib/listState';
-	import { listController } from '$lib/listController.svelte';
-	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
-	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, monogram } from '#lib/format.ts';
+	import type { Film } from '#lib/types.ts';
+	import { listScroll } from '#lib/listScroll.svelte.ts';
+	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import { seededShuffle } from '#lib/shuffle.ts';
+	import { FILM_SORTS, filmsSchema } from '#lib/listState.ts';
+	import { listController } from '#lib/listController.svelte.ts';
+	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 
 	// Films index (F56, design handoff §1): poster-forward grid, closer to the
 	// media-browse density than the People/Studio logo-well rows — a film's default

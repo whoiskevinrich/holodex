@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import { forgetPlaylist } from '$lib/playlistContext';
-	import type { Playlist } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { forgetPlaylist } from '#lib/playlistContext.ts';
+	import type { Playlist } from '#lib/types.ts';
 
 	// The "Add to playlist" picker under the media page's PLAYLISTS row (F69 P0-7,
 	// design handoff §3). Every playlist the owner has, updated_at DESC, as toggle

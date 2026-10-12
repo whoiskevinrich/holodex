@@ -3,12 +3,12 @@
 	// Restore (safe — accent) and Delete permanently (destructive — warn, confirmed).
 	// A tab under the Owner hub (F35); the /owner gate hides it from non-owners and the
 	// API 401s. Tokens only; QA Cinémathèque.
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { formatAgo, formatUntil, toMessage } from '$lib/format';
-	import type { TrashEntry } from '$lib/types';
-	import AsyncState from '$lib/components/shared/AsyncState.svelte';
-	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { formatAgo, formatUntil, toMessage } from '#lib/format.ts';
+	import type { TrashEntry } from '#lib/types.ts';
+	import AsyncState from '#lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 
 	let items = $state<TrashEntry[]>([]);
 	let loading = $state(true);

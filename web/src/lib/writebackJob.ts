@@ -42,7 +42,7 @@ export interface WaitOptions {
 // unaffected by our inability to read it, so we keep polling until the cap. An
 // answer that carries an HTTP status is a real server refusal (e.g. an owner
 // session that expired mid-poll) and rethrows immediately instead of waiting out
-// the cap; duck-typed to keep this module free of an $lib/api import — a
+// the cap; duck-typed to keep this module free of an #lib/api import — a
 // ReauthError has no status and is swallowed on purpose, since it already kicked
 // off a top-level reload (or the held-reload banner, HOLODEX-502).
 async function pollUntilSettled<T>(

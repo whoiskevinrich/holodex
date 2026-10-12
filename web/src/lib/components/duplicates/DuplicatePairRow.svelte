@@ -15,8 +15,8 @@
 	// label here: it has no panel to move it to, and without it two unalike names are
 	// paired with nothing explaining why.
 	// Tokens only; QA Cinémathèque.
-	import { videoCount, toMessage, refLabel } from '$lib/format';
-	import type { DuplicatePair } from '$lib/types';
+	import { videoCount, toMessage, refLabel } from '#lib/format.ts';
+	import type { DuplicatePair } from '#lib/types.ts';
 	import DuplicateComparePanel from './DuplicateComparePanel.svelte';
 	import {
 		disclosureId,

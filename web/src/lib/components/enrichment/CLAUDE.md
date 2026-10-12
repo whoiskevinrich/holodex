@@ -38,7 +38,7 @@ Handoff: `docs/design/enrich-picker-undismiss-handoff.md` (HOLODEX-467).
 ### The candidate slot's box is kind-shaped, always 60 px tall, never `aspect-*`
 
 `EnrichPicker` takes a required `entityType` and draws the slot from
-`SLOT_CLASS[slotShape(entityType)]` (`$lib/candidateImage`): person/film `w-10 h-15`, video
+`SLOT_CLASS[slotShape(entityType)]` (`#lib/candidateImage`): person/film `w-10 h-15`, video
 `w-27 h-15` (the provider sends a backdrop), studio `w-30 h-15` (HOLODEX-414). Add a kind by
 adding a `SlotShape`, never an `{#if}` in the template. Both axes are explicit on purpose — an
 `aspect-*` box with a `w-full` `<img>` can borrow the image's natural width (the F64

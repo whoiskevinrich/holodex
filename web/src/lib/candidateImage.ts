@@ -2,8 +2,8 @@
 // Pure, like candidateDetail.ts: the component keeps a per-row `failed` map (an
 // <img> that fired `error`) and asks this module which branch the slot renders, so
 // the rule is unit-testable without a DOM (this repo has no component-test harness).
-import { isHttpUrl } from '$lib/format';
-import type { EnrichEntityKind } from '$lib/types';
+import { isHttpUrl } from '#lib/format.ts';
+import type { EnrichEntityKind } from '#lib/types.ts';
 
 /** The slice of a candidate the slot reads. */
 export interface ImageCandidate {

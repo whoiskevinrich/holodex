@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import type { MediaBrief } from '$lib/types';
-	import { api } from '$lib/api';
-	import { formatDuration } from '$lib/format';
-	import { setPlayIntent } from '$lib/playlistContext';
-	import { runHref, type Run } from '$lib/run';
+	import type { MediaBrief } from '#lib/types.ts';
+	import { api } from '#lib/api.ts';
+	import { formatDuration } from '#lib/format.ts';
+	import { setPlayIntent } from '#lib/playlistContext.ts';
+	import { runHref, type Run } from '#lib/run.ts';
 	import {
 		ROW_PX,
 		centredScrollTop,
@@ -14,7 +14,7 @@
 		splitMatch,
 		viewportPx,
 		windowRange
-	} from '$lib/runJump';
+	} from '#lib/runJump.ts';
 
 	// The run strip's jump list (spec RD14 / P0-13; run-position-jump-handoff.md). Every item
 	// in the run, in play order, in a virtualised list that scrolls with the wheel. The query

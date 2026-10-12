@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Video } from '$lib/types';
-	import { api } from '$lib/api';
-	import { formatDuration, resolutionBucket } from '$lib/format';
-	import { sceneBadgeLabel } from '$lib/components/film/sceneNumber';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
+	import type { Video } from '#lib/types.ts';
+	import { api } from '#lib/api.ts';
+	import { formatDuration, resolutionBucket } from '#lib/format.ts';
+	import { sceneBadgeLabel } from '#lib/components/film/sceneNumber.ts';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 
 	let {
 		video,

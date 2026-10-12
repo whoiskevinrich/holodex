@@ -8,8 +8,8 @@
 	// single Escape press to the topmost of this modal and a stacked image viewer
 	// rather than closing both at once. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import type { PersonImage } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { PersonImage } from '#lib/types.ts';
 
 	let {
 		personId,

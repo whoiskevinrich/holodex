@@ -10,7 +10,7 @@
 	// old ·source suffix — provenance is noise to the owner (ADR-090: tags have no layer 2).
 	// No glyph while the file's tags are unknown (`on_file` absent) or off the media page
 	// (`written` absent).
-	import type { Tag } from '$lib/types';
+	import type { Tag } from '#lib/types.ts';
 
 	let {
 		tag,

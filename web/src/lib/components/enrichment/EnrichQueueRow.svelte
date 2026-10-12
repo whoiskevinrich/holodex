@@ -8,11 +8,11 @@
 	// matched" dismissal and reopens the picker for it. Enrichment rows never
 	// disappear on resolve — they update chips in place and re-sort (handoff's
 	// Animation/Motion table). Tokens only.
-	import { toMessage } from '$lib/format';
+	import { toMessage } from '#lib/format.ts';
 	import ProviderStatusChip from './ProviderStatusChip.svelte';
-	import { partBadgeLabel } from '$lib/components/video/partBadge';
+	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
 	import EnrichPicker from './EnrichPicker.svelte';
-	import type { EnrichCandidate, EnrichedField, EnrichQueueProviderState, EnrichQueueRow } from '$lib/types';
+	import type { EnrichCandidate, EnrichedField, EnrichQueueProviderState, EnrichQueueRow } from '#lib/types.ts';
 
 	let {
 		row,

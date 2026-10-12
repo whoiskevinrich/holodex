@@ -1,6 +1,6 @@
 // Pure helpers for the media page's owner tag block (HOLODEX-519,
 // docs/design/media-tag-input-handoff.md): the chip order and the add input's suggestions.
-import type { Tag } from '$lib/types';
+import type { Tag } from '#lib/types.ts';
 
 // Pending writeback changes first (D4): add, removal, on the file, Holodex only. The same
 // `written` × `on_file` truth table TagLinkChip draws its glyph from; with either field

@@ -13,8 +13,8 @@
 	// re-reads its own bands (GET …/{id}/completeness, which drains the F65 store)
 	// and redraws, so the list need not re-fetch. Because it is a button it must
 	// never sit inside a card's or row's <a> — every mount hoists it as a sibling.
-	import type { CompletenessSummary, EnrichEntityKind } from '$lib/types';
-	import { api } from '$lib/api';
+	import type { CompletenessSummary, EnrichEntityKind } from '#lib/types.ts';
+	import { api } from '#lib/api.ts';
 	import { arc, bandsAfterRefresh, ringButtonLabel, ringReading, RING_BUSY_ARC, RING_CIRCUMFERENCE } from './ring';
 	import { currentBands, ringKey, ringRefresh } from './ringRefresh.svelte';
 

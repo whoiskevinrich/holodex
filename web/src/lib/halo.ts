@@ -3,7 +3,7 @@
 // (ADR-115), so the mode in force is always PALETTE_MODE; a saved "light" choice is kept
 // but never glows. The rendering side is pure CSS (app.css glows `.halo-dark`), so a
 // component only has to emit the classes.
-import type { HaloMode } from '$lib/types';
+import type { HaloMode } from '#lib/types.ts';
 
 // PALETTE_MODE is the mode the halo toggle reads and writes: Cinémathèque is dark.
 export const PALETTE_MODE: HaloMode = 'dark';
