@@ -52,6 +52,10 @@ type Config struct {
 	DeleteRemoveFiles        bool `yaml:"delete_remove_files"`
 	PurgeIntervalSeconds     int  `yaml:"purge_interval_seconds"`
 
+	// Video file maintenance (F77): how long a re-encoded file's original is held beside it
+	// for Restore before the expiry pass deletes it.
+	MaintenanceHoldDays int `yaml:"maintenance_hold_days"`
+
 	// Thumbnails (ADR-009)
 	ThumbnailEnabled     bool   `yaml:"thumbnail_enabled"`
 	ThumbnailBackfill    string `yaml:"thumbnail_backfill"` // "eager" | "lazy"
@@ -184,6 +188,7 @@ func Defaults() Config {
 		DeleteGracePeriodSeconds: 604800, // 7 days
 		DeleteRemoveFiles:        true,   // "delete means delete"
 		PurgeIntervalSeconds:     3600,   // hourly sweep
+		MaintenanceHoldDays:      7,      // F77 spec R8
 
 		ThumbnailEnabled:     true,
 		ThumbnailBackfill:    "eager",
@@ -339,6 +344,7 @@ func applyEnv(c *Config) {
 	c.DeleteGracePeriodSeconds = envInt("DELETE_GRACE_PERIOD_SECONDS", c.DeleteGracePeriodSeconds)
 	c.DeleteRemoveFiles = envBool("DELETE_REMOVE_FILES", c.DeleteRemoveFiles)
 	c.PurgeIntervalSeconds = envInt("PURGE_INTERVAL_SECONDS", c.PurgeIntervalSeconds)
+	c.MaintenanceHoldDays = envInt("MAINTENANCE_HOLD_DAYS", c.MaintenanceHoldDays)
 
 	c.ThumbnailEnabled = envBool("THUMBNAIL_ENABLED", c.ThumbnailEnabled)
 	c.ThumbnailBackfill = envStr("THUMBNAIL_BACKFILL", c.ThumbnailBackfill)

@@ -71,6 +71,18 @@
 	} from '$lib/extraction';
 	import type { ExtractionQueueRow as QueueRow, ExtractionResolveAction } from '$lib/types';
 	import { waitForWritebackJob, waitForVideoWriteback } from '$lib/writebackJob';
+	import {
+		MAINTENANCE_IDLE,
+		clockTime,
+		failureCopy,
+		fileName,
+		pillLabel,
+		refusalCopy,
+		shortDate,
+		type MaintenanceOp,
+		type MaintenancePreflight,
+		type MaintenanceState
+	} from '$lib/maintenance';
 
 	let video = $state<Video | null>(null);
 	let extra = $state<ExtraMetadata[]>([]);
@@ -176,6 +188,26 @@
 	// re-entry and both disable the same two buttons), so one variable suffices.
 	let writebackAction = $state<'retry' | 'dismiss' | null>(null);
 	let writebackActionError = $state('');
+
+	// Video file maintenance (F77, docs/design/video-file-maintenance-handoff.md). The lane's
+	// state comes from the payload's owner-only `maintenance` block. One dialog at a time:
+	// the flip confirm (which loads its preflight on open), Keep change, or Restore.
+	let maintenance = $state<MaintenanceState>(MAINTENANCE_IDLE);
+	let maintDialog = $state<'flip' | 'keep' | 'restore' | null>(null);
+	let preflight = $state<MaintenancePreflight | null>(null);
+	let preflightError = $state('');
+	let maintBusy = $state(false);
+	let maintError = $state('');
+	let maintAction = $state<'retry' | 'dismiss' | null>(null);
+	let maintActionError = $state('');
+	// The stream URL's version (file_mtime). Pinned per video and advanced only when a
+	// maintenance job settles: a tag write also changes the mtime, and re-versioning the
+	// <video> src on every reload would restart playback mid-watch.
+	let streamVersion = $state<string | undefined>(undefined);
+	let streamVersionFor = -1;
+	// Each flip-dialog open gets a token, so a slow preflight from an earlier open can't
+	// overwrite a newer answer.
+	let preflightToken = 0;
 
 	// Per-item metadata refresh (F31, ADR-047). refreshing drives the spinner/disable;
 	// refreshStatus is the inline aria-live outcome line (no toast system).
@@ -597,6 +629,11 @@
 		enrichQueries = res.enrich_queries ?? {};
 		completeness = res.completeness ?? null;
 		writebackStatus = res.writeback_status ?? { pending: false, failed: false };
+		maintenance = res.maintenance ?? MAINTENANCE_IDLE;
+		if (streamVersionFor !== res.video.id) {
+			streamVersionFor = res.video.id;
+			streamVersion = res.video.file_mtime;
+		}
 		externalLinks = res.external_links ?? [];
 	}
 
@@ -667,6 +704,102 @@
 	// this, a successful retry/dismiss whose follow-up reload hits a transient network
 	// blip would leave the stale failed badge and buttons rendering as if the action
 	// never happened, even though the server-side state already changed.
+	// Poll while a maintenance job is queued or running (F77): the same backoff loop and
+	// generation guard as the writeback poll above, for the same reasons. A re-encode can
+	// run for an hour, so no cap; on settlement the full detail reloads, which brings the new
+	// file_mtime (the player's stream URL changes with it), the held block and the thumbnail.
+	let maintPollingGeneration: number | null = null;
+	$effect(() => {
+		if (!maintenance.pending || maintPollingGeneration === pageGeneration) return;
+		const gen = pageGeneration;
+		maintPollingGeneration = gen;
+		const videoId = id;
+		waitForVideoWriteback(async () => (await api.getMedia(videoId)).maintenance ?? MAINTENANCE_IDLE, {
+			cancelled: () => unmounted || gen !== pageGeneration,
+			timeoutMs: Infinity
+		}).then(() => {
+			if (maintPollingGeneration === gen) maintPollingGeneration = null;
+			if (unmounted || gen !== pageGeneration) return;
+			// The file changed in place: reload, then move the player onto the new bytes.
+			void reloadDetail().then(() => {
+				if (gen === pageGeneration) streamVersion = video?.file_mtime;
+			});
+		});
+	});
+
+	// Opening the flip dialog runs the preflight; the dialog shows "Checking…" with no confirm
+	// button until it answers, then either the confirm or the refusal (handoff §4).
+	function openFlip() {
+		maintDialog = 'flip';
+		preflight = null;
+		preflightError = '';
+		maintError = '';
+		const token = ++preflightToken;
+		const current = () => token === preflightToken && maintDialog === 'flip';
+		api.maintenancePreflight(id).then(
+			(pf) => {
+				if (current()) preflight = pf;
+			},
+			(e) => {
+				if (current()) preflightError = toMessage(e);
+			}
+		);
+	}
+
+	function closeMaint() {
+		if (!maintBusy) maintDialog = null;
+	}
+
+	// Queue an operation; on success the dialog closes and the section shows the pill at once
+	// (optimistic), and the poll takes it from there. A refusal from the re-run preflight
+	// turns the open dialog into its refused state.
+	async function queueMaint(op: MaintenanceOp, call: () => Promise<{ refused?: MaintenancePreflight }>) {
+		if (maintBusy) return;
+		maintBusy = true;
+		maintError = '';
+		const gen = pageGeneration;
+		try {
+			const res = await call();
+			if (gen !== pageGeneration) return;
+			if (res.refused) {
+				if (op === 'hflip') {
+					maintDialog = 'flip';
+					preflight = res.refused;
+				} else {
+					// Keep change / Restore stay in their own dialog with the reason as its error.
+					maintError = refusalCopy(res.refused);
+				}
+				return;
+			}
+			maintDialog = null;
+			maintenance = { ...maintenance, pending: true, running: false, failed: false, error: undefined, op };
+		} catch (e) {
+			maintError = toMessage(e);
+		} finally {
+			maintBusy = false;
+		}
+	}
+
+	async function runMaintAction(action: 'retry' | 'dismiss') {
+		if (maintAction) return;
+		maintAction = action;
+		maintActionError = '';
+		try {
+			if (action === 'retry') {
+				await api.retryMaintenance(id);
+				maintenance = { ...maintenance, pending: true, running: false, failed: false, error: undefined };
+			} else {
+				await api.dismissMaintenance(id);
+				maintenance = { ...maintenance, failed: false, error: undefined };
+			}
+			await reloadDetail();
+		} catch (e) {
+			maintActionError = toMessage(e);
+		} finally {
+			maintAction = null;
+		}
+	}
+
 	async function runWritebackAction(
 		action: 'retry' | 'dismiss',
 		call: () => Promise<unknown>,
@@ -1488,7 +1621,7 @@
 					     list thumbnail (VideoCard) is a separate, unaffected derivative. -->
 					<video
 						bind:this={videoEl}
-						src={video ? api.streamURL(video.id) : undefined}
+						src={video ? api.streamURL(video.id, streamVersion) : undefined}
 						poster={video?.poster_url
 							? api.thumbnailReload(video.poster_url, thumbVersion)
 							: undefined}
@@ -1505,7 +1638,7 @@
 						<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface text-center">
 							<p class="text-sm text-muted">This browser can't decode this file's codec.</p>
 							{#if video}
-								<a href={api.streamURL(video.id)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
+								<a href={api.streamURL(video.id, streamVersion)} download class="rounded-theme bg-accent px-4 py-2 text-sm font-medium text-accent-ink">
 									Download / open file
 								</a>
 							{/if}
@@ -2430,6 +2563,89 @@
 					</section>
 				{/if}
 
+				<!-- Owner-only Maintenance block (F77, docs/design/video-file-maintenance-handoff.md):
+				     repairs to the file's picture, apart from Manage's deletes. One entry today;
+				     aspect-ratio operations will stack under it. While a job runs the button is
+				     replaced, not disabled, by the status pill. -->
+				{#if isOwner}
+					<section class="space-y-2 border-t border-rule pt-4" aria-labelledby="maintenance-heading">
+						<h2 id="maintenance-heading" class="text-xs uppercase tracking-wide text-muted">Maintenance</h2>
+						<div class="flex flex-col items-start gap-2" aria-live="polite">
+							{#if maintenance.pending}
+								<span
+									class="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[0.65rem] text-accent-ink"
+								>
+									<svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+									</svg>
+									{pillLabel(maintenance.op, maintenance.running)}
+								</span>
+								<p class="text-xs text-muted">
+									{#if maintenance.started_at}Started {clockTime(maintenance.started_at)}.{/if} You can leave this page.
+								</p>
+							{:else}
+								{#if maintenance.held}
+									<div class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink">
+										<p>
+											Flipped {shortDate(maintenance.held.created_at)}. Original kept until
+											{shortDate(maintenance.held.expires_at)}, then deleted.
+										</p>
+										<div class="mt-2 flex flex-wrap gap-2">
+											<button
+												type="button"
+												class="btn-ghost rounded-theme px-3 py-1.5 text-sm text-ink"
+												onclick={() => ((maintError = ''), (maintDialog = 'keep'))}>Keep change</button
+											>
+											<button
+												type="button"
+												class="btn-quiet px-3 py-1.5 text-sm"
+												onclick={() => ((maintError = ''), (maintDialog = 'restore'))}>Restore original</button
+											>
+										</div>
+									</div>
+								{/if}
+								{#if maintenance.failed}
+									<p class="flex flex-wrap items-center gap-2 text-xs text-warn">
+										<span>{failureCopy(maintenance.op, maintenance.error)}</span>
+										<button
+											type="button"
+											onclick={() => runMaintAction('retry')}
+											disabled={maintAction !== null}
+											class="text-accent underline hover:no-underline disabled:cursor-not-allowed"
+										>
+											{maintAction === 'retry' ? 'Retrying…' : 'Retry'}
+										</button>
+										<button
+											type="button"
+											onclick={() => runMaintAction('dismiss')}
+											disabled={maintAction !== null}
+											class="text-muted underline hover:no-underline disabled:cursor-not-allowed"
+										>
+											{maintAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
+										</button>
+									</p>
+									{#if maintActionError}
+										<p class="text-xs text-warn">{maintActionError}</p>
+									{/if}
+								{/if}
+								<button
+									type="button"
+									onclick={openFlip}
+									class="btn-ghost inline-flex items-center gap-1.5 rounded-theme px-3 py-1.5 text-sm"
+								>
+									<svg class="h-4 w-4" viewBox="0 0 18 16" aria-hidden="true">
+										<path d="M7 2 L7 14 L1 14 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+										<path d="M11 2 L11 14 L17 14 Z" fill="currentColor" />
+										<line x1="9" y1="0" x2="9" y2="16" stroke="currentColor" stroke-width="1" stroke-dasharray="2 2" />
+									</svg>
+									Flip horizontally…
+								</button>
+							{/if}
+						</div>
+					</section>
+				{/if}
+
 				<!-- Owner-only Manage block (F24): destructive actions, kept apart from the
 				     content and the Back link so a delete is never adjacent to navigation.
 				     Effective gate (F29) so visitor view hides it. -->
@@ -2739,6 +2955,92 @@
 					<span class="font-semibold">permanently removed</span> from disk. This cannot be undone.
 				</p>
 				<p class="truncate font-mono text-xs text-muted" title={video?.file_path}>{video?.file_path}</p>
+			{/snippet}
+		</ConfirmDialog>
+	{/if}
+
+	{#if maintDialog === 'flip'}
+		<!-- Flip confirm (handoff §2 states 4–5). Checking and refused states carry no confirm
+		     button: it never appears and then gets pulled away. -->
+		{#if preflight?.ok}
+			<ConfirmDialog
+				title="Flip horizontally?"
+				confirmLabel="Flip"
+				variant="accent"
+				busy={maintBusy}
+				error={maintError}
+				onconfirm={() => queueMaint('hflip', () => api.flipMedia(id))}
+				oncancel={closeMaint}
+			>
+				{#snippet body()}
+					<p>
+						The picture in <span class="font-semibold">{fileName(video?.file_path)}</span> is mirrored left to
+						right. The video is re-encoded; audio, subtitles, chapters, cover art and every tag are kept as they are.
+					</p>
+					<p class="text-xs text-muted">
+						Needs {formatBytes(preflight!.need_bytes)} free · {formatBytes(preflight!.free_bytes)} available
+					</p>
+					<p class="text-xs text-muted">
+						Original kept until {shortDate(preflight!.expires_at)}, then deleted. Restore it before then.
+					</p>
+				{/snippet}
+			</ConfirmDialog>
+		{:else if preflight}
+			<ConfirmDialog title="Can't flip this file" cancelLabel="Close" oncancel={closeMaint}>
+				{#snippet body()}
+					<p>{refusalCopy(preflight!)}</p>
+				{/snippet}
+			</ConfirmDialog>
+		{:else if preflightError}
+			<ConfirmDialog title="Can't check this file" cancelLabel="Close" oncancel={closeMaint}>
+				{#snippet body()}
+					<p>Holodex couldn't read this file to check it. It may be damaged or unreadable.</p>
+					<p class="text-xs text-muted">{preflightError}</p>
+				{/snippet}
+			</ConfirmDialog>
+		{:else}
+			<ConfirmDialog title="Flip horizontally?" oncancel={closeMaint}>
+				{#snippet body()}
+					<p class="text-muted">Checking…</p>
+				{/snippet}
+			</ConfirmDialog>
+		{/if}
+	{:else if maintDialog === 'keep' && maintenance.held}
+		<!-- Keep change (handoff §2 state 7): deletes the only copy of the original. Warn
+		     variant; focus starts on Cancel, as for Purge. -->
+		<ConfirmDialog
+			title="Delete the original?"
+			confirmLabel="Delete original"
+			busy={maintBusy}
+			error={maintError}
+			onconfirm={() => queueMaint('discard', () => api.discardOriginal(id))}
+			oncancel={closeMaint}
+		>
+			{#snippet body()}
+				<p>
+					The original of <span class="font-semibold">{fileName(video?.file_path)}</span> is deleted now instead
+					of on {shortDate(maintenance.held!.expires_at)}. You won't be able to restore it.
+				</p>
+				<p class="truncate font-mono text-xs text-muted" title={video?.file_path}>{video?.file_path}</p>
+			{/snippet}
+		</ConfirmDialog>
+	{:else if maintDialog === 'restore' && maintenance.held}
+		<!-- Restore original (handoff §2 state 8). -->
+		<ConfirmDialog
+			title="Restore the original?"
+			confirmLabel="Restore"
+			variant="accent"
+			busy={maintBusy}
+			error={maintError}
+			onconfirm={() => queueMaint('restore', () => api.restoreOriginal(id))}
+			oncancel={closeMaint}
+		>
+			{#snippet body()}
+				<p>
+					<span class="font-semibold">{fileName(video?.file_path)}</span> goes back to how it was before
+					{shortDate(maintenance.held!.created_at)}. Tags written to this file since then are undone in the file; the
+					library keeps its values.
+				</p>
 			{/snippet}
 		</ConfirmDialog>
 	{/if}

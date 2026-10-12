@@ -571,6 +571,17 @@ func existingTagsXML(ctx context.Context, path string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// ExistingTagsXML is existingTagsXML for other packages (internal/maintenance carries a
+// re-encoded track's own tags through mkvmerge, F77), with the document already cleaned of
+// XML-illegal characters and character references so encoding/xml can parse it.
+func ExistingTagsXML(ctx context.Context, path string) (string, error) {
+	doc, err := existingTagsXML(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	return stripIllegalCharRefs(stripIllegalXML(doc)), nil
+}
+
 // mergeTagsXML folds fields into an existing Matroska tags document, rendering
 // the result for mkvpropedit's --tags all:. That option REPLACES the whole
 // TAGS element — per-track Tags included, hence carrying them through — rather

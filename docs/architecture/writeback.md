@@ -78,7 +78,10 @@ Every production write goes through `internal/writequeue`. An enqueue inserts a 
 job id. Workers run on the application-lifetime context, so no client action cancels a write.
 
 - **One job per file** carries every field; the worker calls `WriteBatch` once.
-- **Concurrency** is `WRITEBACK_CONCURRENCY` (default 1, fully serialized).
+- **Concurrency** is `WRITEBACK_CONCURRENCY` (default 1, fully serialized). These workers claim only
+  `kind='write'` rows. `kind='maintenance'` rows (re-encodes) have their own single worker, and no
+  claim in either lane takes a row whose video already has a running row
+  ([file-maintenance.md](file-maintenance.md)).
 - **Batches.** `EnqueueMany` inserts one job per video under a shared `batch_id`, the key revert and
   batch status use.
 - **Crash recovery.** At boot `RecoverRunningWritebacks` resets `running` to `pending` (the original

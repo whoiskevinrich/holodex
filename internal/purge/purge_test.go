@@ -21,12 +21,22 @@ type fakeRepo struct {
 	softDeleted   []int64
 	runs          []model.JobRun
 	expiredCalled bool
+	held          map[int64]*repo.HeldOriginal
+	maintBusy     map[int64]bool // a maintenance job is queued or running
 
 	expiredFilms    []repo.TrashItem
 	missingFilms    map[int64]bool // SoftDeleteFilm returns ErrNotFound
 	softDeletedFilm []int64
 	hardDeletedFilm []int64
 	filmListErr     error
+}
+
+func (f *fakeRepo) GetHeldOriginal(_ context.Context, id int64) (*repo.HeldOriginal, error) {
+	return f.held[id], nil
+}
+
+func (f *fakeRepo) GetVideoMaintenanceStatus(_ context.Context, id int64) (repo.MaintenanceStatus, error) {
+	return repo.MaintenanceStatus{VideoWritebackStatus: repo.VideoWritebackStatus{Pending: f.maintBusy[id]}}, nil
 }
 
 func (f *fakeRepo) ExpiredSoftDeletedFilms(_ context.Context, _ time.Time) ([]repo.TrashItem, error) {
