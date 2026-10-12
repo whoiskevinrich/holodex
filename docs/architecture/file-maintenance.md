@@ -160,8 +160,9 @@ Before any rename, `maintenance.Verify(original, candidate, op)` compares:
 One rule maps to each output-contract clause in the spec:
 - stream count, order, type, language, title and disposition are equal;
 - copied streams are byte-equal by packet hash (`ffprobe -show_packets` digest);
-- every tag key and value is equal, except `_STATISTICS`-listed tags on the re-encoded track and
-  container writing-application fields;
+- every tag key and value is equal, except `_STATISTICS`-listed tags on the re-encoded track,
+  Matroska's container writing-application field, and MP4's `ftyp` brand fields (ffmpeg writes its
+  own `ftyp`, and `-brand` sets only the major brand);
 - chapters are equal;
 - on the re-encoded stream, codec, width, height, pixel format, colour fields and frame rate are
   equal;
