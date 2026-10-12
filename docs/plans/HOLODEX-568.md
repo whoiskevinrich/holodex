@@ -68,7 +68,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 4. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
 5. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
 6. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-7. [ ] [—] After merge: ask HOLODEX-567 to revisit F12.8 ("moved files rank by when moved") — `docs/specs/phase-2-mcp-polish.md`
+7. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
+8. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

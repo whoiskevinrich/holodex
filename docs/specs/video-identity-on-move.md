@@ -4,7 +4,7 @@
 **Phase**: Library scanning (owner-facing, no new screen)
 **Jira**: [HOLODEX-568](https://whoiskevinrich.atlassian.net/browse/HOLODEX-568)
 **Related**: [HOLODEX-567](https://whoiskevinrich.atlassian.net/browse/HOLODEX-567) separates
-"Date added" from "Recently updated" (F12.1, F12.7 and F12.8 in
+"Date added" from "Updated" (F12.1, F12.7 and F12.8 in
 [`phase-2-mcp-polish.md`](phase-2-mcp-polish.md)). This spec is what lets a move keep its place in
 both sorts. [Delete a Media Item](delete-media.md) owns the trash. The
 [file-maintenance](video-file-maintenance.md) swap replaces a file at the **same** path and is not
@@ -28,7 +28,7 @@ duration, which is likely the trace of exactly this.
 ## Goals
 
 1. **A move is invisible to the library.** A file that is moved or renamed keeps its identity: the
-   same video, the same place in "Date added" and in "Recently updated", and all of its curation,
+   same video, the same place in "Date added" and in the "Updated" sorts, and all of its curation,
    links, playlist places and provider data.
 2. **Past moves are healed.** Every past move that can be recognised without ambiguity is folded
    back into the original video automatically, with no owner action.
@@ -96,7 +96,7 @@ is never a match target.
 points that video at the new path and shows it again. No new video is created.
 - The video keeps its identity, its place in "Date added", and all of its curation, links,
   playlist places and provider data.
-- A move alone is **not an update**: its place in "Recently updated" doesn't change (HOLODEX-567,
+- A move alone is **not an update**: its place in the "Updated — newest / oldest" sorts doesn't change (HOLODEX-567,
   F12.7).
 
 **P0-4. Ambiguity is declined.** If a new path matches **more than one** missing video, or more than
@@ -107,7 +107,8 @@ arrive as new videos, and the scan counts them as ambiguous (P0-7).
 match under P0-1, and the match is unambiguous under P0-4, the newer one is **folded into the older
 one**:
 - The **older** video survives, with its identity and its place in "Date added". Its file path
-  becomes the newer one's, and it is shown again.
+  becomes the newer one's, and it is shown again. Healing a move is not an update either: the
+  survivor keeps its own place in the "Updated" sorts, not the newer copy's.
 - The newer video is removed. Nothing attached to it is lost: everything moves onto the survivor
   according to P0-6.
 - This runs automatically on the first scan after release, and on every later scan, so a pair

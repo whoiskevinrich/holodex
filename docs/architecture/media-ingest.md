@@ -61,7 +61,8 @@ evidence, where the match runs, and the fold.
 - **The fold.** After deactivation, a reconcile query pairs each hidden row with active rows of a
   *higher* id carrying the same evidence. Pairs that are one-to-one on both sides, with no
   `entity_keep_separate('video', …)` row, are folded into the older id in one transaction under
-  `writeMu`, and the newer row is then hard-deleted. The carry reuses `planCarry` from duplicate
+  `writeMu`, and the newer row is then hard-deleted. The survivor keeps its own `indexed_at`; the
+  newer row's insert time is the move, which is not an update. The carry reuses `planCarry` from duplicate
   videos ([entity-identity.md](entity-identity.md#duplicate-videos-are-computed-on-demand-not-queued))
   with two differences:
   - a per-field conflict goes to the newer `created_at` instead of to the kept video;
