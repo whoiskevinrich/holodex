@@ -37,11 +37,11 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
-- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10 at 65e40cb4
-- [/] backend → `{cmd,internal,providers}/**` — feature-complete and proven on real MP4 and MKV files in the runtime image; ready for /handoff to tick
-- [/] frontend → `web/src/**` — Maintenance section + dialogs built and live-QA'd; design re-confirmed 2026-10-11; awaiting the owner's build-vs-mockup comparison
-- [/] testing `testing-strategy` — §25 built: unit, API, live QA and the `make test-image` real-file matrix all pass (coverage 87.3% vs a 90% target, gap = deep tool-failure branches); owner items 11–12 open
-- [/] security `security-review` — design reviewed 2026-10-10 (no findings ≥8/10); the implementation review is still owed
+- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10, re-confirmed 2026-10-11 at d58dadc4
+- [x] backend → `{cmd,internal,providers}/**` — migration 0062, queue lanes, `internal/maintenance` (pipeline, verifier, swap, worker, expiry), owner API, purge; proven on real MP4 and five MKV shapes in the runtime image
+- [x] frontend → `web/src/**` — Maintenance section + dialogs; live-QA'd; owner confirmed the build matches the approved mockup 2026-10-11
+- [x] testing `testing-strategy` — §25: unit, API, live QA and the `make test-image` real-file matrix all pass; coverage 87.3% vs a 90% target (gap = deep tool-failure branches, recorded in §25.9)
+- [x] security `security-review` — design review 2026-10-10 and implementation review 2026-10-11: no findings ≥8/10, all 7 design checks pass
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -58,8 +58,9 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [security] Implementation security review against the 7 design checks — branch diff
-2. [ ] [—] Sweep HOLODEX-556 to In Review when the PR is marked ready (epics skip jira-sync) — Jira
+1. [ ] [backend] Merge origin/main: renumber `0062_file_maintenance` → `0063` (+ `TestMigration0062…` → 0063, Migrate(61/62) → 62/63), resolve `purge_test.go` (keep both fakes' methods), rerun suites, then `gh pr ready 486` — `internal/db/migrations/`, `internal/purge/`
+2. [ ] [—] Sweep HOLODEX-556 to In Review on ready and to Done when #486 merges (epics skip jira-sync) — Jira
+3. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -72,8 +73,8 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 -->
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
-- skills: code-review
-- handoff: Real-file matrix passes in the runtime image (MP4 + five MKV shapes + refusals + worker flips); the image run fixed MKV mux-date and statistics handling. Next: the implementation security review (Up next #1), then owner QA items 11–12.
+- skills: code-review, security-review, handoff
+- handoff: Every gate settled (owner confirmed the build matches the mockup; implementation security review clean) but #486 stays draft — merging origin/main conflicts: `internal/purge/purge_test.go`, and main's `0062_film_soft_delete` collides with our `0062_file_maintenance`. Start at Up next #1: renumber ours to 0063, resolve, merge, then mark ready.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
