@@ -13,8 +13,8 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: "Owners can flip a mirrored video horizontally from its details page; every tag, track and chapter is kept, and the original is held for a week in case you want it back."
 approved:
   design:
-    on: 2026-10-11
-    at: d58dadc4
+    on: 2026-10-12
+    at: 04dd6cad
 ---
 
 # HOLODEX-556 · F77 Video file maintenance — flip horizontally
@@ -37,7 +37,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 - [x] spec `write-spec` → `docs/specs/**` — video-file-maintenance.md (F77), Q1–Q3 resolved
 - [x] architecture `architecture` → `docs/architecture/**` — file-maintenance.md (new topic doc) + writeback.md lane note
-- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10, re-confirmed 2026-10-11 at d58dadc4
+- [x] design `design-handoff` → `docs/design/**` — handoff + mockup SVG; signed off 2026-10-10, re-confirmed 2026-10-11 at d58dadc4; re-pinned 2026-10-12 to the squash 04dd6cad with the owner's yes (d58dadc4 lived only on the deleted epic branch; F77's design files unchanged)
 - [x] backend → `{cmd,internal,providers}/**` — migration 0062, queue lanes, `internal/maintenance` (pipeline, verifier, swap, worker, expiry), owner API, purge; proven on real MP4 and five MKV shapes in the runtime image
 - [x] frontend → `web/src/**` — Maintenance section + dialogs; live-QA'd; owner confirmed the build matches the approved mockup 2026-10-11
 - [x] testing `testing-strategy` — §25: unit, API, live QA and the `make test-image` real-file matrix all pass; coverage 87.3% vs a 90% target (gap = deep tool-failure branches, recorded in §25.9)
@@ -69,6 +69,10 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-12 · design sign-off re-pinned
+- skills: —
+- handoff: The design sign-off is re-pinned from d58dadc4 to 04dd6cad, with the owner's yes. d58dadc4 was unreachable after the squash-merge, so the `gate` check failed on #495. The owner's real-file watch (Up next #1) is the only open item.
 
 ### 2026-10-12 · merged; Decided-in links
 - skills: —
