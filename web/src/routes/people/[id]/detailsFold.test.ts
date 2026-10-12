@@ -35,6 +35,6 @@ describe('person Details fold', () => {
 		const body = fn.slice(0, fn.indexOf('\n\t}\n'));
 		expect(body).toMatch(/row\?\.closest\('#person-details-fields'\)/);
 		expect(body).toMatch(/detailsExpanded = true;/);
-		expect(source).toMatch(/const hash = \$page\.url\.hash;/);
+		expect(source).toMatch(/const hash = page\.url\.hash;/);
 	});
 });

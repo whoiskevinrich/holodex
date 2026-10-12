@@ -185,7 +185,8 @@
 	// link (ADR-114 D4, exitAfterRemoval's rule).
 	let editFromPlaylist = false;
 	afterNavigate(({ from }) => {
-		editFromPlaylist ||= from?.url.pathname === `/playlists/${editId}`;
+		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
+		editFromPlaylist ||= from?.url?.pathname === `/playlists/${editId}`;
 	});
 	const cancelEdit = () => exitAfterRemoval(editFromPlaylist, `/playlists/${editId}`);
 

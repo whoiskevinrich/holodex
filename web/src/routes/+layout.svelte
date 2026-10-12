@@ -67,7 +67,8 @@
 	// longer counts; a query-string or hash change on the same page doesn't.
 	$effect(trackEdits);
 	afterNavigate(({ from, to }) => {
-		if (from?.url.pathname !== to?.url.pathname) reauth.dirty = false;
+		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
+		if (from?.url?.pathname !== to?.url.pathname) reauth.dirty = false;
 	});
 
 	// Ctrl-/Cmd-K focuses the global search (F4.10).

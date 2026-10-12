@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
@@ -34,7 +34,7 @@
 	const MANUAL = { value: 'manual', label: 'Manual order' };
 	const PAGE_SIZE = 50;
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
 	let playlist = $state<Playlist | null>(null);

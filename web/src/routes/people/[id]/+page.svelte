@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { toMessage, aliasHint } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
@@ -111,7 +111,7 @@
 	// SourceEditModal owns its own staged-selection/Confirm state, this just tracks open/closed.
 	let bioEditOpen = $state(false);
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// Banner renders only when a real one is set — for everyone, including the owner
 	// (F25.30). Not every person has a banner-sized image; an empty 8:3 placeholder band
@@ -213,7 +213,7 @@
 	// it lands on a row clipped and `inert` (HOLODEX-398's hazard on the media page). Keyed
 	// on the hash itself because SvelteKit runs no afterNavigate for a same-page hash change.
 	$effect(() => {
-		const hash = $page.url.hash;
+		const hash = page.url.hash;
 		if (!hash || loading) return;
 		untrack(() => void openDeepLinkedDetail(hash));
 	});

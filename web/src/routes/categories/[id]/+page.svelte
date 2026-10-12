@@ -6,7 +6,7 @@
 	// page's Tags section (media/[id]/+page.svelte), adapted from a video's tags to
 	// a category's: add resolves-or-creates the tag by name (no video attach) then
 	// assigns it; remove unassigns rather than detaching a video link.
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api, ApiError } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, tagCount, videoCount } from '$lib/format';
@@ -18,7 +18,7 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
 	function load() {

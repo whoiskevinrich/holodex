@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { exitAfterRemoval } from '$lib/listState';
@@ -210,7 +210,7 @@
 		}
 	}
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
 
 	// `name` is an identity column, not a Details row (its rename lives on the title's

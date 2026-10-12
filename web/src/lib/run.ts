@@ -154,7 +154,9 @@ export interface RunParam {
 	seed?: number;
 }
 
-export function parseRunParam(url: URL): RunParam | null {
+export function parseRunParam(url: {
+	searchParams: Pick<URLSearchParams, 'get' | 'has'>;
+}): RunParam | null {
 	const sp = url.searchParams;
 	const out: RunParam = {};
 	const run = sp.get('run');

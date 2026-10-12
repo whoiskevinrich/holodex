@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '$lib/format';
 	import { runEnrichRefresh, runEnrichRefreshAll } from '$lib/enrichRefresh';
@@ -96,7 +96,7 @@
 	let refreshingAll = $state(false);
 	let actionError = $state('');
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
 
 	// Studio-capable providers offered as Enrich actions (one per provider, mirroring

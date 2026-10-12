@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { beforeNavigate } from '$app/navigation';
 	import { api } from '$lib/api';
 	import { listScroll } from '$lib/listScroll.svelte';
@@ -16,7 +16,7 @@
 	// on "All" (NS1: "the page renders it full-width as the page body").
 	let activeTab = $state<SearchTab>('all');
 
-	const q = $derived($page.url.searchParams.get('q') ?? '');
+	const q = $derived(page.url.searchParams.get('q') ?? '');
 
 	// On the first load only, restore the scroll position stashed when we last left these
 	// results (← Back from a person/studio/tag/video), once the re-fetched results have
