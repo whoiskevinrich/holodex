@@ -45,6 +45,7 @@ type Repository interface {
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
 	DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, error)
 	Reactivate(ctx context.Context, id int64) error
+	SetContentFingerprint(ctx context.Context, id int64, fp string) error
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
@@ -470,6 +471,16 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	// skipped: re-extracting it once fills file_tags, which is never NULL after
 	// an upsert, so the next scan takes the fast-path again (HOLODEX-468).
 	if unchanged && prev.FileTagsKnown {
+		// Lazy fingerprint backfill (F79): an unchanged file whose row predates
+		// migration 0064 is fingerprinted without re-extraction. A failure is
+		// logged, never fatal to the file; the next pass retries.
+		if !prev.FingerprintKnown {
+			if fp, err := contentFingerprint(path); err != nil {
+				s.log.Warn("fingerprint failed", "path", path, "err", err)
+			} else if err := s.repo.SetContentFingerprint(ctx, prev.ID, fp); err != nil {
+				s.log.Warn("store fingerprint failed", "id", prev.ID, "err", err)
+			}
+		}
 		// Unchanged but still present. If a prior pass deactivated the row (e.g. a
 		// transient empty/unreadable walk), reactivate it cheaply — the metadata is
 		// already current, so there's no need to re-extract (issue #26).
@@ -492,6 +503,11 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	}
 
 	v := buildVideo(path, info, mtime, ex)
+	// A fingerprint failure must not hide a file that extracted fine: it is
+	// stored as unknown (NULL) and the fast-path backfill retries next pass.
+	if v.ContentFP, err = contentFingerprint(path); err != nil {
+		s.log.Warn("fingerprint failed; stored as unknown", "path", path, "err", err)
+	}
 	id, err := s.repo.UpsertVideo(ctx, v, ex.Extra)
 	if err != nil {
 		s.fileFailed(st, path, "upsert failed", err)
@@ -560,7 +576,11 @@ func (s *Scanner) BuildVideoFromFile(ctx context.Context, path string) (*model.V
 	if err != nil {
 		return nil, nil, err
 	}
-	return buildVideo(path, info, mtime, ex), ex.Extra, nil
+	v := buildVideo(path, info, mtime, ex)
+	if v.ContentFP, err = contentFingerprint(path); err != nil {
+		return nil, nil, err
+	}
+	return v, ex.Extra, nil
 }
 
 func buildVideo(path string, info os.FileInfo, mtime time.Time, ex metadata.Extracted) *model.Video {

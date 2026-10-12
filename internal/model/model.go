@@ -51,7 +51,10 @@ type Video struct {
 	RecordedAt  *time.Time `json:"recorded_at,omitempty"`
 	IndexedAt   time.Time  `json:"indexed_at"`
 	FileMtime   time.Time  `json:"file_mtime"`
-	Active      bool       `json:"-"`
+	// ContentFP is the sampled content fingerprint that identifies the file
+	// across a move or rename (F79). Empty = not computed; stored as NULL.
+	ContentFP string `json:"-"`
+	Active    bool   `json:"-"`
 
 	// ThumbnailState is the cover-image pipeline state (ADR-009): "" (none yet),
 	// "embedded", "generated", "uploaded" (F52), or "failed". Internal bookkeeping —

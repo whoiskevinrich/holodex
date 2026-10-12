@@ -23,12 +23,33 @@ type fakeRepo struct {
 	nextID  int64
 	byPath  map[string]repo.VideoStat
 	active  map[int64]bool
-	deleted map[int64]bool // soft-deleted ids (F24)
-	uparts  int            // upsert call count
+	deleted map[int64]bool   // soft-deleted ids (F24)
+	fps     map[int64]string // stored content fingerprints (F79)
+	uparts  int              // upsert call count
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}, deleted: map[int64]bool{}}
+	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}, deleted: map[int64]bool{},
+		fps: map[int64]string{}}
+}
+
+func (f *fakeRepo) fp(id int64) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.fps[id]
+}
+
+func (f *fakeRepo) SetContentFingerprint(_ context.Context, id int64, fp string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fps[id] = fp
+	for p, st := range f.byPath {
+		if st.ID == id {
+			st.FingerprintKnown = true
+			f.byPath[p] = st
+		}
+	}
+	return nil
 }
 
 func (f *fakeRepo) StatByPath(_ context.Context, path string) (repo.VideoStat, bool, error) {
@@ -60,6 +81,8 @@ func (f *fakeRepo) UpsertVideo(_ context.Context, v *model.Video, _ []model.Extr
 	}
 	st.Size, st.Mtime = v.FileSize, v.FileMtime
 	st.FileTagsKnown = true // UpsertVideo always records file_tags (ADR-111 D1)
+	st.FingerprintKnown = v.ContentFP != ""
+	f.fps[st.ID] = v.ContentFP
 	f.byPath[v.FilePath] = st
 	f.active[st.ID] = true
 	return st.ID, nil

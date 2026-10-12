@@ -42,7 +42,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [~] design `design-handoff` → `docs/design/**` — no UI surface (scan-summary counts ride the existing System activity line) — until: P1-1 move history needs a visible surface
-- [ ] backend → `{cmd,internal,providers}/**`
+- [/] backend → `{cmd,internal,providers}/**`
 - [~] frontend → `web/src/**` — no UI surface — until: P1-1 move history needs a visible surface
 - [/] testing `testing-strategy`
 - [~] security `security-review` — no auth, access or perimeter change; scanner reads local library files only
@@ -62,13 +62,12 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Migration: `videos.content_fp` + sampled-hash helper + lazy backfill in the scanner worker — `internal/scanner/`, `internal/db/migrations/`
-2. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
-3. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
-4. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
-5. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-6. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
-7. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
+1. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
+2. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
+3. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
+4. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+5. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
+6. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +84,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Moved 568 off the "Media sorting" session into its own worktree/branch; reserved F79. Owner decided: auto-heal past moves, newest owner edit wins on fold, ambiguity declined, no time limit on inactive matches; posture `full` with design/frontend/security skipped.
 - Owner accepted the spec. Architecture (owner-chosen): SHA-256 over size + three 64 KiB samples; legacy hidden rows match on exact recorded facts; size-twin new files held and matched after the walk; fold reuses `planCarry`.
 - Testing strategy §26 written (risks, near-twin fixtures, scanner/repo/integration tests, mutation checks); testing gate stays [/] until those tests exist.
-- handoff: In build on draft PR #498 — testing-strategy §26 is the test plan; start at the content_fp migration + sampled-hash helper (Up next 1), writing §26.3's fingerprint tests first.
+- Built migration 0064 (`videos.content_fp` + file_size/content_fp indexes), `contentFingerprint` (SHA-256 over size + 3×64 KiB), fingerprint on every insert/re-extract/refresh, and the lazy backfill on the fast path; §26.3 fingerprint + backfill + refresh tests green; middle-sample mutation turns the near-twin test red. code-review high --fix: a fingerprint failure now stores NULL instead of hiding the file.
+- handoff: Fingerprint layer landed on draft PR #498 — next is hold-then-match in the scanner (Up next 1, §26.3 "Scanner, fake repo" tests first).
 
 ## Dropped — newest first (the reason is the point)
 
