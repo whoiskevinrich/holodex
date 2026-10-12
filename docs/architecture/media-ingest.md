@@ -33,6 +33,61 @@ on every row not seen.
 
 Decided in [`3561addf`](https://github.com/whoiskevinrich/holodex/commit/3561addf).
 
+## Moves recognised by a sampled content hash, matched after the walk
+
+A row's identity is its id, not its path. The product rules are in
+[video-identity-on-move.md](../specs/video-identity-on-move.md) (F79). This section covers the
+evidence, where the match runs, and the fold.
+
+- **The fingerprint.** `videos.content_fp` is a SHA-256 over the byte size followed by three 64 KiB
+  samples: the start, the middle (offset `size/2`) and the end. A file shorter than 192 KiB is
+  hashed whole. The worker computes it on every insert or re-extract, so a writeback, a flip swap or
+  an outside edit refreshes it in the same pass that sees the size or mtime change. An unchanged file
+  whose row has no fingerprint is fingerprinted without re-extraction. That is the lazy backfill for
+  active rows: about 750 MB of seeks-and-reads across a ~4,000-file library, once.
+- **Hold, then match.** A file with no row for its path is extracted and fingerprinted as usual. If
+  any non-deleted row already has the same `file_size`, the result is **held** instead of inserted.
+  Files with no size twin insert at once, so a first scan holds nothing. After the walk, the seen set
+  defines the missing set: rows that are active but unseen, plus rows with `active = 0`, never
+  soft-deleted ones. Each held file is paired with missing rows whose fingerprint matches. A
+  one-to-one pair is repointed: `file_path` and the extracted facts are updated, `active = 1`, and
+  `indexed_at` is untouched. Anything else inserts as new and counts as ambiguous. Repointing runs
+  before `DeactivateExcept`, so a repointed row is never hidden.
+- **Legacy rows.** A hidden row from before fingerprints existed has `content_fp` NULL, and its file
+  is gone, so it can never get one. Such a row matches only when every recorded fact is equal: byte
+  size, second-truncated mtime, duration, the stream facts (codecs, width, height, bitrate,
+  container) and the captured file tags. Because only those rows have a NULL fingerprint, this rule
+  retires itself as they heal or are purged.
+- **The fold.** After deactivation, a reconcile query pairs each hidden row with active rows of a
+  *higher* id carrying the same evidence. Pairs that are one-to-one on both sides, with no
+  `entity_keep_separate('video', …)` row, are folded into the older id in one transaction under
+  `writeMu`, and the newer row is then hard-deleted. The carry reuses `planCarry` from duplicate
+  videos ([entity-identity.md](entity-identity.md#duplicate-videos-are-computed-on-demand-not-queued))
+  with two differences:
+  - a per-field conflict goes to the newer `created_at` instead of to the kept video;
+  - enrichment rows move too, and the newer `fetched_at` wins per provider and field.
+
+  Thumbnails follow the survivor's id and are regenerated if absent.
+- **Reporting.** The pass's job row records the repointed, folded and ambiguous counts
+  ([observability-and-jobs.md](observability-and-jobs.md)).
+
+**Rejected:**
+
+- **Full-file hash.** It reads every byte. The backfill would read the whole library, and so would
+  every writeback refresh. This is the same cost that rules content hashing out of change detection
+  above.
+- **Stream-only (packet) hash via ffmpeg.** It survives metadata writeback, but it demuxes the whole
+  file. Recomputing the sampled hash on each in-place change covers writeback more cheaply.
+- **Size plus stream facts alone for every row.** The spec rules this out as evidence for rows that
+  can carry a fingerprint. It survives only as the legacy rule, where it is the most that exists.
+- **Insert, then fold.** One code path, but it creates a transient row for every move. Thumbnail
+  and enrichment work would be queued for an id about to vanish, and it contradicts the spec's "no
+  new video".
+- **Stat the old path at match time.** No holding is needed, but a move plus a copy in one pass would
+  be decided by worker order, which breaks the spec's ambiguity rule.
+
+Decided in: pending squash (HOLODEX-568).
+
 ## Symlinks followed and deduplicated by canonical path
 
 With `follow_symlinks` on (the default), every entry is resolved with `filepath.EvalSymlinks`, and

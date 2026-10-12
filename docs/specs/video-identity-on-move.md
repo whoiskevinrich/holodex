@@ -1,6 +1,6 @@
 # Spec: Keep a Video's Identity When Its File Moves (F79)
 
-**Status**: Draft
+**Status**: Accepted
 **Phase**: Library scanning (owner-facing, no new screen)
 **Jira**: [HOLODEX-568](https://whoiskevinrich.atlassian.net/browse/HOLODEX-568)
 **Related**: [HOLODEX-567](https://whoiskevinrich.atlassian.net/browse/HOLODEX-567) separates
@@ -9,8 +9,7 @@
 both sorts. [Delete a Media Item](delete-media.md) owns the trash. The
 [file-maintenance](video-file-maintenance.md) swap replaces a file at the **same** path and is not
 a move.
-**Architecture**: to be decided under the `needs-adr` gate. How two files are recognised as the
-same content, and where that check runs, is a technology fork (see "Open questions").
+**Architecture**: [media-ingest.md — Moves recognised by a sampled content hash](../architecture/media-ingest.md#moves-recognised-by-a-sampled-content-hash-matched-after-the-walk).
 
 ---
 
@@ -79,6 +78,10 @@ on size and duration alone is **not enough**. The architecture doc chooses the e
 - Given a file Holodex earlier wrote metadata into (writeback), when it is later moved unchanged,
   then it **is** matched. The library's record of a file's content stays current through writeback
   and any other in-place change.
+- **Videos hidden before this feature shipped** never had their content recorded, and their files
+  are gone. Such a video matches only when everything the library did record about it is
+  identical: exact byte size, modification time, duration, stream properties and embedded tags. A
+  pair that differs in any of these is not healed.
 
 **P0-2. Who can be matched.** Only a video whose file is **missing** can be matched: either it went
 missing in this scan, or it is already hidden as missing from any earlier scan, however long ago
@@ -169,14 +172,6 @@ so that the owner can resolve it by hand, for example by removing a stray copy.
 
 ## Open Questions
 
-- **[engineering · blocking, architecture]** What evidence satisfies P0-1? The options are a partial
-  content hash, a full hash, or a hash of the media streams that ignores metadata. Each has a
-  different cost on a large library and a different tolerance to writeback. This is decided under
-  the `needs-adr` gate.
-- **[engineering · blocking, architecture]** How are the existing ~232 rows given a content record
-  so that P0-5 can heal them? Their files are at the new path, so the record must come from reading
-  the surviving file plus whatever the hidden row last recorded. If a hidden row has nothing strong
-  enough to satisfy P0-1, the pair is not healed. How many that leaves is to be measured.
 - **[data · non-blocking]** How many of the 232 hidden copies carry curation, links or provider data
   worth recovering? This sets the priority (currently Low, per the Jira comment of 2026-10-12).
 

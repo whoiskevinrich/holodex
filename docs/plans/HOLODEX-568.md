@@ -27,7 +27,7 @@ release_note: A video whose file you move or rename on disk now keeps its place 
 Done when a moved or renamed file keeps its video (id, Date-added place, curation, links), and the
 ~232 past moves on production are healed automatically into their original videos.
 
-**Design package:** [spec F79](../specs/video-identity-on-move.md) · architecture (content-match evidence — not yet written) · no design handoff (no UI) · testing-strategy § (not yet written)
+**Design package:** [spec F79](../specs/video-identity-on-move.md) · [media-ingest.md § moves](../architecture/media-ingest.md#moves-recognised-by-a-sampled-content-hash-matched-after-the-walk) · no design handoff (no UI) · testing-strategy § (not yet written)
 
 ## Gates — definition of done
 
@@ -39,8 +39,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      documented skip (ADR-004). PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY
      /handoff writes [~] or [x]. -->
 
-- [/] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] spec `write-spec` → `docs/specs/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [~] design `design-handoff` → `docs/design/**` — no UI surface (scan-summary counts ride the existing System activity line) — until: P1-1 move history needs a visible surface
 - [ ] backend → `{cmd,internal,providers}/**`
 - [~] frontend → `web/src/**` — no UI surface — until: P1-1 move history needs a visible surface
@@ -62,11 +62,14 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [spec] Owner review of the Draft spec, then flip Status to Accepted — `docs/specs/video-identity-on-move.md`
-2. [ ] [architecture] Choose the content-match evidence (P0-1) + how the ~232 old rows get a record — `docs/architecture/`
-3. [ ] [testing] Testing-strategy section for move match, fold and ambiguity — `docs/testing-strategy.md`
-4. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-5. [ ] [—] After merge: ask HOLODEX-567 to revisit F12.8 ("moved files rank by when moved") — `docs/specs/phase-2-mcp-polish.md`
+1. [ ] [—] /implement — design gates settled; crosses to build and opens the Draft PR
+2. [ ] [testing] Testing-strategy section for move match, fold and ambiguity — `docs/testing-strategy.md`
+3. [ ] [backend] Migration: `videos.content_fp` + sampled-hash helper + lazy backfill in the scanner worker — `internal/scanner/`, `internal/db/migrations/`
+4. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
+5. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
+6. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
+7. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+8. [ ] [—] After merge: ask HOLODEX-567 to revisit F12.8 ("moved files rank by when moved") — `docs/specs/phase-2-mcp-polish.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -79,9 +82,10 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 -->
 
 ### 2026-10-12 · own worktree + spec draft
-- skills: write-spec, handoff
+- skills: write-spec, handoff, architecture
 - Moved 568 off the "Media sorting" session into its own worktree/branch; reserved F79. Owner decided: auto-heal past moves, newest owner edit wins on fold, ambiguity declined, no time limit on inactive matches; posture `full` with design/frontend/security skipped.
-- handoff: Spec F79 is drafted (Status Draft) and awaiting the owner's read of the written doc; once accepted, run /architecture to pick the content-match evidence (P0-1).
+- Owner accepted the spec. Architecture (owner-chosen): SHA-256 over size + three 64 KiB samples; legacy hidden rows match on exact recorded facts; size-twin new files held and matched after the walk; fold reuses `planCarry`.
+- handoff: Spec and architecture settled (media-ingest.md § moves); design phase is complete (fp:ready-to-build) — next is /implement to open the Draft PR, then the testing-strategy section and the content_fp migration.
 
 ## Dropped — newest first (the reason is the point)
 
