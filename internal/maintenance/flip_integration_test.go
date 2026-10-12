@@ -171,3 +171,66 @@ func TestFlip_RealFiles_MP4(t *testing.T) {
 		t.Error("a metadata-stripped remux passed verification")
 	}
 }
+
+// An MP4 whose video sample description carries no CompressorName (what older muxers wrote,
+// and most files in the wild) has no stream `encoder` tag. ffmpeg 7.1 can't be told to leave
+// the field empty on a re-encode, so the flip gains one; rule 4's third exception passes it
+// (HOLODEX-571).
+func TestFlip_RealFiles_MP4_NoCompressorName(t *testing.T) {
+	requireTools(t, "ffmpeg", "ffprobe", "exiftool")
+	ctx := context.Background()
+	src := buildM1(t, t.TempDir())
+	clearCompressorName(t, src)
+	dst := src + ".holodex-new"
+
+	p, err := RunProbe(ctx, "ffprobe", "mov", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := p.MainVideo(); v.Tags["encoder"] != "" {
+		t.Fatalf("fixture still has a compressor name: %q", v.Tags["encoder"])
+	}
+	if err := Rebuild(ctx, localTools, FamilyMP4, OpHFlip, map[string]bool{"libx264": true}, src, dst, p); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	cp, err := RunProbe(ctx, "ffprobe", "mov", dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origSnap, err := CollectSnapshot(ctx, localTools, FamilyMP4, src, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candSnap, err := CollectSnapshot(ctx, localTools, FamilyMP4, dst, cp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(origSnap, candSnap); err != nil {
+		t.Fatalf("flip of a file with no compressor name refused: %v", err)
+	}
+}
+
+// clearCompressorName empties the avc1 sample entry's fixed 32-byte CompressorName field in
+// place: ffmpeg writes "Lavc… libx264" there. The field sits 42 bytes past the entry's "avc1"
+// type (the first avc1 after "stsd": ftyp lists avc1 as a brand, and the cover's JPEG
+// comment also says "Lavc").
+func clearCompressorName(t *testing.T, path string) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := strings.Index(string(b), "stsd")
+	i := strings.Index(string(b[max(s, 0):]), "avc1")
+	if s < 0 || i < 0 {
+		t.Fatal("no avc1 sample entry in the fixture")
+	}
+	name := b[s+i+4+42 : s+i+4+42+32]
+	if name[0] == 0 {
+		t.Fatal("fixture's compressor name is already empty")
+	}
+	clear(name)
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
