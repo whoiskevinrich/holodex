@@ -46,6 +46,9 @@ type Repository interface {
 	DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, error)
 	Reactivate(ctx context.Context, id int64) error
 	SetContentFingerprint(ctx context.Context, id int64, fp string) error
+	HasSizeTwin(ctx context.Context, size int64) (bool, error)
+	MoveCandidates(ctx context.Context, v *model.Video) ([]repo.MoveCandidate, error)
+	RepointVideo(ctx context.Context, id int64, v *model.Video, extra []model.ExtraMetadata) error
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
@@ -195,8 +198,12 @@ func isMedia(name string) bool {
 type stats struct {
 	mu                                    sync.Mutex
 	seen, added, updated, skipped, errors int
+	repointed, ambiguous                  int // moves recognised / declined (F79)
 	seenIDs                               []int64
 	failures                              []string // first maxReportedFailures per-file failures
+	// held are new files with a size twin, extracted but not inserted until the
+	// walk ends and the missing rows are known (matchHeld).
+	held []heldFile
 	// root is the canonical media root, set by the walk before it sends any path
 	// (so workers read it after the channel handoff, without the lock).
 	root string
@@ -212,10 +219,22 @@ func (s *stats) recordSeen(id int64) {
 	s.mu.Unlock()
 }
 
+// heldFile is a new file waiting for the post-walk move match.
+type heldFile struct {
+	path string
+	v    *model.Video
+	ex   metadata.Extracted
+}
+
+func (s *stats) hold(h heldFile) { s.mu.Lock(); s.held = append(s.held, h); s.mu.Unlock() }
+
 func (s *stats) incSeen()    { s.mu.Lock(); s.seen++; s.mu.Unlock() }
 func (s *stats) incAdded()   { s.mu.Lock(); s.added++; s.mu.Unlock() }
 func (s *stats) incUpdated() { s.mu.Lock(); s.updated++; s.mu.Unlock() }
 func (s *stats) incSkipped() { s.mu.Lock(); s.skipped++; s.mu.Unlock() }
+
+func (s *stats) incRepointed() { s.mu.Lock(); s.repointed++; s.mu.Unlock() }
+func (s *stats) incAmbiguous() { s.mu.Lock(); s.ambiguous++; s.mu.Unlock() }
 
 func (s *stats) fail(failure string) {
 	s.mu.Lock()
@@ -300,6 +319,10 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	walkErr := s.walk(ctx, jobs, st)
 	close(jobs)
 	wg.Wait()
+
+	// The seen set is complete only now, so held files are matched against the
+	// missing rows here, before deactivation can hide a row about to be repointed.
+	s.matchHeld(ctx, st)
 
 	// Guard against mass-deactivation from a transiently empty/unreadable media
 	// root (issue #26): a single walk that sees zero media files would otherwise
@@ -508,6 +531,22 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	if v.ContentFP, err = contentFingerprint(path); err != nil {
 		s.log.Warn("fingerprint failed; stored as unknown", "path", path, "err", err)
 	}
+	// A new path whose size some existing row shares may be a move: hold it until
+	// the walk ends (F79). Every other new file inserts now, so a first scan of a
+	// fresh library holds nothing.
+	if !ok && v.ContentFP != "" {
+		if twin, err := s.repo.HasSizeTwin(ctx, v.FileSize); err != nil {
+			s.log.Warn("size twin lookup failed; indexing as new", "path", path, "err", err)
+		} else if twin {
+			st.hold(heldFile{path: path, v: v, ex: ex})
+			return
+		}
+	}
+	s.commit(ctx, st, path, v, ex, ok, unchanged)
+}
+
+// commit upserts an extracted file and runs the post-index hooks.
+func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.Video, ex metadata.Extracted, ok, unchanged bool) {
 	id, err := s.repo.UpsertVideo(ctx, v, ex.Extra)
 	if err != nil {
 		s.fileFailed(st, path, "upsert failed", err)

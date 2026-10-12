@@ -62,12 +62,12 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Hold size-twin new files, match after the walk, repoint before `DeactivateExcept` — `internal/scanner/scanner.go`
-2. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
-3. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
-4. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-5. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
-6. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
+1. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
+2. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
+3. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+4. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
+5. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
+6. [ ] [backend] After 567 lands: share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +85,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Owner accepted the spec. Architecture (owner-chosen): SHA-256 over size + three 64 KiB samples; legacy hidden rows match on exact recorded facts; size-twin new files held and matched after the walk; fold reuses `planCarry`.
 - Testing strategy §26 written (risks, near-twin fixtures, scanner/repo/integration tests, mutation checks); testing gate stays [/] until those tests exist.
 - Built migration 0064 (`videos.content_fp` + file_size/content_fp indexes), `contentFingerprint` (SHA-256 over size + 3×64 KiB), fingerprint on every insert/re-extract/refresh, and the lazy backfill on the fast path; §26.3 fingerprint + backfill + refresh tests green; middle-sample mutation turns the near-twin test red. code-review high --fix: a fingerprint failure now stores NULL instead of hiding the file.
-- handoff: Fingerprint layer landed on draft PR #498 — next is hold-then-match in the scanner (Up next 1, §26.3 "Scanner, fake repo" tests first).
+- Built hold-then-match: size-twin new files held, `matchHeld` repoints one-to-one pairs against missing rows (unseen-and-ENOENT or hidden) before `DeactivateExcept`, ambiguity declined; repo `HasSizeTwin` / `MoveCandidates` (fingerprint, or exact facts for NULL-fp rows) / `RepointVideo` (keeps id + indexed_at). §26.3 scanner + repo tests and a real-repo end-to-end move test green; 3 mutations red. code-review: Stat guard now requires ENOENT.
+- handoff: Moves found during a scan now keep their video (draft PR #498) — next is the post-deactivation fold for past moves (Up next 1), reusing `planCarry` with newest-edit-wins.
 
 ## Dropped — newest first (the reason is the point)
 

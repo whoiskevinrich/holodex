@@ -20,15 +20,11 @@ import (
 // re-extract all keep it current. A file with no tags records "[]", never NULL
 // (NULL means "never read", ADR-111).
 func recordFileTags(ctx context.Context, tx *sql.Tx, videoID int64, tags []model.Tag) error {
-	names := make([]string, 0, len(tags))
-	for _, t := range tags {
-		names = append(names, t.Name)
-	}
-	raw, err := json.Marshal(names)
+	raw, err := fileTagsJSON(tags)
 	if err != nil {
-		return fmt.Errorf("encode file tags: %w", err)
+		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE videos SET file_tags = ? WHERE id = ?`, string(raw), videoID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE videos SET file_tags = ? WHERE id = ?`, raw, videoID); err != nil {
 		return fmt.Errorf("record file tags: %w", err)
 	}
 	return nil
