@@ -127,8 +127,12 @@ func (r *Repo) EntityExists(ctx context.Context, entityType string, id int64) er
 	if table == "" {
 		return fmt.Errorf("entity exists: unknown entity type %q", entityType)
 	}
+	q := `SELECT 1 FROM ` + table + ` WHERE id = ?`
+	if entityType == model.EnrichEntityFilm {
+		q += ` AND deleted_at IS NULL` // a film in Trash takes no identity ops (F78 RD5)
+	}
 	var x int
-	err := r.db.QueryRowContext(ctx, `SELECT 1 FROM `+table+` WHERE id = ?`, id).Scan(&x)
+	err := r.db.QueryRowContext(ctx, q, id).Scan(&x)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -213,7 +217,7 @@ func (r *Repo) AddEntityAlias(ctx context.Context, entityType string, id int64, 
 	// rename store an already-lowercase tag name, so this is the one free-text path.
 	// Normalized before the empty guard so a whitespace-only tag alias is refused.
 	if entityType == model.EntityTag {
-		alias = curationNorm(alias)
+		alias = tagNorm(alias)
 	}
 	if alias == "" {
 		return model.EntityAlias{}, errors.New("empty alias")
@@ -277,8 +281,19 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 	// A provider-sourced alias would come straight back on the next enrich, so removing
 	// it has to be durable to mean anything (ADR-088 D4). An owner-authored one records
 	// nothing — no path would re-add it, and a suppression there would only get in the
-	// owner's way later.
-	if source != "" {
+	// owner's way later. A tag's own dashed alias is the exception: the backfill would
+	// re-add it (F43 P0-12), so removing it is recorded too.
+	suppress := source != ""
+	if !suppress && entityType == model.EntityTag {
+		var name string
+		switch err := tx.QueryRowContext(ctx, `SELECT name FROM tags WHERE id = ?`, id).Scan(&name); {
+		case err == nil:
+			suppress = alias == dashedTagAlias(name)
+		case !errors.Is(err, sql.ErrNoRows): // a stray alias of a gone tag just deletes
+			return fmt.Errorf("delete %s alias: %w", entityType, err)
+		}
+	}
+	if suppress {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT OR IGNORE INTO entity_alias_suppressions (entity_type, entity_id, alias_key)
 			VALUES (?, ?, `+nameKeyExpr(entityType, "?")+`)`,
@@ -296,8 +311,12 @@ func (r *Repo) DeleteEntityAlias(ctx context.Context, entityType string, id, ali
 // resolves to — by canonical nameKey or by being another entity's alias — with
 // found=false when the name is free. Used to refuse a silent merge of possibly-distinct
 // same-named entities (the homonym rule, F23/RD4): the caller surfaces it for the owner
-// to confirm. selfID is the entity the name is being attached to (excluded).
+// to confirm. selfID is the entity the name is being attached to (excluded). A tag name
+// is checked in its stored spelling (tagNorm), the key AddEntityAlias will write.
 func (r *Repo) EntityConflict(ctx context.Context, entityType string, selfID int64, name string) (int64, bool, error) {
+	if entityType == model.EntityTag {
+		name = tagNorm(name)
+	}
 	return entityConflict(ctx, r.db, entityType, selfID, name)
 }
 
@@ -507,7 +526,7 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 		return 0, errors.New("empty name")
 	}
 	if entityType == model.EntityTag {
-		newName = curationNorm(newName)
+		newName = tagNorm(newName)
 	}
 	table := canonicalTable(entityType)
 	if table == "" {
@@ -563,6 +582,14 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	} {
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
 			return 0, fmt.Errorf("rename (%s): %w", step.desc, err)
+		}
+	}
+	// 4. A tag's new multi-word name carries its dashed spelling too (F43 P0-12); the
+	//    old name's aliases stay. A rename is the owner's act, so it re-adds a dashed
+	//    alias they once removed — only the backfill honors that suppression.
+	if entityType == model.EntityTag {
+		if _, err := addDashedTagAliasTx(ctx, tx, id, newName); err != nil {
+			return 0, fmt.Errorf("rename (dashed alias): %w", err)
 		}
 	}
 	// Check both the new canonical name and the old name (now an alias, step 2 above)

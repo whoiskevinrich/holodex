@@ -27,6 +27,7 @@ import (
 	"holodex/internal/enrich"
 	"holodex/internal/extract"
 	"holodex/internal/imagesink"
+	"holodex/internal/maintenance"
 	"holodex/internal/mapping"
 	"holodex/internal/mcp"
 	"holodex/internal/metadata"
@@ -292,6 +293,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	seedIdentityReviewQueue(ctx, repository, log)
 	sweepSharedExternalIDs(ctx, repository, log)
 	promoteEnrichmentAliases(ctx, repository, log)
+	backfillDashedTagAliases(ctx, repository, log)
 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
@@ -339,7 +341,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		}
 		return f.FileTagSources()
 	})
-	writeQ.SetPostWrite(func(ctx context.Context, id int64, path string) {
+	postWrite := func(ctx context.Context, id int64, path string) {
 		if thumbs != nil && thumbs.Enabled() {
 			if _, err := thumbs.ExtractEmbedded(ctx, id, path); err != nil {
 				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
@@ -352,8 +354,26 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		if err := refreshSvc.ReExtract(ctx, id); err != nil {
 			log.Warn("post-writeback re-extract", "id", id, "err", err)
 		}
-	})
+	}
+	writeQ.SetPostWrite(postWrite)
 	handlers.SetWriteQueue(writeQ)
+
+	// Video file maintenance (F77, file-maintenance.md): picture re-encodes run in their own
+	// lane of the same queue, one at a time. The swap journal is recovered here, before
+	// writeQ.Start's orphan sweep, which would delete a .holodex-new a mid-swap row needs.
+	maintTools := maintenance.Tools{FFmpeg: "ffmpeg", FFprobe: "ffprobe", Exiftool: "exiftool", Mkvmerge: "mkvmerge"}
+	maintEncoders, err := maintenance.DetectEncoders(ctx, maintTools.FFmpeg)
+	if err != nil {
+		log.Warn("maintenance: no ffmpeg encoders found; flips will be refused", "err", err)
+	}
+	swapper := maintenance.NewSwapper(repository, time.Duration(cfg.MaintenanceHoldDays)*24*time.Hour)
+	if n, err := swapper.RecoverSwaps(ctx); err != nil {
+		log.Warn("maintenance: swap recovery left rows unsettled", "settled", n, "err", err)
+	} else if n > 0 {
+		log.Info("maintenance: recovered interrupted swaps", "count", n)
+	}
+	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, postWrite, writeQ.Kick, log)
+	handlers.SetMaintenance(maintWorker)
 
 	// Filename extraction (F48, ADR-067): the orchestrator ties pattern
 	// matching (F48.1), the filename shadow-store write (F48.2), and
@@ -412,9 +432,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// items whose grace has expired — independent of the scanner's clock and runs
 	// even when scanning is disabled. Records each pass in the activity history.
 	purgeCfg := purge.Config{
-		Grace:       time.Duration(cfg.DeleteGracePeriodSeconds) * time.Second,
-		Interval:    time.Duration(cfg.PurgeIntervalSeconds) * time.Second,
-		RemoveFiles: cfg.DeleteRemoveFiles,
+		Grace:        time.Duration(cfg.DeleteGracePeriodSeconds) * time.Second,
+		Interval:     time.Duration(cfg.PurgeIntervalSeconds) * time.Second,
+		RemoveFiles:  cfg.DeleteRemoveFiles,
+		FilmImageDir: cfg.FilmImagePath,
 	}
 	purger := purge.New(repository, purgeCfg, log)
 	handlers.SetDelete(purger, purgeCfg.Grace)
@@ -471,7 +492,9 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	go thumbs.Run(ctx)
 	go purger.Run(ctx)
 	go orphanSweeper.Run(ctx)
-	go writeQ.Start(ctx) // boot recovery + orphan sweep + worker pool (F30, ADR-048)
+	go writeQ.Start(ctx)    // boot recovery + orphan sweep + worker pool (F30, ADR-048)
+	go maintWorker.Run(ctx) // the maintenance lane (F77); RecoverSwaps ran above
+	go maintWorker.RunExpiry(ctx, time.Duration(cfg.PurgeIntervalSeconds)*time.Second)
 
 	// MCP server (ADR-005): shares the repository with the web/scanner; HTTP/SSE
 	// transport on MCPPort. stdio is a separate entrypoint (-mcp-transport stdio).
@@ -806,5 +829,41 @@ func promoteEnrichmentAliases(ctx context.Context, r *repo.Repo, log *slog.Logge
 	}
 	if err == nil && promoted > 0 {
 		log.Info("alias promotion complete", "promoted", promoted)
+	}
+}
+
+// backfillDashedTagAliases gives every tag that predates F43 P0-12 its dashed alias
+// ("science fiction" → "science-fiction"), once, gated on its own successful job run.
+// The pass is idempotent (an existing alias is a no-op, a removed one is suppressed), so
+// a pruned gate only costs a re-run. Best-effort — a failure logs (status=error, so the
+// next boot retries) and never blocks startup.
+func backfillDashedTagAliases(ctx context.Context, r *repo.Repo, log *slog.Logger) {
+	if ran, err := r.HasSuccessfulJobRun(ctx, model.JobKindTagDashBackfill); err != nil {
+		log.Warn("tag dash backfill: marker check failed; running anyway", "err", err)
+	} else if ran {
+		return
+	}
+	started := time.Now()
+	added, err := r.BackfillDashedTagAliases(ctx)
+	finished := time.Now()
+	status := model.JobStatusOK
+	var errs int
+	detail := fmt.Sprintf("tag dash backfill: added %d dashed tag aliases", added)
+	if err != nil {
+		status, errs, detail = model.JobStatusErr, 1, "tag dash backfill: failed"
+		log.Warn("tag dash backfill: failed", "err", err)
+	}
+	if err := r.RecordJobRun(ctx, model.JobRun{
+		Kind:       model.JobKindTagDashBackfill,
+		Trigger:    model.TriggerInitial,
+		Status:     status,
+		StartedAt:  started,
+		FinishedAt: finished,
+		DurationMs: finished.Sub(started).Milliseconds(),
+		Added:      int(added),
+		Errors:     errs,
+		Detail:     detail,
+	}); err != nil {
+		log.Warn("tag dash backfill: record job run failed", "err", err)
 	}
 }

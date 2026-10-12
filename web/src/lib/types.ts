@@ -317,6 +317,9 @@ export interface Video {
 	container?: string;
 	recorded_at?: string | null;
 	indexed_at: string;
+	// The file's modification time (RFC 3339). It versions the stream URL, so a file changed in
+	// place (a flip, F77) plays fresh rather than from the browser's media cache.
+	file_mtime?: string;
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
@@ -561,6 +564,9 @@ export interface MediaDetailResponse {
 	// every writeback.WriteBatch failure embeds absolute filesystem paths, the same
 	// class of exposure FilePath/codecs are already redacted for on this response.
 	writeback_status?: VideoWritebackStatus;
+	// Video file maintenance (F77): owner-only, and absent (not redacted) for a visitor —
+	// the lane's state, its error (absolute paths) and the held original are theirs alone.
+	maintenance?: import('./maintenance').MaintenanceState;
 	// external_links is the provider-link badge projection for video (HOLODEX-394,
 	// ADR-098 D4): 0 or 1 entry, built from the resolver's winning external_provider_id
 	// rather than entity_external_ids (video has no identity rows). Read-only,
@@ -596,8 +602,11 @@ export interface WritebackRequest {
 // when auto-purge is disabled (grace = 0) — it lingers until purged manually.
 export interface TrashEntry {
 	id: number;
+	// What the row is (F78 RD7). A film's title is already "Name (Year)".
+	kind: 'media' | 'film';
 	title: string;
-	path: string;
+	// Media only: the file the permanent-delete confirm names. A film has no file.
+	path?: string;
 	deleted_at: string;
 	purge_at: string | null;
 }
@@ -644,6 +653,14 @@ export interface RelatedShelf {
 export interface RelatedResponse {
 	person: RelatedShelf | null;
 	tag: RelatedShelf | null;
+}
+
+/** One row of the run strip's jump list (spec RD14): enough to recognise an item. */
+export interface MediaBrief {
+	id: number;
+	title: string;
+	duration_sec: number;
+	thumbnail_url?: string;
 }
 
 // Video playlists (F69, ADR-104): a container of videos with a sort — not an entity.
@@ -1102,6 +1119,8 @@ export interface FilmYearCollision {
 	film_id: number;
 	film_name: string;
 	year: number;
+	// The occupant is in Trash (F78 RD6): offer its restore, never a link to its page.
+	trashed?: boolean;
 }
 
 // FilmBilledCredit is one cast member the provider billed on the release who appears in

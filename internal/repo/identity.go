@@ -141,10 +141,11 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	// Tag entities are lower-cased at the one choke point every tag-creation path
 	// shares (scanner, manual attach, materialization) -- keeps UX, storage, and
 	// writeback in sync without a case-fold at each call site. Person/studio names
-	// keep their natural casing; only tags fold. curationNorm is the same trim+lower
-	// rule metadata_curation and resolver.NormKey already use (curation.go).
+	// keep their natural casing; only tags fold. tagNorm is curationNorm -- the same
+	// trim+lower rule metadata_curation and resolver.NormKey already use (curation.go) --
+	// plus internal whitespace collapsed to one space (F43 RD12).
 	if entityType == model.EntityTag {
-		name = curationNorm(name)
+		name = tagNorm(name)
 	}
 
 	// 0. Deny-list (tags only, ADR-075 D2): checked before the resolve order
@@ -217,6 +218,12 @@ func resolveOrCreateByName(ctx context.Context, tx *sql.Tx, entityType, name, ex
 	}
 	if err := FlagNearMiss(ctx, tx, entityType, id); err != nil {
 		return 0, err
+	}
+	// 5. A new multi-word tag carries its dashed spelling (F43 P0-12).
+	if entityType == model.EntityTag {
+		if _, err := addDashedTagAliasTx(ctx, tx, id, name); err != nil {
+			return 0, err
+		}
 	}
 	return id, attachExternalID(ctx, tx, entityType, id, externalID)
 }

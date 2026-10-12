@@ -38,11 +38,16 @@
 		} else loading = false;
 	});
 
+	// One list holds media and films (F78 RD7); each row restores and purges through
+	// its own kind's endpoints. Rows are keyed by kind too — a film and a video can
+	// share an id.
+	const rowKey = (it: TrashEntry) => `${it.kind}:${it.id}`;
+
 	async function restore(it: TrashEntry) {
 		rowError = '';
 		try {
-			await api.restoreMedia(it.id);
-			items = items.filter((x) => x.id !== it.id);
+			await (it.kind === 'film' ? api.restoreFilm(it.id) : api.restoreMedia(it.id));
+			items = items.filter((x) => rowKey(x) !== rowKey(it));
 		} catch (e) {
 			rowError = toMessage(e);
 		}
@@ -52,10 +57,12 @@
 		if (!confirm || busy) return;
 		busy = true;
 		rowError = '';
-		const id = confirm.id;
+		const it = confirm;
 		try {
-			await api.deleteMedia(id, { purge: true });
-			items = items.filter((x) => x.id !== id);
+			await (it.kind === 'film'
+				? api.deleteFilm(it.id, { purge: true })
+				: api.deleteMedia(it.id, { purge: true }));
+			items = items.filter((x) => rowKey(x) !== rowKey(it));
 			confirm = null;
 		} catch (e) {
 			rowError = toMessage(e); // shown on the page; the item stays in Trash to retry
@@ -91,10 +98,16 @@
 				<p class="py-12 text-center text-sm text-muted">Trash is empty.</p>
 			{:else}
 				<ul class="space-y-2" aria-live="polite">
-					{#each items as it (it.id)}
+					{#each items as it (rowKey(it))}
 						<li class="flex flex-wrap items-center gap-3 rounded-theme border border-rule bg-surface p-3">
 							<div class="min-w-0 flex-1">
-								<p class="truncate text-sm text-ink" title={it.title}>{it.title}</p>
+								<!-- Kind label (F78 RD7): a status encoding, not an affordance. -->
+								<p class="flex min-w-0 items-center gap-2 text-sm text-ink">
+									<span class="shrink-0 rounded-theme border border-rule px-1.5 text-xs text-muted"
+										>{it.kind === 'film' ? 'Film' : 'Media'}</span
+									>
+									<span class="truncate" title={it.title}>{it.title}</span>
+								</p>
 								<p class="text-xs text-muted">
 									deleted {formatAgo(it.deleted_at)}{#if it.purge_at} · purges {formatUntil(it.purge_at)}{/if}
 								</p>
@@ -133,11 +146,20 @@
 		oncancel={() => (confirm = null)}
 	>
 		{#snippet body()}
-			<p>
-				<span class="font-semibold">{confirm?.title}</span> and its file will be
-				<span class="font-semibold">permanently removed</span> from disk. This cannot be undone.
-			</p>
-			<p class="truncate font-mono text-xs text-muted" title={confirm?.path}>{confirm?.path}</p>
+			{#if confirm?.kind === 'film'}
+				<!-- Dialog C's copy (delete-film-handoff.md); no path, a film has no file. -->
+				<p>
+					<span class="font-semibold">{confirm.title}</span>, its cast, images and aliases will be
+					<span class="font-semibold">permanently removed</span>. This cannot be undone.
+				</p>
+				<p class="text-xs text-muted">Its linked videos stay in your library. No media file is touched.</p>
+			{:else}
+				<p>
+					<span class="font-semibold">{confirm?.title}</span> and its file will be
+					<span class="font-semibold">permanently removed</span> from disk. This cannot be undone.
+				</p>
+				<p class="truncate font-mono text-xs text-muted" title={confirm?.path}>{confirm?.path}</p>
+			{/if}
 		{/snippet}
 	</ConfirmDialog>
 {/if}

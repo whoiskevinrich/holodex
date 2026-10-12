@@ -123,8 +123,10 @@ assert.JSONEq(t, string(want), string(got))
 | **Metadata merge/precedence** (ADR-004) | Unit | exiftool value wins over ffprobe; ffprobe fills gaps; per-field fallback order | ~95% |
 | **MKV target precedence** (ADR-010) | Unit + Integration | Level-50/untargeted authoritative; track(30) ignored; people/genre NOT inherited from 60/70; title MAY fall back | ~95% |
 | **Resolution classifier** (ADR-012) | Unit (table-driven) | Every boundary: 1151/1152, 1727/1728, 3455/3456; scope content; portrait video | 100% |
+| **Admin rescan — no media path** ([HOLODEX-563](https://whoiskevinrich.atlassian.net/browse/HOLODEX-563)) | Unit | `TriggerRescan` with an empty media path returns `ErrNoMediaPath`, while a held `scanMu` is still `false, nil`; `POST /admin/rescan` maps the error to **503** carrying the reason, never `202 started:false` | behavior |
 | **Scanner — incremental** (ADR-018) | Integration | New→insert; unchanged→skip (zero extraction calls); size/mtime change→re-extract; missing→active=false; mid-copy (young mtime) skipped | behavior |
 | **Scanner — reactivation & empty-walk guard** (ADR-018, [issue #26](https://github.com/whoiskevinrich/holodex/issues/26)) | Integration | A deactivated row whose file reappears **unchanged** is reactivated via the fast-path with **no re-extract** (counts as `updated`, not `skipped`); a walk that sees **zero media files** skips `DeactivateExcept` entirely so a transiently empty/unreadable media root never mass-hides the library; `StatByPath` surfaces `active`; repo `Reactivate(id)` flips one row | behavior |
+| **Scanner — failed-run recording** ([HOLODEX-560](https://whoiskevinrich.atlassian.net/browse/HOLODEX-560)) | Unit | A per-file failure records the pass as `error`, while the good files are still indexed; `error_message` names the file **relative to the media root**, with the absolute path also scrubbed from the reason; named files are capped at `maxReportedFailures` with "+N more"; a missing media root (follow and no-follow) returns an error row with the OS reason and **no configured path**; an empty walk with active videos counts as `error`, but an empty library is `success` | behavior |
 | **Scanner — symlinks** (ADR-011) | Integration | Follow + canonical dedup (one card for 2 symlinks); loop doesn't hang; target outside MEDIA_PATH indexed; FOLLOW_SYMLINKS=false skips | behavior |
 | **Repository / SQLite** | Integration | Real DB w/ migrations; junction integrity; WAL concurrent read during write; pagination envelope | ~85% |
 | **Search / FTS5** (ADR-017) | Integration | Title FTS; diacritic fold ("amelie"→"Amélie"); global mixed-entity grouping incl. films gated on `films_enabled` (HOLODEX-283); bm25 ordering sanity | ~85% |
@@ -138,7 +140,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't); **two-tier poster resolution** (F53, HOLODEX-253, planned): `extractCoverArt`/`generateFrame` each produce `{id}.jpg` (ThumbnailWidth) and `{id}-poster.jpg` (PosterWidth) from a single extraction/seek — Tier 2 must not double-seek; `GET .../poster` falls back to thumbnail-tier bytes when the poster tier doesn't exist yet (lazy-backfill safety net, RD6) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
-| **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no paths/env/tokens — incl. history `error_message`) | ~90% |
+| **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no absolute paths/env/tokens — incl. history `error_message`; a scan's media-root-relative failing files are the one allowed path form) | ~90% |
 | **Job-run attribution** (ADR-071, HOLODEX-207) | Unit + Integration | Migration 0028 **up and down** against a table that already holds rows (pre-migration rows default to unattributed; down drops the index and all three columns but **no data**); `entity_type`/`entity_id` recorded at each attributing path (writeback → its video, refresh → `report.VideoID`, enrich → its entity pair); library-wide kinds stay **zero-valued**, not sentinel; `batch_id` round-trips a **non-numeric** `merge-person-N-M` id — the shape the retired `/· batch (\d+)/` regex could not match, which left Revert unavailable for merge propagation; **no foreign key** (a run outlives the entity it names, so `entity_id` may dangle) | ~90% |
 | **Job-history digest** (ADR-071 D3, HOLODEX-210) | Unit + Integration | `GROUP BY kind` roll-up (run count, error count, most-recent `last_run`); **`last_status` is the newest run's status** (SQLite bare-column-with-MAX), asserted against a kind whose older run succeeded but newest failed; **shape is invariant to run count** — seeding 500 more clean runs leaves `kinds` and `failures` lengths unchanged; a **clean window** returns an empty (non-nil) `failures`; failure list **capped** at `digestFailureCap` while each kind still reports its true error count; digest included in the **no-secrets** invariant (its `failures` carry full rows incl. `error_message`) | ~90% |
 | **Owner gating seam** (ADR-030, F21.7) | Unit + Integration | Open (no token) vs gated (token set) on every owner route; **constant-time** token compare; **fail-loud** on non-loopback bind + no token; **CSRF** rejection of cross-site admin POST; frontend capability-flag toggle hides controls | ~95% |
@@ -184,6 +186,9 @@ assert.JSONEq(t, string(want), string(got))
 | **Soft-delete — scanner survival** (ADR-037, F24.3) | Integration | A soft-deleted row whose file is still on disk survives a re-scan: not reactivated (guards the #26 fast-path), not re-extracted (upsert count unchanged), not deactivated (recorded as seen), `deleted_at` not cleared by `UpsertVideo`'s `ON CONFLICT`; counted skipped not added/updated | ~95% |
 | **Soft-delete — restore / purge** (ADR-037, F24.4–F24.6) | Integration | `Restore` clears `deleted_at` (item returns to all views), `ErrNotFound` on a live item; `ExpiredSoftDeleted(cutoff)` selects only rows past the grace cutoff; `HardDelete` removes the row and **cascades** junctions/FTS; `PurgePath` reads a soft-deleted row's path (the one read that ignores `deleted_at`) | ~90% |
 | **Purge job** (ADR-037, F24.4/F24.8) | Unit | `Sweep` purges expired + records a `job_runs` (`kind=purge`) row (Removed/Errors counts); **grace=0 → no-op** (no expiry query, no run); `purgeItem` treats a **missing file as success** (finish row delete) but a **permission/read-only failure leaves the row** (no `HardDelete`, error run, retry); `RemoveFiles=false` purges DB-only and keeps the file; `PurgeNow` soft-deletes-then-removes and `ErrNotFound` propagates | ~90% |
+| **Film soft-delete — visibility seam** (F78 RD5/P0-5, `internal/repo/film_delete_test.go`) | Integration | Films have no filter builder, so every film read carries the predicate by hand and this test is the enumeration: after `SoftDeleteFilm`, `GetFilm`→`ErrNotFound`, `FilmVisible`→false, `ListFilms`, `SearchFilms`, `ListFilmsForEntity` (person row), `CountFilmsForPerson`, `FilmsForVideos` (media chips, resolver candidates, completeness, pickers), `EntityExists(film)` and global `Search` all drop it; both linked videos stay; its full-film file reappears in browse (`HideFullFilmVideos`) and a video linked only to it counts as unattached. Restore is lossless (scene number + full-film flag back); soft-delete idempotent, unknown id `ErrNotFound`; one `Trash` list newest-first with `kind`, a film titled "Name (Year)" | ~90% |
+| **Film soft-delete — key held + purge** (F78 RD6/RD3/RD10) | Integration | A trashed film keeps its (name, year): `CreateFilm` onto it → `ErrFilmTrashed` + its id, `SetFilmYear` → a `Trashed` collision, `RenameEntity` → `ErrNameTaken` naming it; it is never a no-year alias-routing target. `HardDeleteFilm` leaves the videos, and migration 0062's `films_ad_entity_rows` clears the film's own decisions and every video's `provider:film:<id>` choice; `ExpiredSoftDeletedFilms` selects only past-cutoff rows. Purger: films ride the same `Sweep` and run (Removed counts both kinds), the image dir goes before the row even with `RemoveFiles=false`, `PurgeFilmNow` trashes first and `ErrNotFound` propagates (`internal/purge/purge_test.go`) | ~90% |
+| **Film soft-delete — endpoints** (F78 P0-2/P0-3/P0-9, `internal/api/film_delete_test.go`) | Integration | `DELETE /films/{id}` (204, idempotent), `?purge=true` (works on a live or trashed film; 404 once gone), `POST …/restore` (200 with the film / 404 on a live one) behind `requireOwner`; a trashed film's page and year edit 404 while its linked video stays 200; `/admin/trash` film row has `kind: "film"`, no `path`, a `purge_at`; create and rename onto the trashed key answer 409 with the film under `trashed`. SPA client: `createFilm` / `renameEntity('film')` return `{trashed}` on that 409 (`web/src/lib/api.test.ts`) | ~90% |
 | **Soft-delete — endpoints** (ADR-037, F24.9–F24.10) | Integration | `DELETE /media/{id}` (soft, 204 + idempotent), `?purge=true` (hard now), `POST …/restore` (200/404), `GET /admin/trash` (purge_at computed) **behind `requireOwner`** (401 without token, nothing mutated); `404` unknown id / restore-of-live; purge-now disk failure surfaces a path-free message and leaves the item in Trash | ~90% |
 | **Derived-field engine — formulas + `Derive`** (ADR-063, F45) | Unit | `deriveAge`/`deriveAgeAtDeath` present/absent/**unparseable** input, deathdate-branch (⇒ no running age), `floor`, **leap-day boundary** (2000-02-29 crosses once); `Derive(resolved, now)` **purity** (fixed `now` → deterministic, no I/O), stamping (`Computed`, `computed:` source, **nil** Decision), **mutual exclusion** (exactly one of age/age-at-death), ordering (row adjacent to `birthdate`); **grep guard**: no `time.Now` in `internal/resolver/` (AC-8) | 100% (formulas) |
 | **Computed provenance token + guard** (ADR-063, F45, §D3) | Unit + Integration | `fieldsource.ForComputed`/`IsComputed`; `computed` **excluded from `Valid()`/`ForNamespace()`** (`Valid("computed:age")==false`); decision endpoint **rejects 400** a `Computed` canonical / any `computed:` source, writes nothing to `field_source_decisions` | ~95% |
@@ -264,6 +269,7 @@ assert.JSONEq(t, string(want), string(got))
 - **A merge survives re-derivation** (F43/ADR-061 RD6 — the derived-link analogue of "merge survives re-scan"): merging B→A registers B's name as an alias, so the derivation reconcile re-routes B's resolved name to A on the next pass; a rescan / re-enrich / decision change **never resurrects** the merged-away entity. **Studio** proves it via `RelinkVideoStudios`; **person** joins it under ADR-072 (F40), which makes `video_people` derived via the generic `RelinkVideoEntity` and routes person names through the alias table at derivation time — so a person merge without the registered alias is undone exactly as a studio one would be. Break this and the derivation silently undoes every merge on a derived-link entity.
 - **The identity backfill auto-folds only the provably-safe** (F43/RD10): the one-time pass merges the **pure-case hard pairs** (survivor = lower `id`, decisions/curation/enrichment **moved not dropped** where non-conflicting) and **never** auto-merges a fuzzy near-miss — near-misses only ever seed the review queue. Idempotent (second run = no-op); the unique-index build cannot fail on residual dupes because the fold precedes it.
 - **A same-title film pair is surfaced, never folded** (F60/ADR-096 D3): the film key is composite, so "Superman II" 1980 and 2006 coexist; the only automatic routing of a title to an existing film is an exact year match or a year-less title that exactly one film answers to — every other same-title case creates and queues a `same-title` pair for the owner. The homonym rule for people, applied to a kind where homonyms are the normal case.
+- **A multi-word tag carries its dashed spelling, never at the cost of a merge** (F43 RD13/P0-12, `tag_dashed_alias_test.go`): create (scan, owner, materialization — the one choke point) and rename add `science fiction` → `science-fiction` (whitespace runs → one dash; single-word and already-dashed names get none), and a later dashed file spelling routes to the same tag. A dashed spelling another tag holds is **skipped** and the pair queued, never merged; a blocked (deny-listed) spelling is skipped on create, rename and backfill, and blocking later leaves an existing alias (forward-only, HOLODEX-558). The one-time backfill is idempotent and honors a removal (suppression), and the automatic alias does not shield an orphan from the sweep. Tag names and aliases are stored with each whitespace run collapsed to one space (RD12) on create, rename and alias add, and migration 0061 collapses existing ones without touching any key (`collapse_tag_whitespace_test.go`).
 - **A kept-separate pair never nags** (F43/RD5): once the owner dismisses a near-miss (or picks "keep separate"/"create anyway"), no scan-time flagging or detector pass re-proposes that pair — the negative decision is as durable as an alias.
 - **Name-identity and provider-identity never cross** (F43/ADR-061 D5 × ADR-055): resolve is **id → name → create** — a provider-supplied record keys by `<namespace>:<id>` (name display-only), a file/owner-authored record keys by `nameKey`; neither path silently adopts the other's key.
 - **A provider alias is a routing rule, not a label** (ADR-088 D3, HOLODEX-306): after enriching a person from a provider, that provider-supplied name must **both** find them in search **and** route a file tagged with it to them on the next scan. Either half passing alone is the pre-collapse bug wearing a new table — the entire point of the collapse is that an alias has one meaning regardless of who authored it, so the assertion is always the pair, never one side.
@@ -4135,6 +4141,51 @@ component harness doesn't exist (HOLODEX-395).
   measurement exist before anyone argues for the cache.
 - Safari's autoplay after a run hand-off is a §14 human item, unchanged.
 
+### 23.10 Jump to a position (RD14 / P0-13, HOLODEX-564)
+
+[Handoff](design/run-position-jump-handoff.md). The run strip's `n of N` opens a list of the whole
+run, fed by `POST /media/brief`, a read by arbitrary id. **Risks, ranked:**
+
+1. **A leak through the brief.** It returns a title for a video `GET /media/{id}` would 404, or
+   carries a field a visitor can't otherwise see. The id list comes from the caller, so the gate has
+   to be per item.
+2. **Wrong item.** The list's position *n* isn't the run's *n*th item, in a shuffled run in
+   particular, or a title match loses its run position.
+3. **A list that can't reach the end of a long run.** Virtualisation draws the wrong slice, or the
+   wheel scrolls the page instead.
+
+| Layer | Test | Pins |
+|---|---|---|
+| API | `TestMediaBrief_RequestOrderAndGating` | request order (not a sort); soft-deleted and unknown ids left out; a repeated id once; asked as a visitor |
+| API | `TestMediaBrief_Bounds` | an empty list is 200 and empty; 1001 ids is a 400 |
+| Vitest | `runJump.test.ts` | digits are a 1-based position, out of range is refused, anything else is title words; matches keep run order and positions in a shuffled order; the virtual window and centring clamp at both ends |
+| Live QA | below | everything the component wires together |
+
+The response struct has no file-metadata fields, so there's nothing to redact and no redaction call
+to forget. That is why risk 1 has no redaction test.
+
+**Live QA** (Cinémathèque, `backend-stress` 183-item browse run; verified 2026-10-11):
+
+1. `[agent]` `n of N` has a dashed underline and opens the list centred on the playing item, marked
+   with the gold bar and `▶ now`.
+2. `[agent]` Wheel over the rows: the list scrolls and the page doesn't. The drawn rows follow
+   (16–37 after five notches).
+3. `[agent]` Type `142`: the list centres and highlights #142 without filtering. Enter plays it and
+   the strip reads `142 of 183` in the same run. *Previous* then goes to 141 (spec RD14).
+4. `[agent]` Type `baseline`: 4 matches at their run positions, match underlined, caption
+   "4 matches".
+5. `[agent]` ↓ from the box focuses a row with exactly one row at `tabindex=0`, ↑ on the first row
+   returns to the box, and Esc closes and focuses the trigger.
+6. `[agent]` `500` shows "Pick a number from 1 to 183" in `text-warn`.
+7. `[agent]` At 375px the list spans the strip, the length column is hidden, and there's no
+   horizontal scroll. At 650px with the trigger pushed right, the panel stops 16px from the edge.
+8. `[human]` A screen reader announces the trigger as "Go to a position, n of N", and each row as
+   "position, title, length".
+
+**Gaps:** the popover has no component harness (HOLODEX-395, as in §14 and §22), so items 1–7 are
+live QA. The wheel's containment at the ends is browser behaviour (`overscroll-behavior: contain`)
+and is checked by eye only.
+
 ## 24. Duplicate videos (F76, HOLODEX-521)
 
 [Spec](specs/duplicate-videos.md) · [architecture](architecture/entity-identity.md) (computed on
@@ -4243,3 +4294,272 @@ folder and a whole-page failure when the video read fails. Item 6 is the owner's
   rows, and a one-time sweep removed earlier orphans. `TestMigration0060VideoEntityRows` covers
   both; dropping the trigger or the sweep each turns it red.
 - Keyboard order inside the panel and the Escape order (editor, then panel) are live-QA only.
+
+## 25. Video file maintenance — flip horizontally (F77, HOLODEX-556)
+
+[Spec](specs/video-file-maintenance.md) · [architecture](architecture/file-maintenance.md) ·
+[handoff](design/video-file-maintenance-handoff.md). This is the first feature that **rewrites a
+file's picture** and the first that **holds a second copy of a media file**. Every risk is data loss
+or a silent change, so most of the weight sits in real-file tests inside the built image, not in
+mocks.
+
+### 25.1 Risks, ranked
+
+1. **Silent metadata loss.** The new file replaces the original while missing a tag, a stream, a
+   chapter, an attachment or cover art. ffmpeg and mkvmerge both exit 0 when they do this. The
+   verification gate is the only guard, so **the gate itself must be tested adversarially**: hand it
+   a bad candidate and confirm it refuses.
+2. **Losing the original.** A crash between the two renames, a sweep that deletes `.holodex-orig`, an
+   expiry that fires early, a restore that crosses volumes, or a purge that leaves the held file
+   behind.
+3. **A wrong-but-valid output.** The picture isn't actually mirrored, a cover-art stream got
+   flipped, the colour or pixel format drifted, the length drifted, or the audio slipped out of sync.
+4. **Interleaved writes.** A tag write and a flip run on the same file at once, so one overwrites
+   the other's rename.
+5. **Lane starvation.** A flip blocks tag writes for other files, or the reverse.
+6. **Exposure.** A visitor, or the owner with Admin mode off, sees or triggers maintenance.
+
+### 25.2 Fixtures (synthesized in-test; nothing committed)
+
+Each fixture is built with ffmpeg `lavfi` inside the test's temp dir, in the §3.1 style. The picture
+source is **`testsrc2` with a `drawbox` in the top-left quadrant only**, so a flip is detectable from
+a single pixel region. The verifier is not the oracle; the box is.
+
+| ID | Container | Video | Also carries | Proves |
+|---|---|---|---|---|
+| M1 | MP4 | H.264 yuv420p | AAC stereo, `mov_text` subtitle, 3 chapters, cover art (`attached_pic`), XMP `Edition`, iTunes title/genre | MP4 path, cover art not flipped, XMP restored |
+| M2 | MP4, **fragmented** (`-movflags frag_keyframe`) | H.264 | AAC, tags | Output comes out progressive with tags intact |
+| K1 | MKV | HEVC yuv420p10le, BT.2020/PQ, HDR10 mastering + MaxCLL | 2 audio tracks (eng/jpn), SRT subtitle, a font attachment (any bytes, `application/x-truetype-font`), 3 chapters, global + track tags at levels 50/70/30, a Holodex-written `PUBLISHER` | mkvmerge path, track order and flags, `_STATISTICS` recompute, HDR carry-over |
+| K2 | MKV | VP9 | Opus, tags | VP9 row of the encoder table |
+| K3 | MKV | AV1 (libsvtav1) | Opus | AV1 row |
+| K4 | MKV, video **not** track 0 | H.264 | audio first, then video | `<n>` index selection and `--track-order` |
+| R1 | MKV | MPEG-2 | — | Unsupported-codec refusal |
+| R2 | MKV | none (audio only) | — | No-video refusal |
+
+Dolby Vision can't be synthesized. Its refusal is a unit test over a captured ffprobe JSON
+(`dovi_configuration_record` side data).
+
+### 25.3 Go unit
+
+- **`internal/maintenance/encoders_test.go`.**
+  - The table maps every supported codec to exactly one invocation.
+  - Each invocation pins `-pix_fmt` and all four colour flags from the probe.
+  - HEVC with HDR10 side data yields `-x265-params` carrying `master-display` and `max-cll`.
+  - Unknown codec, Dolby Vision, and an encoder missing from a stubbed `ffmpeg -encoders` list each
+    give `ErrUnsupported` with the reason the dialog copy needs.
+- **`internal/maintenance/args_test.go`.**
+  - Golden argv for MP4 and MKV, including `<n>` when cover art or audio precedes the video, so the
+    filter never targets `attached_pic`.
+  - For MKV: `--no-global-tags --no-track-tags --no-chapters` on the intermediate, `-d !<n>` on the
+    original, and `--track-order` restoring position.
+  - No shell anywhere; paths only from the row.
+- **`internal/maintenance/verify_test.go` (table, probe JSON in, rule out).** One failing case per
+  output-contract rule, each asserting the rule it names:
+  - a dropped stream;
+  - reordered streams;
+  - a changed language or default flag;
+  - a changed copied-stream packet digest;
+  - a missing tag, a changed tag value, and an extra tag (ffmpeg's `encoder`);
+  - a missing chapter;
+  - changed width, pix_fmt or colour primaries;
+  - duration off by two frames.
+
+  It also pins the exceptions (spec rule 4, architecture):
+  - `_STATISTICS` tags differing on the re-encoded track **pass**;
+  - the same tags differing on a *copied* track **fail**;
+  - writing-application differences pass.
+
+  Duration off by under one frame passes. Flip relaxes no rules; a stub op that relaxes `width`
+  passes only a width change.
+- **`internal/maintenance/swap_test.go`** (temp dir, fake renamer that can fail at each step).
+  - Happy path leaves `path` = new bytes, `.holodex-orig` = original bytes, row `held`.
+  - Failure injected after the row insert, after rename 1, and after rename 2; then
+    `RecoverSwaps` runs. Each case asserts the file at `path` is one complete version, no bytes are
+    lost, and the row's final state matches the §"swap" table.
+  - **Second op while held:** `.holodex-orig` keeps the *first* original's bytes and `expires_at` is
+    unchanged.
+  - Restore and discard each delete the row only after the file operation succeeds.
+- **`internal/writequeue` lanes.**
+  - `ClaimNextWriteback(kind)` returns only that kind.
+  - With a `running` maintenance row for video A, a pending write for A is skipped, a pending write
+    for B is claimed, and A's write is claimed once the maintenance row finishes. The reverse holds.
+  - Enqueueing a second maintenance row for A while one is pending or running is refused.
+  - `RecoverRunningWritebacks` resets both kinds.
+- **Boot order:** swap recovery runs before `sweepOrphans` (a `.holodex-new` referenced by a
+  `swapping` row survives the boot). The sweep never removes `.holodex-orig`.
+- **Expiry pass:**
+  - fake clock; a row exactly at `expires_at` is discarded, one second before is not;
+  - an undeletable file keeps its row and records a failed `job_runs` entry;
+  - `maintenance_hold_days` is read from config with a default of 7.
+- **Scanner:** a `.holodex-orig` next to a scanned `.mkv` is never ingested. This test fails if
+  anyone adds the suffix to `mediaExts`.
+- **Purge:**
+  - With `RemoveFiles` on, purging a video with a `held` row unlinks both the current file and
+    `.holodex-orig`.
+  - With it off, no file is deleted: `.holodex-orig` is renamed back over the current file, so the
+    path holds the original bytes.
+  - In both cases the `held_originals` row is gone.
+- **Redaction:** a visitor's media payload carries no `kind`, no maintenance pending or failed
+  state and no held-original block. The owner's carries all three. This sits beside the existing
+  `redactWritebackStatusForVisitor` test.
+- **Hardening:**
+  - a symlinked `.holodex-new` or `.holodex-orig` is refused before any write or rename;
+  - the preflight probe uses `O_EXCL`, so a pre-existing `.holodex-probe` is never truncated;
+  - golden argv carries `-nostdin -protocol_whitelist file -f <demuxer>`;
+  - a `held_path` that disagrees with `file_path + ".holodex-orig"` is refused by restore, discard,
+    expiry and purge.
+
+### 25.4 API integration (real repo, `httptest`)
+
+- Every maintenance route returns `401` to a visitor and to an owner session with Admin mode off
+  (the `requireOwner` table gains the new routes).
+- **Preflight.**
+  - Read-only directory (chmod 0555 on Unix; skipped on Windows) → `ok:false` with the read-only
+    reason.
+  - A stubbed free-space function below `1.5 × size` → `need_bytes` and `free_bytes` populated.
+  - Missing file and soft-deleted video → refused.
+  - **Enqueue re-runs preflight:** a preflight that passes, then the dir goes read-only, then enqueue
+    → refused, and no row is created.
+- **Status.** The media payload reports `kind` alongside pending and failed, so the page can tell
+  "flipping" from "writing to file".
+- **Held status.** The payload exposes `held: {created_at, expires_at}`; it disappears after discard
+  or restore.
+- **Retry and Dismiss** act on failed maintenance rows exactly as on write rows.
+
+### 25.5 Per-container file proof (`-tags integration`, `make test-image`)
+
+`internal/maintenance/flip_integration_test.go`, `TestFlip_RealFiles`, runs inside the built image
+(real ffmpeg, mkvmerge, exiftool). For each of M1, M2, K1–K4:
+
+1. Flip it through the real worker.
+2. **Mirror oracle:** decode frame 0 of the original, `hflip` it to PNG, and compare it with frame 0
+   of the output; PSNR > 40 dB. Also check that the drawbox region moved to the top-right.
+3. **Cover art oracle (M1):** the cover art stream's bytes are unchanged, i.e. it was not flipped.
+4. **Metadata oracle, independent of `Verify`.** `exiftool -a -G1 -j` and `ffprobe` dumps of the
+   original and the output are diffed by the test's own code, with only the documented exceptions
+   allowed.
+5. **K1:** the font attachment, both audio tracks, the subtitle and every tag level survive. The
+   video track's `_STATISTICS` tags match the new stream's real byte count, not the old one. Mastering
+   display and MaxCLL are present on the output.
+6. **A/V sync:** the first audio packet's pts offset relative to the first video pts is unchanged.
+7. Restore returns the original bytes; discard leaves only the flipped file.
+
+Then **gate adversarial cases on real files**: feed `Verify` a real candidate damaged by
+`mkvpropedit --tags global:` (tags dropped) and one remuxed by ffmpeg without `-map_metadata`. Each
+is refused, and the original is untouched (hash before and after).
+
+Then **refusals**: R1, R2, and K1 with `mkvmerge` removed from PATH, each refused at preflight
+before any temp file appears.
+
+**Runtime budget:** fixtures are 2 s at 320×240, so the matrix stays under about 60 s in the image.
+
+### 25.6 SPA unit (Vitest)
+
+`web/src/lib/maintenance.test.ts` covers the pure helpers the page uses:
+- state selection from the payload: rest, queued, running, held, failed, restoring;
+- the held-expiry date format ("17 Oct", and the year only when it isn't the current year);
+- GB formatting to one decimal place;
+- refusal-reason → copy mapping, one case per §3 row of the handoff, with no raw stderr passed
+  through.
+
+### 25.7 Live QA (Cinémathèque; numbered and tagged)
+
+Run against the dev server (`web`), never a backend port, because the dev environment must not emit
+audio. Use a testbed whose media mount is read-write and holds a disposable copy of M1 and K1.
+
+1. `[agent]` Visitor, and owner with Admin mode off: no Maintenance heading in the rail.
+2. `[agent]` Owner with Admin mode on: Maintenance sits between Metadata and Manage, with one
+   **Flip horizontally…** ghost button. Geometry harness (§12): no overflow at 375 px.
+3. `[agent]` Opening the dialog shows "Checking…" with no confirm button, then the ready state. Size
+   and expiry lines are present.
+4. `[agent]` With the mount read-only: the refused dialog shows only **Close**.
+5. `[agent]` Confirm: the button is replaced by the **flipping** pill at once. Navigating away and
+   back keeps the pill (the status belongs to the video).
+6. `[agent]` On completion: the held notice appears, the player and the thumbnail show the mirrored
+   picture with no hard refresh, and the duration and resolution are unchanged.
+7. `[agent]` **Keep change** → warn confirm with focus on Cancel; confirming removes the notice.
+   `.holodex-orig` is gone on disk.
+8. `[agent]` **Restore original** → accent confirm naming the date; afterwards the picture is
+   unmirrored and the notice is gone.
+9. `[agent]` A tag write ("Write decisions to file") during a flip shows its pending pill and lands
+   after the flip finishes. The final file is mirrored and carries the new tag.
+10. `[agent]` Screen reader check: the live region announces flipping, then flipped.
+11. `[human]` Compare the built section and dialogs with the approved mockup
+    (`docs/design/video-file-maintenance-mockup.svg`).
+12. `[human]` Watch a flipped real library file end to end: no visible quality loss, and the audio is
+    in sync.
+
+**Live run, 2026-10-11** (`backend-f77` + `web-f77`, a disposable `data/f77/media` holding an MP4
+with chapters, XMP edition and iTunes tags, plus an MKV; no local mkvmerge):
+- **Passed:** items 2, 3, 5, 6, 7 and 8. Also:
+  - item 4's refused dialog (mkvmerge missing: Close only);
+  - the failed line, seeded with a path-bearing verifier error, rendered in plain words with no
+    path, and Dismiss cleared it;
+  - at 375 px there is no overflow;
+  - the API reports `running` + `started_at` mid-job.
+- **Found and fixed:** a flip dropped the MP4's iTunes `©too` (Encoder) tag. `+bitexact` stops
+  ffmpeg writing it, and the verifier exempted container `encoder` for every container, so the gap
+  was hidden. The exiftool restore now copies ItemList and UserData, the exemption is Matroska-only,
+  and the real-file test gained an independent exiftool tag oracle. Removing the restore turns it
+  red.
+- **Found and fixed:** the running line lacked "Started 14:02" and the queued pill; the payload now
+  carries `running` and `started_at`.
+- **Not run:**
+  - items 1 and 9–10 are covered by API and unit tests;
+  - item 11 is the owner's;
+  - item 12 needs a real library file.
+
+  Pre-existing and unrelated: console errors (`pathname` of null in the root `+page`/`+layout`
+  navigation hooks on hard `location.href` loads).
+
+### 25.8 Mutation checks (run once the code exists)
+
+Each change must turn its named test red:
+- Remove `-map_metadata`/TagsFromFile restore → `TestFlip_RealFiles/M1` metadata oracle.
+- Drop the `_STATISTICS` exception scope (allow on all tracks) → `verify_test` copied-track case.
+- Apply `hflip` to every video stream → M1 cover art oracle.
+- Swap rename order (new over path first) → `swap_test` crash-after-rename-1 case.
+- Run `sweepOrphans` before `RecoverSwaps` → boot-order test.
+- Remove the `video_id NOT IN running` clause → the lane test for the same file.
+- Claim maintenance rows in the write pool → the lane-starvation test.
+- Expiry at `<` instead of `<=` → the expiry boundary test.
+- Skip enqueue-time preflight → the API stale-dialog test.
+
+### 25.9 Coverage targets and standing gaps
+
+- **Targets:**
+  - `internal/maintenance` ≥ 90% statements, with every output-contract rule owning at least one
+    failing case;
+  - every crash point in the swap is injected;
+  - `maintenance` is added to `IMAGE_TEST_PKGS`, and the real-file matrix passes under
+    `make test-image` before the PR is marked ready.
+- **Not in CI:** `make test-image` isn't wired into any workflow today. The real-file proof is a
+  pre-ready local gate, like the other §22–24 file proofs, and is recorded in the worklog.
+- **Image run, 2026-10-11** (`holodex:test-image`: trixie, ffmpeg with libx264/libx265/libvpx-vp9/
+  libsvtav1, MKVToolNix, exiftool 13.25):
+  - **All pass.** Every `maintenance` test passes, including real-file M1, K1 (HDR10, two
+    languages, subtitle, font attachment, chapters, global and video-track tags), VP9, AV1,
+    video-not-first, mkvmerge-written (statistics and mux date), the R1/R2 refusals, and a flip
+    through the worker for both families.
+  - **Statement coverage is 87.3%**, measured in the image, against the 90% target. Every
+    output-contract rule and every swap crash point is covered. What's uncovered is tool-failure
+    branches deeper than "the tool is missing" (an exiftool restore or mkvpropedit failing
+    mid-rebuild, unparseable XMP, a rename failing during recovery).
+  - **The run found and fixed three things the unit tests couldn't:**
+    1. mkvmerge stamped a new mux date (`creation_time` added). Now `--no-date`, plus a
+       `mkvpropedit` restore of the original's date.
+    2. mkvmerge added statistics tags to copied tracks of a file it never wrote. Now
+       `--disable-track-statistics-tags` in that case.
+    3. MKVToolNix errors were invisible because they're printed on stdout.
+  - **Unrelated failure:** `metadata`'s `TestExtract_MatroskaTargetLevels` fails under exiftool
+    13.25 (its own guard says exiftool now picks the title unaided). This branch doesn't touch
+    that package; it's flagged as its own task.
+- **Gaps:**
+  - Dolby Vision is unit-only (no synthesizable fixture).
+  - The read-only preflight is Unix-only in CI. Windows runs only the free-space and tool checks.
+  - Visual quality is judged by a human (item 12). PSNR proves the mirror, not imperceptibility.
+  - Multi-hour re-encodes (shutdown mid-encode on a large file) are covered by the unit-level
+    cancel-and-requeue test, not a real long encode.
+  - An MKV where only some tracks carry mkvmerge statistics is refused, not flipped: mkvmerge's
+    statistics switch is all-or-nothing, so the copied tracks that lacked them gain them and the
+    verifier objects. It fails safe, and nothing is changed.

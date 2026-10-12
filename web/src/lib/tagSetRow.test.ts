@@ -51,6 +51,11 @@ describe('tag set row writes', () => {
 		expect(needsWriteback(tags({ in_sync: undefined }))).toBe(false);
 		expect(outOfSyncCount([tags(), tags({ canonical: 'actors' })])).toBe(1);
 	});
+	it('writes and counts an emptied set — the last tag removed while the file still has it', () => {
+		const emptied = tags({ values: [], items: [], file_only: ['drama'] });
+		expect(willWrite(emptied, '', pick)).toBe(true);
+		expect(needsWriteback(emptied)).toBe(true);
+	});
 });
 
 describe('tagSetDiff', () => {

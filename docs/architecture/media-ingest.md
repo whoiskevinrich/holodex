@@ -25,7 +25,9 @@ on every row not seen.
 - **Empty-walk guard.** A pass that sees zero media files skips deactivation, so a transiently empty
   mount cannot hide the library. An unchanged file on an `active = 0` row is reactivated without
   re-extraction.
-- Per-file failures increment an error count and never abort the pass.
+- Per-file failures increment an error count and never abort the pass, but they do record the
+  pass's job row as `error`, as do an unresolvable or unreadable media root (only a *subdirectory*
+  is skipped) and an empty walk while active videos exist.
 
 **Rejected:** content hashing — a full read of every file per pass is too costly at library scale.
 
@@ -73,9 +75,10 @@ title, people or tags; and multi-value fields (people, tags) never inherit from 
 levels, which would smear a series' cast across every episode.
 
 **A small Go reader enforces it, because neither tool can.** exiftool's Matroska module ignores
-`TargetTypeValue`: only a `TagTrackUID` changes a tag's group, and standard tags run at priority 0,
-so the first occurrence of a key in the file wins whatever its level. ffprobe's `format_tags` is no
-better; it also ignores the level, and there the *last* occurrence wins. So for Matroska files
+`TargetTypeValue`: only a `TagTrackUID` changes a tag's group, so one occurrence of a key wins
+whatever its level. Which one has changed between versions: the first in older ones, the last in
+13.25 (what the runtime image ships) and 13.59. ffprobe's `format_tags` is no better; it also ignores the level, and
+there the *last* occurrence wins. Holodex's selection must not depend on either order. So for Matroska files
 `internal/metadata/matroska.go` walks the Segment's level-1 elements, skipping each by size so
 Clusters are never read, and decodes `Info` and `Tags` with each SimpleTag's level and binding.
 `selectMatroskaTags` then rewrites exiftool's flat map by the level rule the spec states

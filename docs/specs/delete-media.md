@@ -63,6 +63,8 @@ the file from disk. The owner can also **purge now**, bypassing the grace period
 - **Auto-delete rules** (e.g. "purge anything not played in N months"). There is no play/engagement
   signal in a personal library; manual curation only.
 - **Trashing whole people/tags/folders.** F24 deletes *media items*; entity cleanup is separate.
+  Films are the exception: [Delete a film (F78)](delete-film.md) puts trashed films in this same
+  Trash, under this same grace period.
 - **Two-tier "Trash then Recycle Bin"** or per-item custom grace windows. One global grace window.
 - **Undo after purge.** Once hard-deleted (file + row gone), it is gone; recovery is from the
   user's own backups. The grace period *is* the safety net.

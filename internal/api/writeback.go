@@ -117,8 +117,11 @@ func (h *Handlers) markWriteTargets(fields []resolver.ResolvedField, container s
 		// An owner-cleared row (ADR-120 D4) is written as a tag delete, so it needs
 		// its target too. A blank pin — a file/provider pin to an empty layer — is
 		// neither offered nor cleared and keeps the unwritable stamp.
+		// An empty tag set row (the last tag removed while the file still has it) is
+		// written as a Genre delete (ADR-110 D6), so it needs its target too.
 		offered := len(vals) == 0 && ((!f.Multi && (f.Decision == nil || !f.Decision.Standing) &&
-			registry.OffersWhenEmpty(f.Canonical)) || isClearedField(f))
+			registry.OffersWhenEmpty(f.Canonical)) || isClearedField(f) ||
+			(f.Multi && strings.EqualFold(f.Canonical, "genres")))
 		if offered {
 			vals = []string{""}
 		}

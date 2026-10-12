@@ -45,6 +45,10 @@ delete_grace_period_seconds: 604800  # DELETE_GRACE_PERIOD_SECONDS (7 days; 0 di
 delete_remove_files: true            # DELETE_REMOVE_FILES (true = purge unlinks the file; false = DB-only, for read-only/externally-managed libraries)
 purge_interval_seconds: 3600         # PURGE_INTERVAL_SECONDS (how often the grace-period purge sweep runs)
 
+# --- Video file maintenance (F77) ---
+# A flip re-encodes the picture; the original is held beside the file for Restore, then deleted.
+maintenance_hold_days: 7             # MAINTENANCE_HOLD_DAYS
+
 # --- Cache (ADR-008) ---
 cache_backend: "memory"    # CACHE_BACKEND (memory|none — both resolve to no cache today)
 

@@ -138,6 +138,14 @@ page under-reports the very set the owner wants to watch.
 - **RD13 — "Always shuffle" is a playlist property.** A playlist (smart or F69) can be set to play
   shuffled: its primary play action becomes *Shuffle*, and entering a run from one of its tiles starts
   shuffled. Its page still displays in its `sort`. The owner sets it; visitors inherit it.
+- **RD14 — Jump to any position, by number or by title, across the whole run (HOLODEX-564).** The
+  run's `n of N` opens a list of every item in the run, so you can jump straight to one. Typing a
+  number goes to that position. Typing words finds titles **anywhere in the run**, not just the part
+  that has loaded, and that holds for every run source: a playlist, a person, a tag, a studio, a film
+  or browse. Positions are play order, so a shuffled run numbers its items the way it will play them,
+  the same numbers `n of N` shows. Jumping works like *Next*: it moves within the same run, without
+  reordering it. *Previous* and *Next* are then the new item's neighbours in the run (after a jump
+  from 1 to 142, *Previous* is 141). Mode and repeat carry on, and no new run starts.
 
 ## User Stories
 
@@ -156,6 +164,10 @@ page under-reports the very set the owner wants to watch.
   channel.
 - As the owner, I want a "random favourites" playlist to always play shuffled so that I don't have to
   remember to press *Shuffle*.
+- As the owner at item 1 of a 389-item tag run, I want to jump straight to item 142 so that I don't
+  have to press *Next* 141 times.
+- As the owner, I want to find an item in a run by part of its title so that I can go back to the one
+  I half-remember without knowing its number.
 
 **Owner, curating**
 - As the owner on a tag page, I want to *Save as smart playlist* so that the playlist always contains
@@ -256,6 +268,25 @@ primary play action is *Shuffle* and runs entered from the playlist's tiles star
 - [ ] Visitor on a public always-shuffle playlist gets a shuffled run.
 - [ ] The playlist page's display order is unchanged by the toggle.
 
+**P0-13 — Jump to a position (RD14, HOLODEX-564).** Pressing the run's `n of N` opens a list of every
+item in the run, each with its position, thumbnail, title and length, and the playing item marked. The
+list scrolls through the whole run with the mouse wheel. Choosing an item plays it as *Next* would:
+a press autoplays, and a middle-click or a copied link doesn't.
+- [ ] Given a 389-item run at item 1, when the owner types `142` and presses Enter, then item 142
+  plays and the strip reads `142 of 389`.
+- [ ] Given a run started from a tag, person, studio, film or browse, when the owner types a word that
+  appears only in item 377's title, then item 377 is listed without scrolling first.
+- [ ] Matches keep their run positions and stay in run order.
+- [ ] In a shuffled run, position *n* in the list is the *n*th item to play, and choosing it doesn't
+  reshuffle.
+- [ ] After a jump from 1 to 142, *Previous* goes to 141 and *Next* to 143. The run's order, repeat
+  and shuffle are unchanged.
+- [ ] A number outside 1 to N plays nothing and says what range is valid.
+- [ ] A visitor's list never shows a title, thumbnail or length for an item they couldn't open from
+  browse (RD9).
+- [ ] When the playing video isn't in the run (a stale link), there's no `n of N`, so there's no list.
+  *Play from start* stays the way back.
+
 ### Nice-to-Have (P1)
 
 - **P1-4 — Shuffle toggle mid-run (RD11)** on the next-up surface. *Acceptance:* toggling never changes
@@ -292,6 +323,10 @@ primary play action is *Shuffle* and runs entered from the playlist's tiles star
 - **Run state.** A run is `{source query or playlist, mode, seed, ordered ids, played history,
   repeat}`, all held under the run id. Shuffle, the mid-run toggle and repeat only change this state;
   none of them writes to the server.
+- **The jump list's titles (RD14).** The run still holds ids only. Opening the list fetches each
+  item's title, length and thumbnail for the whole run at once, so a title search sees every item.
+  Rows show their position until their details arrive. Nothing is stored with the run, and an item
+  removed from the library since the run started keeps its position and says it's unavailable.
 - **Saving from a filter with no clauses** (bare browse) is allowed — "everything, newest first" is a
   legitimate smart playlist.
 
@@ -333,6 +368,8 @@ Two affordances and three changes:
    stale-reference notice, and the *Always shuffle* toggle (also on F69 playlist pages).
 4. **Playlists list** — smart marker.
 5. **Browse in edit mode** — *Update ‹name›* replacing *Save*.
+6. **Jump list** — the run's `n of N` opens the jump-to-position list (P0-13). Design:
+   [run-position-jump-handoff.md](../design/run-position-jump-handoff.md).
 
 The design handoff fixes placement and treatment (Cinémathèque only).
 
@@ -376,6 +413,8 @@ Three stories under HOLODEX-16, in order:
    P0-1 and the run context.
 3. **HOLODEX-58 — smart playlists** (P0-2 *Save* half, P0-4..P0-10, P0-12). Needs the ADR and
    migration.
+4. **HOLODEX-564 — jump to a position** (RD14, P0-13). Added after the three above shipped, and
+   builds on their run.
 
 Gates: **spec** (this document) · **ADR**
 ([ADR-121](../architecture/archive/ADR-121-smart-playlists-stored-query-and-runs.md): stored-query format and

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -13,10 +14,17 @@ import (
 // job (disk removal) — the Trash API response drops it (the detail page 404s).
 type TrashItem struct {
 	ID        int64     `json:"id"`
+	Kind      string    `json:"kind"` // TrashKindMedia | TrashKindFilm (F78)
 	Title     string    `json:"title"`
 	FilePath  string    `json:"-"`
 	DeletedAt time.Time `json:"deleted_at"`
 }
+
+// The kinds of thing Trash holds: media items (F24) and films (F78).
+const (
+	TrashKindMedia = "media"
+	TrashKindFilm  = "film"
+)
 
 // SoftDelete marks a video soft-deleted (F24.1): it disappears from every read
 // surface immediately but its row and file survive the grace period. Idempotent —
@@ -64,18 +72,33 @@ func (r *Repo) Restore(ctx context.Context, id int64) error {
 	return nil
 }
 
-// Trash lists the soft-deleted items (newest deletion first) for the owner's Trash
-// view (F24.7). FilePath is populated but the handler omits it from the response.
+// Trash lists every soft-deleted media item and film (F24.7, F78 RD7) as one list,
+// newest deletion first. FilePath is populated for media; the handler decides what of
+// it to send.
 func (r *Repo) Trash(ctx context.Context) ([]TrashItem, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, title, file_path, deleted_at FROM videos
-		WHERE deleted_at IS NOT NULL
-		ORDER BY deleted_at DESC, id DESC`)
+		WHERE deleted_at IS NOT NULL`)
 	if err != nil {
 		return nil, fmt.Errorf("trash list: %w", err)
 	}
-	defer rows.Close()
-	return scanTrash(rows)
+	media, err := scanTrash(rows)
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	films, err := r.FilmTrash(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := append(media, films...)
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].DeletedAt.Equal(out[j].DeletedAt) {
+			return out[i].DeletedAt.After(out[j].DeletedAt)
+		}
+		return out[i].ID > out[j].ID
+	})
+	return out, nil
 }
 
 // ExpiredSoftDeleted returns soft-deleted items whose deleted_at is at or before
@@ -103,6 +126,7 @@ func scanTrash(rows *sql.Rows) ([]TrashItem, error) {
 		if err := rows.Scan(&it.ID, &it.Title, &it.FilePath, &delStr); err != nil {
 			return nil, err
 		}
+		it.Kind = TrashKindMedia
 		it.DeletedAt, _ = time.Parse(timeLayout, delStr)
 		out = append(out, it)
 	}

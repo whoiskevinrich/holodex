@@ -1,11 +1,12 @@
 # Person components
 
 Person-detail UI: identity (aliases/merge), the headshot/banner/poster image system, and the
-gallery/viewer stack. Some pieces are reused verbatim by the studio page (not tag — RD7).
+gallery/viewer stack. `AliasPanel` is shared by the person, studio, film and tag detail pages; the
+image pieces are reused by studio.
 
 | File | Purpose |
 |---|---|
-| `AliasPanel.svelte` | Owner-curated alternate names (drives search + scan routing); hosts the merge picker and the homonym-collision card. Entity-generic (person + studio); studio adds a Rename affordance. |
+| `AliasPanel.svelte` | Owner-curated alternate names (drives search + scan routing); hosts the merge picker and the homonym-collision card. Entity-generic over `EntityKind` (person/studio/film/tag); rename lives on `entity/NameEditControl`. |
 | `NationalityFlags.svelte` | Renders a person's nationality flag(s) beside the hero name; renders nothing when none resolve. |
 | `PersonAvatar.svelte` | 1:1 headshot — thin wrapper over `PersonImageFrame` fixing the `headshot` role. |
 | `PersonBanner.svelte` | Wide 8:3 hero banner over `PersonImageFrame`, with a scroll-driven parallax shift. |

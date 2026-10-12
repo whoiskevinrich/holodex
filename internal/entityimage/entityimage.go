@@ -96,6 +96,16 @@ func Store(dir string, entityID, imageID int64, data []byte) error {
 	return nil
 }
 
+// RemoveAll deletes an entity's whole image directory — the purge of an entity whose
+// rows are going too (F78 RD3). A missing directory is not an error. entityID is a
+// server-assigned integer, so the path can't escape dir.
+func RemoveAll(dir string, entityID int64) error {
+	if err := os.RemoveAll(entityDir(dir, entityID)); err != nil {
+		return fmt.Errorf("remove entity image dir: %w", err)
+	}
+	return nil
+}
+
 // Remove deletes a stored image file under either extension. A missing file is not
 // an error (the row may have outlived its bytes, or a prior delete was interrupted)
 // — the DB row is the source of truth and is removed separately.

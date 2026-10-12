@@ -1,9 +1,10 @@
 // Package purge runs the F24 grace-period sweep (ADR-037): it hard-deletes media
 // items whose owner-initiated soft-delete has aged past the grace window, removing
 // the file from disk (when enabled) and then the row (whose junctions/FTS clean up
-// via ON DELETE CASCADE). It is a dedicated ticker — independent of the scanner's
-// clock and able to run even when scanning is disabled — recording each pass in the
-// activity history (ADR-028, kind=purge), exactly like a scan.
+// via ON DELETE CASCADE). Trashed films (F78) are swept on the same pass and grace:
+// their image directory goes, then the row. It is a dedicated ticker — independent
+// of the scanner's clock and able to run even when scanning is disabled — recording
+// each pass in the activity history (ADR-028, kind=purge), exactly like a scan.
 package purge
 
 import (
@@ -13,6 +14,7 @@ import (
 	"os"
 	"time"
 
+	"holodex/internal/filmimage"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -23,14 +25,22 @@ type Repo interface {
 	PurgePath(ctx context.Context, id int64) (string, error)
 	SoftDelete(ctx context.Context, id int64) error
 	HardDelete(ctx context.Context, id int64) error
+
+	ExpiredSoftDeletedFilms(ctx context.Context, cutoff time.Time) ([]repo.TrashItem, error)
+	SoftDeleteFilm(ctx context.Context, id int64) error
+	HardDeleteFilm(ctx context.Context, id int64) error
+
 	RecordJobRun(ctx context.Context, run model.JobRun) error
+	GetHeldOriginal(ctx context.Context, videoID int64) (*repo.HeldOriginal, error)
+	GetVideoMaintenanceStatus(ctx context.Context, videoID int64) (repo.MaintenanceStatus, error)
 }
 
 // Config carries the purge knobs (from the app config, in seconds upstream).
 type Config struct {
-	Grace       time.Duration // soft-deleted items older than this auto-purge; 0 disables auto-purge
-	Interval    time.Duration // how often the sweep runs
-	RemoveFiles bool          // whether purge unlinks the file (false = DB-only)
+	Grace        time.Duration // soft-deleted items older than this auto-purge; 0 disables auto-purge
+	Interval     time.Duration // how often the sweep runs
+	RemoveFiles  bool          // whether purge unlinks a media file (false = DB-only)
+	FilmImageDir string        // where film images live; "" skips their removal
 }
 
 // Purger sweeps expired soft-deletes. Construct with New, then Run on a goroutine.
@@ -67,9 +77,9 @@ func (p *Purger) Run(ctx context.Context) {
 	}
 }
 
-// Sweep hard-deletes every soft-deleted item past the grace window in one pass,
-// recording the outcome in the activity history. With Grace == 0 auto-purge is
-// disabled (items linger in Trash until the owner purges manually), so the sweep
+// Sweep hard-deletes every soft-deleted media item and film past the grace window in
+// one pass, recording the outcome in the activity history. With Grace == 0 auto-purge
+// is disabled (items linger in Trash until the owner purges manually), so the sweep
 // no-ops without recording a run.
 func (p *Purger) Sweep(ctx context.Context) {
 	if p.cfg.Grace <= 0 {
@@ -82,18 +92,30 @@ func (p *Purger) Sweep(ctx context.Context) {
 		p.log.Warn("purge: list expired failed", "err", err)
 		return
 	}
-	if len(items) == 0 {
+	films, err := p.repo.ExpiredSoftDeletedFilms(ctx, cutoff)
+	if err != nil {
+		// Films never hold up the media purge that predates them.
+		p.log.Warn("purge: list expired films failed", "err", err)
+		films = nil
+	}
+	if len(items) == 0 && len(films) == 0 {
 		return // nothing due — stay quiet (no empty job_runs noise)
 	}
 
 	var purged, failed int
-	for _, it := range items {
-		if err := p.purgeItem(ctx, it.ID, it.FilePath); err != nil {
+	tally := func(kind string, id int64, err error) {
+		if err != nil {
 			failed++
-			p.log.Warn("purge: item failed", "id", it.ID, "err", err)
+			p.log.Warn("purge: item failed", "kind", kind, "id", id, "err", err)
 		} else {
 			purged++
 		}
+	}
+	for _, it := range items {
+		tally(repo.TrashKindMedia, it.ID, p.purgeItem(ctx, it.ID, it.FilePath))
+	}
+	for _, f := range films {
+		tally(repo.TrashKindFilm, f.ID, p.purgeFilm(ctx, f.ID))
 	}
 	p.record(ctx, start, model.TriggerPeriodic, purged, failed)
 }
@@ -120,17 +142,88 @@ func (p *Purger) PurgeNow(ctx context.Context, id int64) error {
 	return nil
 }
 
+// PurgeFilmNow is PurgeNow for a film (F78 P0-3): works whether or not the film is
+// already in Trash, and moves it there first so a failed image removal leaves it in
+// Trash to retry rather than live with half its images gone.
+func (p *Purger) PurgeFilmNow(ctx context.Context, id int64) error {
+	if err := p.repo.SoftDeleteFilm(ctx, id); err != nil {
+		return err // ErrNotFound when the film is already gone
+	}
+	if err := p.purgeFilm(ctx, id); err != nil {
+		return err
+	}
+	p.record(ctx, time.Now(), model.TriggerManual, 1, 0)
+	return nil
+}
+
 // purgeItem removes one item: the file first (when enabled), then the row. A file
 // that is already gone counts as success (the desired end state is "removed"); a
 // permission/read-only failure aborts before the row delete, leaving the row
 // soft-deleted for retry so disk and DB never desync (F24.8).
 func (p *Purger) purgeItem(ctx context.Context, id int64, path string) error {
+	if err := p.settleHeldOriginal(ctx, id, path); err != nil {
+		return err // leave the row soft-deleted, retry later
+	}
 	if p.cfg.RemoveFiles {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err // permission / read-only — leave the row soft-deleted, retry later
 		}
 	}
-	return p.repo.HardDelete(ctx, id)
+	return p.repo.HardDelete(ctx, id) // cascades the held_originals row
+}
+
+// errHeldUnsettled: a maintenance job is queued or running on the video, or its held original
+// is mid-swap, mid-restore or mid-discard, or the journal disagrees with the file it belongs
+// to. Purge waits (the lane drains; boot recovery settles a stuck row) rather than guess.
+var errHeldUnsettled = errors.New("purge: held original not settled; retrying later")
+
+// settleHeldOriginal deals with a video's held original (F77) before the video goes, following
+// delete_remove_files: on, it is unlinked along with the file; off, purge deletes no media file,
+// so it is put back over the flipped file and the original is what stays on disk.
+func (p *Purger) settleHeldOriginal(ctx context.Context, id int64, path string) error {
+	// A maintenance job queued or running on this file renames it; purging under it would
+	// leave the worker swapping a file that no longer exists. Wait for the lane to drain.
+	ms, err := p.repo.GetVideoMaintenanceStatus(ctx, id)
+	if err != nil {
+		return err
+	}
+	if ms.Pending {
+		return errHeldUnsettled
+	}
+	h, err := p.repo.GetHeldOriginal(ctx, id)
+	if err != nil || h == nil {
+		return err
+	}
+	held := path + repo.HeldPathSuffix // re-derived, never trusted from the row
+	if h.State != repo.HeldHeld || h.HeldPath != held {
+		return errHeldUnsettled
+	}
+	fi, err := os.Lstat(held)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil // already gone; the row cascades with the video
+	} else if err != nil {
+		return err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return errHeldUnsettled // never rename or follow a planted link
+	}
+	if p.cfg.RemoveFiles {
+		return os.Remove(held)
+	}
+	return os.Rename(held, path)
+}
+
+// purgeFilm removes one film: its image directory first, then the row — the same
+// files-before-row order as purgeItem, so a failure never strands images on disk
+// with no row left to retry from. Film images are app data under DATA_PATH, not the
+// owner's media, so RemoveFiles (a read-only media mount knob) doesn't apply.
+func (p *Purger) purgeFilm(ctx context.Context, id int64) error {
+	if p.cfg.FilmImageDir != "" {
+		if err := filmimage.RemoveAll(p.cfg.FilmImageDir, id); err != nil {
+			return err
+		}
+	}
+	return p.repo.HardDeleteFilm(ctx, id)
 }
 
 // record writes a job_runs row (kind=purge) so a purge pass appears in the activity
