@@ -494,7 +494,7 @@ func (h *Handlers) Mount(r chi.Router) {
 //	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
 //
 // sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
-// duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
+// updated_asc|updated_desc|duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
 // completeness_desc; default added_desc. completeness_asc/desc, and the
 // repeatable missing_facet param, are owner-only (F55.5/F55.6) — score is an
 // owner curation signal, never public library metadata (spec "Access control &
