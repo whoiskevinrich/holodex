@@ -7,7 +7,7 @@ release_note: "Click the n of N count in the run strip to jump to any item in th
 approved:
   design:
     on: 2026-10-11
-    at: 166ac812
+    at: 678a1240        # re-confirmed 2026-10-11: only another epic's delete-film docs changed under docs/design/
 ---
 
 # HOLODEX-564 · Jump to any position in a run from the run strip
@@ -35,7 +35,7 @@ HOLODEX-438 (video playlists, Done).
 
 ### 2026-10-11 · handoff, build matches the approved mockup
 - skills: handoff
-- handoff: Every gate is settled and the owner confirmed the built jump list matches the approved mockup, so #493 is marked ready for review. Next: squash-merge on green CI.
+- handoff: Every gate is settled and the owner confirmed the built jump list matches the approved mockup, so #493 is marked ready for review. The design sign-off was re-pinned to 678a1240 after the main merge brought in another epic's design docs. Next: squash-merge on green CI.
 
 ### 2026-10-11 · frontend jump list + security review
 - skills: security-review, code-review high --fix
