@@ -284,7 +284,8 @@ func (r *Repo) Reactivate(ctx context.Context, id int64) error {
 // entire runtime (RD6/HOLODEX-282). Shared between VideoFilter.build() and
 // randomSiblings, which can't use VideoFilter directly (see its own doc comment)
 // but must apply the identical predicate — a single definition keeps them in sync.
-const hideFullFilmVideosClause = "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id AND fv.is_full_film = 1)"
+// A film in Trash stands in for nothing (F78), so its full-film files show again.
+const hideFullFilmVideosClause = "NOT EXISTS (SELECT 1 FROM film_videos fv JOIN films f ON f.id = fv.film_id WHERE fv.video_id = v.id AND fv.is_full_film = 1 AND f.deleted_at IS NULL)"
 
 // VideoFilter expresses the browse/search query (F4). Zero-valued fields are
 // ignored. People/Tags use AND semantics: a video must match every selected id.
@@ -629,7 +630,7 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, f.DateTo+"T23:59:59Z")
 	}
 	if f.UnattachedToAnyFilm {
-		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id)")
+		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv JOIN films f ON f.id = fv.film_id WHERE fv.video_id = v.id AND f.deleted_at IS NULL)")
 	}
 	if f.ExcludeAttachedToFilmID > 0 {
 		clauses = append(clauses, "NOT EXISTS (SELECT 1 FROM film_videos fv WHERE fv.video_id = v.id AND fv.film_id = ?)")
@@ -1956,7 +1957,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			res.Films[i].DisplayName = dispF[res.Films[i].ID]
 		}
 		if len(extraF) > 0 {
-			fr, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.id IN (`+placeholders(len(extraF))+`)`, toAnySlice(extraF)...)
+			fr, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE f.deleted_at IS NULL AND f.id IN (`+placeholders(len(extraF))+`)`, toAnySlice(extraF)...)
 			if err != nil {
 				return res, fmt.Errorf("search films by display name: %w", err)
 			}

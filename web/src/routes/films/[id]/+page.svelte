@@ -1,6 +1,10 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { page } from '$app/stores';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { api } from '$lib/api';
+	import { exitAfterRemoval } from '$lib/listState';
+	import { dismissable } from '$lib/actions/dismissable';
 	import {
 		toMessage,
 		resolutionBucket,
@@ -8,7 +12,8 @@
 		providerFromWinningSource,
 		aliasHint,
 		videoCount,
-		sortExternalLinks
+		sortExternalLinks,
+		refLabel
 	} from '$lib/format';
 	import { activity } from '$lib/activity.svelte';
 	import { partBadgeLabel } from '$lib/components/video/partBadge';
@@ -33,6 +38,8 @@
 		Video
 	} from '$lib/types';
 	import AsyncState from '$lib/components/shared/AsyncState.svelte';
+	import ConfirmDialog from '$lib/components/shared/ConfirmDialog.svelte';
+	import TrashedFilmVerdict from '$lib/components/film/TrashedFilmVerdict.svelte';
 	import ExpandableText from '$lib/components/shared/ExpandableText.svelte';
 	import SourceBadge from '$lib/components/curation/SourceBadge.svelte';
 	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
@@ -142,9 +149,13 @@
 
 	// Title rename over the identity spine (HOLODEX-376, spec RD5): the composite key
 	// means only a same-title film of the SAME year collides; that verdict is the
-	// MergeOfferCard below. The year is not touched here — it has its own control.
-	async function commitRename(value: string): Promise<{ ok: true } | { conflict: EntityRef }> {
+	// MergeOfferCard below — or, when the holder is in Trash, its restore offer (F78
+	// RD6). The year is not touched here — it has its own control.
+	async function commitRename(
+		value: string
+	): Promise<{ ok: true } | { conflict: EntityRef | FilmYearCollision }> {
 		const res = await api.renameEntity('film', id, value);
+		if (res.trashed) return { conflict: res.trashed };
 		if (res.conflict) return { conflict: res.conflict };
 		await reloadDetail();
 		// Advisory-only fuzzy look-alike check — must never block the rename that saved.
@@ -217,7 +228,9 @@
 	// title or a custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical
 	// column, which stays half the (name, year) identity key.
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
-	let nameControl = $state<NameEditControl | null>(null);
+	// Only open() is used; the generic NameEditControl type would pin TConflict to its
+	// EntityRef default, but the title's conflict also carries a trashed film (F78).
+	let nameControl = $state<{ open: () => void } | null>(null);
 	const displayName = $derived(nameField?.values[0] || film?.name || '');
 	const hasDetails = $derived(detailFields.length > 0);
 	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
@@ -274,6 +287,72 @@
 	);
 	const attachedVideoCount = $derived(videoTitles.size);
 
+	// Owner-only delete (F78, docs/design/delete-film-handoff.md): the media page's Manage
+	// split button and confirm pair, with a film's own copy and exit. confirmMode drives
+	// which dialog shows; the menu holds the purge path so it is never adjacent to Trash.
+	let confirmMode = $state<'soft' | 'purge' | null>(null);
+	let deleteBusy = $state(false);
+	let deleteError = $state('');
+	let deleteMenuOpen = $state(false);
+	let deleteMenuTrigger = $state<HTMLButtonElement | null>(null);
+	let deleteMenuFirstItem = $state<HTMLButtonElement | null>(null);
+	// Bumped on every load so a delete answering after navigation to another film leaves
+	// that film's page alone.
+	let deleteGeneration = 0;
+	// In-app arrival can pop history back to the referring list (RD4, HOLODEX-41).
+	let cameFromInApp = $state(false);
+	afterNavigate(({ type }) => {
+		cameFromInApp = type !== 'enter';
+	});
+
+	const graceDays = $derived(
+		activity.caps?.delete_grace_period_seconds
+			? Math.round(activity.caps.delete_grace_period_seconds / 86400)
+			: 0
+	);
+	// "Name (Year)", the bare name without a year — the heading's spelling (handoff B/C).
+	const deleteLabel = $derived(refLabel({ name: displayName, year: film?.year }));
+	const linkedLine = $derived(
+		attachedVideoCount === 1 ? 'Its 1 linked video stays' : `Its ${attachedVideoCount} linked videos stay`
+	);
+
+	function openConfirm(mode: 'soft' | 'purge') {
+		deleteError = '';
+		confirmMode = mode;
+		// Not closeDeleteMenu: ConfirmDialog claims focus for Cancel on the same tick.
+		deleteMenuOpen = false;
+	}
+
+	async function openDeleteMenu() {
+		deleteMenuOpen = true;
+		await tick();
+		deleteMenuFirstItem?.focus();
+	}
+
+	// Keyboard dismissal returns focus to the trigger; an outside click doesn't.
+	function closeDeleteMenu(viaEscape = true) {
+		if (!deleteMenuOpen) return;
+		deleteMenuOpen = false;
+		if (viaEscape) deleteMenuTrigger?.focus();
+	}
+
+	async function confirmDelete() {
+		if (!film || deleteBusy) return;
+		deleteBusy = true;
+		deleteError = '';
+		const gen = deleteGeneration;
+		try {
+			await api.deleteFilm(film.id, { purge: confirmMode === 'purge' });
+			if (gen !== deleteGeneration) return;
+			// The film is gone: back to wherever it was opened from, else the Films list (RD4).
+			exitAfterRemoval(cameFromInApp, '/films');
+		} catch (e) {
+			if (gen !== deleteGeneration) return;
+			deleteError = toMessage(e);
+			deleteBusy = false; // keep the dialog open so the message is visible
+		}
+	}
+
 	function applyDetail(res: FilmDetailResponse) {
 		film = res.film;
 		aliases = res.film.aliases ?? [];
@@ -292,6 +371,11 @@
 	function load(current: number) {
 		loading = true;
 		error = '';
+		deleteGeneration += 1;
+		confirmMode = null;
+		deleteBusy = false;
+		deleteError = '';
+		deleteMenuOpen = false;
 		api
 			.getFilm(current)
 			.then(applyDetail)
@@ -518,19 +602,30 @@
 								headingClass="skin-title break-words text-2xl font-semibold text-ink"
 								hint={aliasHint(film.name)}
 							>
-								{#snippet verdict(c: EntityRef, resolve: () => void)}
-									<MergeOfferCard
-										noun="film"
-										entityName={film?.name ?? ''}
-										conflict={c}
-										busy={renameMergeBusy}
-										error={renameMergeError}
-										onmerge={() => mergeRenameConflict(c, resolve)}
-										onkeepseparate={() => {
-											renameMergeError = '';
-											resolve();
-										}}
-									/>
+								{#snippet verdict(c: EntityRef | FilmYearCollision, resolve: () => void)}
+									{#if 'film_id' in c}
+										<TrashedFilmVerdict
+											trashed={c}
+											onrestored={(f) => {
+												resolve(); // close the editor: the route component is reused for the restored film
+												goto(`/films/${f.id}`);
+											}}
+											oncancel={resolve}
+										/>
+									{:else}
+										<MergeOfferCard
+											noun="film"
+											entityName={film?.name ?? ''}
+											conflict={c}
+											busy={renameMergeBusy}
+											error={renameMergeError}
+											onmerge={() => mergeRenameConflict(c, resolve)}
+											onkeepseparate={() => {
+												renameMergeError = '';
+												resolve();
+											}}
+										/>
+									{/if}
 								{/snippet}
 							</NameEditControl>
 							<DisplayNameLine
@@ -604,6 +699,16 @@
 									{/if}
 								{/snippet}
 								{#snippet verdict(c: FilmYearCollision, resolve: () => void)}
+									{#if c.trashed}
+										<TrashedFilmVerdict
+											trashed={c}
+											onrestored={(f) => {
+												resolve(); // close the editor: the route component is reused for the restored film
+												goto(`/films/${f.id}`);
+											}}
+											oncancel={resolve}
+										/>
+									{:else}
 									<div class="mt-2 space-y-2 rounded-theme border border-rule bg-surface p-3">
 										<p class="text-sm text-ink">
 											<a href={`/films/${c.film_id}`} class="underline hover:text-accent"
@@ -622,6 +727,7 @@
 											</button>
 										</div>
 									</div>
+									{/if}
 								{/snippet}
 							</NameEditControl>
 
@@ -913,6 +1019,70 @@
 							{/if}
 						</section>
 					{/if}
+
+					<!-- Owner-only Manage block (F78, delete-film-handoff.md §A): the media page's,
+					     verbatim — last in the rail (routes/CLAUDE.md: the owner management blocks
+					     live there), apart from navigation. Only the reversible path is on screen;
+					     the purge sits behind the chevron as a solid warn fill (HOLODEX-362). -->
+					{#if isOwner}
+						<section class="space-y-2 border-t border-rule pt-4">
+							<h2 class="text-xs uppercase tracking-wide text-muted">Manage</h2>
+							<div
+								class="relative inline-flex items-stretch rounded-theme border border-warn text-sm text-warn"
+								data-delete-split
+								use:dismissable={{
+									enabled: deleteMenuOpen,
+									inside: '[data-delete-split]',
+									onclose: closeDeleteMenu
+								}}
+							>
+								<button
+									type="button"
+									onclick={() => openConfirm('soft')}
+									class="rounded-theme px-3 py-1.5 hover:bg-warn/10"
+								>
+									Move to Trash
+								</button>
+								<button
+									type="button"
+									bind:this={deleteMenuTrigger}
+									onclick={() => (deleteMenuOpen ? closeDeleteMenu() : openDeleteMenu())}
+									aria-haspopup="menu"
+									aria-expanded={deleteMenuOpen}
+									aria-label="More delete options"
+									class="inline-flex items-center rounded-theme border-l border-warn px-2 hover:bg-warn/10"
+								>
+									<svg
+										class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
+										class:rotate-180={deleteMenuOpen}
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										aria-hidden="true"
+									>
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+									</svg>
+								</button>
+								{#if deleteMenuOpen}
+									<div
+										role="menu"
+										class="absolute left-0 top-full z-10 mt-1 min-w-max rounded-theme border border-rule bg-surface p-1"
+									>
+										<button
+											type="button"
+											role="menuitem"
+											bind:this={deleteMenuFirstItem}
+											onclick={() => openConfirm('purge')}
+											class="block w-full rounded-theme bg-warn px-3 py-1.5 text-left text-warn-ink"
+										>
+											Delete permanently…
+										</button>
+									</div>
+								{/if}
+							</div>
+						</section>
+					{/if}
 				</div>
 			</div>
 		</section>
@@ -955,6 +1125,48 @@
 		</section>
 	{/if}
 </AsyncState>
+
+{#if confirmMode === 'soft'}
+	<ConfirmDialog
+		title="Move to Trash?"
+		confirmLabel="Move to Trash"
+		busy={deleteBusy}
+		error={deleteError}
+		onconfirm={confirmDelete}
+		oncancel={() => (confirmMode = null)}
+	>
+		{#snippet body()}
+			<p>
+				<span class="font-semibold">{deleteLabel}</span> will be hidden from your library{graceDays
+					? ` and permanently deleted in ${graceDays} ${graceDays === 1 ? 'day' : 'days'}`
+					: ''}. You can restore it from Trash{graceDays ? ' until then' : ''}.
+			</p>
+			{#if attachedVideoCount > 0}
+				<p class="text-xs text-muted">{linkedLine} in your library.</p>
+			{/if}
+		{/snippet}
+	</ConfirmDialog>
+{:else if confirmMode === 'purge'}
+	<ConfirmDialog
+		title="Delete permanently?"
+		confirmLabel="Delete permanently"
+		busy={deleteBusy}
+		error={deleteError}
+		onconfirm={confirmDelete}
+		oncancel={() => (confirmMode = null)}
+	>
+		{#snippet body()}
+			<p>
+				<span class="font-semibold">{deleteLabel}</span>, its cast, images and aliases will be
+				<span class="font-semibold">permanently removed</span>. This cannot be undone.
+			</p>
+			<p class="text-xs text-muted">
+				{#if attachedVideoCount > 0}{linkedLine} in your library, unlinked from this film.{/if}
+				No media file is touched.
+			</p>
+		{/snippet}
+	</ConfirmDialog>
+{/if}
 
 {#if writebackVideoId && film}
 	<WritebackFormDialog

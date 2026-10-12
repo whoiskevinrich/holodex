@@ -40,6 +40,11 @@ func Remove(dir string, filmID, imageID int64) error {
 	return entityimage.Remove(dir, filmID, imageID)
 }
 
+// RemoveAll deletes every image file a film has — its purge (F78 RD3).
+func RemoveAll(dir string, filmID int64) error {
+	return entityimage.RemoveAll(dir, filmID)
+}
+
 // PortraitBannerError reports a film banner refused because the image is not
 // landscape (HOLODEX-386). The banner role renders `fit="cover"` into an 8:3 band, so
 // a portrait (or square) image would show a cropped slice of poster art — the defect a

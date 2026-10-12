@@ -135,6 +135,10 @@ job_runs
   - A row whose `started_at` is older than 30 days is absent after the next prune.
   - History survives a process restart (it's in SQLite, not memory).
   - Recording a run never blocks or fails the scan itself (best-effort write, logged on failure — consistent with the "never abort the scan" NFR in ADR-019).
+  - A scan is recorded as **failed** — so it appears in Recent Failures and can be dismissed there — when any of these happen ([HOLODEX-560](https://whoiskevinrich.atlassian.net/browse/HOLODEX-560)):
+    - **At least one file fails.** The pass still finishes every other file. The failure names up to three files by their path inside the library and gives each one's reason, then adds "+N more".
+    - **The library folder can't be found or read.** The failure gives the system's reason but not the folder's configured location. An unreadable *subfolder* is still skipped silently and doesn't fail the pass.
+    - **The library folder holds no media files while the library still has active videos.** This usually means the share isn't mounted. As before, nothing is hidden.
 
 #### F21.4 — Dedicated activity page (polled)
 A themed `/status` route (final path TBD in design-handoff; `/status` or `/admin`) renders the activity read-model.
@@ -169,6 +173,7 @@ Expose the **already-existing** admin endpoints as confirmable buttons on the ac
 - **Acceptance criteria**:
   - Destructive/expensive actions (rescan) require an explicit confirm before firing.
   - A `409`/`started:false` response is shown as informational ("a scan is already running"), not an error.
+  - With no media folder configured, Rescan says so as an error, never "a scan is already running" ([HOLODEX-563](https://whoiskevinrich.atlassian.net/browse/HOLODEX-563)).
   - **Security gate (CLAUDE.md):** because this exposes infrastructure-affecting controls, `/security-review` must sign off before merge. The review must explicitly address that these endpoints are currently **unauthenticated** and reachable by anyone who can load the app, with the F21.7 gating seam (also P0) as the required mitigation.
 
 #### F21.7 — Owner-only gating seam ("Pro mode" ready) — *promoted to P0*

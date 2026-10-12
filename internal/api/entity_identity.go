@@ -246,6 +246,13 @@ func (h *Handlers) renameEntity(w http.ResponseWriter, r *http.Request, cfg iden
 // writeIdentityConflict emits the F23-style 409 carrying the colliding entity so the
 // owner can choose merge or keep-separate.
 func (h *Handlers) writeIdentityConflict(w http.ResponseWriter, r *http.Request, cfg identityRoutes, conflictID int64) {
+	// A film in Trash still holds its name (F78 RD6) but has no page to merge into or
+	// load: offer its restore instead.
+	if cfg.entityType == model.EnrichEntityFilm {
+		if h.writeTrashedConflict(w, r, conflictID) {
+			return
+		}
+	}
 	entity, err := cfg.get(r.Context(), conflictID)
 	if err != nil {
 		h.fail(w, "load conflict", err)

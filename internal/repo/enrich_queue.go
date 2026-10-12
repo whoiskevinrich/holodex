@@ -126,7 +126,7 @@ func (r *Repo) enrichQueueEntities(ctx context.Context, entityType string) ([]mo
 	case model.EnrichEntityVideo:
 		q = `SELECT id, title FROM videos WHERE active = 1 AND deleted_at IS NULL ORDER BY title COLLATE NOCASE`
 	case model.EnrichEntityFilm:
-		q = `SELECT id, name FROM films ORDER BY name COLLATE NOCASE`
+		q = `SELECT id, name FROM films WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`
 	default:
 		return nil, fmt.Errorf("enrich queue: unknown entity type %q", entityType)
 	}

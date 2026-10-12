@@ -127,8 +127,12 @@ func (r *Repo) EntityExists(ctx context.Context, entityType string, id int64) er
 	if table == "" {
 		return fmt.Errorf("entity exists: unknown entity type %q", entityType)
 	}
+	q := `SELECT 1 FROM ` + table + ` WHERE id = ?`
+	if entityType == model.EnrichEntityFilm {
+		q += ` AND deleted_at IS NULL` // a film in Trash takes no identity ops (F78 RD5)
+	}
 	var x int
-	err := r.db.QueryRowContext(ctx, `SELECT 1 FROM `+table+` WHERE id = ?`, id).Scan(&x)
+	err := r.db.QueryRowContext(ctx, q, id).Scan(&x)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}

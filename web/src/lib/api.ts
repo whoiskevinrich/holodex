@@ -4,6 +4,7 @@ import { filtersToParams } from './filters';
 import { reauth, editing } from './reauth.svelte';
 import type { MaintenancePreflight } from './maintenance';
 import type {
+	MediaBrief,
 	CarryPreview,
 	VideoCompare,
 	VideoDuplicatePair,
@@ -346,6 +347,24 @@ export const api = {
 		return get<{ ids: number[]; seed?: number }>(`/media/ids?${p}`);
 	},
 
+	// Title, length and thumbnail for each of a run's ids, in their order (spec RD14): the
+	// jump list's rows. The server takes 1000 ids a request, so a long run goes in chunks.
+	// An id the server leaves out (deleted since the run started) is simply missing.
+	mediaBrief: async (ids: number[]): Promise<MediaBrief[]> => {
+		const chunks: number[][] = [];
+		for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
+		const parts = await Promise.all(
+			chunks.map((c) =>
+				get<{ items: MediaBrief[] }>('/media/brief', fetch, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ids: c })
+				})
+			)
+		);
+		return parts.flatMap((p) => p.items);
+	},
+
 	getMedia: (id: number, fetchFn?: typeof fetch) =>
 		get<MediaDetailResponse>(`/media/${id}`, fetchFn),
 
@@ -628,9 +647,27 @@ export const api = {
 
 	// createFilm is get-or-create on (name, year): a duplicate submit returns the
 	// existing film rather than a 409, so the video→film picker's "create new" action
-	// is idempotent.
-	createFilm: (name: string, year?: number) =>
-		sendAuthed<{ film: Film }>('POST', `/films`, { name, year: year ?? 0 }),
+	// is idempotent. The one 409 is a film in Trash holding that name and year (F78
+	// RD6), returned as `trashed` so the picker can offer its restore.
+	createFilm: async (name: string, year?: number): Promise<{ film?: Film; trashed?: FilmYearCollision }> => {
+		const path = `/films`;
+		const res = await fetch(`${BASE}${path}`, {
+			method: 'POST',
+			credentials: CREDS,
+			redirect: 'manual',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, year: year ?? 0 })
+		});
+		checkRedirect(res, true);
+		const body = (await res.json().catch(() => ({}))) as {
+			film?: Film;
+			trashed?: FilmYearCollision;
+			error?: string;
+		};
+		if (res.status === 409 && body.trashed) return { trashed: body.trashed };
+		if (!res.ok) throw new ApiError(res.status, path, body.error);
+		return { film: body.film };
+	},
 
 	// Film images (F56/HOLODEX-280, ADR-086): poster/thumb, owner upload/replace/
 	// remove — mirrors uploadStudioImage/deleteStudioImage exactly.
@@ -950,7 +987,10 @@ export const api = {
 		});
 		checkRedirect(res, true);
 		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef };
+			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef; error?: string };
+			// A film in Trash holding the alias (F78 RD6) has nothing to merge into: surface
+			// the server's "… is in Trash" line as an error rather than a blank conflict.
+			if (!body.conflict) throw new ApiError(res.status, path, body.error);
 			return { conflict: body.conflict };
 		}
 		if (!res.ok) {
@@ -979,7 +1019,7 @@ export const api = {
 		kind: EntityKind,
 		id: number,
 		name: string
-	): Promise<{ conflict?: EntityRef }> => {
+	): Promise<{ conflict?: EntityRef; trashed?: FilmYearCollision }> => {
 		const path = `/${ENTITY_BASE[kind]}/${id}/rename`;
 		const res = await fetch(`${BASE}${path}`, {
 			method: 'POST',
@@ -990,7 +1030,13 @@ export const api = {
 		});
 		checkRedirect(res, true);
 		if (res.status === 409) {
-			const body = (await res.json().catch(() => ({}))) as { conflict?: EntityRef } & EntityRef;
+			const body = (await res.json().catch(() => ({}))) as {
+				conflict?: EntityRef;
+				trashed?: FilmYearCollision;
+			} & EntityRef;
+			// A film renamed onto a trashed film's name and year (F78 RD6): no merge target,
+			// the caller offers that film's restore instead.
+			if (body.trashed) return { trashed: body.trashed };
 			return { conflict: body.conflict ?? body };
 		}
 		if (!res.ok && res.status !== 204) {
@@ -1176,6 +1222,13 @@ export const api = {
 
 	restoreMedia: (id: number) =>
 		sendAuthed<{ video: Video }>('POST', `/media/${id}/restore`),
+
+	// Film soft-delete / purge / restore (F78): the same contract as deleteMedia /
+	// restoreMedia. Trashed films are listed by trash() with kind 'film'.
+	deleteFilm: (id: number, opts?: { purge?: boolean }) =>
+		sendAuthed<Record<string, never>>('DELETE', `/films/${id}${opts?.purge ? '?purge=true' : ''}`),
+
+	restoreFilm: (id: number) => sendAuthed<{ film: Film }>('POST', `/films/${id}/restore`),
 
 	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`),
 

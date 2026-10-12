@@ -2,10 +2,12 @@ package scanner
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -87,11 +89,34 @@ func (f *fakeRepo) DeactivateExcept(_ context.Context, seen []int64) (int64, err
 	return n, nil
 }
 
+func (f *fakeRepo) LibraryCounts(context.Context) (repo.LibraryCounts, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var c repo.LibraryCounts
+	for _, isActive := range f.active {
+		if isActive {
+			c.VideosActive++
+		}
+	}
+	return c, nil
+}
+
 // stubExtractor returns fixed metadata without external binaries.
 type stubExtractor struct{}
 
 func (stubExtractor) Extract(_ context.Context, path string) (metadata.Extracted, error) {
 	return metadata.Extracted{Title: filepath.Base(path), Width: 1920, Height: 1080, DurationSec: 60}, nil
+}
+
+// failingExtractor fails every file whose name starts with "bad", quoting the
+// absolute path the way an os/exec error would.
+type failingExtractor struct{}
+
+func (failingExtractor) Extract(ctx context.Context, path string) (metadata.Extracted, error) {
+	if strings.HasPrefix(filepath.Base(path), "bad") {
+		return metadata.Extracted{}, fmt.Errorf("exiftool %s: File is empty", path)
+	}
+	return stubExtractor{}.Extract(ctx, path)
 }
 
 // artExtractor reports a configurable embedded-cover-art flag.
@@ -175,6 +200,23 @@ func TestScanStatusAndRecord(t *testing.T) {
 	}
 	if rec.runs[0].Kind != model.JobKindScan || rec.runs[0].Status != model.JobStatusOK {
 		t.Errorf("recorded run = %+v, want scan/success", rec.runs[0])
+	}
+}
+
+// With no media path there is nothing to scan: TriggerRescan says so rather than
+// reporting a scan as already running (HOLODEX-563), and a held scanMu still
+// reads as already running.
+func TestTriggerRescanNoMediaPath(t *testing.T) {
+	s := newTestScanner("", newFakeRepo())
+	if started, err := s.TriggerRescan(); started || err != ErrNoMediaPath {
+		t.Errorf("TriggerRescan() = %v, %v; want false, ErrNoMediaPath", started, err)
+	}
+
+	s = newTestScanner(t.TempDir(), newFakeRepo())
+	s.scanMu.Lock()
+	defer s.scanMu.Unlock()
+	if started, err := s.TriggerRescan(); started || err != nil {
+		t.Errorf("TriggerRescan() while running = %v, %v; want false, nil", started, err)
 	}
 }
 
@@ -495,5 +537,112 @@ func TestZeroFileWalkSkipsDeactivation(t *testing.T) {
 	}
 	if st := s.Status(); st.LastRun == nil || st.LastRun.Removed != 0 {
 		t.Errorf("zero-file walk should remove nothing; last run = %+v", st.LastRun)
+	}
+}
+
+// lastRun returns the most recent recorded job run.
+func lastRun(t *testing.T, rec *fakeRecorder) model.JobRun {
+	t.Helper()
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+	if len(rec.runs) == 0 {
+		t.Fatal("no job run recorded")
+	}
+	return rec.runs[len(rec.runs)-1]
+}
+
+// A per-file failure never aborts the pass, but the scan's row is a failure
+// naming the file relative to the media root (HOLODEX-560).
+func TestPerFileErrorRecordsFailedRun(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "a.mkv"), 100)
+	writeFile(t, filepath.Join(dir, "sub", "bad.mp4"), 100)
+	s := New(Config{MediaPath: dir, FollowSymlinks: true, MaxDepth: 64, MinAge: time.Minute, Workers: 2},
+		slog.New(slog.NewTextHandler(io.Discard, nil)), newFakeRepo(), failingExtractor{})
+	rec := &fakeRecorder{}
+	s.SetJobRecorder(rec)
+
+	if err := s.ScanOnce(context.Background()); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	run := lastRun(t, rec)
+	if run.Status != model.JobStatusErr || run.Errors != 1 || run.Added != 1 {
+		t.Fatalf("run = %+v, want error status, errors=1, the good file still added", run)
+	}
+	if want := "1 file failed: sub/bad.mp4: exiftool sub/bad.mp4: File is empty"; run.ErrorMessage != want {
+		t.Errorf("message = %q, want %q", run.ErrorMessage, want)
+	}
+}
+
+func TestPerFileErrorsCapNamedFiles(t *testing.T) {
+	dir := t.TempDir()
+	for i := range 5 {
+		writeFile(t, filepath.Join(dir, fmt.Sprintf("bad%d.mp4", i)), 100)
+	}
+	s := New(Config{MediaPath: dir, FollowSymlinks: true, MaxDepth: 64, MinAge: time.Minute, Workers: 1},
+		slog.New(slog.NewTextHandler(io.Discard, nil)), newFakeRepo(), failingExtractor{})
+	rec := &fakeRecorder{}
+	s.SetJobRecorder(rec)
+
+	if err := s.ScanOnce(context.Background()); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	msg := lastRun(t, rec).ErrorMessage
+	if !strings.HasPrefix(msg, "5 files failed: ") || !strings.HasSuffix(msg, "; +2 more") ||
+		strings.Count(msg, "File is empty") != maxReportedFailures {
+		t.Errorf("message = %q, want 5 counted, %d named, +2 more", msg, maxReportedFailures)
+	}
+}
+
+// A media root that can't be resolved or read fails the pass with the OS reason,
+// without the configured path (HOLODEX-560).
+func TestUnreadableMediaRootRecordsError(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "unmounted")
+	for _, follow := range []bool{true, false} {
+		s := New(Config{MediaPath: missing, FollowSymlinks: follow, MaxDepth: 64, Workers: 1},
+			slog.New(slog.NewTextHandler(io.Discard, nil)), newFakeRepo(), stubExtractor{})
+		rec := &fakeRecorder{}
+		s.SetJobRecorder(rec)
+
+		if err := s.ScanOnce(context.Background()); err == nil {
+			t.Errorf("follow=%v: scan of a missing root returned nil", follow)
+		}
+		run := lastRun(t, rec)
+		if run.Status != model.JobStatusErr || !strings.Contains(run.ErrorMessage, "media root: ") ||
+			strings.Contains(run.ErrorMessage, missing) {
+			t.Errorf("follow=%v: run = %+v, want an error naming the media root without its path", follow, run)
+		}
+	}
+}
+
+// An empty walk over a library with active videos (an unmounted share) is a
+// failed run; an empty walk over an empty library is not (HOLODEX-560).
+func TestEmptyRootWithActiveVideosRecordsError(t *testing.T) {
+	dir := t.TempDir()
+	rec := &fakeRecorder{}
+	s := newTestScanner(dir, newFakeRepo())
+	s.SetJobRecorder(rec)
+	ctx := context.Background()
+
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan of empty library: %v", err)
+	}
+	if run := lastRun(t, rec); run.Status != model.JobStatusOK {
+		t.Errorf("empty library run = %+v, want success", run)
+	}
+
+	writeFile(t, filepath.Join(dir, "a.mkv"), 100)
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if err := os.Remove(filepath.Join(dir, "a.mkv")); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ScanOnce(ctx); err != nil {
+		t.Fatalf("scan after emptying: %v", err)
+	}
+	if run := lastRun(t, rec); run.Status != model.JobStatusErr ||
+		!strings.Contains(run.ErrorMessage, "while 1 video is active") {
+		t.Errorf("empty-root run = %+v, want an error counting the active videos", run)
 	}
 }

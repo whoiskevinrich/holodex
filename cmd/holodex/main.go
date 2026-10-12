@@ -432,9 +432,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// items whose grace has expired — independent of the scanner's clock and runs
 	// even when scanning is disabled. Records each pass in the activity history.
 	purgeCfg := purge.Config{
-		Grace:       time.Duration(cfg.DeleteGracePeriodSeconds) * time.Second,
-		Interval:    time.Duration(cfg.PurgeIntervalSeconds) * time.Second,
-		RemoveFiles: cfg.DeleteRemoveFiles,
+		Grace:        time.Duration(cfg.DeleteGracePeriodSeconds) * time.Second,
+		Interval:     time.Duration(cfg.PurgeIntervalSeconds) * time.Second,
+		RemoveFiles:  cfg.DeleteRemoveFiles,
+		FilmImageDir: cfg.FilmImagePath,
 	}
 	purger := purge.New(repository, purgeCfg, log)
 	handlers.SetDelete(purger, purgeCfg.Grace)

@@ -3,6 +3,7 @@ package api_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -42,9 +43,10 @@ func newServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 type fakeRescanner struct {
 	calls   int
 	started bool
+	err     error
 }
 
-func (f *fakeRescanner) TriggerRescan() bool { f.calls++; return f.started }
+func (f *fakeRescanner) TriggerRescan() (bool, error) { f.calls++; return f.started, f.err }
 
 func seedVideo(t *testing.T, r *repo.Repo, path, title string) int64 {
 	t.Helper()
@@ -300,6 +302,32 @@ func TestAdminRescanUnavailable(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("rescan without scanner = %d, want 503", resp.StatusCode)
+	}
+}
+
+// A scanner with nothing to scan answers 503 with its reason, not
+// 202 started:false, which the UI reads as "already running" (HOLODEX-563).
+func TestAdminRescanNoMediaPath(t *testing.T) {
+	dir := t.TempDir()
+	database, err := db.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	fake := &fakeRescanner{err: errors.New("no media path is configured (MEDIA_PATH)")}
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), fake, nil), nil))
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Post(srv.URL+"/api/v1/admin/rescan", "application/json", nil)
+	if err != nil {
+		t.Fatalf("POST rescan: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusServiceUnavailable || !strings.Contains(string(body), "no media path") {
+		t.Fatalf("rescan = %d %s, want 503 naming the missing media path", resp.StatusCode, body)
 	}
 }
 

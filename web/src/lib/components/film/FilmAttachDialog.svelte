@@ -7,8 +7,9 @@
 	// attaching immediately. Tokens only; QA Cinémathèque.
 	import { api } from '$lib/api';
 	import { toMessage, monogram } from '$lib/format';
-	import type { Film, FilmSceneCollision } from '$lib/types';
+	import type { Film, FilmSceneCollision, FilmYearCollision } from '$lib/types';
 	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
+	import TrashedFilmVerdict from './TrashedFilmVerdict.svelte';
 	import { parseSceneNumberInput } from './sceneNumber';
 
 	let {
@@ -34,6 +35,7 @@
 	let attachError = $state('');
 	let creating = $state(false);
 	let createError = $state('');
+	let trashedMatch = $state<FilmYearCollision | null>(null);
 	let dialogEl = $state<HTMLElement | null>(null);
 	let searchInput = $state<HTMLInputElement | null>(null);
 
@@ -79,15 +81,21 @@
 
 	// createFilm is get-or-create on (name, year) (api.ts) — a duplicate submit
 	// (e.g. double-click) resolves to the same existing film rather than erroring,
-	// so this needs no separate "already exists" handling.
+	// so this needs no separate "already exists" handling. The one refusal is a film
+	// in Trash holding the name (F78 RD6): it becomes the restore offer below.
 	async function createNew() {
 		const name = query.trim();
 		if (name.length < 2) return;
 		creating = true;
 		createError = '';
+		trashedMatch = null;
 		try {
-			const { film } = await api.createFilm(name);
-			choose(film);
+			const { film, trashed } = await api.createFilm(name);
+			if (trashed) {
+				trashedMatch = trashed;
+				return;
+			}
+			if (film) choose(film);
 		} catch (e) {
 			createError = toMessage(e);
 		} finally {
@@ -201,6 +209,16 @@
 				</button>
 				{#if createError}
 					<p class="mt-1 text-sm text-warn">{createError}</p>
+				{/if}
+				{#if trashedMatch}
+					<TrashedFilmVerdict
+						trashed={trashedMatch}
+						onrestored={(f) => {
+							trashedMatch = null;
+							choose(f);
+						}}
+						oncancel={() => (trashedMatch = null)}
+					/>
 				{/if}
 			{/if}
 

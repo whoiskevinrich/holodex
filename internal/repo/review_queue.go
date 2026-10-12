@@ -216,7 +216,7 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
 			WHERE q.entity_type = ?
 			  AND q.variation <> 'provider-alias'
-			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)
+			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)%[11]s
 			ORDER BY CASE WHEN q.variation = 'shared-external-id' THEN -2
 			              WHEN q.variation NOT IN (%[8]s) THEN -1
 			              WHEN m.match_kind = 'canonical' THEN 0
@@ -225,7 +225,7 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 			         la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
 			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"),
 			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList,
-			refYearExpr(et, "la"), refYearExpr(et, "lb"))
+			refYearExpr(et, "la"), refYearExpr(et, "lb"), liveFilmExpr(et, "la")+liveFilmExpr(et, "lb"))
 		rows, err := r.db.QueryContext(ctx, q, et, et)
 		if err != nil {
 			return nil, fmt.Errorf("list review pairs (%s): %w", et, err)
@@ -255,6 +255,16 @@ func refYearExpr(entityType, alias string) string {
 		return alias + ".year"
 	}
 	return "NULL"
+}
+
+// liveFilmExpr is an extra "AND <alias> is not in Trash" clause for films (F78 RD5),
+// empty for every other kind. The review list and the near-miss hint filter with it
+// on read only — the queue row stays, so a restore brings the pair back.
+func liveFilmExpr(entityType, alias string) string {
+	if entityType == model.EnrichEntityFilm {
+		return " AND " + alias + ".deleted_at IS NULL"
+	}
+	return ""
 }
 
 // reviewCountExpr is the active-video count subquery for one side of a pair (matching
@@ -327,11 +337,12 @@ func (r *Repo) NearMiss(ctx context.Context, entityType string, selfID int64, na
 		FROM %s e
 		WHERE e.id <> ? AND %s = %s AND %s <> %s
 		  AND NOT EXISTS (SELECT 1 FROM entity_keep_separate ks WHERE ks.entity_type = ?
-		                  AND ks.id_lo = min(e.id, ?) AND ks.id_hi = max(e.id, ?))
+		                  AND ks.id_lo = min(e.id, ?) AND ks.id_hi = max(e.id, ?))%s
 		ORDER BY e.name COLLATE NOCASE LIMIT 1`,
 		reviewCountExpr(jn, "e.id"), refYearExpr(entityType, "e"), table,
 		looseKeyExpr("e.name"), looseKeyExpr("?"),
-		nameKeyExpr(entityType, "e.name"), nameKeyExpr(entityType, "?")),
+		nameKeyExpr(entityType, "e.name"), nameKeyExpr(entityType, "?"),
+		liveFilmExpr(entityType, "e")),
 		selfID, name, name, entityType, selfID, selfID).Scan(&ref.ID, &ref.Name, &ref.VideoCount, &year)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
