@@ -2,18 +2,18 @@ package db_test
 
 import "testing"
 
-// Migration 0062 (F77, HOLODEX-556) adds writeback_queue.kind and held_originals. Both
+// Migration 0063 (F77, HOLODEX-556) adds writeback_queue.kind and held_originals. Both
 // directions have to hold, and existing queue rows must land in the write lane.
-func TestMigration0062FileMaintenanceUpAndDown(t *testing.T) {
+func TestMigration0063FileMaintenanceUpAndDown(t *testing.T) {
 	db, m := openAt(t)
-	if err := m.Migrate(61); err != nil {
-		t.Fatalf("migrate to 61: %v", err)
+	if err := m.Migrate(62); err != nil {
+		t.Fatalf("migrate to 62: %v", err)
 	}
 	mustExec(t, db, `INSERT INTO videos (id, file_path, file_size, title, duration_sec, width, height, indexed_at, file_mtime, active) VALUES (1, '/m/a.mkv', 1, 'A', 1, 1, 1, '2026-10-10T00:00:00Z', '2026-10-10T00:00:00Z', 1)`)
 	mustExec(t, db, `INSERT INTO writeback_queue (video_id, payload, status, enqueued_at, updated_at) VALUES (1, '[]', 'pending', '2026-10-10T00:00:00Z', '2026-10-10T00:00:00Z')`)
 
-	if err := m.Migrate(62); err != nil {
-		t.Fatalf("migrate to 62: %v", err)
+	if err := m.Migrate(63); err != nil {
+		t.Fatalf("migrate to 63: %v", err)
 	}
 	if n := count(t, db, `SELECT COUNT(*) FROM writeback_queue WHERE kind = 'write'`); n != 1 {
 		t.Fatalf("pre-existing queue row has kind != 'write' (%d write rows)", n)
@@ -36,8 +36,8 @@ func TestMigration0062FileMaintenanceUpAndDown(t *testing.T) {
 
 	// Down: maintenance rows are dropped (a pre-F77 worker would hand them to the tag
 	// writer), write rows survive, the column and the table are gone.
-	if err := m.Migrate(61); err != nil {
-		t.Fatalf("migrate down to 61: %v", err)
+	if err := m.Migrate(62); err != nil {
+		t.Fatalf("migrate down to 62: %v", err)
 	}
 	if n := count(t, db, `SELECT COUNT(*) FROM writeback_queue`); n != 1 {
 		t.Errorf("after down, %d queue rows; want only the write row", n)

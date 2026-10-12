@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Held-original journal states (F77, migration 0062, docs/architecture/file-maintenance.md).
+// Held-original journal states (F77, migration 0063, docs/architecture/file-maintenance.md).
 const (
 	HeldSwapping   = "swapping"
 	HeldHeld       = "held"

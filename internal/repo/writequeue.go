@@ -20,7 +20,7 @@ const (
 	WritebackDone = "done"
 )
 
-// Writeback queue kinds (F77, migration 0062). Each kind is claimed by its own worker lane;
+// Writeback queue kinds (F77, migration 0063). Each kind is claimed by its own worker lane;
 // see docs/architecture/file-maintenance.md.
 const (
 	WritebackKindWrite       = "write"
