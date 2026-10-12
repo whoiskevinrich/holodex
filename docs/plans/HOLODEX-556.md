@@ -58,9 +58,8 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Merge origin/main: renumber `0062_file_maintenance` → `0063` (+ `TestMigration0062…` → 0063, Migrate(61/62) → 62/63), resolve `purge_test.go` (keep both fakes' methods), rerun suites, then `gh pr ready 486` — `internal/db/migrations/`, `internal/purge/`
-2. [ ] [—] Sweep HOLODEX-556 to In Review on ready and to Done when #486 merges (epics skip jira-sync) — Jira
-3. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
+1. [ ] [—] Sweep HOLODEX-556 to Done when #486 merges (epics skip jira-sync) — Jira
+2. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -74,7 +73,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review, security-review, handoff
-- handoff: Every gate settled (owner confirmed the build matches the mockup; implementation security review clean) but #486 stays draft — merging origin/main conflicts: `internal/purge/purge_test.go`, and main's `0062_film_soft_delete` collides with our `0062_file_maintenance`. Start at Up next #1: renumber ours to 0063, resolve, merge, then mark ready.
+- handoff: Every gate settled and #486 marked ready — the migration is renumbered to 0063 behind main's 0062_film_soft_delete, main (incl. #494) is merged in, and the Go, type-check and Vitest suites are green; next move is review and squash-merge of #486, then sweep HOLODEX-556 to Done.
 
 ### 2026-10-10 · F77 design package: spec, design, architecture, testing, security
 - skills: write-spec, design-handoff, architecture, testing-strategy, security-review, handoff, implement, code-review
