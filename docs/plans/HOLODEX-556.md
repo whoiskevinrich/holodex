@@ -58,8 +58,7 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Sweep HOLODEX-556 to Done when #486 merges (epics skip jira-sync) — Jira
-2. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
+1. [ ] [testing] Owner: watch a flipped real library file end to end, no visible quality loss, audio in sync (§25.7 item 12) — after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -70,6 +69,10 @@ held for a configurable window with Restore and Keep change. Aspect-ratio operat
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-12 · merged; Decided-in links
+- skills: —
+- handoff: #486 merged as 04dd6cad and HOLODEX-556 swept to Done; file-maintenance.md's eight Decided-in lines now link 04dd6cad. Only the owner's real-file watch (Up next #1) remains.
 
 ### 2026-10-11 · maintenance package: probe, encoder table, argv, verifier
 - skills: code-review, security-review, handoff

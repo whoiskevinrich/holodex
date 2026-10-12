@@ -20,7 +20,7 @@ and the post-write read-back. They share none of the tag machinery, so they are 
 invariant (one exiftool invocation per job, snapshot-before-write, revert as a forward write) would
 need a maintenance exception, and a re-encode has no snapshot it could revert to.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## One `writeback_queue` with a `kind`, two worker lanes, and one running job per file
 
@@ -57,7 +57,7 @@ already gives a tag write:
 **Rejected:** running maintenance in the tag-write pool. With the default concurrency of 1, one flip
 would stall every tag write in the library for its whole duration.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## The re-encode: ffmpeg makes the picture, the container's own tool rebuilds the file
 
@@ -116,7 +116,7 @@ cannot decode, and its own `encoder` tags. So each container goes through two st
 **Rejected:** ffmpeg alone with `-map_metadata 0`. It drops XMP-held fields and fails on Matroska
 attachments, which breaks output-contract rules 3 and 4.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## A fixed encoder table: same codec, constant quality, source colour carried through
 
@@ -149,7 +149,7 @@ quality guarantee: a low-bitrate source would come out visibly worse. **Rejected
 (`-crf 0` / `-qp 0`). Files would grow 5–20×, which defeats the free-space preflight on any real
 library.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## The verification gate compares probes, not exit codes
 
@@ -175,7 +175,7 @@ nothing else.
 **Rejected:** trusting the tool's exit status. Both ffmpeg and mkvmerge exit 0 while dropping
 metadata they don't model, and that silent loss is the one outcome the spec forbids.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## The swap is two same-directory renames, journaled in `held_originals`
 
@@ -226,7 +226,7 @@ so a hold could become a cross-volume copy (slow, and twice the space) and a res
 halfway. **Rejected:** holding originals under `/data`. That is always a different volume from
 `/media`, so every hold is a full copy.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## Preflight is computed on request, not cached
 
@@ -243,7 +243,7 @@ dialog calls it on open, and enqueue re-runs it so a stale dialog can't bypass i
 **Rejected:** a global "media is writable" flag detected at boot. Mounts can differ per directory and
 can be remounted without restarting Holodex.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
 
 ## After a swap or restore: read-back, then a thumbnail reset
 
@@ -260,4 +260,4 @@ stream URL gets the same treatment from the SPA, `?v=<file_mtime>` (already in t
 and ignored by the stream handler), so the player doesn't keep showing a cached mirrored picture
 after the swap.
 
-Decided in _(pending: HOLODEX-556 squash)_.
+Decided in [`04dd6cad`](https://github.com/whoiskevinrich/holodex/commit/04dd6cad) (HOLODEX-556).
