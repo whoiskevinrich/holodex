@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api } from '$lib/api';
 	import { activity } from '$lib/activity.svelte';
 	import { toMessage, videoCount, tagCount, aliasHint } from '$lib/format';
@@ -28,7 +28,7 @@
 	let loading = $state(true);
 	let error = $state('');
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 
 	let toggleBusy = $state(false);

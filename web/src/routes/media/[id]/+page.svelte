@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { exitAfterRemoval } from '$lib/listState';
 	import { api, ApiError } from '$lib/api';
@@ -145,7 +145,7 @@
 	// fires once on entry when `loading` flips, where the load effect's own call has
 	// already done the work — expand + scrollIntoView are idempotent.
 	$effect(() => {
-		const hash = $page.url.hash;
+		const hash = page.url.hash;
 		if (!hash || loading) return;
 		// untrack: the landing's own reads (hasPageAnchor → overviewField) must not become
 		// dependencies, or a reloadDetail() after Confirm would re-expand the badge just closed.
@@ -272,7 +272,7 @@
 	let filmRemoveError = $state('');
 	let filmAttachOpen = $state(false);
 
-	const id = $derived(Number($page.params.id));
+	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
 	// The owner reads tag chips pending-writeback-first (HOLODEX-519 D4); visitors see no
 	// status glyph, so a status order would look random to them — name order stays.
@@ -400,7 +400,7 @@
 	// a value creates the standing decision, after which the resolver keeps the field itself.
 	const deepLinkedMissing = $derived.by((): ResolvedField | null => {
 		if (!isOwner || !completeness) return null;
-		const m = /^#field-([\w-]+)$/.exec($page.url.hash);
+		const m = /^#field-([\w-]+)$/.exec(page.url.hash);
 		if (!m) return null;
 		const facet = completeness.facets.find(
 			(f) => f.canonical === m[1] && f.tier === 'missing' && f.curatable
@@ -1206,7 +1206,7 @@
 	// playlist) leaves `run` null and the params inert: the video still plays, no error.
 	let videoEl = $state<HTMLVideoElement | null>(null);
 	let run = $state<Run | null>(null);
-	const runParam = $derived(parseRunParam($page.url));
+	const runParam = $derived(parseRunParam(page.url));
 	$effect(() => {
 		const p = runParam;
 		// A hop within the run keeps it mounted — the in-memory run is authoritative (it
