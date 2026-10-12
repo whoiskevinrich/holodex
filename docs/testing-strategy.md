@@ -4602,8 +4602,9 @@ an irreversible merge.
    `videos_ad_entity_rows` trigger (migration 0060), which deletes its enrichment, decisions,
    curation and not-applicable rows, and the cascades take its links and playlist places.
    - Guard: every carry re-keys rows **before** the delete, in one transaction.
-   - The bare `video_id` tables with no FK (extraction review, writeback snapshots) and the
-     `<id>.jpg` / `<id>-poster.jpg` files must be re-keyed or removed, not orphaned.
+   - The bare `video_id` tables with no FK (extraction review, writeback snapshots) must be
+     re-keyed, not orphaned. `assertNothingReferences` walks the schema, so a new table is
+     caught too.
 3. **The wrong row survives, or a move counts as an update.** The newer id survives, or
    `indexed_at` moves. Either breaks HOLODEX-567's Date added (`id`) and Updated (`indexed_at`)
    sorts.
@@ -4689,7 +4690,8 @@ existing `stubExtractor`:
   - playlist with both → one entry, at the older position;
   - playlist with only the newer → the older id takes its place;
   - film links → the union, with the older link kept on a clash;
-  - enrichment from both for the same provider and field → the newer `fetched_at` wins;
+  - enrichment from both for the same provider → the side with the newer `fetched_at` wins
+    that provider whole;
   - dismissals → the union;
   - a pending writeback queue entry moves to the older id and still runs.
 - **Fold survivor:**
@@ -4753,5 +4755,7 @@ Each of these should turn its named test red:
   asserts recovery.
 - Real-container behaviour (an MP4 whose `moov` atom moves on writeback) is covered indirectly by
   the refresh-on-change rule, not by a per-container fingerprint test.
+- A fold leaves the newer id's `<id>.jpg` / `<id>-poster.jpg` on disk, the same as purge does
+  today. Cleaning orphaned thumbnails is a library-wide concern, not this feature's.
 - HOLODEX-567's conditional `indexed_at` bump lands separately. Once it merges, re-run **Move in
   one pass** and **Fold survivor** against the merged `UpsertVideo`.

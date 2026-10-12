@@ -32,10 +32,10 @@ func (r *Repo) HasSizeTwin(ctx context.Context, size int64) (bool, error) {
 }
 
 // MoveCandidates returns the non-deleted rows that a new file v is the same
-// content as. A row with a fingerprint matches on it. A row with no fingerprint
-// (one hidden before migration 0064, or not yet backfilled) matches only when
-// every recorded fact is equal: byte size, mtime, duration, the stream facts and,
-// where the row recorded them, the file tags.
+// content as (sameContentSQL). A row with a fingerprint matches on it. A row with
+// no fingerprint (one hidden before migration 0064, or not yet backfilled)
+// matches only when every recorded fact is equal: byte size, mtime, duration,
+// the stream facts and, where the row recorded them, the file tags.
 func (r *Repo) MoveCandidates(ctx context.Context, v *model.Video) ([]MoveCandidate, error) {
 	if v.ContentFP == "" {
 		return nil, nil
@@ -45,16 +45,12 @@ func (r *Repo) MoveCandidates(ctx context.Context, v *model.Video) ([]MoveCandid
 		return nil, err
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, file_path, active FROM videos
-		 WHERE deleted_at IS NULL AND file_size = ?
-		   AND (content_fp = ?
-		        OR (content_fp IS NULL
-		            AND file_mtime = ? AND duration_sec = ?
-		            AND width = ? AND height = ?
-		            AND video_codec = ? AND audio_codec = ?
-		            AND bitrate_kbps = ? AND container = ?
-		            AND (file_tags IS NULL OR file_tags = ?)))
-		 ORDER BY id`,
+		WITH n (file_size, content_fp, file_mtime, duration_sec, width, height,
+		        video_codec, audio_codec, bitrate_kbps, container, file_tags)
+		  AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?))
+		SELECT h.id, h.file_path, h.active FROM videos h, n
+		 WHERE h.deleted_at IS NULL AND `+sameContentSQL+`
+		 ORDER BY h.id`,
 		v.FileSize, v.ContentFP,
 		v.FileMtime.UTC().Format(timeLayout), v.Duration, v.Width, v.Height,
 		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container, tags)

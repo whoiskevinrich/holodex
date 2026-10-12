@@ -62,12 +62,11 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Post-deactivation fold reusing `planCarry` (newest `created_at`/`fetched_at` wins) + legacy exact-facts rule — `internal/repo/`
-2. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row — `internal/scanner/`
-3. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-4. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
-5. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
-6. [ ] [backend] After 567 lands: share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
+1. [ ] [backend] Repointed/folded/ambiguous counts on the scan job row + a test that an in-pass ambiguous file counts once — `internal/scanner/`
+2. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+3. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
+4. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
+5. [ ] [backend] After 567 lands: share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,7 +85,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Testing strategy §26 written (risks, near-twin fixtures, scanner/repo/integration tests, mutation checks); testing gate stays [/] until those tests exist.
 - Built migration 0064 (`videos.content_fp` + file_size/content_fp indexes), `contentFingerprint` (SHA-256 over size + 3×64 KiB), fingerprint on every insert/re-extract/refresh, and the lazy backfill on the fast path; §26.3 fingerprint + backfill + refresh tests green; middle-sample mutation turns the near-twin test red. code-review high --fix: a fingerprint failure now stores NULL instead of hiding the file.
 - Built hold-then-match: size-twin new files held, `matchHeld` repoints one-to-one pairs against missing rows (unseen-and-ENOENT or hidden) before `DeactivateExcept`, ambiguity declined; repo `HasSizeTwin` / `MoveCandidates` (fingerprint, or exact facts for NULL-fp rows) / `RepointVideo` (keeps id + indexed_at). §26.3 scanner + repo tests and a real-repo end-to-end move test green; 3 mutations red. code-review: Stat guard now requires ENOENT.
-- handoff: Moves found during a scan now keep their video (draft PR #498) — next is the post-deactivation fold for past moves (Up next 1), reusing `planCarry` with newest-edit-wins.
+- Built the fold: `FoldPairs` (one-to-one, keep-separate and in-flight writeback/held-original pairs excluded) + `FoldMovedVideo` (re-keys enrichment per provider, dismissals, edits newer-wins via `applyCarry`, playlists/films/manual tags, writeback history/snapshots/reviews/job attribution, BEFORE deleting newer; survivor takes newer's file layer, keeps id + indexed_at); scanner `foldMoves` after deactivation + relink. Shared `sameContentSQL` now backs both MoveCandidates and the fold. Repo fold tests (schema-walking no-orphan check, atomicity) + real-repo heal test green; 4 mutations red. media-ingest.md + testing §26 updated (per-provider enrichment, thumbnails left like purge).
+- handoff: Past moves now heal on the next scan (draft PR #498) — next is wiring the repointed/folded/ambiguous counts into the scan job row (Up next 1), with a test that an in-pass ambiguous file counts once.
 
 ## Dropped — newest first (the reason is the point)
 

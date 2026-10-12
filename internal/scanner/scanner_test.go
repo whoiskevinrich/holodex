@@ -86,6 +86,11 @@ func (f *fakeRepo) RepointVideo(_ context.Context, id int64, v *model.Video, _ [
 	return fmt.Errorf("repoint %d: no row", id)
 }
 
+// The fold is exercised against real SQLite (internal/repo, move_integration_test).
+func (f *fakeRepo) FoldPairs(context.Context) ([]repo.FoldPair, []int64, error) { return nil, nil, nil }
+
+func (f *fakeRepo) FoldMovedVideo(context.Context, int64, int64) error { return nil }
+
 func (f *fakeRepo) SetContentFingerprint(_ context.Context, id int64, fp string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

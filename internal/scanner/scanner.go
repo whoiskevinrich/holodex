@@ -49,6 +49,8 @@ type Repository interface {
 	HasSizeTwin(ctx context.Context, size int64) (bool, error)
 	MoveCandidates(ctx context.Context, v *model.Video) ([]repo.MoveCandidate, error)
 	RepointVideo(ctx context.Context, id int64, v *model.Video, extra []model.ExtraMetadata) error
+	FoldPairs(ctx context.Context) ([]repo.FoldPair, []int64, error)
+	FoldMovedVideo(ctx context.Context, older, newer int64) error
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
@@ -198,12 +200,15 @@ func isMedia(name string) bool {
 type stats struct {
 	mu                                    sync.Mutex
 	seen, added, updated, skipped, errors int
-	repointed, ambiguous                  int // moves recognised / declined (F79)
+	repointed, folded, ambiguous          int // moves recognised / healed / declined (F79)
 	seenIDs                               []int64
 	failures                              []string // first maxReportedFailures per-file failures
 	// held are new files with a size twin, extracted but not inserted until the
 	// walk ends and the missing rows are known (matchHeld).
 	held []heldFile
+	// ambiguousIDs are rows matchHeld inserted after declining an ambiguous
+	// match, so foldMoves doesn't count the same file a second time.
+	ambiguousIDs map[int64]bool
 	// root is the canonical media root, set by the walk before it sends any path
 	// (so workers read it after the channel handoff, without the lock).
 	root string
@@ -235,6 +240,7 @@ func (s *stats) incSkipped() { s.mu.Lock(); s.skipped++; s.mu.Unlock() }
 
 func (s *stats) incRepointed() { s.mu.Lock(); s.repointed++; s.mu.Unlock() }
 func (s *stats) incAmbiguous() { s.mu.Lock(); s.ambiguous++; s.mu.Unlock() }
+func (s *stats) incFolded()    { s.mu.Lock(); s.folded++; s.mu.Unlock() }
 
 func (s *stats) fail(failure string) {
 	s.mu.Lock()
@@ -349,6 +355,7 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		s.log.Error("reconcile removed files failed", "err", err)
 	} else {
 		removed = n
+		s.foldMoves(ctx, st)
 	}
 
 	dur := time.Since(start)
@@ -545,12 +552,13 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	s.commit(ctx, st, path, v, ex, ok, unchanged)
 }
 
-// commit upserts an extracted file and runs the post-index hooks.
-func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.Video, ex metadata.Extracted, ok, unchanged bool) {
+// commit upserts an extracted file and runs the post-index hooks. It returns the
+// row id, or 0 when the upsert failed.
+func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.Video, ex metadata.Extracted, ok, unchanged bool) int64 {
 	id, err := s.repo.UpsertVideo(ctx, v, ex.Extra)
 	if err != nil {
 		s.fileFailed(st, path, "upsert failed", err)
-		return
+		return 0
 	}
 	st.recordSeen(id)
 	if ok {
@@ -569,7 +577,7 @@ func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.V
 	// and pixels as before, so filename extraction and the thumbnail would only
 	// redo their earlier work — across the whole pre-0054 library at once.
 	if unchanged {
-		return
+		return id
 	}
 	// Import-time filename extraction (F48.5c, ADR-067). Best-effort: a failure
 	// here never affects indexing, mirroring the relink hook above.
@@ -579,6 +587,7 @@ func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.V
 		}
 	}
 	s.handleThumbnail(ctx, id, path, ex.HasCoverArt)
+	return id
 }
 
 // handleThumbnail runs Tier 1 (embedded cover art) for a freshly indexed file,

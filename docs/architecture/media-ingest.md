@@ -61,14 +61,24 @@ evidence, where the match runs, and the fold.
 - **The fold.** After deactivation, a reconcile query pairs each hidden row with active rows of a
   *higher* id carrying the same evidence. Pairs that are one-to-one on both sides, with no
   `entity_keep_separate('video', …)` row, are folded into the older id in one transaction under
-  `writeMu`, and the newer row is then hard-deleted. The survivor keeps its own `indexed_at`; the
-  newer row's insert time is the move, which is not an update. The carry reuses `planCarry` from duplicate
-  videos ([entity-identity.md](entity-identity.md#duplicate-videos-are-computed-on-demand-not-queued))
-  with two differences:
-  - a per-field conflict goes to the newer `created_at` instead of to the kept video;
-  - enrichment rows move too, and the newer `fetched_at` wins per provider and field.
+  `writeMu` (`FoldMovedVideo`), and the newer row is then hard-deleted. A pair is held back
+  while either side has a pending or running `writeback_queue` entry or a `held_originals` row;
+  those jobs carry the id and the path, and a later pass folds it once they settle. The survivor
+  keeps its own `indexed_at`; the newer row's insert time is the move, which is not an update.
+  Everything is re-keyed *before* the delete, because the cascades and the `videos_ad_*`
+  triggers remove whatever is still keyed to the newer id. The carry reuses `applyCarry` from
+  duplicate videos ([entity-identity.md](entity-identity.md#duplicate-videos-are-computed-on-demand-not-queued))
+  with these differences:
+  - every field the newer row has an edit on goes to the newer row: the older row's edits for that
+    field are cleared first. The older row was hidden from the move until now, so every edit on the
+    newer row is the more recent one. Part and edition carry too, since it is the same file;
+  - enrichment rows move too, and for each provider the side with the newer `fetched_at` wins
+    whole, so one provider's fields never mix two fetches;
+  - dismissals, writeback history and snapshots, extraction reviews and job attribution move to
+    the older id.
 
-  Thumbnails follow the survivor's id and are regenerated if absent.
+  The survivor keeps its own thumbnail. The newer id's thumbnail files are left on disk, the same
+  as purge leaves them.
 - **Reporting.** The pass's job row records the repointed, folded and ambiguous counts
   ([observability-and-jobs.md](observability-and-jobs.md)).
 

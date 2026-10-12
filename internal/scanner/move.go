@@ -57,7 +57,45 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 		case len(c) > 0:
 			st.incAmbiguous()
 			s.log.Info("ambiguous move; indexing as new", "path", h.path, "candidates", len(c))
+			if id := s.commit(ctx, st, h.path, h.v, h.ex, false, false); id != 0 {
+				if st.ambiguousIDs == nil {
+					st.ambiguousIDs = map[int64]bool{}
+				}
+				st.ambiguousIDs[id] = true
+			}
+			continue
 		}
 		s.commit(ctx, st, h.path, h.v, h.ex, false, false)
+	}
+}
+
+// foldMoves heals moves that already happened: each hidden older row is folded
+// with the one visible newer row of the same content (F79 P0-5). It runs after
+// deactivation, so a row this pass just hid is a candidate too, and re-derives
+// the survivor's studio and people links from the edits it now carries.
+// Ambiguous pairs are counted and left alone.
+func (s *Scanner) foldMoves(ctx context.Context, st *stats) {
+	pairs, ambiguous, err := s.repo.FoldPairs(ctx)
+	if err != nil {
+		s.log.Warn("listing moves to heal failed", "err", err)
+		return
+	}
+	for _, id := range ambiguous {
+		if !st.ambiguousIDs[id] { // matchHeld already counted it this pass
+			st.incAmbiguous()
+		}
+	}
+	for _, p := range pairs {
+		if err := s.repo.FoldMovedVideo(ctx, p.Older, p.Newer); err != nil {
+			s.log.Warn("healing a moved file failed", "older", p.Older, "newer", p.Newer, "err", err)
+			continue
+		}
+		st.incFolded()
+		s.log.Info("healed moved file", "older", p.Older, "newer", p.Newer)
+		if s.relink != nil {
+			if err := s.relink(ctx, p.Older); err != nil {
+				s.log.Warn("relink after heal failed", "id", p.Older, "err", err)
+			}
+		}
 	}
 }
