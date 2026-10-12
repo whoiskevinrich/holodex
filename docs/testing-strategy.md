@@ -4367,7 +4367,9 @@ Dolby Vision can't be synthesized. Its refusal is a unit test over a captured ff
   It also pins the exceptions (spec rule 4, architecture):
   - `_STATISTICS` tags differing on the re-encoded track **pass**;
   - the same tags differing on a *copied* track **fail**;
-  - writing-application differences pass.
+  - writing-application differences pass;
+  - MP4 `ftyp` brand differences (`major_brand`, `minor_version`, `compatible_brands`) pass, and
+    the same keys differing in Matroska fail.
 
   Duration off by under one frame passes. Flip relaxes no rules; a stub op that relaxes `width`
   passes only a width change.
@@ -4511,6 +4513,17 @@ with chapters, XMP edition and iTunes tags, plus an MKV; no local mkvmerge):
 
   Pre-existing and unrelated: console errors (`pathname` of null in the root `+page`/`+layout`
   navigation hooks on hard `location.href` loads).
+
+**Real-library run, 2026-10-12 (HOLODEX-569).** The disposable fixtures above were made by ffmpeg,
+so they already carried what ffmpeg writes. Real files did not, and every flip on the AMV testbed
+failed rule 4. A throwaway harness ran Rebuild → Verify on testbed MP4s, writing only to scratch.
+- **Found and fixed:** ffmpeg stamped `encoder=Lavc libx264` on a re-encoded track that had no
+  encoder tag. `args_test` now pins `encoder=` (empty).
+- **Found and fixed:** a HandBrake track's udta `name` was dropped. The mov muxer writes that atom
+  only from `title`. `args_test` pins the mapping by output index.
+- **Spec change:** ffmpeg's own `ftyp` brands can't match every original, so they are rule 4's
+  second exception (owner's call). `verify_test` pins it.
+- **Open:** a file with duplicate `covr` items loses all but one (HOLODEX-570).
 
 ### 25.8 Mutation checks (run once the code exists)
 

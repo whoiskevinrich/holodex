@@ -41,6 +41,36 @@ func TestMP4Args_TargetsTheMainVideoNotCoverArt(t *testing.T) {
 	}
 }
 
+// A stream with no encoder tag gets an empty one set, or ffmpeg stamps "Lavc libx264" on it
+// and every flip of such a file fails verification (rule 4).
+func TestMP4Args_NoEncoderTagStaysAbsent(t *testing.T) {
+	p := Probe{Streams: []Stream{{Index: 0, CodecType: "video", CodecName: "h264"}}}
+	args, err := MP4Args(p, OpHFlip, allEncoders, "mp4", m("a.mp4"), m("b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "-metadata:s:v:0 encoder= ") {
+		t.Errorf("argv lets ffmpeg stamp its encoder: %v", args)
+	}
+}
+
+// A track `name` (udta atom) is written by the muxer only from `title`, addressed by output
+// index: the skipped chapter track shifts it.
+func TestMP4Args_TrackNameCarriedAsTitle(t *testing.T) {
+	p := Probe{Streams: []Stream{
+		{Index: 0, CodecType: "data", CodecName: "bin_data", CodecTag: "text"},
+		{Index: 1, CodecType: "video", CodecName: "h264"},
+		{Index: 2, CodecType: "audio", CodecName: "aac", Tags: map[string]string{"name": "Stereo"}},
+	}, Chapters: []Chapter{{StartTime: "0"}}}
+	args, err := MP4Args(p, OpHFlip, allEncoders, "mp4", m("a.mp4"), m("b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(args, " "), "-metadata:s:1 title=Stereo") {
+		t.Errorf("track name not carried to output stream 1: %v", args)
+	}
+}
+
 func TestMP4Args_ChapterTrackIsRegeneratedNotCopied(t *testing.T) {
 	p := Probe{Streams: []Stream{
 		{Index: 0, CodecType: "video", CodecName: "h264"},
