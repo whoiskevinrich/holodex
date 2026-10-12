@@ -3,6 +3,7 @@
 import { filtersToParams } from './filters';
 import { reauth, editing } from './reauth.svelte';
 import type {
+	MediaBrief,
 	CarryPreview,
 	VideoCompare,
 	VideoDuplicatePair,
@@ -316,6 +317,24 @@ export const api = {
 		if (sort) p.set('sort', sort);
 		if (seed != null) p.set('seed', String(seed));
 		return get<{ ids: number[]; seed?: number }>(`/media/ids?${p}`);
+	},
+
+	// Title, length and thumbnail for each of a run's ids, in their order (spec RD14): the
+	// jump list's rows. The server takes 1000 ids a request, so a long run goes in chunks.
+	// An id the server leaves out (deleted since the run started) is simply missing.
+	mediaBrief: async (ids: number[]): Promise<MediaBrief[]> => {
+		const chunks: number[][] = [];
+		for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
+		const parts = await Promise.all(
+			chunks.map((c) =>
+				get<{ items: MediaBrief[] }>('/media/brief', fetch, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ids: c })
+				})
+			)
+		);
+		return parts.flatMap((p) => p.items);
 	},
 
 	getMedia: (id: number, fetchFn?: typeof fetch) =>
