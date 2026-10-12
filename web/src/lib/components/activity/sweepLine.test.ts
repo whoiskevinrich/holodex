@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { doneLineFor, skippedText, sweepFinished } from './sweepLine';
-import type { SweepStatus, SweepSummary } from '$lib/types';
+import type { SweepStatus, SweepSummary } from '#lib/types.ts';
 
 // SweepStatusLine's pure pieces (F66 RD10 / P0-6): the done line is this kind's
 // last_run minus the dismissed batch, the running→idle edge fires once and only

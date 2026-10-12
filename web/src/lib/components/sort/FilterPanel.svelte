@@ -8,8 +8,8 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { fly } from 'svelte/transition';
 	import { tick } from 'svelte';
-	import { dismissable } from '$lib/actions/dismissable';
-	import { firstFocusable, trapTab } from '$lib/focusTrap';
+	import { dismissable } from '#lib/actions/dismissable.ts';
+	import { firstFocusable, trapTab } from '#lib/focusTrap.ts';
 	import FiltersButton from './FiltersButton.svelte';
 
 	let {

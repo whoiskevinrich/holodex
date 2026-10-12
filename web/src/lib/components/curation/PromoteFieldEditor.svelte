@@ -6,9 +6,9 @@
 	// Edit opens it pre-filled and adds a Remove-promotion action. Both commit via PUT
 	// (api.promoteField); Remove issues the DELETE (api.unpromoteField). Tokens only; QA Cinémathèque.
 	import { untrack } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { PromotionEntityType, PromotionRender } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { PromotionEntityType, PromotionRender } from '#lib/types.ts';
 
 	let {
 		entityType,

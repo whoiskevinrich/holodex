@@ -5,7 +5,7 @@
 	// layout, `/`/arrows/Esc on the browse page) — listed so the sheet is honest, not
 	// migrated (spec Non-Goals). Surface, trap, and rise motion mirror ConfirmDialog.
 	import { onMount } from 'svelte';
-	import { hotkeys, fire, type HotkeyEntry } from '$lib/actions/hotkey.svelte';
+	import { hotkeys, fire, type HotkeyEntry } from '#lib/actions/hotkey.svelte.ts';
 
 	let { onclose }: { onclose: () => void } = $props();
 

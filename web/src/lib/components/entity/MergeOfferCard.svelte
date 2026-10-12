@@ -4,8 +4,8 @@
 	// the owner picks "same entity" (merge in) or "different entity" (keep separate). Presentational
 	// only — the caller owns busy/error state and the merge/keep-separate calls themselves, so this
 	// stays reusable from both AliasPanel's alias-add flow and NameEditControl's rename flow.
-	import { videoCount, refLabel } from '$lib/format';
-	import type { EntityRef } from '$lib/types';
+	import { videoCount, refLabel } from '#lib/format.ts';
+	import type { EntityRef } from '#lib/types.ts';
 
 	let {
 		noun,

@@ -7,7 +7,7 @@
 	// overlay (z-50 dialogs, the z-[60] image viewer): the edit being protected is
 	// usually inside an open dialog, and the owner may be scrolled far from the
 	// header. Tokens only; QA Cinémathèque.
-	import { reauth } from '$lib/reauth.svelte';
+	import { reauth } from '#lib/reauth.svelte.ts';
 
 	const COPY = {
 		edit: ['Your sign-in expired.', 'Your edits are still here. Sign in again before you save.'],

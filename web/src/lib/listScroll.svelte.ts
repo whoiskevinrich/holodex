@@ -7,7 +7,7 @@
 // page just picks its own `id`; see navSnapshot for the one-shot/stale-on-mismatch/
 // per-id-isolation mechanics. The browse grid is the one exception (its own heavier
 // browseCache, browse.svelte.ts) — it also caches the loaded page set, not just scroll.
-import { createNavSnapshotRegistry, type Keyed } from '$lib/navSnapshot.svelte';
+import { createNavSnapshotRegistry, type Keyed } from '#lib/navSnapshot.svelte.ts';
 
 export interface ListScrollSnapshot extends Keyed {
 	scrollY: number;

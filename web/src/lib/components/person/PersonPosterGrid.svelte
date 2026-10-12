@@ -8,9 +8,9 @@
 	// meant "one row" only while the column ceiling was 6; raising it left the top row's
 	// trailing posters lazy-loading above the fold. Deriving it keeps that true as the
 	// ladder grows (HOLODEX-331).
-	import type { Person } from '$lib/types';
+	import type { Person } from '#lib/types.ts';
 	import PersonPosterCard from './PersonPosterCard.svelte';
-	import { posterColumns } from '$lib/density.svelte';
+	import { posterColumns } from '#lib/density.svelte.ts';
 
 	let { people, empty = 'No people.' }: { people: Person[]; empty?: string } = $props();
 

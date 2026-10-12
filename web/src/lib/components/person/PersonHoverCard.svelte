@@ -6,12 +6,12 @@
 	// one action and sits as a SIBLING of that link (a button may not nest in an
 	// anchor); the link row is Videos · Films · provider badges. Absent facts leave
 	// no trace (no "—"), and `card` null is the loading state: name line only.
-	import type { PersonCard } from '$lib/types';
-	import { videoCount, sortExternalLinks } from '$lib/format';
+	import type { PersonCard } from '#lib/types.ts';
+	import { videoCount, sortExternalLinks } from '#lib/format.ts';
 	import PersonImageFrame from './PersonImageFrame.svelte';
 	import NationalityFlags from './NationalityFlags.svelte';
-	import CompletenessRing from '$lib/components/completeness/CompletenessRing.svelte';
-	import ProviderLinkBadge from '$lib/components/enrichment/ProviderLinkBadge.svelte';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
+	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
 	import { invalidatePersonCard } from './personCard.svelte';
 
 	let {

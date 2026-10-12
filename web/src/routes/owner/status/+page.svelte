@@ -5,13 +5,13 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { activity } from '$lib/activity.svelte';
-	import { api, startSession, ReauthError } from '$lib/api';
-	import type { JobRun, JobDigest, ReadbackGap, SweepKind } from '$lib/types';
-	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '$lib/format';
-	import StatusCard from '$lib/components/activity/StatusCard.svelte';
-	import JobHistory from '$lib/components/activity/JobHistory.svelte';
-	import JobDigestView from '$lib/components/activity/JobDigest.svelte';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { api, startSession, ReauthError } from '#lib/api.ts';
+	import type { JobRun, JobDigest, ReadbackGap, SweepKind } from '#lib/types.ts';
+	import { toMessage, formatAgo, formatUntil, formatDurMs, formatUptime } from '#lib/format.ts';
+	import StatusCard from '#lib/components/activity/StatusCard.svelte';
+	import JobHistory from '#lib/components/activity/JobHistory.svelte';
+	import JobDigestView from '#lib/components/activity/JobDigest.svelte';
 
 	// Two-mode job view (HOLODEX-210, ADR-071 P0-5): the digest is the default —
 	// a fixed-size per-kind summary that answers "did anything fail" without

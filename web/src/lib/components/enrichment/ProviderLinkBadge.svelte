@@ -9,9 +9,9 @@
 	// so the brand icon lookup below may fall back to a monogram even when a real
 	// provider enriched this entity, which is expected, not a bug. See
 	// docs/design/provider-link-badge-handoff.md for the full state/a11y spec.
-	import type { ExternalLink } from '$lib/types';
-	import { isHttpUrl } from '$lib/format';
-	import { providers } from '$lib/providers.svelte';
+	import type { ExternalLink } from '#lib/types.ts';
+	import { isHttpUrl } from '#lib/format.ts';
+	import { providers } from '#lib/providers.svelte.ts';
 	import ProviderIcon from './ProviderIcon.svelte';
 
 	let { link, entityName }: { link: ExternalLink; entityName: string } = $props();

@@ -3,7 +3,7 @@
 // shelves repeat the grid's videos — so busy and the post-refresh bands live here,
 // not in the component instance: every ring for the entity spins together, and
 // every one redraws to the re-read bands, not just the one that was pressed.
-import type { CompletenessSummary, EnrichEntityKind } from '$lib/types';
+import type { CompletenessSummary, EnrichEntityKind } from '#lib/types.ts';
 
 export interface RingRefreshState {
 	busy: boolean;

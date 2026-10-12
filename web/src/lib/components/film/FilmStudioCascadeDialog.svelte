@@ -8,11 +8,11 @@
 	// FilmAttachDialog vs. FilmBulkAttachDialog (film/CLAUDE.md). Commits by calling
 	// api.cascadeFilmStudio directly, matching FilmBulkAttachDialog's convention rather
 	// than StudioPicker's caller-supplied decide callback.
-	import { api } from '$lib/api';
-	import { toMessage, formatYear } from '$lib/format';
-	import type { DecisionSource, FilmStudioCascadeResult, Studio } from '$lib/types';
-	import AttachedChip from '$lib/components/entity/AttachedChip.svelte';
-	import PickerShell, { focusOptionIn } from '$lib/components/entity/PickerShell.svelte';
+	import { api } from '#lib/api.ts';
+	import { toMessage, formatYear } from '#lib/format.ts';
+	import type { DecisionSource, FilmStudioCascadeResult, Studio } from '#lib/types.ts';
+	import AttachedChip from '#lib/components/entity/AttachedChip.svelte';
+	import PickerShell, { focusOptionIn } from '#lib/components/entity/PickerShell.svelte';
 
 	let {
 		filmId,

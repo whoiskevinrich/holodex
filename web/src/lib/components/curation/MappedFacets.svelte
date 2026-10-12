@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api } from '$lib/api';
-	import type { Facet } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import type { Facet } from '#lib/types.ts';
 
 	// mapped is a bindable record of canonical -> selected value ('' = Any). The
 	// parent seeds it from the URL via onfacets once the canonical names are known

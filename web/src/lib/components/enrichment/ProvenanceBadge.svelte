@@ -5,7 +5,7 @@
 	// long form stays on the icon's title/alt (hover + screen readers still name the
 	// source). The file baseline keeps a small muted pill — never --warn. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';
-	import { providers } from '$lib/providers.svelte';
+	import { providers } from '#lib/providers.svelte.ts';
 
 	let { provider = '', label = '', manual = false }: { provider?: string; label?: string; manual?: boolean } =
 		$props();

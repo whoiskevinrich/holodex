@@ -10,7 +10,7 @@
 	// `removeSide` exists: that pill owns the top-right corner, so Films docks remove
 	// top-left while People keeps the default right.
 	import type { Snippet } from 'svelte';
-	import PersonLinkChip from '$lib/components/person/PersonLinkChip.svelte';
+	import PersonLinkChip from '#lib/components/person/PersonLinkChip.svelte';
 
 	let {
 		href,

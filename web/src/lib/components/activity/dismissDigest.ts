@@ -3,7 +3,7 @@
 // loadDigest() (scan idle, tab switch) agrees with the server because the server
 // applied the same rules (ADR-100 D3). Pure so the arithmetic is unit-testable
 // without a component harness.
-import type { JobDigest, JobKindDigest, JobRun } from '$lib/types';
+import type { JobDigest, JobKindDigest, JobRun } from '#lib/types.ts';
 
 // The true failure count is the sum of each kind's error count, which is always
 // on the wire — the inline `failures` list is capped (digestFailureCap), so its

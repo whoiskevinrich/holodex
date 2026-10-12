@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PageActions from '../sort/PageActions.svelte';
-	import type { RunMode } from '$lib/run';
+	import type { RunMode } from '#lib/run.ts';
 
 	// Play all ▾ (F75, design handoff "The split button"). The main half starts a run in
 	// order; the caret opens PageActions' menu (one menu, not two) with Play all and

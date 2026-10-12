@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { toMessage } from '$lib/format';
-	import type { Playlist } from '$lib/types';
-	import PlaylistVisibilityChip from '$lib/components/video/PlaylistVisibilityChip.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { Playlist } from '#lib/types.ts';
+	import PlaylistVisibilityChip from '#lib/components/video/PlaylistVisibilityChip.svelte';
 
 	// /playlists (F69 P0-5, design handoff §1). The /people list page's shell: title
 	// row, `li > a` row cards, the three states. The server already filters by

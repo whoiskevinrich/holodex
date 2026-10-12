@@ -18,7 +18,7 @@
 	// people, Manage tags, Save as playlist… Same trigger/menu markup as the ⋯ menus on
 	// EnrichProviderChips and /tags; arrow keys move between items, Escape returns focus.
 	import { tick } from 'svelte';
-	import { dismissable } from '$lib/actions/dismissable';
+	import { dismissable } from '#lib/actions/dismissable.ts';
 
 	// `label` names the trigger for a ⋯ that isn't the page's own (Tags' manage mode bar).
 	// `face` + `triggerClass` replace the ⋯ button's face for a menu that hangs off

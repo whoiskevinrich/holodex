@@ -1,7 +1,7 @@
 <script lang="ts" generics="T extends string = SortOrder">
-	import type { SortOrder } from '$lib/types';
-	import { MEDIA_SORTS } from '$lib/filters';
-	import type { SortOption } from '$lib/listState';
+	import type { SortOrder } from '#lib/types.ts';
+	import { MEDIA_SORTS } from '#lib/filters.ts';
+	import type { SortOption } from '#lib/listState.ts';
 
 	// owner gates the ownerOnly entries (the Completeness sorts) — the server 401s a
 	// non-owner request using them, so they must not even render as options; for the

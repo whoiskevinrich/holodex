@@ -9,14 +9,14 @@
 	// Tokens only; QA Cinémathèque.
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import { groupByKind } from '$lib/entityGroups';
-	import type { DuplicatePair, EntityKind, VideoDuplicatePair } from '$lib/types';
-	import DuplicatePairRow from '$lib/components/duplicates/DuplicatePairRow.svelte';
-	import VideoPairRow from '$lib/components/duplicates/VideoPairRow.svelte';
-	import { focusLandingIds, groupId, pairKey, QUEUE_ID } from '$lib/components/duplicates/queue';
-	import { videoFocusLandingIds, videoPairKey } from '$lib/components/duplicates/videoPairs';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { groupByKind } from '#lib/entityGroups.ts';
+	import type { DuplicatePair, EntityKind, VideoDuplicatePair } from '#lib/types.ts';
+	import DuplicatePairRow from '#lib/components/duplicates/DuplicatePairRow.svelte';
+	import VideoPairRow from '#lib/components/duplicates/VideoPairRow.svelte';
+	import { focusLandingIds, groupId, pairKey, QUEUE_ID } from '#lib/components/duplicates/queue.ts';
+	import { videoFocusLandingIds, videoPairKey } from '#lib/components/duplicates/videoPairs.ts';
 
 	let pairs = $state<DuplicatePair[]>([]);
 	// Duplicate videos (F76): two files matched to the same provider item. Their own group,

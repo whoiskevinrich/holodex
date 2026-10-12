@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { ExternalLink } from '$lib/types';
+	import type { ExternalLink } from '#lib/types.ts';
 	import ProviderLinkBadge from '../enrichment/ProviderLinkBadge.svelte';
-	import { videoCount, sortExternalLinks } from '$lib/format';
+	import { videoCount, sortExternalLinks } from '#lib/format.ts';
 
 	// The muted video-count line under an entity's title, with its provider-link badges
 	// (HOLODEX-266, ADR-083 DD1) appended after a `·` separator. Shared by EntityVideos'

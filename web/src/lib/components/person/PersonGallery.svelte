@@ -6,10 +6,10 @@
 	// keyboard move-left/right reorder. The gallery cap (PERSON_GALLERY_MAX, default 20)
 	// disables the Add tile with an informational note and offers an explicit "Add anyway"
 	// over-cap upload (the server enforces both). Tokens only.
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { toMessage } from '$lib/format';
-	import { CORE_ROLES, type CoreRole, type PersonImage } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { toMessage } from '#lib/format.ts';
+	import { CORE_ROLES, type CoreRole, type PersonImage } from '#lib/types.ts';
 	import CropEditor from '../writeback/CropEditor.svelte';
 	import PersonGalleryModal from './PersonGalleryModal.svelte';
 	import PersonImageViewer from './PersonImageViewer.svelte';

@@ -4,9 +4,9 @@
 	// renders only what concerns THIS kind: a running line with live counts, or the
 	// last finished sweep's done line until it is dismissed. Idle, or a sweep of the
 	// other kind, renders nothing. Owner + Admin mode only.
-	import { activity } from '$lib/activity.svelte';
-	import { formatDurMs } from '$lib/format';
-	import type { SweepKind } from '$lib/types';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { formatDurMs } from '#lib/format.ts';
+	import type { SweepKind } from '#lib/types.ts';
 	import { doneLineFor, skippedText, sweepFinished, type SweepEdge } from './sweepLine';
 
 	let { kind, onfinished }: { kind: SweepKind; onfinished?: () => void } = $props();

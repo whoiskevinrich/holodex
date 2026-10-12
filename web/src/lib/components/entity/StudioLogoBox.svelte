@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { monogram } from '$lib/format';
-	import { haloClass } from '$lib/halo';
-	import type { Studio } from '$lib/types';
+	import { monogram } from '#lib/format.ts';
+	import { haloClass } from '#lib/halo.ts';
+	import type { Studio } from '#lib/types.ts';
 	import { imageAlt, isWordmark, type Wordmark } from './studioLogo';
 
 	// The studio image box shared by StudioLinkCard (Film/Media detail) and the /studios list

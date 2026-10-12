@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Video } from '$lib/types';
+	import type { Video } from '#lib/types.ts';
 	import VideoCard from './VideoCard.svelte';
-	import { activity } from '$lib/activity.svelte';
-	import { effectiveDensity } from '$lib/density.svelte';
-	import { stageGridTracks } from '$lib/stageGrid';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { effectiveDensity } from '#lib/density.svelte.ts';
+	import { stageGridTracks } from '#lib/stageGrid.ts';
 
 	let {
 		videos,
@@ -45,7 +45,7 @@
 	const GAP = 16; // matches `gap-4`
 
 	// Card size from the full column count, track count from the card count — see
-	// $lib/stageGrid for why those differ and what each one buys.
+	// #lib/stageGrid for why those differ and what each one buys.
 	const tracks = $derived(stageGridTracks(cols, videos.length, avail, GAP));
 
 	// In stageAligned mode the gap is emitted inline from the same GAP the track maths uses,

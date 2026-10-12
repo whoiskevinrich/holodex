@@ -1,23 +1,23 @@
 <script lang="ts">
 	import { tick } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { api } from '$lib/api';
-	import { activity } from '$lib/activity.svelte';
-	import { navSearch } from '$lib/navSearch.svelte';
-	import { toMessage, filterByName } from '$lib/format';
-	import type { Studio } from '$lib/types';
-	import ListToolbar from '$lib/components/sort/ListToolbar.svelte';
-	import SortDropdown from '$lib/components/sort/SortDropdown.svelte';
-	import StudioListRow from '$lib/components/entity/StudioListRow.svelte';
-	import AlphaIndex from '$lib/components/entity/AlphaIndex.svelte';
-	import DuplicatesBanner from '$lib/components/duplicates/DuplicatesBanner.svelte';
-	import SweepStatusLine from '$lib/components/activity/SweepStatusLine.svelte';
-	import { firstLetter, letterAnchors as computeLetterAnchors } from '$lib/peopleNav';
-	import { listScroll } from '$lib/listScroll.svelte';
-	import { shuffleSeed } from '$lib/sortPreference.svelte';
-	import { seededShuffle } from '$lib/shuffle';
-	import { ENTITY_SORTS, studiosSchema } from '$lib/listState';
-	import { listController } from '$lib/listController.svelte';
+	import { api } from '#lib/api.ts';
+	import { activity } from '#lib/activity.svelte.ts';
+	import { navSearch } from '#lib/navSearch.svelte.ts';
+	import { toMessage, filterByName } from '#lib/format.ts';
+	import type { Studio } from '#lib/types.ts';
+	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
+	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
+	import StudioListRow from '#lib/components/entity/StudioListRow.svelte';
+	import AlphaIndex from '#lib/components/entity/AlphaIndex.svelte';
+	import DuplicatesBanner from '#lib/components/duplicates/DuplicatesBanner.svelte';
+	import SweepStatusLine from '#lib/components/activity/SweepStatusLine.svelte';
+	import { firstLetter, letterAnchors as computeLetterAnchors } from '#lib/peopleNav.ts';
+	import { listScroll } from '#lib/listScroll.svelte.ts';
+	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import { seededShuffle } from '#lib/shuffle.ts';
+	import { ENTITY_SORTS, studiosSchema } from '#lib/listState.ts';
+	import { listController } from '#lib/listController.svelte.ts';
 
 	// Studio index (F38, ADR-053) — the People list pattern, minus the merge-selection mode
 	// (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the

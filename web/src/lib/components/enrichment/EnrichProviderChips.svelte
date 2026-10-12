@@ -6,9 +6,9 @@
 	// per-provider controls tucked into a ⋯ overflow menu once linked (F47 S4,
 	// ADR-066 RD7/RD8). Shared by the person, media, and studio detail pages. Tokens only.
 	import ProviderIcon from './ProviderIcon.svelte';
-	import { hotkey } from '$lib/actions/hotkey.svelte';
-	import { providers as providerDir } from '$lib/providers.svelte';
-	import { dismissable } from '$lib/actions/dismissable';
+	import { hotkey } from '#lib/actions/hotkey.svelte.ts';
+	import { providers as providerDir } from '#lib/providers.svelte.ts';
+	import { dismissable } from '#lib/actions/dismissable.ts';
 
 	let {
 		providers,

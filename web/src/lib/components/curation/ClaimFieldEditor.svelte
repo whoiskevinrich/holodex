@@ -22,9 +22,9 @@
 	//
 	// Tokens only; QA Cinémathèque.
 	import { untrack } from 'svelte';
-	import { api } from '$lib/api';
-	import { toMessage } from '$lib/format';
-	import type { FieldTarget, PromotionEntityType } from '$lib/types';
+	import { api } from '#lib/api.ts';
+	import { toMessage } from '#lib/format.ts';
+	import type { FieldTarget, PromotionEntityType } from '#lib/types.ts';
 
 	let {
 		entityType,

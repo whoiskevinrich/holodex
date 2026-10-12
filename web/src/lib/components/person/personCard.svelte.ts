@@ -2,8 +2,8 @@
 // card cache and the "one card open app-wide" latch. Module-level so every chip
 // on a page shares both — twelve chips in a row swap one card, and a person
 // hovered twice costs one request (spec R2/R6).
-import type { PersonCard } from '$lib/types';
-import { api } from '$lib/api';
+import type { PersonCard } from '#lib/types.ts';
+import { api } from '#lib/api.ts';
 
 /** Hover-intent delay before a card opens (RD9). Keyboard focus skips it. */
 export const OPEN_DELAY_MS = 250;
