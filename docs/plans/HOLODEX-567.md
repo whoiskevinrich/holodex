@@ -25,21 +25,18 @@ agreements: the oldest row's id survives a move, and a move never touches `index
 
 - [x] spec `write-spec` → `docs/specs/**` — phase-1 F3.4; phase-2 F12.1, F12.3, F12.7, F12.8 edited in place
 - [x] design `design-handoff` → `docs/design/**` — `media-sort-updated-handoff.md` + SVG mockup
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [x] backend → `{cmd,internal,providers}/**` — `orderBy` added = `id`, `updated_*` on `indexed_at`; `ValidSort` accepts both; `UpsertVideo` keeps `indexed_at` unless size or mtime changed; completeness ties fall to `id DESC` (spec F55.5 "the type's default order")
+- [x] frontend → `web/src/**` — Updated pair in `MEDIA_SORTS` after Date added; owner confirmed the build matches the approved mockup (2026-10-12)
+- [x] testing `testing-strategy` — `added_updated_sort_test.go` (mutation-checked), `listState.test.ts` S4, `docs/testing-strategy.md` §5 row; live check: an unchanged-file refresh on the AMV testbed kept `indexed_at`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Date added sorts by `id DESC` / `id ASC`; add `updated_desc` / `updated_asc` on `indexed_at` with `id` as the tiebreak; accept both in `repo.ValidSort` (playlists) — `internal/repo/repo.go`
-2. [ ] [backend] `UpsertVideo` bumps `indexed_at` only when size or modified time changed (manual refresh, file_tags backfill and re-extract of an unchanged file must not bump it) — `internal/repo/repo.go`, `internal/scanner/refresh.go`
-3. [ ] [frontend] Add "Updated — newest" / "Updated — oldest" after "Date added — oldest" in `MEDIA_SORTS`, plus the `SortOrder` / `PlaylistSort` types — `web/src/lib/filters.ts`, `web/src/lib/types.ts`
-4. [ ] [testing] Sort-order tests (id order, Updated order, stable ties), a no-op refresh leaves `indexed_at` alone, a writeback bumps it; update `docs/testing-strategy.md`
-5. [ ] [—] HOLODEX-568 will edit F12.7 / F12.8 in place to drop the "until HOLODEX-568" clauses once this merges; nothing to do here
+1. [ ] [—] Squash-merge PR #499 on green CI, then confirm CI moved HOLODEX-567 to Done
+2. [ ] [—] HOLODEX-568 will edit F12.7 / F12.8 in place to drop the "until HOLODEX-568" clauses once this merges; nothing to do here
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-12 · brainstorm, probe, spec, design
-- skills: product-brainstorming, write-spec, design-handoff, code-review high --fix, implement
-- shipped: drift probe `scripts/detect_indexed_at_drift.sql` (f0ab1aae); spec edits (ebb00d36); design handoff + mockup (3740a807). Spun out HOLODEX-568 (Relates). Worklog written by hand at the owner's request: the branch was renamed mid-session, so SessionStart never scaffolded it.
-- handoff: Crossed into build — design signed off at 3740a807; draft PR open. Start at the backend sort keys (Up next 1).
+- skills: product-brainstorming, write-spec, design-handoff, code-review high --fix, implement, handoff
+- shipped: drift probe `scripts/detect_indexed_at_drift.sql` (f0ab1aae); spec edits (ebb00d36); design handoff + mockup (3740a807); design sign-off (bdaf2188); build (842c78ed). Spun out HOLODEX-568 (Relates). Worklog written by hand at the owner's request: the branch was renamed mid-session, so SessionStart never scaffolded it.
+- handoff: Every gate settled and the build matches the approved mockup; PR #499 marked ready. Start at squash-merge on green CI.
