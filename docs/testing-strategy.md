@@ -4526,7 +4526,12 @@ failed rule 4. A throwaway harness ran Rebuild → Verify on testbed MP4s, writi
   only from `title`. `args_test` pins the mapping by output index.
 - **Spec change:** ffmpeg's own `ftyp` brands can't match every original, so they are rule 4's
   second exception (owner's call). `verify_test` pins it.
-- **Open:** a file with duplicate `covr` items loses all but one (HOLODEX-570).
+- **Fixed (HOLODEX-570):** a file with duplicate `covr` items lost all but one. ffmpeg carried
+  every cover, but the exiftool restore copied only one `CoverArt` over them, so rule 2 refused
+  the flip. The restore now leaves `CoverArt` alone. `TestFlip_RealFiles_MP4_DuplicateCovers`
+  remuxes the fixture to three covers and failed with the production error (`streams`, 3 → 1)
+  before the fix. It passes under the production image's ffmpeg 7.1 and exiftool 13.25. Holodex's
+  own poster writeback could not have made the duplicates: `-CoverArt<=file` always leaves one.
 
 **Edge report, 2026-10-12 (HOLODEX-571).** Every flip of an MP4 with an empty CompressorName
 still failed with `stream 0 tag "encoder" added`. ffmpeg's CLI treats an empty `-metadata` value
