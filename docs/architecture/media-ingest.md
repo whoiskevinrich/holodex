@@ -79,8 +79,11 @@ evidence, where the match runs, and the fold.
 
   The survivor keeps its own thumbnail. The newer id's thumbnail files are left on disk, the same
   as purge leaves them.
-- **Reporting.** The pass's job row records the repointed, folded and ambiguous counts
-  ([observability-and-jobs.md](observability-and-jobs.md)).
+- **Reporting.** The pass's `job_runs` row carries the counts in its `detail` text (`moveDetail`),
+  which the activity history already renders under a scan's numeric columns, so no new column
+  or migration is needed ([observability-and-jobs.md](observability-and-jobs.md)). An
+  ambiguous file declined by the scan-time match is not counted again when it reappears as an
+  ambiguous fold pair in the same pass.
 
 **Rejected:**
 

@@ -371,15 +371,30 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		Removed: int(removed), Skipped: st.skipped, Errors: st.errors,
 	}
 	s.markDone(sum)
-	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st))
+	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st), moveDetail(st))
 
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
 		"trigger", trigger, // initial | periodic | watch | manual — explains off-cadence passes
 		"seen", st.seen, "added", st.added, "updated", st.updated,
 		"removed", removed, "skipped", st.skipped, "errors", st.errors,
+		"repointed", st.repointed, "folded", st.folded, "ambiguous", st.ambiguous,
 		"duration_ms", dur.Milliseconds())
 	return walkErr
+}
+
+// moveDetail is the scan row's detail line for move recognition (F79 P0-7):
+// moves recognised this pass, found during the scan or healed from earlier, and
+// matches declined as ambiguous. Empty when both are zero.
+func moveDetail(st *stats) string {
+	var parts []string
+	if n := st.repointed + st.folded; n > 0 {
+		parts = append(parts, plural(n, "moved file recognised", "moved files recognised"))
+	}
+	if st.ambiguous > 0 {
+		parts = append(parts, plural(st.ambiguous, "ambiguous match skipped", "ambiguous matches skipped"))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // scanFailure says why a pass should be recorded as a failed run, or "" when it
@@ -417,7 +432,7 @@ func plural(n int, one, many string) string {
 // failure (see scanFailure) marks the run "error". The write uses a detached,
 // bounded context so a pass that finished during shutdown still records.
 // Best-effort: errors are logged, never propagated.
-func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure string) {
+func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure, detail string) {
 	if s.recorder == nil {
 		return
 	}
@@ -430,7 +445,7 @@ func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure stri
 		StartedAt: start.UTC(), FinishedAt: sum.FinishedAt, DurationMs: sum.DurationMs,
 		Seen: sum.Seen, Added: sum.Added, Updated: sum.Updated,
 		Removed: sum.Removed, Skipped: sum.Skipped, Errors: sum.Errors,
-		ErrorMessage: failure,
+		ErrorMessage: failure, Detail: detail,
 	}
 	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

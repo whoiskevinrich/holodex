@@ -673,7 +673,8 @@ type JobRun struct {
 	Errors       int       `json:"errors"`
 	ErrorMessage string    `json:"error_message,omitempty"`
 	// Detail is a short human description for non-scan jobs (F22.6b) — e.g.
-	// "tmdb → person #18 (5 fields)". Empty for scans (their counts say it all).
+	// "tmdb → person #18 (5 fields)". A scan sets it only to report moved files
+	// recognised and ambiguous matches skipped (F79); its counts say the rest.
 	// It is free text for the operator: nothing parses it (ADR-071).
 	Detail string `json:"detail,omitempty"`
 	// EntityType/EntityID name the single entity this run acted on (ADR-071),

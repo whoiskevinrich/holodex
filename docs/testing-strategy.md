@@ -4744,7 +4744,10 @@ Each of these should turn its named test red:
    - Each detail page keeps its edits.
    - System activity shows four recognised moves.
 2. `[agent]` Copy a file to a second path and rescan. Both appear, and the count reports no move.
-3. `[human]` After deploy, the first production scan reports folded and ambiguous counts:
+3. `[agent]` Make one file unreadable and move another, then rescan. In the Status tab's Recent
+   Failures, the scan row reads "1 moved file recognised — 1 file failed: …", showing the error
+   as well as the count. The digest composes detail and error the way the full history does.
+4. `[human]` After deploy, the first production scan reports folded and ambiguous counts:
    - the folded count roughly accounts for the ~232 candidate pairs;
    - fewer than 5 are ambiguous (spec success metric);
    - spot-check three healed videos.
