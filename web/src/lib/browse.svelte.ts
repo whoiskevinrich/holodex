@@ -17,3 +17,15 @@ export interface BrowseSnapshot extends Keyed {
 }
 
 export const browseCache = createNavSnapshot<BrowseSnapshot>();
+
+// A video was trashed or purged while the grid sat snapshotted (HOLODEX-478): drop it so
+// Back doesn't restore a card for something already gone, keeping the restored scroll.
+// The server list shrank by one too, so the paging offset shifts back one, else the next
+// "Load more" page would skip an item.
+export function forgetVideo(id: number) {
+	browseCache.update((s) => {
+		const videos = s.videos.filter((v) => v.id !== id);
+		if (videos.length === s.videos.length) return s;
+		return { ...s, videos, total: s.total - 1, offset: s.offset - 1 };
+	});
+}
