@@ -62,8 +62,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-2. [ ] [backend] Share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
+1. [ ] [—] After merge + deploy: §26.6 item 4 — first prod scan's folded/ambiguous counts vs the ~232 candidates (<5 ambiguous), spot-check three healed videos, and the anonymized probe of how much curation the old hidden rows carried
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,7 +85,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Wired the counts: the scan's job row `detail` reads "N moved files recognised; M ambiguous matches skipped" (`moveDetail`), empty when both are zero; an in-pass ambiguous file counts once (real-repo test + mutation red). code-review: the Status digest's Recent Failures now shows detail AND error (was `detail || error`, which would hide a failed scan's error behind its move count) — `npm run check` clean, activity Vitest green; live render queued as §26.6 item 3.
 - Merged origin/main with HOLODEX-567 (992a24de): no conflicts, UpsertVideo keeps both the conditional indexed_at and content_fp. Edited F12.7/F12.8 in place (moves keep their place; past moves heal).
 - Live QA §26.6 items 1–3 passed on a scratch AMV library (`.claude/launch.json` `backend-568` :9600 + `web-568` :5175): 4 moves repointed with ids/order/indexed_at and a manual title intact, copy arrives new, failed scan + move shows both in the digest. Found and fixed: Scan card "no changes" after a moves-only scan (ScanSummary now carries moved/ambiguous → chips), and em-dash spacing in JobDigest and JobHistory (Svelte trims at `{#if}` edges). Go suite, `npm run check`, Vitest 618 green.
-- handoff: F79 is built and live-QA'd on draft PR #498 — remaining: the anonymized prod probe (Up next 1) and the shared SET-list cleanup (2); then /handoff to settle the testing and frontend gates and mark ready.
+- Cleanup: `fileLayerColumns`/`fileLayerArgs` (internal/repo/file_layer.go) now back UpsertVideo, RepointVideo and the fold (row-value copy), so a new extracted column is added once; guard test + mutation red. Owner: the prod probe waits for merge + deploy.
+- handoff: F79 is built, live-QA'd and cleaned up on draft PR #498 — next is /handoff to settle the testing and frontend gates and mark it ready; the prod check (Up next 1) follows the deploy.
 
 ## Dropped — newest first (the reason is the point)
 

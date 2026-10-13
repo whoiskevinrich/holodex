@@ -135,32 +135,19 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
 	now := time.Now().UTC().Format(timeLayout)
-	var recorded any
-	if v.RecordedAt != nil {
-		recorded = v.RecordedAt.UTC().Format(timeLayout)
-	}
+	args := append([]any{v.FilePath}, fileLayerArgs(v)...)
+	args = append(args, now, v.ContentFP)
 
-	// Upsert the base row by unique file_path.
+	// Upsert the base row by unique file_path. Every SET expression reads the
+	// row as it was, so the indexed_at CASE compares the old size and mtime.
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO videos (file_path, file_size, title, duration_sec, width, height,
-		                    video_codec, audio_codec, bitrate_kbps, container,
-		                    recorded_at, indexed_at, file_mtime, content_fp, active)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), 1)
+		INSERT INTO videos (file_path, `+fileLayerList("")+`, indexed_at, content_fp, active)
+		VALUES (?, `+placeholders(len(fileLayerColumns))+`, ?, NULLIF(?, ''), 1)
 		ON CONFLICT(file_path) DO UPDATE SET
-			file_size    = excluded.file_size,
-			title        = excluded.title,
-			duration_sec = excluded.duration_sec,
-			width        = excluded.width,
-			height       = excluded.height,
-			video_codec  = excluded.video_codec,
-			audio_codec  = excluded.audio_codec,
-			bitrate_kbps = excluded.bitrate_kbps,
-			container    = excluded.container,
-			recorded_at  = excluded.recorded_at,
+			`+fileLayerSet(func(c string) string { return "excluded." + c })+`,
 			indexed_at   = CASE WHEN videos.file_size IS excluded.file_size
 			                     AND videos.file_mtime IS excluded.file_mtime
 			                    THEN videos.indexed_at ELSE excluded.indexed_at END,
-			file_mtime   = excluded.file_mtime,
 			content_fp   = excluded.content_fp,
 			active       = 1`,
 		// indexed_at is "when the file itself last changed" (F12.7): a re-upsert of an
@@ -169,9 +156,7 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 		// NB: deleted_at is deliberately NOT in the UPDATE set — a soft-deleted row
 		// whose file changes on disk stays soft-deleted (F24/ADR-037). The scanner
 		// also short-circuits soft-deleted rows before reaching here.
-		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
-		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
-		recorded, now, v.FileMtime.UTC().Format(timeLayout), v.ContentFP,
+		args...,
 	); err != nil {
 		return 0, fmt.Errorf("upsert video: %w", err)
 	}

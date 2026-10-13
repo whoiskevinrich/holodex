@@ -195,34 +195,24 @@ func (r *Repo) FoldMovedVideo(ctx context.Context, older, newer int64) error {
 		}
 	}
 
-	// older takes newer's file layer. Read it first: file_path is unique, so
-	// newer has to go before older can take its path.
-	var f struct {
-		path, title, vcodec, acodec, container, mtime string
-		size                                          int64
-		dur, w, h, bitrate                            int
-		recorded, fp, tags                            sql.NullString
+	// older takes newer's file layer. Copy everything but the path first, while
+	// newer still exists; file_path is unique, so it moves only after the delete.
+	fileCols := fileLayerList("") + ", content_fp, file_tags"
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE videos SET (`+fileCols+`) = (SELECT `+fileCols+` FROM videos WHERE id = ?)
+		 WHERE id = ?`, newer, older); err != nil {
+		return fmt.Errorf("fold %d<-%d: take file layer: %w", older, newer, err)
 	}
-	if err := tx.QueryRowContext(ctx, `
-		SELECT file_path, file_size, title, duration_sec, width, height, video_codec, audio_codec,
-		       bitrate_kbps, container, recorded_at, file_mtime, content_fp, file_tags
-		  FROM videos WHERE id = ?`, newer).Scan(
-		&f.path, &f.size, &f.title, &f.dur, &f.w, &f.h, &f.vcodec, &f.acodec,
-		&f.bitrate, &f.container, &f.recorded, &f.mtime, &f.fp, &f.tags); err != nil {
-		return fmt.Errorf("fold %d<-%d: read newer: %w", older, newer, err)
+	var path string
+	if err := tx.QueryRowContext(ctx, `SELECT file_path FROM videos WHERE id = ?`, newer).Scan(&path); err != nil {
+		return fmt.Errorf("fold %d<-%d: read newer path: %w", older, newer, err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM videos WHERE id = ?`, newer); err != nil {
 		return fmt.Errorf("fold %d<-%d: delete newer: %w", older, newer, err)
 	}
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE videos SET
-			file_path = ?, file_size = ?, title = ?, duration_sec = ?, width = ?, height = ?,
-			video_codec = ?, audio_codec = ?, bitrate_kbps = ?, container = ?,
-			recorded_at = ?, file_mtime = ?, content_fp = ?, file_tags = ?, active = 1
-		WHERE id = ?`,
-		f.path, f.size, f.title, f.dur, f.w, f.h, f.vcodec, f.acodec, f.bitrate, f.container,
-		f.recorded, f.mtime, f.fp, f.tags, older); err != nil {
-		return fmt.Errorf("fold %d<-%d: take file layer: %w", older, newer, err)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE videos SET file_path = ?, active = 1 WHERE id = ?`, path, older); err != nil {
+		return fmt.Errorf("fold %d<-%d: take path: %w", older, newer, err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit fold %d<-%d: %w", older, newer, err)

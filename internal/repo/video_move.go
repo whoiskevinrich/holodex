@@ -84,30 +84,15 @@ func (r *Repo) RepointVideo(ctx context.Context, id int64, v *model.Video, extra
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
-	var recorded any
-	if v.RecordedAt != nil {
-		recorded = v.RecordedAt.UTC().Format(timeLayout)
-	}
+	args := append([]any{v.FilePath}, fileLayerArgs(v)...)
+	args = append(args, v.ContentFP, id)
 	res, err := tx.ExecContext(ctx, `
 		UPDATE videos SET
-			file_path    = ?,
-			file_size    = ?,
-			title        = ?,
-			duration_sec = ?,
-			width        = ?,
-			height       = ?,
-			video_codec  = ?,
-			audio_codec  = ?,
-			bitrate_kbps = ?,
-			container    = ?,
-			recorded_at  = ?,
-			file_mtime   = ?,
-			content_fp   = NULLIF(?, ''),
-			active       = 1
-		WHERE id = ? AND deleted_at IS NULL`,
-		v.FilePath, v.FileSize, v.Title, v.Duration, v.Width, v.Height,
-		v.VideoCodec, v.AudioCodec, v.BitrateKbps, v.Container,
-		recorded, v.FileMtime.UTC().Format(timeLayout), v.ContentFP, id)
+			file_path  = ?,
+			`+fileLayerSet(func(string) string { return "?" })+`,
+			content_fp = NULLIF(?, ''),
+			active     = 1
+		WHERE id = ? AND deleted_at IS NULL`, args...)
 	if err != nil {
 		return fmt.Errorf("repoint video %d: %w", id, err)
 	}
