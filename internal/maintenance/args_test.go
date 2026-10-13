@@ -41,16 +41,16 @@ func TestMP4Args_TargetsTheMainVideoNotCoverArt(t *testing.T) {
 	}
 }
 
-// A stream with no encoder tag gets an empty one set, or ffmpeg stamps "Lavc libx264" on it
-// and every flip of such a file fails verification (rule 4).
-func TestMP4Args_NoEncoderTagStaysAbsent(t *testing.T) {
+// An empty encoder= is a no-op to ffmpeg (it still stamps "Lavc libx264"), so a stream with no
+// encoder tag gets no -metadata arg; Verify exempts the field instead (HOLODEX-571).
+func TestMP4Args_NoEncoderTagSetsNone(t *testing.T) {
 	p := Probe{Streams: []Stream{{Index: 0, CodecType: "video", CodecName: "h264"}}}
 	args, err := MP4Args(p, OpHFlip, allEncoders, "mp4", m("a.mp4"), m("b"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(args, " "), "-metadata:s:v:0 encoder= ") {
-		t.Errorf("argv lets ffmpeg stamp its encoder: %v", args)
+	if strings.Contains(strings.Join(args, " "), "encoder=") {
+		t.Errorf("argv sets an encoder the original lacked: %v", args)
 	}
 }
 

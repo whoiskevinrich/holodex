@@ -96,13 +96,16 @@ verification gate enforces them; it does not trust the encoder's exit status alo
    attachment stream (embedded cover art included) is copied bit-for-bit.
 4. **Same tags.** Every container-level and stream-level metadata tag in the original is present in
    the output with an identical value, and the output carries no tag the original lacked. This covers
-   tags Holodex itself wrote. The encoder must not add its own name or settings as tags. **Two
+   tags Holodex itself wrote. The encoder must not add its own name or settings as tags. **Three
    exceptions:** stream-statistics tags that describe the encoded bytes of the re-encoded video
    stream (Matroska's `BPS`, `NUMBER_OF_BYTES`, `DURATION` and their kin) are recomputed for the new
    stream, because copying them would make them false. The same tags on copied streams stay
-   verbatim. And an MP4's file-type brands (`major_brand`, `minor_version`, `compatible_brands`)
-   are whatever the writing muxer declares. They describe how the file was written, not what it is
-   about, and ffmpeg can't reproduce every original's.
+   verbatim. An MP4's file-type brands (`major_brand`, `minor_version`, `compatible_brands`) are
+   whatever the writing muxer declares. They describe how the file was written, not what it is
+   about, and ffmpeg can't reproduce every original's. And the re-encoded MP4 video stream's
+   `encoder` (the sample description's compressor name) may change. It names the compressor of
+   the encoded bytes, and ffmpeg fills it on every re-encode. The original's value is kept when
+   it has one, but an empty one can't be kept empty.
 5. **Same chapters.** Chapter count, titles and timestamps are identical.
 6. **Same shape of picture.** The re-encoded video keeps the original's codec, resolution, frame
    rate, pixel format / bit depth, colour metadata (primaries, transfer, matrix, range) and HDR

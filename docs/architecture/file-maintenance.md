@@ -161,8 +161,10 @@ One rule maps to each output-contract clause in the spec:
 - stream count, order, type, language, title and disposition are equal;
 - copied streams are byte-equal by packet hash (`ffprobe -show_packets` digest);
 - every tag key and value is equal, except `_STATISTICS`-listed tags on the re-encoded track,
-  Matroska's container writing-application field, and MP4's `ftyp` brand fields (ffmpeg writes its
-  own `ftyp`, and `-brand` sets only the major brand);
+  Matroska's container writing-application field, MP4's `ftyp` brand fields (ffmpeg writes its
+  own `ftyp`, and `-brand` sets only the major brand), and the re-encoded MP4 track's `encoder`
+  (the `stsd` CompressorName: ffmpeg 7.1 fills it on every re-encode, and an empty `-metadata`
+  value counts as unset, so it can't be held empty);
 - chapters are equal;
 - on the re-encoded stream, codec, width, height, pixel format, colour fields and frame rate are
   equal;
