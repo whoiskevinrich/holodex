@@ -5,6 +5,7 @@
 	// API 401s. Tokens only; QA Cinémathèque.
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
+	import { browseCache } from '#lib/browse.svelte.ts';
 	import { formatAgo, formatUntil, toMessage } from '#lib/format.ts';
 	import type { TrashEntry } from '#lib/types.ts';
 	import AsyncState from '#lib/components/shared/AsyncState.svelte';
@@ -48,6 +49,10 @@
 		try {
 			await (it.kind === 'film' ? api.restoreFilm(it.id) : api.restoreMedia(it.id));
 			items = items.filter((x) => rowKey(x) !== rowKey(it));
+			// Either kind changes what the Media grid lists (a film restore re-hides its
+			// full-film file), and only the server knows where in the sort order, so the
+			// grid reloads on its next visit instead of restoring its snapshot (HOLODEX-572).
+			browseCache.clear();
 		} catch (e) {
 			rowError = toMessage(e);
 		}
