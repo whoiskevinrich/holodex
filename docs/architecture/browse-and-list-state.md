@@ -139,7 +139,7 @@ time-to-live on the snapshot. It still restores stale data inside the window, an
 when nothing changed. **Rejected:** dropping a stale snapshot outright. That loses the scroll and
 the loaded pages after every edit.
 
-Decided in this commit (HOLODEX-190).
+Decided in [`81b6edd1`](https://github.com/whoiskevinrich/holodex/commit/81b6edd1) (HOLODEX-190).
 
 ## Playlists are containers: `playlists` + `playlist_videos`, membership plus a sort
 
