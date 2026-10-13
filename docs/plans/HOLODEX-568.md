@@ -64,9 +64,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 
 1. [ ] [testing] Live QA §26.6 items 1–3 on a backend testbed (move a folder, copy, failed scan + move in the Status digest) — `docs/testing-strategy.md`
 2. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-3. [ ] [spec] After HOLODEX-567 merges and main is merged in: edit F12.7/F12.8 in place to drop their "until HOLODEX-568" clauses (moves keep their place; past moves heal) — `docs/specs/phase-2-mcp-polish.md`
-4. [ ] [backend] Expect conflicts with HOLODEX-567 in `UpsertVideo` (conditional `indexed_at` bump) and the scanner — `internal/repo/repo.go`, `internal/scanner/scanner.go`
-5. [ ] [backend] After 567 lands: share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
+3. [ ] [backend] Share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
