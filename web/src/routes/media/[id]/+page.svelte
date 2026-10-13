@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { exitAfterRemoval } from '#lib/listState.ts';
+	import { forgetVideo } from '#lib/browse.svelte.ts';
 	import { api, ApiError } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Tag, Video, VideoCollisionRef, VideoWritebackStatus } from '#lib/types.ts';
@@ -551,6 +552,7 @@
 			// A run can advance while the request is in flight; the load effect has already
 			// closed the dialog, so leave the item now on screen alone.
 			if (gen !== pageGeneration) return;
+			forgetVideo(video.id);
 			// The item is gone — return to wherever it was opened from (a filtered list, a
 			// person's filmography, a studio page) rather than always resetting to the
 			// unfiltered browse root (HOLODEX-41). Falls back to '/' when there's no in-app

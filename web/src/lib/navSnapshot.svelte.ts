@@ -36,6 +36,10 @@ export function createNavSnapshot<T extends Keyed>() {
 			snap = null;
 			return s && s.key === key ? s : null;
 		},
+		// Revise the pending snapshot without consuming it (no-op when none is pending).
+		update(fn: (s: T) => T) {
+			if (snap) snap = fn(snap);
+		},
 		clear() {
 			snap = null;
 		}
