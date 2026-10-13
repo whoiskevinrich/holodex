@@ -41,8 +41,16 @@
 	}
 
 	// Seeds the shared nav box (not local state, NS4 — there's no page-owned text
-	// input anymore) so a "View all N in Videos" deep link (NS1) pre-fills it.
-	if (list.state.query.q) navSearch.query = list.state.query.q;
+	// input anymore) so a "View all N in Videos" deep link (NS1) pre-fills it. Seeded
+	// whenever the URL's q changes, not just at init: a same-route nav (`/` → `/?q=…`) and
+	// Back/Forward between such entries keep this component, and an unseeded box would
+	// mirror its stale text over the arrived q (HOLODEX-404). A derived, so an equal q from
+	// the controller replacing its state doesn't re-run it; declared before the mirror below
+	// so it runs first on an arrival.
+	const urlQ = $derived(list.state.query.q);
+	$effect(() => {
+		if (urlQ) navSearch.query = urlQ;
+	});
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (+layout.svelte owns that match, keyed off
 	// the URL) — otherwise the box is previewing another type via the overlay panel
