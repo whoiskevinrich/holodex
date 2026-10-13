@@ -41,10 +41,10 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
-- [~] design `design-handoff` → `docs/design/**` — no UI surface (scan-summary counts ride the existing System activity line) — until: P1-1 move history needs a visible surface
-- [/] backend → `{cmd,internal,providers}/**`
-- [/] frontend → `web/src/**` — display fixes found in live QA: Scan card chips for moved/ambiguous (no more "no changes" after a moves-only scan); digest and history compose detail + error with a spaced em dash
-- [/] testing `testing-strategy`
+- [~] design `design-handoff` → `docs/design/**` — no new screen: the move counts ride the existing System activity detail line and the scan card's existing chip idiom — until: P1-1 move history needs a visible surface
+- [x] backend → `{cmd,internal,providers}/**`
+- [x] frontend → `web/src/**` — display fixes found in live QA: Scan card chips for moved/ambiguous (no more "no changes" after a moves-only scan); digest and history compose detail + error with a spaced em dash
+- [x] testing `testing-strategy` — §26 unit, integration and mutation checks green; live QA items 1–3 passed 2026-10-12; item 4 is the post-deploy check (Up next 1)
 - [~] security `security-review` — no auth, access or perimeter change; scanner reads local library files only
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -62,7 +62,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] After merge + deploy: §26.6 item 4 — first prod scan's folded/ambiguous counts vs the ~232 candidates (<5 ambiguous), spot-check three healed videos, and the anonymized probe of how much curation the old hidden rows carried
+1. [ ] [testing] After deploy: check the first prod scan's moved/ambiguous counts vs ~232, spot-check 3 healed videos — `docs/testing-strategy.md` §26.6 item 4
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,7 +86,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Merged origin/main with HOLODEX-567 (992a24de): no conflicts, UpsertVideo keeps both the conditional indexed_at and content_fp. Edited F12.7/F12.8 in place (moves keep their place; past moves heal).
 - Live QA §26.6 items 1–3 passed on a scratch AMV library (`.claude/launch.json` `backend-568` :9600 + `web-568` :5175): 4 moves repointed with ids/order/indexed_at and a manual title intact, copy arrives new, failed scan + move shows both in the digest. Found and fixed: Scan card "no changes" after a moves-only scan (ScanSummary now carries moved/ambiguous → chips), and em-dash spacing in JobDigest and JobHistory (Svelte trims at `{#if}` edges). Go suite, `npm run check`, Vitest 618 green.
 - Cleanup: `fileLayerColumns`/`fileLayerArgs` (internal/repo/file_layer.go) now back UpsertVideo, RepointVideo and the fold (row-value copy), so a new extracted column is added once; guard test + mutation red. Owner: the prod probe waits for merge + deploy.
-- handoff: F79 is built, live-QA'd and cleaned up on draft PR #498 — next is /handoff to settle the testing and frontend gates and mark it ready; the prod check (Up next 1) follows the deploy.
+- handoff: Every gate is settled and PR #498 is marked ready for review — once it merges and deploys, run the post-deploy production check (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 
