@@ -23,19 +23,14 @@ import (
 // the gap check: reporting them would be noise, since no `file:` source can close the
 // gap and the operator has nothing to act on.
 //
-// Two known limits, both deliberate. The key is a canonical, but every reason below is
-// really per-*container* — all three round-trip fine on Matroska and break only on MP4,
+// Two known limits, both deliberate. The key is a canonical, but a reason is really
+// per-*container* — original_title round-trips fine on Matroska and breaks only on MP4,
 // so an exemption forfeits a knowable answer on the common container to avoid a wrong
-// one on the rare one. And nothing fires when an underlying reason is *fixed*: when
-// HOLODEX-336 lands the MP4 write targets, these entries must be removed by hand.
+// one on the rare one. And nothing fires when an underlying reason is *fixed*: an entry
+// must be removed by hand once its field gains a readable write target on every container.
 var UnreadableWriteTargets = map[string]string{
 	"original_title": "written only on Matroska (OriginalMediaType); MP4 has no write target at all, " +
 		"so a file source would report a permanent mismatch on every MP4",
-	"tagline": "MP4 writes QuickTime:Description (moved off Keywords, which the scanner read as " +
-		"tags — HOLODEX-466, ADR-110 D5); a file: source for it would need Description on " +
-		"MP4 beside Subtitle on Matroska, and no mapping declares one yet",
-	"original_language": "MP4 writes QuickTime:MediaLanguage, which is not a defined exiftool tag — " +
-		"the write is dropped with a warning, so there is nothing to read back (HOLODEX-336)",
 }
 
 // ReadbackGap is one replace field that writeback can write but whose mapping declares

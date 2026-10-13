@@ -44,7 +44,7 @@
 # permanent "out of sync"). The write targets are per container — see
 # docs/reference/canonical-fields.md ("Writeback round-trip"). The pairings that
 # matter here: title → file:title, overview → Comment, release_date → Year,
-# studio → Publisher.
+# studio → Publisher, tagline → Subtitle + Description, original_language → Language.
 
 fields:
   # ============================ Video / film fields ============================
@@ -84,6 +84,9 @@ fields:
 
   - canonical: tagline
     sources:
+      - Subtitle                # file tag — Matroska/WebM SUBTITLE: the baseline, and the
+                                # read-back for the tagline writeback.
+      - Description             # file tag — MP4 QuickTime:Description (HOLODEX-336).
       - tmdb:tagline
 
   - canonical: release_date
@@ -134,6 +137,9 @@ fields:
 
   - canonical: original_language
     sources:
+      - Language                # file tag — the baseline, and the read-back for the
+                                # original_language writeback (Matroska/WebM LANGUAGE,
+                                # MP4 XMP-dc:Language — both read back as Language).
       - tmdb:original_language
 
   - canonical: homepage

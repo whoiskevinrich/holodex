@@ -133,7 +133,7 @@ func TestLogReadbackGaps_SilentWhenClean(t *testing.T) {
 	LogReadbackGaps(log, []mapping.Field{
 		{Canonical: "release_date", ParsedSources: []mapping.Source{{Namespace: "file", Key: "Year"}}},
 		// Exempt by UnreadableWriteTargets — no source can close it, so warning is noise.
-		{Canonical: "tagline", ParsedSources: []mapping.Source{{Namespace: "tmdb", Key: "tagline"}}},
+		{Canonical: "original_title", ParsedSources: []mapping.Source{{Namespace: "tmdb", Key: "original_title"}}},
 	})
 
 	if buf.Len() != 0 {

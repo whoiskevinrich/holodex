@@ -65,7 +65,9 @@ Decided in [`ea57b67c`](https://github.com/whoiskevinrich/holodex/commit/ea57b67
 field to one tag per container family. A field with no row for the file's container is reported
 unmapped, never silently skipped; multi-value fields are written as repeated assignments.
 `edition` → `Edition` (Matroska/WebM) and `XMP-prism:Edition` (MP4/MOV), both read back as `Edition`.
-MP4 `tagline` → `QuickTime:Description`, outside the scanner's tag keys. A new row's key is chosen by
+MP4 `tagline` → `QuickTime:Description`, outside the scanner's tag keys. MP4 `original_language` →
+`XMP-dc:Language`: QuickTime defines no writable language tag, and the XMP one reads back as
+`Language`, the key Matroska's uses. A new row's key is chosen by
 writing and reading back generated clips on every container, and must read back under a key a
 `file:` source can name.
 

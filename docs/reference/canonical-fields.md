@@ -222,9 +222,9 @@ tag writeback writes**, or there is nothing to compare the written value against
 | `overview` | `Comment` | `QuickTime:Comment` | `Comment` | yes |
 | `release_date` | `Year` | `QuickTime:Year` | `Year` | yes |
 | `studio` | `Publisher` | `QuickTime:Publisher` | `Publisher` | yes |
-| `tagline` | `Subtitle` | `QuickTime:Keywords` | `Subtitle` | Matroska only — MP4's `Keywords` is consumed into content tags, never `extra_metadata` |
+| `tagline` | `Subtitle` | `QuickTime:Description` | `Subtitle` + `Description` | yes — one source per container, since the two read back under different keys |
 | `original_title` | `OriginalMediaType` | *(no target)* | — | Matroska only — not written at all on MP4 |
-| `original_language` | `Language` | `QuickTime:MediaLanguage` | — | Matroska only — the MP4 tag is undefined in exiftool and the write is dropped |
+| `original_language` | `Language` | `XMP-dc:Language` | `Language` | yes — QuickTime has no writable language tag; the XMP one reads back as `Language` |
 
 `genres` and `actors` are merge fields: they carry no decision and no `in_sync` (ADR-051 RD1), so
 the round-trip does not gate anything for them. Their write targets (`Genre`, `Artist`) are consumed
