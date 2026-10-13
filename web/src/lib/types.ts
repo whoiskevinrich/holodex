@@ -711,6 +711,9 @@ export interface ScanSummary {
 	removed: number;
 	skipped: number;
 	errors: number;
+	// Moved files recognised and ambiguous matches declined (F79 P0-7).
+	moved: number;
+	ambiguous: number;
 }
 
 export interface ScanStatus {

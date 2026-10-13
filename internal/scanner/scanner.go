@@ -45,6 +45,12 @@ type Repository interface {
 	UpsertVideo(ctx context.Context, v *model.Video, extra []model.ExtraMetadata) (int64, error)
 	DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, error)
 	Reactivate(ctx context.Context, id int64) error
+	SetContentFingerprint(ctx context.Context, id int64, fp string) error
+	HasSizeTwin(ctx context.Context, size int64) (bool, error)
+	MoveCandidates(ctx context.Context, v *model.Video) ([]repo.MoveCandidate, error)
+	RepointVideo(ctx context.Context, id int64, v *model.Video, extra []model.ExtraMetadata) error
+	FoldPairs(ctx context.Context) ([]repo.FoldPair, []int64, error)
+	FoldMovedVideo(ctx context.Context, older, newer int64) error
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
@@ -194,8 +200,15 @@ func isMedia(name string) bool {
 type stats struct {
 	mu                                    sync.Mutex
 	seen, added, updated, skipped, errors int
+	repointed, folded, ambiguous          int // moves recognised / healed / declined (F79)
 	seenIDs                               []int64
 	failures                              []string // first maxReportedFailures per-file failures
+	// held are new files with a size twin, extracted but not inserted until the
+	// walk ends and the missing rows are known (matchHeld).
+	held []heldFile
+	// ambiguousIDs are rows matchHeld inserted after declining an ambiguous
+	// match, so foldMoves doesn't count the same file a second time.
+	ambiguousIDs map[int64]bool
 	// root is the canonical media root, set by the walk before it sends any path
 	// (so workers read it after the channel handoff, without the lock).
 	root string
@@ -211,10 +224,23 @@ func (s *stats) recordSeen(id int64) {
 	s.mu.Unlock()
 }
 
+// heldFile is a new file waiting for the post-walk move match.
+type heldFile struct {
+	path string
+	v    *model.Video
+	ex   metadata.Extracted
+}
+
+func (s *stats) hold(h heldFile) { s.mu.Lock(); s.held = append(s.held, h); s.mu.Unlock() }
+
 func (s *stats) incSeen()    { s.mu.Lock(); s.seen++; s.mu.Unlock() }
 func (s *stats) incAdded()   { s.mu.Lock(); s.added++; s.mu.Unlock() }
 func (s *stats) incUpdated() { s.mu.Lock(); s.updated++; s.mu.Unlock() }
 func (s *stats) incSkipped() { s.mu.Lock(); s.skipped++; s.mu.Unlock() }
+
+func (s *stats) incRepointed() { s.mu.Lock(); s.repointed++; s.mu.Unlock() }
+func (s *stats) incAmbiguous() { s.mu.Lock(); s.ambiguous++; s.mu.Unlock() }
+func (s *stats) incFolded()    { s.mu.Lock(); s.folded++; s.mu.Unlock() }
 
 func (s *stats) fail(failure string) {
 	s.mu.Lock()
@@ -300,6 +326,10 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 	close(jobs)
 	wg.Wait()
 
+	// The seen set is complete only now, so held files are matched against the
+	// missing rows here, before deactivation can hide a row about to be repointed.
+	s.matchHeld(ctx, st)
+
 	// Guard against mass-deactivation from a transiently empty/unreadable media
 	// root (issue #26): a single walk that sees zero media files would otherwise
 	// deactivate the entire library. A genuinely-empty root is indistinguishable
@@ -325,6 +355,7 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		s.log.Error("reconcile removed files failed", "err", err)
 	} else {
 		removed = n
+		s.foldMoves(ctx, st)
 	}
 
 	dur := time.Since(start)
@@ -338,17 +369,33 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		DurationMs: dur.Milliseconds(),
 		Seen:       st.seen, Added: st.added, Updated: st.updated,
 		Removed: int(removed), Skipped: st.skipped, Errors: st.errors,
+		Moved: st.repointed + st.folded, Ambiguous: st.ambiguous,
 	}
 	s.markDone(sum)
-	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st))
+	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st), moveDetail(st))
 
 	s.log.Info("scan complete",
 		"media_path", s.cfg.MediaPath,
 		"trigger", trigger, // initial | periodic | watch | manual — explains off-cadence passes
 		"seen", st.seen, "added", st.added, "updated", st.updated,
 		"removed", removed, "skipped", st.skipped, "errors", st.errors,
+		"repointed", st.repointed, "folded", st.folded, "ambiguous", st.ambiguous,
 		"duration_ms", dur.Milliseconds())
 	return walkErr
+}
+
+// moveDetail is the scan row's detail line for move recognition (F79 P0-7):
+// moves recognised this pass, found during the scan or healed from earlier, and
+// matches declined as ambiguous. Empty when both are zero.
+func moveDetail(st *stats) string {
+	var parts []string
+	if n := st.repointed + st.folded; n > 0 {
+		parts = append(parts, plural(n, "moved file recognised", "moved files recognised"))
+	}
+	if st.ambiguous > 0 {
+		parts = append(parts, plural(st.ambiguous, "ambiguous match skipped", "ambiguous matches skipped"))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // scanFailure says why a pass should be recorded as a failed run, or "" when it
@@ -386,7 +433,7 @@ func plural(n int, one, many string) string {
 // failure (see scanFailure) marks the run "error". The write uses a detached,
 // bounded context so a pass that finished during shutdown still records.
 // Best-effort: errors are logged, never propagated.
-func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure string) {
+func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure, detail string) {
 	if s.recorder == nil {
 		return
 	}
@@ -399,7 +446,7 @@ func (s *Scanner) recordRun(start time.Time, sum model.ScanSummary, failure stri
 		StartedAt: start.UTC(), FinishedAt: sum.FinishedAt, DurationMs: sum.DurationMs,
 		Seen: sum.Seen, Added: sum.Added, Updated: sum.Updated,
 		Removed: sum.Removed, Skipped: sum.Skipped, Errors: sum.Errors,
-		ErrorMessage: failure,
+		ErrorMessage: failure, Detail: detail,
 	}
 	recCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -470,6 +517,16 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	// skipped: re-extracting it once fills file_tags, which is never NULL after
 	// an upsert, so the next scan takes the fast-path again (HOLODEX-468).
 	if unchanged && prev.FileTagsKnown {
+		// Lazy fingerprint backfill (F79): an unchanged file whose row predates
+		// migration 0064 is fingerprinted without re-extraction. A failure is
+		// logged, never fatal to the file; the next pass retries.
+		if !prev.FingerprintKnown {
+			if fp, err := contentFingerprint(path); err != nil {
+				s.log.Warn("fingerprint failed", "path", path, "err", err)
+			} else if err := s.repo.SetContentFingerprint(ctx, prev.ID, fp); err != nil {
+				s.log.Warn("store fingerprint failed", "id", prev.ID, "err", err)
+			}
+		}
 		// Unchanged but still present. If a prior pass deactivated the row (e.g. a
 		// transient empty/unreadable walk), reactivate it cheaply — the metadata is
 		// already current, so there's no need to re-extract (issue #26).
@@ -492,10 +549,32 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	}
 
 	v := buildVideo(path, info, mtime, ex)
+	// A fingerprint failure must not hide a file that extracted fine: it is
+	// stored as unknown (NULL) and the fast-path backfill retries next pass.
+	if v.ContentFP, err = contentFingerprint(path); err != nil {
+		s.log.Warn("fingerprint failed; stored as unknown", "path", path, "err", err)
+	}
+	// A new path whose size some existing row shares may be a move: hold it until
+	// the walk ends (F79). Every other new file inserts now, so a first scan of a
+	// fresh library holds nothing.
+	if !ok && v.ContentFP != "" {
+		if twin, err := s.repo.HasSizeTwin(ctx, v.FileSize); err != nil {
+			s.log.Warn("size twin lookup failed; indexing as new", "path", path, "err", err)
+		} else if twin {
+			st.hold(heldFile{path: path, v: v, ex: ex})
+			return
+		}
+	}
+	s.commit(ctx, st, path, v, ex, ok, unchanged)
+}
+
+// commit upserts an extracted file and runs the post-index hooks. It returns the
+// row id, or 0 when the upsert failed.
+func (s *Scanner) commit(ctx context.Context, st *stats, path string, v *model.Video, ex metadata.Extracted, ok, unchanged bool) int64 {
 	id, err := s.repo.UpsertVideo(ctx, v, ex.Extra)
 	if err != nil {
 		s.fileFailed(st, path, "upsert failed", err)
-		return
+		return 0
 	}
 	st.recordSeen(id)
 	if ok {
@@ -514,7 +593,7 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	// and pixels as before, so filename extraction and the thumbnail would only
 	// redo their earlier work — across the whole pre-0054 library at once.
 	if unchanged {
-		return
+		return id
 	}
 	// Import-time filename extraction (F48.5c, ADR-067). Best-effort: a failure
 	// here never affects indexing, mirroring the relink hook above.
@@ -524,6 +603,7 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 		}
 	}
 	s.handleThumbnail(ctx, id, path, ex.HasCoverArt)
+	return id
 }
 
 // handleThumbnail runs Tier 1 (embedded cover art) for a freshly indexed file,
@@ -560,7 +640,11 @@ func (s *Scanner) BuildVideoFromFile(ctx context.Context, path string) (*model.V
 	if err != nil {
 		return nil, nil, err
 	}
-	return buildVideo(path, info, mtime, ex), ex.Extra, nil
+	v := buildVideo(path, info, mtime, ex)
+	if v.ContentFP, err = contentFingerprint(path); err != nil {
+		return nil, nil, err
+	}
+	return v, ex.Extra, nil
 }
 
 func buildVideo(path string, info os.FileInfo, mtime time.Time, ex metadata.Extracted) *model.Video {

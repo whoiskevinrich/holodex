@@ -4587,3 +4587,207 @@ Each change must turn its named test red:
   - An MKV where only some tracks carry mkvmerge statistics is refused, not flipped: mkvmerge's
     statistics switch is all-or-nothing, so the copied tracks that lacked them gain them and the
     verifier objects. It fails safe, and nothing is changed.
+
+## 26. Keep a video's identity when its file moves (F79, HOLODEX-568)
+
+[Spec](specs/video-identity-on-move.md) ·
+[architecture](architecture/media-ingest.md#moves-recognised-by-a-sampled-content-hash-matched-after-the-walk)
+· no design handoff (no UI).
+
+A file moved or renamed on disk keeps its video:
+- a move found during a scan **repoints** the existing row;
+- a move that already happened is **folded** into the older row;
+- anything ambiguous arrives as new.
+
+Most of the weight sits on two places. The fold is the only path that hard-deletes a live row
+carrying the owner's work. The matcher is the only thing standing between two different videos and
+an irreversible merge.
+
+### 26.1 Risks, ranked
+
+1. **A false match merges two different videos (P0-1).** Nothing can undo it.
+   - Guards: the sampled hash covers size plus start, middle and end samples.
+   - Size-only and size-plus-duration twins never match a fingerprinted row.
+   - The legacy exact-facts rule applies only to rows with a NULL fingerprint.
+2. **The fold loses the owner's work (P0-5/6).** Hard-deleting the newer row fires the
+   `videos_ad_entity_rows` trigger (migration 0060), which deletes its enrichment, decisions,
+   curation and not-applicable rows, and the cascades take its links and playlist places.
+   - Guard: every carry re-keys rows **before** the delete, in one transaction.
+   - The bare `video_id` tables with no FK (extraction review, writeback snapshots) must be
+     re-keyed, not orphaned. `assertNothingReferences` walks the schema, so a new table is
+     caught too.
+3. **The wrong row survives, or a move counts as an update.** The newer id survives, or
+   `indexed_at` moves. Either breaks HOLODEX-567's Date added (`id`) and Updated (`indexed_at`)
+   sorts.
+   - Guards: the older id always survives.
+   - The repoint never writes `indexed_at`.
+   - The fold keeps the survivor's own `indexed_at`.
+4. **A copy is mistaken for a move (P0-2).** A legitimate duplicate gets merged.
+   - Guard: only rows that are unseen this pass, or have `active = 0`, are candidates.
+   - Soft-deleted rows never are.
+5. **Ambiguity resolved by luck (P0-4).** Worker order decides which of two new paths takes the
+   row.
+   - Guard: hold, then match after the walk; a pairing must be one-to-one on both sides.
+6. **A stale fingerprint misses a move (P0-1).** A writeback or flip changed the bytes, but the
+   stored hash didn't follow.
+   - Guard: the fingerprint is recomputed on every insert and re-extract.
+7. **Holding blocks a first scan or loses a file.** Held results are never inserted, or a fresh
+   library waits for the whole walk.
+   - Guard: only size twins are held, and every held file ends up repointed or inserted.
+
+### 26.2 Fixtures (synthesized in-test; nothing committed)
+
+Real files in `t.TempDir()`, so the fingerprint reads real bytes, with metadata from the scanner's
+existing `stubExtractor`:
+- **Content files** are deterministic pseudo-random bytes from a seeded generator. Sizes cover:
+  - under 192 KiB (hashed whole);
+  - exactly 192 KiB;
+  - several MiB.
+- **Near twins** are pairs that defeat weaker evidence:
+  - same size with different bytes;
+  - same size, the same start and end samples, but a different middle;
+  - same size, duration and stream facts (the stub returns the same metadata) but different
+    bytes.
+- **Moves** use `os.Rename` within the temp root. **Copies** use a byte copy that keeps the
+  original.
+
+### 26.3 Go unit
+
+**Fingerprint (`internal/scanner`, or wherever the helper lands):**
+- It's stable across two reads, and identical for a renamed file.
+- It differs for each near twin: size-equal, middle-only difference, and start/end-only
+  difference.
+- A file under 192 KiB hashes whole, and its hash differs from the sampled hash of a padded file.
+- An I/O error is surfaced as a per-file failure (error count, `job_runs` error). It never stores
+  an empty fingerprint.
+
+**Scanner, fake repo (`internal/scanner/scanner_test.go`, extended `fakeRepo`):**
+- **Move in one pass (P0-3):** rename a.mp4 → b.mp4 and rescan. The id is unchanged and the path
+  is b. No insert happens, `indexed_at` is unchanged, and the row stays active. The thumbnailer is
+  not re-enqueued for a new id.
+- **Rename across folders** behaves the same as a move in one pass.
+- **Copy (P0-2):** copy a → b and rescan. b is a new row, and a is untouched.
+- **Size twin that is not a move:** a new file with the same size as an existing active file
+  that's still present is held, then inserted. The existing row is untouched.
+- **Ambiguous, one new file and two missing rows (P0-4):** two identical files are removed, and
+  one copy reappears at a new path. It inserts as new, the scan counts one ambiguous file, and both
+  old rows end hidden.
+- **Ambiguous, two new files and one missing row:** a is moved to b and also copied to c in one
+  pass. Neither b nor c takes a's id, both insert, and the scan counts two ambiguous files.
+- **Long absence (P0-2):** a row hidden in an earlier scan, with its fingerprint set, reappears at
+  a new path. It is repointed and reactivated.
+- **Trashed row:** a soft-deleted row whose file reappears elsewhere is never a candidate; the file
+  inserts as new.
+- **First scan holds nothing:** with an empty repo, every file inserts during the walk, and the
+  held set stays empty.
+- **Mid-copy guard:** a new file younger than `scan_min_age_seconds` is skipped. The old row is
+  hidden this pass, and the next pass repoints it.
+- **Lazy backfill:** an unchanged file whose row has no fingerprint gets one, without
+  re-extraction. The stub extractor's call count is unchanged.
+- **Writeback refresh (P0-1):** change a file's bytes in place (same path, new mtime) and rescan.
+  The fingerprint changes. Then move it and rescan: it matches.
+- **Counts (P0-7):** the job row carries the repointed, folded and ambiguous counts, and shows none
+  when all three are zero.
+
+**Repo, real SQLite (`internal/repo`, new `video_move_test.go`):**
+- **Repoint:** `file_path` and the extracted facts are updated, `active = 1`, and `indexed_at` and
+  `id` are untouched. It runs before `DeactivateExcept`, so the row is never hidden.
+- **Fold carry (P0-6),** with an older hidden row and a newer active row:
+  - field decision on both sides → the newer `created_at` wins;
+  - field decision on one side → it's kept;
+  - curation per field → the newest field's set wins;
+  - tags, people and studio edits follow the same rule;
+  - not-applicable marks carry;
+  - playlist with both → one entry, at the older position;
+  - playlist with only the newer → the older id takes its place;
+  - film links → the union, with the older link kept on a clash;
+  - enrichment from both for the same provider → the side with the newer `fetched_at` wins
+    that provider whole;
+  - dismissals → the union;
+  - a pending writeback queue entry moves to the older id and still runs.
+- **Fold survivor:**
+  - the older id survives with the newer `file_path`, `active = 1`, and its own `indexed_at`;
+  - the newer row is gone;
+  - no row in any per-entity, cascade or bare-`video_id` table still references the newer id
+    (one query per table, so a new table can't be forgotten silently).
+- **Fold atomicity:** a trigger that aborts the delete leaves both rows and every carried row
+  exactly as before.
+- **Keep-separate:** a pair with an `entity_keep_separate('video', …)` row is never folded.
+- **Legacy rule:**
+  - a NULL-fingerprint hidden row folds only when size, mtime, duration, every stream fact and the
+    file tags all match;
+  - changing any single fact blocks it (one subtest per fact);
+  - a hidden row that **has** a fingerprint never matches on facts alone.
+- **Fold one-to-one:** two hidden rows with the same fingerprint and one newer active row → no
+  fold, counted as ambiguous.
+
+### 26.4 Integration (real repo + real scanner, temp media root)
+
+`internal/scanner` against a real SQLite repo (the shape of the existing repo integration tests):
+- **End to end:** curate a video: title decision, a tag, a playlist place and a film link. Then move
+  its file and rescan. Everything is still on the same id, and Browse by id shows it once.
+- **Heal a past move:** seed the pre-feature state directly:
+  - an older hidden row with a NULL fingerprint and curation;
+  - a newer active row with the same facts and its own later title edit.
+
+  One scan folds them. The newer title edit wins, the older id survives, and the count reads one
+  folded.
+- **Idempotent:** a second scan after the fold changes nothing and counts zero.
+
+### 26.5 Mutation checks (run once the code exists)
+
+Each of these should turn its named test red:
+- Fingerprint built from size only, or from start and end without the middle → the near-twin unit
+  tests.
+- Candidates including active rows that were seen this pass → **Copy**.
+- Candidates including soft-deleted rows → **Trashed row**.
+- First claimant wins instead of declining → **Ambiguous, two new files and one missing row**.
+- Repoint writes `indexed_at` → **Move in one pass**.
+- Fold keeps the newer id → **Fold survivor**.
+- Fold deletes before re-keying → **Fold carry** (the trigger wipes the decisions).
+- Conflict rule flipped to the older edit wins → **Fold carry**.
+- Legacy rule applied to fingerprinted rows → **Legacy rule**.
+
+### 26.6 Live QA (numbered and tagged)
+
+1. `[agent]` On a copy of the stress fixture, rename one file and move a folder of three. Rescan.
+   - Date added — newest doesn't show them at the top.
+   - Each detail page keeps its edits.
+   - System activity shows four recognised moves.
+2. `[agent]` Copy a file to a second path and rescan. Both appear, and the count reports no move.
+3. `[agent]` Make one file unreadable and move another, then rescan. In the Status tab's Recent
+   Failures, the scan row reads "1 moved file recognised — 1 file failed: …", showing the error
+   as well as the count. The digest composes detail and error the way the full history does.
+4. `[human]` After deploy, the first production scan reports folded and ambiguous counts:
+   - the folded count roughly accounts for the ~232 candidate pairs;
+   - fewer than 5 are ambiguous (spec success metric);
+   - spot-check three healed videos.
+
+**Live run, 2026-10-12.** The testbed was a scratch library of five AMV files, run with the branch
+merged with HOLODEX-567. Items 1–3 passed:
+- **Item 1:** a rename plus a three-file folder move.
+  - The watcher scan logged 4 repointed, 0 added, 0 removed.
+  - Date added and Updated kept ids 5→1 and every `indexed_at`.
+  - The moved video's manual title survived.
+  - The Log row reads "4 moved files recognised".
+- **Item 2:** the copy arrived as id 6, and the original was untouched.
+- **Item 3:** the digest reads "1 moved file recognised — 1 file failed: loose/broken.mp4: …".
+
+The run found and fixed three display bugs:
+- the Scan card said "no changes" after a moves-only scan; the live summary now carries the
+  `moved`/`ambiguous` counts as chips;
+- the digest's em dash lost its spaces, because Svelte trims at `{#if}` block edges;
+- the same pre-existing spacing bug in JobHistory.
+
+Item 4 is the owner's, after deploy.
+
+### 26.7 Standing gaps
+
+- A file moved *and* changed between scans is a new file by design (spec non-goal). No test
+  asserts recovery.
+- Real-container behaviour (an MP4 whose `moov` atom moves on writeback) is covered indirectly by
+  the refresh-on-change rule, not by a per-container fingerprint test.
+- A fold leaves the newer id's `<id>.jpg` / `<id>-poster.jpg` on disk, the same as purge does
+  today. Cleaning orphaned thumbnails is a library-wide concern, not this feature's.
+- HOLODEX-567's conditional `indexed_at` bump lands separately. Once it merges, re-run **Move in
+  one pass** and **Fold survivor** against the merged `UpsertVideo`.

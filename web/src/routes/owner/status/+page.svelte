@@ -304,11 +304,13 @@
 				{/if}
 				{#if a.scan.last_run}
 					{@const lr = a.scan.last_run}
-					{#if lr.added || lr.updated || lr.removed || lr.errors}
+					{#if lr.added || lr.updated || lr.removed || lr.moved || lr.ambiguous || lr.errors}
 						<div class="flex flex-wrap gap-1.5 text-xs">
 							{#if lr.added}<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-muted">+{lr.added} added</span>{/if}
 							{#if lr.updated}<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-muted">{lr.updated} updated</span>{/if}
 							{#if lr.removed}<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-muted">{lr.removed} removed</span>{/if}
+							{#if lr.moved}<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-muted">{lr.moved} moved</span>{/if}
+							{#if lr.ambiguous}<span class="rounded-theme bg-surface-2 px-1.5 py-0.5 text-muted">{lr.ambiguous} ambiguous</span>{/if}
 							{#if lr.errors > 0}<span class="rounded-theme border border-warn px-1.5 py-0.5 text-warn">{lr.errors} errors</span>{/if}
 						</div>
 					{:else}

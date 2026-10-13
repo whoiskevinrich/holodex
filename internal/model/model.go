@@ -51,7 +51,10 @@ type Video struct {
 	RecordedAt  *time.Time `json:"recorded_at,omitempty"`
 	IndexedAt   time.Time  `json:"indexed_at"`
 	FileMtime   time.Time  `json:"file_mtime"`
-	Active      bool       `json:"-"`
+	// ContentFP is the sampled content fingerprint that identifies the file
+	// across a move or rename (F79). Empty = not computed; stored as NULL.
+	ContentFP string `json:"-"`
+	Active    bool   `json:"-"`
 
 	// ThumbnailState is the cover-image pipeline state (ADR-009): "" (none yet),
 	// "embedded", "generated", "uploaded" (F52), or "failed". Internal bookkeeping —
@@ -637,6 +640,10 @@ type ScanSummary struct {
 	Removed    int       `json:"removed"`
 	Skipped    int       `json:"skipped"`
 	Errors     int       `json:"errors"`
+	// Moved counts moved files recognised (found this pass or healed from an
+	// earlier one) and Ambiguous the matches declined (F79 P0-7).
+	Moved     int `json:"moved"`
+	Ambiguous int `json:"ambiguous"`
 }
 
 // ScanStatus is the scanner's live state for the activity surface (F21.1/F21.2).
@@ -670,7 +677,8 @@ type JobRun struct {
 	Errors       int       `json:"errors"`
 	ErrorMessage string    `json:"error_message,omitempty"`
 	// Detail is a short human description for non-scan jobs (F22.6b) — e.g.
-	// "tmdb → person #18 (5 fields)". Empty for scans (their counts say it all).
+	// "tmdb → person #18 (5 fields)". A scan sets it only to report moved files
+	// recognised and ambiguous matches skipped (F79); its counts say the rest.
 	// It is free text for the operator: nothing parses it (ADR-071).
 	Detail string `json:"detail,omitempty"`
 	// EntityType/EntityID name the single entity this run acted on (ADR-071),

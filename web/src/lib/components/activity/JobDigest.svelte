@@ -109,7 +109,12 @@
 						<li class="flex flex-wrap items-baseline gap-x-2 text-sm">
 							<span class="text-ink">{f.kind}</span>
 							<span class="text-xs text-muted">{formatAgo(f.started_at)}</span>
-							<span class="min-w-0 flex-1 wrap-anywhere text-xs text-muted">{f.detail || f.error_message}</span>
+							<!-- Detail and error both, as JobHistory composes them: a scan's detail is
+							     its move counts (F79) and must not hide why it failed. A join, not
+							     {#if} — {/if}, because Svelte trims the spaces at block edges. -->
+							<span class="min-w-0 flex-1 wrap-anywhere text-xs text-muted"
+								>{[f.detail, f.error_message].filter(Boolean).join(' — ')}</span
+							>
 							{#if isOwner}
 								<button
 									onclick={() => dismiss(f, i)}

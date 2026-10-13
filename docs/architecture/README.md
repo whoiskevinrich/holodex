@@ -19,7 +19,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [entity-identity.md](entity-identity.md) | Name keys, the alias spine, namespaced external ids, `kind:id` refs, merge, duplicate detection |
 | [entity-relationships.md](entity-relationships.md) | Derived person/studio links, tag provenance and hierarchy, categories, film membership and cascades |
 | [images.md](images.md) | Image stores and serve routes, normalization, dedup, provenance lock, studio roles, gallery bound, provider icons |
-| [media-ingest.md](media-ingest.md) | Scanner and change detection, symlinks, extraction tools, thumbnails, Range serving, soft-delete and purge, refresh |
+| [media-ingest.md](media-ingest.md) | Scanner and change detection, move recognition (content fingerprint + fold), symlinks, extraction tools, thumbnails, Range serving, soft-delete and purge, refresh |
 | [writeback.md](writeback.md) | Atomic file writes, the durable queue, snapshots and revert, read-back, the tag file contract, MKV and MP4 paths, sync state |
 | [file-maintenance.md](file-maintenance.md) | Picture re-encodes (flip): the per-container pipeline, encoder table, verification gate, two-rename swap, held originals and expiry, queue lanes |
 | [observability-and-jobs.md](observability-and-jobs.md) | Logging, metrics, health and readiness, `job_runs` history and attribution, dismissals, boot jobs, the refresh sweep |

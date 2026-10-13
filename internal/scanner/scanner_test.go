@@ -19,16 +19,89 @@ import (
 
 // fakeRepo is an in-memory Repository keyed by canonical path.
 type fakeRepo struct {
-	mu      sync.Mutex
-	nextID  int64
-	byPath  map[string]repo.VideoStat
-	active  map[int64]bool
-	deleted map[int64]bool // soft-deleted ids (F24)
-	uparts  int            // upsert call count
+	mu       sync.Mutex
+	nextID   int64
+	byPath   map[string]repo.VideoStat
+	active   map[int64]bool
+	deleted  map[int64]bool   // soft-deleted ids (F24)
+	fps      map[int64]string // stored content fingerprints (F79)
+	uparts   int              // upsert call count
+	repoints int              // repoint call count (F79)
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}, deleted: map[int64]bool{}}
+	return &fakeRepo{byPath: map[string]repo.VideoStat{}, active: map[int64]bool{}, deleted: map[int64]bool{},
+		fps: map[int64]string{}}
+}
+
+func (f *fakeRepo) fp(id int64) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.fps[id]
+}
+
+func (f *fakeRepo) HasSizeTwin(_ context.Context, size int64) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, st := range f.byPath {
+		if st.Size == size && !f.deleted[st.ID] {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// MoveCandidates matches on the fingerprint only; the legacy exact-facts rule
+// is covered against real SQLite in internal/repo.
+func (f *fakeRepo) MoveCandidates(_ context.Context, v *model.Video) ([]repo.MoveCandidate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []repo.MoveCandidate
+	for p, st := range f.byPath {
+		if st.Size == v.FileSize && !f.deleted[st.ID] && v.ContentFP != "" && f.fps[st.ID] == v.ContentFP {
+			out = append(out, repo.MoveCandidate{ID: st.ID, FilePath: p, Active: f.active[st.ID]})
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) RepointVideo(_ context.Context, id int64, v *model.Video, _ []model.ExtraMetadata) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.deleted[id] {
+		return fmt.Errorf("repoint %d: deleted", id)
+	}
+	for p, st := range f.byPath {
+		if st.ID == id {
+			delete(f.byPath, p)
+			st.Size, st.Mtime = v.FileSize, v.FileMtime
+			st.FingerprintKnown = v.ContentFP != ""
+			f.byPath[v.FilePath] = st
+			f.fps[id] = v.ContentFP
+			f.active[id] = true
+			f.repoints++
+			return nil
+		}
+	}
+	return fmt.Errorf("repoint %d: no row", id)
+}
+
+// The fold is exercised against real SQLite (internal/repo, move_integration_test).
+func (f *fakeRepo) FoldPairs(context.Context) ([]repo.FoldPair, []int64, error) { return nil, nil, nil }
+
+func (f *fakeRepo) FoldMovedVideo(context.Context, int64, int64) error { return nil }
+
+func (f *fakeRepo) SetContentFingerprint(_ context.Context, id int64, fp string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.fps[id] = fp
+	for p, st := range f.byPath {
+		if st.ID == id {
+			st.FingerprintKnown = true
+			f.byPath[p] = st
+		}
+	}
+	return nil
 }
 
 func (f *fakeRepo) StatByPath(_ context.Context, path string) (repo.VideoStat, bool, error) {
@@ -60,6 +133,8 @@ func (f *fakeRepo) UpsertVideo(_ context.Context, v *model.Video, _ []model.Extr
 	}
 	st.Size, st.Mtime = v.FileSize, v.FileMtime
 	st.FileTagsKnown = true // UpsertVideo always records file_tags (ADR-111 D1)
+	st.FingerprintKnown = v.ContentFP != ""
+	f.fps[st.ID] = v.ContentFP
 	f.byPath[v.FilePath] = st
 	f.active[st.ID] = true
 	return st.ID, nil

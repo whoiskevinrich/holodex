@@ -114,7 +114,8 @@
 							<td colspan="9" class="pb-2 pr-4">
 								<div class="flex flex-wrap items-center justify-between gap-2">
 									<p class="text-xs text-muted">
-										{r.detail}{#if r.detail && r.error_message} — {/if}{r.error_message}
+										<!-- A join, not {#if} — {/if}: Svelte trims the spaces at block edges. -->
+										{[r.detail, r.error_message].filter(Boolean).join(' — ')}
 									</p>
 									{#if batch}
 										{#if reverts[r.id]?.state === 'done'}
