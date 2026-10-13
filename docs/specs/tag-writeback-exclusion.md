@@ -202,8 +202,8 @@ read back as tags)
 Tags are *written* to one container key (Genre) but *read* from five (`Genre, Genres, Keywords,
 Category, Categories`, `internal/metadata/extractor.go` `tagKeys`). So a tag removed in Holodex
 that another tool left in Keywords or Category comes back on the next rescan. The owner can't make
-a file's tags match the UI. On MP4, Holodex also writes the **tagline** into `QuickTime:Keywords`,
-so a rescan splits the tagline on commas and turns the pieces into tags.
+a file's tags match the UI. On MP4, Holodex also wrote the **tagline** into `QuickTime:Keywords`,
+so a rescan split the tagline on commas and turned the pieces into tags.
 
 ### The contract (the owner's three rules)
 

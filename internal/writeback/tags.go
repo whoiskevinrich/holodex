@@ -130,7 +130,7 @@ var formatMap = map[string]map[string]string{
 		"edition":           "XMP-prism:Edition",    // no writable QuickTime edition atom; exiftool reads the XMP packet back as Edition (F60 RD8)
 		"part":              "QuickTime:DiskNumber", // the iTunes `disk` atom (HOLODEX-389 RD5); a bare ordinal reads back bare
 		"genres":            "QuickTime:Genre",
-		"original_language": "QuickTime:MediaLanguage",
+		"original_language": "XMP-dc:Language", // no writable QuickTime language tag; reads back as Language, like Matroska's (HOLODEX-336)
 		"actors":            "QuickTime:Artist",
 		"studio":            "QuickTime:Publisher",
 	},
