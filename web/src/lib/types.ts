@@ -1236,6 +1236,8 @@ export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 export type SortOrder =
 	| 'added_desc'
 	| 'added_asc'
+	| 'updated_desc'
+	| 'updated_asc'
 	| 'title_asc'
 	| 'title_desc'
 	| 'duration_desc'

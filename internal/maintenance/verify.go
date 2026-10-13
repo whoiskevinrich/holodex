@@ -47,7 +47,9 @@ type Snapshot struct {
 var muxStampTags = []string{"_STATISTICS_WRITING_APP", "_STATISTICS_WRITING_DATE_UTC"}
 
 // Statistics tags describing a track's encoded bytes; recomputed on the re-encoded track only
-// (spec rule 4's one exception, Q1).
+// (spec rule 4's first exception, Q1). In MP4 the re-encoded track's `encoder` is exempt too:
+// it is the sample description's CompressorName, which ffmpeg 7.1 always fills on a re-encode
+// (an empty -metadata value counts as unset), so it describes the new bytes (third exception).
 var encodedStatsTags = []string{"BPS", "DURATION", "NUMBER_OF_FRAMES", "NUMBER_OF_BYTES", "_STATISTICS_TAGS"}
 
 // Verify checks that cand differs from orig only in the main video stream's pixels. A flip
@@ -100,7 +102,8 @@ func Verify(orig, cand Snapshot) error {
 	for i, os := range orig.Probe.Streams {
 		ignore := isMuxStamp
 		if os.Index == ov.Index {
-			ignore = func(k string) bool { return isMuxStamp(k) || isEncodedStat(k) }
+			mp4 := orig.Family == FamilyMP4
+			ignore = func(k string) bool { return isMuxStamp(k) || isEncodedStat(k) || mp4 && k == "encoder" }
 		}
 		if d := diffTags(os.Tags, cand.Probe.Streams[i].Tags, ignore); d != "" {
 			return fail(RuleTags, "stream %d %s", i, d)

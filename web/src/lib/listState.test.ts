@@ -246,6 +246,15 @@ describe('S1–S3 sort lists', () => {
 		}
 		expect(TAG_SORTS.some((s) => s.ownerOnly || s.value.startsWith('completeness'))).toBe(false);
 	});
+	it('S4 the public Updated pair follows the Date added pair on Media (HOLODEX-567)', () => {
+		expect(MEDIA_SORTS.slice(0, 4).map((s) => s.value)).toEqual([
+			'added_desc',
+			'added_asc',
+			'updated_desc',
+			'updated_asc'
+		]);
+		expect(MEDIA_SORTS.filter((s) => s.value.startsWith('updated')).some((s) => s.ownerOnly)).toBe(false);
+	});
 	it('S3 a page state has exactly one sort field', () => {
 		expectTypeOf<keyof ListState<'a' | 'b', object>>().toEqualTypeOf<'sort' | 'query'>();
 	});

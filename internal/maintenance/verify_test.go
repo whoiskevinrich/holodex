@@ -147,6 +147,28 @@ func TestVerify_MP4FileTypeBrandsMayDiffer(t *testing.T) {
 	}
 }
 
+// In MP4 the re-encoded stream's `encoder` is its CompressorName, which ffmpeg always fills
+// (spec rule 4's third exception) — but only on that stream, and only in MP4.
+func TestVerify_MP4ReencodedCompressorNameMayChange(t *testing.T) {
+	orig, cand := baseSnapshot(), candidate()
+	orig.Family, cand.Family = FamilyMP4, FamilyMP4
+	cand.Probe.Format.Tags["ENCODER"] = orig.Probe.Format.Tags["ENCODER"] // isolate the stream tag
+	cand.Probe.Streams[1].Tags["encoder"] = "Lavc libx265"
+	if err := Verify(orig, cand); err != nil {
+		t.Fatalf("a compressor name on the re-encoded MP4 stream failed: %v", err)
+	}
+	var re *RuleError
+	cand.Probe.Streams[2].Tags["encoder"] = "Lavc mov_text"
+	if err := Verify(orig, cand); !errors.As(err, &re) || re.Rule != RuleTags {
+		t.Fatalf("the exemption reached a copied stream: %v", err)
+	}
+	delete(cand.Probe.Streams[2].Tags, "encoder")
+	orig.Family = FamilyMKV
+	if err := Verify(orig, cand); !errors.As(err, &re) || re.Rule != RuleTags {
+		t.Fatalf("the exemption reached Matroska: %v", err)
+	}
+}
+
 // The MP4 shape: cover art is a video stream before the real one, and must count as copied.
 func TestVerify_CoverArtIsACopiedStream(t *testing.T) {
 	orig := Snapshot{

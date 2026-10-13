@@ -67,9 +67,12 @@ func MP4Args(p Probe, op Op, available map[string]bool, format, src, dst string)
 	args = append(args, names...)
 	args = append(args, enc...)
 	args = append(args, "-filter:"+spec, op.Filter())
-	// ffmpeg stamps its own encoder name ("Lavc libx264") on a re-encoded stream unless one is
-	// set; the original's, or an empty value when it had none, keeps the stream's tag as it was.
-	args = append(args, "-metadata:s:"+spec, "encoder="+v.Tags["encoder"])
+	// ffmpeg stamps its own encoder name ("Lavc libx264") into the sample description's
+	// CompressorName unless one is set. The original's is kept; with none there is no way to
+	// keep it empty (an empty value counts as unset), so Verify exempts that field.
+	if e := v.Tags["encoder"]; e != "" {
+		args = append(args, "-metadata:s:"+spec, "encoder="+e)
+	}
 	return append(args, "-map_metadata", "0", "-map_chapters", "0", "-fflags", "+bitexact",
 		"-movflags", "+faststart", "-f", format, toolArg(dst)), nil
 }

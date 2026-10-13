@@ -367,6 +367,7 @@ assert.JSONEq(t, string(want), string(got))
 | Keyboard nav (F12.5) | Interaction | Playwright | `/` focus, arrows, Enter, Esc — no mouse |
 | Accessibility (F8.3) | Automated | Playwright + axe-core | WCAG AA contrast; roles/labels |
 | Responsive (F12.6) | Visual | Playwright | 375px/768px reflow |
+| **Date added vs Updated** (F12.1, F12.7, HOLODEX-567) | Unit (Go) + Vitest | `internal/repo/added_updated_sort_test.go`; `listState.test.ts` S4 | **Date added is arrival order:** a re-upserted file with a changed size keeps its `added_desc` / `added_asc` place and the default sort follows it; it tops `updated_desc`. **A re-upsert of an unchanged file (same size and mtime) keeps `indexed_at`.** That covers a manual refresh, the `file_tags` backfill and a re-extract. An mtime-only change and a size-only change each move it. **Updated ties break on `id`** in both directions. S4 pins the public Updated pair right after the Date added pair. Mutation-checked: restoring the unconditional `indexed_at` bump or the `indexed_at` Date-added order fails both Go tests. |
 | **Search-history store** (`searchHistory.ts`, QW1) | Unit | Vitest | Record-on-submit; **case-insensitive dedupe → move-to-top**; **cap 10** eviction; clear / single-remove; **malformed-JSON → reads empty** (defensive, never throws); whitespace-only not recorded |
 | **Search-history dropdown** (QW1) | Component/Interaction | Vitest | Opens on focus of an **empty** box when history non-empty; **hides the instant the user types** (`!searchTerm.trim()` gate — no filter-as-you-type); reopens after clearing + re-focus; ↓/↑ highlight, Enter runs, Esc closes; **click runs query before blur closes** (`onmousedown`); **no network call**; 3-skin: square corners (Broadcast/Brutalist), **no `▮` caret on rows** |
 | **Atmosphere overlay on playback** (overlay bugfix) | Component/Interaction | Vitest + Playwright | `onplay` toggles `body.is-playing` → `.app-atmosphere::after` hidden; `onpause`/`onended`/unmount restore it; **all 3 skins** (Broadcast scanlines+vignette fully cleared during play) |
@@ -4369,7 +4370,9 @@ Dolby Vision can't be synthesized. Its refusal is a unit test over a captured ff
   - the same tags differing on a *copied* track **fail**;
   - writing-application differences pass;
   - MP4 `ftyp` brand differences (`major_brand`, `minor_version`, `compatible_brands`) pass, and
-    the same keys differing in Matroska fail.
+    the same keys differing in Matroska fail;
+  - in MP4, an `encoder` (CompressorName) that differs or appears on the re-encoded stream passes.
+    The same tag on a copied stream fails, and so does the same change in Matroska.
 
   Duration off by under one frame passes. Flip relaxes no rules; a stub op that relaxes `width`
   passes only a width change.
@@ -4517,13 +4520,21 @@ with chapters, XMP edition and iTunes tags, plus an MKV; no local mkvmerge):
 **Real-library run, 2026-10-12 (HOLODEX-569).** The disposable fixtures above were made by ffmpeg,
 so they already carried what ffmpeg writes. Real files did not, and every flip on the AMV testbed
 failed rule 4. A throwaway harness ran Rebuild → Verify on testbed MP4s, writing only to scratch.
-- **Found and fixed:** ffmpeg stamped `encoder=Lavc libx264` on a re-encoded track that had no
-  encoder tag. `args_test` now pins `encoder=` (empty).
+- **Found, fix didn't hold:** ffmpeg stamped `encoder=Lavc libx264` on a re-encoded track that
+  had no encoder tag. The empty `encoder=` fix was a no-op in ffmpeg 7.1 (see HOLODEX-571 below).
 - **Found and fixed:** a HandBrake track's udta `name` was dropped. The mov muxer writes that atom
   only from `title`. `args_test` pins the mapping by output index.
 - **Spec change:** ffmpeg's own `ftyp` brands can't match every original, so they are rule 4's
   second exception (owner's call). `verify_test` pins it.
 - **Open:** a file with duplicate `covr` items loses all but one (HOLODEX-570).
+
+**Edge report, 2026-10-12 (HOLODEX-571).** Every flip of an MP4 with an empty CompressorName
+still failed with `stream 0 tag "encoder" added`. ffmpeg's CLI treats an empty `-metadata` value
+as unset, and the mp4 muxer writes the stamped name into `stsd`. The fixtures never caught it
+because ffmpeg had already filled the field. `TestFlip_RealFiles_MP4_NoCompressorName` zeroes it
+in the fixture, and it failed with the production error before the fix. The fix is spec rule 4's
+third exception, the owner's call. `verify_test` pins its scope. Cover art kept its
+`attached_pic` disposition in the same run.
 
 ### 25.8 Mutation checks (run once the code exists)
 

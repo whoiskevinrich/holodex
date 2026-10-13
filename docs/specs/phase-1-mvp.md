@@ -91,7 +91,7 @@ suites are pending (see [testing-strategy.md §0](../testing-strategy.md)).
 | F3.1 | Grid of video cards, virtual-scrolled or paginated (≥ 50 per page) | 1,000-video library renders without layout thrash; 60fps scroll |
 | F3.2 | Each card shows: cover art (or placeholder), title, duration, resolution badge, first 3 tags | Visually verified |
 | F3.3 | Clicking a card navigates to the video detail page | Route changes to `/media/:id` |
-| F3.4 | Default sort: date added descending | Newest files appear first on initial load |
+| F3.4 | Default sort: date added descending — the order files first entered the library (defined in [phase-2 F12.1](phase-2-mcp-polish.md#f12-browse-ui-polish)) | Newest arrivals appear first on initial load; editing, refreshing or re-reading an existing file never moves it up |
 
 ### F4: Search and Filter
 

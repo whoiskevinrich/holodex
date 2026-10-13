@@ -157,10 +157,15 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 			bitrate_kbps = excluded.bitrate_kbps,
 			container    = excluded.container,
 			recorded_at  = excluded.recorded_at,
-			indexed_at   = excluded.indexed_at,
+			indexed_at   = CASE WHEN videos.file_size IS excluded.file_size
+			                     AND videos.file_mtime IS excluded.file_mtime
+			                    THEN videos.indexed_at ELSE excluded.indexed_at END,
 			file_mtime   = excluded.file_mtime,
 			content_fp   = excluded.content_fp,
 			active       = 1`,
+		// indexed_at is "when the file itself last changed" (F12.7): a re-upsert of an
+		// unchanged file — manual refresh, the file_tags backfill, a re-extract — keeps
+		// it, so the Updated sort only moves on a real change (HOLODEX-567).
 		// NB: deleted_at is deliberately NOT in the UPDATE set — a soft-deleted row
 		// whose file changes on disk stays soft-deleted (F24/ADR-037). The scanner
 		// also short-circuits soft-deleted rows before reaching here.
@@ -384,6 +389,11 @@ type MappedFilter struct {
 // width-based resolution buckets (ADR-012). "random" orders by the deterministic
 // holo_shuffle(id, seed) function (ADR-045) with the seed as a bound parameter, so
 // one seed yields a single shuffle that tiles across LIMIT/OFFSET pages.
+//
+// "added" is arrival order: id is AUTOINCREMENT and survives a same-path re-upsert,
+// so it never moves when a file is edited or refreshed (F12.1, HOLODEX-567).
+// "updated" is when the file itself last changed — indexed_at, which UpsertVideo
+// only moves on a size or mtime change (F12.7).
 func (f VideoFilter) orderBy() (string, []any) {
 	switch f.Sort {
 	case "title_asc":
@@ -391,6 +401,10 @@ func (f VideoFilter) orderBy() (string, []any) {
 	case "title_desc":
 		return "v.title COLLATE NOCASE DESC, v.id DESC", nil
 	case "added_asc":
+		return "v.id ASC", nil
+	case "updated_desc":
+		return "v.indexed_at DESC, v.id DESC", nil
+	case "updated_asc":
 		return "v.indexed_at ASC, v.id ASC", nil
 	case "duration_desc":
 		return "v.duration_sec DESC, v.id DESC", nil
@@ -403,11 +417,11 @@ func (f VideoFilter) orderBy() (string, []any) {
 	case "random":
 		return "holo_shuffle(v.id, ?), v.id ASC", []any{f.Seed}
 	case SortCompletenessAsc:
-		return completenessOrder("video", "v.id", "ASC") + ", v.indexed_at DESC, v.id DESC", nil
+		return completenessOrder("video", "v.id", "ASC") + ", v.id DESC", nil
 	case SortCompletenessDesc:
-		return completenessOrder("video", "v.id", "DESC") + ", v.indexed_at DESC, v.id DESC", nil
+		return completenessOrder("video", "v.id", "DESC") + ", v.id DESC", nil
 	default: // "added_desc" and anything unrecognized
-		return "v.indexed_at DESC, v.id DESC", nil
+		return "v.id DESC", nil
 	}
 }
 
@@ -552,7 +566,7 @@ func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error)
 // silently degrade later — playlists (F69).
 func ValidSort(s string) bool {
 	switch s {
-	case "added_desc", "added_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
+	case "added_desc", "added_asc", "updated_desc", "updated_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
 		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc:
 		return true
 	}
