@@ -640,6 +640,10 @@ type ScanSummary struct {
 	Removed    int       `json:"removed"`
 	Skipped    int       `json:"skipped"`
 	Errors     int       `json:"errors"`
+	// Moved counts moved files recognised (found this pass or healed from an
+	// earlier one) and Ambiguous the matches declined (F79 P0-7).
+	Moved     int `json:"moved"`
+	Ambiguous int `json:"ambiguous"`
 }
 
 // ScanStatus is the scanner's live state for the activity surface (F21.1/F21.2).

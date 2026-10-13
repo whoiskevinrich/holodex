@@ -369,6 +369,7 @@ func (s *Scanner) scanLocked(ctx context.Context, trigger string) error {
 		DurationMs: dur.Milliseconds(),
 		Seen:       st.seen, Added: st.added, Updated: st.updated,
 		Removed: int(removed), Skipped: st.skipped, Errors: st.errors,
+		Moved: st.repointed + st.folded, Ambiguous: st.ambiguous,
 	}
 	s.markDone(sum)
 	s.recordRun(start, sum, scanFailure(walkErr, activeWhenEmpty, st), moveDetail(st))

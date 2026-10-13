@@ -43,7 +43,7 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - [x] architecture `architecture` → `docs/architecture/**`
 - [~] design `design-handoff` → `docs/design/**` — no UI surface (scan-summary counts ride the existing System activity line) — until: P1-1 move history needs a visible surface
 - [/] backend → `{cmd,internal,providers}/**`
-- [/] frontend → `web/src/**` — one display fix: the Status digest composes a failed scan's detail (move counts) with its error, as JobHistory does
+- [/] frontend → `web/src/**` — display fixes found in live QA: Scan card chips for moved/ambiguous (no more "no changes" after a moves-only scan); digest and history compose detail + error with a spaced em dash
 - [/] testing `testing-strategy`
 - [~] security `security-review` — no auth, access or perimeter change; scanner reads local library files only
 
@@ -62,9 +62,8 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Live QA §26.6 items 1–3 on a backend testbed (move a folder, copy, failed scan + move in the Status digest) — `docs/testing-strategy.md`
-2. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
-3. [ ] [backend] Share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
+1. [ ] [—] Measure how many of the 232 hidden rows carry curation/links/enrichment (read-only prod probe, anonymized)
+2. [ ] [backend] Share one file-layer SET list between `UpsertVideo` and `RepointVideo` so a new column can't go stale on moved rows — `internal/repo/repo.go`, `internal/repo/video_move.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +84,9 @@ Done when a moved or renamed file keeps its video (id, Date-added place, curatio
 - Built hold-then-match: size-twin new files held, `matchHeld` repoints one-to-one pairs against missing rows (unseen-and-ENOENT or hidden) before `DeactivateExcept`, ambiguity declined; repo `HasSizeTwin` / `MoveCandidates` (fingerprint, or exact facts for NULL-fp rows) / `RepointVideo` (keeps id + indexed_at). §26.3 scanner + repo tests and a real-repo end-to-end move test green; 3 mutations red. code-review: Stat guard now requires ENOENT.
 - Built the fold: `FoldPairs` (one-to-one, keep-separate and in-flight writeback/held-original pairs excluded) + `FoldMovedVideo` (re-keys enrichment per provider, dismissals, edits newer-wins via `applyCarry`, playlists/films/manual tags, writeback history/snapshots/reviews/job attribution, BEFORE deleting newer; survivor takes newer's file layer, keeps id + indexed_at); scanner `foldMoves` after deactivation + relink. Shared `sameContentSQL` now backs both MoveCandidates and the fold. Repo fold tests (schema-walking no-orphan check, atomicity) + real-repo heal test green; 4 mutations red. media-ingest.md + testing §26 updated (per-provider enrichment, thumbnails left like purge).
 - Wired the counts: the scan's job row `detail` reads "N moved files recognised; M ambiguous matches skipped" (`moveDetail`), empty when both are zero; an in-pass ambiguous file counts once (real-repo test + mutation red). code-review: the Status digest's Recent Failures now shows detail AND error (was `detail || error`, which would hide a failed scan's error behind its move count) — `npm run check` clean, activity Vitest green; live render queued as §26.6 item 3.
-- handoff: All backend work for F79 is in on draft PR #498 — next is live QA §26.6 items 1–3 on a backend testbed (Up next 1), then the post-567 merge items.
+- Merged origin/main with HOLODEX-567 (992a24de): no conflicts, UpsertVideo keeps both the conditional indexed_at and content_fp. Edited F12.7/F12.8 in place (moves keep their place; past moves heal).
+- Live QA §26.6 items 1–3 passed on a scratch AMV library (`.claude/launch.json` `backend-568` :9600 + `web-568` :5175): 4 moves repointed with ids/order/indexed_at and a manual title intact, copy arrives new, failed scan + move shows both in the digest. Found and fixed: Scan card "no changes" after a moves-only scan (ScanSummary now carries moved/ambiguous → chips), and em-dash spacing in JobDigest and JobHistory (Svelte trims at `{#if}` edges). Go suite, `npm run check`, Vitest 618 green.
+- handoff: F79 is built and live-QA'd on draft PR #498 — remaining: the anonymized prod probe (Up next 1) and the shared SET-list cleanup (2); then /handoff to settle the testing and frontend gates and mark ready.
 
 ## Dropped — newest first (the reason is the point)
 

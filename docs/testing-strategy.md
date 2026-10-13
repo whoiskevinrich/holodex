@@ -4763,6 +4763,24 @@ Each of these should turn its named test red:
    - fewer than 5 are ambiguous (spec success metric);
    - spot-check three healed videos.
 
+**Live run, 2026-10-12.** The testbed was a scratch library of five AMV files, run with the branch
+merged with HOLODEX-567. Items 1–3 passed:
+- **Item 1:** a rename plus a three-file folder move.
+  - The watcher scan logged 4 repointed, 0 added, 0 removed.
+  - Date added and Updated kept ids 5→1 and every `indexed_at`.
+  - The moved video's manual title survived.
+  - The Log row reads "4 moved files recognised".
+- **Item 2:** the copy arrived as id 6, and the original was untouched.
+- **Item 3:** the digest reads "1 moved file recognised — 1 file failed: loose/broken.mp4: …".
+
+The run found and fixed three display bugs:
+- the Scan card said "no changes" after a moves-only scan; the live summary now carries the
+  `moved`/`ambiguous` counts as chips;
+- the digest's em dash lost its spaces, because Svelte trims at `{#if}` block edges;
+- the same pre-existing spacing bug in JobHistory.
+
+Item 4 is the owner's, after deploy.
+
 ### 26.7 Standing gaps
 
 - A file moved *and* changed between scans is a new file by design (spec non-goal). No test

@@ -57,6 +57,11 @@ func TestScanRecordsMoveCounts(t *testing.T) {
 	if d := rec.last(t); d != "1 moved file recognised" {
 		t.Fatalf("detail = %q", d)
 	}
+	// The live summary behind the Status card carries the count too, so a
+	// moves-only scan doesn't read "no changes".
+	if lr := m.s.Status().LastRun; lr == nil || lr.Moved != 1 || lr.Added != 0 {
+		t.Fatalf("last run = %+v, want Moved 1, Added 0", lr)
+	}
 }
 
 // An in-pass ambiguous file is declined by the scan-time match and then shows
