@@ -48,7 +48,15 @@
     "multi. It serves a COPY: with no stress backend running, `rm -rf data/stress-replace &&",
     "cp -r data/stress data/stress-replace`, and recopy after every reseed. Never point it at",
     "./data/stress, because boot re-derives video_studios and would collapse the ladder's",
-    "multi-studio videos. Pairs with web-9300. HOLODEX-497."
+    "multi-studio videos. Pairs with web-9300. HOLODEX-497.",
+    "",
+    "backend-stress-open-9600 + web-9600 are the stress pair for the navigation harness",
+    "(`npm --prefix web run nav -- --base http://localhost:5174`), on ports clear of the",
+    "excluded range that has also swallowed :9300 on some boots. The harness needs every",
+    "client treated as owner, so ADMIN_TOKEN is set EMPTY: an explicit empty value beats a",
+    "token from setx or .env (config reads LookupEnv; .env fills only unset keys). Empty is",
+    "not a credential. Loopback-only. For QA as a signed-in owner, use a token-gated stress",
+    "backend instead. Same one-stress-backend-at-a-time rule. HOLODEX-190."
   ],
   "version": "0.0.1",
   "configurations": [
@@ -127,6 +135,32 @@
       "port": 5174,
       "autoPort": false,
       "env": { "HOLODEX_API_PORT": "9300" }
+    },
+    {
+      "name": "backend-stress-open-9600",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/holodex", "--host", "127.0.0.1", "--port", "9600"],
+      "port": 9600,
+      "autoPort": false,
+      "env": {
+        "ADMIN_TOKEN": "",
+        "MCP_PORT": "9601",
+        "DATA_PATH": "./data/stress",
+        "MEDIA_PATH": "./data/stress/media",
+        "FILMS_ENABLED": "true",
+        "THUMBNAIL_ENABLED": "false",
+        "METADATA_SOURCES_PATH": "testdata/stressseed/sources.yaml",
+        "METADATA_MAPPINGS_PATH": "testdata/stressseed/mappings.yaml"
+      }
+    },
+    {
+      "name": "web-9600",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "127.0.0.1", "--port", "5174", "--strictPort"],
+      "cwd": "web",
+      "port": 5174,
+      "autoPort": false,
+      "env": { "HOLODEX_API_PORT": "9600" }
     },
     {
       "name": "enrich-stub",

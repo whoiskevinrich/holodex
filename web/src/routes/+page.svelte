@@ -202,8 +202,10 @@
 	// loadPage(true) replaces the grid (filter change); loadPage(false) appends the
 	// next page (F3.1 pagination). offset is intentionally not a tracked dep of the
 	// re-fetch effect, so paging doesn't re-trigger a full reload.
+	let resets = 0; // counts loadPage(true) calls, so revalidate can tell it was overtaken
 	async function loadPage(reset: boolean) {
 		if (reset) {
+			resets++;
 			offset = 0;
 			loading = true;
 		} else {
@@ -219,6 +221,28 @@
 			error = toMessage(e);
 		} finally {
 			loading = false;
+			loadingMore = false;
+		}
+	}
+
+	// Re-fetch every loaded page in one request, replacing a stale restored grid in place
+	// so the scroll stays put. The server caps the limit, so paging resumes from however
+	// many came back: the next "Load more" starts at videos.length, which also stays
+	// right when the write shrank or grew the list. Load more stays disabled meanwhile, or
+	// its page would land on top of the swapped list.
+	async function revalidate(qs: string, count: number) {
+		const at = resets;
+		loadingMore = true;
+		try {
+			const res = await api.listMedia({ ...currentFilters(), limit: Math.max(count, PAGE_SIZE), offset: 0 });
+			// A filter change, reroll or post-scan reload moved on while this was in flight.
+			if (qs !== lastQs || at !== resets) return;
+			videos = res.items ?? [];
+			total = res.total;
+			offset = videos.length - PAGE_SIZE;
+		} catch (e) {
+			error = toMessage(e);
+		} finally {
 			loadingMore = false;
 		}
 	}
@@ -275,6 +299,9 @@
 				lastQs = qs;
 				// Restore scroll once the seeded grid paints (correct height by then).
 				tick().then(() => window.scrollTo(0, cached.scrollY));
+				// A write landed since the snapshot (a delete, restore, edit…): keep the
+				// restored scroll but swap in the server's current copy (HOLODEX-190).
+				if (cached.stale) revalidate(qs, cached.videos.length);
 				return;
 			}
 		} else if (qs !== lastQs) {

@@ -2,6 +2,7 @@
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
 import { reauth, editing } from './reauth.svelte';
+import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
 import type {
 	MediaBrief,
@@ -165,6 +166,10 @@ function checkRedirect(res: Response, write = false): void {
 	if (reauth.hold === 'edit') reauth.hold = null;
 	else if (reauth.hold === 'write') reauth.hold = 'resubmit';
 	if (write && res.ok) {
+		// Every successful write passes here, so this is where restored list snapshots
+		// learn they're stale (HOLODEX-190) — no mutation site has to know which list
+		// holds its item.
+		markDataChanged();
 		reauth.dirty = false;
 		if (reauth.hold === 'resubmit') reauth.hold = null;
 	}

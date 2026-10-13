@@ -32,6 +32,31 @@ Backend (Go) via `Makefile`; frontend (`web/`) via npm:
 | Frontend type-check / tests | `cd web && npm run check` · `npm run test` |
 | Full stack in Docker | `make docker` (`docker compose up --build`) |
 
+## Preview configurations
+
+Start servers with `preview_start <name>`, never Bash. The profiles are in `.claude/launch.json`. That
+file is gitignored and per worktree, so **copy `.claude/launch.json.example` into a fresh worktree
+first.** Without its own copy, a preview can silently serve another worktree's code. The template's
+`//` header has each profile's details.
+
+| Profile | Use it for | Pair with |
+|---|---|---|
+| `backend` | QA against a real library (your `MEDIA_PATH`): file metadata, writeback, TMDB enrichment | `web`; `provider-tmdb` for live enrichment |
+| `backend-stress` | The seeded stress fixture (`go run ./testdata/stressseed`), when :7800 binds | `web`; `enrich-stub` for the enrichment profile |
+| `backend-stress-9300` | The same fixture when :7800 sits in a Windows excluded range | `web-9300` |
+| `backend-stress-replace-9300` | Studio as a **replace** field: studio decisions, clears, the film cascade. It serves a copy in `data/stress-replace` | `web-9300` |
+| `backend-stress-open-9600` | The nav harness (`npm --prefix web run nav -- --base http://localhost:5174`). `ADMIN_TOKEN` is set empty, so every client is the owner | `web-9600` |
+| `provider-tmdb` / `enrich-stub` | The real TMDB sidecar, or ten fake providers. Both bind :9100, so run one | a backend |
+| `docker-compose` | The production image end to end | — |
+
+- **One backend per port and one stress backend per data dir.** Two processes on one SQLite file
+  defeat the single writer.
+- **Check the port first** with `netsh interface ipv4 show excludedportrange protocol=tcp`. Hyper-V
+  can reserve :7800 and, on some boots, :9300. Then use the next pair.
+- **Owner QA versus harness.** Token-gated backends take `ADMIN_TOKEN` from the environment and sign
+  in with it. The harness preflight refuses a gated backend, so it needs the `-open-` profile.
+- **Drive playback only through a `web*` dev server**, never a backend port (see Gotchas: no audio).
+
 ## Codebase map
 
 Go backend + SvelteKit SPA. Where things live, and the one model that ties them together:
