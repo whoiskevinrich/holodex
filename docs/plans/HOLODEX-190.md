@@ -34,6 +34,10 @@ only, so they were never stale. The freshness fork is recorded in
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-10-13 · launch profiles for the nav harness
+- skills: —
+- handoff: Added `backend-stress-open-9600` + `web-9600` to `.claude/launch.json.example` and a "Preview configurations" guide to `.claude/CLAUDE.md`; PR #507 is still ready — next: merge, then fill the architecture section's Decided-in sha.
+
 ### 2026-10-13 · write-count freshness for list snapshots
 - skills: code-review (high --fix), handoff
 - handoff: Fixed and verified (unit, nav harness 8/8, live trash/restore/title-edit on `backend-stress`); PR open and ready — next: merge, then fill the architecture section's Decided-in sha.

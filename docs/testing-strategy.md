@@ -4818,7 +4818,7 @@ snapshot stale. A read and a rejected write (400) do not. This pins the one hook
 scroll 600, open a card, Move to Trash. The DELETE and the list answer are both stubbed in the
 browser, so the fixture is untouched. The list answer leaves the card out and backfills the page
 as the server would. Back must not show the card and must hold `scrollY` 600. The harness
-needs an owner-open backend, one with no `ADMIN_TOKEN`.
+needs an owner-open backend: the `backend-stress-open-9600` + `web-9600` launch profiles.
 
 **Mutation pass, 2026-10-13.** Removing `markDataChanged()` from `checkRedirect` fails the
 `api.test.ts` write case. Disabling the grid's `if (cached.stale) revalidate(…)` fails the harness
