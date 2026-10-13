@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createNavSnapshot, createNavSnapshotRegistry, markDataChanged, type Keyed } from './navSnapshot.svelte';
+import { lastNavigation } from './lastNavigation';
 
 interface Snap extends Keyed {
 	scrollY: number;
@@ -111,6 +112,40 @@ describe('createNavSnapshot freshness (HOLODEX-190)', () => {
 		const s = createNavSnapshot<Snap>();
 		s.save({ key: 'k', scrollY: 600 });
 		expect(s.take('other')).toBeNull();
+		expect(s.take('k')).toBeNull();
+	});
+});
+
+// A snapshot returns the reader to where they were, so only Back/Forward or a reload restores
+// it. A link or goto to a list visited earlier starts fresh (HOLODEX-573).
+describe('take restores only on a returning arrival (HOLODEX-573)', () => {
+	afterEach(() => {
+		lastNavigation.type = 'enter';
+	});
+
+	it.each(['popstate', 'enter'])('restores on %s', (type) => {
+		lastNavigation.type = type;
+		const reg = createNavSnapshotRegistry<Snap>('ns');
+		reg.save('people', { key: 'k', scrollY: 900 });
+		expect(reg.take('people', 'k')).toEqual({ key: 'k', scrollY: 900 });
+		const s = createNavSnapshot<Snap>();
+		s.save({ key: 'k', scrollY: 900 });
+		expect(s.take('k')).toMatchObject({ scrollY: 900 });
+	});
+
+	it.each(['link', 'goto'])('is null on %s, and spends the snapshot', (type) => {
+		const reg = createNavSnapshotRegistry<Snap>('ns');
+		reg.save('people', { key: 'k', scrollY: 900 });
+		const s = createNavSnapshot<Snap>();
+		s.save({ key: 'k', scrollY: 900 });
+
+		lastNavigation.type = type;
+		expect(reg.take('people', 'k')).toBeNull();
+		expect(s.take('k')).toBeNull();
+
+		// Spent, not deferred: a later Back can't resurrect the stale offset.
+		lastNavigation.type = 'popstate';
+		expect(reg.take('people', 'k')).toBeNull();
 		expect(s.take('k')).toBeNull();
 	});
 });

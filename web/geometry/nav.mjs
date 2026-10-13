@@ -331,6 +331,28 @@ const SCENARIOS = [
 		}
 	},
 	{
+		key: 'link-arrival-starts-fresh',
+		qa: 'HOLODEX-573',
+		run: async ({ page }) => {
+			// A header link back to a list visited earlier is a fresh visit, not a return: it must
+			// not restore the scroll (or, on Media, the loaded pages) left by the last visit.
+			for (const { list, card, detail } of [
+				{ list: '/people', card: PERSON_ROW, detail: /^\/people\/\d+$/ },
+				{ list: '/', card: MEDIA_CARD, detail: /^\/media\/\d+$/ }
+			]) {
+				await goto(page, `${base}${list}`);
+				await scrollTo(page, 600);
+				await openVisible(page, card, detail);
+				await clickNav(page, list, (u) => u.pathname === list);
+				// A restore lands a tick after the list renders, so wait for the rows, then a frame.
+				await page.locator(card).first().waitFor({ timeout: 5000 });
+				await settle(page);
+				const at = await page.evaluate(() => window.scrollY);
+				expect(at === 0, `a header link back to ${list} restored scrollY ${at}, expected 0`);
+			}
+		}
+	},
+	{
 		key: 'hash-anchor-lands',
 		qa: 'HOLODEX-459',
 		run: async ({ page }) => {

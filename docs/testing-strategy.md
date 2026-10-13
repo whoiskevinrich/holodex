@@ -4870,3 +4870,36 @@ passes the harness 9/9.
 **`#films` waits on its own fetch.** The shelf may render after the grid, so `EntityVideos`
 watches for it with a `MutationObserver`. It stops at the reader's first wheel, touch, key or
 pointer input, so a slow films fetch never moves a page the reader has started using.
+
+## 29. A list restores your place only when you return to it (HOLODEX-573)
+
+`browseCache` and every `listScroll` slot restore only on Back/Forward (`popstate`) or a reload
+(`enter`). A link or `goto` to a list visited earlier spends the snapshot and starts at the top.
+The gate is one check in `navSnapshot`'s two `take`s. The navigation type is recorded in the root
+layout's `onNavigate`, before the new page mounts.
+
+The risks are a link restoring a stale place (the bug), or the gate catching a real return. The
+second is the worse failure, because it would break every Back. The subtle way in is reading the
+type too late: from `afterNavigate`, the Media grid's first `$effect` sees the *previous*
+navigation's type.
+
+**Unit (`web/src/lib/navSnapshot.test.ts`).** Both shapes restore on `popstate` and `enter`. On
+`link` and `goto` they return null and spend the snapshot, so a later Back can't resurrect it.
+
+**Browser (`link-arrival-starts-fresh` in the §20.6 nav harness).** On People and on Media: scroll
+600, open an item, click the header link back to the list. `scrollY` must be 0. The existing Back
+scenarios (`back-restores-filter-sort-scroll`, `two-tabs-independent`,
+`back-after-reload-restores-scroll`, `hash-anchor-lands`) pin the other side.
+
+**Mutation pass, 2026-10-13.** Removing the gate fails both unit `link`/`goto` cases and
+`link-arrival-starts-fresh`. Recording the type in `afterNavigate` instead fails
+`back-restores-filter-sort-scroll` ("Back restored scrollY 0, expected 600"). The link scenario
+passes that mutant by accident, since the stale type it reads is the previous `link`.
+
+**Accepted gap.** Every `enter` counts as a return, so ADR-118's re-auth redirects and
+deploy reloads keep restoring. Chrome copies sessionStorage into a tab opened from a link, so
+middle-clicking a list's header link restores that list's scroll slot in the new tab.
+
+**Known harness failure.** `back-after-write-refreshes-grid` (§27) fails on this machine with the
+same message on `main`'s frontend: its stubbed list request hangs in Playwright's `route.fetch`.
+That is unrelated to this change and tracked as HOLODEX-574.

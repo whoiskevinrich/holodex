@@ -114,7 +114,15 @@ snapshot restores only into exactly the same view:
   other lists, Search and entity video grids, mirrored to `sessionStorage` under `${namespace}:${id}`.
   `take` reads memory then storage and clears both. Storage access is best-effort `try/catch`.
 
+Both stores restore only on a **returning arrival** (HOLODEX-573). `take` always spends the
+snapshot, but returns it only when `lastNavigation.type` (`web/src/lib/lastNavigation.ts`) is
+`popstate` or `enter` (a reload). The root layout records that type in `onNavigate`, before the new
+page mounts, because the Media grid takes its snapshot in its first `$effect`, and that can run
+ahead of `afterNavigate`. A link or `goto` to a list visited earlier starts fresh.
+
 **Rejected:** SvelteKit `snapshot` for the Media grid — serializing hundreds of videos per navigation.
+**Rejected:** gating at each call site — seven `take` callers would each need the same check, and a
+new list would miss it.
 **Rejected:** localStorage for scroll — shared across tabs, outlives the history it restores into.
 
 Decided in [`8d8ce859`](https://github.com/whoiskevinrich/holodex/commit/8d8ce859).
