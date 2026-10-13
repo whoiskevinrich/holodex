@@ -29,10 +29,12 @@ only, so they were never stale. The freshness fork is recorded in
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] After the squash merge, replace "Decided in this commit" with the squash sha link — `docs/architecture/browse-and-list-state.md`
-2. [ ] [—] On merge, confirm CI moved HOLODEX-190 to Done (Bug on its own keyed branch — jira-sync handles it)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-13 · merged
+- skills: —
+- handoff: Merged as #507 → `81b6edd1`; HOLODEX-190 is Done and the architecture section now cites that commit. Nothing left on this epic.
 
 ### 2026-10-13 · launch profiles for the nav harness
 - skills: —
