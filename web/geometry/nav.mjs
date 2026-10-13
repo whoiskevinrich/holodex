@@ -247,6 +247,41 @@ const SCENARIOS = [
 		}
 	},
 	{
+		key: 'back-after-write-refreshes-grid',
+		qa: 'HOLODEX-190',
+		run: async ({ page, filter }) => {
+			// The grid snapshot was saved before the trash, so Back must swap in the server's
+			// current list, keeping the scroll. The intercepted DELETE never reaches the
+			// fixture, so the list answer is the one that leaves the card out.
+			const list = `/?resolution=${filter}&sort=title_asc`;
+			await goto(page, `${base}${list}`);
+			await scrollTo(page, 600);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			const id = Number(new URL(page.url()).pathname.split('/').pop());
+			// Answer as the server would after the delete: one more row asked for, the trashed
+			// one dropped, trimmed back to the page size.
+			await page.route(/\/api\/v1\/media\?/, async (route) => {
+				const url = new URL(route.request().url());
+				const limit = Number(url.searchParams.get('limit') ?? 50);
+				url.searchParams.set('limit', String(limit + 1));
+				const res = await route.fetch({ url: url.toString() });
+				const body = await res.json();
+				const items = body.items.filter((/** @type {{id: number}} */ v) => v.id !== id);
+				const total = body.total - (body.items.length - items.length);
+				await route.fulfill({ response: res, json: { ...body, items: items.slice(0, limit), total } });
+			});
+			await trash(page);
+			await page.waitForURL((u) => u.pathname === '/', { timeout: 5000 }).catch(() => {});
+			const gone = `main a[href="/media/${id}"]`;
+			await page.waitForFunction((sel) => !document.querySelector(sel), gone, { timeout: 5000 }).catch(() => {});
+			expect((await page.locator(gone).count()) === 0, `Back still shows the trashed /media/${id}`);
+			expect(here(page) === list, `trashing landed on ${here(page)}, expected ${list}`);
+			const at = await page.evaluate(() => window.scrollY);
+			expect(Math.abs(at - 600) <= 2, `the refreshed grid moved the scroll to ${at}, expected 600`);
+			await page.unrouteAll({ behavior: 'ignoreErrors' });
+		}
+	},
+	{
 		key: 'removal-exit-direct',
 		qa: '§20.3 item 3 · ADR-114 D4',
 		run: async ({ page, filter }) => {

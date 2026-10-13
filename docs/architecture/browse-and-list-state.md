@@ -119,6 +119,28 @@ snapshot restores only into exactly the same view:
 
 Decided in [`8d8ce859`](https://github.com/whoiskevinrich/holodex/commit/8d8ce859).
 
+## A snapshot that holds list data is checked against one app-wide write count
+
+Only `createNavSnapshot` snapshots carry list **data**: today that is `browseCache`. Every other list
+re-fetches on mount and restores scroll alone, so a write can't leave it stale. A data snapshot
+goes stale the moment any write lands, and the list can't know which writes touched it. So
+freshness is not routed per mutation. `checkRedirect(res, true)` in `web/src/lib/api.ts` is the path
+every successful owner write already takes, and it calls `markDataChanged()`, which bumps one
+counter. `save` stamps the counter and `take` reports `stale` when it has moved. A stale restore
+seeds the grid and scroll synchronously as before, then re-fetches the whole loaded range in one
+request (the server's `maxListLimit` caps it) and swaps it in place. "Load more" resumes from
+`videos.length`. A new list that caches data must use `createNavSnapshot` and honour `stale`; a new
+write is covered as long as it goes through `checkRedirect(res, true)`, which re-auth needs anyway.
+
+**Rejected:** invalidating or patching the snapshot at each mutation site (HOLODEX-478's
+`forgetVideo`, HOLODEX-572's clear on Restore). Every write site has to know which lists might hold
+its item, so a new mutation or a new entity list silently reintroduces the bug. **Rejected:** a
+time-to-live on the snapshot. It still restores stale data inside the window, and it re-fetches
+when nothing changed. **Rejected:** dropping a stale snapshot outright. That loses the scroll and
+the loaded pages after every edit.
+
+Decided in this commit (HOLODEX-190).
+
 ## Playlists are containers: `playlists` + `playlist_videos`, membership plus a sort
 
 A playlist is not an entity: own tables, repo methods and handlers, no baseline, alias, external-id,

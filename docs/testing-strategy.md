@@ -4797,3 +4797,43 @@ Item 4 is the owner's, after deploy.
   today. Cleaning orphaned thumbnails is a library-wide concern, not this feature's.
 - HOLODEX-567's conditional `indexed_at` bump lands separately. Once it merges, re-run **Move in
   one pass** and **Fold survivor** against the merged `UpsertVideo`.
+
+## 27. A list restored on Back reflects writes made since it was saved (HOLODEX-190)
+
+[Architecture](architecture/browse-and-list-state.md#a-snapshot-that-holds-list-data-is-checked-against-one-app-wide-write-count).
+Only the Media grid restores list *data* from a snapshot. People, Studios, Films, Tags, Search and
+the entity video grids re-fetch on mount and restore scroll alone, so a write can't leave them
+stale; their existing scroll scenarios cover them. The risk is a write path that never marks
+snapshots stale, or a grid that ignores `stale`.
+
+**Unit (`web/src/lib/navSnapshot.test.ts`).** `createNavSnapshot` is fresh with no write since
+`save`, stale with one after it, fresh when the write came before `save`, and still `null` and
+consumed on a key mismatch.
+
+**Unit (`web/src/lib/api.test.ts`).** A successful write (`deleteMedia`, 204) makes a pending
+snapshot stale. A read and a rejected write (400) do not. This pins the one hook in
+`checkRedirect(res, true)` that every owner write already passes through.
+
+**Browser (`back-after-write-refreshes-grid` in the §20.6 nav harness).** Media sorted by title,
+scroll 600, open a card, Move to Trash. The DELETE and the list answer are both stubbed in the
+browser, so the fixture is untouched. The list answer leaves the card out and backfills the page
+as the server would. Back must not show the card and must hold `scrollY` 600. The harness
+needs an owner-open backend, one with no `ADMIN_TOKEN`.
+
+**Mutation pass, 2026-10-13.** Removing `markDataChanged()` from `checkRedirect` fails the
+`api.test.ts` write case. Disabling the grid's `if (cached.stale) revalidate(…)` fails the harness
+scenario ("Back still shows the trashed /media/1001"). The clean tree passes the harness 8/8.
+
+**Live QA, 2026-10-13 (`backend-stress`, Cinémathèque).**
+1. [agent] Media by title, two pages loaded, scrolled to card 71: Move to Trash → Back. The card is
+   gone, the next one moved up, the count drops to 180 and the scroll holds. Load more then pages
+   to the end in server order: 180 unique, none skipped.
+2. [agent] Grid → Trash → Restore → Back. The item is back, the count is 181 and the scroll holds
+   (HOLODEX-572's clear went back to the top).
+3. [agent] A title edit (a manual `title` decision), with no code at its call site → Back. The card
+   shows the new title. Reverted afterwards.
+4. [agent] Open a card and Back with no write. No list request fires; the snapshot restores as
+   before.
+
+**Accepted gap.** A write made outside this tab (another tab, a background scan or enrichment
+job) doesn't mark the snapshot stale. The scan-finished refresh on the grid is unchanged.

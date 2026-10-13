@@ -328,6 +328,42 @@ describe('held re-auth (HOLODEX-502)', () => {
 	});
 });
 
+// Every successful write marks list snapshots stale (HOLODEX-190); a read or a rejected
+// write leaves them fresh.
+describe('writes stale the list snapshots (HOLODEX-190)', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	async function fresh() {
+		vi.resetModules();
+		const { api } = await import('./api');
+		const { createNavSnapshot } = await import('./navSnapshot.svelte');
+		const snap = createNavSnapshot<{ key: string }>();
+		snap.save({ key: 'k' });
+		return { api, stale: () => snap.take('k')?.stale };
+	}
+
+	it('a successful write', async () => {
+		const { api, stale } = await fresh();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+		await api.deleteMedia(4, { purge: false });
+		expect(stale()).toBe(true);
+	});
+
+	it('not a read', async () => {
+		const { api, stale } = await fresh();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })));
+		await api.activity();
+		expect(stale()).toBe(false);
+	});
+
+	it('not a rejected write', async () => {
+		const { api, stale } = await fresh();
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 400 })));
+		await expect(api.rescan()).rejects.toMatchObject({ status: 400 });
+		expect(stale()).toBe(false);
+	});
+});
+
 // Alias clients (F23/F43, extended by F58/ADR-088). Untested until now, unlike their
 // curatePerson/renameEntity neighbours above — and the collapse makes them the only
 // remaining write path for alternate names, so the 409-conflict contract and the

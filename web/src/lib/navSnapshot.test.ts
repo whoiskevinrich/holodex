@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createNavSnapshotRegistry, type Keyed } from './navSnapshot.svelte';
+import { createNavSnapshot, createNavSnapshotRegistry, markDataChanged, type Keyed } from './navSnapshot.svelte';
 
 interface Snap extends Keyed {
 	scrollY: number;
@@ -81,5 +81,36 @@ describe('createNavSnapshotRegistry (ADR-032, ADR-118)', () => {
 			expect(reg.take('people', 'k')?.scrollY).toBe(7);
 			expect(reg.take('people', 'k')).toBeNull();
 		}
+	});
+});
+
+// A data-carrying snapshot learns from the app-wide write count whether a write landed
+// after it was saved (HOLODEX-190), whatever the write touched.
+describe('createNavSnapshot freshness (HOLODEX-190)', () => {
+	it('is fresh when no write landed since the save', () => {
+		const s = createNavSnapshot<Snap>();
+		s.save({ key: 'k', scrollY: 600 });
+		expect(s.take('k')).toEqual({ key: 'k', scrollY: 600, stale: false });
+	});
+
+	it('is stale, scroll intact, when a write landed after the save', () => {
+		const s = createNavSnapshot<Snap>();
+		s.save({ key: 'k', scrollY: 600 });
+		markDataChanged();
+		expect(s.take('k')).toEqual({ key: 'k', scrollY: 600, stale: true });
+	});
+
+	it('a write before the save does not make it stale', () => {
+		const s = createNavSnapshot<Snap>();
+		markDataChanged();
+		s.save({ key: 'k', scrollY: 600 });
+		expect(s.take('k')?.stale).toBe(false);
+	});
+
+	it('is still null on a key mismatch, and consumed', () => {
+		const s = createNavSnapshot<Snap>();
+		s.save({ key: 'k', scrollY: 600 });
+		expect(s.take('other')).toBeNull();
+		expect(s.take('k')).toBeNull();
 	});
 });

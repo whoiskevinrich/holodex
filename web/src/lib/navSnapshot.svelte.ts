@@ -17,6 +17,22 @@
 //    page's mismatched take() silently clear another page's still-valid snapshot (take()
 //    always clears); the registry keys each page's slot by its own identity so
 //    interleaved navigation across different lists can't cross-wire.
+//
+// Freshness (HOLODEX-190): a snapshot that carries list DATA, not just scroll, goes stale
+// the moment any write lands — a delete, restore, merge, rename, enrichment apply — and
+// the list can't know which writes touched it. So writes aren't routed to the snapshots
+// that might hold their item; instead every successful owner write bumps one app-wide
+// counter (the API client's write path calls markDataChanged), createNavSnapshot stamps
+// it on save, and take reports `stale` when it moved. The view still restores its scroll
+// but must re-fetch the data. Scroll-only registry slots need no stamp: their lists
+// re-fetch on every mount anyway.
+
+let writes = 0;
+
+/** Record that server data changed: every data snapshot saved before now is stale. */
+export function markDataChanged() {
+	writes++;
+}
 
 export interface Keyed {
 	/** The filter/sort signature that produced this snapshot; restore only if it matches. */
@@ -25,20 +41,19 @@ export interface Keyed {
 
 export function createNavSnapshot<T extends Keyed>() {
 	let snap: T | null = null;
+	let savedAt = 0;
 	return {
 		save(s: T) {
 			snap = s;
+			savedAt = writes;
 		},
 		// Return the snapshot iff its key matches the current view, else null; clears on
-		// read either way (consumed once; stale-on-mismatch).
-		take(key: string): T | null {
+		// read either way (consumed once; stale-on-mismatch). `stale` says a write landed
+		// since the save, so the caller re-fetches what the snapshot holds.
+		take(key: string): (T & { stale: boolean }) | null {
 			const s = snap;
 			snap = null;
-			return s && s.key === key ? s : null;
-		},
-		// Revise the pending snapshot without consuming it (no-op when none is pending).
-		update(fn: (s: T) => T) {
-			if (snap) snap = fn(snap);
+			return s && s.key === key ? { ...s, stale: savedAt !== writes } : null;
 		},
 		clear() {
 			snap = null;
