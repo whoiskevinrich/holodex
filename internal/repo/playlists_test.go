@@ -14,7 +14,7 @@ func TestValidSortMatchesOrderBy(t *testing.T) {
 		t.Fatalf("orderBy default %q is not added_desc %q", defaultClause, addedDesc)
 	}
 	for _, key := range []string{
-		"added_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
+		"added_asc", "updated_desc", "updated_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
 		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc,
 	} {
 		if !ValidSort(key) {

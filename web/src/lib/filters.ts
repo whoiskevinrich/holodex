@@ -15,6 +15,8 @@ export const DEFAULT_SORT: SortOrder = 'added_desc';
 export const MEDIA_SORTS: readonly { value: SortOrder; label: string; ownerOnly?: boolean }[] = [
 	{ value: 'added_desc', label: 'Date added — newest' },
 	{ value: 'added_asc', label: 'Date added — oldest' },
+	{ value: 'updated_desc', label: 'Updated — newest' },
+	{ value: 'updated_asc', label: 'Updated — oldest' },
 	{ value: 'title_asc', label: 'Title — A→Z' },
 	{ value: 'title_desc', label: 'Title — Z→A' },
 	{ value: 'duration_desc', label: 'Duration — longest' },
