@@ -43,8 +43,15 @@ func Rebuild(ctx context.Context, t Tools, family string, op Op, available map[s
 		// +bitexact it writes no ©too, so the original's Encoder tag would vanish; restore
 		// the iTunes item list and udta too. Not -all:all: that also turns the container's
 		// brand fields into new Keys tags the original never had.
-		if _, err := run(ctx, t.Exiftool, "-overwrite_original", "-TagsFromFile", toolArg(src),
-			"-XMP:all", "-ItemList:all", "-UserData:all", toolArg(dst)); err != nil {
+		restore := []string{"-overwrite_original", "-TagsFromFile", toolArg(src),
+			"-XMP:all", "-ItemList:all", "-UserData:all"}
+		if format == "mp4" {
+			// Not CoverArt: the mp4 muxer already carried every cover as its own stream, and
+			// exiftool copies only one of a file's duplicate covr items, so restoring it would
+			// drop the rest (HOLODEX-570). The mov muxer writes no covers, so .mov keeps it.
+			restore = append(restore, "--ItemList:CoverArt")
+		}
+		if _, err := run(ctx, t.Exiftool, append(restore, toolArg(dst))...); err != nil {
 			return fmt.Errorf("restore tags: %w", err)
 		}
 		return nil

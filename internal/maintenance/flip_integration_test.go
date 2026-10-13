@@ -210,6 +210,64 @@ func TestFlip_RealFiles_MP4_NoCompressorName(t *testing.T) {
 	}
 }
 
+// Taggers sometimes leave several identical cover items in one MP4, which ffprobe shows as
+// one attached_pic stream each. ffmpeg carries them all, so the tag restore must not
+// overwrite them with exiftool's single CoverArt (HOLODEX-570).
+func TestFlip_RealFiles_MP4_DuplicateCovers(t *testing.T) {
+	requireTools(t, "ffmpeg", "ffprobe", "exiftool")
+	ctx := context.Background()
+	dir := t.TempDir()
+	m1 := buildM1(t, dir)
+	src := filepath.Join(dir, "covers.mp4")
+	sh(t, "ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", m1,
+		"-map", "0", "-map", "0:v:1", "-map", "0:v:1", "-c", "copy",
+		"-map_metadata", "0", "-map_chapters", "0", src)
+	sh(t, "exiftool", "-q", "-overwrite_original", "-TagsFromFile", m1, "-XMP:all", src)
+	dst := src + ".holodex-new"
+
+	p, err := RunProbe(ctx, "ffprobe", "mov", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countCovers(p); n != 3 {
+		t.Fatalf("fixture has %d covers, want 3", n)
+	}
+	if err := Rebuild(ctx, localTools, FamilyMP4, OpHFlip, map[string]bool{"libx264": true}, src, dst, p); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	cp, err := RunProbe(ctx, "ffprobe", "mov", dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countCovers(cp); n != 3 {
+		t.Errorf("flip kept %d covers, want 3", n)
+	}
+	origSnap, err := CollectSnapshot(ctx, localTools, FamilyMP4, src, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candSnap, err := CollectSnapshot(ctx, localTools, FamilyMP4, dst, cp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(origSnap, candSnap); err != nil {
+		t.Fatalf("flip of a file with duplicate covers refused: %v", err)
+	}
+	if diff := exifTagDiff(t, src, dst); diff != "" {
+		t.Errorf("exiftool sees different tags after the flip:\n%s", diff)
+	}
+}
+
+func countCovers(p Probe) int {
+	n := 0
+	for _, s := range p.Streams {
+		if s.Disposition["attached_pic"] == 1 {
+			n++
+		}
+	}
+	return n
+}
+
 // clearCompressorName empties the avc1 sample entry's fixed 32-byte CompressorName field in
 // place: ffmpeg writes "Lavc… libx264" there. The field sits 42 bytes past the entry's "avc1"
 // type (the first avc1 after "stsd": ftyp lists avc1 as a brand, and the cover's JPEG
