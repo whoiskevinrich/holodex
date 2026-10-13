@@ -329,6 +329,64 @@ const SCENARIOS = [
 			await settle(page);
 			await backTo(page, '/people', 600);
 		}
+	},
+	{
+		key: 'hash-anchor-lands',
+		qa: 'HOLODEX-459',
+		run: async ({ page }) => {
+			// The F68 hover card's #videos / #films links. Neither section is reachable until the
+			// grid's first page lands, so the router's own fragment scroll finds nothing.
+			const res = await fetch(`${base}/api/v1/people?sort=count&limit=1`);
+			const [person] = (await res.json()).items ?? [];
+			expect(person, 'no person in the library to open');
+			const path = `/people/${person.id}`;
+			/** @param {string} id */
+			const landed = (id) =>
+				page
+					.waitForFunction(
+						(el) => {
+							const top = document.getElementById(el)?.getBoundingClientRect().top;
+							const max = document.documentElement.scrollHeight - innerHeight;
+							// 64 is scroll-mt-16; a section near the page's end stops at the max scroll.
+							// scrollY > 0: a page too short to scroll would pass without any jump.
+							const atEnd = scrollY > 0 && Math.abs(scrollY - max) <= 1 && top < 64 + innerHeight;
+							return top != null && (Math.abs(top - 64) <= 2 || atEnd);
+						},
+						id,
+						{ timeout: 5000 }
+					)
+					.then(() => true, () => false);
+
+			await goto(page, `${base}${path}#videos`);
+			expect(await landed('videos'), `a cold load of ${path}#videos did not land on #videos`);
+
+			// A link back to an entity visited earlier carries a stale scroll snapshot; the anchor
+			// wins over it. Only Back restores the snapshot.
+			await goto(page, `${base}${path}`);
+			await settle(page);
+			await page.evaluate(() => window.scrollTo(0, 300));
+			await clickNav(page, '/people', (u) => u.pathname === '/people');
+			await page.evaluate((href) => {
+				const a = document.createElement('a');
+				a.href = href;
+				document.querySelector('main')?.append(a);
+				a.click();
+			}, `${path}#videos`);
+			expect(await landed('videos'), `a link to ${path}#videos (visited before) did not land on #videos`);
+
+			// Back to that #videos entry restores where the grid was, not the anchor.
+			const y = (await page.evaluate(() => window.scrollY)) + 300;
+			await scrollTo(page, y);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			await backTo(page, path, y);
+
+			// The shelf has its own fetch; wait for it rather than skip on a race.
+			const hasFilms = await page.waitForSelector('#films', { timeout: 5000 }).then(() => true, () => false);
+			if (hasFilms) {
+				await goto(page, `${base}${path}#films`);
+				expect(await landed('films'), `a cold load of ${path}#films did not land on #films`);
+			} else console.log(`      (${path} has no films; #films not checked)`);
+		}
 	}
 ];
 

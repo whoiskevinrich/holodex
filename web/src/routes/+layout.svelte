@@ -13,6 +13,7 @@
 	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '#lib/actions/hotkey.svelte.ts';
 	import { silenceMediaInDev } from '#lib/devSilence.ts';
 	import { reauth, trackEdits } from '#lib/reauth.svelte.ts';
+	import { lastNavigation } from '#lib/lastNavigation.ts';
 	import SessionExpiredBanner from '#lib/components/activity/SessionExpiredBanner.svelte';
 
 	let { children } = $props();
@@ -66,7 +67,8 @@
 	// (HOLODEX-502). Moving to another page leaves that input behind, so it no
 	// longer counts; a query-string or hash change on the same page doesn't.
 	$effect(trackEdits);
-	afterNavigate(({ from, to }) => {
+	afterNavigate(({ from, to, type }) => {
+		lastNavigation.type = type;
 		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
 		if (from?.url?.pathname !== to?.url.pathname) reauth.dirty = false;
 	});

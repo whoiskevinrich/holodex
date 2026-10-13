@@ -4837,3 +4837,36 @@ scenario ("Back still shows the trashed /media/1001"). The clean tree passes the
 
 **Accepted gap.** A write made outside this tab (another tab, a background scan or enrichment
 job) doesn't mark the snapshot stale. The scan-finished refresh on the grid is unchanged.
+
+## 28. Entity pages land on the hover card's `#videos` / `#films` (HOLODEX-459)
+
+The person hover card links to `/people/{id}#videos` and `#films`. Studio and tag pages share
+both anchors through `EntityVideos` and `FilmsRow`. Neither section is reachable until the
+grid's first page lands, so `EntityVideos` jumps to the anchor once per mount, after that load.
+Back restores the scroll snapshot instead. Any other arrival takes the anchor, even over a
+snapshot left by an earlier visit. The navigation type comes from `lastNavigation`, which the
+root layout records. `EntityVideos` mounts too late for its own `afterNavigate`.
+
+The risks are the jump never firing, and the wrong one of the two winning: a link to a
+revisited entity restoring its stale offset, or Back to a `#videos` entry jumping to the anchor.
+
+**Browser (`hash-anchor-lands` in the §20.6 nav harness).** Cold load of the busiest person's
+`#videos` lands it at 64px (`scroll-mt-16`). The scenario then visits the bare page, scrolls,
+leaves and follows a `#videos` link back, which must land on the anchor. It scrolls 300px past
+the anchor, opens a card and goes Back, which must restore that offset. A `#films` cold load
+lands on the heading, or at the max scroll when the shelf is the page's last section.
+
+**Mutation pass, 2026-10-13.** Disabling the jump fails the cold load. Dropping the
+`popstate` guard fails the Back step ("Back restored scrollY 985, expected 1285"). The clean tree
+passes the harness 9/9.
+
+**Live QA, 2026-10-13 (`backend-stress`, Cinémathèque, 1280×800).**
+1. [agent] Client-side links to person, studio and tag `#videos` land at 64px. Their `#films`
+   links stop at the max scroll with the Films heading in view.
+2. [agent] Studio `#videos` → `#films` on the same page: the browser's own fragment scroll,
+   unchanged.
+3. [agent] From studio `#films`, scroll to 1500, open a video, Back → 1500.
+
+**`#films` waits on its own fetch.** The shelf may render after the grid, so `EntityVideos`
+watches for it with a `MutationObserver`. It stops at the reader's first wheel, touch, key or
+pointer input, so a slow films fetch never moves a page the reader has started using.
