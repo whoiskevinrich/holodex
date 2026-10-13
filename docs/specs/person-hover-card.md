@@ -151,9 +151,11 @@ dropped, optional "also credited as a, b, c" (max 3, `+N more` not shown) — th
 - [ ] The ring renders iff the payload carries `completeness`; it is never given the detail
   read's `score/facets` object. It is a **sibling** of the header `<a>` in the name row (never
   nested in it); `onrefreshed` re-fetches `/card` for this id and replaces the cached entry.
-- [ ] Titles → `/people/{id}#videos`; Films → `/people/{id}#films` — **these two anchors do not
-  exist yet**; the build adds `id="videos"` to the profile's video-grid section and `id="films"`
-  to its `FilmsRow` heading. Enrich → `/people/{id}#enrich-providers`; Edit →
+- [x] Titles → `/people/{id}#videos`; Films → `/people/{id}#films`. Arriving by either link
+  (or a reload) lands on that section once the video list has loaded: Videos on its count line,
+  Films on its heading, 64px below the top. It is an instant jump with no highlight, made once
+  per arrival, so Load more never moves the page again. Back returns to where the reader was
+  instead. Studio and tag pages land the same way (HOLODEX-459, owner sign-off 2026-10-13). Enrich → `/people/{id}#enrich-providers`; Edit →
   `/people/{id}#field-photo-upload` (both exist).
 - [ ] `role="dialog"` is **not** used; the card is `role="group"` with `aria-label="{name}"`
   and the chip carries `aria-describedby` only while open.

@@ -164,6 +164,7 @@ URL, `localStorage['holodex:sort:*']` and `scrollY`:
 | `removal-exit-in-app` / `-direct` | item 3 | Trashing a video doesn't go Back to the list it came from, or a cold-opened one doesn't land on a bare `/` (D4). |
 | `two-tabs-independent` | item 5 | Two tabs on different People views don't each return to their own sort and scroll. |
 | `back-after-reload-restores-scroll` | HOLODEX-477 | A full reload on a Person page (re-auth, deploy) makes Back to People land at the top (ADR-118). |
+| `hash-anchor-lands` | HOLODEX-459 | A `#videos` / `#films` link leaves a Person page at the top or at a stale snapshot, or Back to a `#videos` entry jumps to the anchor instead of restoring. |
 
 Nothing here reads the manifest. Any default-open owner library with a screenful of videos
 and people will do, and the Media filter is whichever resolution matches the most videos.

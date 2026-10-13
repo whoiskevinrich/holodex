@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
+	import { page } from '$app/state';
+	import { lastNavigation } from '#lib/lastNavigation.ts';
 	import type { MediaFilters, Video } from '#lib/types.ts';
 	import VideoGrid from '../video/VideoGrid.svelte';
 	import { api } from '#lib/api.ts';
@@ -77,8 +79,20 @@
 	// singleton, not persisted), so by the time ← Back lands here the grid is unfiltered
 	// again.
 	const SCROLL_INVALIDATION_KEY = 'videos';
-	// Taken once per mount, deliberately: the restore is one-shot.
-	const restore = untrack(() => listScroll.take(scrollKey, SCROLL_INVALIDATION_KEY));
+
+	// HOLODEX-459: the F68 hover card links to `#videos` and `#films`, but the page is too
+	// short to reach either until the first grid page lands, so the router's own fragment
+	// scroll finds nothing. Jump once per mount, after that first load. Back restores the
+	// snapshot instead; any other arrival (a link, a reload) takes the anchor over a snapshot
+	// left by an earlier visit, which `take` hands back regardless of how we got here.
+	const anchor = untrack(() => page.url.hash).slice(1);
+	let anchorPending =
+		lastNavigation.type !== 'popstate' && (anchor === 'videos' || anchor === 'films');
+
+	// Taken once per mount, deliberately: the restore is one-shot. Still taken when the
+	// anchor wins, so the snapshot is spent rather than left for a later arrival.
+	const snapshot = untrack(() => listScroll.take(scrollKey, SCROLL_INVALIDATION_KEY));
+	const restore = anchorPending ? null : snapshot;
 
 	let videos = $state<Video[]>([]);
 	let loading = $state(true);
@@ -107,6 +121,29 @@
 	let restorePending = restore != null;
 	let lastQuery = '';
 
+	let section: HTMLElement;
+	const stopWaiting = new AbortController();
+	$effect(() => () => stopWaiting.abort());
+
+	function jumpToAnchor(id: string) {
+		const target = document.getElementById(id);
+		if (target) return target.scrollIntoView();
+		// `#films` is the footer's FilmsRow, fed by its own fetch, which may land after the grid.
+		// Wait for it until the reader moves the page themselves: a late jump would yank them.
+		const observer = new MutationObserver(() => {
+			const late = document.getElementById(id);
+			if (!late) return;
+			stopWaiting.abort();
+			late.scrollIntoView();
+		});
+		observer.observe(section, { childList: true, subtree: true });
+		const { signal } = stopWaiting;
+		signal.addEventListener('abort', () => observer.disconnect());
+		for (const type of ['wheel', 'touchstart', 'keydown', 'pointerdown']) {
+			window.addEventListener(type, () => stopWaiting.abort(), { passive: true, signal });
+		}
+	}
+
 	async function load(f: MediaFilters, limit: number) {
 		const mine = ++seq;
 		error = '';
@@ -124,6 +161,11 @@
 			restorePending = false;
 			await tick();
 			window.scrollTo(0, restore.scrollY);
+		}
+		if (anchorPending && mine === seq) {
+			anchorPending = false;
+			await tick();
+			jumpToAnchor(anchor);
 		}
 	}
 
@@ -195,7 +237,7 @@
 	});
 </script>
 
-<section class="space-y-4">
+<section bind:this={section} class="space-y-4">
 	{#if backHref && backLabel}
 		<a href={backHref} class="text-sm text-muted hover:text-ink">← {backLabel}</a>
 	{/if}
