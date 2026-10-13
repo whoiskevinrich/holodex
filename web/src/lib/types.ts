@@ -1318,17 +1318,6 @@ export interface PersonCard {
 	completeness?: CompletenessSummary;
 }
 
-// FacetSummary is one row of GET /completeness/facets (F55.6, ADR-081 D4) —
-// mirrors internal/api.FacetSummary. Feeds the Missing-facet filter chip's
-// option list: canonical (the value sent as ?missing_facet=), a display label,
-// and how many entities of this type are currently missing it.
-export interface FacetSummary {
-	canonical: string;
-	label: string;
-	criticality: string;
-	missing_count: number;
-}
-
 // CompletenessQueueRow is one (entity, missing facet) pair in the facet-first
 // remediation queue (F55.7, GET /owner/completeness-queue) — mirrors
 // internal/api.QueueRow. Exactly one of thumbnail_url/headshot_version/icon_url
