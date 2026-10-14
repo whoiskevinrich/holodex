@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+  <title>Shared Modal primitive: two positions, stacking, and four widths (HOLODEX-215)</title>
+  <rect width="960" height="600" fill="#0c0a09"/>
+
+  <text x="24" y="34" fill="#f3ece1" font-size="16" font-weight="600">Positions: two, plus a stack layer</text>
+
+  <!-- align=top -->
+  <g transform="translate(24,52)">
+    <rect width="280" height="190" rx="6" fill="#0c0a09" stroke="#2a2622"/>
+    <rect width="280" height="190" rx="6" fill="#0c0a09" opacity="0.7"/>
+    <line x1="0" y1="19" x2="280" y2="19" stroke="#e8a33d" stroke-dasharray="3 3" opacity="0.6"/>
+    <text x="6" y="14" fill="#e8a33d" font-size="10">10vh</text>
+    <rect x="50" y="19" width="180" height="96" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="62" y="31" width="90" height="7" rx="2" fill="#f3ece1"/>
+    <rect x="62" y="48" width="150" height="4" rx="2" fill="#9b9082"/>
+    <rect x="62" y="58" width="130" height="4" rx="2" fill="#9b9082"/>
+    <rect x="128" y="92" width="44" height="14" rx="3" fill="none" stroke="#2a2622"/>
+    <rect x="176" y="92" width="44" height="14" rx="3" fill="#e8a33d"/>
+    <text x="0" y="210" fill="#f3ece1" font-size="12">align="top" (default) · items-start · py-[10vh]</text>
+    <text x="0" y="226" fill="#9b9082" font-size="11">forms, pickers, confirms</text>
+  </g>
+
+  <!-- align=center -->
+  <g transform="translate(340,52)">
+    <rect width="280" height="190" rx="6" fill="#0c0a09" stroke="#2a2622"/>
+    <rect x="20" y="30" width="240" height="130" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="32" y="42" width="80" height="7" rx="2" fill="#f3ece1"/>
+    <g fill="#2a2622">
+      <rect x="32" y="60" width="50" height="40" rx="2"/><rect x="88" y="60" width="50" height="40" rx="2"/>
+      <rect x="144" y="60" width="50" height="40" rx="2"/><rect x="200" y="60" width="50" height="40" rx="2"/>
+      <rect x="32" y="106" width="50" height="40" rx="2"/><rect x="88" y="106" width="50" height="40" rx="2"/>
+    </g>
+    <text x="0" y="210" fill="#f3ece1" font-size="12">align="center" · items-center · py-[6vh]</text>
+    <text x="0" y="226" fill="#9b9082" font-size="11">media: PersonGalleryModal, PersonImageViewer</text>
+  </g>
+
+  <!-- stacked -->
+  <g transform="translate(656,52)">
+    <rect width="280" height="190" rx="6" fill="#0c0a09" stroke="#2a2622"/>
+    <rect x="20" y="30" width="240" height="130" rx="4" fill="#15110e" stroke="#2a2622" opacity="0.45"/>
+    <rect width="280" height="190" rx="6" fill="#0c0a09" opacity="0.7"/>
+    <rect x="56" y="18" width="168" height="154" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="72" y="34" width="136" height="110" rx="2" fill="#2a2622"/>
+    <text x="196" y="160" fill="#9b9082" font-size="9">3 / 12</text>
+    <text x="0" y="210" fill="#f3ece1" font-size="12">opened over a modal → one layer up (z-60)</text>
+    <text x="0" y="226" fill="#9b9082" font-size="11">Esc / backdrop close only the topmost</text>
+  </g>
+
+  <text x="24" y="318" fill="#f3ece1" font-size="16" font-weight="600">Widths: four sizes (to scale, 8px = 1rem)</text>
+  <g font-size="11">
+    <text x="24" y="350" fill="#9b9082">sm · max-w-md · 28rem</text>
+    <rect x="200" y="338" width="224" height="18" rx="3" fill="#15110e" stroke="#2a2622"/>
+    <text x="208" y="351" fill="#f3ece1">Confirm · Hotkeys · Crop · WritebackBatch</text>
+
+    <text x="24" y="382" fill="#9b9082">md · max-w-lg · 32rem</text>
+    <rect x="200" y="370" width="256" height="18" rx="3" fill="#15110e" stroke="#2a2622"/>
+    <text x="208" y="383" fill="#f3ece1">PickerShell · EnrichPicker · EntityPickerDialog</text>
+    <text x="470" y="383" fill="#e8a33d">+ ExtractionPreview (was 36rem)</text>
+
+    <text x="24" y="414" fill="#9b9082">lg · max-w-3xl · 48rem</text>
+    <rect x="200" y="402" width="384" height="18" rx="3" fill="#15110e" stroke="#2a2622"/>
+    <text x="208" y="415" fill="#f3ece1">WritebackFormDialog · FilmBulkAttachDialog</text>
+
+    <text x="24" y="446" fill="#9b9082">media · max-w-5xl · 64rem</text>
+    <rect x="200" y="434" width="512" height="18" rx="3" fill="#15110e" stroke="#2a2622"/>
+    <text x="208" y="447" fill="#f3ece1">PersonGalleryModal</text>
+    <text x="330" y="447" fill="#e8a33d">+ PersonImageViewer (was 56rem)</text>
+  </g>
+
+  <text x="24" y="500" fill="#f3ece1" font-size="16" font-weight="600">Ownership</text>
+  <g font-size="12">
+    <text x="24" y="526" fill="#f3ece1">Modal owns</text>
+    <text x="120" y="526" fill="#9b9082">backdrop bg-bg/70 (stacked /85) · panel rounded-theme border-rule bg-surface shadow-xl · max-h-[80vh] (media 85vh) · rise motion</text>
+    <text x="120" y="544" fill="#9b9082">role=dialog · aria-modal · aria-labelledby · focus capture/return · Tab trap · Esc/backdrop (off while busy) · stack layer</text>
+    <text x="24" y="572" fill="#f3ece1">Caller owns</text>
+    <text x="120" y="572" fill="#9b9082">everything inside the panel: padding (p-4 or a header bar), title element, body, buttons, initial-focus target</text>
+  </g>
+</svg>
