@@ -27,7 +27,7 @@
 		onclose: () => void;
 	} = $props();
 
-	// bind:value on type="number" coerces to a Number (or '' when cleared) --
+	// bind:value on type="number" coerces to a Number (or null when cleared) --
 	// parseSceneNumberInput knows not to call string methods on this value.
 	let value = $state(currentScene ?? '');
 	let busy = $state(false);

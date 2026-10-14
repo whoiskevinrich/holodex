@@ -14,6 +14,7 @@
 	import { toMessage, resolutionBucket } from '#lib/format.ts';
 	import type { FilmSceneCollision, FilmVideoCandidate, Person, Studio } from '#lib/types.ts';
 	import PickerShell, { focusOptionIn } from '#lib/components/entity/PickerShell.svelte';
+	import { parseSceneNumberInput } from './sceneNumber';
 
 	let {
 		filmId,
@@ -149,17 +150,14 @@
 	// An empty starting scene number attaches the whole selection unnumbered
 	// (design handoff §4c) rather than blocking the commit.
 	async function commit() {
-		// bind:value on type="number" coerces to a Number (or '' when cleared) --
-		// startingSceneNumber is not always a string despite the $state('') default,
-		// so don't call .trim() on it (see FilmAttachDialog.svelte's confirm()).
-		let n: number | null = null;
-		if (startingSceneNumber !== '') {
-			n = Number(startingSceneNumber);
-			if (!Number.isInteger(n) || n <= 0) {
-				commitError = 'Starting scene number must be positive, or left blank for unnumbered.';
-				return;
-			}
+		// Same blank/positive-integer rule as the single-attach and edit dialogs; only
+		// the error copy is this dialog's own.
+		const parsed = parseSceneNumberInput(startingSceneNumber);
+		if ('error' in parsed) {
+			commitError = 'Starting scene number must be positive, or left blank for unnumbered.';
+			return;
 		}
+		const n = parsed.value;
 		// Numbered sequentially in the order shown below, not selection order.
 		const orderedIds = results.filter((c) => selected.has(c.video.id)).map((c) => c.video.id);
 		if (orderedIds.length === 0) return;
