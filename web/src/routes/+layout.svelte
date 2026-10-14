@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/state';
-	import { goto, afterNavigate } from '$app/navigation';
+	import { goto, afterNavigate, onNavigate } from '$app/navigation';
 	import { adminMode } from '#lib/adminMode.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { searchHistory } from '#lib/searchHistory.svelte.ts';
@@ -67,8 +67,12 @@
 	// (HOLODEX-502). Moving to another page leaves that input behind, so it no
 	// longer counts; a query-string or hash change on the same page doesn't.
 	$effect(trackEdits);
-	afterNavigate(({ from, to, type }) => {
+	// Before the new page mounts: the Media grid takes its snapshot in its first `$effect`,
+	// which can run ahead of afterNavigate and would see the previous navigation's type.
+	onNavigate(({ type }) => {
 		lastNavigation.type = type;
+	});
+	afterNavigate(({ from, to }) => {
 		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
 		if (from?.url?.pathname !== to?.url.pathname) reauth.dirty = false;
 	});

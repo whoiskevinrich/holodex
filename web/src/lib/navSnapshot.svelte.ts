@@ -5,8 +5,10 @@
 // `beforeNavigate` survives and is restored on return — but only while the view's KEY
 // still matches (the filter/sort signature unchanged); a key change invalidates it.
 // One-shot: `take` clears the snapshot, so each navigate-away must re-save and a snapshot
-// can't be reused across visits. The single slot is session-scoped: a full reload starts
-// empty. The registry's scroll-only slots survive a reload via sessionStorage (ADR-118).
+// can't be reused across visits. Return-only (HOLODEX-573): `take` restores only when the
+// arrival is Back/Forward or a reload (`returningArrival`). A link or goto to a list visited
+// earlier still spends the snapshot but gets null, so it starts fresh at the top. The single
+// slot is session-scoped: a full reload starts empty. The registry's scroll-only slots survive a reload via sessionStorage (ADR-118).
 //
 // Two shapes ride on the same mechanics:
 //  - createNavSnapshot(): a single slot, for a view with exactly one caller (the browse
@@ -26,6 +28,8 @@
 // it on save, and take reports `stale` when it moved. The view still restores its scroll
 // but must re-fetch the data. Scroll-only registry slots need no stamp: their lists
 // re-fetch on every mount anyway.
+
+import { returningArrival } from './lastNavigation';
 
 let writes = 0;
 
@@ -53,6 +57,7 @@ export function createNavSnapshot<T extends Keyed>() {
 		take(key: string): (T & { stale: boolean }) | null {
 			const s = snap;
 			snap = null;
+			if (!returningArrival()) return null;
 			return s && s.key === key ? { ...s, stale: savedAt !== writes } : null;
 		},
 		clear() {
@@ -105,6 +110,7 @@ export function createNavSnapshotRegistry<T extends Keyed>(namespace: string) {
 			const s = slots.get(id) ?? readStored(id);
 			slots.delete(id);
 			removeStored(id);
+			if (!returningArrival()) return null;
 			return s && s.key === key ? s : null;
 		},
 		clear(id: string) {

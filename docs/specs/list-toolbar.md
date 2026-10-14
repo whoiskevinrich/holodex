@@ -58,6 +58,9 @@ shared or bookmarked, and saved filters can come back invisibly on a later visit
    - Filters come back only when you return to where you were (Back, or a redirect after an
      action).
    - A plain nav click always shows the full, unfiltered list.
+   - Your place in a list (scroll, and on Media the pages you loaded) comes back only when you
+     return to it: Back, Forward or a reload. Any link to a list, including one you visited
+     earlier, starts at the top. (HOLODEX-573)
    - Anything visible is in the URL, so any view can be shared.
 5. **Tokens only, Cinémathèque.** Everything renders cleanly in Cinémathèque,
    with no hardcoded styling.

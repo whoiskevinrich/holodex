@@ -83,8 +83,8 @@
 	// HOLODEX-459: the F68 hover card links to `#videos` and `#films`, but the page is too
 	// short to reach either until the first grid page lands, so the router's own fragment
 	// scroll finds nothing. Jump once per mount, after that first load. Back restores the
-	// snapshot instead; any other arrival (a link, a reload) takes the anchor over a snapshot
-	// left by an earlier visit, which `take` hands back regardless of how we got here.
+	// snapshot instead. A reload also gets one from `take` (HOLODEX-573), and there the
+	// anchor in the URL wins over it.
 	const anchor = untrack(() => page.url.hash).slice(1);
 	let anchorPending =
 		lastNavigation.type !== 'popstate' && (anchor === 'videos' || anchor === 'films');
