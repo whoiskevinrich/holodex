@@ -340,6 +340,10 @@ func TestPersonDetailImageSet(t *testing.T) {
 	if hs == nil || hs["present"] != true {
 		t.Errorf("headshot slot not present in image set: %v", roles)
 	}
+	// An owner upload is locked against enrichment, and the wire says so (HOLODEX-43).
+	if hs["locked"] != true {
+		t.Errorf("uploaded headshot locked = %v, want true", hs["locked"])
+	}
 }
 
 func getStatus(t *testing.T, url string) (int, *http.Response) {
