@@ -149,7 +149,7 @@
 			aria-label={onEditScene ? `Edit scene number for ${video.title}` : undefined}
 			class="absolute right-1.5 top-1.5 z-[2] rounded-theme px-1.5 py-0.5 text-[10px] font-semibold shadow-xs ring-1 ring-black/20 {onEditScene
 				? 'hover:ring-accent focus-visible:ring-accent'
-				: 'pointer-events-none'} {sceneNumber === null ? 'bg-black/70 text-muted' : 'bg-accent text-accent-ink'}"
+				: 'pointer-events-none'} {sceneNumber === null ? 'bg-bg text-muted' : 'bg-accent text-accent-ink'}"
 		>
 			{sceneBadgeLabel(sceneNumber)}
 		</svelte:element>
