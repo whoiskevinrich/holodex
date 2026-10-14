@@ -10,6 +10,7 @@
 	import { SLOT_CLASS, showThumb, slotShape } from '#lib/candidateImage.ts';
 	import { autoApplyPick } from '#lib/autoApply.ts';
 	import { ApiError } from '#lib/api.ts';
+	import { providerErrorLine } from '#lib/providerError.ts';
 	import type { EnrichCandidate, EnrichEntityKind, EnrichedField } from '#lib/types.ts';
 
 	let {
@@ -197,7 +198,7 @@
 			// that failed any other way (rate-limited, provider down) left it standing too.
 			const conflict = e instanceof ApiError && e.status === 409;
 			dismissed = conflict || (retry && dismissed);
-			error = conflict ? '' : toMessage(e);
+			error = conflict ? '' : providerErrorLine(e, provider);
 			candidates = [];
 			open = {};
 			failed = {};
@@ -215,7 +216,7 @@
 			onapplied(res.enriched ?? []);
 			onclose();
 		} catch (e) {
-			error = toMessage(e);
+			error = providerErrorLine(e, provider);
 		} finally {
 			applying = false;
 		}
