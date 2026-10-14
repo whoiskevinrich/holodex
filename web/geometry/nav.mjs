@@ -270,10 +270,25 @@ const SCENARIOS = [
 				const total = body.total - (body.items.length - items.length);
 				await route.fulfill({ response: res, json: { ...body, items: items.slice(0, limit), total } });
 			});
+			// The refetch Back must make. Waiting only for the card to be absent passes vacuously
+			// in the instant after Back, before the restored grid has rendered (HOLODEX-574).
+			const refetched = page
+				.waitForResponse((r) => /\/api\/v1\/media\?/.test(r.url()) && r.url().includes(`resolution=${filter}`), {
+					timeout: 5000
+				})
+				.then(() => true, () => false);
 			await trash(page);
 			await page.waitForURL((u) => u.pathname === '/', { timeout: 5000 }).catch(() => {});
+			expect(await refetched, 'Back restored the grid without refetching it after the trash');
 			const gone = `main a[href="/media/${id}"]`;
-			await page.waitForFunction((sel) => !document.querySelector(sel), gone, { timeout: 5000 }).catch(() => {});
+			await page
+				.waitForFunction(
+					([card, sel]) => document.querySelector(card) && !document.querySelector(sel),
+					[MEDIA_CARD, gone],
+					{ timeout: 5000 }
+				)
+				.catch(() => {});
+			expect((await page.locator(MEDIA_CARD).count()) > 0, 'the grid rendered no cards after Back');
 			expect((await page.locator(gone).count()) === 0, `Back still shows the trashed /media/${id}`);
 			expect(here(page) === list, `trashing landed on ${here(page)}, expected ${list}`);
 			const at = await page.evaluate(() => window.scrollY);
