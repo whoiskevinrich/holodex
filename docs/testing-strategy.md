@@ -4817,12 +4817,19 @@ snapshot stale. A read and a rejected write (400) do not. This pins the one hook
 **Browser (`back-after-write-refreshes-grid` in the §20.6 nav harness).** Media sorted by title,
 scroll 600, open a card, Move to Trash. The DELETE and the list answer are both stubbed in the
 browser, so the fixture is untouched. The list answer leaves the card out and backfills the page
-as the server would. Back must not show the card and must hold `scrollY` 600. The harness
-needs an owner-open backend: the `backend-stress-open-9600` + `web-9600` launch profiles.
+as the server would. Back must refetch the list, render cards, not show the trashed one, and hold
+`scrollY` 600. The harness needs an owner-open backend: the `backend-stress-open-9600` +
+`web-9600` launch profiles.
+
+The scenario waits for that refetch response before looking for the card. Waiting only for the
+card to be absent passed vacuously in the instant after Back, before the restored grid had
+rendered. The scenario then read the card a moment later and failed, depending on render timing
+(HOLODEX-574). The stubbed `route.fetch` looked hung only because the context closed under it.
 
 **Mutation pass, 2026-10-13.** Removing `markDataChanged()` from `checkRedirect` fails the
 `api.test.ts` write case. Disabling the grid's `if (cached.stale) revalidate(…)` fails the harness
-scenario ("Back still shows the trashed /media/1001"). The clean tree passes the harness 8/8.
+scenario ("Back restored the grid without refetching it after the trash"). The clean tree passes
+the harness 10/10.
 
 **Live QA, 2026-10-13 (`backend-stress`, Cinémathèque).**
 1. [agent] Media by title, two pages loaded, scrolled to card 71: Move to Trash → Back. The card is
@@ -4899,7 +4906,3 @@ passes that mutant by accident, since the stale type it reads is the previous `l
 **Accepted gap.** Every `enter` counts as a return, so ADR-118's re-auth redirects and
 deploy reloads keep restoring. Chrome copies sessionStorage into a tab opened from a link, so
 middle-clicking a list's header link restores that list's scroll slot in the new tab.
-
-**Known harness failure.** `back-after-write-refreshes-grid` (§27) fails on this machine with the
-same message on `main`'s frontend: its stubbed list request hangs in Playwright's `route.fetch`.
-That is unrelated to this change and tracked as HOLODEX-574.
