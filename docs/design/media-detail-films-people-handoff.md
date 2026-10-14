@@ -123,13 +123,11 @@ what makes a film chip the same height as a person chip.
 | Unnumbered scene | `—` | `bg-bg text-muted` | yes |
 | Full film (`is_full_film`) | `Full` | `bg-bg text-muted` | **no** |
 
-**The dim fill is `bg-bg`, not VideoCard's `bg-black/70`.** VideoCard's badge sits over a video
-thumbnail; this one sits over the light `bg-logo-plate` poster, and letting 30% of that plate
-bleed through drags `text-muted` to a measured **3.14** in Cinémathèque
-— an AA failure on 10px text. Opaque `bg-bg` restores it to **6.31**
-and costs nothing visually, since the translucency was never doing work over a poster.
-(`VideoCard` itself still uses `bg-black/70`; over a bright thumbnail it has the same latent
-problem, tracked separately — not changed here.)
+**The dim fill is opaque `bg-bg`, never a translucent `bg-black/70`.** This chip sits over the
+light `bg-logo-plate` poster, and letting 30% of that plate bleed through drags `text-muted` to a
+measured **3.14** in Cinémathèque — an AA failure on 10px text. Opaque `bg-bg` restores it to
+**6.31**. `VideoCard`'s dim scene badge takes the same fill (HOLODEX-330): over a bright thumbnail
+the translucent chip fell to ~2.7:1.
 
 *Full film is inert for everyone* — a full-film attachment has no scene number to edit, which is
 already the rule today (`{@const editable = isOwner && !f.is_full_film}`). It keeps a pill rather
