@@ -18,6 +18,10 @@ release_note: When no metadata provider is configured, the owner now sees a mute
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-14
+    at: 0415aad4
 ---
 
 # HOLODEX-88 · No metadata provider configured hint
@@ -57,11 +61,10 @@ hint on the person, studio, film and media pages, and an honest empty state on t
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Run /implement: owner signs off the mockup, Draft PR opens — `docs/design/no-provider-hint-mockup.svg`
-2. [ ] [frontend] Owner compares the built hint against the mockup, then settle frontend — `web/src/routes/`
-3. [ ] [frontend] Decide copy when providers exist but none serve this entity type (hint says "none configured") — `web/src/lib/components/enrichment/NoProviderHint.svelte`
-4. [ ] [—] Fold the four copies of the sources-loading effect into one helper — `web/src/routes/*/[id]/+page.svelte`
-5. [ ] [—] On merge: sweep HOLODEX-88 to Done by hand (child of epic HOLODEX-168)
+1. [ ] [frontend] Owner compares the built hint against the mockup, then settle frontend — `web/src/routes/`
+2. [ ] [frontend] Decide copy when providers exist but none serve this entity type (hint says "none configured") — `web/src/lib/components/enrichment/NoProviderHint.svelte`
+3. [ ] [—] Fold the four copies of the sources-loading effect into one helper — `web/src/routes/*/[id]/+page.svelte`
+4. [ ] [—] On merge: sweep HOLODEX-88 to Done by hand (child of epic HOLODEX-168)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -72,6 +75,10 @@ hint on the person, studio, film and media pages, and an honest empty state on t
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-14 · design sign-off, crossed into build
+- skills: implement
+- handoff: Crossed into build — design signed off at 0415aad4; draft PR open. Start at: owner compares the built hint against the mockup, then settle frontend.
 
 ### 2026-10-13 · mockups, owner choices, build
 - skills: code-review, handoff
