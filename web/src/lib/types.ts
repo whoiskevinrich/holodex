@@ -195,9 +195,10 @@ export interface PersonImage {
 
 // PersonImageSet is the person-detail image read model (F25): which core roles are
 // filled (with the `?v=` version) and the ordered gallery. Empty core roles are
-// simply absent from `roles`.
+// simply absent from `roles`. `locked` is the server's word that the owner set the
+// image (upload or promoted), so enrichment keeps it (F33, HOLODEX-43).
 export interface PersonImageSet {
-	roles: Record<string, { present: boolean; version: number }>;
+	roles: Record<string, { present: boolean; version: number; locked?: boolean }>;
 	gallery: PersonImage[];
 }
 

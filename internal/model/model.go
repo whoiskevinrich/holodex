@@ -220,9 +220,12 @@ type PersonImageSet struct {
 
 // PersonImageSlot is one filled core role: present=true with the version that
 // busts the cache. An absent role is simply missing from PersonImageSet.Roles.
+// Locked reports that the owner set this image (upload or promoted), so enrichment
+// keeps it (F33/ADR-049) — the same rule as LockedCoreRoles; the owner view marks it.
 type PersonImageSlot struct {
 	Present bool  `json:"present"`
 	Version int64 `json:"version"`
+	Locked  bool  `json:"locked"`
 }
 
 type Tag struct {

@@ -7,6 +7,7 @@ image pieces are reused by studio.
 | File | Purpose |
 |---|---|
 | `AliasPanel.svelte` | Owner-curated alternate names (drives search + scan routing); hosts the merge picker and the homonym-collision card. Entity-generic over `EntityKind` (person/studio/film/tag); rename lives on `entity/NameEditControl`. |
+| `CoreImageEditButton.svelte` | The owner's Edit overlay on a person's core image slot (banner/poster pill, compact headshot pencil). A `locked` slot (owner-set, so enrichment keeps it — the server's `roles[role].locked`) adds a muted lock and names it in `aria-label`/`title` via `coreEditLabel` (HOLODEX-43). Renders nothing for visitors. Pinned by `coreImageEditButton.test.ts` (SSR render). Studio's `entity/EntityImageSlot` is a separate control and is not covered. |
 | `NationalityFlags.svelte` | Renders a person's nationality flag(s) beside the hero name; renders nothing when none resolve. |
 | `PersonAvatar.svelte` | 1:1 headshot — thin wrapper over `PersonImageFrame` fixing the `headshot` role. |
 | `PersonBanner.svelte` | Wide 8:3 hero banner over `PersonImageFrame`, with a scroll-driven parallax shift. |

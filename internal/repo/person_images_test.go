@@ -284,6 +284,47 @@ func TestPersonImageSet(t *testing.T) {
 	}
 }
 
+// TestPersonImageSetLocked: a core slot is locked exactly when the owner set it —
+// upload or promoted — and an enrichment slot is not; an empty slot is absent
+// (HOLODEX-43, the same rule as LockedCoreRoles).
+func TestPersonImageSetLocked(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	for role, source := range map[string]string{
+		model.PersonImageHeadshot: model.PersonImageSourceUpload,
+		model.PersonImagePoster:   model.PersonImageSourcePromoted,
+		model.PersonImageBanner:   model.PersonImageSourceEnrichment,
+	} {
+		if _, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: role, Source: source, Width: 10, Height: 10, ByteSize: 1}); err != nil {
+			t.Fatalf("insert %s: %v", role, err)
+		}
+	}
+
+	set, err := r.PersonImageSet(ctx, pid)
+	if err != nil {
+		t.Fatalf("image set: %v", err)
+	}
+	for role, want := range map[string]bool{
+		model.PersonImageHeadshot: true,
+		model.PersonImagePoster:   true,
+		model.PersonImageBanner:   false,
+	} {
+		if got := set.Roles[role].Locked; got != want {
+			t.Errorf("%s locked = %v, want %v", role, got, want)
+		}
+	}
+
+	empty, err := r.PersonImageSet(ctx, seedPerson(t, r, "Bob"))
+	if err != nil {
+		t.Fatalf("empty image set: %v", err)
+	}
+	if slot, ok := empty.Roles[model.PersonImageHeadshot]; ok {
+		t.Errorf("empty headshot slot = %+v, want absent", slot)
+	}
+}
+
 func TestPersonImagesCascade(t *testing.T) {
 	r, database := newRepoDB(t)
 	ctx := context.Background()

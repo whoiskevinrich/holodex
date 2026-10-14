@@ -482,7 +482,9 @@ func (r *Repo) PersonImageSet(ctx context.Context, personID int64) (model.Person
 	}
 	for _, pi := range imgs {
 		if model.CorePersonImageRole(pi.Role) {
-			set.Roles[pi.Role] = model.PersonImageSlot{Present: true, Version: pi.Version}
+			// Locked mirrors LockedCoreRoles' source rule (F33/ADR-049).
+			locked := pi.Source == model.PersonImageSourceUpload || pi.Source == model.PersonImageSourcePromoted
+			set.Roles[pi.Role] = model.PersonImageSlot{Present: true, Version: pi.Version, Locked: locked}
 		} else {
 			set.Gallery = append(set.Gallery, pi)
 		}

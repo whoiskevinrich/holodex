@@ -35,6 +35,7 @@
 	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
 	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
 	import PersonBanner from '#lib/components/person/PersonBanner.svelte';
+	import CoreImageEditButton from '#lib/components/person/CoreImageEditButton.svelte';
 	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
 	import NationalityFlags from '#lib/components/person/NationalityFlags.svelte';
 	import PersonGallery from '#lib/components/person/PersonGallery.svelte';
@@ -419,11 +420,6 @@
 	}
 </script>
 
-<!-- Uniform owner "Edit" overlay for a core image slot (banner/headshot/poster) — one
-     shape, one label, one scrim across all three, positioned per call site. `compact`
-     swaps the text pill for an icon-only square — the headshot identity badge (64-80px)
-     is too small for the full "Edit" pill without the button covering a big chunk of the
-     image itself. -->
 {#snippet pencilIcon(sizeClass = 'h-3 w-3')}
 	<svg class={sizeClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 		<path
@@ -434,24 +430,17 @@
 	</svg>
 {/snippet}
 
+<!-- Owner Edit overlay for a core image slot; the lock marks one the owner set (HOLODEX-43). -->
 {#snippet editBtn(role: PersonImageRole, position: string, compact = false)}
-	{#if isOwner}
-		<button
-			onclick={() => pickCore(role)}
-			disabled={uploadBusy === role}
-			aria-label={`Replace ${role}`}
-			title={`Replace ${role}`}
-			class="absolute z-10 {position} flex items-center justify-center rounded-theme bg-bg/80 text-ink shadow-sm backdrop-blur-sm hover:text-accent disabled:opacity-60 {compact
-				? 'h-6 w-6'
-				: 'px-2.5 py-1.5 text-xs font-semibold'}"
-		>
-			{#if compact}
-				{@render pencilIcon()}
-			{:else}
-				{uploadBusy === role ? '…' : 'Edit'}
-			{/if}
-		</button>
-	{/if}
+	<CoreImageEditButton
+		{role}
+		{position}
+		{compact}
+		{isOwner}
+		locked={images.roles[role]?.locked ?? false}
+		busy={uploadBusy === role}
+		onclick={() => pickCore(role)}
+	/>
 {/snippet}
 
 <!-- Owner-only pencil after the header bio text (HOLODEX-303) — opens SourceEditModal, the
