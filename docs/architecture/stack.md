@@ -55,7 +55,7 @@ call on every new test, and it saves little: once Chromium is installed for any 
 has already paid for the download. **Rejected:** SSR `render()` alone. It never runs `onMount`
 or awaits a fetch, so it can't test anything that happens after first paint.
 
-Decided in: pending squash (HOLODEX-223).
+Decided in [`d3b92f4c`](https://github.com/whoiskevinrich/holodex/commit/d3b92f4c) (HOLODEX-223).
 
 ## SQLite (modernc) with WAL and FTS5
 
