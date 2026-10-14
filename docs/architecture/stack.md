@@ -1,7 +1,7 @@
 # Stack
 
 This doc owns the base technology choices every other part of Holodex sits on: the backend
-language, the SPA framework, the database engine and its migrations, the HTTP API style, the MCP
+language, the SPA framework and its component-test harness, the database engine and its migrations, the HTTP API style, the MCP
 transport, and the CSS design-token mechanism. How the pieces are packaged and shipped belongs to
 [deployment.md](deployment.md); configuration keys and their precedence belong to
 [config-and-settings.md](config-and-settings.md).
@@ -31,6 +31,31 @@ backend; no types are shared or generated across it.
 SPA doesn't need. **Rejected:** Solid.js — smaller component ecosystem.
 
 Decided in [`3561addf`](https://github.com/whoiskevinrich/holodex/commit/3561addf).
+
+## Frontend component tests in Vitest browser mode
+
+`web/` runs Vitest as two projects in `vite.config.ts`. **`client`** runs `src/**/*.svelte.test.ts`
+in headless Chromium through `@vitest/browser-playwright` and mounts components with
+`vitest-browser-svelte`. Each test gets the real Svelte client runtime and a real DOM, with layout,
+focus and events. **`server`** runs every other test file in Node: pure logic, the geometry
+harness's own `.mjs` tests, and markup checks that use `svelte/server`'s `render()`.
+
+A test goes by its filename. If it needs the component alive (mount effects, awaited fetches, a
+click, where focus lands), it is a `*.svelte.test.ts`. If a rendered string answers the question,
+it stays a `*.test.ts` in Node. Modules a page reaches outside itself, such as `#lib/api.ts`, the
+`activity` store and `$app/*`, are replaced with `vi.mock`. There is no backend in the loop. CI
+installs Chromium before `npm run test`.
+
+**Rejected:** jsdom with `@testing-library/svelte`. It needs no browser download, but jsdom has no
+layout and only approximates focus and `inert`. The SPA leans on exactly those for roving tabindex
+and for parking focus after a dismiss, so a passing jsdom test can disagree with the app. It also
+needs `resolve.conditions: ['browser']`, which changes how the Node tests resolve. **Rejected:** a
+jsdom-plus-browser hybrid. It means two DOM environments and two sets of mocks, plus a fidelity
+call on every new test, and it saves little: once Chromium is installed for any browser test, CI
+has already paid for the download. **Rejected:** SSR `render()` alone. It never runs `onMount`
+or awaits a fetch, so it can't test anything that happens after first paint.
+
+Decided in: pending squash (HOLODEX-223).
 
 ## SQLite (modernc) with WAL and FTS5
 

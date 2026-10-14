@@ -2,7 +2,8 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { playwright } from '@vitest/browser-playwright';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 // Dev proxy targets default to the standard backend ports (7800/7801). Override
 // with HOLODEX_API_PORT / HOLODEX_MCP_PORT when running multiple sessions side by
@@ -46,5 +47,34 @@ export default defineConfig({
 			'/api': `http://localhost:${apiPort}`,
 			'/mcp': `http://localhost:${mcpPort}`
 		}
+	},
+	// Two Vitest projects (HOLODEX-223, stack.md "Frontend component tests"): a test that
+	// needs the component alive — mount effects, awaited fetches, clicks, focus — is a
+	// `*.svelte.test.ts` and runs in headless Chromium; everything else (pure logic, SSR
+	// `render()` markup checks, the geometry .mjs tests) stays in Node.
+	test: {
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'client',
+					include: ['src/**/*.svelte.test.ts'],
+					browser: {
+						enabled: true,
+						provider: playwright(),
+						headless: true,
+						instances: [{ browser: 'chromium' }]
+					}
+				}
+			},
+			{
+				extends: true,
+				test: {
+					name: 'server',
+					environment: 'node',
+					exclude: [...configDefaults.exclude, 'src/**/*.svelte.test.ts']
+				}
+			}
+		]
 	}
 });
