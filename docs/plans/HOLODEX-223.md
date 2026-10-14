@@ -43,8 +43,8 @@ retroactive component coverage is out of scope.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-14 · component-test harness landed
-- skills: code-review, handoff
-- handoff: Harness and both invariant tests landed in 1b3efe0f (643 tests green, check + build clean); every gate settled — next is /implement to open the PR.
+- skills: code-review, handoff, implement
+- handoff: Crossed into build with no sign-off needed (design [~]); harness + invariant tests in 1b3efe0f, every gate settled, PR open and marked ready — next is merge, then pin stack.md's "Decided in".
 
 ## Dropped — newest first (the reason is the point)
 
