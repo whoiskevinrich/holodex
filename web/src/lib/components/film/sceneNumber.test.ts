@@ -26,8 +26,15 @@ describe('sceneBadgeLabel', () => {
 });
 
 describe('parseSceneNumberInput', () => {
-	it('treats a cleared field as "no scene number"', () => {
+	it('treats an untouched field as "no scene number"', () => {
 		expect(parseSceneNumberInput('')).toEqual({ value: null });
+	});
+
+	// HOLODEX-576: Svelte 5's bind:value on type="number" yields null once a field is
+	// cleared, and Number(null) is 0 -- which must not surface as a validation error.
+	it('treats a cleared field (null/undefined) as "no scene number"', () => {
+		expect(parseSceneNumberInput(null)).toEqual({ value: null });
+		expect(parseSceneNumberInput(undefined)).toEqual({ value: null });
 	});
 
 	it('accepts a positive whole number from either the string or number form', () => {
