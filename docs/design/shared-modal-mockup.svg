@@ -70,7 +70,7 @@
   <text x="24" y="500" fill="#f3ece1" font-size="16" font-weight="600">Ownership</text>
   <g font-size="12">
     <text x="24" y="526" fill="#f3ece1">Modal owns</text>
-    <text x="120" y="526" fill="#9b9082">backdrop bg-bg/70 (stacked /85) · panel rounded-theme border-rule bg-surface shadow-xl · max-h-[80vh] (media 85vh) · rise motion</text>
+    <text x="120" y="526" fill="#9b9082">backdrop bg-bg/70 (stacked /85) · panel surface, border, shadow-xl · max-h 80vh (media 85vh) · rise motion</text>
     <text x="120" y="544" fill="#9b9082">role=dialog · aria-modal · aria-labelledby · focus capture/return · Tab trap · Esc/backdrop (off while busy) · stack layer</text>
     <text x="24" y="572" fill="#f3ece1">Caller owns</text>
     <text x="120" y="572" fill="#9b9082">everything inside the panel: padding (p-4 or a header bar), title element, body, buttons, initial-focus target</text>
