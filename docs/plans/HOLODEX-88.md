@@ -43,7 +43,7 @@ hint on the person, studio, film and media pages, and an honest empty state on t
      /handoff writes [~] or [x]. -->
 
 - [x] design `design-handoff` → `docs/design/**`
-- [/] frontend → `web/src/**` — built and live-verified; held for the owner's build-vs-mockup comparison (§3d)
+- [x] frontend → `web/src/**` — built, live-verified; owner compared the build against the mockup and approved 2026-10-14
 - [~] testing `testing-strategy` — no new test surface: these route pages have no component tests; verified live against an empty-sources backend, QA checklist 3.4 rewritten — until: route pages gain a component-test harness
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -61,10 +61,9 @@ hint on the person, studio, film and media pages, and an honest empty state on t
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Owner compares the built hint against the mockup, then settle frontend — `web/src/routes/`
-2. [ ] [frontend] Decide copy when providers exist but none serve this entity type (hint says "none configured") — `web/src/lib/components/enrichment/NoProviderHint.svelte`
-3. [ ] [—] Fold the four copies of the sources-loading effect into one helper — `web/src/routes/*/[id]/+page.svelte`
-4. [ ] [—] On merge: sweep HOLODEX-88 to Done by hand (child of epic HOLODEX-168)
+1. [ ] [frontend] Decide copy when providers exist but none serve this entity type (hint says "none configured") — `web/src/lib/components/enrichment/NoProviderHint.svelte`
+2. [ ] [—] Fold the four copies of the sources-loading effect into one helper — `web/src/routes/*/[id]/+page.svelte`
+3. [ ] [—] On merge: sweep HOLODEX-88 to Done by hand (child of epic HOLODEX-168)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -77,8 +76,8 @@ hint on the person, studio, film and media pages, and an honest empty state on t
 -->
 
 ### 2026-10-14 · design sign-off, crossed into build
-- skills: implement
-- handoff: Crossed into build — design signed off at 0415aad4; draft PR open. Start at: owner compares the built hint against the mockup, then settle frontend.
+- skills: implement, handoff
+- handoff: All gates settled; owner approved the build against the mockup and PR #515 is marked ready — next is merge, then sweep HOLODEX-88 to Done by hand.
 
 ### 2026-10-13 · mockups, owner choices, build
 - skills: code-review, handoff
