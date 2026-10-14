@@ -36,6 +36,7 @@
 	import ExpandableText from '#lib/components/shared/ExpandableText.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
 	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
 	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
 	import WritebackFormDialog from '#lib/components/writeback/WritebackFormDialog.svelte';
@@ -158,6 +159,9 @@
 	// (HOLODEX-119, F47 RD7). enrichRefreshingAll is Refresh-all's own busy flag (F47
 	// RD8, distinct from the unrelated file-refresh `refreshing` below).
 	let sources = $state<EnrichSource[]>([]);
+	// Set once /enrich/sources answers, so an empty list means "none configured" rather
+	// than "not loaded yet" or "the fetch failed" (HOLODEX-88).
+	let sourcesLoaded = $state(false);
 	let pickerProvider = $state('');
 	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
 	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
@@ -1362,10 +1366,13 @@
 
 	// Load providers once the client is confirmed owner.
 	$effect(() => {
-		if (isOwner && sources.length === 0) {
+		if (isOwner && !sourcesLoaded) {
 			api
 				.enrichSources()
-				.then((res) => (sources = res.sources ?? []))
+				.then((res) => {
+					sources = res.sources ?? [];
+					sourcesLoaded = true;
+				})
 				.catch(() => {});
 		}
 	});
@@ -2229,19 +2236,23 @@
 										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg>
 										{extracting ? 'Extracting…' : 'Extract from filename'}
 									</button>
-									<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
-									     Enrich), Clear in a ⋯ overflow once matched. -->
-									<EnrichProviderChips
-										providers={videoProviders}
-										linked={(p) => enrichedByProvider.has(p)}
-										busy={enrichBusy}
-										refreshingAll={enrichRefreshingAll}
-										size="xs"
-										onenrich={openPicker}
-										onrefresh={refreshProvider}
-										onclear={clearProvider}
-										onrefreshall={refreshAllProviders}
-									/>
+									{#if videoProviders.length}
+										<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
+										     Enrich), Clear in a ⋯ overflow once matched. -->
+										<EnrichProviderChips
+											providers={videoProviders}
+											linked={(p) => enrichedByProvider.has(p)}
+											busy={enrichBusy}
+											refreshingAll={enrichRefreshingAll}
+											size="xs"
+											onenrich={openPicker}
+											onrefresh={refreshProvider}
+											onclear={clearProvider}
+											onrefreshall={refreshAllProviders}
+										/>
+									{:else if sourcesLoaded}
+										<NoProviderHint />
+									{/if}
 								{/if}
 								{#if canWriteback}
 									<!-- Writeback badges (ADR-091, HOLODEX-323, spec R2.3): sit beside the write

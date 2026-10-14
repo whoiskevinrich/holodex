@@ -138,7 +138,7 @@ Use a compact form of `ProvenanceBadge` — a `·tmdb` / `·tmdb+file` / `·manu
 - **International text** — values may be RTL/CJK; chips are content-sized, no fixed width; rely on logical properties / default flow.
 - **Many values** — chip wrap has no cap; if a field routinely exceeds ~12, consider a "+N more" expander (defer unless QA shows overflow).
 - **Image fields** — no chip controls; writeback of cover art stays in the batch dialog under the ADR-039 asset-host allowlist.
-- **No provider configured** — no "Enrich" button; file + manual chips still fully curatable and writable.
+- **No provider configured** — no "Enrich" button (the owner sees the muted "No metadata provider configured" hint, see [metadata-enrichment-handoff.md](metadata-enrichment-handoff.md#edge-cases)); file + manual chips still fully curatable and writable.
 - **Non-owner** — chips render read-only (no ✎/✕/toggle/Add/Write); identical information to today.
 - **Duplicate add** — adding a value equal (normalized) to an existing one is a no-op with a brief inline hint ("already present"); never creates a second chip.
 - **Container with no tag mapping** (e.g. `.avi`) — the field is shown/curatable in-app, but the write dialog flags that field as **"can't write to this container"** (per-field, not a whole-batch failure — spec F30.4i) rather than hiding it.

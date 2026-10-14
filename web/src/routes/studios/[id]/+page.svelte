@@ -34,6 +34,7 @@
 	import CompletenessPanel from '#lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
 	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
 	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
 	import UrlValueList from '#lib/components/curation/UrlValueList.svelte';
@@ -84,6 +85,9 @@
 	// currently being cleared or refreshed (F47 RD7). Action errors render inline, never
 	// via the page `error`. refreshingAll is Refresh-all's own busy flag (F47 RD8).
 	let sources = $state<EnrichSource[]>([]);
+	// Set once /enrich/sources answers, so an empty list means "none configured" rather
+	// than "not loaded yet" or "the fetch failed" (HOLODEX-88).
+	let sourcesLoaded = $state(false);
 	let pickerProvider = $state('');
 	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
 	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
@@ -182,10 +186,13 @@
 
 	// Load providers once the client is confirmed owner (the layout polls caps).
 	$effect(() => {
-		if (isOwner && sources.length === 0) {
+		if (isOwner && !sourcesLoaded) {
 			api
 				.enrichSources()
-				.then((res) => (sources = res.sources ?? []))
+				.then((res) => {
+					sources = res.sources ?? [];
+					sourcesLoaded = true;
+				})
 				.catch(() => {});
 		}
 	});
@@ -466,7 +473,7 @@
 				</section>
 			{/if}
 
-			{#if hasDetails || (isOwner && studioProviders.length)}
+			{#if hasDetails || (isOwner && sourcesLoaded)}
 				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
@@ -483,6 +490,8 @@
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
 							/>
+						{:else if isOwner && sourcesLoaded}
+							<NoProviderHint />
 						{:else if !isOwner && soleProvider}
 							<!-- Visitor: one section-level provenance note when every field shares a
 							     single provider, instead of an identical badge per row. -->

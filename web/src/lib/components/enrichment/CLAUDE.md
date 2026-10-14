@@ -8,6 +8,7 @@ provenance/brand-icon system, and the enrichment review queue row.
 | `EnrichPicker.svelte` | Modal listbox of provider candidates the owner searches and confirms (roving-tabindex combobox/listbox). |
 | `EnrichProviderChips.svelte` | Owner enrich controls as one compact chip per provider (icon + name + primary action + overflow menu). Shared by person/media/studio detail pages. |
 | `EnrichQueueRow.svelte` | One row in the Enrichment review queue — a status chip per outstanding provider plus one derived row action ("Review" / "Try again"). |
+| `NoProviderHint.svelte` | The owner's muted plain-text "No metadata provider configured" hint, rendered in the Enrich chip slot when no provider serves the entity (HOLODEX-88). |
 | `ProvenanceBadge.svelte` | Labels where a resolved field value came from — a provider's brand icon, or a muted "from file" pill. |
 | `ProviderIcon.svelte` | Provider brand glyph: the self-hosted icon when cached, else a themed monogram fallback. |
 | `ProviderLinkBadge.svelte` | One outbound provider-link pill (HOLODEX-266, ADR-083 D2/D3) per external id — a clickable `<a>` when the provider declared a link template (or stored a `_source_url`, ADR-098), else a non-interactive "known to" `<span>`. Person/studio mount it through `EntityVideoMeta`; film and media mount it directly on their year / meta line (F63 DD4/DD5). A video's list is the resolved `external_provider_id` **plus** the provider match on its enrichment rows (HOLODEX-424, DD6) — never an identity row. |
