@@ -6,6 +6,10 @@ status: in-progress
 profile: feature             # new owner-visible indicator + an additive API field
 depends-on: []
 release_note:
+approved:
+  design:
+    on: 2026-10-14
+    at: 07017d71
 ---
 
 # HOLODEX-43 · Owner-view provenance badge on core images
@@ -33,5 +37,9 @@ epic HOLODEX-13 (People).
 4. [ ] [—] On merge: sweep HOLODEX-43 to Done by hand if CI doesn't (child of epic HOLODEX-13)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-14 · spec + design, sign-off, crossed into build
+- skills: implement
+- handoff: Crossed into build — design signed off at 07017d71. Start at the backend `locked` field.
 
 ## Dropped — newest first (the reason is the point)
