@@ -24,7 +24,7 @@ The plan below is the target. What actually exists today:
 **Deferred from the plan (known gaps, not silent):**
 - The full **golden-fixture corpus** (`testdata/gen.sh` + `*.golden.json`) and `//go:build integration` tests that exercise *real* `exiftool`/`ffprobe`/`mkvpropedit` — the mapping logic is currently unit-tested against captured JSON instead. MKV target-level selection (HOLODEX-536) is covered: unit tests build EBML in memory (`matroska_test.go`: levels, UID binding, Cluster skipping, unknown-size and truncated files, every selection rule), and `matroska_integration_test.go` runs real exiftool on a synthesized file, asserting both that exiftool alone picks the wrong title and that `Extract` picks the right one.
 - **Cache** tests — the in-process backend is deferred (ADR-022), so only Noop passthrough applies.
-- Frontend **Vitest** component tests and the **Playwright E2E** suite — covered manually for Phase 1; to be automated.
+- Frontend **Vitest** component tests — the harness exists (HOLODEX-223, browser mode, see §5 and [stack.md](architecture/stack.md#frontend-component-tests-in-vitest-browser-mode)); coverage grows per change, not retroactively. The **Playwright E2E** suite is still manual.
 - **Perf** (50k dataset, p95 budget) and **a11y/axe** automation — WCAG AA contrast was verified by computation across all three skins (F8.3), not yet wired into CI.
 
 ---
@@ -361,7 +361,8 @@ assert.JSONEq(t, string(want), string(got))
 
 | Area | Type | Tooling | Cover |
 |------|------|---------|-------|
-| Components (VideoCard, FilterBar, ResolutionBadge, RawTagPanel) | Component | Vitest + @testing-library/svelte | Props/state, empty/loading/error states |
+| Components (VideoCard, FilterBar, ResolutionBadge, RawTagPanel) | Component | Vitest browser mode (`*.svelte.test.ts`) | Props/state, empty/loading/error states |
+| **Component-test harness** (HOLODEX-223, [stack.md](architecture/stack.md#frontend-component-tests-in-vitest-browser-mode)) | Component | Vitest browser mode | **Where a test goes:** a test that needs the component alive (mount effects, awaited fetches, clicks, focus) is a `*.svelte.test.ts` and runs in the `client` project (headless Chromium, `vitest-browser-svelte`). Everything else, including SSR `render()` markup checks like `coreImageEditButton.test.ts`, stays a `*.test.ts` in the Node `server` project. Out-of-component modules (`#lib/api.ts`, the `activity` store, `$app/*`) are replaced with `vi.mock`, so there's no backend in the loop. **First users** (`web/src/routes/owner/status/page.svelte.test.ts`) are HOLODEX-203's two invariants. (1) **The digest paints while activity is pending** (HOLODEX-205): with `activity.loading` held true and `data` null, "No jobs recorded yet." renders next to "Loading activity…". (2) **The digest is the default view** (HOLODEX-210): Summary is `aria-selected`, the digest is fetched once and the history not at all, and clicking Log fetches it once. Both were mutation-tested on the way in: gating the job section on `a` fails both tests, and defaulting `jobMode` to `'log'` fails (2). | Both HOLODEX-203 invariants |
 | Filter→URL sync (F4.7) | Interaction | Vitest | Applying filters updates URL; loading URL restores state |
 | Global search palette (F4.10) | Interaction | Vitest | Debounce; grouped results; keyboard select |
 | Virtual scroll grid (F3.1) | Interaction/perf | Vitest + Playwright | 1k items no thrash; 60fps scroll (manual/trace) |
@@ -514,7 +515,7 @@ A seeded fixture library mounted as `MEDIA_PATH`; assert end-to-end:
 Conventions:
 - Go: standard `testing`, table-driven, `testify/require` for assertions, golden files with `-update`.
 - Integration tests gated by build tag `//go:build integration` (or `-short` skip) so the inner loop stays binary-free.
-- Frontend: Vitest (jsdom) for unit/component; Playwright for browser.
+- Frontend: Vitest in two projects — `server` (Node) for unit tests and SSR markup checks, `client` (Vitest browser mode, headless Chromium) for `*.svelte.test.ts` component tests; CI runs `npx playwright install --with-deps chromium` first. Playwright directly for the geometry harness (§12) and E2E.
 - **Automation scripts** (`scripts/**`): `node:test` + `node:assert/strict`, no dependencies. I/O is
   injected (`exec`) so the logic is testable without a registry or a Jira. `scripts/resolve-release-digest.mjs`
   decides which image digest gets published as a release (ADR-070), so its **negative** cases are the

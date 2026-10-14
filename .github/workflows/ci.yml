@@ -66,6 +66,10 @@ jobs:
       - name: Type-check
         run: npm run check
 
+      # The `client` Vitest project runs *.svelte.test.ts in headless Chromium (HOLODEX-223).
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Unit tests
         run: npm run test -- --passWithNoTests   # drop the flag once Vitest specs exist
 
