@@ -73,7 +73,7 @@
 
 - [x] 3.18 **Loading**: with the **slow** stub (`preview_start enrich-stub-slow`, `DELAY_MS=1500`), the picker shows "Searching {provider}…" until results arrive. *(Instant on the fast stub — needs the delay stub to be visible.)*
 - [x] 3.19 **Empty / pre-search**: "Type at least two characters to search." help text; no spurious call.
-- [x] 3.20 **Error — provider unreachable**: page survives, picker stays open, error in the **`text-warn`** `aria-live` region. ⚠ message is the raw `"API …/resolve failed: 502"` rather than the friendly "{provider} is unavailable right now." *(gap — TASKS.)*
+- [x] 3.20 **Error — provider unreachable**: page survives, picker stays open, error in the **`text-warn`** `aria-live` region reads "{provider} is unavailable right now." — a 502/504 on `/resolve` or `/enrich` never surfaces the raw status line or the server's generic "provider lookup failed"; a rate-limited 503 keeps its own "try again in N s" line (HOLODEX-87, `providerErrorLine`). *(Run a stress backend with no sidecar: every declared provider is unreachable.)*
 - [x] 3.21 **Slow connection**: with `enrich-stub-slow` (or DevTools Slow-3G) every `/resolve`/`/enrich` shows its loading state, the page stays responsive, and nothing auto-polls in the background.
 
 **Accessibility**
