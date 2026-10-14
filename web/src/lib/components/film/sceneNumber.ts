@@ -1,14 +1,15 @@
-// Shared scene-number field validation (HOLODEX-326): FilmAttachDialog's attach step
-// and EditSceneNumberDialog's edit form both take one nullable positive-integer field
-// with identical rules -- one place to keep them in sync.
+// Shared scene-number field validation (HOLODEX-326): FilmAttachDialog's attach step,
+// FilmBulkAttachDialog's starting number and EditSceneNumberDialog's edit form all take
+// one nullable positive-integer field with identical rules -- one place to keep them in sync.
 
-// bind:value on <input type="number"> coerces to a Number (or '' when cleared), so a
-// caller's $state field is effectively `number | ''` at runtime even though svelte-check
-// infers a wider `string | number` -- never call .trim() on it.
+// bind:value on <input type="number"> coerces to a Number, or to null once the field is
+// cleared (HOLODEX-576); a $state('') default stays '' until the field is first edited.
+// So a caller's field is `number | null | ''` at runtime even though svelte-check infers
+// a wider `string | number` -- never call .trim() on it, and treat all three blanks alike.
 export function parseSceneNumberInput(
-	value: string | number
+	value: string | number | null | undefined
 ): { value: number | null } | { error: string } {
-	if (value === '') return { value: null };
+	if (value === '' || value == null) return { value: null };
 	const n = Number(value);
 	if (!Number.isInteger(n) || n <= 0) {
 		return { error: 'Scene number must be a positive whole number, or left blank.' };
