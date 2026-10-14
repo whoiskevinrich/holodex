@@ -87,7 +87,8 @@ toolbar, no distinguishing context (WCAG 2.4.6 / 4.1.2).
 
 ### States
 
-- **No providers configured** — no status summary, no popover. `Sync` remains (file re-extract is
+- **No providers configured** — no status summary, no popover; the owner sees the muted "No metadata
+  provider configured" hint instead ([metadata-enrichment-handoff.md](metadata-enrichment-handoff.md#edge-cases)). `Sync` remains (file re-extract is
   still meaningful) and keeps its label.
 - **All providers matched** — summary reads `{n} sources linked`; popover rows show last-sync
   relative time and a `⋯` (Re-match / Refresh / Clear).

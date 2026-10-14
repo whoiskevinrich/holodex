@@ -21,6 +21,9 @@
 	let rows = $state<QueueRow[]>([]);
 	let loading = $state(true);
 	let error = $state('');
+	// HOLODEX-88: an empty queue with no provider configured isn't "all done" — say why.
+	// Only a successful empty /enrich/sources sets it; a failed fetch keeps the old copy.
+	let noProviders = $state(false);
 
 	const groupLabel: Record<EnrichEntityKind, string> = {
 		person: 'People',
@@ -67,7 +70,12 @@
 		loading = true;
 		error = '';
 		try {
-			rows = (await api.enrichQueue()).rows ?? [];
+			const [queue, sources] = await Promise.all([
+				api.enrichQueue(),
+				api.enrichSources().catch(() => null)
+			]);
+			rows = queue.rows ?? [];
+			noProviders = sources !== null && (sources.sources ?? []).length === 0;
 		} catch (e) {
 			error = toMessage(e);
 		} finally {
@@ -97,6 +105,10 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if error}
 		<p class="py-16 text-center text-sm text-warn" role="alert">{error}</p>
+	{:else if groups.length === 0 && noProviders}
+		<p class="py-16 text-center text-sm text-muted">
+			No metadata provider configured.<br />Add one to metadata-sources.yaml to start enriching.
+		</p>
 	{:else if groups.length === 0}
 		<p class="py-16 text-center text-sm text-muted">Nothing left to review.</p>
 	{:else}

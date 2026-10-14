@@ -134,7 +134,9 @@ Optionally append the percentage in `text-muted text-xs tabular-nums`. The point
 
 ## Edge Cases
 
-- **No provider configured / provider disabled:** Enrich button absent; if the owner expects it, a muted hint "No metadata source configured" (links to docs). Don't error.
+- **No provider configured / provider disabled:** Enrich chips absent. For the owner only, a plain-text muted hint (`text-xs text-muted`, no link) "No metadata provider configured" sits in the chip slot — the Details panel header on person / studio / film pages, the action row beside *Extract from filename* on the media page. The Details panel renders for the owner even with no resolved fields so the hint has a home; visitors see nothing. The enrichment queue (`/owner/enrichment`) replaces its "Nothing left to review." empty state with "No metadata provider configured. Add one to metadata-sources.yaml to start enriching." Don't error. Mockup (HOLODEX-88):
+
+  ![No metadata provider configured hint](no-provider-hint-mockup.svg)
 - **Provider unreachable (`/healthz` down or `/resolve` fails):** picker shows a `border-warn` inline message "TMDB is unavailable right now." — single failure, not a page break. Mirrors `/status` provider-health.
 - **Empty search results:** "No matches for '{query}'." (muted) + keep the input focused to retype.
 - **No embedded ID + ambiguous name:** the normal path — that's exactly what the picker is for. (For People, this is the *dominant* path; embedded-ID auto-match is rare until Series/Video generalization.)

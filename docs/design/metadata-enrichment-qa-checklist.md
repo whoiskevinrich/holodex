@@ -48,7 +48,7 @@
 - [x] 3.1 **Owner** (open, or token + unlocked): "Enrich from {provider}" button renders (solid accent CTA, top-right of the person panel) (F22.5a).
 - [x] 3.2 **Non-owner** (token set, none entered): button **absent from the DOM** — not hidden (F22.9a; a11y tree clean).
 - [x] 3.3 **Needs-token**: locked state shows the `/status`-style unlock form; after the correct token the button appears.
-- [x] 3.4 ⚠ **No provider configured**: button is correctly **absent**, but the handoff's muted "No metadata source configured" hint **isn't rendered**. *(gap — TASKS.)*
+- [ ] 3.4 **No provider configured**: Enrich chips **absent**; the owner sees the muted plain-text "No metadata provider configured" hint in the Details panel header (person / studio / film), beside *Extract from filename* (media), and as the enrichment queue's empty state. A visitor sees none of it. *(HOLODEX-88)*
 
 **Picker flow**
 

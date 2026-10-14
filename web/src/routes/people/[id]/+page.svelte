@@ -32,6 +32,7 @@
 	import EntityVideoMeta from '#lib/components/entity/EntityVideoMeta.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
 	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
 	import AliasPanel from '#lib/components/person/AliasPanel.svelte';
 	import PersonBanner from '#lib/components/person/PersonBanner.svelte';
 	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
@@ -87,6 +88,9 @@
 	// provider name currently being cleared or refreshed (HOLODEX-119, F47 RD7);
 	// refreshingAll is Refresh-all's own busy flag (F47 RD8 — it isn't one provider).
 	let sources = $state<EnrichSource[]>([]);
+	// Set once /enrich/sources answers, so an empty list means "none configured" rather
+	// than "not loaded yet" or "the fetch failed" (HOLODEX-88).
+	let sourcesLoaded = $state(false);
 	let pickerProvider = $state('');
 	// pickerRematch: the open picker is a ⋯ "Re-match…" — RD1 auto-apply is off so the
 	// owner always sees the list (HOLODEX-418); false for a first match / Refresh-all.
@@ -262,10 +266,13 @@
 
 	// Load providers once the client is confirmed owner (the layout polls caps).
 	$effect(() => {
-		if (isOwner && sources.length === 0) {
+		if (isOwner && !sourcesLoaded) {
 			api
 				.enrichSources()
-				.then((res) => (sources = res.sources ?? []))
+				.then((res) => {
+					sources = res.sources ?? [];
+					sourcesLoaded = true;
+				})
 				.catch(() => {});
 		}
 	});
@@ -682,7 +689,7 @@
 		     above, one list, since F58 (ADR-088).
 			     Deliberate absences vs. the media page: no Write button, no out-of-sync pill
 			     (a person has no file), and the Name row RENAMES (RD1) instead of pinning. -->
-			{#if resolved.length || (isOwner && personProviders.length)}
+			{#if resolved.length || (isOwner && sourcesLoaded)}
 				<section class="rounded-theme border border-rule bg-surface p-4">
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">
@@ -728,6 +735,8 @@
 								onclear={clearProvider}
 								onrefreshall={refreshAll}
 							/>
+						{:else if isOwner && sourcesLoaded}
+							<NoProviderHint />
 						{/if}
 					</div>
 
