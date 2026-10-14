@@ -264,6 +264,7 @@ its own. No migration, no new config — the rule reads off the existing `source
 | ID | Requirement | Acceptance criteria |
 |----|-------------|---------------------|
 | F25.31 | **Manual core images are never overwritten by enrichment.** A core slot whose current image has `source` `upload` or `promoted` is **locked**: an enrich/re-enrich skips the provider asset for that role (before fetching it) and does not seed a poster over a locked poster. An empty or `enrichment`-sourced slot is **not** locked — it still fills/refreshes. To let a provider image replace a manual one, the owner deletes theirs first. The lock lookup **fails open** (a query error locks nothing rather than blocking enrichment). Gallery `extra` is append-only and unaffected. | Upload a headshot (source=upload), then enrich a person whose provider returns a headshot + banner + gallery image, with the headshot owner-set → the headshot is kept, banner/gallery flow. Promote a gallery image to poster, then re-enrich → poster kept. An `enrichment` headshot is replaced on re-enrich (refresh). With only a portrait returned and the poster owner-set, the headshot seed does **not** overwrite the poster. |
+| F25.35 | **The owner can see which core images are locked** (HOLODEX-43). On the person page, the owner's Edit control for a locked headshot, banner or poster carries a lock, and its accessible name says so ("Replace poster (yours — kept on re-enrich)"). An enrichment-sourced slot shows today's control, unchanged. Visitors see no difference. Whether a slot is locked is decided by the server, by the same rule as F25.31. Gallery images are not marked. | Upload a headshot → as owner its Edit control shows the lock and the accessible name above; the banner (from enrichment) shows plain "Edit" / "Replace banner". Promote a gallery image to poster → the poster's control gains the lock. Signed out, no Edit control or lock appears on any slot. |
 
 **Data/architecture (ADR-049).** New read `repo.LockedCoreRoles(personID)` returns the
 core roles with `source IN ('upload','promoted')` (one indexed query). Exposed to the
@@ -274,10 +275,9 @@ skipped when poster is locked. The owner upload/promote write paths are unchange
 must replace a core slot) — the precedence lives only in the enrichment orchestration.
 
 **Frontend.** No UI required for correctness (the protection is automatic, server-side).
-Deferred follow-up: an owner-view provenance badge ("Yours" / "from {provider}") on the
-core-image controls so the lock is legible — reuses the existing `ProvenanceBadge`
-vocabulary; and an explicit per-slot pin to also freeze a *provider* image (ADR-049
-"Alternatives").
+The owner-view indicator that makes the lock legible is **done** — F25.35 (HOLODEX-43): a lock
+in each locked slot's Edit control; enrichment slots carry no provider mark. Still deferred: an
+explicit per-slot pin to also freeze a *provider* image (ADR-049 "Alternatives").
 
 ---
 

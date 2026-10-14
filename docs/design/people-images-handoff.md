@@ -89,11 +89,29 @@ No new tokens. Flourishes attach to `.portrait-frame` in `app.css`, mirroring `.
 | Any frame | Ready | Real image, `object-fit: cover`; URL is version-stamped (`?v=`) + `immutable` cached |
 | Any frame | Error (img 404/decoded fail) | Silently falls back to placeholder; **never** a broken-image glyph |
 | Core slot (owner) | Hover | Edit/replace + delete affordances fade in over the frame; `--accent` ring |
+| Core slot (owner) | Locked (you set it: upload or promoted) | A lock icon joins the Edit control — see [Core-slot lock](#core-slot-lock-owner-view-holodex-43) |
 | Upload | In progress | Control disabled + spinner; optimistic frame swap on success |
 | Upload | Rejected (type/size/decode) | Inline `text-warn` words (not color-only); nothing written; control re-enabled |
 | Gallery (owner) | At the cap (default 20, `PERSON_GALLERY_MAX`; advertised via `/capabilities`) | "Add" tile disabled; an **informational** (not error) note — neutral tokens `text-muted`/`border-rule`/`bg-surface-2`, **never `text-warn`** — reading "Gallery full — {max} of {max}." A full gallery is a *status*, not a failure of the action just taken (the F25.8 fix). The note carries an **"Add anyway"** button that issues an over-cap upload (`allow_over_cap`); the server enforces both the cap and the override. (ADR-043) |
 | Gallery item (owner) | Reorder | Keyboard ←/→ buttons (in the hover/focus overlay) move an item one step; persists `sort_order` (no drag) |
 | Promote (owner) | Crop | Modal crop editor on a **copy**: drag to pan, **slider or mouse-wheel** to zoom, **rule-of-thirds guide** (fixed to the frame). Save renders the framed crop to a canvas at the target ratio (WYSIWYG) and uploads it as the core role; gallery original untouched |
+
+### Core-slot lock (owner view, HOLODEX-43)
+
+![Core-slot lock mockup](core-image-lock-mockup.svg)
+
+A core slot the owner set by hand is kept when the person is re-enriched. The lock makes that
+visible, folded into the slot's existing owner Edit control — no separate corner badge, no hover
+caption.
+
+- **Locked slot** (headshot, banner or poster you uploaded or promoted): the text Edit pill shows a
+  lock icon (`h-3 w-3`, `text-muted`) before "Edit". The headshot's compact 24px pencil button puts
+  the same lock beside the pencil; it stays 24px tall.
+- **Enrichment-sourced or empty slot**: today's control, unchanged. No provider icon.
+- **Visitors**: no change — the Edit control is owner-only.
+- **Gallery**: out of scope; gallery images are never locked.
+- Icon style matches the page's pencil (outline, stroke 2, `currentColor`). Tokens only: `text-muted`,
+  `bg-bg/80`, `rounded-theme`.
 
 ## Responsive behavior
 
@@ -140,7 +158,9 @@ resolved server-side; a `?skin=` left on an old cached URL is ignored). Placehol
   traps focus and returns it to the trigger on close.
 - **ARIA/roles**: images are `<img>` with meaningful `alt` (person name; placeholders "No photo of …").
   Gallery is a list; owner action buttons are real `<button>`s with `aria-label` (e.g. "Set as headshot",
-  "Delete image", "Reorder"). Reuse the `EnrichPicker` **roving-tabindex** pattern for any list-select.
+  "Delete image", "Reorder"). A locked core slot's Edit control names the lock in both `aria-label`
+  and `title` — "Replace poster (yours — kept on re-enrich)"; an unlocked slot stays "Replace poster".
+  The lock icon itself is `aria-hidden`. Reuse the `EnrichPicker` **roving-tabindex** pattern for any list-select.
 - **Keyboard**: upload control is keyboard-openable; gallery reorder offers a keyboard alternative
   (move-up/move-down buttons, not drag-only); crop editor zoom/pan operable by keyboard.
 - **Contrast**: placeholder glyph `--muted` on `--surface-2` must hit ≥3:1 (a11y review).

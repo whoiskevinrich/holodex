@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="760" height="420" font-family="Archivo, Arial, sans-serif">
+  <!-- HOLODEX-43 · owner-view lock on core image slots (Option B, "folded into Edit"), Cinémathèque.
+       Real sizes: Edit pill = text-xs (12px) semibold, px-2.5 py-1.5; compact headshot button = h-6 (24px);
+       lock + pencil icons = h-3 w-3 (12px), heroicons-outline stroke 2. -->
+  <defs>
+    <symbol id="lock" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    </symbol>
+    <symbol id="pencil" viewBox="0 0 24 24">
+      <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </symbol>
+  </defs>
+  <rect width="760" height="420" fill="#0c0a09"/>
+  <text x="24" y="32" fill="#f3ece1" font-size="15" font-weight="600">Core image slots — owner view (HOLODEX-43, Option B)</text>
+  <text x="24" y="52" fill="#9b9082" font-size="12">A lock in the Edit control marks a slot you set (upload / promoted). Enrichment-sourced slots are unchanged.</text>
+
+  <!-- Banner, locked -->
+  <rect x="24" y="72" width="712" height="150" rx="2" fill="#181310"/>
+  <text x="40" y="96" fill="#9b9082" font-size="11">banner · source: upload</text>
+  <g transform="translate(652,80)">
+    <rect width="76" height="28" rx="2" fill="#0c0a09" fill-opacity="0.8"/>
+    <use href="#lock" x="10" y="8" width="12" height="12" color="#9b9082"/>
+    <text x="26" y="18.5" fill="#f3ece1" font-size="12" font-weight="600">Edit</text>
+  </g>
+  <text x="560" y="128" fill="#9b9082" font-size="10">aria-label / title:</text>
+  <text x="560" y="142" fill="#f3ece1" font-size="10">"Replace banner (yours — kept on re-enrich)"</text>
+
+  <!-- Poster-led avatar, locked poster -->
+  <rect x="40" y="160" width="112" height="168" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="48" y="320" fill="#9b9082" font-size="10">poster · promoted</text>
+  <g transform="translate(76,164)">
+    <rect width="72" height="28" rx="2" fill="#0c0a09" fill-opacity="0.8"/>
+    <use href="#lock" x="10" y="8" width="12" height="12" color="#9b9082"/>
+    <text x="26" y="18.5" fill="#f3ece1" font-size="12" font-weight="600">Edit</text>
+  </g>
+
+  <!-- Headshot badge, compact locked: lock beside the pencil, still 24px tall -->
+  <rect x="28" y="276" width="76" height="76" rx="2" fill="#0c0a09"/>
+  <rect x="30" y="278" width="72" height="72" rx="2" fill="#181310" stroke="#2a2622"/>
+  <text x="36" y="296" fill="#9b9082" font-size="9">headshot</text>
+  <text x="36" y="308" fill="#9b9082" font-size="9">upload</text>
+  <g transform="translate(66,334)">
+    <rect width="40" height="24" rx="2" fill="#0c0a09" fill-opacity="0.8"/>
+    <use href="#lock" x="6" y="6" width="12" height="12" color="#9b9082"/>
+    <use href="#pencil" x="21" y="6" width="12" height="12" color="#f3ece1"/>
+  </g>
+  <text x="170" y="250" fill="#f3ece1" font-size="22" font-family="Fraunces, Georgia, serif">Person Name</text>
+  <text x="170" y="272" fill="#9b9082" font-size="12">compact headshot button: lock beside the pencil, 24px tall</text>
+
+  <!-- Comparison column: enrichment and visitor -->
+  <line x1="24" y1="372" x2="736" y2="372" stroke="#2a2622"/>
+  <text x="24" y="394" fill="#9b9082" font-size="11">Enrichment slot (owner):</text>
+  <g transform="translate(160,380)">
+    <rect width="48" height="28" rx="2" fill="#181310" stroke="#2a2622"/>
+    <text x="11" y="18.5" fill="#f3ece1" font-size="12" font-weight="600">Edit</text>
+  </g>
+  <g transform="translate(216,382)">
+    <rect width="24" height="24" rx="2" fill="#181310" stroke="#2a2622"/>
+    <use href="#pencil" x="6" y="6" width="12" height="12" color="#f3ece1"/>
+  </g>
+  <text x="250" y="394" fill="#9b9082" font-size="11">today's control, unchanged — "Replace poster"</text>
+  <text x="520" y="394" fill="#9b9082" font-size="11">Visitor: no control at all</text>
+</svg>
