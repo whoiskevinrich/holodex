@@ -5,6 +5,10 @@ key: HOLODEX-215
 status: in-progress
 profile: ui                  # design-system refactor; no product rule changes
 depends-on: []
+approved:
+  design:
+    on: 2026-10-14
+    at: 6e6ee5d8
 release_note: Every dialog now opens in one of two consistent positions and four widths, Escape closes only the topmost dialog, and dialogs that had no Escape now get one.
 ---
 
@@ -26,16 +30,15 @@ already wraps seven pickers, and `HotkeySheet` and `WritebackBatchDialog` were a
 
 ## Up next — ordered (position = priority)
 
-1. [ ] `/implement` — open the Draft PR
-2. [ ] Build `shared/Modal.svelte` and correct the selector in `lib/focusTrap.ts`
-3. [ ] Migrate the 11 call sites; remove PersonGallery's Escape routing
-4. [ ] Add Modal component tests and a testing-strategy entry
-5. [ ] Live QA in Cinémathèque: every dialog, Gallery → Viewer stack, busy states
+1. [ ] Build `shared/Modal.svelte` and correct the selector in `lib/focusTrap.ts`
+2. [ ] Migrate the 11 call sites; remove PersonGallery's Escape routing
+3. [ ] Add Modal component tests and a testing-strategy entry
+4. [ ] Live QA in Cinémathèque: every dialog, Gallery → Viewer stack, busy states
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-14 · session
-- skills: design-handoff
-- handoff: The design is approved and committed (handoff and SVG). Next: `/implement`, then build Modal and migrate the 11 dialogs.
+- skills: design-handoff, implement
+- handoff: Crossed into build — design signed off at 6e6ee5d8; draft PR open. Start at: Build `shared/Modal.svelte`.
 
 ## Dropped — newest first (the reason is the point)
