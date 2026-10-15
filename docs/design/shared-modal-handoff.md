@@ -115,11 +115,14 @@ rejected because it let the gallery show through the Viewer's surround.
 - **Close.** On teardown, focus returns to the opener, unless `returnFocus` is false or the opener
   has left the DOM.
 - **Focusable set.** One selector everywhere:
-  `button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])`, excluding disabled
-  and hidden elements. If nothing is focusable, Tab is swallowed and focus stays on the panel.
-- **Escape inside a field that handles it.** A control that calls `stopPropagation` on its own
-  Escape (SourceChipRow's custom input) keeps that Escape. Modal listens on the window in the
-  bubble phase, so a stopped event never reaches it.
+  `button, input, select, textarea, summary, a[href], [tabindex]`, excluding `tabindex="-1"`
+  (roving rows), disabled, and hidden elements. `summary` keeps a `<details>` group reachable by
+  keyboard. If nothing is focusable, Tab is swallowed and focus stays on the panel.
+- **Escape inside a field that handles it.** A control that claims its own Escape keeps it, and
+  the dialog stays open. There are two ways to claim it: `stopPropagation` (SourceChipRow's custom
+  input) or `preventDefault` (the HOLODEX-249 rule). Modal listens on `document` in the bubble
+  phase. That is after any handler inside the panel and before any page's window-level listener,
+  so a page's own Escape (such as browse's "clear filters") never fires under an open dialog.
 - **Hotkey suppression.** `routes/+layout.svelte` and `lib/reauth.svelte.ts` detect a dialog by
   looking for `[role="dialog"]`. Those checks keep working unchanged. HotkeySheet keeps its
   `data-hotkey-sheet` exemption by passing the attribute through to the panel.
