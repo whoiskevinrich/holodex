@@ -12,7 +12,7 @@ The UI is built on semantic design tokens with **one look, Cinémathèque** (see
 [`docs/architecture/stack.md`](../../docs/architecture/stack.md) for the token mechanism). Broadcast, Brutalist, the custom
 palette and the Appearance tab are **retired**. Don't QA, mock up, propose or extend another skin,
 palette or theme switch, and don't present a theme choice as a design option. Tokens stay
-mandatory anyway: one source per colour keeps a look change to a one-file edit. Two rules are
+mandatory anyway: one source per colour keeps a look change to a one-file edit. These rules are
 load-bearing:
 
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
