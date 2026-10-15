@@ -1,13 +1,15 @@
 <script lang="ts">
 	// Full-page image viewer modal (HOLODEX-174), opened by clicking/Entering any
-	// gallery thumbnail (inline row or grid modal). Darker backdrop than the grid
-	// modal so it reads "on top" when stacked. Prev/next with no wraparound, a
-	// position counter, and a fit-to-modal image that never upscales past native
-	// resolution. Escape/arrow keys are handled by the parent (PersonGallery), not
-	// this component — see PersonGalleryModal.svelte for why. Tokens only; QA Cinémathèque.
+	// gallery thumbnail (inline row or grid modal). Modal (shared/Modal.svelte) owns the
+	// shell, focus trap/return and Escape; its stack gives the darker stacked backdrop
+	// when this opens over the grid modal, so it reads "on top". Prev/next with no
+	// wraparound, a position counter, and a fit-to-modal image that never upscales past
+	// native resolution. The arrow keys are handled by the parent (PersonGallery), not
+	// this component. Tokens only; QA Cinémathèque.
 	import { onMount, tick } from 'svelte';
 	import { api } from '#lib/api.ts';
 	import type { PersonImage } from '#lib/types.ts';
+	import Modal from '#lib/components/shared/Modal.svelte';
 
 	let {
 		personId,
@@ -25,18 +27,14 @@
 		onnavigate: (i: number) => void;
 	} = $props();
 
-	let dialogEl = $state<HTMLElement | null>(null);
 	let closeBtn = $state<HTMLButtonElement | null>(null);
 	let imgEl = $state<HTMLImageElement | null>(null);
 	let loaded = $state(false);
-	let trigger: HTMLElement | null = null;
 
 	const current = $derived(items[index]);
 
 	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null; // the thumbnail that opened this
 		closeBtn?.focus();
-		return () => trigger?.focus?.();
 	});
 
 	// A fresh image swaps in on navigate; reset the loaded flag so the stable-size
@@ -51,43 +49,16 @@
 		});
 	});
 
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('button')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (f.length === 0) return;
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-
 	function src(img: PersonImage): string {
 		return api.personGalleryImageURL(personId, img.id, { version: img.version });
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-[60] flex items-center justify-center bg-bg/85 px-4 py-[6vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) onclose();
-	}}
->
+<Modal titleId="viewer-title" {onclose} size="media" align="center">
+	<!-- basis-[85vh] + min-h-0 stands in for the former panel's h-full: the viewer fills
+	     Modal's max-h-[85vh] panel and shrinks to fit it (border included). -->
 	<div
-		bind:this={dialogEl}
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="viewer-pop relative flex h-full max-h-[85vh] w-full max-w-4xl flex-col items-center justify-center rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="viewer-title"
+		class="relative flex min-h-0 basis-[85vh] flex-col items-center justify-center p-4"
 	>
 		<h2 id="viewer-title" class="sr-only">{name} — gallery image {index + 1}</h2>
 
@@ -147,22 +118,4 @@
 
 		<p class="mt-2 text-sm text-muted" aria-live="polite">{index + 1} / {items.length}</p>
 	</div>
-</div>
-
-<style>
-	@media (prefers-reduced-motion: no-preference) {
-		.viewer-pop {
-			animation: viewer-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-		}
-	}
-	@keyframes viewer-rise {
-		from {
-			opacity: 0;
-			transform: scale(0.98);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-</style>
+</Modal>

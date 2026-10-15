@@ -4910,3 +4910,25 @@ passes that mutant by accident, since the stale type it reads is the previous `l
 **Accepted gap.** Every `enter` counts as a return, so ADR-118's re-auth redirects and
 deploy reloads keep restoring. Chrome copies sessionStorage into a tab opened from a link, so
 middle-clicking a list's header link restores that list's scroll slot in the new tab.
+
+## 30. One shared Modal (HOLODEX-215)
+
+Eleven dialogs render on `shared/Modal.svelte` ([handoff](design/shared-modal-handoff.md)).
+Modal owns their shell, focus handling, and dismissal. A bug there now reaches every dialog at
+once, so the contract is pinned in one place, against a fixture rather than eleven copies.
+
+**Browser (`web/src/lib/components/shared/Modal.svelte.test.ts`, fixture
+`__fixtures__/ModalStack.svelte`).**
+
+1. Opening focuses the first focusable control, and closing returns focus to the opener.
+2. Tab and Shift+Tab cycle inside the panel and skip disabled and `tabindex="-1"` controls.
+3. While `busy`, neither Escape nor a backdrop click closes the modal. An Escape that a control
+   has already claimed with `preventDefault` (the HOLODEX-249 rule) doesn't close it either.
+4. A click inside the panel never closes it. A click on the backdrop does.
+5. With modal B opened from modal A, B sits at `z-[60]` with the `/85` backdrop. One Escape closes
+   only B and returns focus to A's opener button. The next Escape closes A. Neither Escape reaches
+   a page's window-level listener; only a third Escape, with no modal open, does.
+
+**Per-dialog behaviour stays where it was.** Each dialog's own initial-focus target and busy
+source are covered by live QA, not by a test per dialog. Those choices are the one thing a call
+site still decides.

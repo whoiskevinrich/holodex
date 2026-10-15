@@ -2,8 +2,10 @@
 	// Disambiguation picker (F22.5b): a modal listbox of provider candidates the
 	// owner searches and confirms. role=combobox + role=listbox with roving
 	// tabindex — Tab and ↑/↓ move focus through the results, Enter/Space/click
-	// apply, Esc closes, focus is trapped + returned. Tokens only; QA Cinémathèque.
+	// apply. Modal (shared/Modal.svelte) owns the shell — Esc, focus trap + return.
+	// Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
+	import Modal from '#lib/components/shared/Modal.svelte';
 	import { toMessage, isHttpUrl, monogram } from '#lib/format.ts';
 	import { moreLabel, searchedCaption } from '#lib/searchedCaption.ts';
 	import { collisionOpen, detailLabel, hasDetail } from '#lib/candidateDetail.ts';
@@ -90,7 +92,6 @@
 	let error = $state('');
 	let input = $state<HTMLInputElement | null>(null);
 	let dialogEl = $state<HTMLElement | null>(null);
-	let trigger: HTMLElement | null = null;
 
 	const listId = 'enrich-candidates';
 	const searchedListId = 'enrich-searched';
@@ -99,7 +100,7 @@
 	const caption = $derived(searchedCaption(searched, { loading, error, query }));
 
 	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null; // the Enrich button
+		// The search box, not Modal's first focusable (the ✕ button).
 		input?.focus();
 		input?.select();
 		// Auto-search the pre-filled name on open so a confident match shows
@@ -109,28 +110,7 @@
 		// search the owner typed themselves always waits for a manual pick — and
 		// only when the caller allows it (`autoApply`, off for a re-match).
 		if (query.trim().length >= 2) void search(query.trim(), autoApply);
-		// Focus-return: send focus back to the Enrich button when the picker closes.
-		return () => trigger?.focus?.();
 	});
-
-	// Trap Tab within the dialog so it can't escape to the page behind. Tab stops:
-	// the search box, the active result row (roving tabindex=0), and the ✕ button.
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (f.length === 0) return;
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
 
 	// Debounced provider search; below 2 chars we don't call.
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -240,7 +220,7 @@
 	}
 
 	// Keys while the search box is focused: Enter applies the active match, ↓ moves
-	// focus down into the results list. (Escape is handled by the window listener.)
+	// focus down into the results list. (Escape is handled by Modal.)
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'ArrowDown' && candidates.length) {
 			e.preventDefault();
@@ -291,23 +271,8 @@
 	}
 </script>
 
-<!-- Backdrop: token color + opacity; click closes. -->
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) onclose();
-	}}
->
-	<div
-		bind:this={dialogEl}
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="enrich-pop flex max-h-[80vh] w-full max-w-lg flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="enrich-title"
-	>
+<Modal titleId="enrich-title" {onclose} size="md" bind:panel={dialogEl}>
+	<div class="flex min-h-0 flex-1 flex-col p-4">
 		<div class="mb-3 flex items-start justify-between gap-3">
 			<h2 id="enrich-title" class="skin-title text-lg font-semibold text-ink">
 				Enrich from {provider}
@@ -533,24 +498,4 @@
 			<p class="mt-2 text-xs text-muted">Enriching…</p>
 		{/if}
 	</div>
-</div>
-
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
-
-<style>
-	@media (prefers-reduced-motion: no-preference) {
-		.enrich-pop {
-			animation: enrich-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-		}
-	}
-	@keyframes enrich-rise {
-		from {
-			opacity: 0;
-			transform: scale(0.98);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-</style>
+</Modal>

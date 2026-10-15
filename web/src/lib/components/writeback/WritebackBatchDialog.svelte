@@ -2,11 +2,12 @@
 	// N-video writeback progress dialog (HOLODEX-239, ADR-077 D2/D3). Sibling of
 	// WritebackFormDialog, not a mode of it: there is no per-video field list here,
 	// only an aggregate pending/running/done/failed count from a shared batchID, so
-	// the body is a confirm step + a progress bar rather than N editable rows. Chrome
-	// (backdrop, focus trap, Escape-to-close) is copied from that dialog's existing
-	// pattern. Tokens only; QA Cinémathèque.
+	// the body is a confirm step + a progress bar rather than N editable rows. Modal
+	// (shared/Modal.svelte) owns the shell; Escape/backdrop are ignored while starting.
+	// Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { toMessage } from '#lib/format.ts';
+	import Modal from '#lib/components/shared/Modal.svelte';
 	import { waitForWritebackBatch, type BatchStatus } from '#lib/writebackJob.ts';
 
 	let {
@@ -53,12 +54,9 @@
 	let status = $state<BatchStatus>({ pending: 0, running: 0, done: 0, failed: 0 });
 	let errorMsg = $state('');
 
-	let dialogEl = $state<HTMLElement | null>(null);
-	let dialogTrigger: HTMLElement | null = null;
 	let unmounted = false; // stops an in-flight poll if the dialog goes away
 
 	onMount(() => {
-		dialogTrigger = document.activeElement as HTMLElement | null;
 		if (initialBatch) {
 			if (!initialBatch.batch_id) {
 				// Defensive: a caller-side bug producing an empty batch_id would
@@ -69,37 +67,10 @@
 				void watch(initialBatch.batch_id);
 			}
 		}
-		const first = [
-			...(dialogEl?.querySelectorAll<HTMLElement>('button:not(:disabled)') ?? [])
-		].find((el) => el.offsetParent !== null);
-		first?.focus();
 		return () => {
 			unmounted = true;
-			dialogTrigger?.focus?.();
 		};
 	});
-
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const focusable = [...dialogEl.querySelectorAll<HTMLElement>('button, [tabindex="0"]')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (focusable.length === 0) return;
-		const first = focusable[0];
-		const last = focusable[focusable.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-
-	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && phase !== 'starting') onclose();
-		trapTab(e);
-	}
 
 	async function start() {
 		phase = 'starting';
@@ -150,21 +121,8 @@
 	const progressPct = $derived(enqueued > 0 ? Math.round((progressed / enqueued) * 100) : 0);
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[20vh]"
-	onclick={(e) => {
-		if (e.target === e.currentTarget && phase !== 'starting') onclose();
-	}}
->
-	<div
-		bind:this={dialogEl}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="writeback-batch-title"
-		tabindex="-1"
-		onkeydown={onKeydown}
-		class="w-full max-w-md overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
-	>
+<Modal titleId="writeback-batch-title" {onclose} size="sm" busy={phase === 'starting'}>
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		<div class="flex items-center justify-between border-b border-rule px-4 py-3">
 			<h2 id="writeback-batch-title" class="text-sm font-semibold text-ink">Sync writeback</h2>
 			<button
@@ -238,4 +196,4 @@
 			{/if}
 		</div>
 	</div>
-</div>
+</Modal>

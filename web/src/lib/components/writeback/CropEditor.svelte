@@ -4,11 +4,13 @@
 	// Saving is WYSIWYG: the framed crop is rendered to a canvas at the target ratio
 	// (replicating the preview's object-fit:contain + translate/scale transform) and
 	// uploaded as the core-role image — so what you frame is exactly what's stored, no
-	// server-side crop geometry needed. The gallery original is untouched.
+	// server-side crop geometry needed. The gallery original is untouched. Modal
+	// (shared/Modal.svelte) owns the shell.
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
 	import { cropAffine, cropTargetSize, CORE_ROLE_ASPECT } from '#lib/cropGeometry.ts';
 	import type { CoreRole, PersonImage } from '#lib/types.ts';
+	import Modal from '#lib/components/shared/Modal.svelte';
 
 	let {
 		personId,
@@ -47,10 +49,8 @@
 	let startY = 0;
 	let busy = $state(false);
 	let error = $state('');
-	let dialogEl = $state<HTMLElement | null>(null);
 	let frameEl = $state<HTMLElement | null>(null);
 	let imgEl = $state<HTMLImageElement | null>(null);
-	let trigger: HTMLElement | null = null;
 
 	const transform = $derived(
 		`translate(${offsetX}px, ${offsetY}px) scale(${zoom})`
@@ -151,48 +151,10 @@
 			busy = false;
 		}
 	}
-
-	// Focus management: trap Tab inside the modal, return focus to the trigger.
-	function onMount(node: HTMLElement) {
-		trigger = document.activeElement as HTMLElement | null;
-		node.querySelector<HTMLElement>('button, input')?.focus();
-		return { destroy: () => trigger?.focus?.() };
-	}
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('input, button')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (f.length === 0) return;
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[8vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget && !busy) onclose();
-	}}
->
-	<div
-		bind:this={dialogEl}
-		use:onMount
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="flex w-full max-w-md flex-col gap-3 rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="crop-title"
-	>
+<Modal titleId="crop-title" {onclose} size="sm" {busy}>
+	<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
 		<div class="flex items-start justify-between gap-3">
 			<h2 id="crop-title" class="skin-title text-lg font-semibold text-ink">
 				Set as {roleLabel[role]}
@@ -267,6 +229,4 @@
 			</button>
 		</div>
 	</div>
-</div>
-
-<svelte:window onkeydown={(e) => e.key === 'Escape' && !busy && onclose()} />
+</Modal>

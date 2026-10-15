@@ -18,10 +18,13 @@
 	// (file arrow / system cylinder / nothing). The write itself is fire-and-forget
 	// (ADR-091): this dialog is a pre-flight confirm step that closes the instant the
 	// write is *enqueued*, not once it lands — outcome (pending/failed) is a page-level
-	// signal near the Metadata section, not this dialog's job to poll or display. Focus
-	// is trapped + returned; Escape closes when idle (or once the single enqueue round
-	// trip finishes). Tokens only; QA Cinémathèque. Design: docs/design/writeback-cockpit-handoff.md.
+	// signal near the Metadata section, not this dialog's job to poll or display. Modal
+	// (shared/Modal.svelte) owns the shell: focus trap + return, and Escape/backdrop closing
+	// when idle (`busy` during the single enqueue round trip). Tokens only; QA Cinémathèque.
+	// Design: docs/design/writeback-cockpit-handoff.md.
 	import { onMount } from 'svelte';
+	import Modal from '#lib/components/shared/Modal.svelte';
+	import { firstFocusable } from '#lib/focusTrap.ts';
 	import { toMessage, providerFromWinningSource } from '#lib/format.ts';
 	import {
 		fileCandidateValue,
@@ -223,54 +226,20 @@
 	// this is the one failure mode the dialog itself must still surface. Cleared on retry.
 	let enqueueError = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
-	let trigger: HTMLElement | null = null;
-
-	// Focusable descendants for the trap and the initial focus. Roving-tabindex chips render
-	// as <button tabindex="-1"> (CurationChip radio mode) — they must not become Tab stops, so
-	// anything at tabIndex -1 is excluded here, not just disabled/hidden elements (handoff §6).
-	function focusables(): HTMLElement[] {
-		return [
-			...(dialogEl?.querySelectorAll<HTMLElement>('input, textarea, button, [tabindex="0"]') ?? [])
-		].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.tabIndex !== -1 && el.offsetParent !== null
-		);
-	}
 
 	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null;
 		// Focus the first control of the first row (the decided rows lead; with none, the first
 		// undecided row — every chooser is mounted, HOLODEX-434): the checked chip of a chip
 		// row, or a radio/textarea of a stacked list. With no rows at all, fall back to the
 		// dialog itself (tabindex="-1").
-		const first =
-			focusables().find((el) => el.closest('[data-wb-rows]') !== null) ?? dialogEl;
+		// Roving-tabindex chips (<button tabindex="-1">) are skipped by firstFocusable (handoff §6).
+		const rows = [...(dialogEl?.querySelectorAll<HTMLElement>('[data-wb-rows]') ?? [])];
+		const first = rows.map((r) => firstFocusable(r)).find(Boolean) ?? dialogEl;
 		first?.focus();
-		return () => {
-			trigger?.focus?.();
-		};
 	});
 
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const focusable = focusables();
-		if (focusable.length === 0) return;
-		const first = focusable[0];
-		const last = focusable[focusable.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-
-	function onKeydown(e: KeyboardEvent) {
-		// An open Custom chip input stops Escape's propagation itself (SourceChipRow), so a
-		// keystroke that reaches here always means "close the dialog".
-		if (e.key === 'Escape' && !busy) onclose();
-		trapTab(e);
-	}
+	// Escape is Modal's (document, bubble phase), so an open Custom chip input's own
+	// stopPropagation (SourceChipRow) still wins.
 
 	// HOLODEX-273/400: the checkbox + staged pick is this dialog's commit action (its
 	// equivalent of the Tier-2 badge's explicit Confirm), so submit() records the decision
@@ -331,24 +300,8 @@
 	}
 </script>
 
-<!-- Backdrop + centering wrapper. aria-hidden must NOT be here — the dialog
-     inside is focusable. aria-modal="true" on the dialog signals to screen
-     readers that content outside it is inert. -->
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-	onclick={(e) => { if (e.target === e.currentTarget && !busy) onclose(); }}
->
-
-<!-- Dialog -->
-<div
-	bind:this={dialogEl}
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="writeback-title"
-	tabindex="-1"
-	onkeydown={onKeydown}
-	class="w-full max-w-3xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
->
+<Modal titleId="writeback-title" {onclose} size="lg" {busy} bind:panel={dialogEl}>
+<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 	<div class="flex items-center justify-between border-b border-rule px-4 py-3">
 		<h2 id="writeback-title" class="text-sm font-semibold text-ink">Write metadata to file</h2>
 		<button
@@ -427,7 +380,7 @@
 		</div>
 	</div>
 </div>
-</div>
+</Modal>
 
 <!-- The chooser for a cockpit row: the chip row for short fields, stacked full-width rows for
      long_text and for any candidate a chip would truncate (stacksCandidates; the page's own
