@@ -20,8 +20,8 @@ What the old ADR carried that does **not** come back here:
   `TagAddInput` (HOLODEX-519, `docs/design/media-tag-input-handoff.md`), a text combobox. The old
   branch's `TagPicker.svelte` and handoff are obsolete.
 - **Decision 1, a pointer bullet in `.claude/rules/frontend-theming.md`**: agent tooling, which
-  `docs/reference/doc-types.md` keeps out of architecture. Owner's call whether to add it as a
-  separate `chore(flightplan)` change.
+  `docs/reference/doc-types.md` keeps out of architecture. It landed as its own
+  `chore(flightplan)` commit on this branch, linking to the `stack.md` section.
 
 **Design package:** none (no UX change)
 
@@ -35,6 +35,10 @@ Posture `chore`: no gates. The architecture section is the whole deliverable.
 2. [ ] Move HOLODEX-287 to Done by hand after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-15 · session (2)
+- skills: —
+- handoff: Added the "reuse before you create a component" bullet to frontend-theming.md as a chore commit, pointing at the components CLAUDE.md files and the stack.md section. Next: merge #521, pin the squash sha.
 
 ### 2026-10-15 · session
 - skills: code-review
