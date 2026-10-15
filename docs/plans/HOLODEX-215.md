@@ -8,8 +8,8 @@ depends-on: []
 approved:
   design:
     on: 2026-10-14
-    at: 6e6ee5d8
-release_note: Every dialog now opens in one of two consistent positions and four widths, Escape closes only the topmost dialog, and dialogs that had no Escape now get one.
+    at: faf89657       # re-confirmed 2026-10-14 after the build's focus/Escape doc delta
+release_note: Dialogs now open in consistent positions and widths, and Escape closes only the topmost dialog. It no longer also closes the one beneath or clears the page's filters.
 ---
 
 # HOLODEX-215 · Consolidate hand-rolled modals into one shared Modal primitive
@@ -25,20 +25,17 @@ already wraps seven pickers, and `HotkeySheet` and `WritebackBatchDialog` were a
 ## Gates — definition of done
 
 - [x] design `design-handoff` → `docs/design/**` — two positions, four widths, stack-aware Escape and layer, Modal owns the surface; the owner approved all four plus the stacked `/85` backdrop on 2026-10-14
-- [ ] frontend → `web/src/**` — `shared/Modal.svelte` + 11 call sites migrated; `rg 'trapTab' web/src --glob '*.svelte'` hits only Modal
-- [ ] testing `testing-strategy` — browser-mode `Modal.svelte.test.ts` (trap, return, busy, stack); HOLODEX-215 entry in `docs/testing-strategy.md`
+- [x] frontend → `web/src/**` — `shared/Modal.svelte` + 11 call sites migrated; no hand-rolled shell or trap is left (FilterPanel, a sheet the handoff puts out of scope, keeps the shared `focusTrap.ts`); live QA in Cinémathèque on the stress fixture, and the owner confirmed the build matches the mockup
+- [x] testing `testing-strategy` — browser-mode `Modal.svelte.test.ts` (6 tests: focus/return, trap, busy, claimed Escape, backdrop, stack); 7/7 mutants killed; §30 in `docs/testing-strategy.md`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Build `shared/Modal.svelte` and correct the selector in `lib/focusTrap.ts`
-2. [ ] Migrate the 11 call sites; remove PersonGallery's Escape routing
-3. [ ] Add Modal component tests and a testing-strategy entry
-4. [ ] Live QA in Cinémathèque: every dialog, Gallery → Viewer stack, busy states
+1. [ ] [—] Merge PR #519 and confirm CI moves HOLODEX-215 to Done
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-14 · session
-- skills: design-handoff, implement
-- handoff: Crossed into build — design signed off at 6e6ee5d8; draft PR open. Start at: Build `shared/Modal.svelte`.
+- skills: design-handoff, implement, code-review (high --fix), handoff
+- handoff: Modal built and all 11 dialogs migrated, live-QA'd, review fixes in, and the sign-off re-confirmed at faf89657. PR #519 is marked ready. Next: merge it. ExtractionPreview, WritebackBatch and EntityPickerDialog were type-checked but not opened live, since the fixture has no rows for them.
 
 ## Dropped — newest first (the reason is the point)
