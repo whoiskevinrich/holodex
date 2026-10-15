@@ -31,10 +31,14 @@ Posture `chore`: no gates. The architecture section is the whole deliverable.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] Open the PR, squash-merge, then pin `Decided in` in `stack.md` to the squash sha
-2. [ ] Move HOLODEX-287 to Done by hand after merge
+1. [x] Open the PR, squash-merge (#521 → `5e1da30c`), then pin `Decided in` in `stack.md` to the squash sha
+2. [ ] Confirm HOLODEX-287 reached Done after merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-15 · session (3)
+- skills: —
+- handoff: Merged #521 as 5e1da30c and pinned stack.md's Decided-in line to it. Next: confirm HOLODEX-287 is Done.
 
 ### 2026-10-15 · session (2)
 - skills: —
