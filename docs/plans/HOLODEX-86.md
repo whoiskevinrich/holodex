@@ -5,6 +5,10 @@ key: HOLODEX-86
 status: in-progress
 profile: ui                  # feedback line on existing enrich actions; no product rule changes
 depends-on: []
+approved:
+  design:
+    on: 2026-10-14
+    at: 9438ab05
 release_note: After you enrich a video, person, studio or film from a metadata provider, the page now says which provider it came from and how many fields it filled in, for a few seconds.
 ---
 
@@ -22,21 +26,19 @@ the per-provider Refresh, and Refresh all.
 
 ## Gates — definition of done
 
-- [/] design `design-handoff` → `docs/design/**` — handoff edited in place (toast → inline line) + SVG; owner chose option A in chat, sign-off on the committed artifact pending
+- [x] design `design-handoff` → `docs/design/**` — handoff edited in place (toast → inline line) + `enrich-success-line-mockup.svg`; owner signed off at 9438ab05 and confirmed the build matches
 - [x] frontend → `web/src/**` — `StatusLine` + `enrichedLine`/`refreshAllLine`; wired on media/person/studio/film; live-verified on `/people/9050`
 - [x] testing `testing-strategy` — `statusLine.test.ts`, new `api.test.ts` cases; HOLODEX-86 entry in `docs/testing-strategy.md`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Owner signs off the committed handoff + SVG; `/implement` records it and opens the PR
-2. [ ] [—] Live-check the collapsed Refresh-all wording (pane stopped drawing before it could be seen)
-3. [ ] [—] Merge; sweep HOLODEX-86 to Done by hand (a child of HOLODEX-168 — CI moves only the branch's own key, which this is, but confirm)
+1. [ ] [—] Merge the PR and confirm CI moves HOLODEX-86 to Done (the branch carries its own key)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-14 · session
-- skills: code-review (high --fix)
-- handoff: Inline enrich success line built on all four detail pages and live-verified for picker, auto-apply and Refresh; next the owner signs off the committed handoff and SVG, then `/implement` opens the PR.
+- skills: code-review (high --fix), handoff, implement
+- handoff: Crossed into build — design signed off at 9438ab05, build confirmed against the mockup, all gates settled; the PR is ready for review. Next: merge and confirm CI moves HOLODEX-86 to Done.
 
 ## Dropped — newest first (the reason is the point)
 
