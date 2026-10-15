@@ -83,7 +83,7 @@ and a verdict flow only one caller uses. **Rejected:** a separate component cata
 inventory doc or a showcase route. The per-folder tables already describe each file next to the
 file itself, and a second copy would drift from them.
 
-Decided in: pending squash (HOLODEX-287).
+Decided in [`5e1da30c`](https://github.com/whoiskevinrich/holodex/commit/5e1da30c) (HOLODEX-287).
 
 ## SQLite (modernc) with WAL and FTS5
 
