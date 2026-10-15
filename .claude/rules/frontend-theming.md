@@ -12,7 +12,7 @@ The UI is built on semantic design tokens with **one look, Cinémathèque** (see
 [`docs/architecture/stack.md`](../../docs/architecture/stack.md) for the token mechanism). Broadcast, Brutalist, the custom
 palette and the Appearance tab are **retired**. Don't QA, mock up, propose or extend another skin,
 palette or theme switch, and don't present a theme choice as a design option. Tokens stay
-mandatory anyway: one source per colour keeps a look change to a one-file edit. Two rules are
+mandatory anyway: one source per colour keeps a look change to a one-file edit. These rules are
 load-bearing:
 
 - **Tokens only — never hardcode styling.** Components must use the semantic Tailwind
@@ -55,6 +55,13 @@ load-bearing:
   That holds in a dense row too. The film page's `+ Set edition` scene-row link (HOLODEX-491) takes
   the full size, and in a row too narrow for it, it wraps beneath the title like the value it stands
   in for. A ghost tile's label uses the CTA's verb ("Add film", not "Attach film").
+- **Reuse before you create a component.** Before adding a component, or hand-rolling one inside a
+  route, read `web/src/lib/components/CLAUDE.md` (which folder it belongs in) and that folder's own
+  `CLAUDE.md` (what already exists there, and each file's siblings). Extend a match through props and
+  snippets. Add a sibling only when the data shape or the commit path differs, and compose it from
+  the shared chrome rather than copying markup. The pattern and its rejected alternatives are in
+  [`docs/architecture/stack.md`](../../docs/architecture/stack.md) ("Frontend components"). Add the
+  new file's row to the folder's `CLAUDE.md` table in the same change.
 - **QA Cinémathèque — and only Cinémathèque.** When verifying any UI change, render and eyeball
   **Cinémathèque**. Check that the accent reads on its background, that decorative elements don't
   collide, that fonts load offline, and that the loading/empty/error/grid states are all themed.

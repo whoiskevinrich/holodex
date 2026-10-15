@@ -1,7 +1,7 @@
 # Stack
 
 This doc owns the base technology choices every other part of Holodex sits on: the backend
-language, the SPA framework and its component-test harness, the database engine and its migrations, the HTTP API style, the MCP
+language, the SPA framework, its component-composition pattern and its component-test harness, the database engine and its migrations, the HTTP API style, the MCP
 transport, and the CSS design-token mechanism. How the pieces are packaged and shipped belongs to
 [deployment.md](deployment.md); configuration keys and their precedence belong to
 [config-and-settings.md](config-and-settings.md).
@@ -56,6 +56,34 @@ has already paid for the download. **Rejected:** SSR `render()` alone. It never 
 or awaits a fetch, so it can't test anything that happens after first paint.
 
 Decided in [`d3b92f4c`](https://github.com/whoiskevinrich/holodex/commit/d3b92f4c) (HOLODEX-223).
+
+## Frontend components: one sibling per data shape, over shared chrome
+
+Two editing widgets that look alike but commit differently stay separate components. They share
+their chrome; they are not one component configured by entity kind. The relationship editors on
+the media page are the model. `StudioPicker` writes a single decided field through the
+source-decision endpoint and runs the collision verdict. `PersonPicker` writes a multi-valued
+curation list in which every link carries a role. What the two have in common is extracted, not
+copied: `shared/Modal.svelte` owns the dialog mechanics, `entity/PickerShell` the header and close,
+and `entity/AttachedChip` an attached entity with its detach. Tags differ in shape again: they are
+added through a text input (`TagAddInput`), not a dialog, so they share none of that chrome. A look
+change lands once, and each commit path reads top to bottom in one file.
+
+- **Extend before you add.** Svelte has no inheritance, so props and snippets are the extension
+  point. A new widget extends an existing component when its data shape and commit path match one,
+  and becomes a new sibling only when one of them differs.
+- **Shared pieces go in the narrowest folder that holds every caller,** by the classification rule
+  in `web/src/lib/components/CLAUDE.md`. Each folder's own `CLAUDE.md` lists its files and names
+  every sibling relationship. That table is the inventory: it sits beside the code and changes in
+  the same commit as the component.
+
+**Rejected:** one generic picker driven by an `entityKind` prop. It trades readable siblings for
+one component that branches on kind inside: a role control that tags don't have, two commit paths,
+and a verdict flow only one caller uses. **Rejected:** a separate component catalogue, either an
+inventory doc or a showcase route. The per-folder tables already describe each file next to the
+file itself, and a second copy would drift from them.
+
+Decided in: pending squash (HOLODEX-287).
 
 ## SQLite (modernc) with WAL and FTS5
 
