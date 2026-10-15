@@ -291,7 +291,10 @@ backend already shipped.)*
   keyed by entity kind and needs a `film` key. Deferred only because it is orthogonal to the field
   vocabulary. **Picked up by [provider-link-badge-coverage.md](provider-link-badge-coverage.md)
   (F63, HOLODEX-393) as its P0-6 — shipped 2026-09-17: pills on the year line (handoff DD4).**
-- **P1-3**: **Success toast after a film enrich**, inheriting whatever HOLODEX-86 ships.
+- **P1-3**: **Success feedback after a film enrich**, inheriting whatever HOLODEX-86 ships. **Shipped
+  with HOLODEX-86:** a short inline line names the provider and how many fields came back, and it
+  fades after a few seconds. The same line appears on the video, person and studio pages. It is not a
+  toast.
 
 ### Future considerations (P2)
 

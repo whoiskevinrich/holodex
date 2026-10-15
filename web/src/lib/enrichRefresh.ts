@@ -9,7 +9,33 @@
 // that films drive the generic path.
 import { api } from './api';
 import { toMessage } from './format';
-import type { EnrichEntityKind } from './types';
+import type { EnrichEntityKind, RefreshAllResult } from './types';
+
+// enrichedLine is the inline success line after an enrich lands (HOLODEX-86): which
+// provider, and how many fields it returned. An empty response says so rather than
+// claiming a success the field list won't show.
+export function enrichedLine(provider: string, fields: number): string {
+	if (fields === 0) return `No values came back from ${provider}`;
+	return `Enriched from ${provider} · ${fields} ${fields === 1 ? 'field' : 'fields'}`;
+}
+
+// refreshAllLine summarizes a Refresh-all fan-out as one clause, not one per provider —
+// a ten-provider entity would otherwise repeat "Enriched from" ten times. It covers only
+// the providers that ran; the other statuses report elsewhere: rate_limited on the error
+// slot, needs_review by opening the picker, no_candidates nowhere (nothing happened).
+export function refreshAllLine(results: RefreshAllResult[]): string {
+	const ran = results.filter((r) => r.status === 'refreshed' || r.status === 'auto_applied');
+	const landed = ran.filter((r) => r.enriched?.length);
+	const empty = ran.filter((r) => !r.enriched?.length);
+	const total = landed.reduce((n, r) => n + (r.enriched?.length ?? 0), 0);
+	const names = (rs: RefreshAllResult[]) => rs.map((r) => r.provider).join(', ');
+	return [
+		landed.length ? enrichedLine(names(landed), total) : '',
+		empty.length ? enrichedLine(names(empty), 0) : ''
+	]
+		.filter(Boolean)
+		.join('; ');
+}
 
 export async function runEnrichRefresh(
 	kind: EnrichEntityKind,
@@ -17,13 +43,16 @@ export async function runEnrichRefresh(
 	provider: string,
 	setBusy: (v: string) => void,
 	setError: (v: string) => void,
-	reloadDetail: () => Promise<void>
+	reloadDetail: () => Promise<void>,
+	setStatus: (v: string) => void
 ): Promise<void> {
 	setBusy(provider);
 	setError('');
+	setStatus('');
 	try {
-		await api.enrichRefresh(kind, id, provider);
+		const { enriched } = await api.enrichRefresh(kind, id, provider);
 		await reloadDetail();
+		setStatus(enrichedLine(provider, enriched?.length ?? 0));
 	} catch (e) {
 		setError(toMessage(e));
 	} finally {
@@ -47,13 +76,16 @@ export async function runEnrichRefreshAll(
 	setRefreshingAll: (v: boolean) => void,
 	setError: (v: string) => void,
 	reloadDetail: () => Promise<void>,
-	openPicker: (provider: string) => void
+	openPicker: (provider: string) => void,
+	setStatus: (v: string) => void
 ): Promise<void> {
 	setRefreshingAll(true);
 	setError('');
+	setStatus('');
 	try {
 		const { results } = await api.enrichRefreshAll(kind, id);
 		await reloadDetail();
+		setStatus(refreshAllLine(results));
 		const limited = results.filter((r) => r.status === 'rate_limited');
 		if (limited.length) {
 			setError(limited.map((r) => rateLimitedLine(r.provider, r.retry_after ?? 0)).join(' · '));

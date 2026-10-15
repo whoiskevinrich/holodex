@@ -28,7 +28,7 @@ The current `/people/[id]` delegates wholly to `EntityVideos` (back-link, title,
 |------|-----------|-------|
 | Owner gating | `activity.isOwner` / `activity.needToken` (`activity.svelte.ts`) | Same predicates `/status` uses. Controls render only when `isOwner`. |
 | Token-locked state | the `/status` unlock `<form>` (lines 108–120) | If `needToken`, show the same "requires admin token" unlock affordance before any control. |
-| Confirm-before-act + toast | `/status` `confirmingRescan` + `showToast` pattern | Picker confirmation and post-enrich result reuse this exact flow. |
+| Confirm-before-act | `/status` `confirmingRescan` pattern | Picker confirmation reuses this flow. The post-enrich result is an inline status line, not `/status`'s toast (see Interaction States). |
 | Combobox/listbox a11y | the search-history dropdown (PR #21 on `main`) | `role=listbox` + `aria-activedescendant`, ↑/↓/Enter/Esc — the picker mirrors it. |
 | Field display | the media "Details" `<dl>` (`media/[id]` lines 143–155) | Person enrichment fields render in the same `<dl>` shape; badges attach per row. |
 | Async wrapper | `AsyncState.svelte` | Picker search results and field load use it. |
@@ -114,8 +114,8 @@ Optionally append the percentage in `text-muted text-xs tabular-nums`. The point
 | Picker input | typing | Debounce ~300 ms, then `POST /resolve` with `query`. Below ~2 chars, show help text, don't call. |
 | Picker list | loading | `AsyncState` loading → "Searching {provider}…" (muted, centered). |
 | Picker list | results | `role="listbox"`; rows navigable by ↑/↓; `aria-activedescendant` tracks the active row; hover and keyboard selection share the `bg-surface-2` highlight. |
-| Candidate row | activate (Enter / click) | Becomes `aria-selected`; reveals a "Confirm" CTA (or Enter confirms directly). On confirm → close picker, call `/enrich`, show toast. |
-| Picker | confirm success | Toast "Enriched from {provider}." (4 s auto-clear, like `/status`). Panel fields re-render with provenance. |
+| Candidate row | activate (Enter / click) | Becomes `aria-selected`; reveals a "Confirm" CTA (or Enter confirms directly). On confirm → close picker, call `/enrich`, show the success line. |
+| Picker | confirm success | Panel fields re-render with provenance, then a muted inline line "Enriched from {provider} · N fields" appears in the page's status slot beside its error line, under `aria-live="polite"`, and clears after 4 s. When the provider sent nothing back it reads "No values came back from {provider}" instead. This is not a toast, because the app has no toast system and metadata outcomes report inline (HOLODEX-86). |
 | Picker | Esc / backdrop click / close btn | Close, return focus to the Enrich button. |
 | Provenance badge | — | Static. `title`/`aria-label` give the long form ("source: from TMDB"). |
 | Clear-provider control | owner only | A small "Clear TMDB data" text button (muted, `hover:text-ink`) near the panel heading; confirm-before-act like rescan; removes the provider's contribution, fields fall back to next source. |
@@ -143,7 +143,9 @@ Optionally append the percentage in `text-muted text-xs tabular-nums`. The point
 - **Long bio / disambiguation text:** bio wraps; disambiguation line single-line `truncate` with `title` full text; candidate label `truncate` at the row width.
 - **International text (CJK aliases, e.g. 宮崎駿):** must render correctly; verify the field `<dl>` (body uses `font-ui`) shows CJK acceptably (check it doesn't tofu).
 - **Photo asset:** if `assets.photo` present, show it; while downloading, reuse the `thumb-shimmer` hook; on failure, fall back to the existing no-photo treatment (don't block field display).
-- **Re-enrich:** identity already confirmed → skip the picker, go straight to `/enrich` with the stored `external_id`; toast on completion.
+- **Re-enrich:** identity already confirmed → skip the picker, go straight to `/enrich` with the stored `external_id`; the same success line on completion. "Refresh all" collapses to one line: "Enriched from {a}, {b} · N fields", plus "; No values came back from {c}" for any that ran empty.
+
+  ![Enrich success line under the Details panel](enrich-success-line-mockup.svg)
 - **Slow connection:** all provider calls are explicit and show loading; nothing auto-polls (unlike activity).
 
 ---
