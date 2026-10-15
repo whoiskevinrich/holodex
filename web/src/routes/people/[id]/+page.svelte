@@ -3,11 +3,13 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api.ts';
 	import { toMessage, aliasHint } from '#lib/format.ts';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import type {
 		Completeness,
 		DecisionSource,
+		EnrichedField,
 		EnrichSource,
 		EntityRef,
 		ExternalLink,
@@ -105,6 +107,8 @@
 	// Action errors render inline in the panel — never via the page-level `error`,
 	// which AsyncState uses to replace the whole page.
 	let actionError = $state('');
+	// The enrich success line (HOLODEX-86) — beside actionError, cleared after 4 s.
+	const enrichStatus = new StatusLine();
 
 	// Rename flow (HOLODEX-269, docked-pencil NameEditControl on the hero name — replaces
 	// the F37 RD1 SourceSelect/onadopt intercept). A 409 shows the merge offer inline; these
@@ -296,6 +300,7 @@
 	async function clearProvider(p: string) {
 		busy = p;
 		actionError = '';
+		enrichStatus.show(''); // an "Enriched from p" line would contradict the clear
 		try {
 			await api.enrichClear(id, p);
 			await reloadDetail();
@@ -315,7 +320,8 @@
 			p,
 			(v) => (busy = v),
 			(v) => (actionError = v),
-			reloadDetail
+			reloadDetail,
+			(v) => enrichStatus.show(v)
 		);
 	}
 
@@ -326,8 +332,16 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			openPicker
+			openPicker,
+			(v) => enrichStatus.show(v)
 		);
+	}
+
+	// EnrichPicker confirm (or its RD1 auto-apply): the dialog closes, so the page says
+	// what landed once the reload shows it (HOLODEX-86).
+	async function onApplied(fields: EnrichedField[], provider: string) {
+		await reloadDetail();
+		enrichStatus.show(enrichedLine(provider, fields.length));
 	}
 
 	// F37: persist a per-field source decision then refetch so resolved[] reflects it.
@@ -860,6 +874,9 @@
 					{#if actionError}
 						<p class="mt-3 text-sm text-warn">{actionError}</p>
 					{/if}
+					{#if enrichStatus.text}
+						<p class="mt-3 text-sm text-muted" aria-live="polite">{enrichStatus.text}</p>
+					{/if}
 				</section>
 			{/if}
 
@@ -892,7 +909,7 @@
 		dismiss={(prov) => api.enrichDismiss('person', id, prov)}
 		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
-		onapplied={reloadDetail}
+		onapplied={onApplied}
 	/>
 {/if}
 

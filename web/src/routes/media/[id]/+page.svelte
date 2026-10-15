@@ -19,7 +19,8 @@
 		videoCount
 	} from '#lib/format.ts';
 	import { dismissable } from '#lib/actions/dismissable.ts';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { isReplaceField, outOfSyncCount } from '#lib/f36.ts';
 	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
@@ -173,6 +174,8 @@
 	let enrichBusy = $state('');
 	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
+	// The enrich success line (HOLODEX-86) — beside enrichError, cleared after 4 s.
+	const enrichStatus = new StatusLine();
 	// enrichQueries holds the server-rendered per-provider search query (F54,
 	// ADR-080 D5) — seeds EnrichPicker's search box in place of the raw title.
 	let enrichQueries = $state<Record<string, string>>({});
@@ -1315,6 +1318,7 @@
 		error = '';
 		playFailed = false;
 		refreshStatus = null; // a freshly-opened item starts with no refresh outcome
+		enrichStatus.show(''); // nor another video's enrich line
 		writtenBackProvider = '';
 		setPlaying(false); // a freshly-opened item starts with the atmosphere visible
 		// A pending title-collision verdict is scoped to the video that produced it — carrying
@@ -1530,14 +1534,16 @@
 		});
 	}
 
-	async function onApplied(f: EnrichedField[]) {
+	async function onApplied(f: EnrichedField[], provider: string) {
 		enriched = f;
 		await reloadDetail();
+		enrichStatus.show(enrichedLine(provider, f.length));
 	}
 
 	async function clearProvider(p: string) {
 		enrichBusy = p;
 		enrichError = '';
+		enrichStatus.show(''); // an "Enriched from p" line would contradict the clear
 		writtenBackProvider = '';
 		try {
 			const res = await api.enrichVideoClear(id, p);
@@ -1561,7 +1567,8 @@
 			p,
 			(v) => (enrichBusy = v),
 			(v) => (enrichError = v),
-			reloadDetail
+			reloadDetail,
+			(v) => enrichStatus.show(v)
 		);
 	}
 
@@ -1572,7 +1579,8 @@
 			(v) => (enrichRefreshingAll = v),
 			(v) => (enrichError = v),
 			reloadDetail,
-			openPicker
+			openPicker,
+			(v) => enrichStatus.show(v)
 		);
 	}
 
@@ -2447,6 +2455,9 @@
 						{/if}
 						{#if enrichError}
 							<p class="text-xs text-warn">{enrichError}</p>
+						{/if}
+						{#if enrichStatus.text}
+							<p class="text-xs text-muted" aria-live="polite">{enrichStatus.text}</p>
 						{/if}
 						{#if writtenBackProvider}
 							<p class="text-xs text-warn" aria-live="polite">

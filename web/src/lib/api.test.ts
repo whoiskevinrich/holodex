@@ -527,7 +527,15 @@ describe('film enrichment clients (F59)', () => {
 		const busy: string[] = [];
 		const errors: string[] = [];
 
-		await runEnrichRefresh('film', 12, 'tmdb', (v) => busy.push(v), (v) => errors.push(v), reload);
+		await runEnrichRefresh(
+			'film',
+			12,
+			'tmdb',
+			(v) => busy.push(v),
+			(v) => errors.push(v),
+			reload,
+			() => {}
+		);
 
 		expect(fetchMock).toHaveBeenCalledWith(
 			'/api/v1/films/12/enrich/tmdb/refresh',
@@ -550,7 +558,8 @@ describe('film enrichment clients (F59)', () => {
 			() => {},
 			() => {},
 			async () => {},
-			(p) => opened.push(p)
+			(p) => opened.push(p),
+			() => {}
 		);
 
 		expect(fetchMock).toHaveBeenCalledWith(
@@ -570,21 +579,88 @@ describe('film enrichment clients (F59)', () => {
 			]
 		});
 		const errors: string[] = [];
+		const status: string[] = [];
 		const reload = vi.fn().mockResolvedValue(undefined);
 
-		await runEnrichRefreshAll('person', 3, () => {}, (v) => errors.push(v), reload, () => {});
+		await runEnrichRefreshAll(
+			'person',
+			3,
+			() => {},
+			(v) => errors.push(v),
+			reload,
+			() => {},
+			(v) => status.push(v)
+		);
 
 		expect(reload).toHaveBeenCalledTimes(1); // the other provider's refresh still landed
 		expect(errors.at(-1)).toBe('tmdb is rate-limiting — try again in 42 s');
+		// The paused provider stays off the success line; the one that ran is on it.
+		expect(status.at(-1)).toBe('No values came back from other');
 	});
 
 	it('runEnrichRefresh surfaces the 503 body line for a paused provider', async () => {
 		stub(503, { error: 'tmdb is rate-limiting — try again in 17 s', provider: 'tmdb', retry_after: 17 });
 		const errors: string[] = [];
+		const status: string[] = [];
 
-		await runEnrichRefresh('person', 3, 'tmdb', () => {}, (v) => errors.push(v), async () => {});
+		await runEnrichRefresh(
+			'person',
+			3,
+			'tmdb',
+			() => {},
+			(v) => errors.push(v),
+			async () => {},
+			(v) => status.push(v)
+		);
 
 		expect(errors.at(-1)).toBe('tmdb is rate-limiting — try again in 17 s');
+		expect(status).toEqual(['']); // cleared at the start, never set to a success
+	});
+
+	// HOLODEX-86: a landed enrich says so inline, after the reload shows the fields.
+	it('runEnrichRefresh reports the provider and field count on the status line', async () => {
+		stub(200, { enriched: [{ canonical: 'birthdate' }, { canonical: 'birthplace' }] });
+		const order: string[] = [];
+
+		await runEnrichRefresh(
+			'person',
+			3,
+			'tmdb',
+			() => {},
+			() => {},
+			async () => {
+				order.push('reload');
+			},
+			(v) => order.push(v)
+		);
+
+		expect(order).toEqual(['', 'reload', 'Enriched from tmdb · 2 fields']);
+	});
+
+	it('runEnrichRefreshAll lists only the providers that landed values', async () => {
+		stub(200, {
+			results: [
+				{ provider: 'tmdb', status: 'refreshed', enriched: [{ canonical: 'a' }] },
+				{ provider: 'p2', status: 'auto_applied', enriched: [{ canonical: 'a' }, { canonical: 'b' }] },
+				{ provider: 'p3', status: 'no_candidates' },
+				{ provider: 'p4', status: 'needs_review' },
+				{ provider: 'p5', status: 'refreshed' }
+			]
+		});
+		const status: string[] = [];
+
+		await runEnrichRefreshAll(
+			'person',
+			3,
+			() => {},
+			() => {},
+			async () => {},
+			() => {},
+			(v) => status.push(v)
+		);
+
+		// One clause for the providers that landed, one for those that ran but came back empty.
+		expect(status.at(-1)).toBe('Enriched from tmdb, p2 · 3 fields; No values came back from p5');
 	});
 
 	it('surfaces a films-disabled 404 as an error instead of a silent no-op', async () => {
@@ -594,7 +670,7 @@ describe('film enrichment clients (F59)', () => {
 		const errors: string[] = [];
 		const reload = vi.fn().mockResolvedValue(undefined);
 
-		await runEnrichRefresh('film', 12, 'tmdb', () => {}, (v) => errors.push(v), reload);
+		await runEnrichRefresh('film', 12, 'tmdb', () => {}, (v) => errors.push(v), reload, () => {});
 
 		expect(errors.at(-1)).toBeTruthy();
 		expect(reload).not.toHaveBeenCalled();

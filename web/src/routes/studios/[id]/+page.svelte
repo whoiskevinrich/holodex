@@ -2,13 +2,15 @@
 	import { page } from '$app/state';
 	import { api } from '#lib/api.ts';
 	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '#lib/format.ts';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { providerOf } from '#lib/f36.ts';
 	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import type {
 		Completeness,
 		DecisionSource,
+		EnrichedField,
 		EnrichSource,
 		EntityRef,
 		ExternalLink,
@@ -99,6 +101,8 @@
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
+	// The enrich success line (HOLODEX-86) — beside actionError, cleared after 4 s.
+	const enrichStatus = new StatusLine();
 
 	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner);
@@ -222,6 +226,7 @@
 	async function clearProvider(p: string) {
 		busy = p;
 		actionError = '';
+		enrichStatus.show(''); // an "Enriched from p" line would contradict the clear
 		try {
 			await api.enrichStudioClear(id, p);
 			await reloadDetail();
@@ -241,7 +246,8 @@
 			p,
 			(v) => (busy = v),
 			(v) => (actionError = v),
-			reloadDetail
+			reloadDetail,
+			(v) => enrichStatus.show(v)
 		);
 	}
 
@@ -252,8 +258,16 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			openPicker
+			openPicker,
+			(v) => enrichStatus.show(v)
 		);
+	}
+
+	// EnrichPicker confirm (or its RD1 auto-apply): the dialog closes, so the page says
+	// what landed once the reload shows it (HOLODEX-86).
+	async function onApplied(fields: EnrichedField[], provider: string) {
+		await reloadDetail();
+		enrichStatus.show(enrichedLine(provider, fields.length));
 	}
 
 	// Persist a studio field decision then refetch. DB-only — a studio has no file, so
@@ -504,6 +518,9 @@
 					{#if actionError}
 						<p class="text-sm text-warn">{actionError}</p>
 					{/if}
+					{#if enrichStatus.text}
+						<p class="text-sm text-muted" aria-live="polite">{enrichStatus.text}</p>
+					{/if}
 
 					{#if hasDetails}
 						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -618,6 +635,6 @@
 		dismiss={(prov) => api.enrichDismiss('studio', id, prov)}
 		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
-		onapplied={reloadDetail}
+		onapplied={onApplied}
 	/>
 {/if}

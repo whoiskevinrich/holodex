@@ -57,7 +57,7 @@
 - [x] 3.7 Candidate renders: label (ink) · disambiguation (muted, truncated) · confidence chip.
 - [x] 3.8 **Confidence label is humane** — "Strong match" (≥0.85) etc., **not the raw `0.9`**.
 - [x] 3.9 Activate a row (Enter/click) → `aria-selected`; Enter confirms.
-- [x] 3.10 Confirm → `POST /enrich`, **dialog closes, fields populate** in the `<dl>` (F22.5c). ⚠ the handoff's success **toast** isn't shown (fields-populate is the only feedback). *(gap — TASKS.)*
+- [x] 3.10 Confirm → `POST /enrich`, **dialog closes, fields populate** in the `<dl>` (F22.5c). Then the muted inline line "Enriched from {provider} · N fields" appears beside the panel's error line and clears after 4 s (HOLODEX-86; it replaces the handoff's toast).
 - [x] 3.11 **Provenance badges** "from {provider}" on each resolved field (F22.7).
 - [x] 3.12 Enrich run appears in **`/status` → Recent jobs as `kind=enrich`** with a "provider → entity (N fields)" detail (F22.6b). *(Implemented + smoke-tested `TestServiceEnrichRecordsJobRun`. To see it live: restart the backend so migration 0006 applies, then enrich a person.)*
 - [ ] 3.13 ~ **Re-enrich skips the picker** (F22.4b) — the re-enrich-without-picker shortcut UI **isn't implemented** (deferred); Enrich always opens the picker.

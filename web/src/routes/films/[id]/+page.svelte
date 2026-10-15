@@ -17,10 +17,12 @@
 	} from '#lib/format.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
-	import { runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { isReplaceField, providerOf } from '#lib/f36.ts';
 	import type {
 		DecisionSource,
+		EnrichedField,
 		EnrichSource,
 		EntityRef,
 		ExternalLink,
@@ -135,6 +137,8 @@
 	let busy = $state('');
 	let refreshingAll = $state(false);
 	let actionError = $state('');
+	// The enrich success line (HOLODEX-86) — beside actionError, cleared after 4 s.
+	const enrichStatus = new StatusLine();
 
 	// The owner's year edit (F59/HOLODEX-317). A (name, year) clash surfaces as
 	// NameEditControl's inline `verdict` beside the year itself — the control the owner
@@ -416,6 +420,7 @@
 	async function clearProvider(p: string) {
 		busy = p;
 		actionError = '';
+		enrichStatus.show(''); // an "Enriched from p" line would contradict the clear
 		try {
 			await api.enrichFilmClear(id, p);
 			await reloadDetail();
@@ -437,7 +442,8 @@
 			p,
 			(v) => (busy = v),
 			(v) => (actionError = v),
-			reloadDetail
+			reloadDetail,
+			(v) => enrichStatus.show(v)
 		);
 	}
 
@@ -448,8 +454,16 @@
 			(v) => (refreshingAll = v),
 			(v) => (actionError = v),
 			reloadDetail,
-			openPicker
+			openPicker,
+			(v) => enrichStatus.show(v)
 		);
+	}
+
+	// EnrichPicker confirm (or its RD1 auto-apply): the dialog closes, so the page says
+	// what landed once the reload shows it (HOLODEX-86).
+	async function onApplied(fields: EnrichedField[], provider: string) {
+		await reloadDetail();
+		enrichStatus.show(enrichedLine(provider, fields.length));
 	}
 
 	async function decideField(canonical: string, source: DecisionSource, manualValue?: string) {
@@ -945,6 +959,9 @@
 							{#if actionError}
 								<p class="text-sm text-warn">{actionError}</p>
 							{/if}
+							{#if enrichStatus.text}
+								<p class="text-sm text-muted" aria-live="polite">{enrichStatus.text}</p>
+							{/if}
 
 
 							<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -1258,7 +1275,7 @@
 		dismiss={(prov) => api.enrichDismiss('film', id, prov)}
 		autoApply={!pickerRematch}
 		onclose={() => (pickerProvider = '')}
-		onapplied={reloadDetail}
+		onapplied={onApplied}
 	/>
 {/if}
 

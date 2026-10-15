@@ -47,7 +47,7 @@
 		apply: (provider: string, externalId: string) => Promise<{ enriched: EnrichedField[] }>;
 		dismiss: (provider: string) => Promise<unknown>;
 		onclose: () => void;
-		onapplied: (fields: EnrichedField[]) => void;
+		onapplied: (fields: EnrichedField[], provider: string) => void;
 		/** "None of these match" (RD4) — records a durable dismissal; caller flips its
 		 *  own state to `not_matched` without a refetch, mirroring `onapplied`. Optional:
 		 *  callers with no per-provider dismissal UI of their own (the detail pages) can
@@ -193,7 +193,7 @@
 		error = '';
 		try {
 			const res = await apply(provider, c.external_id);
-			onapplied(res.enriched ?? []);
+			onapplied(res.enriched ?? [], provider);
 			onclose();
 		} catch (e) {
 			error = providerErrorLine(e, provider);
