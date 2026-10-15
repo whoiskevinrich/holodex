@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Preview-before-write dialog (F48.7a, ADR-067) — reuses WritebackFormDialog's
-	// chrome (backdrop, focus trap, per-row checkbox + status icon, footer submit)
+	// chrome (the shared/Modal.svelte shell, per-row checkbox + status icon, footer submit)
 	// but replaces the editable row body with a static old → new diff line, since
 	// these values are already decided (staged by the Extraction tab's row actions),
 	// not something the owner edits here. Each checked row is its own
@@ -8,6 +8,7 @@
 	// progress rather than a single all-or-nothing batch result. Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { toMessage } from '#lib/format.ts';
+	import Modal from '#lib/components/shared/Modal.svelte';
 	import type { ExtractionPreviewItem, ExtractionResolveAction } from '#lib/types.ts';
 
 	let {
@@ -46,35 +47,11 @@
 
 	let busy = $state(false);
 	let dialogEl = $state<HTMLElement | null>(null);
-	let trigger: HTMLElement | null = null;
 
+	// The first enabled checkbox, not Modal's first focusable (the ✕ button).
 	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null;
 		dialogEl?.querySelector<HTMLElement>('input[type="checkbox"]:not(:disabled)')?.focus();
-		return () => trigger?.focus?.();
 	});
-
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const focusable = [...dialogEl.querySelectorAll<HTMLElement>('input, button, [tabindex="0"]')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (focusable.length === 0) return;
-		const first = focusable[0];
-		const last = focusable[focusable.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
-
-	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape' && !busy) onclose();
-		trapTab(e);
-	}
 
 	async function submit() {
 		if (busy || checkedCount === 0) return;
@@ -105,21 +82,8 @@
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[10vh]"
-	onclick={(e) => {
-		if (e.target === e.currentTarget && !busy) onclose();
-	}}
->
-	<div
-		bind:this={dialogEl}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="extraction-preview-title"
-		tabindex="-1"
-		onkeydown={onKeydown}
-		class="w-full max-w-xl overflow-hidden rounded-theme border border-rule bg-surface shadow-lg"
-	>
+<Modal titleId="extraction-preview-title" {onclose} size="md" {busy} bind:panel={dialogEl}>
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 		<div class="flex items-center justify-between border-b border-rule px-4 py-3">
 			<h2 id="extraction-preview-title" class="text-sm font-semibold text-ink">
 				Review {rows.length} change{rows.length === 1 ? '' : 's'}
@@ -211,4 +175,4 @@
 			</div>
 		</div>
 	</div>
-</div>
+</Modal>

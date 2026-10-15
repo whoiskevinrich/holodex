@@ -49,7 +49,7 @@ Rejected options:
 | `align` | `top` · `center` | `top` | See [Positions](#positions). |
 | `busy` | boolean | `false` | When true, Escape and backdrop clicks are ignored. The caller still disables its own buttons. |
 | `describedBy` | string | — | Optional `aria-describedby`. ConfirmDialog uses it. |
-| `initialFocus` | `HTMLElement` getter | — | Optional. Without it, focus goes to the first focusable element, then to the panel. |
+| `data-*` | any | — | Passed through to the panel. HotkeySheet uses it for `data-hotkey-sheet`. |
 | `returnFocus` | boolean | `true` | Set it to false only when the caller moves focus itself on close. HotkeySheet's launcher rows do this. |
 | `panel` | bindable `HTMLElement` | — | For callers that query inside the panel. |
 | `children` | snippet | required | Everything inside the panel. |
@@ -109,7 +109,9 @@ rejected because it let the gallery show through the Viewer's surround.
 | Tab / Shift+Tab | cycles within the panel | cycles within the panel | — |
 
 - **Open.** On mount, Modal records `document.activeElement` as the opener. It then focuses
-  `initialFocus`, otherwise the first focusable element, otherwise the panel.
+  the first focusable element, or the panel if there is none. A caller that wants a different
+  target focuses it in its own `onMount`, which runs after Modal's: Cancel, a search input, the
+  checked radio, or the first grid item.
 - **Close.** On teardown, focus returns to the opener, unless `returnFocus` is false or the opener
   has left the DOM.
 - **Focusable set.** One selector everywhere:

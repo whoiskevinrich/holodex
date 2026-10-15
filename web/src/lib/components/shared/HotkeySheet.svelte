@@ -3,14 +3,17 @@
 	// from the hotkey registry (whatever `use:hotkey` buttons are mounted right now);
 	// "Navigation" is the static list of keys that predate the registry (Ctrl-K in the
 	// layout, `/`/arrows/Esc on the browse page) — listed so the sheet is honest, not
-	// migrated (spec Non-Goals). Surface, trap, and rise motion mirror ConfirmDialog.
+	// migrated (spec Non-Goals). Modal (shared/Modal.svelte) owns the shell: surface, trap,
+	// rise motion, and Escape — handled on `document` before any window listener, so it never
+	// reaches a page's own (browse's Esc clears filters).
 	import { onMount } from 'svelte';
+	import Modal from '#lib/components/shared/Modal.svelte';
 	import { hotkeys, fire, type HotkeyEntry } from '#lib/actions/hotkey.svelte.ts';
 
 	let { onclose }: { onclose: () => void } = $props();
 
-	let dialogEl = $state<HTMLDivElement | null>(null);
-	let trigger: HTMLElement | null = null;
+	let dialogEl = $state<HTMLElement | null>(null);
+	let returnFocus = $state(true);
 
 	const isMac =
 		typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent);
@@ -24,59 +27,22 @@
 	// Past six rows a group flows into two columns so the panel never scrolls (handoff).
 	const cols = (n: number) => (n > 6 ? 'sm:grid-cols-2' : '');
 
-	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null;
-		dialogEl?.focus();
-		return () => trigger?.focus?.();
-	});
-
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('button')].filter(
-			(el) => el.offsetParent !== null
-		);
-		if (f.length === 0) {
-			e.preventDefault();
-			return;
-		}
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
+	// Rows are launchers, not the obvious first stop, so focus the panel itself rather than
+	// Modal's first focusable. Runs after Modal's onMount, so this wins.
+	onMount(() => dialogEl?.focus());
 
 	// P1-1: a row is a launcher — close, then run the same path a keypress takes.
-	// `fire` does its own focus(), so the unmount focus-restore is suppressed: if the
-	// click opened a dialog, a deferred trigger.focus() would steal focus back out of it.
+	// `fire` does its own focus(), so Modal's unmount focus-return is suppressed: if the
+	// click opened a dialog, a deferred opener.focus() would steal focus back out of it.
 	function run(entry: HotkeyEntry) {
-		trigger = null;
+		returnFocus = false;
 		onclose();
 		fire(entry);
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[12vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) onclose();
-	}}
->
-	<div
-		bind:this={dialogEl}
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="confirm-pop w-full max-w-md rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="hotkeys-title"
-		data-hotkey-sheet
-	>
+<Modal titleId="hotkeys-title" {onclose} size="sm" align="top" {returnFocus} bind:panel={dialogEl} data-hotkey-sheet>
+	<div class="p-4">
 		<h2 id="hotkeys-title" class="skin-title text-lg font-semibold text-ink">Keyboard shortcuts</h2>
 
 		<h3 class="mt-3 mb-1 text-[0.65rem] tracking-wide text-muted uppercase">This page</h3>
@@ -127,33 +93,4 @@
 			<span class="ml-auto">toggles this sheet</span>
 		</p>
 	</div>
-</div>
-
-<!-- Capture + stopPropagation (the `use:dismissable` idiom): Escape closes only this
-     sheet and never reaches a page's own window listener (browse's Esc clears filters). -->
-<svelte:window
-	onkeydowncapture={(e) => {
-		if (e.key === 'Escape') {
-			e.stopPropagation();
-			onclose();
-		}
-	}}
-/>
-
-<style>
-	@media (prefers-reduced-motion: no-preference) {
-		.confirm-pop {
-			animation: confirm-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-		}
-	}
-	@keyframes confirm-rise {
-		from {
-			opacity: 0;
-			transform: scale(0.98);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-</style>
+</Modal>

@@ -1,14 +1,22 @@
-// Keep Tab / Shift+Tab inside a modal container — the idiom ConfirmDialog and the picker
-// modals carry inline, extracted for the Filters sheet (F73). Skips disabled and hidden
-// controls so a responsive (`sm:hidden`) element is never a dead stop.
-const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex="0"]';
+// Keep Tab / Shift+Tab inside a modal container — used by the shared Modal (HOLODEX-215) and
+// the Filters sheet (F73). Skips disabled, hidden and `tabindex="-1"` controls so a responsive
+// (`sm:hidden`) element or a roving-tabindex row is never a dead stop.
+const FOCUSABLE = 'button, input, select, textarea, summary, a[href], [tabindex]';
+
+function focusables(container: HTMLElement | null): HTMLElement[] {
+	return [...(container?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].filter(
+		(el) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && el.offsetParent !== null
+	);
+}
 
 export function trapTab(e: KeyboardEvent, container: HTMLElement | null): void {
 	if (e.key !== 'Tab' || !container) return;
-	const f = [...container.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-		(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-	);
-	if (f.length === 0) return;
+	const f = focusables(container);
+	if (f.length === 0) {
+		// Nothing to cycle through: keep focus on the container rather than leak out.
+		e.preventDefault();
+		return;
+	}
 	const first = f[0];
 	const last = f[f.length - 1];
 	if (e.shiftKey && document.activeElement === first) {
@@ -21,7 +29,5 @@ export function trapTab(e: KeyboardEvent, container: HTMLElement | null): void {
 }
 
 export function firstFocusable(container: HTMLElement | null): HTMLElement | undefined {
-	return [...(container?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].find(
-		(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-	);
+	return focusables(container)[0];
 }

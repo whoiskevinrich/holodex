@@ -47,7 +47,8 @@
 	// Full-page grid modal + image viewer (HOLODEX-174). viewerIndex is non-null
 	// whether the viewer was opened from the row or from the grid modal; galleryOpen
 	// tracks the grid independently so closing the viewer returns to the grid (if it
-	// was open) or straight to the page (if it wasn't) — "two Escapes" behavior.
+	// was open) or straight to the page (if it wasn't) — "two Escapes" behavior,
+	// which Modal's stack (shared/Modal.svelte) delivers: Escape closes the topmost.
 	let galleryOpen = $state(false);
 	let viewerIndex = $state<number | null>(null);
 
@@ -58,16 +59,9 @@
 		viewerIndex = i;
 	}
 
-	// A single centralized keydown handler (rather than one per modal) so Escape and
-	// the arrow keys route to whichever layer is topmost: viewer over grid over page.
-	// If each modal owned its own window-level Escape listener, one keypress would
-	// fire both when stacked, closing viewer and grid at once.
+	// The viewer's ←/→ navigation. Escape is not handled here: each modal closes itself
+	// through Modal's stack, topmost first (viewer over grid over page).
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			if (viewerIndex !== null) viewerIndex = null;
-			else if (galleryOpen) galleryOpen = false;
-			return;
-		}
 		if (viewerIndex === null) return;
 		if (e.key === 'ArrowLeft' && viewerIndex > 0) {
 			e.preventDefault();

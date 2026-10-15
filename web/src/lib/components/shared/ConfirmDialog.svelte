@@ -1,9 +1,10 @@
 <script lang="ts">
-	// Destructive confirm dialog (F24, ADR-037): a warn-styled variant of the modal
-	// idiom used by EntityPicker/EnrichPicker — role=dialog, focus trap, Esc/backdrop
-	// cancel, focus returned to the trigger. Initial focus lands on Cancel so an
+	// Destructive confirm dialog (F24, ADR-037): a warn-styled confirm on the shared
+	// modal shell — Modal (shared/Modal.svelte) owns the backdrop, focus trap, Esc/backdrop
+	// cancel (skipped while busy) and focus return. Initial focus lands on Cancel so an
 	// accidental Enter never deletes. Tokens only; QA Cinémathèque.
 	import { onMount, type Snippet } from 'svelte';
+	import Modal from '#lib/components/shared/Modal.svelte';
 
 	let {
 		title,
@@ -33,56 +34,30 @@
 
 	let dialogEl = $state<HTMLElement | null>(null);
 	let cancelBtn = $state<HTMLButtonElement | null>(null);
-	let trigger: HTMLElement | null = null;
 
 	onMount(() => {
-		trigger = document.activeElement as HTMLElement | null;
 		// A checked radio in the body (e.g. a merge-target picker) takes initial focus;
 		// otherwise Cancel is the safe default so an accidental Enter never confirms.
+		// Runs after Modal's own first-focusable focus, so this wins.
 		const checkedRadio = dialogEl?.querySelector<HTMLElement>('input[type="radio"]:checked');
 		(checkedRadio ?? cancelBtn)?.focus();
-		return () => trigger?.focus?.();
 	});
-
-	function trapTab(e: KeyboardEvent) {
-		if (e.key !== 'Tab' || !dialogEl) return;
-		const f = [...dialogEl.querySelectorAll<HTMLElement>('button, input, [tabindex="0"]')].filter(
-			(el) => !(el as HTMLButtonElement).disabled && el.offsetParent !== null
-		);
-		if (f.length === 0) return;
-		const first = f[0];
-		const last = f[f.length - 1];
-		if (e.shiftKey && document.activeElement === first) {
-			e.preventDefault();
-			last.focus();
-		} else if (!e.shiftKey && document.activeElement === last) {
-			e.preventDefault();
-			first.focus();
-		}
-	}
 
 	function cancel() {
 		if (!busy) oncancel();
 	}
 </script>
 
-<div
-	class="fixed inset-0 z-50 flex items-start justify-center bg-bg/70 px-4 py-[12vh]"
-	role="presentation"
-	onclick={(e) => {
-		if (e.target === e.currentTarget) cancel();
-	}}
+<Modal
+	titleId="confirm-title"
+	onclose={oncancel}
+	size="sm"
+	align="top"
+	{busy}
+	describedBy="confirm-body"
+	bind:panel={dialogEl}
 >
-	<div
-		bind:this={dialogEl}
-		onkeydown={trapTab}
-		tabindex="-1"
-		class="confirm-pop flex max-h-[80vh] w-full max-w-md flex-col rounded-theme border border-rule bg-surface p-4 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="confirm-title"
-		aria-describedby="confirm-body"
-	>
+	<div class="flex min-h-0 flex-1 flex-col p-4">
 		<h2 id="confirm-title" class="skin-title text-lg font-semibold text-ink">{title}</h2>
 		<!-- The body is the only part allowed to scroll (HOLODEX-417): SourceEditModal renders a
 		     paragraph per source, and an unbounded panel inside a fixed overlay put Save/Cancel
@@ -115,24 +90,4 @@
 			{/if}
 		</div>
 	</div>
-</div>
-
-<svelte:window onkeydown={(e) => e.key === 'Escape' && cancel()} />
-
-<style>
-	@media (prefers-reduced-motion: no-preference) {
-		.confirm-pop {
-			animation: confirm-rise 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-		}
-	}
-	@keyframes confirm-rise {
-		from {
-			opacity: 0;
-			transform: scale(0.98);
-		}
-		to {
-			opacity: 1;
-			transform: none;
-		}
-	}
-</style>
+</Modal>

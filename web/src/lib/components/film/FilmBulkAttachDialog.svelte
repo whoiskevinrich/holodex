@@ -4,8 +4,8 @@
 	// (tens of thousands of files) vs. a few hundred films, so this needs default-
 	// unattached scope, studio/cast filter chips, free-text search, and multi-select
 	// bulk attach — genuinely new scope per the spec's own framing. Dialog chrome
-	// (backdrop, focus trap, Esc-to-close, trigger-focus restore, animation) comes
-	// from PickerShell, widened via widthClass/paddingClass for this dialog's larger
+	// comes from PickerShell over the shared Modal (backdrop, focus trap, Esc, focus
+	// return, animation), widened via size="lg" for this dialog's larger
 	// candidate list — result shape and multi-select commit still differ from
 	// FilmAttachDialog, which is why this stays its own component. Tokens only; QA 3
 	// skins.
@@ -180,7 +180,7 @@
 	}
 </script>
 
-<PickerShell titleId="film-bulk-title" {onclose} bind:dialogEl widthClass="max-w-3xl" paddingClass="py-[6vh]">
+<PickerShell titleId="film-bulk-title" {onclose} bind:dialogEl size="lg">
 	{#snippet header()}
 		<h2 id="film-bulk-title" class="skin-title text-lg font-semibold text-ink">
 			Attach videos to "{filmName}"
