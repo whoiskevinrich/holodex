@@ -228,7 +228,11 @@ Decided in [`3e481ab0`](https://github.com/whoiskevinrich/holodex/commit/3e481ab
   its movie payload by entity type (`overview` → `description`, poster and backdrop as assets).
 - **Vocabulary.** `description` and `release_date` are resolved film scalars. Poster and banner are
   `film_images` assets (`model.FilmImagePoster`, `FilmImageBanner`); see [images.md](images.md).
-  Other provider keys auto-register inert.
+  A provider `title` is a candidate source for the synthesized `name` field (display only), and
+  `aliases` is written into `entity_aliases`. Apart from `actors`, which the billed-cast read takes
+  back out, every other provider key stays in the `entity_enrichment` shadow store and is not
+  surfaced: film resolution does not run the
+  auto-registration pass that person, studio and video resolution do (HOLODEX-579).
 - **Year.** `films.year` is half the film's identity key, not a resolved field. `FillFilmYear` fills a
   blank year from the resolved `release_date` on enrich apply/clear and decision set/clear, and never
   overwrites. `SetFilmYear` is the owner's overwrite. Both share the identity collision probe; a
