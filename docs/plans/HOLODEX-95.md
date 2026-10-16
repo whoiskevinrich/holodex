@@ -5,6 +5,10 @@ key: HOLODEX-95
 status: in-progress
 profile: feature             # visitor-visible Details is a behaviour change (F59 P0-13); frontend only
 depends-on: []
+approved:
+  design:
+    on: 2026-10-16
+    at: efc6d081
 release_note: Visitors now see a film's Details, starting with its release date, the same way they already do on studio pages.
 ---
 
@@ -37,12 +41,11 @@ them), HOLODEX-580 (AutoFieldRows pill target size, found in the design critique
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] Owner signs off `docs/design/film-details-parity-handoff.md` + SVG, then `/implement`
-2. [ ] [frontend] Film Details → studio pattern: visitor branch (unboxed), `soleProvider` note, compact/long rows — `web/src/routes/films/[id]/+page.svelte`; studio visitor Details unboxed too — `web/src/routes/studios/[id]/+page.svelte`
-3. [ ] [testing] Vitest component test, owner and visitor branches, per the HOLODEX-95 invariant
+1. [ ] [frontend] Film Details → studio pattern: visitor branch (unboxed), `soleProvider` note, compact/long rows — `web/src/routes/films/[id]/+page.svelte`; studio visitor Details unboxed too — `web/src/routes/studios/[id]/+page.svelte`
+2. [ ] [testing] Vitest component test, owner and visitor branches, per the HOLODEX-95 invariant
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-16 · session
-- skills: design-critique, design-handoff, code-review high --fix (docs), handoff
+- skills: design-critique, design-handoff, code-review high --fix (docs), handoff, implement
 - handoff: Design package is option A (visitor-visible film Details, no field-set change) with visitor Details unboxed on film and studio pages after a negative-space critique; HOLODEX-95 carries fp:ready-to-build — next, the owner signs off the handoff + SVG and runs `/implement`.
