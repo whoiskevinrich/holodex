@@ -10,7 +10,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 
 | Doc | Owns |
 |---|---|
-| [stack.md](stack.md) | Go, SvelteKit SPA, frontend component-test harness, SQLite, migrations, REST, MCP transport, CSS token mechanism |
+| [stack.md](stack.md) | Go, SvelteKit SPA, frontend component composition and test harness, SQLite, migrations, REST, MCP transport, CSS token mechanism |
 | [config-and-settings.md](config-and-settings.md) | Config layers, parallel YAMLs, `DATA_PATH` layout, caching posture, the `settings` store |
 | [deployment.md](deployment.md) | Image, SPA embed, bundled media tools, GHCR, retag promotion, sidecar images |
 | [security-perimeter.md](security-perimeter.md) | Owner gate, session cookie, provider SSRF and asset-host allowlists, read gates |
