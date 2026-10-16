@@ -15,6 +15,12 @@ Decided with the owner:
   of it would ever render. Deferred to
   [HOLODEX-579](https://whoiskevinrich.atlassian.net/browse/HOLODEX-579), to be picked up when a
   production provider sends more.
+- **Visitors get Details without the box, on film and studio pages.** For a visitor the section
+  is a bare heading plus rows, in the same rhythm as Description and Cast. The owner keeps the
+  bordered box, because there it frames controls. Rejected: the box for visitors too. With the
+  production norm of one row, it spent about 86px of padding, heading and an empty second column on
+  one 20px fact, and it made the smallest fact in the rail its heaviest block (design critique,
+  2026-10-16).
 
 ## Mockup
 
@@ -25,12 +31,23 @@ Decided with the owner:
 Only the rail's Details section changes. Header, Description, Aliases, Tags, Cast, billed-cast
 coverage, Full film, Manage and the Scenes grid keep their markup and order.
 
-Details keeps its slot (after billed-cast coverage, before Full film) and its box:
-`section space-y-3 rounded-theme border border-rule bg-surface p-4`. Inside, one
-`<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">` holding the film's Details fields,
-built the studio page's way: compact rows first, then long rows spanning both columns. Today that
-is one compact row, **Released**, for almost every film. That is expected: the box grows when a
-provider sends more fields.
+Details keeps its slot (after billed-cast coverage, before Full film). Its container depends on who
+is looking:
+
+- **Owner:** the box, as today — `section space-y-3 rounded-theme border border-rule bg-surface p-4`.
+- **Visitor:** no box — `section space-y-2`, with no border, surface or padding. Its heading is the
+  rail's section heading (`h2 text-xs uppercase tracking-wide text-muted`, as on Description), with
+  the provider note on the same line, right-aligned. It is separated from its neighbours by the
+  rail's normal section spacing only.
+
+Inside either one, the same `<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">` holds the
+Details fields, built the studio page's way: compact rows first, then long rows spanning both
+columns. Today that is one compact row, **Released**, for almost every film. Unboxed, the empty
+second column is plain rail space, not a visible hole.
+
+**The studio page's visitor Details drops its box the same way** (see
+[studio Details §2c](studio-entity-handoff.md)), so the two pages stay identical. The studio
+owner's box is unchanged.
 
 Name and description stay out of Details; they keep their own header and rail sections.
 
@@ -57,7 +74,7 @@ nothing.
 | Element | State | Behaviour |
 |---|---|---|
 | Details section | owner | As today: shown when a field has a value or sources are loaded |
-| Details section | visitor, at least one value | Shown. Previously never shown to visitors |
+| Details section | visitor, at least one value | Shown, unboxed. Previously never shown to visitors |
 | Details section | visitor, no values | Hidden (mockup panel 3b) |
 | Section note | visitor, every row from one provider | "Enriched from {Provider}" in the header; rows carry no badge |
 | Section note | visitor, a row with a custom value or from a second provider | No note; each row carries its `ProvenanceBadge` (panel 3a) |
@@ -74,7 +91,8 @@ nothing.
 
 ## Edge cases
 
-- **Only Released** (the production norm): one row, the visitor note, a small box. Accepted.
+- **Only Released** (the production norm): the visitor sees a heading with the note and one row,
+  about 38px; the owner sees one row in the box.
 - **Film not enriched** (8 of 103 in production): visitor sees no Details; owner sees today's
   owner state.
 - **Release date set as a custom value:** no section note; the row's badge says
@@ -92,9 +110,10 @@ None added.
 
 ## Cinémathèque QA checklist
 
-1. [agent] Visitor, enriched film: Details shows Released with "Enriched from {Provider}" and no badge, pencil or chip.
+1. [agent] Visitor, enriched film: Details shows Released with "Enriched from {Provider}", no badge, pencil or chip, and no box (computed border width 0, background transparent, no padding).
 2. [agent] Visitor, unenriched film: no Details section.
 3. [agent] Visitor, release date set as a custom value: no section note; the row carries its badge.
-4. [agent] Owner: Details unchanged from before this change (same rows, picker, enrich chips).
-5. [human] Side by side with a studio page as visitor: the Details box, row and note read identically.
-6. [smoke] 375px: no horizontal scroll; the note wraps cleanly.
+4. [agent] Owner, film and studio: Details unchanged, boxed (same rows, picker, enrich chips).
+5. [agent] Visitor, studio page: Details unboxed, the same as on a film.
+6. [human] Visitor, film and studio side by side: Details sits in the rail's rhythm, with the same spacing above and below as Description and Cast.
+7. [smoke] 375px: no horizontal scroll; the note wraps cleanly.
