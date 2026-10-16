@@ -157,6 +157,14 @@ export const studiosSchema: ListSchema<EntitySort, NoQuery> = {
 	defaultSort: 'name',
 	...noQuery
 };
+// The person, tag and studio video grids (HOLODEX-38, spec SP6): the media sorts, one
+// preference shared by all three entity kinds. The facet is the route's, not the URL's.
+export const entityVideosSchema: ListSchema<SortOrder, NoQuery> = {
+	page: 'entity-videos',
+	sorts: MEDIA_SORTS,
+	defaultSort: DEFAULT_SORT,
+	...noQuery
+};
 export const filmsSchema: ListSchema<FilmSort, NoQuery> = {
 	page: 'films',
 	sorts: FILM_SORTS,
