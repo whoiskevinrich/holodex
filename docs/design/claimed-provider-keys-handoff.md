@@ -212,7 +212,7 @@ Intro copy:
 > becomes a candidate of the field instead. Removing an attachment brings the row back.
 
 One `<section class="rounded-theme border border-rule bg-surface">` per entity type in the order **Video ·
-People · Studios · Films** (Films added by HOLODEX-95), each with the `/owner/duplicates` group heading idiom
+People · Studios**, each with the `/owner/duplicates` group heading idiom
 (`px-3 pb-2 pt-3 text-xs uppercase tracking-wide text-muted`) reading `Video · 3`. **Entity types with no
 claims are omitted entirely** — an empty section is noise, and the section heading is not a place to teach that
 video claims exist.
@@ -250,15 +250,15 @@ DD5 nothing the owner was reading has moved.
 |---|---|
 | Loading | `<p class="py-16 text-center text-sm text-muted">Loading…</p>` — the hub's shared idiom |
 | Error | `text-warn` with `role="alert"`, as `/owner/duplicates` does |
-| Empty (no claims at all) | *"No attached keys yet. Attach one from a provider row on any video, person, studio or film page."* — the empty state names where the gesture lives, since it cannot be started here |
+| Empty (no claims at all) | *"No attached keys yet. Attach one from a provider row on any video, person or studio page."* — the empty state names where the gesture lives, since it cannot be started here |
 | Remove in flight | That row at `opacity-60`, its button disabled. **Never dim the `text-muted` cells on their own** (theming rule) |
 | Remove failed | Row stays, message in `text-warn` above the list, `aria-live="polite"` |
 | Not owner | Unreachable — the hub layout already gates and redirects; the page adds no gate of its own (ADR-030: the server is the sole authority) |
 
 ### Loading it
 
-Four parallel `GET /admin/field-claims/{entity_type}` (video, person, studio, film) plus the four
-`GET /admin/field-targets/{entity_type}` the DD9 cross-check needs — eight requests, all cached-cheap keyed
+Three parallel `GET /admin/field-claims/{entity_type}` (video, person, studio) plus the three
+`GET /admin/field-targets/{entity_type}` the DD9 cross-check needs — six requests, all cached-cheap keyed
 lookups, issued together with `Promise.all`. Partial failure fails the page rather than rendering a list that
 silently omits an entity type; a list that lies about what is attached is worse than no list.
 

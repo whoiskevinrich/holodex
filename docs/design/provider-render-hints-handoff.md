@@ -70,7 +70,7 @@ Details
 - Ordering within the group follows the resolver (group rank → order → key); the SPA renders in received
   order, no client sort.
 
-**Per-page seams** (all four inherit the same group component):
+**Per-page seams** (all three inherit the same group component):
 - **Person** — after `longFields` in `web/src/routes/people/[id]/+page.svelte`. Auto-registered fields are
   neither `compactFields` nor `mergeFields` nor `longFields` (those filter on the curatable set); add a fourth
   derived list `extraFields = resolved.filter(f => f.auto_registered)` and render it in the new group. (Add an
@@ -78,8 +78,6 @@ Details
 - **Studio** — the equivalent Details block in `web/src/routes/studios/[id]/+page.svelte`.
 - **Media** — after the mapped fields in `web/src/routes/media/[id]/+page.svelte` (which already switches on
   `f.display`); add the group + the `chips` branch.
-- **Film** — the Details section in `web/src/routes/films/[id]/+page.svelte`, as Studio
-  ([film-details-parity-handoff.md](film-details-parity-handoff.md), HOLODEX-95).
 
 ---
 

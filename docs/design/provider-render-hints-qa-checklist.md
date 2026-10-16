@@ -40,7 +40,7 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
   entity produces **no** resolved field.
 - **2.6** `[smoke]` Ordering: canonical/mapped fields keep their order; auto-registered fields follow, sorted
   by (group `primary<attributes<extended`, then `order`, then key).
-- **2.7** `[smoke]` Entity-generic: auto-registration rides `ResolveFields` for video, person, studio **and** film (HOLODEX-95)
+- **2.7** `[smoke]` Entity-generic: auto-registration rides `ResolveFields` for video, person, **and** studio
   (extend the ADR-052 non-video baseline unit); resolver core unchanged (build fails if the video path
   diverged).
 - **2.8** `[smoke]` `image_url` gate: a hinted `image_url` value on an allowlisted host resolves as an image;
@@ -74,9 +74,6 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
   provider hint no longer governs its label/render.
 - **3.7** `[agent]` No-hint fallback: a non-canonical field returned **without** a `field_hints` entry renders
   with a title-cased label as plain text in the group (the floor, reached automatically).
-- **3.8** `[agent]` Film parity (HOLODEX-95): a film enriched with a non-canonical key shows the same
-  "Additional details" group on `/films/{id}` with the hinted mode and provenance; `original_title`,
-  `director` and `actors` never appear in it.
 
 ## §4 Human eyes — Cinémathèque QA
 

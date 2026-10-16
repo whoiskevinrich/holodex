@@ -40,10 +40,9 @@ path** and adds a second **asset download** per film → `/security-review` befo
 
 **Design handoff**: [film-enrichment-handoff.md](../design/film-enrichment-handoff.md) — the Details
 section's provider chips, the two-image header, and the dual-cast merge rule at stressed scale.
-Mockup: [film-enrichment-mockup.svg](../design/film-enrichment-mockup.svg).
-[film-details-parity-handoff.md](../design/film-details-parity-handoff.md) (HOLODEX-95) — the Details
-section seen by visitors, the runtime/tagline/genres rows, and additional details (P0-13..P0-16). It
-supersedes the earlier handoff where the two disagree on who sees Details.
+Mockup: [film-enrichment-mockup.svg](../design/film-enrichment-mockup.svg). Visitor visibility of
+Details (P0-13): [film-details-parity-handoff.md](../design/film-details-parity-handoff.md), which
+supersedes the earlier handoff on who sees Details.
 
 **Test plan**: [testing-strategy.md](../testing-strategy.md) §4 (four backend rows), §5 (two frontend
 rows), and three new entries under *Critical invariants*.
@@ -65,25 +64,10 @@ Wiring the controls is small — the enrichment components are already entity-ag
 problem is what happens once they work: **the core's film field vocabulary is narrower than what a
 provider already sends.** `filmScalarFields` is `{description, release_date}`. TMDB's film response
 also carries `title`, `studio` (plus the `_studio_external_ids` sidecar), `actors`, `director`,
-`runtime`, `genres`, `tagline`, `original_title` and `external_provider_id`. When this block began,
-all of it was dropped or parked as an inert auto-registered field. Of the six details an owner
-considers canonical for a film — title, studio, cast, release year, posters, description — only
-**description** and the **portrait poster** landed end-to-end.
-
-What happens to those keys now:
-
-- **`runtime`, `tagline` and `genres` are film fields** (P0-14). They resolve like description and
-  release date.
-- **`title`** offers a display spelling for the film's name and never renames it (Non-Goal 1).
-- **`original_title`** is ignored. A provider sends it only when it differs from the title, and it
-  already lands as one of the film's aliases, so a row would repeat the aliases panel.
-- **`director`** and **`actors`** are not film fields. The film's cast is the scene union plus the
-  billed difference (RD1, RD2).
-- **`studio`** is ignored. The film's studio row and its cascade own it (Non-Goal 4).
-- **`homepage`, `status` and `original_language`** are deferred to
-  [HOLODEX-579](https://whoiskevinrich.atlassian.net/browse/HOLODEX-579). They stay dropped for a film.
-- **Any other key** a provider sends shows as an additional detail the owner can promote or attach
-  (P0-16).
+`runtime`, `genres`, `tagline`, `original_title` and `external_provider_id`. All of it is dropped or
+parked as an inert auto-registered field. Of the six details an owner considers canonical for a film —
+title, studio, cast, release year, posters, description — only **description** and the **portrait
+poster** land end-to-end.
 
 Two of the four gaps are not oversights. A film has no studio column and no cast column: both are
 read-only set unions over the film's attached videos (films-entity RD2/RD3), which is a deliberate
@@ -299,34 +283,14 @@ backend already shipped.)*
   the page (the year is not a heading); an owner set may overwrite where the provider fill may not;
   a collision returns `200 {conflict}` so the control shows a verdict, not an error.
 
-- **P0-13 — Visitors see the film's Details.** *(Added by HOLODEX-95.)* The Details section follows
-  the studio page's pattern. The owner sees it when any field has a value or a provider candidate; a visitor
-  sees it whenever it has a value. Being the owner adds controls; it never decides whether content
-  shows. When every row comes from one provider, the visitor sees one section-level note naming that
-  provider instead of a badge per row (user story 6). Acceptance: a visitor on an enriched film sees
-  its Details values and one provider note, and no controls; a film with no values shows no Details
-  section to a visitor.
-
-- **P0-14 — Runtime, tagline and genres are film fields.** *(Added by HOLODEX-95.)* Each reads the
-  same-named key from every provider, exactly like description and release date. The owner gets the
-  same per-field source decision and custom value as on other film fields. Runtime and tagline are
-  single values; runtime's label carries its unit (minutes). Genres are a multi-value field: the
-  owner can add or remove a genre, as on a studio's multi-value fields. Acceptance: enriching a film
-  from TMDB fills all three; the owner can pick another source or set a custom value for runtime and
-  tagline, and add and remove genres; clearing the provider removes its values.
-
-- **P0-15 — A film's genres never become tags.** *(Added by HOLODEX-95.)* A video's genres
-  materialize into tags; a film's do not. A film's tags stay the read-only union over its attached
-  videos. Genres render as plain value chips, visibly distinct from linked tag chips. Acceptance:
-  enriching a film adds no tag and changes no attached video's tags.
-
-- **P0-16 — Other provider keys show as additional details.** *(Added by HOLODEX-95.)* Any key a
-  provider sends for a film that is not a known field appears under "Additional details", exactly
-  as on the video, person and studio pages. The owner can promote it to a full field or attach it to
-  an existing one; both work on films as they do on the other entity types. Keys Holodex
-  already knows as fields (the ones listed under the Problem Statement as ignored or deferred) never show here.
-  Acceptance: a non-canonical key from a provider renders as an additional detail on the film; the
-  owner can promote and attach it, and undo either.
+- **P0-13 — Visitors see the film's Details.** *(Added by HOLODEX-95; supersedes the earlier
+  owner-only Details.)* Being the owner adds controls; it never decides whether a value shows. A
+  visitor sees the Details section whenever one of its fields has a value, with the same rows the
+  owner sees and none of the owner's controls. When every row comes from one provider, the visitor
+  sees one section-level note naming that provider instead of a badge per row (user story 6); with
+  more than one source, each row carries its own badge. The film's field set is unchanged.
+  Acceptance: a visitor on an enriched film sees its release date in Details with one provider
+  note and no controls; a film with no Details values shows a visitor no Details section.
 
 ### Should-have (P1)
 
@@ -352,12 +316,6 @@ backend already shipped.)*
   featuring them." Depends on P1-1 landing first.
 - **P2-4**: Multiple poster roles per film (films-entity P1-2's broader reading — alternate
   regional/edition posters), beyond the single `poster`/`banner` pair this block ships.
-- **P2-5**: Homepage, status and original language as film fields —
-  [HOLODEX-579](https://whoiskevinrich.atlassian.net/browse/HOLODEX-579). TMDB sends them for films;
-  they stay dropped until then.
-- **P2-6**: Denser promote/attach controls on additional-detail rows, and a target size that meets
-  the 24px minimum — [HOLODEX-580](https://whoiskevinrich.atlassian.net/browse/HOLODEX-580). The
-  controls are shared by every entity page, so this is not film-specific.
 
 ## Behavior detail
 
@@ -420,7 +378,6 @@ P0-9); the film detail payload gains the film-level credits list and, with P1-1,
 | Film Details section header | `EnrichProviderChips` | **Reused unchanged.** Added to the existing `Details` heading row, mirroring `studios/[id]` |
 | Candidate picker | `EnrichPicker` | **Reused unchanged.** Page-level, three injected closures |
 | Per-field provenance | `SourceBadge` (`baselineKey="record"`) | Already present on the film Details section |
-| Additional details | The rows the video, person and studio pages already use | **Reused unchanged.** Non-canonical provider keys, with promote and attach for the owner (P0-16) |
 | Header images | `EntityImageSlot` `variant="frame"` | **Reused.** Second instance for `role="banner"`; empty-state behaviour decided in the handoff |
 | Cast | `PeopleGrid` | **Reused** for the union; the difference group is a labelled second instance |
 | Owner enrich queue | `EnrichQueueRow` | **Reused unchanged**; the page's kind map gains `film` |

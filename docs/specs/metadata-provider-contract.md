@@ -336,13 +336,12 @@ fields, through the ordinary field-decision/precedence UI — see the reserved-n
 > **A film's canonical vocabulary is deliberately narrower than what a movie-shaped provider will
 > naturally send** — a settled decision, not a gap
 > ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)). Send your whole movie
-> payload; everything lands in the shadow store. But only `description`, `release_date`,
-> `runtime`, `tagline`, `genres`, `actors`, `aliases` and the `poster`/`banner` assets do anything
-> ([§4.2c](#42c-canonical-fields--film)). In particular `title` never renames the film — it is
-> offered only as a display spelling of the film's name, which is owner-asserted identity, half of
-> Holodex's `(name, year)` uniqueness key — and
-> `studio`/`director` are **not** applied, because a film's studios and cast are read-only unions
-> over its attached videos. Sending them is harmless; expecting them to land is not.
+> payload; everything lands in the shadow store. But only `description`, `release_date`, `actors`
+> and the `poster`/`banner` assets do anything ([§4.2c](#42c-canonical-fields--film)). In
+> particular `title` is **not** applied — a film's title is owner-asserted identity, half of
+> Holodex's `(name, year)` uniqueness key — and `studio`/`director` are **not** applied, because a
+> film's studios and cast are read-only unions over its attached videos. Sending them is harmless;
+> expecting them to land is not.
 
 **Video, studio and film each have their own canonical field vocabulary** — see
 [§4.2a](#42a-canonical-fields--videomedia) (video), [§4.2b](#42b-canonical-fields--studio)
@@ -492,10 +491,6 @@ embedded newlines, and `_`-prefixed keys are reserved sidecar channels you must 
 |---|---|---|---|
 | `description` | Film synopsis | single | Plain text — same canonical key as the studio `description` field, different entity |
 | `release_date` | Release date | single | `YYYY-MM-DD` preferred — same canonical key as the video `release_date` field, different entity. It also fills the film's **year** — see below |
-| `runtime` | Runtime in minutes | single | Integer as string — same canonical key as the video `runtime` field |
-| `tagline` | Marketing tagline | single | Plain text — same canonical key as the video `tagline` field |
-| `genres` | Genre list | multi | One genre per array element — same canonical key as the video `genres` field. On a film it stays a film field: it **never becomes a Tag** (a video's genres do) |
-| `aliases` | Other titles for the film | multi | One title per array element (e.g. the original-language title, regional titles). Feeds the film's aliases store, like Person and Studio |
 | `actors` | Cast billed on the release | multi | One name per array element, most-billed first — same canonical key as the video `actors` field ([§4.2a](#42a-canonical-fields--videomedia)). **Display-only** for a film — see below |
 
 A film's poster and banner are **not** `fields` keys — they are `assets[]` entries
@@ -517,24 +512,15 @@ records, adds **no** credits, and modifies **none** of the attached videos
 ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D1/D2). Matching is
 alias-aware, so a spelling variant of someone already in the union is not reported as missing.
 
-**`title` feeds the film's name as a display spelling only.** The owner can pick it as the
-name's display source, but it never renames the film: a film's name is owner-asserted identity and
-is not provider-writable ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
-D3).
-
-**Accepted, stored, and then ignored for a film:** `original_title` (send the original-language
-title in `aliases` instead — as a separate row it would repeat the film's aliases); `studio` and
-its `_studio_external_ids` sidecar ([§4.6](#46-studio-external-ids-_studio_external_ids)), because
-a film's studios are a union over its attached videos; `director`; and `homepage`, `status` and
-`original_language`, which are not film fields yet. `actors` is not a Details row either — it
-feeds only the billed-cast difference above. The structured **`people[]`** array ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) is likewise
-**video-only** — a film's billed cast arrives through the flat `actors` field above.
-
-Any other key you send — one outside Holodex's canonical vocabulary — is stored and may
-auto-register as a display-only field on the film, labelled through `field_hints`
-([§4.7](#47-field-render-hints-describefield_hints)). The owner can then promote it to a full
-field or attach it to an existing one, exactly as on a person, studio or video. None of this
-changes the wire shape.
+**Accepted, stored, and then ignored for a film:** `title` (a film's name is owner-asserted
+identity and is not provider-writable, [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
+D3); `studio` and its `_studio_external_ids` sidecar
+([§4.6](#46-studio-external-ids-_studio_external_ids)), because a film's studios are a union over
+its attached videos; `director`; and `aliases`, whose identity spine covers `person` and `studio`
+only. The structured **`people[]`** array ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) is likewise
+**video-only** — a film's billed cast arrives through the flat `actors` field above. Any other key
+you send is stored and may auto-register as a display-only field through `field_hints`
+([§4.7](#47-field-render-hints-describefield_hints)).
 
 ### 4.3 Assets
 

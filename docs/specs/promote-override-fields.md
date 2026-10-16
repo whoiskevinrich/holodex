@@ -56,8 +56,7 @@ Two things make the YAML path unworkable as the *only* path:
 
 1. **Person and studio have no operator-YAML remap surface at all.** Their field sets are synthesized in code
    from a fixed canonical list (`internal/api/person_fields.go`, `studios.go`); `metadata-mappings.yaml`
-   governs **video** only. So for every entity type but video (person, studio, and film) there is literally
-   nowhere to write a promotion.
+   governs **video** only. So for two of three entity types there is literally nowhere to write a promotion.
 2. **YAML is deploy-time operator config**, gitignored and ephemeral in-container. Editing it from a running
    app — concurrency with hand edits, a required `reload-config`, no per-entity granularity — is a poor and
    partial surface, and the owner of a personal single-user server should not have to drop to a text editor to
@@ -96,7 +95,7 @@ predicate F39 uses for auto-registration. Canonical keys remain owned by the reg
 ## Goals
 
 1. **No-YAML promotion.** An owner viewing an auto-registered field row can promote it in-app — set its label,
-   render mode, and group/order — on all four entity types (video, person, studio, film), with **zero** `metadata-mappings.yaml` editing.
+   render mode, and group/order — on all three entity types, with **zero** `metadata-mappings.yaml` editing.
 2. **Full curation on promotion.** A promoted field gains the existing F36 source-decision + F30 curation
    controls (`SourceSelect`, `CurationFieldRow`) exactly as a YAML-mapped field would.
 3. **Reversible.** An owner can **de-promote** a field back to its auto-registered display-only state; the
@@ -194,7 +193,7 @@ New owner-gated routes in the `requireOwner` group (mirror `internal/api/person_
 | `DELETE` | `/admin/field-promotions/{entity_type}/{field_key}` | De-promote (delete the row); field reverts to auto-registered. |
 | `GET` | `/admin/field-promotions/{entity_type}` | List promotions for an entity type (owner tooling / debug). |
 
-- `entity_type` validated against `{video, person, studio, film}`; `field_key` validated **non-canonical** (registry
+- `entity_type` validated against `{video, person, studio}`; `field_key` validated **non-canonical** (registry
   `IsKnown` ⇒ 422) and **non-`_`-prefixed** (⇒ 422). `render`/`group` coerced to the F39 vocabulary; `label`
   sanitized + capped 64 chars (reuse F39 ingest sanitizer).
 - A dedicated `/admin/field-promotions/...` route (rather than `/{entity}/{id}/fields/...`) is chosen because a
@@ -235,7 +234,7 @@ New owner-gated routes in the `requireOwner` group (mirror `internal/api/person_
 
 ## Acceptance Criteria
 
-1. An owner on a person/studio/video/film page with an auto-registered field sees a **Promote** control; a visitor
+1. An owner on a person/studio/video page with an auto-registered field sees a **Promote** control; a visitor
    does not.
 2. Promoting a field with a new label + render mode + order → the field re-renders with those, **and** gains the
    F36 source picker + F30 curation controls, on that entity and every other entity of the type that has the key
