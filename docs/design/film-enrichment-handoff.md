@@ -15,6 +15,11 @@ gone (the nav's Films link already goes there; the person page dropped its equiv
 
 ![Film enrichment mockup](film-enrichment-mockup.svg)
 
+The mockup's Details panel is superseded by
+[film-details-parity-mockup.svg](film-details-parity-mockup.svg)
+([film-details-parity-handoff.md](film-details-parity-handoff.md), HOLODEX-95). Its header and Cast
+panels stand.
+
 ## Overview
 
 Three surfaces change on `/films/{id}`, and nothing else moves. The Details section gains the provider
@@ -36,7 +41,7 @@ chip row to its heading line and the picker at page level.
 | Heading row | Becomes `flex flex-wrap items-start justify-between gap-2`, matching studio |
 | Heading | Unchanged — `text-xs uppercase tracking-wide text-muted`, "Details" |
 | Owner control | `EnrichProviderChips` — one chip per film-capable provider (icon + name + Enrich), Clear/Refresh in the `⋯` overflow once linked |
-| Visitor | **Sees nothing — the whole section is owner-only** (§4f). An earlier cut gave visitors a section-level `Enriched from {provider}` note; that was removed with the section, along with its now-unreachable `soleProvider` derived |
+| Visitor | Sees Details whenever it has a value, with one section-level `Enriched from {provider}` note when every row comes from one provider — see [film-details-parity-handoff.md](film-details-parity-handoff.md) (HOLODEX-95) |
 | Picker | `EnrichPicker`, page-level, `entityName={film.name}` |
 | Error | `actionError` renders as `text-sm text-warn` above the field grid |
 
@@ -223,18 +228,15 @@ Measured on the built control — `No year set` 6.31, verdict claim
 16.00, verdict rationale 6.00 in Cinémathèque. One `h1`
 on the page, confirmed in the DOM.
 
-## 4f. Owner-only surfaces (owner request, 2026-09-04)
+## 4f. Visitor visibility (owner request, 2026-09-04; Details revised by HOLODEX-95)
 
-Three visibility rules, all matching what the Media detail page already does:
+Three visibility rules, all matching what the Media and Studio detail pages already do:
 
 | Surface | Rule | Why |
 |---|---|---|
 | Studio row | `{#if isOwner || studios.length}` | Copied verbatim from `media/[id]`. A visitor never sees "No studio set" — an empty row is an owner affordance, not information. Films were the last page still showing it |
 | Description under the studio row | Renders only when a value exists | Already satisfied the rule; a visitor never saw an empty one, and an owner has no add-affordance there to reveal |
-| **Details section** | `{#if isOwner && …}` — owner-only outright | It is provenance and curation machinery, not reader content: source badges, provider chips, and Released all exist to serve editing decisions, and the description a visitor wants already renders in the header |
-
-Gating Details also retired the visitor's section-level "Enriched from X" note, which could no longer
-render — the `soleProvider` derived was removed rather than left as dead code.
+| **Details section** | Visitor sees it whenever it has a value; owner also when sources are loaded | Visitor/owner is a control gate, not a content gate. Rows, the single-provider `Enriched from {provider}` note and the owner controls are specified in [film-details-parity-handoff.md](film-details-parity-handoff.md) (HOLODEX-95), which supersedes the earlier owner-only rule |
 
 ## 5. Out of scope
 

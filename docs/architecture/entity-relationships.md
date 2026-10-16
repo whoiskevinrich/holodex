@@ -226,9 +226,16 @@ Decided in [`3e481ab0`](https://github.com/whoiskevinrich/holodex/commit/3e481ab
 - **Entity type.** Film enrichment uses `entity_type: "film"` (`model.EnrichEntityFilm`), never
   `video`, because a film resolves with zero, one or many attached videos. The TMDB sidecar remaps
   its movie payload by entity type (`overview` → `description`, poster and backdrop as assets).
-- **Vocabulary.** `description` and `release_date` are resolved film scalars. Poster and banner are
-  `film_images` assets (`model.FilmImagePoster`, `FilmImageBanner`); see [images.md](images.md).
-  Other provider keys auto-register inert.
+- **Vocabulary.** The film field set is `name`, `description`, `release_date`, `runtime`, `tagline`
+  and `genres`, each a field of the one global field registry (`registry.FieldDef`), so a key means
+  the same thing on every entity type. Poster and banner are `film_images` assets
+  (`model.FilmImagePoster`, `FilmImageBanner`); see [images.md](images.md). Film resolution runs the
+  same promotion, claims and auto-registration steps as studio
+  ([field-resolution.md](field-resolution.md)), so a non-canonical provider key auto-registers on a
+  film. A canonical key outside the film set (`original_title`, `director`, `actors`, `studio`,
+  `homepage`, `status`, `original_language`) is dropped for films: auto-registration skips known
+  keys and promotion refuses them.
+- **Film genres are a film field only.** Resolving `genres` never writes `tags` or `video_tags`.
 - **Year.** `films.year` is half the film's identity key, not a resolved field. `FillFilmYear` fills a
   blank year from the resolved `release_date` on enrich apply/clear and decision set/clear, and never
   overwrites. `SetFilmYear` is the owner's overwrite. Both share the identity collision probe; a
@@ -239,4 +246,10 @@ Decided in [`3e481ab0`](https://github.com/whoiskevinrich/holodex/commit/3e481ab
 **Rejected:** overwriting the year from a provider — silently changes identity, and with no stored
 prior value clearing the provider could not restore it.
 
-Decided in [`0a32445a`](https://github.com/whoiskevinrich/holodex/commit/0a32445a).
+**Rejected:** a per-entity canonical scope, so `runtime`, `tagline` and `genres` would auto-register
+as display-only rows on films — the same key would be a canonical field on a video and a read-only
+extra on a film, and the film rows would get Promote/Attach instead of source decisions and no
+`chips` rendering.
+
+Decided in [`0a32445a`](https://github.com/whoiskevinrich/holodex/commit/0a32445a) (entity type,
+year). Vocabulary widened: decided in — pending HOLODEX-95 squash.

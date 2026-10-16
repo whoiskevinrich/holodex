@@ -44,10 +44,11 @@ Promotion presentation (label/render/group/order) is **global per `(entity_type,
 `field_source_decisions` / `metadata_curation` grain). A **visitor sees no F44 controls at all** — only the
 promoted label/mode/order and curated values, indistinguishable from a mapped field.
 
-The three entity detail pages share the same seams (F39 already unified them):
+The four entity detail pages share the same seams (F39 already unified them):
 - **Person** — `web/src/routes/people/[id]/+page.svelte`
 - **Studio** — `web/src/routes/studios/[id]/+page.svelte`
 - **Media** — `web/src/routes/media/[id]/+page.svelte`
+- **Film** — `web/src/routes/films/[id]/+page.svelte` ([film-details-parity-handoff.md](film-details-parity-handoff.md), HOLODEX-95)
 
 ---
 

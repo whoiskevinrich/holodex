@@ -98,8 +98,8 @@ The suppression set is the union. GH #178's literal request is satisfied by the 
 in-app half exists because **`metadata-mappings.yaml` governs video only**. Person and studio field sets
 are synthesized in code ([person_fields.go:34](../../internal/api/person_fields.go),
 [studios.go:45](../../internal/api/studios.go)) — there is no person or studio YAML, so a stray
-`provA:synopsis` on a person page could never be claimed by config. YAML-only would leave two of three
-entity types permanently unfixable.
+`provA:synopsis` on a person page could never be claimed by config. YAML-only would leave every entity type
+but video (person, studio, film) permanently unfixable.
 
 This also mirrors the precedent F44 set: promotion is DB-stored and materializes into the same
 `mapping.Field` shape (`field_promotions.go:120`). Splitting the two closest operations an operator has —
@@ -133,7 +133,8 @@ UI names what it will remove before it does. One key, one home.
    a candidate source of the target field, visible through the F36 source-decision chip.
 3. **The reported case collapses to one row.** `overview.sources: [tmdb:overview, provA:synopsis,
    provB:comments, Comment]` renders a single Overview with combined provenance.
-4. **Claiming is available for all three entity types**, including the two with no YAML.
+4. **Claiming is available for all four entity types** (video, person, studio, film), including the three
+   with no YAML.
 5. **Claiming is provider-scoped** — provider B's identically-named key is untouched by provider A's claim.
 
 ## 4. Non-Goals
@@ -369,7 +370,7 @@ skips a field whose `provider:key` is claimed.
 
 **FR3 — DB claims store.** Migration `0029_field_claims` (`.up.sql` + hand-written `.down.sql`) plus repo
 CRUD, keyed by `(entity_type, provider, field_key)` with the target canonical as payload.
-- [x] `entity_type` is one of `video`, `person`, `studio` (reuses `parseEntityType`)
+- [x] `entity_type` is one of `video`, `person`, `studio`, `film` (reuses `parseEntityType`)
 - [x] A claim merges as an appended candidate source on the target field (§6.2)
 - [x] Claim merge runs after promotion merge
 - [x] A claim whose target canonical is absent from the effective field set is ignored at resolve time
@@ -419,7 +420,7 @@ succeeds by removing the row that was its only evidence. Without a list, a type-
 no durable way to see or reverse it, and the acceptance bullet *"and undo it"* is only true for the seconds
 after the gesture.
 - [x] A seventh owner-hub tab at `/owner/fields`, labelled **Attached keys** (never "claims" — handoff DD1)
-- [x] Lists every DB claim across all three entity types, grouped by type, sorted `(provider, field_key)`
+- [x] Lists every DB claim across all four entity types, grouped by type, sorted `(provider, field_key)`
 - [x] Each row shows `provider:field_key → target label` and a one-click **Remove**
 - [x] A claim whose target canonical is absent from the effective field set is marked **Inactive** — this is
       the only surface where a dangling claim (RD-adjacent: ADR-074 §D4 keeps it, inert) is visible at all
@@ -503,7 +504,7 @@ Non-blocking:
 - [ ] Claiming is provider-scoped — provider B's identically-named key is unaffected
 - [ ] Bare file-tag sources claim nothing
 - [ ] The reported case collapses to one Overview row with combined provenance
-- [ ] The owner can claim a key in-app on all three entity types, and undo it — immediately from the row
+- [ ] The owner can claim a key in-app on all four entity types, and undo it — immediately from the row
       (handoff DD5) **and later** from the Attached keys list (FR8)
 - [ ] Claiming a promoted key clears the promotion, after saying so
 - [ ] A claimed value stays reachable via the F36 source chip

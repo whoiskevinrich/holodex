@@ -90,7 +90,10 @@ The film page had the opposite arrangement (description in the header for everyo
 owner-only Details as a `SourceBadge`) and converged on it in HOLODEX-364: `#field-description` is
 the rail's first block, one `ExpandableText`, pencil → `SourceEditModal`, visitor `ProvenanceBadge`.
 The three `long_text` blocks — Person bio, media Overview, film description — now render alike,
-badge included.
+badge included. The film Details section is no longer owner-only: it follows the control-gate rule
+like Studio's, visible to a visitor whenever it has a value, with one section-level "Enriched from"
+note when a single provider supplies every row (HOLODEX-95,
+`docs/design/film-details-parity-handoff.md`).
 
 The words used above — owner/visitor branch, value vs. affordance, value-owning control, knob,
 parity, drift — are defined in [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md);

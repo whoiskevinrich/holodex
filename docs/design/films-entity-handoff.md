@@ -95,7 +95,8 @@ ever populate this page on its own, unlike Studio's "before the backfill has run
   RD2 "film-owned fields resolve like Person/Studio"): same `SourceSelect`/`CurationFieldRow`
   chips as Studio, same **`·record`** baseline label (`baselineKey='record'`), same hidden-when-
   no-resolved-field-beyond-name rule, same owner-gating. No new component work — parameterize
-  exactly as Studio does.
+  exactly as Studio does. Current field set (adds runtime, tagline, genres) and visitor visibility:
+  [film-details-parity-handoff.md](film-details-parity-handoff.md) (HOLODEX-95).
 
 ### 2b. Full-film file section (RD4, P0-10)
 - A **list**, not a slot — a film can hold multiple full-film files (a 2160p remux and a 1080p

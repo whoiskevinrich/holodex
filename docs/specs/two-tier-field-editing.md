@@ -54,14 +54,14 @@ picking a *different* chip and back, to turn a pending implicit winner into a st
 1. **Fix the pending-chip bug structurally**, not by patching the guard. An explicit Confirm
    action, distinct from "select a chip," makes the ambiguity the bug lives in impossible to
    reintroduce.
-2. **Tier-1 fields render identically to the visitor view at rest** on Video/Person/Studio pages
+2. **Tier-1 fields render identically to the visitor view at rest** on Video/Person/Studio/Film pages
    — no permanent radiogroup, no owner-only chrome unless hovering/focused.
 3. **Tier-2 fields collapse to the same badge a visitor already sees** (`ProvenanceBadge`) and
    expand into the decision UI only on demand, owner-only.
 4. **Zero change to the underlying decision model.** Same API (`PUT`/`DELETE
    .../fields/{canonical}/decision`), same RD1–RD5 rules, same writeback behavior. This is a
    presentation-layer restructuring of F36, not a new feature.
-5. **One consistent interaction across every Tier-2 field** on Video, Person, and Studio — no
+5. **One consistent interaction across every Tier-2 field** on Video, Person, Studio, and Film — no
    per-entity variation in how expand/select/confirm behaves.
 
 ## Non-Goals
@@ -278,7 +278,7 @@ Suggested build order (informal, non-gating):
 1. Tier-2 wrapper component (badge/expand/chip-row/Confirm-Cancel), built and tested against one
    field on one entity page.
 2. F56.4's RD6-confirm fix, verified with a regression test reproducing the original bug report.
-3. Roll out to every remaining replace field across Video/Person/Studio.
+3. Roll out to every remaining replace field across Video/Person/Studio/Film.
 4. Retire `SourceSelect` for all converted call sites (see Open Questions on the Person-name
    exception).
 5. Cinémathèque QA pass.

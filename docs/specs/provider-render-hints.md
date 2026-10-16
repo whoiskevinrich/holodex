@@ -48,7 +48,7 @@ unordered, invisible-on-entities extra rows.
 
 1. **First-class out of the box.** A provider that advertises non-canonical fields (with hints) has them
    rendered with correct labels and reasonable ordering **with zero per-operator mapping config**, on all
-   three entity types (video, person, studio).
+   four entity types (video, person, studio, film).
 2. **Provider expresses intent.** `GET /describe` optionally carries a per-field **label**, **render mode**,
    and **ordering group** for its advertised keys.
 3. **Operator still wins.** An operator `metadata-mappings.yaml` entry overrides any provider-supplied hint;
@@ -135,7 +135,7 @@ For any field key, resolve `(label, render/display, group, order)` top-down, fir
 
 A helper resolves tiers 3→4 for a non-canonical key given `(key, provider)`.
 
-### FR4 — Presence-driven auto-registration (all three entities)
+### FR4 — Presence-driven auto-registration (all four entities)
 
 After the canonical/mapped fields are resolved for an entity, enumerate its shadow-store keys and append a
 **display-only** `ResolvedField` for each key that satisfies **all**:
@@ -198,7 +198,7 @@ tokens, and the Cinémathèque QA.
 (Mirrors and extends the HOLODEX-128 AC.)
 
 1. A provider that advertises non-canonical fields **with hints** and returns values for them → those fields
-   render with the hinted **label**, **render mode**, and **ordering** on video, person, and studio, with
+   render with the hinted **label**, **render mode**, and **ordering** on video, person, studio, and film, with
    **zero** `metadata-mappings.yaml` config.
 2. A non-canonical field **without** a hint but with a stored value → renders with the title-cased label +
    `text`, ordered after canonical fields (today's floor, now reached automatically on all entities).
@@ -224,7 +224,7 @@ tokens, and the Cinémathèque QA.
 - **Ladder** — unit-test tier precedence: mapping > registry > hint > title-case; hint never shadows canonical.
 - **Persistence** — describe refresh replaces a provider's rows; read path reads without a provider call.
 - **Auto-registration** — presence gate; predicate exclusions (`_`-key, canonical, already-mapped); ordering by
-  (group, order, key); rides `ResolveFields` for all three entities (extend the ADR-052 non-video baseline
+  (group, order, key); rides `ResolveFields` for all four entities (extend the ADR-052 non-video baseline
   test).
 - **Security** — `image_url` allowlist gate (allowlisted → img, other → text); label sanitize/cap; render/group
   coercion; `_`-key invisibility.

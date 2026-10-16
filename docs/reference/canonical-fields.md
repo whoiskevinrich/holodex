@@ -187,7 +187,10 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 
 ---
 
-## Video / Film fields
+## Video fields
+
+These are a video's fields. A **film** (the entity that groups videos) has its own, smaller set — see
+[Film fields](#film-fields).
 
 | Canonical | Default Label | Render | Description |
 |-----------|--------------|--------|-------------|
@@ -203,6 +206,26 @@ real delete), and it never touches YAML — a `sources:` claim is your own file,
 | `homepage` | Website | text | Official website URL. Rendered as plain text (not a link). |
 | `external_provider_id` | External ID | text | External metadata-provider identifier, namespace-qualified (`"<provider>:<id>"`, e.g. `tmdb:603`, `imdb:tt1234567`) — [ADR-082](../architecture/archive/ADR-082-external-provider-id-namespace-qualified-value.md). |
 | `poster_url` | Poster | image_url (`<img>`) | Poster URL. **Must be on an `asset_hosts`-allowlisted CDN** (ADR-039). |
+
+## Film fields
+
+A film's fields are set in code, not in `metadata-mappings.yaml`. Each one reads the same-named key from every
+provider, and the owner picks a source or sets a custom value per field, as on a person or a studio.
+
+| Canonical | Default Label | Render | Description |
+|-----------|--------------|--------|-------------|
+| `name` | Name | text | The film's title. A provider's `title` is offered only as a display spelling; it never renames the film, whose name is owner-asserted identity. |
+| `description` | Description | long_text (paragraph) | Synopsis. |
+| `release_date` | Released | text | Release date. Also fills a blank film year. |
+| `runtime` | Runtime (min) | text | Runtime in minutes (integer string). |
+| `tagline` | Tagline | text | Short marketing tagline. |
+| `genres` | Genres | text | Genre list, a merge field: the owner can add or remove values. **On a film, genres never become Tags.** Tag materialization ([below](#genre-tag-materialization--governance-f50-adr-075)) is video-only; a film's tags stay the union of its videos' tags. |
+
+No other canonical is a film field. In particular, the video canonicals a provider's film payload
+also carries (`original_title`, `status`, `original_language`, `homepage`, `actors`, `director`,
+`studio`) are dropped for a film. Which provider keys do what for a film is in the
+[provider contract §4.2c](../specs/metadata-provider-contract.md#42c-canonical-fields--film); the product
+rule is [F59](../specs/film-provider-enrichment-ux.md).
 
 ---
 

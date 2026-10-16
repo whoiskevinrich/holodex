@@ -70,6 +70,9 @@ Slice B only. Slice A (the resolver mechanism) is covered by
 - **3.7** `[agent]` No horizontal page scroll with the editor open — a long provider value in the checklist
   truncates to one line rather than widening the Details column.
 - **3.8** `[agent]` Visitor view: no pill, no editor, no strip on the same entity.
+- **3.9** `[agent]` Film parity (HOLODEX-95): attach a film's non-canonical key to a film field (e.g.
+  `tagline`) on `/films/{id}` → the row disappears and its value joins the target's candidates;
+  `/owner/fields` lists it under a **Films** section.
 
 ## §4 Human (Cinémathèque)
 

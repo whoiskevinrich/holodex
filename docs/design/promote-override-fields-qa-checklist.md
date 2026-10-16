@@ -59,9 +59,9 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
   as `text` (not an image); promotion does not widen ADR-039.
 - **2.12** `[smoke]` API shape: `PUT` → 204 upsert; `DELETE` → 204 (idempotent); `GET
   /admin/field-promotions/{entity_type}` lists rows; all three require owner (**401** unauth, before the
-  handler); `entity_type ∉ {video,person,studio}` → 4xx.
+  handler); `entity_type ∉ {video,person,studio,film}` → 4xx (`film` added by HOLODEX-95).
 - **2.13** `[smoke]` Golden no-op: with **no** promotions, resolved output + rendering is **byte-identical** to
-  pre-F44 (F39 baseline), on all three entities.
+  pre-F44 (F39 baseline), on all four entities.
 - **2.14** `[smoke]` Frontend (Vitest): `AutoFieldRows` renders the **Promote** control only when
   `isOwner`; the editor emits the correct `PUT` body (`label?/render?/group?/order?`) and `DELETE` on Remove;
   the render `<select>` offers exactly `text|long_text|chips|url|image_url`.
@@ -95,6 +95,9 @@ Conventions: every item is numbered `section.item` and tagged by verifier —
 - **3.12** `[agent]` Error path: force a `PUT` failure (e.g. offline) → the editor stays open with a
   `text-warn` message; nothing moves; a retry succeeds and reloads.
 - **3.13** `[agent]` Golden no-op: the entity with no promotions (1.2) is visually identical to pre-F44.
+- **3.14** `[agent]` Film parity (HOLODEX-95): enrich a film whose provider sends a non-canonical key →
+  promote / edit / de-promote works on `/films/{id}` as on `/studios/{id}`; no Promote control appears on
+  `runtime`, `tagline` or `genres` (film canonicals).
 
 ## §4 Human eyes — Cinémathèque QA
 
