@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 560" width="1180" height="560" role="img" aria-labelledby="t d">
+<title id="t">HOLODEX-38 entity grid sort: a person page's video grid with the list toolbar's sort row, Random on</title>
+<desc id="d">Cinémathèque tokens at component sizes (14px controls, 12px captions). Under the hero, the list toolbar renders the compact sort select and, while Random is on, the shuffle-again button. The existing count line with Play all and Save as playlist sits beneath it, then the grid. The second panel shows the same page at 375px.</desc>
+<g font-family="Archivo, 'Archivo Variable', sans-serif">
+<rect x="0" y="0" width="1180" height="560" fill="#0c0a09" />
+<text x="24" y="24" font-size="12" fill="#9b9082">Person page (owner), desktop: toolbar row under the hero, Random on</text>
+<text x="24" y="70" font-size="30" fill="#f3ece1" font-family="Fraunces, 'Fraunces Variable', serif">Ana Keßler</text>
+<text x="24" y="94" font-size="14" fill="#9b9082">38 videos · tmdb</text>
+<rect x="24" y="118" width="96" height="32" rx="2" fill="#15110e" stroke="#2a2622" />
+<text x="36" y="139" font-size="14" fill="#f3ece1">Random</text>
+<path d="M100 132 l4 4 l4 -4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<rect x="128" y="118" width="32" height="32" rx="2" fill="none" stroke="#2a2622" />
+<text x="144" y="139" font-size="14" fill="#9b9082" text-anchor="middle">↻</text>
+<text x="24" y="182" font-size="14" fill="#9b9082">38 videos</text>
+<rect x="852" y="164" width="150" height="30" rx="2" fill="none" stroke="#e8a33d" />
+<text x="868" y="184" font-size="14" fill="#e8a33d">▶ Play all</text>
+<path d="M980 177 l4 4 l4 -4" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+<text x="1020" y="184" font-size="14" fill="#9b9082">Save as playlist…</text>
+<g fill="#15110e" stroke="#2a2622">
+<rect x="24" y="212" width="272" height="153" rx="2"/><rect x="312" y="212" width="272" height="153" rx="2"/>
+<rect x="600" y="212" width="272" height="153" rx="2"/><rect x="888" y="212" width="268" height="153" rx="2"/>
+</g>
+<g font-size="14" fill="#f3ece1">
+<text x="24" y="388">Night Ferry</text><text x="312" y="388">Arcade Light</text><text x="600" y="388">The Long Stair</text><text x="888" y="388">Paper Moons</text>
+</g>
+<text x="24" y="440" font-size="12" fill="#9b9082">Sort options = Videos' (Date added, Updated, Title, Duration, Resolution, Random; Owner group: Completeness).</text>
+<text x="24" y="458" font-size="12" fill="#9b9082">↻ shows only while Random is on. Other sorts: the select alone. No Filters, view or ⋯ slots on entity grids.</text>
+<text x="24" y="476" font-size="12" fill="#9b9082">One preference shared by person, tag and studio grids; ?sort= in the URL when not the default.</text>
+<rect x="760" y="420" width="375" height="124" rx="2" fill="#0c0a09" stroke="#2a2622" />
+<text x="776" y="440" font-size="12" fill="#9b9082">375px</text>
+<rect x="776" y="452" width="156" height="32" rx="2" fill="#15110e" stroke="#2a2622" />
+<text x="788" y="473" font-size="14" fill="#f3ece1">Title — A→Z</text>
+<path d="M912 466 l4 4 l4 -4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+<text x="776" y="512" font-size="14" fill="#9b9082">38 videos</text>
+<rect x="958" y="494" width="150" height="30" rx="2" fill="none" stroke="#e8a33d" />
+<text x="974" y="514" font-size="14" fill="#e8a33d">▶ Play all</text>
+<path d="M1086 507 l4 4 l4 -4" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+</g>
+</svg>

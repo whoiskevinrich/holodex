@@ -336,6 +336,44 @@ the filter controls of every index page, with the same storage posture.
 - [ ] No filter preference appears in any network request beyond the same list request the
       filters already drive (client-only storage).
 
+#### SP6 — Sort on an entity's video grid (person, tag, studio) — HOLODEX-38
+
+A person's, tag's, or studio's page lists that entity's videos in one fixed order (newest
+added first). SP6 gives that grid the same sort choice the Videos page has, Random
+included, through the same list toolbar, so a filmography can be read oldest first, by
+title, or shuffled.
+
+- **Same choices as Videos.** The grid offers exactly the Videos page's sort options,
+  including Random and, for the owner only, the Completeness sorts. Default is "Date
+  added — newest", today's order.
+- **One preference for every entity grid.** A sort picked on any person, tag, or studio
+  page becomes the starting sort on every other entity page. Videos keeps its own (SP1).
+  Only picking a sort saves it; opening a page never does.
+- **In the address bar.** A non-default sort shows as `?sort=…` on the entity page, so a
+  reload, a shared link, and ← Back reopen the same order. A link's sort wins over the
+  saved preference, as on every list page.
+- **Random.** Uses the session's shuffle (SP2): the order holds across *Load more*, a
+  reload, and ← Back, and "Shuffle again" reshuffles in place and returns to the top. The
+  shuffle itself never goes in the address bar.
+- **The play and save follow the order shown.** Play all, Shuffle, and Save as playlist…
+  read the grid's current sort, and its shuffle while Random is on, so they run the videos
+  in the order on screen.
+- **Title filter unchanged.** Narrowing the grid from the nav search box keeps the chosen
+  sort.
+
+**Acceptance criteria — SP6**
+- [ ] Given a person page, when I pick "Title — A→Z", then the grid reorders by title and
+      the URL reads `/people/N?sort=title_asc`.
+- [ ] Given I picked a sort on a person page, when I open a tag or studio page, then its
+      grid starts in that sort; the Videos page is unaffected.
+- [ ] Given Random, when I press *Load more*, then no video repeats or goes missing, and
+      ← Back from a video reopens the same shuffle at the same scroll position.
+- [ ] Given Random, when I press "Shuffle again", then the grid reshuffles and scrolls to
+      the top.
+- [ ] Given a sort is chosen, when I press Play all, then the run plays in the grid's order.
+- [ ] A visitor never sees the Completeness sorts; a link carrying one opens in the default
+      order for them.
+
 ### Nice-to-Have (P1)
 - **Re-roll keyboard shortcut** (e.g. press `r` while a Random-sorted list is focused) for
   fast reshuffling. *(Fast follow; the button covers the core need.)*
