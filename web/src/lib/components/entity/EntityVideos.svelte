@@ -8,13 +8,18 @@
 	import { api } from '#lib/api.ts';
 	import { listScroll } from '#lib/listScroll.svelte.ts';
 	import { toMessage, videoCount } from '#lib/format.ts';
-	import { filtersToParams } from '#lib/filters.ts';
+	import { DEFAULT_SORT, filtersToParams } from '#lib/filters.ts';
 	import { beginRun, queryLabel } from '#lib/runContext.ts';
 	import type { RunMode } from '#lib/run.ts';
 	import PlaySplitButton from '../video/PlaySplitButton.svelte';
 	import SavePlaylistForm from '../video/SavePlaylistForm.svelte';
+	import ListToolbar from '../sort/ListToolbar.svelte';
+	import SortDropdown from '../sort/SortDropdown.svelte';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { navSearch } from '#lib/navSearch.svelte.ts';
+	import { listController } from '#lib/listController.svelte.ts';
+	import { entityVideosSchema } from '#lib/listState.ts';
+	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
 
 	// Shared body for the person/[id], studio/[id], and tag/[id] detail pages: back-link,
 	// hero, and the reused grid. The optional `detail` snippet renders an entity-specific
@@ -72,26 +77,33 @@
 	// The server caps a page at 1000 (repo maxListLimit).
 	const MAX_LIMIT = 1000;
 
-	// A single caller per scrollKey (one entity's own video grid, no sort control), so
-	// there's no second axis to invalidate on — the key just has to satisfy Keyed. NS6's
-	// in-place filter below doesn't add one either: restoring scroll under a stale filter
-	// is fine since the query itself resets on navigation (navSearch is a page-scoped
-	// singleton, not persisted), so by the time ← Back lands here the grid is unfiltered
-	// again.
-	const SCROLL_INVALIDATION_KEY = 'videos';
-
 	// HOLODEX-459: the F68 hover card links to `#videos` and `#films`, but the page is too
 	// short to reach either until the first grid page lands, so the router's own fragment
 	// scroll finds nothing. Jump once per mount, after that first load. Back restores the
 	// snapshot instead. A reload also gets one from `take` (HOLODEX-573), and there the
-	// anchor in the URL wins over it.
+	// anchor in the URL wins over it. Read before the list controller below, whose URL
+	// sync rewrites the address without the fragment.
 	const anchor = untrack(() => page.url.hash).slice(1);
 	let anchorPending =
 		lastNavigation.type !== 'popstate' && (anchor === 'videos' || anchor === 'films');
 
+	// Sort (HOLODEX-38, spec SP6): the media sorts, held in the URL's ?sort= and one
+	// preference shared by every entity grid, the way browse holds its own.
+	const list = listController(entityVideosSchema, untrack(() => page.url.pathname));
+	const isOwner = $derived(activity.effectiveOwner);
+	// The grid mounts after its entity loads, so the owner is usually known by now: resolve
+	// an owner-only ?sort= before the first fetch and the snapshot key read below, not after.
+	untrack(() => list.setOwner(isOwner));
+	$effect(() => list.setOwner(isOwner));
+	const sortBy = $derived(list.state.sort);
+
+	// The snapshot is keyed by the sort, so Back restores scroll only under the order it
+	// was saved in. NS6's in-place filter doesn't join the key: the query resets on
+	// navigation (navSearch is a page-scoped singleton, not persisted), so by the time
+	// ← Back lands here the grid is unfiltered again.
 	// Taken once per mount, deliberately: the restore is one-shot. Still taken when the
 	// anchor wins, so the snapshot is spent rather than left for a later arrival.
-	const snapshot = untrack(() => listScroll.take(scrollKey, SCROLL_INVALIDATION_KEY));
+	const snapshot = untrack(() => listScroll.take(scrollKey, list.key));
 	const restore = anchorPending ? null : snapshot;
 
 	let videos = $state<Video[]>([]);
@@ -104,7 +116,14 @@
 	// route to Videos. Since HOLODEX-501 it is the query's `q` (title prefix match, as
 	// on browse), so the server filters and `matched` counts the filtered set (F75 RD7).
 	const videoQuery = $derived((navSearch.inPlace ? navSearch.query : '').trim());
-	const filters = $derived<MediaFilters>({ ...facet, q: videoQuery || undefined });
+	// The seed rides the request, never the URL (SP2), so Load more tiles under one
+	// shuffle; a reroll changes it, and that alone refetches the grid.
+	const filters = $derived<MediaFilters>({
+		...facet,
+		q: videoQuery || undefined,
+		sort: sortBy,
+		seed: sortBy === 'random' ? shuffleSeed.value : undefined
+	});
 	const emptyMessage = $derived(videoQuery ? `No videos match “${videoQuery}”.` : empty);
 	// The current query's match count; equals `total` when no title filter is set.
 	let matched = $state(0);
@@ -211,15 +230,31 @@
 	}
 
 	// Play all / Shuffle (F75 P0-2/P0-3/P0-11): a run over exactly the query on screen —
-	// the facet plus the title box's `q` (spec RD7) — in the grid's own order.
-	const gridQuery = $derived(filtersToParams(filters, false).toString());
+	// the facet plus the title box's `q` (spec RD7) — in the grid's own order. As on
+	// browse, the run's source is the filter alone (ADR-121 D2: sort apart), and a random
+	// grid passes its seed so the run walks the shuffle on screen.
+	const gridQuery = $derived(filtersToParams({ ...filters, sort: undefined }, false).toString());
 	function playRun(mode: RunMode): Promise<boolean> {
-		return beginRun({ kind: 'query', query: gridQuery, label: queryLabel(gridQuery, name) }, mode);
+		return beginRun(
+			{
+				kind: 'query',
+				query: gridQuery,
+				sort: sortBy === DEFAULT_SORT ? undefined : sortBy,
+				seed: filters.seed,
+				label: queryLabel(gridQuery, name)
+			},
+			sortBy === 'random' ? 'in-order' : mode
+		);
 	}
 
-	// Save as playlist… (F75 P0-4), owner only: the same query, prefilled with the source's
-	// name — a person's name alone, "Tag · noir" for the rest (handoff "Save form").
-	const isOwner = $derived(activity.effectiveOwner);
+	function reroll() {
+		shuffleSeed.reroll();
+		window.scrollTo(0, 0);
+	}
+
+	// Save as playlist… (F75 P0-4), owner only: the query with its sort, prefilled with the
+	// source's name — a person's name alone, "Tag · noir" for the rest (handoff "Save form").
+	const saveQuery = $derived(filtersToParams({ ...filters, seed: undefined }, false).toString());
 	let saveOpen = $state(false);
 	const saveName = $derived.by(() => {
 		const kind = queryLabel(gridQuery, name).kind;
@@ -230,7 +265,7 @@
 	// where this entity's video list was.
 	beforeNavigate(() => {
 		listScroll.save(scrollKey, {
-			key: SCROLL_INVALIDATION_KEY,
+			key: list.key,
 			scrollY: window.scrollY,
 			loaded: videos.length
 		});
@@ -245,6 +280,15 @@
 	{#if detail}{@render detail()}{/if}
 	<!-- id="videos": the F68 hover card's "Videos" link lands here. -->
 	<div id="videos" class="scroll-mt-16">
+		<!-- The F73 toolbar, sort slot only (HOLODEX-38 handoff): shown while loading too,
+		     so the select never jumps in after the first page lands. -->
+		<div class="pb-3">
+			<ListToolbar reroll={sortBy === 'random' ? reroll : undefined}>
+				{#snippet sort()}
+					<SortDropdown compact owner={isOwner} sort={sortBy} onchange={(v) => list.setSort(v)} />
+				{/snippet}
+			</ListToolbar>
+		</div>
 		{#if loading}
 			<p class="text-sm text-muted">Loading videos…</p>
 		{:else if error && videos.length === 0}
@@ -264,7 +308,7 @@
 			</div>
 			{#if saveOpen}
 				<div class="pb-3">
-					<SavePlaylistForm query={gridQuery} defaultName={saveName} onclose={() => (saveOpen = false)} />
+					<SavePlaylistForm query={saveQuery} seed={filters.seed} defaultName={saveName} onclose={() => (saveOpen = false)} />
 				</div>
 			{/if}
 			<VideoGrid {videos} empty={emptyMessage} />

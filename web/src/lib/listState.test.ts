@@ -10,6 +10,7 @@ import {
 	TAG_SORTS,
 	chooseSort,
 	commit,
+	entityVideosSchema,
 	exitAfterRemoval,
 	filmsSchema,
 	mediaSchema,
@@ -143,6 +144,30 @@ describe('U5 serialize is canonical and round-trips', () => {
 		const parsed = parseList(mediaSchema, serialize(mediaSchema, media as never), true).state;
 		expect(parsed.sort).toBe('duration_desc');
 		expect(serialize(mediaSchema, parsed).toString()).toBe(serialize(mediaSchema, media as never).toString());
+	});
+});
+
+// HOLODEX-38 (spec SP6): the person, tag and studio grids share one schema.
+describe('Entity video grids', () => {
+	it('offer exactly the media sorts, defaulting to newest added', () => {
+		expect(entityVideosSchema.sorts).toBe(MEDIA_SORTS);
+		expect(parseList(entityVideosSchema, q(''), false).state.sort).toBe('added_desc');
+	});
+	it('keep one preference of their own, apart from Videos', () => {
+		chooseSort(entityVideosSchema, 'random');
+		expect(localStorage.getItem('holodex:sort:entity-videos')).toBe('random');
+		expect(localStorage.getItem('holodex:sort:media')).toBeNull();
+		expect(parseList(entityVideosSchema, q(''), false).state.sort).toBe('random');
+		expect(parseList(mediaSchema, q(''), false).state.sort).toBe('added_desc');
+	});
+	it('serialize only the sort: the facet is the route, the seed never leaves the request', () => {
+		expect(serialize(entityVideosSchema, { sort: 'random', query: {} }).toString()).toBe('sort=random');
+		expect(serialize(entityVideosSchema, { sort: 'added_desc', query: {} }).toString()).toBe('');
+		expect(parseList(entityVideosSchema, q('sort=title_asc&person=4'), false).state.query).toEqual({});
+	});
+	it('drop an owner-only sort for a visitor', () => {
+		expect(parseList(entityVideosSchema, q('sort=completeness_asc'), false).state.sort).toBe('added_desc');
+		expect(parseList(entityVideosSchema, q('sort=completeness_asc'), true).state.sort).toBe('completeness_asc');
 	});
 });
 
