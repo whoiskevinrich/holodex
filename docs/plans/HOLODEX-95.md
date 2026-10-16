@@ -48,4 +48,4 @@ them), HOLODEX-580 (AutoFieldRows pill target size, found in the design critique
 
 ### 2026-10-16 · session
 - skills: design-critique, design-handoff, code-review high --fix (docs), handoff, implement
-- handoff: Design package is option A (visitor-visible film Details, no field-set change) with visitor Details unboxed on film and studio pages after a negative-space critique; HOLODEX-95 carries fp:ready-to-build — next, the owner signs off the handoff + SVG and runs `/implement`.
+- handoff: Crossed into build — design signed off at efc6d081; draft PR #525 open. Start at Up next 1: film Details visitor branch (unboxed) + studio visitor unboxed.
