@@ -336,10 +336,12 @@ fields, through the ordinary field-decision/precedence UI — see the reserved-n
 > **A film's canonical vocabulary is deliberately narrower than what a movie-shaped provider will
 > naturally send** — a settled decision, not a gap
 > ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)). Send your whole movie
-> payload; everything lands in the shadow store. But only `description`, `release_date`, `actors`
-> and the `poster`/`banner` assets do anything ([§4.2c](#42c-canonical-fields--film)). In
-> particular `title` is **not** applied — a film's title is owner-asserted identity, half of
-> Holodex's `(name, year)` uniqueness key — and `studio`/`director` are **not** applied, because a
+> payload; everything except `aliases` (which goes to the film's alias list) lands in the shadow
+> store. But only `description`, `release_date`, `actors`,
+> `title`, `aliases` and the `poster`/`banner` assets do anything ([§4.2c](#42c-canonical-fields--film)).
+> In particular `title` never **renames** the film — a film's name is owner-asserted identity, half
+> of Holodex's `(name, year)` uniqueness key — it is only offered as a display spelling the owner
+> can pick. `studio`/`director` are **not** applied, because a
 > film's studios and cast are read-only unions over its attached videos. Sending them is harmless;
 > expecting them to land is not.
 
@@ -512,15 +514,24 @@ records, adds **no** credits, and modifies **none** of the attached videos
 ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md) D1/D2). Matching is
 alias-aware, so a spelling variant of someone already in the union is not reported as missing.
 
-**Accepted, stored, and then ignored for a film:** `title` (a film's name is owner-asserted
-identity and is not provider-writable, [ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
-D3); `studio` and its `_studio_external_ids` sidecar
+**`title` is a display spelling, never the film's name.** A film's name is owner-asserted identity
+and no provider writes it ([ADR-089](../architecture/archive/ADR-089-film-enrichment-field-vocabulary.md)
+D3). Your `title` is offered as a candidate spelling of the name, which the owner can pick to change
+how the film reads ([F60](entity-identity-card.md) RD9). Picking it changes neither the stored name
+nor the `(name, year)` identity key.
+
+**`aliases` lands in the film's alias list.** Alternate titles you send become provider-sourced
+aliases of the film, exactly as for a person or a studio
+([entity-identity-card.md](entity-identity-card.md), HOLODEX-376). They are searchable and shown
+with the film's other aliases, not as a field.
+
+**Accepted, stored, and then ignored for a film:** `studio` and its `_studio_external_ids` sidecar
 ([§4.6](#46-studio-external-ids-_studio_external_ids)), because a film's studios are a union over
-its attached videos; `director`; and `aliases`, whose identity spine covers `person` and `studio`
-only. The structured **`people[]`** array ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) is likewise
+its attached videos; and `director`. The structured **`people[]`** array ([§4.5](#45-video-credits--per-person-castcrew-with-headshots)) is likewise
 **video-only** — a film's billed cast arrives through the flat `actors` field above. Any other key
-you send is stored and may auto-register as a display-only field through `field_hints`
-([§4.7](#47-field-render-hints-describefield_hints)).
+you send is stored and **not shown** on a film: unlike a person, studio or video, a film does not
+auto-register unknown keys as display-only fields through `field_hints`
+([§4.7](#47-field-render-hints-describefield_hints)). That is tracked as HOLODEX-579.
 
 ### 4.3 Assets
 
