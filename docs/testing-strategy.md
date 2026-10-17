@@ -3370,7 +3370,7 @@ contract, `web/src/lib/listState.ts`. Spec [F73](specs/list-toolbar.md) ·
 |---|---|---|
 | U1 | A valid URL `sort` beats a valid saved one. A saved one fills an absent URL `sort`. An invalid value at either level falls through to the default without throwing. | SP1 precedence |
 | U2 | An owner-only sort (`completeness_*`) from the URL **or** from storage resolves to the default when `owner` is false, and is kept when true. | 4 |
-| U3 | Query keys come only from the URL. With `holodex:filters:media`/`:people` seeded in storage and a bare URL, the parsed state has **no** filters. | 7 |
+| U3 | Query keys come only from the URL. With `holodex:filters:media`/`:people` seeded in storage and a bare URL, the parsed state has **no** filters. `purgeLegacyFilters` removes all four `holodex:filters:*` keys and leaves every other key alone. | 7 |
 | U4 | **Parsing (arrival) makes zero `localStorage.setItem` calls** (spy). The sort change handler writes exactly `holodex:sort:<page>` and nothing else. | 1 |
 | U5 | `serialize` is canonical: defaults omitted, keys sorted, unknown params dropped, and `parse(serialize(s))` round-trips for every page schema. The seed never appears. | ADR-114 D5/D6 |
 | U6 | A restored non-default sort is `replaceState`d into a URL that lacked it. A default sort isn't. | 2 (address bar honest) |
@@ -3387,8 +3387,8 @@ contract, `web/src/lib/listState.ts`. Spec [F73](specs/list-toolbar.md) ·
 | S3 | Each page's sort is **one** value typed from one list. There's no second sort-direction or completeness state in any page schema (a type-level `expectTypeOf` check on the schema). | 3 |
 
 **Existing tests.** `filters.test.ts` (Media's `filtersToParams`/`paramsToFilters`) keeps passing
-unchanged, because it becomes Media's schema (ADR-114 D6). `filterPreference.test.ts` stays until
-HOLODEX-474 deletes the module. It covers a reader nothing calls any more, and U3 proves that.
+unchanged, because it becomes Media's schema (ADR-114 D6). `filterPreference.test.ts` went with its
+module (HOLODEX-474); U3 covers the purge that replaced it.
 
 ### 20.2 Browser: the geometry harness (§12), extended to phones and list pages
 

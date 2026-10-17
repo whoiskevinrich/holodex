@@ -16,6 +16,7 @@ import {
 	mediaSchema,
 	parseList,
 	peopleSchema,
+	purgeLegacyFilters,
 	serialize,
 	stateKey,
 	studiosSchema,
@@ -93,6 +94,13 @@ describe('U3 query state comes only from the URL', () => {
 		expect(media.resolution).toBe('All');
 		expect(media.year_min).toBeUndefined();
 		expect(parseList(tagsSchema, q(''), true).state.query.type).toBe('all');
+	});
+	it('purges every legacy SP5 key and nothing else', () => {
+		for (const p of ['media', 'people', 'studios', 'tags']) localStorage.setItem(`holodex:filters:${p}`, '"x"');
+		localStorage.setItem('holodex:sort:people', 'count');
+		purgeLegacyFilters();
+		expect(localStorage.length).toBe(1);
+		expect(localStorage.getItem('holodex:sort:people')).toBe('count');
 	});
 	it('reads the query from the URL', () => {
 		expect(parseList(tagsSchema, q('type=categories'), false).state.query.type).toBe('categories');

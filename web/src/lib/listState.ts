@@ -4,7 +4,7 @@
 //  - the *preference* — the sort — lives in localStorage (`holodex:sort:<page>`, via
 //    sortPreference) AND in the URL `sort` param; a valid URL value wins (D2).
 //  - the *query* — filters, scope chips, a tab — lives in the URL only. Nothing here ever
-//    reads the legacy SP5 `holodex:filters:*` keys (HOLODEX-474 deletes them).
+//    reads the legacy SP5 `holodex:filters:*` keys; `purgeLegacyFilters` deletes them.
 //
 // Parsing is pure and never writes storage: arriving by a shared link, Back or a redirect
 // must not overwrite the visitor's saved preference (D3). Only `chooseSort`, called from a
@@ -108,6 +108,20 @@ export function commit(path: string, params: URLSearchParams): void {
 export function exitAfterRemoval(cameFromInApp: boolean, listHref: string): void {
 	if (cameFromInApp) history.back();
 	else void goto(listHref);
+}
+
+// The keys the retired SP5 module (filterPreference.ts) saved filters under. Deleted on
+// every app load so a filter saved before F73 can never resurface (HOLODEX-474). Safe to
+// repeat: removing an absent key is a no-op.
+const LEGACY_FILTER_KEYS = ['media', 'people', 'studios', 'tags'].map((p) => `holodex:filters:${p}`);
+
+export function purgeLegacyFilters(): void {
+	if (typeof localStorage === 'undefined') return;
+	try {
+		for (const k of LEGACY_FILTER_KEYS) localStorage.removeItem(k);
+	} catch {
+		// Storage unavailable — nothing was saved there to resurface.
+	}
 }
 
 // ---- Page schemas --------------------------------------------------------------------

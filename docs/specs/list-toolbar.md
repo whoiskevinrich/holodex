@@ -231,8 +231,8 @@ as every other filter.
       press F5, or the page reloads before I come Back to it, then it returns to the same scroll
       position. This holds within the tab only. The Media grid is the exception and starts at the
       top after a reload (Quick Wins QW4).
-- [ ] Legacy saved filters (`holodex:filters:*`) are **ignored** on read from this release. Deleting
-      them is HOLODEX-474.
+- [ ] Legacy saved filters (`holodex:filters:*`) are **ignored** on read, and deleted from the
+      browser on every app load.
 
 **R8. Redirects after actions return to the list you came from.**
 - When an action sends you to a list page, you return to the list URL (sort and filters) you left

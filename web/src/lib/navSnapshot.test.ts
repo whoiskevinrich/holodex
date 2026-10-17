@@ -6,7 +6,7 @@ interface Snap extends Keyed {
 	scrollY: number;
 }
 
-// Node has no DOM: the same Storage stub the filterPreference/adminMode tests use.
+// Node has no DOM: the same Storage stub the adminMode tests use.
 function fakeStorage(): Storage {
 	const m = new Map<string, string>();
 	return {

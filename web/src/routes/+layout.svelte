@@ -15,10 +15,12 @@
 	import { reauth, trackEdits } from '#lib/reauth.svelte.ts';
 	import { lastNavigation } from '#lib/lastNavigation.ts';
 	import SessionExpiredBanner from '#lib/components/activity/SessionExpiredBanner.svelte';
+	import { purgeLegacyFilters } from '#lib/listState.ts';
 
 	let { children } = $props();
 
 	$effect(silenceMediaInDev);
+	$effect(purgeLegacyFilters);
 
 	let searchInput = $state<HTMLInputElement | null>(null);
 	let searchFormEl = $state<HTMLFormElement | null>(null);
