@@ -405,6 +405,7 @@ POST   /api/v1/media/{id}/writeback                            unchanged; film-s
   videos only, RD4) · film→video attach affordance (P0-9, `EntityPickerDialog.svelte`-derived
   but scoped/filtered/multi-select per RD9) · Details section on `SourceSelect`/
   `CurationFieldRow` chips for enrichable fields, matching the Person/Studio Details pattern.
+  Visitors see Details too: [F59](film-provider-enrichment-ux.md) P0-13.
 - **`/media/{id}`**: new "Films" section listing current attachments (detachable) + video→film
   attach affordance (P0-8, `EntityPickerDialog.svelte` shape per RD9).
 - **`/people/{id}`, `/studios/{id}`, `/tags/{id}`**: new films row (P0-5), shown only when

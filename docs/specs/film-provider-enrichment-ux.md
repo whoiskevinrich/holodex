@@ -40,7 +40,9 @@ path** and adds a second **asset download** per film → `/security-review` befo
 
 **Design handoff**: [film-enrichment-handoff.md](../design/film-enrichment-handoff.md) — the Details
 section's provider chips, the two-image header, and the dual-cast merge rule at stressed scale.
-Mockup: [film-enrichment-mockup.svg](../design/film-enrichment-mockup.svg).
+Mockup: [film-enrichment-mockup.svg](../design/film-enrichment-mockup.svg). Visitor visibility of
+Details (P0-13): [film-details-parity-handoff.md](../design/film-details-parity-handoff.md), which
+supersedes the earlier handoff on who sees Details.
 
 **Test plan**: [testing-strategy.md](../testing-strategy.md) §4 (four backend rows), §5 (two frontend
 rows), and three new entries under *Critical invariants*.
@@ -280,6 +282,15 @@ backend already shipped.)*
   sitting beside a visible `Released` value it appears to contradict. Acceptance: exactly one `h1` on
   the page (the year is not a heading); an owner set may overwrite where the provider fill may not;
   a collision returns `200 {conflict}` so the control shows a verdict, not an error.
+
+- **P0-13 — Visitors see the film's Details.** *(Added by HOLODEX-95; supersedes the earlier
+  owner-only Details.)* Being the owner adds controls; it never decides whether a value shows. A
+  visitor sees the Details section whenever one of its fields has a value, with the same rows the
+  owner sees and none of the owner's controls. When every row comes from one provider, the visitor
+  sees one section-level note naming that provider instead of a badge per row (user story 6); with
+  more than one source, each row carries its own badge. The film's field set is unchanged.
+  Acceptance: a visitor on an enriched film sees its release date in Details with one provider
+  note and no controls; a film with no Details values shows a visitor no Details section.
 
 ### Should-have (P1)
 

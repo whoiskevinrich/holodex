@@ -128,6 +128,26 @@ export function providerFromWinningSource(winningSource?: string): string {
 		: ns;
 }
 
+// soleProvider names the one provider behind EVERY given field, or "" when they differ
+// or any field's winner is a baseline/custom source. A visitor's Details section shows it
+// once as "Enriched from …" in place of a badge per row (HOLODEX-95), so a custom row
+// must void it: a hoisted note would otherwise claim that row too.
+export function soleProvider(fields: { winning_source?: string }[]): string {
+	const providers = new Set(fields.map((f) => providerFromWinningSource(f.winning_source)));
+	if (providers.size !== 1) return '';
+	const [only] = providers;
+	return only;
+}
+
+// rowProvenance is the badge a visitor's Details row carries when no section note covers
+// it: the provider's icon, the "custom" pill for an owner's custom value, or none (a
+// record/file baseline, which gets no badge).
+export function rowProvenance(winningSource?: string): { provider: string; manual: boolean } | null {
+	const provider = providerFromWinningSource(winningSource);
+	if (provider) return { provider, manual: false };
+	return (winningSource ?? '').startsWith('manual:') ? { provider: '', manual: true } : null;
+}
+
 // calculatedFrom builds the transitive provenance phrase for a computed field (F45,
 // ADR-063) from its input LABELS — e.g. ["Born"] → "calculated from Born",
 // ["Born","Died"] → "calculated from Born and Died" (serial "and" for the last of 3+).
