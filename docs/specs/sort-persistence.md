@@ -272,7 +272,7 @@ Cinémathèque.
 
 > **Superseded by [F73 — list toolbar](list-toolbar.md#amendments-to-sort-persistence) and
 > ADR-114.** Filters now live only in the URL, and Back restores them from the history entry. The
-> `holodex:filters:*` keys are ignored from F73 on and deleted by HOLODEX-474. Kept below as
+> `holodex:filters:*` keys are ignored from F73 on and deleted on every app load. Kept below as
 > history.
 
 SP1 remembers each page's **sort**; the **filters** beside it still reset on every mount
