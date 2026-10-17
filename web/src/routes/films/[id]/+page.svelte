@@ -10,8 +10,6 @@
 		resolutionBucket,
 		releaseYear,
 		providerFromWinningSource,
-		soleProvider as soleProviderOf,
-		rowProvenance,
 		aliasHint,
 		videoCount,
 		sortExternalLinks,
@@ -65,8 +63,7 @@
 	import PersonLinkChip from '#lib/components/person/PersonLinkChip.svelte';
 	import TagLinkChip from '#lib/components/entity/TagLinkChip.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
-	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
+	import EntityDetails from '#lib/components/entity/EntityDetails.svelte';
 	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
 	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
 	import DisplayNameLine from '#lib/components/entity/DisplayNameLine.svelte';
@@ -225,27 +222,11 @@
 
 	// `name` is an identity column, not a Details row (its rename lives on the title's
 	// NameEditControl), and the description is the rail's first block (HOLODEX-364, the
-	// media page's Overview rule from HOLODEX-363), not a Details row — so only the
-	// fields left over gate the Details section: same "hide the whole section, don't
-	// show an empty box"
-	// rule. The owner also gets the section when a film-capable provider exists but
-	// nothing has resolved yet, or there would be no way to reach the Enrich control on
-	// an unenriched film. Visibility filter and row split are the studio page's: a visitor
-	// sees a row only when it has a value (HOLODEX-95).
+	// media page's Overview rule from HOLODEX-363), not a Details row. EntityDetails
+	// decides which of the rest show for whom (HOLODEX-582).
 	const detailFields = $derived(
-		resolved.filter(
-			(f) =>
-				f.canonical !== 'name' &&
-				f.canonical !== 'description' &&
-				(isOwner
-					? f.values.length > 0 || (f.candidates ?? []).length > 0
-					: f.values.some((v) => v.trim() !== ''))
-		)
+		resolved.filter((f) => f.canonical !== 'name' && f.canonical !== 'description')
 	);
-	const compactFields = $derived(detailFields.filter((f) => f.display !== 'long_text'));
-	const longFields = $derived(detailFields.filter((f) => f.display === 'long_text'));
-	// One "Enriched from …" note for a visitor when a single provider supplies every row.
-	const soleProvider = $derived(soleProviderOf(detailFields));
 	// The title renders the resolved name — a display decision may pick the provider's
 	// title or a custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical
 	// column, which stays half the (name, year) identity key.
@@ -254,7 +235,6 @@
 	// EntityRef default, but the title's conflict also carries a trashed film (F78).
 	let nameControl = $state<{ open: () => void } | null>(null);
 	const displayName = $derived(nameField?.values[0] || film?.name || '');
-	const hasDetails = $derived(detailFields.length > 0);
 	const descriptionField = $derived(resolved.find((f) => f.canonical === 'description'));
 	// Description edit modal (HOLODEX-364, the media Overview pattern from HOLODEX-365) —
 	// owner-only pencil in the section heading opens this; SourceEditModal owns its own
@@ -936,96 +916,24 @@
 						</section>
 					{/if}
 
-					<!-- Details (release_date) — the studio page's Details section, enrichment header
-					     row included (F59/HOLODEX-309). Visitor vs. owner is a control gate, not a
-					     content gate (HOLODEX-95): a visitor sees the section whenever a row has a
-					     value, unboxed in the rail's own rhythm, with one "Enriched from X" note when
-					     a single provider supplies every row; the owner gets the box, SourceBadge and
-					     enrich chips. The owner still gets the section once the provider list has
-					     loaded even if nothing has resolved yet: with a provider, or an unenriched film
-					     would offer no way to reach Enrich; with none, so the "No metadata provider
-					     configured" hint has a home (HOLODEX-88). -->
-					{#if hasDetails || (isOwner && sourcesLoaded)}
-						<section
-							class={isOwner ? 'space-y-3 rounded-theme border border-rule bg-surface p-4' : 'space-y-2'}
-						>
-							<div class="flex flex-wrap items-start justify-between gap-2">
-								<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
-								{#if isOwner && filmProviders.length}
-									<!-- One compact chip per film-capable provider (icon + name + Enrich),
-									     Clear in a ⋯ overflow once linked (HOLODEX-136). Reused verbatim —
-									     it takes no entity id and no entity kind (ADR-089 D5). -->
-									<EnrichProviderChips
-										providers={filmProviders}
-										linked={providerLinked}
-										{busy}
-										{refreshingAll}
-										onenrich={openPicker}
-										onrefresh={refreshProvider}
-										onclear={clearProvider}
-										onrefreshall={refreshAll}
-									/>
-								{:else if isOwner && sourcesLoaded}
-									<NoProviderHint />
-								{:else if !isOwner && soleProvider}
-									<span class="text-xs text-muted"
-										>Enriched from <span class="text-accent">{soleProvider}</span></span
-									>
-								{/if}
-							</div>
-
-							{#if actionError}
-								<p class="text-sm text-warn">{actionError}</p>
-							{/if}
-							{#if enrichStatus.text}
-								<p class="text-sm text-muted" aria-live="polite">{enrichStatus.text}</p>
-							{/if}
-
-
-							{#if hasDetails}
-								<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-									{#each compactFields as f (f.canonical)}
-										{#if isOwner}
-											<div id={`field-${f.canonical}`}>
-												<dt class="mb-1 text-muted">{f.label}:</dt>
-												<dd>
-													<SourceBadge field={f} baselineKey="record" decide={(s, mv) => decideField(f.canonical, s, mv)} />
-												</dd>
-											</div>
-										{:else}
-											{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
-											<div id={`field-${f.canonical}`}>
-												<dt class="inline text-muted">{f.label}:</dt>
-												<dd class="inline text-ink">{f.values.join(', ')}</dd>
-												{#if badge}
-													<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
-												{/if}
-											</div>
-										{/if}
-									{/each}
-
-									{#each longFields as f (f.canonical)}
-										<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-											<dt class="inline text-muted">{f.label}:</dt>
-											{#if isOwner}
-												<dd class="block">
-													<SourceBadge field={f} baselineKey="record" decide={(s, mv) => decideField(f.canonical, s, mv)} />
-												</dd>
-											{:else}
-												{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
-												{#if f.values[0]?.trim()}
-													<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-												{/if}
-												{#if badge}
-													<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
-												{/if}
-											{/if}
-										</div>
-									{/each}
-								</dl>
-							{/if}
-						</section>
-					{/if}
+					<!-- Details (release_date and the other replace fields) — shared with the studio
+					     page through EntityDetails (HOLODEX-582). -->
+					<EntityDetails
+						fields={detailFields}
+						{isOwner}
+						{sourcesLoaded}
+						providers={filmProviders}
+						linked={providerLinked}
+						{busy}
+						{refreshingAll}
+						onenrich={openPicker}
+						onrefresh={refreshProvider}
+						onclear={clearProvider}
+						onrefreshall={refreshAll}
+						decide={decideField}
+						error={actionError}
+						status={enrichStatus.text}
+					/>
 
 					<!-- 2b. Full-film file section — a list, only place a film-page writeback button lives. -->
 					{#if fullFilms.length}

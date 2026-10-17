@@ -288,7 +288,9 @@ backend already shipped.)*
   visitor sees the Details section whenever one of its fields has a value, with the same rows the
   owner sees and none of the owner's controls. When every row comes from one provider, the visitor
   sees one section-level note naming that provider instead of a badge per row (user story 6); with
-  more than one source, each row carries its own badge. The film's field set is unchanged.
+  more than one source, each row carries its own badge. The film's field set is unchanged. The
+  owner also sees a row they chose to keep blank, even with nothing else on offer, so that choice
+  can be undone where it was made (HOLODEX-582). The studio page's Details follows the same rules.
   Acceptance: a visitor on an enriched film sees its release date in Details with one provider
   note and no controls; a film with no Details values shows a visitor no Details section.
 

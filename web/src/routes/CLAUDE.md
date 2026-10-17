@@ -59,6 +59,13 @@ visitor-visible block use the `SourceEditModal` pattern, which separates the dec
 display. Long prose in particular is always `ExpandableText`
 (`web/src/lib/components/shared/CLAUDE.md`).
 
+**The exception: short scalar rows in a field list keep `SourceBadge` (owner ruling,
+HOLODEX-582).** The film and studio Details (`entity/EntityDetails.svelte`), Person Details and the
+media Metadata list mount `SourceBadge` as the owner branch of a row a visitor also sees. A one-line
+value has no clamp or typography for the two branches to drift on, and the inline chip row saves
+the owner a modal per decision. The exception covers short values only. A `long_text` field still
+moves to the pencil and `SourceEditModal` once it leaves a field list for its own block.
+
 ## `#field-<canonical>` deep links land ready to edit
 
 A `/media/{id}#field-<canonical>` landing (the film page's "+ Set edition", the completeness
@@ -93,7 +100,8 @@ The three `long_text` blocks — Person bio, media Overview, film description �
 badge included. The film Details section is no longer owner-only: it follows the control-gate rule
 like Studio's, visible to a visitor whenever it has a value, with one section-level "Enriched from"
 note when a single provider supplies every row (HOLODEX-95,
-`docs/design/film-details-parity-handoff.md`).
+`docs/design/film-details-parity-handoff.md`). Both pages render that section through one
+component, `entity/EntityDetails.svelte` (HOLODEX-582), so a change to it lands on both.
 
 The words used above — owner/visitor branch, value vs. affordance, value-owning control, knob,
 parity, drift — are defined in [`docs/reference/ui-vocabulary.md`](../../../docs/reference/ui-vocabulary.md);
