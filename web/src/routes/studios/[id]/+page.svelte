@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { api } from '#lib/api.ts';
-	import { toMessage, providerFromWinningSource, soleProvider as soleProviderOf, rowProvenance, aliasHint, videoCount } from '#lib/format.ts';
+	import { toMessage, aliasHint, videoCount } from '#lib/format.ts';
 	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
 	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
@@ -35,11 +35,7 @@
 	import MergeOfferCard from '#lib/components/entity/MergeOfferCard.svelte';
 	import CompletenessPanel from '#lib/components/completeness/CompletenessPanel.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
-	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
-	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
-	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
-	import UrlValueList from '#lib/components/curation/UrlValueList.svelte';
+	import EntityDetails from '#lib/components/entity/EntityDetails.svelte';
 	import AutoFieldRows from '#lib/components/curation/AutoFieldRows.svelte';
 	import CurationFieldRow from '#lib/components/curation/CurationFieldRow.svelte';
 	import PromotedFieldEdit from '#lib/components/curation/PromotedFieldEdit.svelte';
@@ -123,21 +119,11 @@
 	const nameField = $derived(resolved.find((f) => f.canonical === 'name'));
 	let nameControl = $state<NameEditControl | null>(null);
 	const displayName = $derived(nameField?.values[0] || studio?.name || '');
-	// Replace fields other than `name` that have a value or (for the owner) a candidate.
+	// Replace fields other than `name`; EntityDetails decides which show for whom (HOLODEX-582).
 	// `name` is never a chip row here — its SourceBadge lives on DisplayNameLine under the heading.
 	const replaceFields = $derived(
-		resolved.filter(
-			(f) =>
-				f.canonical !== 'name' &&
-				!f.multi &&
-				!f.auto_registered &&
-				(isOwner
-					? f.values.length > 0 || (f.candidates ?? []).length > 0
-					: f.values.some((v) => v.trim() !== ''))
-		)
+		resolved.filter((f) => f.canonical !== 'name' && !f.multi && !f.auto_registered)
 	);
-	const compactFields = $derived(replaceFields.filter((f) => f.display !== 'long_text'));
-	const longFields = $derived(replaceFields.filter((f) => f.display === 'long_text'));
 	// F44 (ADR-062): a chips-render promotion is a merge field — studio has no native
 	// merge field, but a promotion can introduce one, so it needs its own row.
 	const mergeFields = $derived(
@@ -146,20 +132,6 @@
 	// F39 (ADR-056): display-only auto-registered non-canonical fields, read-only after
 	// the curatable ones.
 	const extraFields = $derived(resolved.filter((f) => f.auto_registered && f.values.length > 0));
-	// Show the section when there's something to curate or display, or (owner) a provider to enrich from.
-	const hasDetails = $derived(
-		replaceFields.length > 0 || mergeFields.length > 0 || extraFields.length > 0
-	);
-
-	// The provider behind a visitor row's ProvenanceBadge — the winning namespace unless
-	// it is a baseline source (record/file/manual). Shared with AutoFieldRows.
-	const winnerProvider = (f: ResolvedField): string => providerFromWinningSource(f.winning_source);
-
-	// When every shown field resolves from the SAME single provider, we hoist one
-	// "Enriched from …" note to the section header (visitor view) instead of repeating an
-	// identical badge on every row. Empty when providers differ, or any row is custom —
-	// rows keep their per-field badges so the divergence stays visible.
-	const soleProvider = $derived(soleProviderOf(replaceFields));
 
 	function apply(res: StudioDetailResponse) {
 		studio = res.studio;
@@ -484,141 +456,52 @@
 				</section>
 			{/if}
 
-			{#if hasDetails || (isOwner && sourcesLoaded)}
-				<!-- The owner's box frames controls; a visitor gets the section unboxed, in the
-				     rail's own heading-and-rows rhythm (HOLODEX-95, film-details-parity-handoff). -->
-				<section
-					class={isOwner ? 'space-y-3 rounded-theme border border-rule bg-surface p-4' : 'space-y-2'}
-				>
-					<div class="flex flex-wrap items-start justify-between gap-2">
-						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
-						{#if isOwner && studioProviders.length}
-							<!-- HOLODEX-136: one compact chip per studio-capable provider
-							     (icon + name + Enrich), Clear in a ⋯ overflow once linked. -->
-							<EnrichProviderChips
-								providers={studioProviders}
-								linked={providerLinked}
-								{busy}
-								{refreshingAll}
-								onenrich={openPicker}
-								onrefresh={refreshProvider}
-								onclear={clearProvider}
-								onrefreshall={refreshAll}
-							/>
-						{:else if isOwner && sourcesLoaded}
-							<NoProviderHint />
-						{:else if !isOwner && soleProvider}
-							<!-- Visitor: one section-level provenance note when every field shares a
-							     single provider, instead of an identical badge per row. -->
-							<span class="text-xs text-muted"
-								>Enriched from <span class="text-accent">{soleProvider}</span></span
-							>
-						{/if}
-					</div>
-
-					{#if actionError}
-						<p class="text-sm text-warn">{actionError}</p>
-					{/if}
-					{#if enrichStatus.text}
-						<p class="text-sm text-muted" aria-live="polite">{enrichStatus.text}</p>
-					{/if}
-
-					{#if hasDetails}
-						<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-							{#snippet promotedEdit(f: ResolvedField)}
-								<PromotedFieldEdit {isOwner} field={f} entityType="studio" entityNoun="studios" onchanged={reloadDetail} />
-							{/snippet}
-
-							{#each compactFields as f (f.canonical)}
-								{#if isOwner}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
-										<dt class="mb-1 text-muted">{f.label}:</dt>
-										<dd>
-											<SourceBadge
-												field={f}
-												baselineKey="record"
-												decide={(s, mv) => decideField(f.canonical, s, mv)}
-											/>
-										</dd>
-									</div>
-								{:else}
-									<div class={f.display === 'url' ? 'sm:col-span-2' : ''} id={`field-${f.canonical}`}>
-										<dt class="inline text-muted">{f.label}:</dt>
-										{#if f.display === 'url'}
-											<!-- HOLODEX-137: provider icon + host in the link folds in
-											     provenance; suppressed when soleProvider shows the section note. -->
-											<dd class="inline">
-												<UrlValueList
-													values={f.values}
-													hostname
-													provider={soleProvider ? '' : winnerProvider(f)}
-												/>
-											</dd>
-										{:else}
-											{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
-											<dd class="inline text-ink">{f.values.join(', ')}</dd>
-											{#if badge}
-												<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
-											{/if}
-										{/if}
-									</div>
-								{/if}
-								{@render promotedEdit(f)}
-							{/each}
-
-							{#each longFields as f (f.canonical)}
-								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-									<dt class="inline text-muted">{f.label}:</dt>
-									{#if !isOwner && f.values[0]?.trim()}
-										<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
-									{/if}
-									{#if isOwner}
-										<dd class="block">
-											<SourceBadge
-												field={f}
-												baselineKey="record"
-												decide={(s, mv) => decideField(f.canonical, s, mv)}
-											/>
-										</dd>
-									{:else}
-										{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
-										{#if badge}
-											<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
-										{/if}
-									{/if}
-								</div>
-								{@render promotedEdit(f)}
-							{/each}
-
-							{#each mergeFields as f (f.canonical)}
-								<div class="sm:col-span-2" id={`field-${f.canonical}`}>
-									<dt class="mb-1 text-muted">{f.label}:</dt>
-									<dd>
-										<CurationFieldRow
-											field={f}
-											{isOwner}
-											showWriteToggle={false}
-											curate={(req) => api.curateStudio(id, req)}
-											clearCuration={(req) => api.clearStudioCuration(id, req)}
-											onchanged={reloadDetail}
-										/>
-									</dd>
-								</div>
-								{@render promotedEdit(f)}
-							{/each}
-
-							<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
-							<AutoFieldRows
-								fields={extraFields}
+			<EntityDetails
+				fields={replaceFields}
+				{isOwner}
+				{sourcesLoaded}
+				providers={studioProviders}
+				linked={providerLinked}
+				{busy}
+				{refreshingAll}
+				onenrich={openPicker}
+				onrefresh={refreshProvider}
+				onclear={clearProvider}
+				onrefreshall={refreshAll}
+				decide={decideField}
+				error={actionError}
+				status={enrichStatus.text}
+				hasMore={mergeFields.length > 0 || extraFields.length > 0}
+			>
+				{#snippet afterRow(f: ResolvedField)}
+					<PromotedFieldEdit {isOwner} field={f} entityType="studio" entityNoun="studios" onchanged={reloadDetail} />
+				{/snippet}
+				{#each mergeFields as f (f.canonical)}
+					<div class="sm:col-span-2" id={`field-${f.canonical}`}>
+						<dt class="mb-1 text-muted">{f.label}:</dt>
+						<dd>
+							<CurationFieldRow
+								field={f}
 								{isOwner}
-								entityType="studio"
-								entityNoun="studios"
+								showWriteToggle={false}
+								curate={(req) => api.curateStudio(id, req)}
+								clearCuration={(req) => api.clearStudioCuration(id, req)}
 								onchanged={reloadDetail}
 							/>
-						</dl>
-					{/if}
-				</section>
-			{/if}
+						</dd>
+					</div>
+					{@render afterRow?.(f)}
+				{/each}
+
+				<!-- F39 (ADR-056): display-only auto-registered non-canonical fields. -->
+				<AutoFieldRows
+					fields={extraFields}
+					{isOwner}
+					entityType="studio"
+					entityNoun="studios"
+					onchanged={reloadDetail}
+				/>
+			</EntityDetails>
 
 			{#if isOwner}
 				<CompletenessPanel {completeness} onchanged={reloadDetail} />
