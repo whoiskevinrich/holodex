@@ -37,16 +37,16 @@ them), HOLODEX-580 (AutoFieldRows pill target size, found in the design critique
 - [x] spec `write-spec` → `docs/specs/**` — F59 P0-13 (visitors see Details); films-entity cross-link
 - [x] design `design-handoff` → `docs/design/**` — `film-details-parity-handoff.md` + SVG (production-shaped); film-enrichment handoff §1/§4f point at it
 - [~] backend → `{cmd,internal,providers}/**` — none: `GET /films/{id}` already returns resolved fields to visitors
-- [/] frontend → `web/src/**` — film + studio visitor Details unboxed with `soleProvider`/`rowProvenance` (`lib/format.ts`); live-verified on the stress fixture (visitor: border 0, transparent, padding 0, 44px, one note; owner: boxed); awaiting the owner's build-vs-mockup comparison
+- [x] frontend → `web/src/**` — film + studio visitor Details unboxed with `soleProvider`/`rowProvenance` (`lib/format.ts`); live-verified on the stress fixture (visitor: border 0, transparent, padding 0, 44px, one note; owner: boxed); owner confirmed the build matches the mockup, 2026-10-16
 - [x] testing `testing-strategy` — `films/[id]/page.svelte.test.ts` (visitor note, custom pill, empty, owner box) + `format.test.ts`; full suite 59 files / 667+ tests green
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner compares the built film + studio Details with `film-details-parity-mockup.svg`, then `/handoff` marks #525 ready
+1. [ ] [—] Merge #525 and confirm CI moves HOLODEX-95 to Done (the branch carries the key)
 2. [ ] [—] Spun out of review: shared Details component, SourceBadge-on-visitor-block rule, custom url pill → HOLODEX-582
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-16 · session
 - skills: design-critique, design-handoff, code-review high --fix (docs + code), handoff, implement
-- handoff: Built and live-verified (film + studio visitor Details unboxed; tests green) on draft PR #525 — next, the owner compares the build with the approved mockup, then `/handoff` marks it ready.
+- handoff: All gates settled and the owner confirmed the build matches the mockup; PR #525 marked ready for review — next, merge it (squash) and confirm HOLODEX-95 reaches Done.
