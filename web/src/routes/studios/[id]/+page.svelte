@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { api } from '#lib/api.ts';
-	import { toMessage, providerFromWinningSource, aliasHint, videoCount } from '#lib/format.ts';
+	import { toMessage, providerFromWinningSource, soleProvider as soleProviderOf, rowProvenance, aliasHint, videoCount } from '#lib/format.ts';
 	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
 	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
@@ -157,12 +157,9 @@
 
 	// When every shown field resolves from the SAME single provider, we hoist one
 	// "Enriched from …" note to the section header (visitor view) instead of repeating an
-	// identical badge on every row. Empty when providers differ (or none) — rows keep their
-	// per-field badges so the divergence stays visible.
-	const soleProvider = $derived.by(() => {
-		const set = new Set(replaceFields.map(winnerProvider).filter(Boolean));
-		return set.size === 1 ? [...set][0] : '';
-	});
+	// identical badge on every row. Empty when providers differ, or any row is custom —
+	// rows keep their per-field badges so the divergence stays visible.
+	const soleProvider = $derived(soleProviderOf(replaceFields));
 
 	function apply(res: StudioDetailResponse) {
 		studio = res.studio;
@@ -488,7 +485,11 @@
 			{/if}
 
 			{#if hasDetails || (isOwner && sourcesLoaded)}
-				<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
+				<!-- The owner's box frames controls; a visitor gets the section unboxed, in the
+				     rail's own heading-and-rows rhythm (HOLODEX-95, film-details-parity-handoff). -->
+				<section
+					class={isOwner ? 'space-y-3 rounded-theme border border-rule bg-surface p-4' : 'space-y-2'}
+				>
 					<div class="flex flex-wrap items-start justify-between gap-2">
 						<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
 						{#if isOwner && studioProviders.length}
@@ -554,9 +555,10 @@
 												/>
 											</dd>
 										{:else}
+											{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
 											<dd class="inline text-ink">{f.values.join(', ')}</dd>
-											{#if !soleProvider && winnerProvider(f)}
-												<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+											{#if badge}
+												<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
 											{/if}
 										{/if}
 									</div>
@@ -578,8 +580,11 @@
 												decide={(s, mv) => decideField(f.canonical, s, mv)}
 											/>
 										</dd>
-									{:else if !soleProvider && winnerProvider(f)}
-										<ProvenanceBadge provider={winnerProvider(f)} label={winnerProvider(f)} />
+									{:else}
+										{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
+										{#if badge}
+											<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
+										{/if}
 									{/if}
 								</div>
 								{@render promotedEdit(f)}

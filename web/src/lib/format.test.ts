@@ -5,6 +5,8 @@ import {
 	formatDuration,
 	resolutionBucket,
 	providerFromWinningSource,
+	soleProvider,
+	rowProvenance,
 	calculatedFrom,
 	filterByName,
 	sortExternalLinks,
@@ -55,6 +57,29 @@ describe('providerFromWinningSource', () => {
 		// F45: a computed winning source must never resolve to a phantom "computed" provider.
 		expect(providerFromWinningSource('computed:age')).toBe('');
 		expect(providerFromWinningSource(undefined)).toBe('');
+	});
+});
+
+describe('soleProvider', () => {
+	it('names the provider only when every field resolves from it', () => {
+		expect(soleProvider([{ winning_source: 'tmdb:release_date' }])).toBe('tmdb');
+		expect(soleProvider([{ winning_source: 'p1:a' }, { winning_source: 'p1:b' }])).toBe('p1');
+	});
+	it('is empty for mixed providers, a custom/baseline row, or no rows (HOLODEX-95)', () => {
+		expect(soleProvider([{ winning_source: 'p1:a' }, { winning_source: 'p2:b' }])).toBe('');
+		// A custom row voids the note; otherwise the hoisted note would claim it too.
+		expect(soleProvider([{ winning_source: 'p1:a' }, { winning_source: 'manual:b' }])).toBe('');
+		expect(soleProvider([{ winning_source: 'manual:release_date' }])).toBe('');
+		expect(soleProvider([])).toBe('');
+	});
+});
+
+describe('rowProvenance', () => {
+	it('gives a provider icon, a custom pill, or nothing for a baseline', () => {
+		expect(rowProvenance('p1:release_date')).toEqual({ provider: 'p1', manual: false });
+		expect(rowProvenance('manual:release_date')).toEqual({ provider: '', manual: true });
+		expect(rowProvenance('record:name')).toBeNull();
+		expect(rowProvenance(undefined)).toBeNull();
 	});
 });
 

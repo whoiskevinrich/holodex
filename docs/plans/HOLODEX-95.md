@@ -29,23 +29,24 @@ it would render. Reverted before any code; deferred to HOLODEX-579.
 [film-details-parity-mockup.svg](../design/film-details-parity-mockup.svg)
 
 Spun out: HOLODEX-579 (film fields and additional-detail rows once a production provider sends
-them), HOLODEX-580 (AutoFieldRows pill target size, found in the design critique).
+them), HOLODEX-580 (AutoFieldRows pill target size, found in the design critique), HOLODEX-582
+(one shared Details component for film and studio, from the build's code review).
 
 ## Gates — definition of done
 
 - [x] spec `write-spec` → `docs/specs/**` — F59 P0-13 (visitors see Details); films-entity cross-link
 - [x] design `design-handoff` → `docs/design/**` — `film-details-parity-handoff.md` + SVG (production-shaped); film-enrichment handoff §1/§4f point at it
 - [~] backend → `{cmd,internal,providers}/**` — none: `GET /films/{id}` already returns resolved fields to visitors
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy` — HOLODEX-95 invariant added to `docs/testing-strategy.md`; the component test lands with the build
+- [/] frontend → `web/src/**` — film + studio visitor Details unboxed with `soleProvider`/`rowProvenance` (`lib/format.ts`); live-verified on the stress fixture (visitor: border 0, transparent, padding 0, 44px, one note; owner: boxed); awaiting the owner's build-vs-mockup comparison
+- [x] testing `testing-strategy` — `films/[id]/page.svelte.test.ts` (visitor note, custom pill, empty, owner box) + `format.test.ts`; full suite 59 files / 667+ tests green
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Film Details → studio pattern: visitor branch (unboxed), `soleProvider` note, compact/long rows — `web/src/routes/films/[id]/+page.svelte`; studio visitor Details unboxed too — `web/src/routes/studios/[id]/+page.svelte`
-2. [ ] [testing] Vitest component test, owner and visitor branches, per the HOLODEX-95 invariant
+1. [ ] [frontend] Owner compares the built film + studio Details with `film-details-parity-mockup.svg`, then `/handoff` marks #525 ready
+2. [ ] [—] Spun out of review: shared Details component, SourceBadge-on-visitor-block rule, custom url pill → HOLODEX-582
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-16 · session
-- skills: design-critique, design-handoff, code-review high --fix (docs), handoff, implement
-- handoff: Crossed into build — design signed off at efc6d081; draft PR #525 open. Start at Up next 1: film Details visitor branch (unboxed) + studio visitor unboxed.
+- skills: design-critique, design-handoff, code-review high --fix (docs + code), handoff, implement
+- handoff: Built and live-verified (film + studio visitor Details unboxed; tests green) on draft PR #525 — next, the owner compares the build with the approved mockup, then `/handoff` marks it ready.

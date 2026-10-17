@@ -10,6 +10,8 @@
 		resolutionBucket,
 		releaseYear,
 		providerFromWinningSource,
+		soleProvider as soleProviderOf,
+		rowProvenance,
 		aliasHint,
 		videoCount,
 		sortExternalLinks,
@@ -228,10 +230,22 @@
 	// show an empty box"
 	// rule. The owner also gets the section when a film-capable provider exists but
 	// nothing has resolved yet, or there would be no way to reach the Enrich control on
-	// an unenriched film.
+	// an unenriched film. Visibility filter and row split are the studio page's: a visitor
+	// sees a row only when it has a value (HOLODEX-95).
 	const detailFields = $derived(
-		resolved.filter((f) => f.canonical !== 'name' && f.canonical !== 'description')
+		resolved.filter(
+			(f) =>
+				f.canonical !== 'name' &&
+				f.canonical !== 'description' &&
+				(isOwner
+					? f.values.length > 0 || (f.candidates ?? []).length > 0
+					: f.values.some((v) => v.trim() !== ''))
+		)
 	);
+	const compactFields = $derived(detailFields.filter((f) => f.display !== 'long_text'));
+	const longFields = $derived(detailFields.filter((f) => f.display === 'long_text'));
+	// One "Enriched from …" note for a visitor when a single provider supplies every row.
+	const soleProvider = $derived(soleProviderOf(detailFields));
 	// The title renders the resolved name — a display decision may pick the provider's
 	// title or a custom spelling (F60 RD9, HOLODEX-378) — falling back to the canonical
 	// column, which stays half the (name, year) identity key.
@@ -922,19 +936,19 @@
 						</section>
 					{/if}
 
-					<!-- Details (release_date) — mirrors Studio's SourceBadge pattern, and since
-					     F59/HOLODEX-309 its enrichment header row too.
-					     **Owner-only.** This section is provenance and curation machinery, not reader
-					     content: the description a visitor wants renders in the rail block above with
-					     its own ProvenanceBadge, and everything here (source badges, provider chips,
-					     Released) exists to serve editing decisions. The section-level "Enriched from
-					     X" visitor note stays retired on purpose (HOLODEX-364): the per-value badge
-					     already says which provider each visible value came from. The owner still
-					     gets the section once the provider list has loaded even if nothing has resolved
-					     yet: with a provider, or an unenriched film would offer no way to reach Enrich;
-					     with none, so the "No metadata provider configured" hint has a home (HOLODEX-88). -->
-					{#if isOwner && (hasDetails || sourcesLoaded)}
-						<section class="space-y-3 rounded-theme border border-rule bg-surface p-4">
+					<!-- Details (release_date) — the studio page's Details section, enrichment header
+					     row included (F59/HOLODEX-309). Visitor vs. owner is a control gate, not a
+					     content gate (HOLODEX-95): a visitor sees the section whenever a row has a
+					     value, unboxed in the rail's own rhythm, with one "Enriched from X" note when
+					     a single provider supplies every row; the owner gets the box, SourceBadge and
+					     enrich chips. The owner still gets the section once the provider list has
+					     loaded even if nothing has resolved yet: with a provider, or an unenriched film
+					     would offer no way to reach Enrich; with none, so the "No metadata provider
+					     configured" hint has a home (HOLODEX-88). -->
+					{#if hasDetails || (isOwner && sourcesLoaded)}
+						<section
+							class={isOwner ? 'space-y-3 rounded-theme border border-rule bg-surface p-4' : 'space-y-2'}
+						>
 							<div class="flex flex-wrap items-start justify-between gap-2">
 								<h2 class="text-xs uppercase tracking-wide text-muted" id="enrich-providers">Details</h2>
 								{#if isOwner && filmProviders.length}
@@ -951,8 +965,12 @@
 										onclear={clearProvider}
 										onrefreshall={refreshAll}
 									/>
-								{:else if sourcesLoaded}
+								{:else if isOwner && sourcesLoaded}
 									<NoProviderHint />
+								{:else if !isOwner && soleProvider}
+									<span class="text-xs text-muted"
+										>Enriched from <span class="text-accent">{soleProvider}</span></span
+									>
 								{/if}
 							</div>
 
@@ -964,20 +982,48 @@
 							{/if}
 
 
-							<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-								{#each detailFields as f (f.canonical)}
-									<div id={`field-${f.canonical}`}>
-										<dt class="mb-1 text-muted">{f.label}:</dt>
-										<dd>
+							{#if hasDetails}
+								<dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+									{#each compactFields as f (f.canonical)}
+										{#if isOwner}
+											<div id={`field-${f.canonical}`}>
+												<dt class="mb-1 text-muted">{f.label}:</dt>
+												<dd>
+													<SourceBadge field={f} baselineKey="record" decide={(s, mv) => decideField(f.canonical, s, mv)} />
+												</dd>
+											</div>
+										{:else}
+											{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
+											<div id={`field-${f.canonical}`}>
+												<dt class="inline text-muted">{f.label}:</dt>
+												<dd class="inline text-ink">{f.values.join(', ')}</dd>
+												{#if badge}
+													<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
+												{/if}
+											</div>
+										{/if}
+									{/each}
+
+									{#each longFields as f (f.canonical)}
+										<div class="sm:col-span-2" id={`field-${f.canonical}`}>
+											<dt class="inline text-muted">{f.label}:</dt>
 											{#if isOwner}
-												<SourceBadge field={f} baselineKey="record" decide={(s, mv) => decideField(f.canonical, s, mv)} />
+												<dd class="block">
+													<SourceBadge field={f} baselineKey="record" decide={(s, mv) => decideField(f.canonical, s, mv)} />
+												</dd>
 											{:else}
-												<span class="text-ink">{f.values.join(', ')}</span>
+												{@const badge = soleProvider ? null : rowProvenance(f.winning_source)}
+												{#if f.values[0]?.trim()}
+													<dd class="mt-1 block leading-relaxed text-ink">{f.values[0]}</dd>
+												{/if}
+												{#if badge}
+													<ProvenanceBadge provider={badge.provider} label={badge.provider} manual={badge.manual} />
+												{/if}
 											{/if}
-										</dd>
-									</div>
-								{/each}
-							</dl>
+										</div>
+									{/each}
+								</dl>
+							{/if}
 						</section>
 					{/if}
 
