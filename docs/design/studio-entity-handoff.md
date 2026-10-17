@@ -124,6 +124,9 @@ aliases-management, rename, and merge sections (all out of scope, RD4). What rem
   `CurationFieldRow` — same as F30/F37.
 - **Owner-gated**: only render the interactive chips when `activity.effectiveOwner`. Visitors see the
   resolved values as static text (the same read-only rendering the person page uses for visitors).
+- **Visitors get the section unboxed** (HOLODEX-95): a bare rail heading plus rows, with no border,
+  surface or padding. The owner keeps the box. Same rule and markup as the film page —
+  [film-details-parity-handoff.md](film-details-parity-handoff.md).
 - **No writeback affordances**: no "Write decisions to file" button, no out-of-sync pill anywhere —
   a studio has no file (RD5, mirrors F37 Non-Goals).
 

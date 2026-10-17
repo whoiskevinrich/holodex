@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="780" viewBox="0 0 960 780" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <title>Film Details parity (HOLODEX-95): owner and visitor film pages</title>
+  <desc>Three panels, drawn with production data (one provider supplying the release date). One: the owner's film page at lg, Details unchanged — a Released row with its provider badge. Two: the visitor's film page, where Details now renders unboxed, in the rail's own section rhythm, with one section-level "Enriched from Provider" note and no controls; the studio visitor view matches. Three: two edge states for the visitor — a custom release date (row badge, no note) and an unenriched film (no Details section).</desc>
+
+  <rect width="960" height="780" fill="#0c0a09"/>
+
+  <!-- ─────────── 1. Owner ─────────── -->
+  <text x="20" y="28" fill="#e8a33d" font-size="11" letter-spacing="1.2">1 — OWNER · FILM PAGE AT LG · DETAILS UNCHANGED</text>
+  <rect x="20" y="40" width="920" height="300" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+  <rect x="32" y="52" width="522" height="112" rx="2" fill="#181310" stroke="#2a2622"/>
+  <text x="293" y="100" fill="#9b9082" font-size="10" text-anchor="middle" letter-spacing="1.2">BANNER · 8:3</text>
+  <rect x="32" y="124" width="522" height="40" fill="#0c0a09" opacity="0.55"/>
+  <rect x="48" y="120" width="72" height="108" rx="2" fill="#221b16" stroke="#2a2622"/>
+  <text x="136" y="178" fill="#f3ece1" font-size="22" font-family="Georgia, 'Fraunces', serif">Film title</text>
+  <text x="136" y="198" fill="#9b9082" font-size="12">2019 ·</text>
+  <rect x="176" y="187" width="66" height="16" rx="8" fill="none" stroke="#2a2622"/>
+  <text x="209" y="199" fill="#9b9082" font-size="10" text-anchor="middle">Provider ↗</text>
+  <text x="136" y="216" fill="#9b9082" font-size="11">Release date says 2019.</text>
+  <rect x="48" y="242" width="110" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+  <text x="103" y="257" fill="#f3ece1" font-size="11" text-anchor="middle">Studio name</text>
+  <text x="48" y="300" fill="#9b9082" font-size="10" letter-spacing="1">SCENES · FULL FILM · MANAGE — UNCHANGED</text>
+
+  <text x="574" y="64" fill="#9b9082" font-size="10" letter-spacing="1">DESCRIPTION · ALIASES · TAGS · CAST — UNCHANGED</text>
+  <text x="574" y="84" fill="#f3ece1" font-size="12">A synopsis from the provider, clamped to three</text>
+  <text x="574" y="100" fill="#f3ece1" font-size="12">lines… <tspan fill="#e8a33d">more</tspan></text>
+  <circle cx="590" cy="130" r="14" fill="#221b16" stroke="#2a2622"/>
+  <circle cx="624" cy="130" r="14" fill="#221b16" stroke="#2a2622"/>
+  <circle cx="658" cy="130" r="14" fill="#221b16" stroke="#2a2622"/>
+  <text x="574" y="170" fill="#9b9082" font-size="11">Your scenes cover 3 of 5 billed cast</text>
+
+  <rect x="574" y="190" width="354" height="110" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="588" y="210" fill="#9b9082" font-size="10" letter-spacing="1">DETAILS</text>
+  <rect x="846" y="199" width="70" height="16" rx="8" fill="#181310" stroke="#2a2622"/>
+  <text x="881" y="211" fill="#9b9082" font-size="10" text-anchor="middle">Provider ↻</text>
+  <text x="588" y="236" fill="#9b9082" font-size="13">Released:</text>
+  <text x="588" y="254" fill="#f3ece1" font-size="13">2019-03-14</text>
+  <rect x="662" y="243" width="13" height="13" rx="3" fill="#7a6a58"/>
+  <text x="588" y="284" fill="#9b9082" font-size="10">Owner rows, picker and enrich chips exactly as today.</text>
+
+  <!-- ─────────── 2. Visitor ─────────── -->
+  <text x="20" y="372" fill="#e8a33d" font-size="11" letter-spacing="1.2">2 — VISITOR · CHANGED: DETAILS NOW RENDERS, UNBOXED (WAS OWNER-ONLY) · STUDIO MATCHES</text>
+  <rect x="20" y="384" width="920" height="240" rx="4" fill="#0c0a09" stroke="#2a2622"/>
+  <rect x="32" y="396" width="522" height="112" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="32" y="468" width="522" height="40" fill="#0c0a09" opacity="0.55"/>
+  <rect x="48" y="464" width="72" height="108" rx="2" fill="#221b16" stroke="#2a2622"/>
+  <text x="136" y="522" fill="#f3ece1" font-size="22" font-family="Georgia, 'Fraunces', serif">Film title</text>
+  <text x="136" y="542" fill="#9b9082" font-size="12">2019 ·</text>
+  <rect x="176" y="531" width="66" height="16" rx="8" fill="none" stroke="#2a2622"/>
+  <text x="209" y="543" fill="#9b9082" font-size="10" text-anchor="middle">Provider ↗</text>
+  <rect x="48" y="584" width="110" height="22" rx="11" fill="#181310" stroke="#2a2622"/>
+  <text x="103" y="599" fill="#f3ece1" font-size="11" text-anchor="middle">Studio name</text>
+
+  <text x="574" y="408" fill="#9b9082" font-size="10" letter-spacing="1">DESCRIPTION · TAGS · CAST — UNCHANGED</text>
+  <circle cx="590" cy="438" r="14" fill="#221b16" stroke="#2a2622"/>
+  <circle cx="624" cy="438" r="14" fill="#221b16" stroke="#2a2622"/>
+  <circle cx="658" cy="438" r="14" fill="#221b16" stroke="#2a2622"/>
+  <line x1="566" y1="476" x2="566" y2="522" stroke="#e8a33d" stroke-width="2"/>
+  <text x="574" y="482" fill="#9b9082" font-size="10" letter-spacing="1">DETAILS</text>
+  <text x="928" y="482" fill="#9b9082" font-size="11" text-anchor="end">Enriched from <tspan fill="#e8a33d">Provider</tspan></text>
+  <text x="574" y="510" fill="#9b9082" font-size="13">Released: <tspan fill="#f3ece1">2019-03-14</tspan></text>
+  <text x="574" y="544" fill="#9b9082" font-size="10">No box: the rail's rhythm. One note; no badge or picker.</text>
+  <text x="574" y="590" fill="#9b9082" font-size="10" letter-spacing="1">FULL FILM — UNCHANGED</text>
+
+  <!-- ─────────── 3. Edge states ─────────── -->
+  <text x="20" y="656" fill="#e8a33d" font-size="11" letter-spacing="1.2">3 — VISITOR EDGE STATES</text>
+  <rect x="20" y="668" width="450" height="96" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+  <text x="34" y="686" fill="#e8a33d" font-size="10" letter-spacing="1">3A · RELEASE DATE SET AS A CUSTOM VALUE</text>
+  <text x="34" y="708" fill="#9b9082" font-size="10" letter-spacing="1">DETAILS</text>
+  <text x="34" y="730" fill="#9b9082" font-size="13">Released: <tspan fill="#f3ece1">2019-03-14</tspan></text>
+  <rect x="166" y="719" width="46" height="15" rx="7.5" fill="#181310"/>
+  <text x="189" y="730" fill="#9b9082" font-size="10" text-anchor="middle">custom</text>
+  <text x="34" y="754" fill="#9b9082" font-size="10">No header note; the row carries its own badge.</text>
+
+  <rect x="490" y="668" width="450" height="96" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+  <text x="504" y="686" fill="#e8a33d" font-size="10" letter-spacing="1">3B · FILM NOT ENRICHED (8 OF 103)</text>
+  <text x="715" y="724" fill="#9b9082" font-size="11" text-anchor="middle">No Details section for a visitor.</text>
+</svg>
