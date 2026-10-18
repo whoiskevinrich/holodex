@@ -6,7 +6,7 @@
 **Owner**: Project owner
 
 **Depends on**: the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md)) — `activity.isOwner` / `effectiveOwner`;
-the Admin-mode toggle and its store ([Admin Mode F29](admin-mode.md), `web/src/lib/adminMode.svelte.ts`);
+the Admin-mode toggle and its store ([Admin Mode F29](admin-mode.md), `web/src/lib/ownerView.svelte.ts`);
 the theming/token system ([ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 **Related surfaces (folded into the hub)**: System Activity `/status` ([F21](system-activity.md)),
 Metadata keys `/keys`, Trash `/trash` ([F24](delete-media.md)).
@@ -56,9 +56,9 @@ away, meaning something entirely different (a destination vs. a view state).
   data, and actions; they are **relocated** under `/owner/*` and reachable as tabs, not redesigned.
   *(Why: this is an information-architecture change, not a feature change — bundling a redesign in would
   bloat scope and risk.)*
-- **Not renaming the internal `adminMode` store now.** Only **user-facing strings** change to
-  Owner/Preview. The `adminMode` store, its `localStorage` key, and F29's code identifiers keep their names
-  this change (Resolved Decisions #6). *(Why: a rename touches every owner-gated surface plus a
+- **Not renaming the internal store in this change.** Only **user-facing strings** change to
+  Owner/Preview. The store, its `localStorage` key, and F29's code identifiers kept their names
+  in this change (Resolved Decisions #6); the rename landed later as P2-2. *(Why: a rename touches every owner-gated surface plus a
   localStorage migration — disproportionate to a nav change; tracked as tech-debt.)*
 - **Not touching search.** It stays exactly where and how it is. *(Why: out of the
   problem's scope; it's not owner tooling.)*
@@ -108,7 +108,7 @@ A single **Owner** entry in the header's right-hand chrome group (the border-sep
 `ActivityIndicator` and the Preview toggle) — **not** a peer of Media/People/Tags. It is a
 **gear icon** (`ti-settings`-equivalent) that shows an "Owner" text label at `≥sm` and collapses to
 icon-only below `sm`, mirroring the Preview toggle's existing responsive label behavior
-(Resolved Decisions #5). Rendered only on the effective owner gate (`activity.isOwner && adminMode.enabled`).
+(Resolved Decisions #5). Rendered only on the effective owner gate (`activity.isOwner && ownerView.enabled`).
 - Given I am owner in owner view, when the header renders, then the Owner gear appears in the chrome
   cluster, to the right of the content nav's separator.
 - Given the viewport is below `sm`, then the gear shows icon-only (label hidden), like the Preview toggle.
@@ -154,8 +154,8 @@ F29's P0-6 behavior (Resolved Decisions #4). The Preview toggle reflects the new
 **P0-7 — Rename the F29 toggle to Preview / Owner view (user-facing only).**
 The header view toggle's **label, title, and `aria-label`** change from "Admin" / "Admin mode" to
 **Preview / Owner view** wording (e.g. switch labeled "Owner view"; titles "Owner view — switch to visitor
-preview" / "Previewing as visitor — switch to owner view"). The internal `adminMode` store and key are
-**unchanged** (Non-Goals; Resolved Decisions #6). No two controls share the word "Admin" — in fact "Admin"
+preview" / "Previewing as visitor — switch to owner view"). The internal store and key were
+**unchanged** by this change (Non-Goals; Resolved Decisions #6; renamed later by P2-2). No two controls share the word "Admin" — in fact "Admin"
 leaves the UI entirely.
 - Given the header renders for an owner, then the view toggle reads in Owner/Preview terms and the word
   "Admin" appears nowhere in the header.
@@ -184,8 +184,9 @@ empty.
 
 - **P2-1 — New owner tabs:** Enrichment runs, Config, plugin/provider management, writeback history — each
   a new child route under `/owner`, no header change. *(This is the payoff of choosing a page over a menu.)*
-- **P2-2 — Internal `adminMode` → `ownerView` rename** (store, key + migration, all gated surfaces), to
-  realign code vocabulary with the UI. Deferred from this change (Non-Goals).
+- **P2-2 — Internal `adminMode` → `ownerView` rename — DONE (HOLODEX-59)** (store, key + migration, all
+  gated surfaces), realigning code vocabulary with the UI. A preference saved under the old key carries
+  over to the new one on first load.
 - **P2-3 — Per-account owner area** if multi-user ever lands — the `/owner` group becomes the natural
   settings/admin root behind a profile.
 
@@ -224,8 +225,8 @@ Single-user personal server — metrics are usage-quality signals, not funnel nu
 5. **RESOLVED — entry affordance: gear icon, label below `sm`.** A gear in the chrome cluster showing an
    "Owner" label at `≥sm`, icon-only below — mirroring the Preview toggle responsive pattern.
    *(See P0-2.)*
-6. **RESOLVED — defer the internal `adminMode` rename.** Only user-facing strings change now; the store,
-   key, and code identifiers keep their names. Divergence tracked as tech-debt (P2-2). *(See Non-Goals.)*
+6. **RESOLVED — defer the internal store rename.** Only user-facing strings changed in F35; the store,
+   key, and code identifiers kept their names until P2-2 renamed them. *(See Non-Goals.)*
 
 ## Timeline / Phasing
 

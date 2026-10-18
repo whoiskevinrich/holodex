@@ -72,7 +72,7 @@
 	let loadingMore = $state(false);
 	let error = $state('');
 
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	$effect(() => list.setOwner(isOwner));
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the

@@ -29,7 +29,7 @@
 	let error = $state('');
 
 	const id = $derived(Number(page.params.id));
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 
 	let toggleBusy = $state(false);
 	let toggleError = $state('');

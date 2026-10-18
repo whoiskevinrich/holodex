@@ -29,7 +29,7 @@
 	let loading = $state(true);
 	let loadError = $state('');
 
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	$effect(() => list.setOwner(isOwner));
 	const sortBy = $derived(list.state.sort);
 

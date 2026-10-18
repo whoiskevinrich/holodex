@@ -99,13 +99,13 @@ otherwise inline SVG. (Designer's call — pick one and use it in the P1 indicat
 
 | Trigger | Result |
 |---|---|
-| Click / `Enter` / `Space` | Flip `adminMode.enabled`; persist to `localStorage`; all owner-gated surfaces re-render instantly (no reload). `aria-checked` updates. |
+| Click / `Enter` / `Space` | Flip `ownerView.enabled`; persist to `localStorage`; all owner-gated surfaces re-render instantly (no reload). `aria-checked` updates. |
 | Hover (OFF) | Label/icon brighten to `text-ink`. |
-| Navigate to an **owner-only route** while OFF (e.g. `/trash`) | **Auto-reveal (P0-6)**: `adminMode` flips to ON (persisted), the control shows its ON state, the page renders fully, and an `aria-live="polite"` region announces **"Admin mode on."** |
+| Navigate to an **owner-only route** while OFF (e.g. `/trash`) | **Auto-reveal (P0-6)**: `ownerView` flips to ON (persisted), the control shows its ON state, the page renders fully, and an `aria-live="polite"` region announces **"Admin mode on."** |
 | Owner token cleared / expires | Control unmounts (no longer owner). Stored preference is retained for the next authenticated session. |
 
 **How gated surfaces appear/disappear**: each owner-only control/datum is gated on the effective
-`activity.isOwner && adminMode.enabled` and is **removed from the DOM** (not `opacity`/`visibility` hidden)
+`activity.isOwner && ownerView.enabled` and is **removed from the DOM** (not `opacity`/`visibility` hidden)
 when OFF, so layouts **reflow naturally with no reserved gaps or placeholder skeletons**. Toggling is a
 pure state change — no spinner, no loading state. The bulk show/hide is **instant by default**; an
 optional reduced-motion-friendly fade is a P1 nice-to-have (see Motion).
@@ -166,7 +166,7 @@ Honor `prefers-reduced-motion`: the optional fade must not run when reduced moti
 
 ## Accessibility
 
-- **Role**: `<button>` with `role="switch"` and `aria-checked={adminMode.enabled}` (ON = `true`). A switch
+- **Role**: `<button>` with `role="switch"` and `aria-checked={ownerView.enabled}` (ON = `true`). A switch
   is the correct semantic for a binary on/off mode.
 - **Accessible name**: `aria-label="Admin mode"` (covers the icon-only `<sm` variant). The visible "Admin"
   label is the name on ≥`sm`.
@@ -185,15 +185,15 @@ Honor `prefers-reduced-motion`: the optional fade must not run when reduced moti
 
 ## Implementation pointers (non-binding)
 
-- New store `web/src/lib/adminMode.svelte.ts`, a near-copy of `theme.svelte.ts`: `enabled = $state(true)`,
-  `init()` reads `localStorage['holodex-admin-mode']`, `toggle()`/`set(v)` persist. Default ON.
-- Call `adminMode.init()` in the layout's mount beside `theme.init()`.
-- Effective gate helper, e.g. `const showAdmin = $derived(activity.isOwner && adminMode.enabled)`, used at
+- New store `web/src/lib/ownerView.svelte.ts`, a near-copy of `theme.svelte.ts`: `enabled = $state(true)`,
+  `init()` reads `localStorage['holodex-owner-view']`, `toggle()`/`set(v)` persist. Default ON.
+- Call `ownerView.init()` in the layout's mount beside `theme.init()`.
+- Effective gate helper, e.g. `const showAdmin = $derived(activity.isOwner && ownerView.enabled)`, used at
   every site currently testing `activity.isOwner` for a **control or owner-only datum** (per the spec's
   P0-4 hide-set). Auth-token entry on `/status` stays on bare `isOwner` only where it's the path back in —
   reconcile with P0-6 during build.
 - Auto-reveal: in the owner-only route's `+page`/`+layout` load or onMount, `if (activity.isOwner)
-  adminMode.set(true)`.
+  ownerView.set(true)`.
 
 > Paired QA checklist: [`admin-mode-qa-checklist.md`](admin-mode-qa-checklist.md) — numbered, grouped by
 > verifier (Setup / Smoke / Agent / Human), Cinémathèque.

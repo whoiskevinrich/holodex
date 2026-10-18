@@ -51,7 +51,7 @@
 	// The create form's Tag/Category switch uses the shared segmented-control classes.
 	const typeCls = segmentedToggleClass;
 
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 
 	// Tag identity actions (F43, RD7) — tags have no detail page, so all identity lives in a
 	// pill-native "Manage tags" mode: selectable pills + a Merge bar, and a per-pill ⋯ menu

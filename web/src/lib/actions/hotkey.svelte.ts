@@ -2,7 +2,7 @@ import type { Action } from 'svelte/action';
 
 // Page-scoped hotkeys (F62, HOLODEX-405). A hotkey is registered BY the button it
 // drives — `<button use:hotkey={'e'}>` — so the button's existence is the gate: owner
-// view, Admin mode, `canWriteback`, "≥1 provider configured" are all decided where the
+// status, Owner view, `canWriteback`, "≥1 provider configured" are all decided where the
 // button renders, and nothing here re-derives them. Pressing the key focuses the button
 // (ring + scroll-into-view = visible confirmation) and clicks it; a `disabled` button
 // makes `click()` a native no-op, so a running action debounces key-mashing for free.

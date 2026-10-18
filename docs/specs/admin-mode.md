@@ -90,17 +90,18 @@ states clearly (ON = admin elements visible; OFF = visitor view). Exact affordan
 - Tokens-only styling (no hardcoded palette/radii — [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md)).
 
 **P0-2 — Single global reactive state (dedicated store).**
-A reactive `adminMode` boolean in a small dedicated store **mirroring `theme.svelte.ts`** (kept separate
+A reactive `ownerView` boolean in a small dedicated store **mirroring `theme.svelte.ts`** (kept separate
 from the `activity` store for clean separation of concerns — resolved, see Open Questions). Every
-owner-gated surface reads the **effective** gate `activity.isOwner && adminMode.enabled`.
+owner-gated surface reads the **effective** gate `activity.isOwner && ownerView.enabled`.
 - Given Admin mode is ON, when any owner-gated surface renders, then its admin controls/data show.
 - Given Admin mode is OFF, when any owner-gated surface renders, then its admin controls/data are hidden
   (removed from the DOM, not merely visually hidden) — see P0-4.
 - Toggling updates all surfaces with **no page reload**.
 
 **P0-3 — Per-device persistence, default ON.**
-Persist to `localStorage` (key `holodex-admin-mode`), restored on mount like `theme.init()`. Absent or
-unparseable value defaults to **ON** (admin elements visible).
+Persist to `localStorage` (key `holodex-owner-view`), restored on mount like `theme.init()`. Absent or
+unparseable value defaults to **ON** (admin elements visible). A value saved under the pre-rename key
+`holodex-admin-mode` carries over once and the old key is removed (F35 P2-2).
 - Given I turn Admin mode OFF and reload, when the app mounts, then Admin mode is still OFF.
 - Given a fresh browser with no stored value, when I authenticate as owner, then Admin mode is ON.
 
@@ -118,7 +119,7 @@ With Admin mode OFF, **all** of the following are hidden so the surface equals t
 - Status (`/status`): Rescan, Reload config, admin-token input, and any owner-only diagnostics that a
   visitor wouldn't see.
 
-  Each is gated on the effective `isOwner && adminMode.enabled` rather than `isOwner` alone.
+  Each is gated on the effective `isOwner && ownerView.enabled` rather than `isOwner` alone.
 - Given Admin mode OFF, when I visit each surface above, then no owner-only control or data is present in
   the DOM and the layout reads as the public view.
 
@@ -177,7 +178,7 @@ This is a personal/self-hosted tool, so metrics are usage-quality signals rather
    (`role="switch"`) labeled "Admin", accent-filled when ON, placed beside `ActivityIndicator`.
    Open/closed-eye icon swap. (Binary = switch.)
 3. ~~**Naming**~~ — **Resolved: "Admin mode"** for the control, the indicator (P1-2), and docs.
-4. ~~**State location**~~ — **Resolved: dedicated `adminMode` store** mirroring `theme.svelte.ts` (not a
+4. ~~**State location**~~ — **Resolved: dedicated `ownerView` store** mirroring `theme.svelte.ts` (not a
    property on the `activity` store).
 
 ## Timeline Considerations

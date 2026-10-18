@@ -2,7 +2,7 @@
 	import '../app.css';
 	import { page } from '$app/state';
 	import { goto, afterNavigate, onNavigate } from '$app/navigation';
-	import { adminMode } from '#lib/adminMode.svelte.ts';
+	import { ownerView } from '#lib/ownerView.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { searchHistory } from '#lib/searchHistory.svelte.ts';
 	import { navSearch, pageScopeFor } from '#lib/navSearch.svelte.ts';
@@ -54,7 +54,7 @@
 
 	// Load persisted UI state on mount.
 	$effect(() => {
-		adminMode.init();
+		ownerView.init();
 		searchHistory.init();
 	});
 
@@ -400,22 +400,22 @@
 		     (ADR-030). ON = accent fill (the active/primary semantic, doubling as the
 		     "powers on" indicator); OFF = muted outline. Icon swaps open-eye/eye-slash
 		     so meaning isn't color-only. Label tucks away below `sm`. Backed by the
-		     (intentionally still-named) `adminMode` store. -->
+		     `ownerView` store. -->
 		{#if activity.isOwner}
 			<button
 				type="button"
 				role="switch"
-				aria-checked={adminMode.enabled}
+				aria-checked={ownerView.enabled}
 				aria-label="Owner view"
-				title={adminMode.enabled
+				title={ownerView.enabled
 					? 'Owner view — switch to visitor preview'
 					: 'Previewing as visitor — switch to owner view'}
-				onclick={() => adminMode.toggle()}
-				class="flex items-center gap-1.5 rounded-theme border px-2 py-1 text-xs transition {adminMode.enabled
+				onclick={() => ownerView.toggle()}
+				class="flex items-center gap-1.5 rounded-theme border px-2 py-1 text-xs transition {ownerView.enabled
 					? 'border-transparent bg-accent text-accent-ink'
 					: 'border-rule text-muted hover:text-ink'}"
 			>
-				{#if adminMode.enabled}
+				{#if ownerView.enabled}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -458,10 +458,10 @@
 
 <SessionExpiredBanner />
 
-<!-- Announces Admin-mode changes that don't originate from the toggle itself
+<!-- Announces Owner-view changes that don't originate from the toggle itself
      (auto-reveal on owner-only routes, F29 P0-6); the switch announces its own
      manual flips via aria-checked. -->
-<p class="sr-only" role="status" aria-live="polite">{adminMode.announcement}</p>
+<p class="sr-only" role="status" aria-live="polite">{ownerView.announcement}</p>
 
 {#if sheetOpen}
 	<HotkeySheet onclose={() => (sheetOpen = false)} />
