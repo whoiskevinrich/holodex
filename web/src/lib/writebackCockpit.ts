@@ -35,27 +35,38 @@ export function isImageRow(field: ResolvedField): boolean {
 	return isCockpitRow(field) && field.display === 'image_url';
 }
 
-// chipValueFits: whether a CurationChip shows this value whole. The chip's value span is
-// `max-w-[14rem] truncate` at text-xs (0.75rem) in Archivo, so the value is measured at 12px
-// against 224px; both are rem, so the ratio holds at any root size. A character cap can't do
-// this in a proportional font: Archivo fits ~37 title-case characters but only 20 W's, 18 CJK
-// glyphs and 15 Œ's (HOLODEX-483). The family comes from the --font-ui token. With no canvas
-// (unit tests, SSR) or before the font has loaded, it falls back to CHIP_VALUE_SAFE_CHARS, the
-// widest glyph's fit, which never clips.
+// chipFits: whether a CurationChip shows this chip's value whole in a chooser `columnPx` wide.
+// Two limits clip it. The value span is `max-w-[14rem] truncate` at text-xs (12px), so the
+// value must fit 224px. And the button is `max-w-full` with a shrink-0 `·source` suffix at
+// 0.65rem (10.4px), so in a narrow column (a phone) the value gets what the suffix and
+// CHIP_CHROME_PX leave (HOLODEX-584). A character cap can't judge this in a proportional font:
+// Archivo fits ~37 title-case characters in 224px but only 20 W's, 18 CJK glyphs and 15 Œ's
+// (HOLODEX-483). Text is measured on a canvas in the --font-ui face. With no canvas (unit
+// tests, SSR) or before the font has loaded, every glyph counts as WIDEST_GLYPH_EM (Œ), which
+// never under-measures. `pending` adds the checked chip's ", pending" suffix.
 export const CHIP_VALUE_MAX_PX = 224;
-export const CHIP_VALUE_SAFE_CHARS = 15;
+// px-2 (16) + border (2) + dot (8) + two gap-1.5 (12).
+export const CHIP_CHROME_PX = 38;
+export const WIDEST_GLYPH_EM = 1.23;
 let chipCanvas: CanvasRenderingContext2D | null | undefined;
+let uiFamily = 'sans-serif';
 
-export function chipValueFits(value: string): boolean {
+function textPx(text: string, sizePx: number): number {
 	if (chipCanvas === undefined) {
 		chipCanvas = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
-		if (chipCanvas) {
-			const family = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim();
-			chipCanvas.font = `400 12px ${family || 'sans-serif'}`;
-		}
+		if (chipCanvas) uiFamily = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || uiFamily;
 	}
-	if (!chipCanvas || !document.fonts.check(chipCanvas.font)) return value.length <= CHIP_VALUE_SAFE_CHARS;
-	return chipCanvas.measureText(value).width <= CHIP_VALUE_MAX_PX;
+	const font = `400 ${sizePx}px ${uiFamily}`;
+	if (!chipCanvas || !document.fonts.check(font)) return text.length * sizePx * WIDEST_GLYPH_EM;
+	chipCanvas.font = font;
+	return chipCanvas.measureText(text).width;
+}
+
+export function chipFits(chip: SourceChip, columnPx = Infinity, pending = false): boolean {
+	const value = textPx(chip.value.trim(), 12);
+	if (value > CHIP_VALUE_MAX_PX) return false;
+	const source = chip.manual ? 'manual' : chip.labels.join(' + ');
+	return value + textPx(`·${source}${pending ? ', pending' : ''}`, 10.4) + CHIP_CHROME_PX <= columnPx;
 }
 
 // stacksCandidates: the writeback dialog renders this cockpit row as stacked full-width radio
@@ -65,11 +76,12 @@ export function chipValueFits(value: string): boolean {
 // chip counts too: its value is the STANDING manual literal (sourceChips), which the chip row
 // renders as a value chip with the same clip; a literal typed in the dialog lives in the staged
 // pick, not in chips, so the layout never flips under the owner mid-edit. Image rows never
-// stack (tiles). `fits` is the measurement seam for tests.
-export function stacksCandidates(field: ResolvedField, chips: SourceChip[], fits = chipValueFits): boolean {
+// stack (tiles). `fits` is the measurement: the dialog passes chipFits against its chooser
+// column, tests a stub.
+export function stacksCandidates(field: ResolvedField, chips: SourceChip[], fits: (chip: SourceChip) => boolean = (c) => chipFits(c)): boolean {
 	if (!isCockpitRow(field) || isImageRow(field)) return false;
 	if (field.display === 'long_text') return true;
-	return chips.some((c) => !fits(c.value.trim()));
+	return chips.some((c) => !fits(c));
 }
 
 // stagedValue is the value the staged pick would write — the chip's value, or the trimmed
