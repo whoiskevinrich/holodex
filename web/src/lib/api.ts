@@ -569,6 +569,11 @@ export const api = {
 	// the thrown ApiError (same convention as addVideoTag/attachVideoTag's 422/400).
 	listCategories: (fetchFn?: typeof fetch) => get<{ items: Category[] }>(`/categories`, fetchFn),
 
+	// The category picker's bounded typed search (HOLODEX-586): a name or a word in it
+	// starts with q, exact name first, at most 10. Rows carry tag_count, not tag_ids.
+	searchCategories: (q: string, fetchFn?: typeof fetch) =>
+		get<{ items: Category[] }>(`/categories/search?q=${encodeURIComponent(q)}`, fetchFn),
+
 	getCategory: (id: number, fetchFn?: typeof fetch) =>
 		get<{ category: Category }>(`/categories/${id}`, fetchFn),
 

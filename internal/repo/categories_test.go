@@ -422,3 +422,40 @@ func TestResolveOrCreateTag(t *testing.T) {
 		t.Errorf("resolve category-colliding name = %v, want ErrTagNameCollidesWithCategory", err)
 	}
 }
+
+// TestSearchCategories (HOLODEX-586): the category picker's bounded search matches a
+// name or a word in it by prefix, exact name first, never mid-word, capped at limit,
+// with each hit's member-tag count.
+func TestSearchCategories(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	for _, n := range []string{"Holiday Specials", "Summer Holiday", "Holiday", "Weekend", "Whole"} {
+		if _, err := r.CreateCategory(ctx, n); err != nil {
+			t.Fatalf("create %q: %v", n, err)
+		}
+	}
+	names := func(q string, limit int) []string {
+		t.Helper()
+		got, err := r.SearchCategories(ctx, q, limit)
+		if err != nil {
+			t.Fatalf("search %q: %v", q, err)
+		}
+		out := make([]string, len(got))
+		for i, c := range got {
+			out[i] = c.Name
+		}
+		return out
+	}
+	if got := strings.Join(names("HOLIDAY", 10), ","); got != "Holiday,Holiday Specials,Summer Holiday" {
+		t.Errorf("search holiday = %s", got)
+	}
+	if got := names("oliday", 10); len(got) != 0 {
+		t.Errorf("mid-word search = %v, want none", got)
+	}
+	if got := names("holiday", 1); len(got) != 1 || got[0] != "Holiday" {
+		t.Errorf("limit 1 = %v, want the exact name", got)
+	}
+	if got := names("  ", 10); len(got) != 0 {
+		t.Errorf("blank search = %v, want none", got)
+	}
+}

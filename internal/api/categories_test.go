@@ -72,6 +72,13 @@ func TestCategoryEndpoints(t *testing.T) {
 		t.Errorf("created category = %v", cat)
 	}
 
+	// Bounded search (HOLODEX-586): public, routed ahead of /categories/{id}.
+	if code, body := getJSON(t, categoriesURL+"/search?q=hol"); code != http.StatusOK {
+		t.Errorf("search = %d, want 200", code)
+	} else if items, _ := body["items"].([]any); len(items) != 1 || items[0].(map[string]any)["name"] != "Holiday" {
+		t.Errorf("search items = %v, want Holiday", body["items"])
+	}
+
 	// Same-table collision.
 	if code, _ := postTok(t, categoriesURL, "s3cret", map[string]any{"name": "holiday"}); code != http.StatusConflict {
 		t.Errorf("duplicate category (case-fold) = %d, want 409", code)

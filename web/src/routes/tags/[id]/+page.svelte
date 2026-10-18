@@ -4,11 +4,12 @@
 	import { activity } from '#lib/activity.svelte.ts';
 	import { toMessage, videoCount, tagCount, aliasHint } from '#lib/format.ts';
 	import { findTagByName, cycleMessage } from '#lib/tagHierarchy.ts';
-	import type { Category, EntityRef, PersonAlias, Tag, Video } from '#lib/types.ts';
+	import type { EntityRef, PersonAlias, Tag, Video } from '#lib/types.ts';
 	import AsyncState from '#lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '#lib/components/entity/EntityVideos.svelte';
 	import FilmsRow from '#lib/components/entity/FilmsRow.svelte';
 	import { filmsRow } from '#lib/filmsRow.svelte.ts';
+	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
 	import CategoryPicker from '#lib/components/entity/CategoryPicker.svelte';
 	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 	import WritebackBatchDialog from '#lib/components/writeback/WritebackBatchDialog.svelte';
@@ -152,10 +153,11 @@
 	}
 
 	// ── Parent (F50 S8, ADR-075 D1, HOLODEX-259) ─────────────────────────────────────
-	// Typeahead resolves against a lazily-loaded full tag list, same discipline as the
-	// /tags list's Manage-mode parent control (existing-tags-only, no create-on-typo) —
-	// the matching logic itself is shared via #lib/tagHierarchy.
-	let allTags = $state<Tag[]>([]);
+	// Existing-tags-only, no create-on-typo, same discipline as the /tags list's
+	// Manage-mode parent control; the matching logic is shared via #lib/tagHierarchy.
+	// The datalist is fed by GET /search's tag group as the owner types (HOLODEX-586),
+	// never a whole-table read.
+	const parentSearch = new ServerSearch<Tag>(async (q) => (await api.search(q)).tags ?? []);
 	let parentOpen = $state(false);
 	let parentValue = $state('');
 	let parentBusy = $state(false);
@@ -166,7 +168,6 @@
 		parentValue = '';
 		parentError = '';
 		parentOpen = true;
-		if (allTags.length === 0) allTags = (await api.listTags('name')).items ?? [];
 		await Promise.resolve();
 		parentInput?.focus();
 	}
@@ -174,6 +175,7 @@
 	function closeParentAdd() {
 		parentOpen = false;
 		parentError = '';
+		parentSearch.set('');
 	}
 
 	// × on the chip clears immediately, no confirm — the lowest-stakes control on
@@ -197,12 +199,20 @@
 		}
 	}
 
-	function submitParentAdd(e: SubmitEvent) {
+	// Resolves the typed name with its own search rather than the datalist's rows, which
+	// may answer an older query; the search ranks an exact name first.
+	async function submitParentAdd(e: SubmitEvent) {
 		e.preventDefault();
 		if (!tag) return;
 		const name = parentValue.trim();
 		if (!name || parentBusy) return;
-		const match = findTagByName(allTags, name, tag.id);
+		let match: Tag | undefined;
+		try {
+			match = findTagByName((await api.search(name)).tags ?? [], name, tag.id);
+		} catch (err) {
+			parentError = toMessage(err);
+			return;
+		}
 		if (!match) {
 			parentError = `No tag named "${name}".`;
 			return;
@@ -327,14 +337,13 @@
 	// ── Categories (HOLODEX-240, ADR-078, HOLODEX-259) ───────────────────────────────
 	// Exact port of categories/[id]'s member-tag idiom, direction-inverted: this tag
 	// owns many categories rather than a category owning many tags.
-	let allCategories = $state<Category[]>([]);
+	// The picker searches the server itself (HOLODEX-586); no category list is loaded here.
 	let catPickerOpen = $state(false);
 	let catRemoveBusy = $state<number | null>(null);
 	let catError = $state('');
 
-	async function openCatPicker() {
+	function openCatPicker() {
 		catError = '';
-		if (allCategories.length === 0) allCategories = (await api.listCategories()).items;
 		catPickerOpen = true;
 	}
 
@@ -491,6 +500,7 @@
 										<input
 											bind:this={parentInput}
 											bind:value={parentValue}
+											oninput={() => parentSearch.set(parentValue)}
 											type="text"
 											list="parent-options"
 											placeholder="Parent tag"
@@ -498,7 +508,7 @@
 											class="rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
 										/>
 										<datalist id="parent-options">
-											{#each allTags.filter((x) => x.id !== t.id) as opt (opt.id)}
+											{#each parentSearch.items.filter((x) => x.id !== t.id) as opt (opt.id)}
 												<option value={opt.name}></option>
 											{/each}
 										</datalist>
@@ -709,7 +719,6 @@
 	<CategoryPicker
 		tagIds={[t.id]}
 		mode="add"
-		categories={allCategories}
 		onclose={() => (catPickerOpen = false)}
 		onapplied={reloadTag}
 	/>

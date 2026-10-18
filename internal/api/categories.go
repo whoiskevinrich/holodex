@@ -21,7 +21,20 @@ import (
 // mountCategories registers the public category reads.
 func (h *Handlers) mountCategories(r chi.Router) {
 	r.Get("/categories", h.listCategories)
+	r.Get("/categories/search", h.searchCategories)
 	r.Get("/categories/{id}", h.getCategory)
+}
+
+// searchCategories is the category picker's bounded typed-query read (HOLODEX-586):
+// ?q= matches a name or a word in it by prefix, exact name first, ?limit= capped (10
+// by default). The picker never reads the whole /categories list.
+func (h *Handlers) searchCategories(w http.ResponseWriter, r *http.Request) {
+	categories, err := h.repo.SearchCategories(r.Context(), r.URL.Query().Get("q"), atoiDefault(r.URL.Query().Get("limit"), 10))
+	if err != nil {
+		h.fail(w, "search categories", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": categories})
 }
 
 // mountCategoryMutations registers the owner-gated category CRUD and

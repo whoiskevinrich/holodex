@@ -148,6 +148,40 @@ func (r *Repo) DeleteCategory(ctx context.Context, id int64) error {
 // category…" picker's client-side filter, HOLODEX-240) but no per-row tag
 // objects (no per-row use for those on the list surface, spec Non-Goals).
 // Always a non-nil slice so the JSON serializes as [] not null.
+// SearchCategories is the category picker's bounded name search (HOLODEX-586): the
+// categories whose name, or a word in it, starts with q (case-insensitive), the exact
+// name first so a typed name is never cut off, at most limit rows. TagCount is filled;
+// TagIDs is not (the picker shows only the count).
+func (r *Repo) SearchCategories(ctx context.Context, q string, limit int) ([]model.Category, error) {
+	out := []model.Category{}
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return out, nil
+	}
+	if limit <= 0 {
+		limit = 10
+	}
+	limit = min(limit, maxListLimit)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT c.id, c.name, (SELECT COUNT(*) FROM category_tags ct WHERE ct.category_id = c.id)
+		FROM categories c
+		WHERE instr(lower(c.name), lower(?1)) = 1 OR instr(lower(c.name), ' ' || lower(?1)) > 0
+		ORDER BY (c.name = ?1 COLLATE NOCASE) DESC, c.name COLLATE NOCASE
+		LIMIT ?2`, q, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search categories: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c model.Category
+		if err := rows.Scan(&c.ID, &c.Name, &c.TagCount); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 func (r *Repo) ListCategories(ctx context.Context) ([]model.Category, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM categories ORDER BY name COLLATE NOCASE`)
 	if err != nil {
