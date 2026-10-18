@@ -1,0 +1,94 @@
+# Graphify refresh: keep the committed code layer of graphify-out/ current with main.
+#
+# The local post-commit hook never fires for this repo's real merges (it exits in linked
+# worktrees and during merges, and squash-merges happen on GitHub), so the graph drifted a
+# month behind main. This runs the same code-only, no-LLM rebuild the hook runs and proposes
+# the result as ONE rolling bot PR, `chore(graphify): ...` so release-please and git-cliff hide
+# it. It never pushes to main. The doc/semantic layer (`/graphify . --update`, LLM-costed)
+# stays a deliberate manual run in its own chore PR (CLAUDE.md, "Graphify").
+#
+# Loop guard: a push that touched only graphify-out/ (i.e. merging the bot PR) is skipped by
+# paths-ignore.
+#
+# Token: the PR is opened with RELEASE_PLEASE_TOKEN (a PAT, same as release-please.yml), not
+# GITHUB_TOKEN. A GITHUB_TOKEN PR triggers no pull_request workflows, so the required checks
+# in the `main` ruleset would never report, and this repo doesn't let Actions open PRs anyway.
+name: Graphify refresh
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'graphify-out/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: graphify-refresh
+  cancel-in-progress: true # a newer main supersedes an in-flight rebuild
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14' # match the local uv graphify env so clustering agrees
+
+      # Pinned: the extractor version shapes graph.json, so an unpinned install would churn the
+      # graph on every upstream release. Bump deliberately.
+      - name: Install graphify
+        run: pip install graphifyy==0.9.91
+
+      # Same rebuild as the post-commit hook. PYTHONHASHSEED=0 makes Louvain clustering
+      # reproducible. --force lets the graph shrink when code is deleted (CI has no extraction
+      # cache, so every run is a full re-extract of the code layer, never a partial one).
+      - name: Rebuild code layer
+        env:
+          PYTHONHASHSEED: '0'
+          GRAPHIFY_NO_AUTO_REFRESH: '1'
+        run: graphify update . --force
+
+      # --force would also accept a broken extraction (say, a grammar that fails to load), so
+      # refuse a code layer that lost more than a fifth of its nodes in one run.
+      - name: Guard against a collapsed code layer
+        run: |
+          git show HEAD:graphify-out/graph.json > "$RUNNER_TEMP/base.json"
+          python - "$RUNNER_TEMP/base.json" graphify-out/graph.json <<'EOF'
+          import json, sys
+          def code_nodes(path):
+              with open(path, encoding="utf-8") as f:
+                  return sum(1 for n in json.load(f)["nodes"] if n.get("file_type") == "code")
+          before, after = code_nodes(sys.argv[1]), code_nodes(sys.argv[2])
+          print(f"code nodes: {before} -> {after}")
+          sys.exit(1 if after < before * 0.8 else 0)
+          EOF
+
+      # manifest.json records file mtimes, so it differs on every run. When graph.json didn't
+      # move, drop the whole rebuild. create-pull-request then sees no diff and closes any open
+      # bot PR that main has already absorbed.
+      - name: Discard a no-op rebuild
+        run: |
+          if git diff --quiet -- graphify-out/graph.json; then
+            echo "graph.json unchanged; discarding the rebuild."
+            git checkout -- graphify-out/
+          fi
+
+      - name: Open or update the bot PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          branch: bot/graphify-refresh
+          add-paths: graphify-out/
+          commit-message: 'chore(graphify): refresh code graph'
+          title: 'chore(graphify): refresh code graph'
+          body: |
+            Automated code-only (no-LLM) refresh of `graphify-out/` from `main` at ${{ github.sha }}, by `.github/workflows/graphify-refresh.yml`.
+
+            Touches only `graphify-out/`. The doc/semantic layer is not refreshed here; that stays a deliberate `/graphify . --update` run in its own chore PR.
+          delete-branch: true

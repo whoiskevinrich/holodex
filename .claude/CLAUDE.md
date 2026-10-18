@@ -286,6 +286,19 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   is gitignored — never commit it.
 - Before pushing to a public remote, scan the working tree for sensitive values.
 
+## Graphify
+
+- **`graphify-out/` is a committed snapshot and may lag `main`.** Check its age with
+  `git log -1 -- graphify-out/graph.json`. When the graph and a source file disagree, **the
+  source file wins**. Read it before acting on the graph.
+- **The code layer refreshes itself.** `.github/workflows/graphify-refresh.yml` runs the no-LLM
+  `graphify update .` on every push to `main` and opens or updates one `chore(graphify): ...` bot
+  PR (`bot/graphify-refresh`). Merge it when convenient.
+- **Feature PRs never carry graph refreshes.** If a local hook or run touched `graphify-out/`,
+  restore it before committing.
+- **The doc/semantic layer is refreshed deliberately.** `/graphify . --update` costs LLM tokens
+  (about 3M last time), so run it only on purpose, in its own `chore(graphify): ...` PR.
+
 ## Gotchas
 
 - **Migrations** are append-only with a manual down — details in `.claude/rules/migrations.md`
