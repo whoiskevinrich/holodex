@@ -23,7 +23,7 @@
 
 - [ ] 1.1 App running with a library that has captured **extended metadata** (so Metadata keys has rows), at least one **soft-deleted item** (so Trash is non-empty), and live **system activity** (so Status has cards/jobs). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`.
 - [ ] 1.2 Be set up as **owner**: either `ADMIN_TOKEN` unset (open/owner), or set then unlocked via `/owner/status`. Note the `/owner`, `/owner/status`, `/owner/keys`, `/owner/trash`, and **old** `/status` `/keys` `/trash` URLs.
-- [ ] 1.3 Devtools open (Console for errors; Application → Local Storage to watch `holodex-admin-mode`; Network to confirm no owner data on visitor loads).
+- [ ] 1.3 Devtools open (Console for errors; Application → Local Storage to watch `holodex-owner-view`; Network to confirm no owner data on visitor loads).
 - [ ] 1.4 Know how to toggle **Owner view / Preview** (the relabeled F29 switch) and how to simulate a **non-owner** (token set, none entered) for the gating checks.
 
 ---
@@ -34,7 +34,7 @@
 - [ ] 2.2 **Redirects** — `/status` → `/owner/status`, `/keys` → `/owner/keys`, `/trash` → `/owner/trash` (permanent redirect). *(unit/integration test on the redirect loaders.)*
 - [ ] 2.3 **`svelte-check`** passes with the moved pages, the new `owner/+layout`, the header edits, and the relabeled toggle strings.
 - [ ] 2.4 **Token-discipline guard** empty against the changed markup: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` — gear/tabs use `rounded-theme`/`border-rule`/`bg-surface-2`/`text-accent` only; gear SVG uses `currentColor`.
-- [ ] 2.5 **No "Admin" left in the header UI** — `rg -i '"Admin"|>Admin<|aria-label="Admin' web/src/routes/+layout.svelte` returns nothing user-facing (the relabel is complete). *(The internal `adminMode` store/key are intentionally unchanged — out of scope.)*
+- [ ] 2.5 **No "Admin" left in the header UI** — `rg -i '"Admin"|>Admin<|aria-label="Admin' web/src/routes/+layout.svelte` returns nothing user-facing (the relabel is complete).
 - [ ] 2.6 **Owner gate on the group** — the `owner/+layout` enforces `effectiveOwner` (redirect/auto-reveal); a non-owner request does not render owner data. *(integration test if available.)*
 
 > `/security-review` sign-off required before merge in addition to these (touches owner-gating — ADR-030). Focus: the relocation removes only public **link visibility** and adds **route gating**; every owner-only **API** still enforces `requireOwner` regardless of nav.
@@ -53,7 +53,7 @@
 **Toggle relabel (spec P0-7)**
 
 - [ ] 3.5 The view toggle's visible label (≥`sm`) is **"Owner view"**, `aria-label="Owner view"`; it is still `role="switch"` with `aria-checked` reflecting state. The string **"Admin"** appears nowhere in the header DOM.
-- [ ] 3.6 Toggling still flips `adminMode.enabled` and persists to `localStorage['holodex-admin-mode']` (key unchanged) with no reload.
+- [ ] 3.6 Toggling still flips `ownerView.enabled` and persists to `localStorage['holodex-owner-view']` with no reload.
 
 **Hub & tabs (spec P0-1)**
 

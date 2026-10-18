@@ -121,7 +121,7 @@
 	let bioEditOpen = $state(false);
 
 	const id = $derived(Number(page.params.id));
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	// Banner renders only when a real one is set — for everyone, including the owner
 	// (F25.30). Not every person has a banner-sized image; an empty 8:3 placeholder band
 	// would dominate the page with generic art. Mirrors the poster rule (F25.27).

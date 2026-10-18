@@ -51,7 +51,7 @@
 	}
 
 	const a = $derived(activity.data);
-	// owner AND Admin mode on (F29) — hides the admin Actions (rescan/reload) in visitor
+	// owner AND Owner view on (F29) — hides the admin Actions (rescan/reload) in visitor
 	// view. The token-unlock UI is gated on `needToken` (independent), so it's never lost.
 	const isOwner = $derived(activity.effectiveOwner);
 	const needToken = $derived(activity.needToken);

@@ -40,7 +40,7 @@ No new tokens, no new primitive. Everything is assembled from chrome the header 
   so the tab row needs no new "selected" treatment and does **not** consume the accent.
 - **`skin-title` for the hub heading**, `font-display` via that hook, like every other page `<h1>`
   (e.g. [`keys/+page.svelte:22`](../../web/src/routes/keys/+page.svelte#L22)).
-- **Owner gating** reuses `activity.effectiveOwner` (`isOwner && adminMode.enabled`), identical to today's
+- **Owner gating** reuses `activity.effectiveOwner` (`isOwner && ownerView.enabled`), identical to today's
   Trash link and the F29 hide-set.
 
 Audit output: **reuse the picker shell, `text-accent` active, `bg-surface-2 text-ink` tab active,
@@ -100,7 +100,7 @@ same eye/eye-slash icon swap, same placement. **Only the strings change:**
 | `aria-live` announcement (auto-reveal) | `Admin mode on.` | `Owner view on.` |
 
 > Semantics unchanged: ON = `aria-checked="true"` = owner view (controls visible); OFF = visitor preview.
-> The internal `adminMode` store/key are **untouched** (spec Non-Goals) — this is a string-only relabel.
+> The internal store/key were **untouched** by this change (spec Non-Goals) — a string-only relabel. They were renamed to `ownerView` later (spec P2-2).
 
 ### Design tokens used (header)
 
@@ -176,8 +176,8 @@ same eye/eye-slash icon swap, same placement. **Only the strings change:**
 |---|---|
 | Click **Owner gear** | Navigate to `/owner` (default tab = **Status**). |
 | Click a **tab** | Navigate to that nested route (`/owner/keys` …); active styling + `aria-current` move; no full-app reload (SvelteKit client nav within the group). |
-| **Preview toggle** (relabeled) click / `Enter` / `Space` | Flip `adminMode.enabled`; persist; owner chrome (incl. the gear) and all gated surfaces re-render instantly; `aria-checked` updates. |
-| Navigate to **any `/owner` route while in Preview** (visitor view) | **Auto-reveal at the group gate (P0-6)**: `adminMode` flips to owner view (persisted), the gear + hub render, `aria-live` announces **"Owner view on."** Fires **once at the `/owner` layout**, not per child. |
+| **Preview toggle** (relabeled) click / `Enter` / `Space` | Flip `ownerView.enabled`; persist; owner chrome (incl. the gear) and all gated surfaces re-render instantly; `aria-checked` updates. |
+| Navigate to **any `/owner` route while in Preview** (visitor view) | **Auto-reveal at the group gate (P0-6)**: `ownerView` flips to owner view (persisted), the gear + hub render, `aria-live` announces **"Owner view on."** Fires **once at the `/owner` layout**, not per child. |
 | Open old `/status` `/keys` `/trash` | Redirect to `/owner/*` equivalent (subject to the same gate/auto-reveal). |
 | Non-owner opens `/owner*` | Redirect home (no owner data rendered); gear absent in DOM. |
 
@@ -265,7 +265,7 @@ Honor `prefers-reduced-motion` for any optional fade.
   index). Move `status`, `keys`, `trash` page files under `owner/`. Add redirects from the old top-level
   routes (`+page.ts` `redirect(308, '/owner/status')` etc.).
 - **Group gate + auto-reveal**: in `owner/+layout` load/onMount — `if (!activity.isOwner) redirect home`;
-  `if (activity.isOwner) adminMode.set(true)` (auto-reveal, fired **once here**, removed from the individual
+  `if (activity.isOwner) ownerView.set(true)` (auto-reveal, fired **once here**, removed from the individual
   pages so it isn't duplicated). Reconcile with `/status`'s token-unlock path (the way back in) per spec.
 - **Header**: in [`+layout.svelte`](../../web/src/routes/+layout.svelte) remove the Keys/Status/Trash
   `<span class="grp">`; add the gear `<a href="/owner">` into the chrome cluster gated on

@@ -14,7 +14,7 @@ future page-specific key is one attribute on one button. v1 ships two keys (`e` 
   refresh" across N providers. Mounted on media, people, films and studios detail.
 - Media detail **Write decisions to file** button (F28 / ADR-041) — gated by `canWriteback`
   (`isOwner && resolved.length > 0`), opens `WritebackFormDialog`.
-- Admin mode (F29) — the effective owner gate `activity.isOwner && adminMode.enabled` is already
+- Admin mode (F29) — the effective owner gate `activity.isOwner && ownerView.enabled` is already
   applied at render time by both buttons above.
 - HOLODEX-249 — the `defaultPrevented` convention: a handler closer to the event target that has
   claimed a key wins; window-level listeners bail on `e.defaultPrevented`.

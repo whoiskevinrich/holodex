@@ -21,15 +21,15 @@
 
 - [ ] 1.1 App running with a library that has at least one **person with images/enrichment** and one **media item** that carries owner-only controls (enrich, writeback, delete, regenerate). Dev: `--media-path E:/AMVTestCopy --host 127.0.0.1`.
 - [ ] 1.2 Be set up as **owner**: either `ADMIN_TOKEN` unset (open/owner), or set then unlocked via `/status`. Note the `/media/[id]`, `/people/[id]`, `/people`, and `/trash` URLs for the sweep.
-- [ ] 1.3 Devtools open (Application → Local Storage to watch `holodex-admin-mode`; Console for errors). A `prefers-reduced-motion: reduce` profile ready.
-- [ ] 1.4 Have a **second browser/profile with no `holodex-admin-mode` value** ready (to test the default-ON first-run), and know how to clear the key.
+- [ ] 1.3 Devtools open (Application → Local Storage to watch `holodex-owner-view`; Console for errors). A `prefers-reduced-motion: reduce` profile ready.
+- [ ] 1.4 Have a **second browser/profile with no `holodex-owner-view` value** ready (to test the default-ON first-run), and know how to clear the key.
 
 ---
 
 ## 2. Smoke — automated (green in CI)
 
-- [ ] 2.1 **`adminMode` store** — `enabled` defaults **true**; `init()` restores a stored `false`; absent/garbage `localStorage` value falls back to **true** without throwing; `set`/`toggle` persist to key `holodex-admin-mode`. *(web unit test `adminMode.test.ts`, mirroring the `theme` store guards.)*
-- [ ] 2.2 **`svelte-check`** passes with the new store + the effective-gate (`isOwner && adminMode.enabled`) changes across the gated pages/components.
+- [ ] 2.1 **`ownerView` store** — `enabled` defaults **true**; `init()` restores a stored `false`; absent/garbage `localStorage` value falls back to **true** without throwing; `set`/`toggle` persist to key `holodex-owner-view`. *(web unit test `ownerView.test.ts`, mirroring the `theme` store guards.)*
+- [ ] 2.2 **`svelte-check`** passes with the new store + the effective-gate (`isOwner && ownerView.enabled`) changes across the gated pages/components.
 - [ ] 2.3 **Token-discipline guard** empty against the changed markup: `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` (the control reuses `rounded-theme`/`bg-accent`/`border-rule` only; no literals; an inline icon SVG must use `currentColor`).
 - [ ] 2.4 **No new server surface** — confirm the diff adds **no** backend route/handler/migration (frontend-only quick win; the gate stays server-side, unchanged).
 
@@ -47,7 +47,7 @@
 
 **Toggle behavior & persistence**
 
-- [ ] 3.4 Toggle **OFF** → `aria-checked="false"`, `localStorage['holodex-admin-mode'] === "false"`, and **all** owner-gated surfaces update **with no page reload**.
+- [ ] 3.4 Toggle **OFF** → `aria-checked="false"`, `localStorage['holodex-owner-view'] === "false"`, and **all** owner-gated surfaces update **with no page reload**.
 - [ ] 3.5 Toggle **ON** → `aria-checked="true"`, stored `"true"`, controls return — still no reload.
 - [ ] 3.6 Toggle OFF, **reload** the page → still OFF after mount (persisted, restored in `init()`).
 - [ ] 3.7 **Fresh profile, no stored key**, authenticate as owner → Admin mode is **ON** by default (controls visible).

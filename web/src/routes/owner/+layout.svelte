@@ -6,7 +6,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { activity } from '#lib/activity.svelte.ts';
-	import { adminMode } from '#lib/adminMode.svelte.ts';
+	import { ownerView } from '#lib/ownerView.svelte.ts';
 
 	let { children } = $props();
 
@@ -32,7 +32,7 @@
 	$effect(() => {
 		if (!activity.caps) return;
 		if (activity.isOwner) {
-			adminMode.reveal();
+			ownerView.reveal();
 		} else if (!activity.needToken) {
 			goto('/', { replaceState: true });
 		}

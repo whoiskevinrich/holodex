@@ -3,7 +3,7 @@
 	// RD10, handoff Option D). Reads the shared activity poll's `sweep` block and
 	// renders only what concerns THIS kind: a running line with live counts, or the
 	// last finished sweep's done line until it is dismissed. Idle, or a sweep of the
-	// other kind, renders nothing. Owner + Admin mode only.
+	// other kind, renders nothing. Owner + Owner view only.
 	import { activity } from '#lib/activity.svelte.ts';
 	import { formatDurMs } from '#lib/format.ts';
 	import type { SweepKind } from '#lib/types.ts';

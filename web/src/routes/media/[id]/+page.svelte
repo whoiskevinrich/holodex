@@ -280,7 +280,7 @@
 	let filmAttachOpen = $state(false);
 
 	const id = $derived(Number(page.params.id));
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	// The owner reads tag chips pending-writeback-first (HOLODEX-519 D4); visitors see no
 	// status glyph, so a status order would look random to them — name order stays.
 	const tagChips = $derived(isOwner ? sortTagsByStatus(video?.tags ?? []) : (video?.tags ?? []));
@@ -2803,7 +2803,7 @@
 		     would be unreadable squeezed into the rail. -->
 		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
 		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
-		     the page. Owner + Admin mode only (effectiveOwner); each self-omits when
+		     the page. Owner + Owner view only (effectiveOwner); each self-omits when
 		     empty. Headings aligned to "Enrichment data: {source}". -->
 		{#if isOwner && extra.length}
 			<section>

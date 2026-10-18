@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AdminModeState } from './adminMode.svelte';
+import { OwnerViewState } from './ownerView.svelte';
 
 // Minimal in-memory localStorage stub (tests run in node, no DOM). The store
 // guards on `typeof localStorage`, so assigning the global is enough.
@@ -15,14 +15,15 @@ function fakeStorage() {
 	} as unknown as Storage;
 }
 
-const KEY = 'holodex-admin-mode';
+const KEY = 'holodex-owner-view';
+const LEGACY_KEY = 'holodex-admin-mode';
 
-describe('adminMode store (F29)', () => {
-	let store: AdminModeState;
+describe('ownerView store (F29)', () => {
+	let store: OwnerViewState;
 
 	beforeEach(() => {
 		(globalThis as { localStorage: Storage }).localStorage = fakeStorage();
-		store = new AdminModeState();
+		store = new OwnerViewState();
 	});
 
 	it('defaults ON', () => {
@@ -61,7 +62,7 @@ describe('adminMode store (F29)', () => {
 
 	it('init does not throw without localStorage', () => {
 		delete (globalThis as { localStorage?: Storage }).localStorage;
-		const s = new AdminModeState();
+		const s = new OwnerViewState();
 		expect(() => s.init()).not.toThrow();
 		expect(s.enabled).toBe(true);
 	});
@@ -77,5 +78,21 @@ describe('adminMode store (F29)', () => {
 		store.reveal();
 		expect(store.enabled).toBe(true);
 		expect(store.announcement).toBe('');
+	});
+
+	it('init migrates a legacy-key value to the new key and drops the legacy key', () => {
+		localStorage.setItem(LEGACY_KEY, 'false');
+		store.init();
+		expect(store.enabled).toBe(false);
+		expect(localStorage.getItem(KEY)).toBe('false');
+		expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+	});
+
+	it('init prefers an existing new-key value over a stale legacy one', () => {
+		localStorage.setItem(KEY, 'true');
+		localStorage.setItem(LEGACY_KEY, 'false');
+		store.init();
+		expect(store.enabled).toBe(true);
+		expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
 	});
 });

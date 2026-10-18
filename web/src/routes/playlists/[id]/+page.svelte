@@ -35,7 +35,7 @@
 	const PAGE_SIZE = 50;
 
 	const id = $derived(Number(page.params.id));
-	const isOwner = $derived(activity.effectiveOwner); // owner AND Admin mode on (F29)
+	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 
 	let playlist = $state<Playlist | null>(null);
 	let items = $state<Video[]>([]);

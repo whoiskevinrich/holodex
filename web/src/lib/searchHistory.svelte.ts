@@ -1,7 +1,7 @@
 // Recent search history (QW1). Client-only: a most-recent-first list of past search
 // queries kept in localStorage so the owner can re-run a search without retyping its
 // syntax. No backend, no sync — purely a local convenience. Mirrors the defensive
-// localStorage pattern in adminMode.svelte.ts.
+// localStorage pattern in ownerView.svelte.ts.
 const KEY = 'holodex-search-history';
 const CAP = 10;
 
