@@ -20,6 +20,7 @@
 /graphify-out/.graphify_python
 /graphify-out/.graphify_root
 /graphify-out/.graphify_analysis.json
+/graphify-out/.graphify_labels.pending.json
 /graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
 
 # Frontend
