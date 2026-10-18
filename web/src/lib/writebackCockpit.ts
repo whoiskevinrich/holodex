@@ -35,12 +35,28 @@ export function isImageRow(field: ResolvedField): boolean {
 	return isCockpitRow(field) && field.display === 'image_url';
 }
 
-// CHIP_VALUE_MAX_CHARS: the longest candidate a CurationChip shows whole. The chip's value span
-// is `max-w-[14rem] truncate` at text-xs; 32 characters was what fit in the widest font the
-// chips ever used (a retired monospace skin, ADR-115). Archivo fits more, so 32 is now
-// conservative: a value past it may fit, but one within it never clips. Kept, because
-// raising it changes which rows the writeback dialog stacks (HOLODEX-434).
-export const CHIP_VALUE_MAX_CHARS = 32;
+// chipValueFits: whether a CurationChip shows this value whole. The chip's value span is
+// `max-w-[14rem] truncate` at text-xs (0.75rem) in Archivo, so the value is measured at 12px
+// against 224px; both are rem, so the ratio holds at any root size. A character cap can't do
+// this in a proportional font: Archivo fits ~37 title-case characters but only 20 W's, 18 CJK
+// glyphs and 15 Œ's (HOLODEX-483). The family comes from the --font-ui token. With no canvas
+// (unit tests, SSR) or before the font has loaded, it falls back to CHIP_VALUE_SAFE_CHARS, the
+// widest glyph's fit, which never clips.
+export const CHIP_VALUE_MAX_PX = 224;
+export const CHIP_VALUE_SAFE_CHARS = 15;
+let chipCanvas: CanvasRenderingContext2D | null | undefined;
+
+export function chipValueFits(value: string): boolean {
+	if (chipCanvas === undefined) {
+		chipCanvas = typeof document === 'undefined' ? null : document.createElement('canvas').getContext('2d');
+		if (chipCanvas) {
+			const family = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim();
+			chipCanvas.font = `400 12px ${family || 'sans-serif'}`;
+		}
+	}
+	if (!chipCanvas || !document.fonts.check(chipCanvas.font)) return value.length <= CHIP_VALUE_SAFE_CHARS;
+	return chipCanvas.measureText(value).width <= CHIP_VALUE_MAX_PX;
+}
 
 // stacksCandidates: the writeback dialog renders this cockpit row as stacked full-width radio
 // rows (SourceRadioList) instead of a chip row. Always for `long_text`; otherwise whenever any
@@ -49,11 +65,11 @@ export const CHIP_VALUE_MAX_CHARS = 32;
 // chip counts too: its value is the STANDING manual literal (sourceChips), which the chip row
 // renders as a value chip with the same clip; a literal typed in the dialog lives in the staged
 // pick, not in chips, so the layout never flips under the owner mid-edit. Image rows never
-// stack (tiles).
-export function stacksCandidates(field: ResolvedField, chips: SourceChip[]): boolean {
+// stack (tiles). `fits` is the measurement seam for tests.
+export function stacksCandidates(field: ResolvedField, chips: SourceChip[], fits = chipValueFits): boolean {
 	if (!isCockpitRow(field) || isImageRow(field)) return false;
 	if (field.display === 'long_text') return true;
-	return chips.some((c) => c.value.trim().length > CHIP_VALUE_MAX_CHARS);
+	return chips.some((c) => !fits(c.value.trim()));
 }
 
 // stagedValue is the value the staged pick would write — the chip's value, or the trimmed
