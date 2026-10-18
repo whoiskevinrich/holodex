@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { CHIP_VALUE_SAFE_CHARS, chipValueFits, isCockpitRow, isImageRow, isUnverifiable, needsDecision, readbackHint, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
+import type { SourceChip } from './f36';
+import { CHIP_CHROME_PX, WIDEST_GLYPH_EM, chipFits, isCockpitRow, isImageRow, isUnverifiable, needsDecision, readbackHint, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -34,7 +35,7 @@ describe('isCockpitRow', () => {
 
 describe('stacksCandidates', () => {
 	// A stub measure for rows that aren't about measurement: the fixture's 23-character title fits.
-	const fits = (v: string) => v.length <= 32;
+	const fits = (c: SourceChip) => c.value.length <= 32;
 	it('stacks long_text always, and any row with a candidate a chip would truncate (HOLODEX-434)', () => {
 		const short = field();
 		expect(stacksCandidates(short, sourceChips(short), fits)).toBe(false);
@@ -45,15 +46,11 @@ describe('stacksCandidates', () => {
 	});
 	it('stacks on the measured width, not the character count (HOLODEX-483)', () => {
 		// Both are 30–31 characters; only the all-caps value overflows the chip.
-		const measured = (v: string) => v !== 'MEMORIES OF WAR MAKE MANY WOMEN';
+		const measured = (c: SourceChip) => c.value !== 'MEMORIES OF WAR MAKE MANY WOMEN';
 		const caps = field({ candidates: [{ source: 'file', value: 'MEMORIES OF WAR MAKE MANY WOMEN' }] });
 		const title = field({ candidates: [{ source: 'file', value: 'The Quick Brown Fox Jumps Over' }] });
 		expect(stacksCandidates(caps, sourceChips(caps), measured)).toBe(true);
 		expect(stacksCandidates(title, sourceChips(title), measured)).toBe(false);
-	});
-	it('falls back to the widest-glyph character cap with no canvas', () => {
-		expect(chipValueFits('a'.repeat(CHIP_VALUE_SAFE_CHARS))).toBe(true);
-		expect(chipValueFits('a'.repeat(CHIP_VALUE_SAFE_CHARS + 1))).toBe(false);
 	});
 	it('counts a standing manual literal (it renders as a value chip), never image rows or merge fields', () => {
 		const long = 'a'.repeat(33);
@@ -63,6 +60,26 @@ describe('stacksCandidates', () => {
 		const img = field({ display: 'image_url', candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://image.tmdb.org/t/p/original/abcdef.jpg' }] });
 		expect(stacksCandidates(img, sourceChips(img), fits)).toBe(false);
 		expect(stacksCandidates(field({ multi: true }), [], fits)).toBe(false);
+	});
+});
+
+describe('chipFits', () => {
+	// No canvas under node: every glyph measures WIDEST_GLYPH_EM, so the value cap is 15 glyphs.
+	const chip = (value: string, labels = ['tmdb']): SourceChip =>
+		({ key: 'provider:tmdb', value, sources: labels, labels, decisionSource: 'provider:tmdb' }) as SourceChip;
+	const glyph = 12 * WIDEST_GLYPH_EM;
+	const suffix = (s: string) => s.length * 10.4 * WIDEST_GLYPH_EM;
+	it('caps the value at the 14rem span, whatever the column', () => {
+		expect(chipFits(chip('a'.repeat(15)))).toBe(true);
+		expect(chipFits(chip('a'.repeat(16)))).toBe(false);
+	});
+	it('fits the whole chip — value, ·source suffix and chrome — into a narrow column (HOLODEX-584)', () => {
+		const need = 10 * glyph + suffix('·tmdb') + CHIP_CHROME_PX;
+		expect(chipFits(chip('a'.repeat(10)), need)).toBe(true);
+		expect(chipFits(chip('a'.repeat(10)), need - 1)).toBe(false);
+		// A longer provenance, or the checked chip's ", pending", takes more of the column.
+		expect(chipFits(chip('a'.repeat(10), ['file', 'tmdb']), need)).toBe(false);
+		expect(chipFits(chip('a'.repeat(10)), need, true)).toBe(false);
 	});
 });
 

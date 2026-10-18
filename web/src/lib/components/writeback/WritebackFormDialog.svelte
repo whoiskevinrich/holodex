@@ -37,6 +37,7 @@
 	} from '#lib/f36.ts';
 	import {
 		isBlankCustom,
+		chipFits,
 		isCockpitRow,
 		isImageRow,
 		isUnverifiable,
@@ -226,6 +227,14 @@
 	// this is the one failure mode the dialog itself must still surface. Cleared on retry.
 	let enqueueError = $state('');
 	let dialogEl = $state<HTMLElement | null>(null);
+	// The text choosers' width, shared by every row (one column): a chip that won't fit it stacks
+	// (HOLODEX-584). 0 until the first chooser mounts, which chipFits reads as unbounded. An
+	// empty value chip is measured as the placeholder it shows (the Custom opener is no value chip).
+	let chooserPx = $state(0);
+	const fitsChooser = (row: Row) => (chip: SourceChip) => {
+		const shown = chip.value || chip.key === 'custom' ? chip : { ...chip, value: isUnverifiable(row.field) || row.field.readback_gap ? 'not read back' : '—' };
+		return chipFits(shown, chooserPx || Infinity, row.selection.pending && chip.key === row.selection.key);
+	};
 
 	onMount(() => {
 		// Focus the first control of the first row (the decided rows lead; with none, the first
@@ -419,10 +428,10 @@
 				</p>
 			{/if}
 		</div>
-	{:else if stacksCandidates(row.field, row.chips)}
+	{:else if stacksCandidates(row.field, row.chips, fitsChooser(row))}
 		<!-- Stacked rows for long_text AND for any row a chip would truncate (HOLODEX-434): the
 		     owner compares candidates here, and a clipped value cannot be compared. -->
-		<div class="mt-1">
+		<div class="mt-1" bind:clientWidth={chooserPx}>
 			<SourceRadioList
 				field={row.field}
 				chips={row.chips}
@@ -434,7 +443,7 @@
 			/>
 		</div>
 	{:else}
-		<div class="mt-1">
+		<div class="mt-1" bind:clientWidth={chooserPx}>
 			<SourceChipRow
 				field={row.field}
 				chips={row.chips}
