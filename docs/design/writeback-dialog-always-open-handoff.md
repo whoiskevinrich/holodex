@@ -43,9 +43,10 @@ Four changes — three subtractive, plus the width and a wider stacking rule:
    comparing them is the row's whole job. The stacked list (`SourceRadioList`) is therefore no
    longer reserved for `long_text`: `stacksCandidates(field, chips)` in `writebackCockpit.ts`
    stacks any cockpit row with a candidate — a standing manual literal included, it is a value
-   chip too — over `CHIP_VALUE_MAX_CHARS` (32 — what
-   fits in 14rem at `text-xs`, so the rule is conservative).
-   Deterministic, not measured after render, so a row never flips layout under the owner. Image
+   chip too — wider than the chip's value span (`chipValueFits`: the value's Archivo `text-xs`
+   width, measured on a canvas, against 14rem; a character cap can't do this in a proportional
+   font — HOLODEX-483). Measured from the value before render, not from the rendered chip, so a
+   row never flips layout under the owner. Image
    rows keep their tiles. The stacked Custom textarea is 5 rows for `long_text`, 2 otherwise.
 
 ### What does *not* change

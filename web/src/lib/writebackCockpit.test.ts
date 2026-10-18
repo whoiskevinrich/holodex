@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sourceChips } from './f36';
-import { CHIP_VALUE_MAX_CHARS, isCockpitRow, isImageRow, isUnverifiable, needsDecision, readbackHint, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
+import { CHIP_VALUE_SAFE_CHARS, chipValueFits, isCockpitRow, isImageRow, isUnverifiable, needsDecision, readbackHint, rowClass, savesDecisionOnly, stacksCandidates, stagedValue, willWrite } from './writebackCockpit';
 import type { ResolvedField } from './types';
 
 // Same fixture shape as f36.test.ts: a Title field with a file value and one matched provider
@@ -33,23 +33,36 @@ describe('isCockpitRow', () => {
 });
 
 describe('stacksCandidates', () => {
+	// A stub measure for rows that aren't about measurement: the fixture's 23-character title fits.
+	const fits = (v: string) => v.length <= 32;
 	it('stacks long_text always, and any row with a candidate a chip would truncate (HOLODEX-434)', () => {
 		const short = field();
-		expect(stacksCandidates(short, sourceChips(short))).toBe(false);
-		expect(stacksCandidates(field({ display: 'long_text' }), sourceChips(short))).toBe(true);
+		expect(stacksCandidates(short, sourceChips(short), fits)).toBe(false);
+		expect(stacksCandidates(field({ display: 'long_text' }), sourceChips(short), fits)).toBe(true);
 		const long = 'https://www.sonypictures.com/movies/blackdynamite';
-		expect(long.length).toBeGreaterThan(CHIP_VALUE_MAX_CHARS);
 		const url = field({ candidates: [{ source: 'file', value: 'x' }, { source: 'provider:tmdb', provider: 'tmdb', value: long }] });
-		expect(stacksCandidates(url, sourceChips(url))).toBe(true);
+		expect(stacksCandidates(url, sourceChips(url), fits)).toBe(true);
+	});
+	it('stacks on the measured width, not the character count (HOLODEX-483)', () => {
+		// Both are 30–31 characters; only the all-caps value overflows the chip.
+		const measured = (v: string) => v !== 'MEMORIES OF WAR MAKE MANY WOMEN';
+		const caps = field({ candidates: [{ source: 'file', value: 'MEMORIES OF WAR MAKE MANY WOMEN' }] });
+		const title = field({ candidates: [{ source: 'file', value: 'The Quick Brown Fox Jumps Over' }] });
+		expect(stacksCandidates(caps, sourceChips(caps), measured)).toBe(true);
+		expect(stacksCandidates(title, sourceChips(title), measured)).toBe(false);
+	});
+	it('falls back to the widest-glyph character cap with no canvas', () => {
+		expect(chipValueFits('a'.repeat(CHIP_VALUE_SAFE_CHARS))).toBe(true);
+		expect(chipValueFits('a'.repeat(CHIP_VALUE_SAFE_CHARS + 1))).toBe(false);
 	});
 	it('counts a standing manual literal (it renders as a value chip), never image rows or merge fields', () => {
-		const long = 'a'.repeat(CHIP_VALUE_MAX_CHARS + 1);
+		const long = 'a'.repeat(33);
 		const manual = field({ decision: { source: 'manual', manual_value: long, standing: true } } as Partial<ResolvedField>);
-		expect(stacksCandidates(manual, sourceChips(manual))).toBe(true);
-		expect(stacksCandidates(field(), sourceChips(field()))).toBe(false);
+		expect(stacksCandidates(manual, sourceChips(manual), fits)).toBe(true);
+		expect(stacksCandidates(field(), sourceChips(field()), fits)).toBe(false);
 		const img = field({ display: 'image_url', candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: 'https://image.tmdb.org/t/p/original/abcdef.jpg' }] });
-		expect(stacksCandidates(img, sourceChips(img))).toBe(false);
-		expect(stacksCandidates(field({ multi: true }), [])).toBe(false);
+		expect(stacksCandidates(img, sourceChips(img), fits)).toBe(false);
+		expect(stacksCandidates(field({ multi: true }), [], fits)).toBe(false);
 	});
 });
 
