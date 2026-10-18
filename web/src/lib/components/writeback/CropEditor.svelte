@@ -170,8 +170,10 @@
 
 		<!-- Preview well in the target ratio; the full original is shown (object-fit:contain)
 		     and is pannable/zoomable inside it. Uses .crop-frame (not .portrait-frame) so no
-		     skin scanline/grain flourish sits over the image being framed. -->
-		<div bind:this={frameEl} use:wheelZoom class="{frameClass[role]} relative w-full">
+		     skin scanline/grain flourish sits over the image being framed. shrink-0: the frame's
+		     overflow:hidden lets a flex item shrink below its aspect-ratio height when the modal
+		     hits max-h, and a non-target-ratio frame squashes the saved crop. The body scrolls. -->
+		<div bind:this={frameEl} use:wheelZoom class="{frameClass[role]} relative w-full shrink-0">
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<img
 				bind:this={imgEl}
