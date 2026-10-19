@@ -28,7 +28,7 @@
 		// categories that intersect the selected tags' current memberships (the
 		// caller skips opening this picker at all when that set is empty). Omit it
 		// and the picker searches the server as the owner types (HOLODEX-586,
-		// GET /categories/search), never reading the whole category table.
+		// GET /categories?q=), never reading the whole category table.
 		categories?: Category[];
 		onclose: () => void;
 		onapplied: () => void;
@@ -44,7 +44,8 @@
 	const listId = 'category-picker-options';
 	const title = $derived(mode === 'add' ? 'Add to category' : 'Remove from category');
 
-	const search = new ServerSearch<Category>(async (q) => (await api.searchCategories(q)).items);
+	// The server ranks closest first and caps at 25; the picker shows the top 10.
+	const search = new ServerSearch<Category>(async (q) => (await api.listCategories({ q })).items.slice(0, 10));
 	$effect(() => {
 		if (!categories) search.set(query);
 	});

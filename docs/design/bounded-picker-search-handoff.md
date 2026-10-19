@@ -37,8 +37,11 @@ for what is listed here.
 
 ## Category picker (`entity/CategoryPicker.svelte`, tag page "+ Add category")
 
-- With no `categories` prop the picker searches the server: "Type a name to find or create a category."
-  at rest, up to 10 matches, and "+ Create “x”" once no category has the typed name.
+- With no `categories` prop the picker searches the server (`GET /categories?q=`): "Type a name to find or
+  create a category." at rest, then up to 10 matches, and "+ Create “x”" once no category has the typed name.
+- **Amended 2026-10-18 (owner's pick):** categories match **any substring**, ranked exact name → name
+  prefix → word start → mid-word, so the word-start hits the mockup shows still come first. This keeps one
+  `q` contract on `/categories` that the HOLODEX-354 list page can share.
 - With a `categories` prop (the `/tags` list's remove mode) it filters in the browser as before.
 
 ## States to QA (Cinémathèque)

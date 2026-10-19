@@ -567,12 +567,11 @@ export const api = {
 	// are public; mutations owner-gated. A 409 from create/rename means the name
 	// collides with a tag or another category — the caller reads `err.status` off
 	// the thrown ApiError (same convention as addVideoTag/attachVideoTag's 422/400).
-	listCategories: (fetchFn?: typeof fetch) => get<{ items: Category[] }>(`/categories`, fetchFn),
-
-	// The category picker's bounded typed search (HOLODEX-586): a name or a word in it
-	// starts with q, exact name first, at most 10. Rows carry tag_count, not tag_ids.
-	searchCategories: (q: string, fetchFn?: typeof fetch) =>
-		get<{ items: Category[] }>(`/categories/search?q=${encodeURIComponent(q)}`, fetchFn),
+	// opts.q (HOLODEX-586) keeps the names containing it, closest first (exact, prefix,
+	// word start, other substring), capped server-side at 25 — the category picker's
+	// typed search. Without it, every category.
+	listCategories: (opts: { q?: string } = {}, fetchFn?: typeof fetch) =>
+		get<{ items: Category[] }>(`/categories${opts.q ? `?q=${encodeURIComponent(opts.q)}` : ''}`, fetchFn),
 
 	getCategory: (id: number, fetchFn?: typeof fetch) =>
 		get<{ category: Category }>(`/categories/${id}`, fetchFn),

@@ -72,8 +72,8 @@ func TestCategoryEndpoints(t *testing.T) {
 		t.Errorf("created category = %v", cat)
 	}
 
-	// Bounded search (HOLODEX-586): public, routed ahead of /categories/{id}.
-	if code, body := getJSON(t, categoriesURL+"/search?q=hol"); code != http.StatusOK {
+	// Typed search (HOLODEX-586): public ?q= on the list, same envelope.
+	if code, body := getJSON(t, categoriesURL+"?q=OLI"); code != http.StatusOK {
 		t.Errorf("search = %d, want 200", code)
 	} else if items, _ := body["items"].([]any); len(items) != 1 || items[0].(map[string]any)["name"] != "Holiday" {
 		t.Errorf("search items = %v, want Holiday", body["items"])

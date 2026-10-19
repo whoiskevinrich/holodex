@@ -143,47 +143,40 @@ func (r *Repo) DeleteCategory(ctx context.Context, id int64) error {
 	return nil
 }
 
-// ListCategories returns every category, name-ordered, with its member-tag
+// CategoryFilter narrows ListCategories. The zero value lists every category.
+type CategoryFilter struct {
+	// Query, when non-blank, keeps the categories whose name contains it
+	// (case-insensitive) and caps the result at CategoryQueryCap (HOLODEX-586).
+	Query string
+}
+
+// CategoryQueryCap bounds a ListCategories read that carries a Query: the category
+// picker asks as the owner types and never needs the whole table.
+const CategoryQueryCap = 25
+
+// ListCategories returns the categories, name-ordered, with each one's member-tag
 // count (the /tags pill's count badge) and member tag ids (the "Remove from
 // category…" picker's client-side filter, HOLODEX-240) but no per-row tag
 // objects (no per-row use for those on the list surface, spec Non-Goals).
+// With f.Query set it returns at most CategoryQueryCap matches ranked exact name,
+// then name prefix, then a word starting with it, then any other substring, so a
+// picker showing the first few always shows the closest (HOLODEX-586).
 // Always a non-nil slice so the JSON serializes as [] not null.
-// SearchCategories is the category picker's bounded name search (HOLODEX-586): the
-// categories whose name, or a word in it, starts with q (case-insensitive), the exact
-// name first so a typed name is never cut off, at most limit rows. TagCount is filled;
-// TagIDs is not (the picker shows only the count).
-func (r *Repo) SearchCategories(ctx context.Context, q string, limit int) ([]model.Category, error) {
-	out := []model.Category{}
-	q = strings.TrimSpace(q)
-	if q == "" {
-		return out, nil
+func (r *Repo) ListCategories(ctx context.Context, f CategoryFilter) ([]model.Category, error) {
+	query := `SELECT id, name FROM categories ORDER BY name COLLATE NOCASE`
+	var args []any
+	q := strings.TrimSpace(f.Query)
+	if q != "" {
+		query = `SELECT id, name FROM categories
+			WHERE instr(lower(name), lower(?1)) > 0
+			ORDER BY (name = ?1 COLLATE NOCASE) DESC,
+			         instr(lower(name), lower(?1)) = 1 DESC,
+			         instr(lower(name), ' ' || lower(?1)) > 0 DESC,
+			         name COLLATE NOCASE
+			LIMIT ?2`
+		args = []any{q, CategoryQueryCap}
 	}
-	if limit <= 0 {
-		limit = 10
-	}
-	limit = min(limit, maxListLimit)
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT c.id, c.name, (SELECT COUNT(*) FROM category_tags ct WHERE ct.category_id = c.id)
-		FROM categories c
-		WHERE instr(lower(c.name), lower(?1)) = 1 OR instr(lower(c.name), ' ' || lower(?1)) > 0
-		ORDER BY (c.name = ?1 COLLATE NOCASE) DESC, c.name COLLATE NOCASE
-		LIMIT ?2`, q, limit)
-	if err != nil {
-		return nil, fmt.Errorf("search categories: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var c model.Category
-		if err := rows.Scan(&c.ID, &c.Name, &c.TagCount); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
-func (r *Repo) ListCategories(ctx context.Context) ([]model.Category, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name FROM categories ORDER BY name COLLATE NOCASE`)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list categories: %w", err)
 	}
@@ -203,14 +196,24 @@ func (r *Repo) ListCategories(ctx context.Context) ([]model.Category, error) {
 		return nil, err
 	}
 
-	// Member tag ids, in one pass over category_tags -- TagCount is len(TagIDs),
-	// derived below rather than a separate COUNT/JOIN query above (personal-
-	// library scale, so this one extra full pass is cheap either way).
+	// Member tag ids in one pass over category_tags -- TagCount is len(TagIDs),
+	// derived below rather than a separate COUNT/JOIN query above. A filtered read
+	// reads only its own rows' memberships.
 	byID := make(map[int64]*model.Category, len(out))
+	ids := make([]int64, len(out))
 	for i := range out {
 		byID[out[i].ID] = &out[i]
+		ids[i] = out[i].ID
 	}
-	memberRows, err := r.db.QueryContext(ctx, `SELECT category_id, tag_id FROM category_tags`)
+	memberQuery, memberArgs := `SELECT category_id, tag_id FROM category_tags`, []any(nil)
+	if q != "" {
+		if len(ids) == 0 {
+			return out, nil
+		}
+		memberQuery += ` WHERE category_id IN (` + placeholders(len(ids)) + `)`
+		memberArgs = toAnySlice(ids)
+	}
+	memberRows, err := r.db.QueryContext(ctx, memberQuery, memberArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("list categories: member tags: %w", err)
 	}

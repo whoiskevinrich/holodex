@@ -63,8 +63,8 @@ architecture: none (no technology fork)
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
 1. [ ] [—] Mark draft PR #539 ready once HOLODEX-354 has looked (CI moves HOLODEX-586 to In Review, then Done on merge)
-2. [ ] [—] Tell HOLODEX-354: the /tags list still reads every category for its CategoryPicker; omit `categories` in add mode — `web/src/routes/tags/+page.svelte`
-3. [ ] [backend] Category search matches word starts on spaces only and folds ASCII case only; an FTS table would match the tag picker's rule → HOLODEX-588
+2. [ ] [—] Depends on HOLODEX-354: /tags still reads every category; it fetches them only for remove mode once it pages that route — `web/src/routes/tags/+page.svelte:175`
+3. [ ] [backend] Category `?q=` folds ASCII case only (SQLite lower()); an FTS table would fold like the tag picker → HOLODEX-588
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -75,6 +75,10 @@ architecture: none (no technology fork)
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-18 · category search folded into GET /categories?q=
+- skills: code-review high --fix
+- handoff: Per HOLODEX-354's contract, category search is now optional `q` on GET /categories (ranked substring, cap 25, owner chose it); /categories/search is gone; draft PR #539 updated — start at marking it ready.
 
 ### 2026-10-18 · bounded picker search built and verified
 - skills: code-review high --fix, handoff, implement
