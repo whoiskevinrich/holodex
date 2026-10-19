@@ -62,7 +62,7 @@ architecture: none (no technology fork)
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Open the Draft PR via /implement, then mark it ready (CI moves HOLODEX-586 to In Review, then Done on merge)
+1. [ ] [—] Mark draft PR #539 ready once HOLODEX-354 has looked (CI moves HOLODEX-586 to In Review, then Done on merge)
 2. [ ] [—] Tell HOLODEX-354: the /tags list still reads every category for its CategoryPicker; omit `categories` in add mode — `web/src/routes/tags/+page.svelte`
 3. [ ] [backend] Category search matches word starts on spaces only and folds ASCII case only; an FTS table would match the tag picker's rule → HOLODEX-588
 
@@ -77,8 +77,8 @@ architecture: none (no technology fork)
 -->
 
 ### 2026-10-18 · bounded picker search built and verified
-- skills: code-review high --fix, handoff
-- handoff: all four pickers search the server (74697074), the owner approved the mockup and the build; next is opening the Draft PR via /implement.
+- skills: code-review high --fix, handoff, implement
+- handoff: Crossed into build — design signed off at 74697074; draft PR #539 open with every gate settled. Start at marking #539 ready.
 
 ## Dropped — newest first (the reason is the point)
 
