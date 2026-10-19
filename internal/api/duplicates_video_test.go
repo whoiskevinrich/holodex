@@ -112,7 +112,7 @@ func TestVideoDuplicates_ListCompareKeepOne(t *testing.T) {
 	base := srv.URL + "/api/v1/owner/duplicates/videos"
 
 	code, body := getJSONTok(t, base, "tok")
-	pairs, _ := body["pairs"].([]any)
+	pairs, _ := body["items"].([]any)
 	if code != http.StatusOK || len(pairs) != 1 {
 		t.Fatalf("list = %d %v, want one pair", code, body)
 	}
@@ -147,7 +147,7 @@ func TestVideoDuplicates_ListCompareKeepOne(t *testing.T) {
 	if code, _ := postTok(t, base+"/keep", "tok", map[string]any{"keep_id": a, "trash_id": b}); code != http.StatusConflict {
 		t.Errorf("keep on a resolved pair = %d, want 409", code)
 	}
-	if _, body := getJSONTok(t, base, "tok"); len(body["pairs"].([]any)) != 0 {
+	if _, body := getJSONTok(t, base, "tok"); len(body["items"].([]any)) != 0 {
 		t.Errorf("pair still listed after keep one: %v", body)
 	}
 }
@@ -159,7 +159,7 @@ func TestVideoDuplicates_KeepBoth(t *testing.T) {
 	if code, _ := postTok(t, base+"/keep-both", "tok", map[string]any{"id_a": a, "id_b": b}); code != http.StatusNoContent {
 		t.Fatalf("keep both = %d, want 204", code)
 	}
-	if _, body := getJSONTok(t, base, "tok"); len(body["pairs"].([]any)) != 0 {
+	if _, body := getJSONTok(t, base, "tok"); len(body["items"].([]any)) != 0 {
 		t.Errorf("pair still listed after keep both: %v", body)
 	}
 }
@@ -190,7 +190,7 @@ func TestVideoDuplicates_LabelValidation(t *testing.T) {
 	if code, _ := postTok(t, label, "tok", map[string]any{"field": "part", "labels": labels("2", "1")}); code != http.StatusNoContent {
 		t.Fatalf("label parts = %d, want 204", code)
 	}
-	if _, body := getJSONTok(t, srv.URL+"/api/v1/owner/duplicates/videos", "tok"); len(body["pairs"].([]any)) != 0 {
+	if _, body := getJSONTok(t, srv.URL+"/api/v1/owner/duplicates/videos", "tok"); len(body["items"].([]any)) != 0 {
 		t.Errorf("labeled pair still listed: %v", body)
 	}
 }

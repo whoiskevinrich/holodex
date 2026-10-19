@@ -112,17 +112,23 @@ type trashItem struct {
 // listTrash returns the soft-deleted media items and films for the owner's Trash
 // view (F24.7, F78 RD7) as one list, each with deleted_at and the computed purge_at.
 // Films are left out while films_enabled is off, like every other film surface.
+// Paged by ?limit/offset (HOLODEX-587), newest-deleted first.
 func (h *Handlers) listTrash(w http.ResponseWriter, r *http.Request) {
-	items, err := h.repo.Trash(r.Context())
+	p := pageFromQuery(r.URL.Query())
+	all, err := h.repo.Trash(r.Context())
 	if err != nil {
 		h.fail(w, "list trash", err)
 		return
 	}
-	out := make([]trashItem, 0, len(items))
-	for _, it := range items {
-		if it.Kind == repo.TrashKindFilm && !h.filmsEnabled {
-			continue
+	items := make([]repo.TrashItem, 0, len(all))
+	for _, it := range all {
+		if it.Kind != repo.TrashKindFilm || h.filmsEnabled {
+			items = append(items, it)
 		}
+	}
+	window := pageOf(items, p)
+	out := make([]trashItem, 0, len(window))
+	for _, it := range window {
 		t := trashItem{ID: it.ID, Kind: it.Kind, Title: it.Title, Path: it.FilePath, DeletedAt: it.DeletedAt}
 		if h.deleteGrace > 0 {
 			pa := it.DeletedAt.Add(h.deleteGrace)
@@ -130,5 +136,5 @@ func (h *Handlers) listTrash(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, t)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": out, "total": len(out)})
+	writeJSON(w, http.StatusOK, p.envelope(out, len(items), nil))
 }

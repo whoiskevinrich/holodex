@@ -46,9 +46,9 @@ func TestDuplicatesEndpoints(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("list = %d, want 200", code)
 	}
-	pairs, _ := body["pairs"].([]any)
+	pairs, _ := body["items"].([]any)
 	if len(pairs) != 1 {
-		t.Fatalf("pairs = %v, want one", body["pairs"])
+		t.Fatalf("pairs = %v, want one", body["items"])
 	}
 	pair, _ := pairs[0].(map[string]any)
 	a, _ := pair["a"].(map[string]any)
@@ -77,8 +77,8 @@ func TestDuplicatesEndpoints(t *testing.T) {
 		t.Fatalf("dismiss = %d, want 204", code)
 	}
 	_, body = getJSONTok(t, list, "s3cret")
-	if pairs, _ := body["pairs"].([]any); len(pairs) != 0 {
-		t.Fatalf("after dismiss: %v, want empty", body["pairs"])
+	if pairs, _ := body["items"].([]any); len(pairs) != 0 {
+		t.Fatalf("after dismiss: %v, want empty", body["items"])
 	}
 }
 

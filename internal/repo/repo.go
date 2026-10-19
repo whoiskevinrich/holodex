@@ -73,6 +73,10 @@ const timeLayout = time.RFC3339
 // excessive allocation (CodeQL: "Slice memory allocation with excessive size value").
 const maxListLimit = 1000
 
+// MaxListLimit exports maxListLimit for the handlers that page a list in Go rather than
+// in SQL (the owner queues, HOLODEX-587), so both clamp to the same ceiling.
+const MaxListLimit = maxListLimit
+
 // ---------------------------------------------------------------------------
 // Write path (scanner)
 // ---------------------------------------------------------------------------

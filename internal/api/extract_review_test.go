@@ -88,7 +88,7 @@ func TestExtractionQueue_Empty(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d", code)
 	}
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	if len(rows) != 0 {
 		t.Fatalf("rows = %v, want empty", rows)
 	}
@@ -105,7 +105,7 @@ func TestExtractionQueue_ListsPendingRowsVideoJoined(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("want 200, got %d", code)
 	}
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	if len(rows) != 1 {
 		t.Fatalf("rows = %v, want 1", rows)
 	}
@@ -381,7 +381,7 @@ func TestExtractionQueue_VideoIDFilter(t *testing.T) {
 	}
 
 	code, body := extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue")
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	if code != http.StatusOK || len(rows) != 2 {
 		t.Fatalf("unfiltered: code=%d rows=%d, want 200/2", code, len(rows))
 	}
@@ -390,7 +390,7 @@ func TestExtractionQueue_VideoIDFilter(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("filtered: want 200, got %d: %v", code, body)
 	}
-	rows, _ = body["rows"].([]any)
+	rows, _ = body["items"].([]any)
 	if len(rows) != 1 {
 		t.Fatalf("filtered rows = %d, want 1: %v", len(rows), rows)
 	}
@@ -404,7 +404,7 @@ func TestExtractionQueue_VideoIDFilter(t *testing.T) {
 	// an error.
 	c := seedVideo(t, r, "/m/C.mkv", "Film C")
 	code, body = extractReviewGET(t, srv.URL+"/api/v1/owner/extraction-queue?video_id="+itoa(c))
-	rows, _ = body["rows"].([]any)
+	rows, _ = body["items"].([]any)
 	if code != http.StatusOK || len(rows) != 0 {
 		t.Fatalf("empty scope: code=%d rows=%d, want 200/0", code, len(rows))
 	}
@@ -429,7 +429,7 @@ func TestExtractionQueue_RejectsMalformedVideoID(t *testing.T) {
 		if code != http.StatusBadRequest {
 			t.Fatalf("video_id=%q: want 400, got %d (%v) — must not fall back to the whole library", bad, code, body)
 		}
-		if rows, ok := body["rows"].([]any); ok && len(rows) > 0 {
+		if rows, ok := body["items"].([]any); ok && len(rows) > 0 {
 			t.Fatalf("video_id=%q returned %d rows on a rejected request", bad, len(rows))
 		}
 	}
@@ -481,7 +481,7 @@ func TestExtractionQueue_FilteredStillRequiresOwner(t *testing.T) {
 	}
 	var out map[string]any
 	_ = json.NewDecoder(resp.Body).Decode(&out)
-	if rows, _ := out["rows"].([]any); len(rows) != 1 {
+	if rows, _ := out["items"].([]any); len(rows) != 1 {
 		t.Fatalf("authorized scoped GET returned %d rows, want 1", len(rows))
 	}
 }

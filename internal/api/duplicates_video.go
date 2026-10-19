@@ -45,16 +45,20 @@ type videoPairRow struct {
 	B     videoPairSide `json:"b"`
 }
 
+// listVideoDuplicates pages the pairs by ?limit/offset (HOLODEX-587), in the repo's
+// stable (a, b) id order. Only the page's files are looked up.
 func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	pairs, err := h.repo.ListVideoPairs(ctx)
+	p := pageFromQuery(r.URL.Query())
+	all, err := h.repo.ListVideoPairs(ctx)
 	if err != nil {
 		h.fail(w, "list video duplicates", err)
 		return
 	}
+	pairs := pageOf(all, p)
 	out := []videoPairRow{}
 	if len(pairs) == 0 {
-		writeJSON(w, http.StatusOK, map[string]any{"pairs": out})
+		writeJSON(w, http.StatusOK, p.envelope(out, len(all), nil))
 		return
 	}
 	facts, titles, err := h.videoPairFacts(ctx, pairIDs(pairs))
@@ -73,7 +77,7 @@ func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, row)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"pairs": out})
+	writeJSON(w, http.StatusOK, p.envelope(out, len(all), nil))
 }
 
 func pairIDs(pairs []repo.VideoPair) []int64 {

@@ -24,9 +24,10 @@
 			count = 0;
 			return;
 		}
+		// One row is enough: `total` is the type's whole pair count (HOLODEX-587).
 		api
-			.duplicates()
-			.then((res) => (count = (res.pairs ?? []).filter((p) => p.entity_type === entityType).length))
+			.duplicates({ type: entityType, limit: 1 })
+			.then((res) => (count = res.total))
 			.catch(() => (count = 0));
 	});
 </script>

@@ -6,12 +6,15 @@
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { formatAgo, formatUntil, toMessage } from '#lib/format.ts';
+	import { appendUnique, nextPage, QUEUE_PAGE } from '#lib/queuePaging.ts';
 	import type { TrashEntry } from '#lib/types.ts';
 	import AsyncState from '#lib/components/shared/AsyncState.svelte';
 	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 
 	let items = $state<TrashEntry[]>([]);
+	let total = $state(0); // across every page (HOLODEX-587)
 	let loading = $state(true);
+	let loadingMore = $state(false);
 	let error = $state('');
 	let rowError = $state(''); // inline failure for a restore/purge action
 	let confirm = $state<TrashEntry | null>(null); // item pending a permanent-delete confirm
@@ -21,12 +24,34 @@
 		loading = true;
 		error = '';
 		try {
-			items = (await api.trash()).items;
+			const res = await api.trash({ limit: QUEUE_PAGE });
+			items = res.items;
+			total = res.total;
 		} catch (e) {
 			error = toMessage(e);
 		} finally {
 			loading = false;
 		}
+	}
+
+	// Restore and purge drop their row, so items.length is already the next offset.
+	async function loadMore() {
+		loadingMore = true;
+		rowError = '';
+		try {
+			const res = await api.trash(nextPage(items.length));
+			items = appendUnique(items, res.items, rowKey);
+			total = res.total;
+		} catch (e) {
+			rowError = toMessage(e);
+		} finally {
+			loadingMore = false;
+		}
+	}
+
+	function drop(it: TrashEntry) {
+		items = items.filter((x) => rowKey(x) !== rowKey(it));
+		total = Math.max(total - 1, items.length);
 	}
 
 	// Owner-gated: only fetch once we know the caller is the owner. caps load app-wide
@@ -47,7 +72,7 @@
 		rowError = '';
 		try {
 			await (it.kind === 'film' ? api.restoreFilm(it.id) : api.restoreMedia(it.id));
-			items = items.filter((x) => rowKey(x) !== rowKey(it));
+			drop(it);
 		} catch (e) {
 			rowError = toMessage(e);
 		}
@@ -62,7 +87,7 @@
 			await (it.kind === 'film'
 				? api.deleteFilm(it.id, { purge: true })
 				: api.deleteMedia(it.id, { purge: true }));
-			items = items.filter((x) => rowKey(x) !== rowKey(it));
+			drop(it);
 			confirm = null;
 		} catch (e) {
 			rowError = toMessage(e); // shown on the page; the item stays in Trash to retry
@@ -94,7 +119,7 @@
 					{rowError}
 				</p>
 			{/if}
-			{#if items.length === 0}
+			{#if total === 0}
 				<p class="py-12 text-center text-sm text-muted">Trash is empty.</p>
 			{:else}
 				<ul class="space-y-2" aria-live="polite">
@@ -132,6 +157,13 @@
 						</li>
 					{/each}
 				</ul>
+				{#if items.length < total}
+					<div class="flex justify-center pt-2">
+						<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
+							{loadingMore ? 'Loading…' : `Load more (${total - items.length} left)`}
+						</button>
+					</div>
+				{/if}
 			{/if}
 		</AsyncState>
 	{/if}

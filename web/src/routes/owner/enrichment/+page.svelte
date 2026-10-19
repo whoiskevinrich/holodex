@@ -9,6 +9,7 @@
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
 	import { groupByKind } from '#lib/entityGroups.ts';
+	import { appendUnique, nextPage, QUEUE_PAGE } from '#lib/queuePaging.ts';
 	import type {
 		EnrichCandidate,
 		EnrichedField,
@@ -19,7 +20,13 @@
 	import EnrichQueueRow from '#lib/components/enrichment/EnrichQueueRow.svelte';
 
 	let rows = $state<QueueRow[]>([]);
+	// Paged (HOLODEX-587): rows still needing review across every page, in all and per
+	// type. A row handled in place leaves both, though it stays on screen.
+	let total = $state(0);
+	let counts = $state<Partial<Record<EnrichEntityKind, number>>>({});
 	let loading = $state(true);
+	let loadingMore = $state(false);
+	let moreError = $state(''); // a failed Load more keeps the loaded rows
 	let error = $state('');
 	// HOLODEX-88: an empty queue with no provider configured isn't "all done" — say why.
 	// Only a successful empty /enrich/sources sets it; a failed fetch keeps the old copy.
@@ -71,10 +78,12 @@
 		error = '';
 		try {
 			const [queue, sources] = await Promise.all([
-				api.enrichQueue(),
+				api.enrichQueue({ limit: QUEUE_PAGE }),
 				api.enrichSources().catch(() => null)
 			]);
-			rows = queue.rows ?? [];
+			rows = queue.items ?? [];
+			total = queue.total;
+			counts = queue.counts ?? {};
 			noProviders = sources !== null && (sources.sources ?? []).length === 0;
 		} catch (e) {
 			error = toMessage(e);
@@ -89,9 +98,34 @@
 	// Update one row's provider states in place (never removes the row — enrichment
 	// rows resolve without disappearing; only a full reload drops a fully-handled one).
 	function updateRow(row: QueueRow, providers: EnrichQueueProviderState[]) {
-		rows = rows.map((r) =>
-			r.entity_type === row.entity_type && r.entity_id === row.entity_id ? { ...r, providers } : r
-		);
+		const current = rows.find((r) => rowKey(r) === rowKey(row));
+		if (current && inQueue(current) && !inQueue({ ...current, providers })) {
+			total = Math.max(total - 1, 0);
+			counts = { ...counts, [row.entity_type]: Math.max((counts[row.entity_type] ?? 1) - 1, 0) };
+		}
+		rows = rows.map((r) => (rowKey(r) === rowKey(row) ? { ...r, providers } : r));
+	}
+
+	const rowKey = (r: QueueRow) => `${r.entity_type}:${r.entity_id}`;
+	// The server lists a row while it has an unreviewed provider (enrich_queue.go). One
+	// handled in place stays on screen but has left the server's list, so it doesn't
+	// count toward the next page's offset (HOLODEX-587).
+	const inQueue = (r: QueueRow) => r.providers.some((p) => p.state === 'unreviewed');
+	const stillQueued = $derived(rows.filter(inQueue).length);
+
+	async function loadMore() {
+		loadingMore = true;
+		moreError = '';
+		try {
+			const res = await api.enrichQueue(nextPage(stillQueued));
+			rows = appendUnique(rows, res.items ?? [], rowKey);
+			total = res.total;
+			counts = res.counts ?? {};
+		} catch (e) {
+			moreError = toMessage(e);
+		} finally {
+			loadingMore = false;
+		}
 	}
 </script>
 
@@ -115,7 +149,7 @@
 		{#each groups as g (g.type)}
 			<section class="space-y-0 rounded-theme border border-rule bg-surface">
 				<h2 class="px-3 pb-2 pt-3 text-xs uppercase tracking-wide text-muted">
-					{groupLabel[g.type]} · {g.items.length}
+					{groupLabel[g.type]} · {counts[g.type] ?? g.items.length}
 				</h2>
 				{#each g.items as row (row.entity_type + row.entity_id)}
 					<EnrichQueueRow
@@ -130,5 +164,13 @@
 				{/each}
 			</section>
 		{/each}
+		{#if moreError}<p class="text-sm text-warn" role="alert">{moreError}</p>{/if}
+		{#if stillQueued < total}
+			<div class="flex justify-center">
+				<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
+					{loadingMore ? 'Loading…' : `Load more (${total - stillQueued} left)`}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>
