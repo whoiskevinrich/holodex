@@ -39,7 +39,11 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
 1. [ ] [—] `/design-handoff` for F80: the Load more control on rows, posters and the pill cloud, the active A–Z letter, and the Tags stream. Commit the SVG mockup next to the handoff
 2. [ ] [—] Decide whether paging is a technology fork (offset vs. keyset; reusing the `/media` seeded ordering for entities). If it isn't, the worklog notes "no technology fork". The `feature` posture carries no architecture gate
 3. [ ] [—] `/implement`: owner sign-off on the handoff, merge `origin/main`, push, open the Draft PR
-4. [ ] [—] Coordinate with HOLODEX-586: it adds an optional `q` to `GET /categories`, and this branch layers limit/offset on top. `/tags/+page.svelte:175` then needs categories only for remove mode
+4. [ ] [—] Build on HOLODEX-586 (PR #539, `ed5928ca`):
+   - `GET /categories?q=` is in, via `repo.ListCategories(ctx, repo.CategoryFilter{Query})`. With `q` it is capped at `repo.CategoryQueryCap` = 25 and ranked exact, then prefix, then word start, then anywhere. Add the paging fields to `CategoryFilter`.
+   - The TS signature is now `api.listCategories(opts = {}, fetchFn?)`.
+   - `/tags/+page.svelte:175` needs categories only for remove mode.
+   - Merge whichever of the two lands second onto the other.
 5. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
