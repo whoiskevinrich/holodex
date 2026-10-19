@@ -25,10 +25,14 @@ paged client-side with Load more, without skipping rows after resolve / restore 
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Open the Draft PR through `/implement`, after the HOLODEX-354 main session agrees on merge order
+1. [ ] [—] Review draft PR #540, then mark it ready — every gate is settled
 2. [ ] [—] Sweep HOLODEX-587 to In Review when the PR is marked ready, Done on merge — Jira
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-19 · crossing into build
+- skills: implement
+- handoff: Crossed into build. No sign-off was owed (design `[~]`), and main was already current. Draft PR #540 is open; start at reviewing #540.
 
 ### 2026-10-18 · owner queue paging
 - skills: code-review, security-review, handoff
