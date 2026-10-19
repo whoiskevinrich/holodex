@@ -6,10 +6,11 @@
 	// chrome (backdrop/focus-trap/Escape/animation) is shared with CategoryPicker via
 	// PickerShell. role=combobox + role=listbox with roving tabindex; Tab and ↑/↓ move through
 	// results, Enter/Space/click pick, Esc closes. Tokens only; QA Cinémathèque.
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage, videoCount, refLabel } from '#lib/format.ts';
-	import type { EntityKind, EntityRef } from '#lib/types.ts';
+	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
+	import type { EntityKind, EntityRef, SearchResponse } from '#lib/types.ts';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {
@@ -36,9 +37,7 @@
 	const noun = $derived(NOUNS[entityType]);
 
 	let query = $state('');
-	let all = $state<EntityRef[]>([]);
 	let active = $state(0);
-	let loading = $state(true);
 	let merging = $state(false);
 	let error = $state('');
 	let selected = $state<EntityRef | null>(null);
@@ -47,32 +46,27 @@
 
 	const listId = 'merge-entities';
 
-	// Candidate list: every other entity, name-filtered client-side (personal-library
-	// scale — these lists are unpaged, no dedicated search endpoint needed).
-	const results = $derived.by(() => {
-		const q = query.trim().toLowerCase();
-		return all
-			.filter((e) => e.id !== canonicalId && (!q || e.name.toLowerCase().includes(q)))
-			.slice(0, 50);
-	});
-
-	// The unpaged list read per entity — same `{ items }` contract across all three.
-	const LIST: Record<EntityKind, () => Promise<{ items: EntityRef[] }>> = {
-		person: () => api.listPeople('name'),
-		studio: () => api.listStudios('name'),
-		tag: () => api.listTags('name'),
-		film: () => api.listFilms()
+	// Candidates come from the server as the owner types (HOLODEX-586): GET /search's
+	// group for this kind, capped server-side, exact name first. Never a whole-table read.
+	const GROUP: Record<EntityKind, (r: SearchResponse) => EntityRef[] | null> = {
+		person: (r) => r.people,
+		studio: (r) => r.studios,
+		tag: (r) => r.tags,
+		film: (r) => r.films
 	};
+	const search = new ServerSearch<EntityRef>(async (q) => GROUP[entityType](await api.search(q)) ?? []);
+	const results = $derived(search.items.filter((e) => e.id !== canonicalId));
+	const typed = $derived(query.trim());
 
-	onMount(() => {
-		LIST[entityType]()
-			.then((res) => (all = res.items ?? []))
-			.catch((e) => (error = toMessage(e)))
-			.finally(() => {
-				loading = false;
-				input?.focus();
-			});
+	$effect(() => search.set(query));
+	// New rows (a server answer, or the clear on an empty query) start at the top.
+	$effect(() => {
+		void search.items;
+		active = 0;
 	});
+	onDestroy(() => search.cancel());
+
+	onMount(() => input?.focus());
 
 	function pick(e: EntityRef | undefined) {
 		if (!e) return;
@@ -101,7 +95,8 @@
 			focusOption(0);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			pick(results[active]);
+			// Never pick from an older query's rows while the typed one is in flight.
+			if (search.answered === typed) pick(results[active]);
 		}
 	}
 
@@ -147,15 +142,17 @@
 		/>
 
 		<p class="mt-2 text-xs text-muted" aria-live="polite">
-			{#if loading}
-				Loading {noun.many}…
-			{:else if error}
-				<span class="text-warn">{error}</span>
+			{#if !typed}
+				Type a name to find the {noun.one} to merge in.
+			{:else if search.error}
+				<span class="text-warn">{search.error}</span>
 			{:else if results.length}
 				{results.length}
 				{results.length === 1 ? noun.one : noun.many} — choose which to fold into {canonicalName}
+			{:else if search.loading}
+				Searching {noun.many}…
 			{:else}
-				No other {noun.many}{query.trim() ? ` match “${query.trim()}”` : ''}.
+				No other {noun.many} match “{typed}”.
 			{/if}
 		</p>
 

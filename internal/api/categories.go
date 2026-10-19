@@ -39,8 +39,11 @@ func (h *Handlers) mountCategoryMutations(r chi.Router) {
 	r.Post("/tags", h.createOrResolveTag)
 }
 
+// listCategories is GET /categories. Optional ?q= keeps the names containing it,
+// closest matches first, capped (HOLODEX-586, the category picker's typed search);
+// without it, every category.
 func (h *Handlers) listCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.repo.ListCategories(r.Context())
+	categories, err := h.repo.ListCategories(r.Context(), repo.CategoryFilter{Query: r.URL.Query().Get("q")})
 	if err != nil {
 		h.fail(w, "list categories", err)
 		return

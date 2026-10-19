@@ -142,6 +142,13 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   owner can remove from the Aliases panel.
 - **RD8 — Merge is irreversible + informed confirm** (card). Both entry points show each side's video count
   and what moves before committing; merge is one-way. Undo/split is P2.
+  - **RD8a — Finding the entity to merge in searches the library** *(amended 2026-10-18,
+    [HOLODEX-586](https://whoiskevinrich.atlassian.net/browse/HOLODEX-586))*. The "Merge a … in…" picker
+    lists nothing until the owner types, with a "Type a name" hint. Then it shows up to 10 entities whose
+    name, or a word in it, starts with the typed text, an exact name first, each with its video count. It
+    never loads every entity of the kind, so it stays fast in a large library. The tag page's parent field
+    follows the same rule; its "+ Add category" picker matches any part of a name, closest first
+    ([tag-detail-hierarchy-and-categories](tag-detail-hierarchy-and-categories.md)).
 - **RD9 — Review queue: banner → `/owner` Duplicates tab; editor near-miss = soft warning** (cards). Entity
   lists (`/people`, `/studios`, `/tags`) show a "N possible duplicates" banner linking to a **Duplicates tab
   in the Owner hub** (F35) where the whole queue is worked. The editor near-miss prompt is **non-blocking**
