@@ -1116,7 +1116,8 @@
 		// Labels are video-independent, so they survive navigation and are still worth
 		// caching across it.
 		if (facets) extractLabels = Object.fromEntries(facets.facets.map((f) => [f.canonical, f.label]));
-		return queue.rows ?? [];
+		// One video is one group, and the queue pages by group, so the first page is all of it.
+		return queue.items ?? [];
 	}
 
 	function dropExtractRow(reviewId: number) {

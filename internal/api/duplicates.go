@@ -49,18 +49,33 @@ func (h *Handlers) entityNearMiss(entityType string) http.HandlerFunc {
 	}
 }
 
-// listDuplicates returns every flagged possible-duplicate pair, grouped tags-first,
-// each with both entities' names + active-video counts + the variation kind.
+// listDuplicates returns the flagged possible-duplicate pairs, grouped tags-first,
+// each with both entities' names + active-video counts + the variation kind. Paged by
+// ?limit/offset a pair at a time (HOLODEX-587); ?type= narrows to one entity type, so a
+// deep-linked filter pages its own pairs. `counts` is every type's pair count, unpaged
+// and unfiltered, for the group headings and the list-page banners.
 func (h *Handlers) listDuplicates(w http.ResponseWriter, r *http.Request) {
-	pairs, err := h.repo.ListReviewPairs(r.Context())
+	q := r.URL.Query()
+	p := pageFromQuery(q)
+	entityType := q.Get("type")
+	if entityType != "" && !validEntityType(entityType) {
+		writeError(w, http.StatusBadRequest, "type must be person, studio, tag, or film")
+		return
+	}
+	all, err := h.repo.ListReviewPairs(r.Context())
 	if err != nil {
 		h.fail(w, "list duplicates", err)
 		return
 	}
-	if pairs == nil {
-		pairs = []repo.ReviewPair{}
+	counts := map[string]int{}
+	pairs := make([]repo.ReviewPair, 0, len(all))
+	for _, pr := range all {
+		counts[pr.EntityType]++
+		if entityType == "" || pr.EntityType == entityType {
+			pairs = append(pairs, pr)
+		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"pairs": pairs})
+	writeJSON(w, http.StatusOK, p.envelope(pageOf(pairs, p), len(pairs), map[string]any{"counts": counts}))
 }
 
 // dismissDuplicate records that a pair is deliberately distinct (keep-separate, RD5)

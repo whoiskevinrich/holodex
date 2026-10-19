@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -50,16 +51,47 @@ func (h *Handlers) extractionQueue(w http.ResponseWriter, r *http.Request) {
 		videoID = id
 	}
 
-	rows, err := h.repo.ExtractionQueue(r.Context(), videoID)
+	p := pageFromQuery(r.URL.Query())
+	all, err := h.repo.ExtractionQueue(r.Context(), videoID)
 	if err != nil {
 		h.fail(w, "extraction queue", err)
 		return
 	}
-	if rows == nil {
-		rows = []repo.ExtractionQueueRow{}
+	groups := extractionGroups(all)
+	rows := []repo.ExtractionQueueRow{}
+	for _, g := range pageOf(groups, p) {
+		rows = append(rows, g...)
 	}
 	h.applyPartsToExtractionQueue(r.Context(), rows)
-	writeJSON(w, http.StatusOK, map[string]any{"rows": rows})
+	writeJSON(w, http.StatusOK, p.envelope(rows, len(groups), map[string]any{"row_total": len(all)}))
+}
+
+// extractionGroups splits the queue into its per-video groups in the tab's order (the
+// design handoff's most-pending-fields-first, then title), which is the unit the queue
+// pages by (HOLODEX-587): limit and offset count videos, never rows, so a page never
+// splits a video's fields. total counts videos too; row_total counts every row.
+// ExtractionQueue orders rows by video, so each video's rows are contiguous.
+func extractionGroups(rows []repo.ExtractionQueueRow) [][]repo.ExtractionQueueRow {
+	var groups [][]repo.ExtractionQueueRow
+	for i := 0; i < len(rows); {
+		j := i + 1
+		for j < len(rows) && rows[j].VideoID == rows[i].VideoID {
+			j++
+		}
+		groups = append(groups, rows[i:j])
+		i = j
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		a, b := groups[i], groups[j]
+		if len(a) != len(b) {
+			return len(a) > len(b)
+		}
+		if ta, tb := strings.ToLower(a[0].VideoTitle), strings.ToLower(b[0].VideoTitle); ta != tb {
+			return ta < tb
+		}
+		return a[0].VideoID < b[0].VideoID
+	})
+	return groups
 }
 
 // resolveExtractionReview applies the owner's choice for one pending field

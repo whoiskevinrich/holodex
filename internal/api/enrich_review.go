@@ -12,7 +12,6 @@ import (
 
 	"holodex/internal/enrich"
 	"holodex/internal/model"
-	"holodex/internal/repo"
 )
 
 // F47 (ADR-066): the enrichment review workflow's backend surface — a generalized
@@ -22,10 +21,13 @@ import (
 // itself inside the requireOwner group (handlers.go Mount).
 
 // enrichQueue lists every Person/Studio/Media entity missing at least one supporting
-// provider's data (RD2/P0-1) — a pure DB read, never a provider call.
+// provider's data (RD2/P0-1) — a pure DB read, never a provider call. Paged by
+// ?limit/offset (HOLODEX-587) in the repo's stable type-then-name order; `counts` is
+// each type's row count across every page, for the group headings.
 func (h *Handlers) enrichQueue(w http.ResponseWriter, r *http.Request) {
+	p := pageFromQuery(r.URL.Query())
 	if h.enrich == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"rows": []any{}})
+		writeJSON(w, http.StatusOK, p.envelope([]any{}, 0, map[string]any{"counts": map[string]int{}}))
 		return
 	}
 	srcs := h.enrich.Sources()
@@ -44,16 +46,18 @@ func (h *Handlers) enrichQueue(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	rows, err := h.repo.EnrichQueue(r.Context(), providersByType)
+	all, err := h.repo.EnrichQueue(r.Context(), providersByType)
 	if err != nil {
 		h.fail(w, "enrich queue", err)
 		return
 	}
-	if rows == nil {
-		rows = []repo.EnrichQueueRow{}
+	counts := map[string]int{}
+	for _, row := range all {
+		counts[row.EntityType]++
 	}
+	rows := pageOf(all, p)
 	h.applyPartsToEnrichQueue(r.Context(), rows)
-	writeJSON(w, http.StatusOK, map[string]any{"rows": rows})
+	writeJSON(w, http.StatusOK, p.envelope(rows, len(all), map[string]any{"counts": counts}))
 }
 
 // enrichDismiss records a durable "not matched" verdict for (entity, provider) — the

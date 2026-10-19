@@ -4947,3 +4947,40 @@ once, so the contract is pinned in one place, against a fixture rather than elev
 **Per-dialog behaviour stays where it was.** Each dialog's own initial-focus target and busy
 source are covered by live QA, not by a test per dialog. Those choices are the one thing a call
 site still decides.
+
+## 31. Owner queues load a page at a time (F81, HOLODEX-587)
+
+Every owner queue (Trash, Enrichment, Completeness, Duplicates, Extraction) is bounded per read
+and paged by Load more ([spec](specs/owner-queue-paging.md)). The risks are an unbounded read
+slipping back in, an echoed limit that isn't the one applied, and a Load more that skips rows after
+the owner removes some, which is the one failure the owner wouldn't notice.
+
+**Unit, Go (`internal/api/paging_internal_test.go`).** `pageFromQuery` defaults, clamps to
+`repo.MaxListLimit` and refuses a negative offset. `pageOf` returns an empty non-nil page past the
+end. `FacetGroup.window` pages a completeness group across its candidate-ready → needs-research
+seam and always reports the whole group's `Total`. `extractionGroups` keeps each video's rows
+together, most-pending-first, then by title.
+
+**Endpoint, Go (`internal/api/owner_queue_paging_test.go`).** The envelope on Trash: the
+`{items, total, limit, offset}` shape, two pages that tile without overlap, a 999999 limit echoed as
+1000, and a 401 for a visitor. On Duplicates, `?type=` narrows items and total while `counts` stays
+unfiltered, and a bad type is a 400. The pre-existing queue tests (`duplicates*_test.go`,
+`enrich_review_test.go`, `extract_review_test.go`, `parts_test.go`, `delete_test.go`) now read
+`items`, which pins every queue onto the same envelope.
+
+**Unit, web (`web/src/lib/queuePaging.test.ts`).** `nextPage` steps back after a removal and
+reaches back by the moved count, never below 0. `appendUnique` keeps the loaded copy of a repeat.
+`windowLimit` re-reads at least a page and at most 1,000.
+
+**Live QA, 2026-10-18, stress fixture (`-big`).** The queue reads came back at 50 items with the
+right totals (enrichment 8,183 across four types) and a clamped 1,000 for a 5,000 limit. On Trash,
+60 items: two restored from page one, then Load more showed the other 58 once each.
+Completeness per-group Load more grew its group by 50 and lowered "left" to match.
+
+**Mutation pass, 2026-10-18.** Dropping the limit clamp fails `TestPageFromQuery` and
+`TestOwnerQueuePagingContract`. Dropping `nextPage`'s reach-back fails two `nextPage` cases.
+
+**Standing gaps.** The fixture seeds no name-duplicate pairs and no extraction rows, so those two
+Load mores are covered by the unit tests only, not live. Nothing tests the page code that applies
+the offset rules (which count each page passes to `nextPage`). That stays live QA until the §20.6
+nav harness gains a queue scenario.

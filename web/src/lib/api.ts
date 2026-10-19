@@ -61,6 +61,8 @@ import type {
 	FilmImageRole,
 	Tag,
 	TrashEntry,
+	QueuePage,
+	QueuePageOpts,
 	Video,
 	VideoCollisionRef,
 	WritebackRequest,
@@ -334,6 +336,15 @@ function uploadEntityImage(kind: 'studios' | 'films', id: number, file: File, ro
 
 function buildQuery(f: MediaFilters): string {
 	const s = filtersToParams(f).toString();
+	return s ? `?${s}` : '';
+}
+
+// queueQuery builds an owner queue's query string (HOLODEX-587): limit/offset plus the
+// queue's own narrowing params, dropping the unset ones.
+function queueQuery(params: Record<string, string | number | undefined>): string {
+	const p = new URLSearchParams();
+	for (const [k, v] of Object.entries(params)) if (v !== undefined) p.set(k, String(v));
+	const s = p.toString();
 	return s ? `?${s}` : '';
 }
 
@@ -773,9 +784,13 @@ export const api = {
 
 	// Facet-first remediation queue (F55.7) — every missing scored facet across
 	// the whole library, grouped by facet and split candidate-ready/needs-research.
-	// Owner-gated; a pure DB read (no writes on load).
-	completenessQueue: () =>
-		getAuthed<{ groups: CompletenessFacetGroup[] }>(`/owner/completeness-queue`),
+	// Owner-gated; a pure DB read (no writes on load). Paged per group (HOLODEX-587):
+	// every group brings its first `limit` rows and its `total`; `facet` asks for one
+	// group's next window.
+	completenessQueue: (opts: QueuePageOpts & { facet?: string } = {}) =>
+		getAuthed<{ groups: CompletenessFacetGroup[]; limit: number; offset: number }>(
+			`/owner/completeness-queue${queueQuery(opts)}`
+		),
 
 	metadataKeys: (fetchFn?: typeof fetch) =>
 		get<{ keys: MetadataKey[] }>(`/metadata-keys`, fetchFn),
@@ -1048,8 +1063,12 @@ export const api = {
 
 	// Near-miss review queue (F43 S5). Owner-gated. duplicates() lists every flagged
 	// possible-duplicate pair (grouped tags-first); dismissDuplicate records the pair
-	// keep-separate and removes it — it never re-surfaces.
-	duplicates: () => getAuthed<{ pairs: DuplicatePair[] }>(`/owner/duplicates`),
+	// keep-separate and removes it — it never re-surfaces. Paged (HOLODEX-587); `type`
+	// narrows to one entity, and `counts` is every type's unfiltered pair count.
+	duplicates: (opts: QueuePageOpts & { type?: EntityKind } = {}) =>
+		getAuthed<QueuePage<DuplicatePair> & { counts: Partial<Record<EntityKind, number>> }>(
+			`/owner/duplicates${queueQuery(opts)}`
+		),
 
 	dismissDuplicate: (kind: EntityKind, idA: number, idB: number) =>
 		sendAuthed<Record<string, never>>('POST', `/owner/duplicates/dismiss`, {
@@ -1060,7 +1079,8 @@ export const api = {
 
 	// Duplicate videos (F76). Owner-gated. Pairs are computed on demand: two live files
 	// matched to the same provider item.
-	videoDuplicates: () => getAuthed<{ pairs: VideoDuplicatePair[] }>(`/owner/duplicates/videos`),
+	videoDuplicates: (opts: QueuePageOpts = {}) =>
+		getAuthed<QueuePage<VideoDuplicatePair>>(`/owner/duplicates/videos${queueQuery(opts)}`),
 
 	videoDuplicateCompare: (a: number, b: number) =>
 		getAuthed<VideoCompare>(`/owner/duplicates/videos/${a}/${b}`),
@@ -1104,7 +1124,10 @@ export const api = {
 	// enrichQueue: opening the tab performs no writes. Pass videoId to scope the
 	// read to one video (F48.6k) for the media page's inline panel — same rows,
 	// same owner gate, just a narrower WHERE (ADR-090 D2).
-	extractionQueue: (videoId?: number) => {
+	//
+	// Paged by video, never splitting one (HOLODEX-587): limit/offset/total count videos,
+	// and row_total counts every pending row.
+	extractionQueue: (videoId?: number, opts: QueuePageOpts = {}) => {
 		// Omitting the argument is the deliberate whole-library read. Passing a bad one
 		// (NaN from Number() of a non-numeric route param, 0, a fraction) is a caller
 		// bug, and must not degrade into that same whole-library read — that would pull
@@ -1112,10 +1135,8 @@ export const api = {
 		if (videoId !== undefined && !(Number.isInteger(videoId) && videoId > 0)) {
 			throw new Error(`extractionQueue: invalid videoId ${videoId}`);
 		}
-		return getAuthed<{ rows: ExtractionQueueRow[] }>(
-			videoId === undefined
-				? `/owner/extraction-queue`
-				: `/owner/extraction-queue?video_id=${videoId}`
+		return getAuthed<QueuePage<ExtractionQueueRow> & { row_total: number }>(
+			`/owner/extraction-queue${queueQuery({ video_id: videoId, ...opts })}`
 		);
 	},
 
@@ -1155,7 +1176,11 @@ export const api = {
 	// Enrichment review queue (F47 S2, ADR-066). Owner-gated; a pure DB read — opening
 	// the tab makes zero provider calls (RD2/RD3). A row's `providers` lists only
 	// outstanding (not-yet-linked) providers.
-	enrichQueue: () => getAuthed<{ rows: EnrichQueueRow[] }>(`/owner/enrich-queue`),
+	// Paged (HOLODEX-587); `counts` is each entity type's row count across every page.
+	enrichQueue: (opts: QueuePageOpts = {}) =>
+		getAuthed<QueuePage<EnrichQueueRow> & { counts: Partial<Record<EnrichEntityKind, number>> }>(
+			`/owner/enrich-queue${queueQuery(opts)}`
+		),
 
 	// Records a durable "not matched" verdict for one (entity, provider) — EnrichPicker's
 	// "None of these match" (RD4). Blocks a future /resolve for the pair until undismissed.
@@ -1223,7 +1248,7 @@ export const api = {
 
 	restoreFilm: (id: number) => sendAuthed<{ film: Film }>('POST', `/films/${id}/restore`),
 
-	trash: () => getAuthed<{ items: TrashEntry[]; total: number }>(`/admin/trash`),
+	trash: (opts: QueuePageOpts = {}) => getAuthed<QueuePage<TrashEntry>>(`/admin/trash${queueQuery(opts)}`),
 
 	// Metadata writeback — embed curated field values into the media file's tags.
 	// Owner-gated. Returns {job_id, queued} when the durable queue is wired (202,
