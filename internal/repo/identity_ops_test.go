@@ -162,6 +162,32 @@ func TestSearchMatchesStudioAlias(t *testing.T) {
 	}
 }
 
+// TestSearchExactNameFirstWithCounts (HOLODEX-586): the bounded pickers resolve a
+// typed name against Search, so the exact name must survive the per-group LIMIT
+// however many longer names share its prefix, and each entity hit carries its
+// active-video count for the picker rows.
+func TestSearchExactNameFirstWithCounts(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	tags := []string{"blonde ash", "blonde bob", "blonde curl", "blonde dye", "blonde"}
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, tags), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/b.mkv", "B", nil, []string{"blonde"}), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	res, err := r.Search(ctx, "Blonde", 3, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(res.Tags) != 3 || res.Tags[0].Name != "blonde" || res.Tags[1].Name != "blonde ash" {
+		t.Fatalf("tags = %+v, want blonde then blonde ash (limit 3)", res.Tags)
+	}
+	if res.Tags[0].VideoCount != 2 || res.Tags[1].VideoCount != 1 {
+		t.Errorf("counts = %d, %d; want 2, 1", res.Tags[0].VideoCount, res.Tags[1].VideoCount)
+	}
+}
+
 // videoIDs lists a search result's video ids in order.
 func videoIDs(vs []model.Video) []int64 {
 	out := make([]int64, len(vs))

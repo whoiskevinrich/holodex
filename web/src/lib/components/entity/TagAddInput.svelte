@@ -5,9 +5,10 @@
 	// so it uses aria-activedescendant — focus must stay in the input while the owner types —
 	// not the roving tabindex the picker dialogs use (D3). It owns the input and its list only;
 	// the caller owns the add itself, its errors, the near-miss nudge and the Add/Done buttons.
-	import { onMount } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { api } from '#lib/api.ts';
 	import { suggestTags } from '#lib/tagInput.ts';
+	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
 	import { videoCount } from '#lib/format.ts';
 	import type { Tag } from '#lib/types.ts';
 
@@ -31,19 +32,22 @@
 	const hintId = `tag-add-hint-${uid}`;
 
 	let input = $state<HTMLInputElement | null>(null);
-	let all = $state<Tag[]>([]);
 	let focused = $state(false);
 	let dismissed = $state(false);
 	let active = $state(-1);
 	let announcement = $state('');
 
-	// An aid, not the control: a failed fetch just means no suggestions.
-	onMount(() => {
-		api
-			.listTags()
-			.then((r) => (all = r.items))
-			.catch(() => {});
+	// Suggestions come from GET /search's tag group as the owner types (HOLODEX-586),
+	// never a whole-table read. An aid, not the control: a failed search just means no
+	// suggestions.
+	const search = new ServerSearch<Tag>(async (q) => (await api.search(q)).tags ?? []);
+	$effect(() => search.set(value));
+	// A server answer replaces the rows, so a highlight on the old ones is dropped.
+	$effect(() => {
+		void search.items;
+		active = -1;
 	});
+	onDestroy(() => search.cancel());
 
 	export function focus() {
 		input?.focus();
@@ -54,18 +58,21 @@
 		if (typed) void add(typed);
 	}
 
-	const matches = $derived(suggestTags(all, value, exclude));
+	// suggestTags re-filters by the current text, so rows answering an older (shorter)
+	// query stay valid while the newer one is in flight.
+	const matches = $derived(suggestTags(search.items, value, exclude));
 	const typed = $derived(value.trim());
-	const exact = $derived(all.some((t) => t.name.toLowerCase() === typed.toLowerCase()));
-	// Rows: the matches, then "Add “x” as a new tag" unless the text already names a tag.
-	const rowCount = $derived(matches.length + (typed && !exact ? 1 : 0));
-	const open = $derived(focused && !dismissed && typed !== '' && all.length > 0 && rowCount > 0);
+	const current = $derived(search.answered.toLowerCase() === typed.toLowerCase());
+	const exact = $derived(search.items.some((t) => t.name.toLowerCase() === typed.toLowerCase()));
+	// Rows: the matches, then "Add “x” as a new tag" once the server has said the text
+	// names no tag (the search ranks an exact name first, so it is never cut off).
+	const rowCount = $derived(matches.length + (typed && current && !exact ? 1 : 0));
+	const open = $derived(focused && !dismissed && typed !== '' && search.answered !== '' && rowCount > 0);
 
 	async function add(name: string) {
 		active = -1;
 		const tag = await onadd(name);
 		if (!tag) return;
-		if (!all.some((t) => t.id === tag.id)) all = [...all, tag];
 		announcement = `Added ${tag.name}`;
 	}
 

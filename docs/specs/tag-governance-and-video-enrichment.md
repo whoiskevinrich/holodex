@@ -206,9 +206,12 @@ This must be fixed as part of this spec (P0-1), not discovered after ship.
     control now:
     1. **Stays open for rapid entry.** A successful add clears the input and keeps focus in it. A failed add
        keeps the text. Esc (with no suggestion list open) or **Done**, which replaces Cancel, closes the form.
-    2. **Suggests existing tags.** As the owner types, a list of existing tags shows: prefix matches first,
-       then substring matches, case-insensitive, up to 8, with tags already on the video left out and each
-       tag's video count shown. A final "Add “x” as a new tag" row appears unless an existing tag's name is
+    2. **Suggests existing tags.** As the owner types, a list of existing tags shows: tags whose name, or a
+       word in it, starts with the typed text, case-insensitive, names that start with it first, up to 8,
+       with tags already on the video left out and each tag's video count shown. (Amended 2026-10-18,
+       [HOLODEX-586](https://whoiskevinrich.atlassian.net/browse/HOLODEX-586): matching is by word start,
+       not any substring, because suggestions come from a bounded library search rather than a list of
+       every tag. "blo" finds "natural blonde"; "lond" no longer finds "blonde".) A final "Add “x” as a new tag" row appears unless an existing tag's name is
        exactly the typed text. Nothing is highlighted while typing; ↑/↓ move the highlight.
     3. **Separates "take a suggestion" from "take my text".** **Enter** adds the highlighted row, or the
        typed text when nothing is highlighted. **Tab** adds the highlighted suggestion, or the first

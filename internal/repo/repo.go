@@ -1752,7 +1752,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 	// so a person matching both its name and an alias appears once.
 	pr, err := r.db.QueryContext(ctx, `
 		SELECT p.id, p.name FROM people_fts f JOIN people p ON p.id = f.rowid
-		WHERE people_fts MATCH ? LIMIT ?`, match, limit)
+		WHERE people_fts MATCH ? `+searchNameOrder("p")+` LIMIT ?`, match, q, limit)
 	if err != nil {
 		return res, fmt.Errorf("search people: %w", err)
 	}
@@ -1817,7 +1817,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 
 	tr, err := r.db.QueryContext(ctx, `
 		SELECT t.id, t.name FROM tags_fts f JOIN tags t ON t.id = f.rowid
-		WHERE tags_fts MATCH ? LIMIT ?`, match, limit)
+		WHERE tags_fts MATCH ? `+searchNameOrder("t")+` LIMIT ?`, match, q, limit)
 	if err != nil {
 		return res, fmt.Errorf("search tags: %w", err)
 	}
@@ -1853,7 +1853,7 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 	// Studios: FTS name matches, a new entity group (F38, ADR-053).
 	sr, err := r.db.QueryContext(ctx, `
 		SELECT s.id, s.name FROM studios_fts f JOIN studios s ON s.id = f.rowid
-		WHERE studios_fts MATCH ? LIMIT ?`, match, limit)
+		WHERE studios_fts MATCH ? `+searchNameOrder("s")+` LIMIT ?`, match, q, limit)
 	if err != nil {
 		return res, fmt.Errorf("search studios: %w", err)
 	}
@@ -1909,6 +1909,19 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		if err := er.Err(); err != nil {
 			return res, err
 		}
+	}
+
+	// Active-video counts on the entity hits (HOLODEX-586): the bounded pickers that
+	// replaced whole-list reads (merge picker, add-tag input) show a count per row and
+	// in the merge confirm. Same count the list reads give (direct links only).
+	if err := fillSearchVideoCounts(ctx, r, "video_people", "person_id", res.People, func(p *model.Person) (int64, *int) { return p.ID, &p.VideoCount }); err != nil {
+		return res, err
+	}
+	if err := fillSearchVideoCounts(ctx, r, "video_tags", "tag_id", res.Tags, func(t *model.Tag) (int64, *int) { return t.ID, &t.VideoCount }); err != nil {
+		return res, err
+	}
+	if err := fillSearchVideoCounts(ctx, r, "video_studios", "studio_id", res.Studios, func(s *model.Studio) (int64, *int) { return s.ID, &s.VideoCount }); err != nil {
+		return res, err
 	}
 
 	// Videos: title matches first, then the media of every matched entity (incl.
@@ -2000,6 +2013,49 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 		}
 	}
 	return res, nil
+}
+
+// searchNameOrder ranks a Search entity leg's FTS hits: the exact name first (so a
+// typed name always survives the LIMIT — the bounded pickers resolve against it,
+// HOLODEX-586), then by name. Its one bind argument is the trimmed query.
+func searchNameOrder(alias string) string {
+	return "ORDER BY (" + alias + ".name = ? COLLATE NOCASE) DESC, " + alias + ".name COLLATE NOCASE"
+}
+
+// fillSearchVideoCounts sets each Search hit's active-video count in one grouped
+// read over the junction table; a hit with no active video keeps 0.
+func fillSearchVideoCounts[T any](ctx context.Context, r *Repo, junction, fk string, hits []T, field func(*T) (int64, *int)) error {
+	if len(hits) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(hits))
+	for i := range hits {
+		ids[i], _ = field(&hits[i])
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT j.`+fk+`, COUNT(*) FROM `+junction+` j
+		JOIN videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
+		WHERE j.`+fk+` IN (`+placeholders(len(ids))+`) GROUP BY j.`+fk, toAnySlice(ids)...)
+	if err != nil {
+		return fmt.Errorf("search video counts (%s): %w", junction, err)
+	}
+	defer rows.Close()
+	counts := make(map[int64]int, len(ids))
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return err
+		}
+		counts[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for i := range hits {
+		id, n := field(&hits[i])
+		*n = counts[id]
+	}
+	return nil
 }
 
 // displayNameMatches is Search's display-spelling leg for one entity kind: the
