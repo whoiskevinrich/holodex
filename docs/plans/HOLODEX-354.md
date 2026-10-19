@@ -5,7 +5,11 @@ key: HOLODEX-354
 status: in-progress
 profile: feature             # new user-facing paging behaviour over existing endpoints; no auth or data-model change
 depends-on: []
-release_note: ""
+approved:
+  design:
+    on: 2026-10-18
+    at: 542851ec
+release_note: "People, Studios, Tags and Films open on one page with a Load more button instead of drawing the whole library, and the A–Z index jumps by restarting the list at a letter."
 ---
 
 # HOLODEX-354 · Paged entity lists — People, Studios, Tags and Films load a page at a time
@@ -29,16 +33,22 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
   - RD5: the 586/587 split
 
   Amends `sort-persistence.md`, NS3 in `nav-search-live-filter.md`, and `people-poster-view.md` in place.
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/**`. `entity-list-paging-handoff.md` + `entity-list-paging-mockup.svg` (`542851ec`):
+  - the shared "Load more (N left)" control on rows, posters and the pill cloud
+  - the active A–Z letter in gold, with "from M · Back to start" on the count line
+  - Tags run straight into categories in one cloud
+
+  The owner approved option B and the Load more control on 2026-10-18; pinned to `542851ec`.
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/design-handoff` for F80: the Load more control on rows, posters and the pill cloud, the active A–Z letter, and the Tags stream. Commit the SVG mockup next to the handoff
-2. [ ] [—] Decide whether paging is a technology fork (offset vs. keyset; reusing the `/media` seeded ordering for entities). If it isn't, the worklog notes "no technology fork". The `feature` posture carries no architecture gate
-3. [ ] [—] `/implement`: owner sign-off on the handoff, merge `origin/main`, push, open the Draft PR
+1. [ ] [—] `/implement`: confirm the design sign-off (pinned `542851ec`), merge `origin/main`, push, and open the Draft PR
+2. [ ] [—] Backend: limit/offset/q/seed plus a letter start (`from`) on the four list endpoints and the `/categories` filter struct, in the `/media` envelope `{items,total,limit,offset}`. Add per-letter presence for the A–Z dimming. Reuse ADR-045's seeded ordering. No technology fork is expected (same offset paging as `/media`); record it here if that changes
+3. [ ] [—] Frontend: the four routes plus `AlphaIndex` active state, the count-line suffix, the Load more live region, and Back restoring the loaded count (the `listScroll` `loaded` field, as `EntityVideos` does)
+4. [ ] [—] `/testing-strategy`: endpoint contract tests, a test that every entry is reachable, and the -big fixture metrics from the spec
 4. [ ] [—] Build on HOLODEX-586 (PR #539, `ed5928ca`):
    - `GET /categories?q=` is in, via `repo.ListCategories(ctx, repo.CategoryFilter{Query})`. With `q` it is capped at `repo.CategoryQueryCap` = 25 and ranked exact, then prefix, then word start, then anywhere. Add the paging fields to `CategoryFilter`.
    - The TS signature is now `api.listCategories(opts = {}, fetchFn?)`.
@@ -47,6 +57,10 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
 5. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-18 · session (design)
+- skills: design-handoff
+- handoff: The F80 design handoff and SVG are committed and owner-approved, pinned to `542851ec`. HOLODEX-586 merged (#539) and 587 is in Draft #540. Next: `/implement` to open the Draft PR, then the backend.
 
 ### 2026-10-18 · session
 - skills: write-spec
