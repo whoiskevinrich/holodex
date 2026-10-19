@@ -12,8 +12,9 @@ on People, Studios and Tags queries the server), and [`people-poster-view.md`](p
 (its "no pagination change" non-goal no longer holds). See
 [Amendments to other specs](#amendments-to-other-specs).
 
-**Design handoff**: to come (`/design-handoff`). It covers the Load more control, the A–Z restart
-state and the Tags stream.
+**Design handoff**: [`entity-list-paging-handoff.md`](../design/entity-list-paging-handoff.md), with the
+[mockup](../design/entity-list-paging-mockup.svg). It covers the Load more control, the A–Z restart state
+and the Tags stream.
 
 ---
 
@@ -104,7 +105,8 @@ today.
 **EL6. A–Z restarts the list at a letter.** On People and Studios, in name sort, without a search, in
 List view (the same conditions as today), clicking a letter reloads the list to start at that
 letter's first name and scrolls to the top of the list. Load more continues into the following
-letters. To go back toward A, click an earlier letter. "#" covers names that don't start with a
+letters. To go back toward A, click an earlier letter, or use the "Back to start" link the count line
+shows while a letter start is active. "#" covers names that don't start with a
 letter, as today. Letters with no names in the whole library are dimmed and inert. The letter start
 is shown as the active letter. Changing sort, view or search clears it.
 
@@ -127,8 +129,8 @@ whether or not that tag is loaded. The per-pill "Set parent…" picker finds any
 
 ### P1: Nice-to-have
 
-**EL-P1-a. Load more says how far along you are**, for example "50 of 2,064". The exact wording is
-for the design handoff.
+**EL-P1-a. Load more says how much is left.** The design handoff settled this as the existing
+"Load more (N left)" wording, so it ships with EL1.
 
 ### P2: Future considerations (design for, don't build)
 
@@ -165,8 +167,10 @@ Measured on the stress fixture at `-big` (2,000 of each kind), against the HOLOD
 
 ## Open Questions
 
-- [design] The Load more control's wording and placement on the pill cloud and the poster grid, and
-  how the active A–Z letter looks. → design handoff.
+- ~~[design] The Load more control's wording and placement on the pill cloud and the poster grid, and
+  how the active A–Z letter looks.~~ → [design handoff](../design/entity-list-paging-handoff.md): the
+  shared "Load more (N left)" control; the active letter in gold, with "from M · Back to start" on the
+  count line (owner, 2026-10-18).
 - [engineering] Whether a technology fork exists (offset vs. keyset paging; reuse of the Media grid's
   seeded ordering for entities). If one does, it goes in an architecture topic doc; if not, the
   worklog records "no technology fork".

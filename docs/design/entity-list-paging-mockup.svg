@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 640" width="720" height="640" role="img" aria-labelledby="t d">
+  <title id="t">Paged entity lists (F80): the A–Z restart state on People and Studios, and Load more on rows, posters and the Tags pill cloud</title>
+  <desc id="d">Four panels drawn in Cinémathèque tokens. 1: People restarted at M. The M in the A–Z bar is gold with a gold underline, Q is dimmed, and the count line reads "2,064 people · from M · Back to start". 2: The end of a page of rows, where M has flowed into N, with a centred ghost button reading "Load more (1,214 left)". 3: A poster grid with the same Load more button. 4: The Tags All tab at the page boundary, where the last tags are followed directly by category pills in the same cloud, then Load more, plus the in-flight "Loading…" state.</desc>
+  <style>
+    .bg{fill:#0c0a09}.sf{fill:#15110e}.s2{fill:#181310}.rule{stroke:#2a2622;fill:none}
+    .ink{fill:#f3ece1;font:13px 'Archivo Variable',Archivo,system-ui,sans-serif}
+    .mu{fill:#9b9082;font:12px 'Archivo Variable',Archivo,system-ui,sans-serif}
+    .ac{fill:#e8a33d;font:12px 'Archivo Variable',Archivo,system-ui,sans-serif}
+    .cap{fill:#9b9082;font:italic 11px 'Archivo Variable',Archivo,system-ui,sans-serif}
+    .h{fill:#f3ece1;font:500 14px 'Fraunces Variable',Fraunces,Georgia,serif}
+  </style>
+  <rect width="720" height="640" class="bg"/>
+
+  <!-- 1 · A–Z restart state -->
+  <text x="20" y="28" class="h">1 · People restarted at M (Studios is identical)</text>
+  <rect x="20" y="40" width="680" height="190" rx="2" class="sf"/>
+  <text x="36" y="64" class="mu">2,064 people ·</text>
+  <text x="120" y="64" class="ink" style="font-size:12px">from M</text>
+  <text x="166" y="64" class="ac" text-decoration="underline">Back to start</text>
+  <line x1="36" y1="92" x2="684" y2="92" class="rule"/>
+  <g class="mu">
+    <text x="36" y="84">#</text><text x="56" y="84">A</text><text x="76" y="84">B</text><text x="96" y="84">C</text>
+    <text x="116" y="84">…</text><text x="136" y="84">L</text>
+    <text x="178" y="84">N</text><text x="198" y="84">O</text><text x="218" y="84">P</text>
+    <text x="238" y="84" opacity="0.3">Q</text><text x="258" y="84">R</text><text x="278" y="84">…</text><text x="298" y="84">Z</text>
+  </g>
+  <text x="156" y="84" class="ac" style="font-weight:500">M</text>
+  <line x1="154" y1="89" x2="168" y2="89" stroke="#e8a33d" stroke-width="2"/>
+  <g>
+    <circle cx="48" cy="114" r="11" class="s2" stroke="#2a2622"/><text x="68" y="118" class="ink">Mabel Ortiz</text><text x="640" y="118" class="mu">12 videos</text>
+    <line x1="36" y1="132" x2="684" y2="132" class="rule"/>
+    <circle cx="48" cy="152" r="11" class="s2" stroke="#2a2622"/><text x="68" y="156" class="ink">Maddox Hale</text><text x="646" y="156" class="mu">7 videos</text>
+    <line x1="36" y1="170" x2="684" y2="170" class="rule"/>
+    <circle cx="48" cy="190" r="11" class="s2" stroke="#2a2622"/><text x="68" y="194" class="ink">Mae Linden</text><text x="646" y="194" class="mu">3 videos</text>
+  </g>
+  <text x="36" y="220" class="cap">The list starts at M's first name; rows A–L aren't loaded. "Back to start" (or the A letter) restarts at the top.</text>
+
+  <!-- 2 · Load more on rows -->
+  <text x="20" y="262" class="h">2 · End of a page of rows</text>
+  <rect x="20" y="274" width="680" height="130" rx="2" class="sf"/>
+  <circle cx="48" cy="298" r="11" class="s2" stroke="#2a2622"/><text x="68" y="302" class="ink">Nadia Brook</text>
+  <line x1="36" y1="316" x2="684" y2="316" class="rule"/>
+  <circle cx="48" cy="336" r="11" class="s2" stroke="#2a2622"/><text x="68" y="340" class="ink">Nell Ward</text><text x="140" y="340" class="cap">← M flowed into N</text>
+  <rect x="290" y="362" width="140" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="360" y="381" class="mu" text-anchor="middle">Load more (1,214 left)</text>
+
+  <!-- 3 · Posters -->
+  <text x="20" y="436" class="h">3 · Posters (Films, People poster view)</text>
+  <rect x="20" y="448" width="330" height="180" rx="2" class="sf"/>
+  <g class="s2" stroke="#2a2622">
+    <rect x="36" y="462" width="66" height="99"/><rect x="112" y="462" width="66" height="99"/>
+    <rect x="188" y="462" width="66" height="99"/><rect x="264" y="462" width="66" height="99"/>
+  </g>
+  <rect x="115" y="584" width="120" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="175" y="603" class="mu" text-anchor="middle">Load more (1,967 left)</text>
+
+  <!-- 4 · Tags stream -->
+  <text x="370" y="436" class="h">4 · Tags, All tab: tags run into categories</text>
+  <rect x="370" y="448" width="330" height="180" rx="2" class="sf"/>
+  <g>
+    <rect x="384" y="462" width="62" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="392" y="477" class="ink" style="font-size:12px">zombie 3</text>
+    <rect x="452" y="462" width="46" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="460" y="477" class="ink" style="font-size:12px">zoo 1</text>
+    <rect x="504" y="462" width="96" height="22" rx="2" fill="none" stroke="#e8a33d" stroke-opacity="0.5"/><text x="512" y="477" class="ink" style="font-size:12px">◇ Genre · 9 tags</text>
+    <rect x="384" y="490" width="92" height="22" rx="2" fill="none" stroke="#e8a33d" stroke-opacity="0.5"/><text x="392" y="505" class="ink" style="font-size:12px">◇ Mood · 4 tags</text>
+    <rect x="482" y="490" width="84" height="22" rx="2" fill="none" stroke="#e8a33d" stroke-opacity="0.5"/><text x="490" y="505" class="ink" style="font-size:12px">◇ Era · 6 tags</text>
+  </g>
+  <text x="384" y="534" class="cap">No divider: categories follow the last tag in the same cloud.</text>
+  <rect x="465" y="546" width="140" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="535" y="565" class="mu" text-anchor="middle">Load more (1,837 left)</text>
+  <text x="535" y="606" class="mu" text-anchor="middle" opacity="0.7">In flight: “Loading…”, disabled</text>
+</svg>
