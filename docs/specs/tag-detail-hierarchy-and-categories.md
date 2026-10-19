@@ -62,6 +62,12 @@ A tag's place in the hierarchy (its parent and children) and its category member
 **Parent control**
 - [ ] Owner-only edit. A single chip (0-or-1, not a list) shows the tag's current parent, or an empty/root state if none.
 - [ ] Clicking opens the same existing-tags-only typeahead the `/tags` list's Manage-mode parent control already uses — shared/extracted logic, not a reimplementation. No create-on-typo: a name that doesn't match an existing tag is rejected, not silently turned into a new tag.
+- [x] The parent field suggests up to 10 existing tags as the owner types, matched by name or word start,
+  an exact name first; it never loads every tag. The "+ Add category" picker shows up to 10 categories
+  whose name contains the typed text, ranked exact name, then name start, then word start, then
+  anywhere, and offers "Create" once no category has the typed name *(amended 2026-10-18,
+  [HOLODEX-586](https://whoiskevinrich.atlassian.net/browse/HOLODEX-586); rule in
+  [entity-identity RD8a](entity-identity.md))*.
 - [ ] Selecting a parent calls `SetTagParent`; a cycle response (`{cycle: true}`) surfaces the identical "Can't set X as its own ancestor" message the list already shows.
 - [ ] × on the chip clears the parent (`SetTagParent(id, null)`) immediately — no confirm step, matching the writeback toggle's existing "lowest-stakes, no confirm" precedent on this same page.
 - [ ] Non-owner: parent shown as a plain link to the parent's own page, no ×, no click-to-edit.

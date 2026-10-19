@@ -34,6 +34,13 @@ CHANGELOG.md
 release-please-config.json
 .release-please-manifest.json
 
+# --- Frozen history and mockup images ---
+# Archived ADRs are never current truth (their content moved to topic docs), and
+# each design SVG would cost its own vision extraction while its handoff doc
+# already describes it.
+/docs/architecture/archive/
+/docs/design/*.svg
+
 # --- Generic build/tooling noise ---
 # Not currently produced in this repo, but cheap insurance against future churn.
 *.min.js

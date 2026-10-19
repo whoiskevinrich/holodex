@@ -8,10 +8,11 @@
 	// listbox, Tab and ↑/↓ move through results, Enter/Space/click pick). Two
 	// callers: the /tags Manage-bar bulk actions and a tag pill's own ⋯ menu
 	// "Add to category…" (single tag). Tokens only; QA Cinémathèque.
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage, tagCount, filterByName } from '#lib/format.ts';
 	import type { Category } from '#lib/types.ts';
+	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
 	import PickerShell, { focusOptionIn } from './PickerShell.svelte';
 
 	let {
@@ -23,11 +24,12 @@
 	}: {
 		tagIds: number[];
 		mode: 'add' | 'remove';
-		// The candidate list to search/pick from. 'add' passes every category
-		// (plus an inline create option); 'remove' passes only the categories
-		// that intersect the selected tags' current memberships (the caller
-		// skips opening this picker at all when that set is empty).
-		categories: Category[];
+		// The candidate list to filter in the browser. 'remove' passes only the
+		// categories that intersect the selected tags' current memberships (the
+		// caller skips opening this picker at all when that set is empty). Omit it
+		// and the picker searches the server as the owner types (HOLODEX-586,
+		// GET /categories?q=), never reading the whole category table.
+		categories?: Category[];
 		onclose: () => void;
 		onapplied: () => void;
 	} = $props();
@@ -42,11 +44,27 @@
 	const listId = 'category-picker-options';
 	const title = $derived(mode === 'add' ? 'Add to category' : 'Remove from category');
 
-	const results = $derived(filterByName(categories, query).slice(0, 50));
+	// The server ranks closest first and caps at 25; the picker shows the top 10.
+	const search = new ServerSearch<Category>(async (q) => (await api.listCategories({ q })).items.slice(0, 10));
+	$effect(() => {
+		if (!categories) search.set(query);
+	});
+	onDestroy(() => search.cancel());
+
+	const typed = $derived(query.trim());
+	// A server answer to an older query must not be picked or judged against.
+	const current = $derived(!!categories || search.answered === typed);
+	const results = $derived(categories ? filterByName(categories, query).slice(0, 50) : search.items);
 	// 'add' offers an inline create row once the query has no exact-name match
-	// among the candidates already shown.
-	const exactMatch = $derived(categories.some((c) => c.name.toLowerCase() === query.trim().toLowerCase()));
-	const showCreate = $derived(mode === 'add' && query.trim() !== '' && !exactMatch);
+	// among the candidates (the server search ranks an exact name first).
+	const exactMatch = $derived(results.some((c) => c.name.toLowerCase() === typed.toLowerCase()));
+	const showCreate = $derived(mode === 'add' && typed !== '' && current && !exactMatch);
+	// New rows start at the top, so Enter never lands on an index past them (the
+	// create row) after the list shrinks.
+	$effect(() => {
+		void results;
+		active = 0;
+	});
 	// Roving-tabindex index space spans results then the trailing create row.
 	const optionCount = $derived(results.length + (showCreate ? 1 : 0));
 
@@ -96,7 +114,7 @@
 			focusOption(0);
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			pickAt(active);
+			if (current) pickAt(active);
 		}
 	}
 
@@ -141,8 +159,12 @@
 	/>
 
 	<p class="mt-2 text-xs text-muted" aria-live="polite">
-		{#if error}
-			<span class="text-warn">{error}</span>
+		{#if error || search.error}
+			<span class="text-warn">{error || search.error}</span>
+		{:else if !categories && !typed}
+			Type a name to find or create a category.
+		{:else if !categories && search.loading && !optionCount}
+			Searching categories…
 		{:else if optionCount}
 			{results.length}
 			{results.length === 1 ? 'category' : 'categories'} — pick one to

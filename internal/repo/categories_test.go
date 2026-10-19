@@ -3,9 +3,11 @@ package repo_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	"holodex/internal/model"
 	"holodex/internal/repo"
 )
 
@@ -27,7 +29,7 @@ func TestCategoryCRUD(t *testing.T) {
 		t.Errorf("duplicate create (case-fold) = %v, want ErrNameTaken", err)
 	}
 
-	list, err := r.ListCategories(ctx)
+	list, err := r.ListCategories(ctx, repo.CategoryFilter{})
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list = %v, %v, want exactly one category", list, err)
 	}
@@ -272,7 +274,7 @@ func TestListCategoriesTagFields(t *testing.T) {
 		t.Fatalf("create empty category: %v", err)
 	}
 
-	list, err := r.ListCategories(ctx)
+	list, err := r.ListCategories(ctx, repo.CategoryFilter{})
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -420,5 +422,66 @@ func TestResolveOrCreateTag(t *testing.T) {
 	}
 	if _, err := r.ResolveOrCreateTag(ctx, "Holiday"); !errors.Is(err, repo.ErrTagNameCollidesWithCategory) {
 		t.Errorf("resolve category-colliding name = %v, want ErrTagNameCollidesWithCategory", err)
+	}
+}
+
+// TestListCategoriesQuery (HOLODEX-586): ?q= on the category list keeps the names
+// containing the text, case-insensitive, ranked exact > prefix > word start > other
+// substring, capped at CategoryQueryCap, with member tags still attached.
+func TestListCategoriesQuery(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	var holiday int64
+	for _, n := range []string{"Theholiday", "Summer Holiday", "Holidays Abroad", "Holiday", "Weekend"} {
+		c, err := r.CreateCategory(ctx, n)
+		if err != nil {
+			t.Fatalf("create %q: %v", n, err)
+		}
+		if n == "Holiday" {
+			holiday = c.ID
+		}
+	}
+	tag, err := r.ResolveOrCreateTag(ctx, "beach")
+	if err != nil {
+		t.Fatalf("tag: %v", err)
+	}
+	if _, err := r.AssignTagsToCategory(ctx, holiday, []int64{tag.ID}); err != nil {
+		t.Fatalf("assign: %v", err)
+	}
+	list := func(q string) []model.Category {
+		t.Helper()
+		got, err := r.ListCategories(ctx, repo.CategoryFilter{Query: q})
+		if err != nil {
+			t.Fatalf("list %q: %v", q, err)
+		}
+		return got
+	}
+	names := func(cs []model.Category) string {
+		out := make([]string, len(cs))
+		for i, c := range cs {
+			out[i] = c.Name
+		}
+		return strings.Join(out, ",")
+	}
+	got := list("HOLIDAY")
+	if n := names(got); n != "Holiday,Holidays Abroad,Summer Holiday,Theholiday" {
+		t.Errorf("query holiday = %s", n)
+	}
+	if len(got) > 0 && (got[0].TagCount != 1 || len(got[0].TagIDs) != 1) {
+		t.Errorf("Holiday members = %d %v, want the one tag", got[0].TagCount, got[0].TagIDs)
+	}
+	if n := names(list("  ")); n != "Holiday,Holidays Abroad,Summer Holiday,Theholiday,Weekend" {
+		t.Errorf("blank query = %s, want every category", n)
+	}
+	if got := list("zzz"); got == nil || len(got) != 0 {
+		t.Errorf("no match = %v, want an empty non-nil slice", got)
+	}
+	for i := range repo.CategoryQueryCap + 5 {
+		if _, err := r.CreateCategory(ctx, fmt.Sprintf("Bulk %02d", i)); err != nil {
+			t.Fatalf("create bulk: %v", err)
+		}
+	}
+	if got := list("bulk"); len(got) != repo.CategoryQueryCap {
+		t.Errorf("query bulk = %d rows, want the cap %d", len(got), repo.CategoryQueryCap)
 	}
 }

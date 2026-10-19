@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" font-family="system-ui, sans-serif" font-size="13" role="img">
+  <title>Bounded picker search (HOLODEX-586), approved 2026-10-18</title>
+  <desc>Merge picker empty until typed, then up to 10 server matches with counts; add-tag input suggests word-start matches.</desc>
+  <rect width="760" height="420" fill="#0c0a09"/>
+  <text x="20" y="28" fill="#9b9082" font-size="12">Merge picker — before typing</text>
+  <rect x="20" y="40" width="340" height="110" fill="#15110e" stroke="#2a2622"/>
+  <text x="34" y="64" fill="#f3ece1" font-weight="600">Merge into Ana Kessler</text>
+  <rect x="34" y="76" width="312" height="28" fill="#15110e" stroke="#e8a33d"/>
+  <text x="44" y="95" fill="#9b9082">Find the person to merge in…</text>
+  <text x="34" y="126" fill="#9b9082" font-size="12">Type a name to find the person to merge in.</text>
+  <text x="400" y="28" fill="#9b9082" font-size="12">Merge picker — typed: up to 10 server hits, exact name first</text>
+  <rect x="400" y="40" width="340" height="150" fill="#15110e" stroke="#2a2622"/>
+  <text x="414" y="64" fill="#f3ece1" font-weight="600">Merge into Ana Kessler</text>
+  <rect x="414" y="76" width="312" height="28" fill="#15110e" stroke="#e8a33d"/>
+  <text x="424" y="95" fill="#f3ece1">ana k</text>
+  <text x="414" y="124" fill="#9b9082" font-size="12">2 people — choose which to fold into Ana Kessler</text>
+  <rect x="414" y="134" width="312" height="24" fill="#181310"/>
+  <rect x="414" y="134" width="2" height="24" fill="#e8a33d"/>
+  <text x="424" y="151" fill="#f3ece1">Ana Keßler</text>
+  <text x="716" y="151" fill="#9b9082" font-size="12" text-anchor="end">4 videos</text>
+  <text x="424" y="177" fill="#f3ece1">Anna Kay</text>
+  <text x="716" y="177" fill="#9b9082" font-size="12" text-anchor="end">2 videos</text>
+  <text x="20" y="232" fill="#9b9082" font-size="12">Add-tag input — word-start matches (not mid-word), counts kept</text>
+  <rect x="20" y="244" width="240" height="28" fill="#15110e" stroke="#e8a33d"/>
+  <text x="30" y="263" fill="#f3ece1">blo</text>
+  <rect x="20" y="276" width="300" height="96" fill="#15110e" stroke="#2a2622"/>
+  <rect x="20" y="282" width="300" height="24" fill="#181310"/>
+  <rect x="20" y="282" width="2" height="24" fill="#e8a33d"/>
+  <text x="32" y="299" fill="#f3ece1"><tspan fill="#e8a33d" font-weight="600">blo</tspan>nde</text>
+  <text x="308" y="299" fill="#9b9082" font-size="12" text-anchor="end">212</text>
+  <text x="32" y="325" fill="#f3ece1">natural <tspan font-weight="600">blo</tspan>nde</text>
+  <text x="308" y="325" fill="#9b9082" font-size="12" text-anchor="end">18</text>
+  <line x1="20" y1="338" x2="320" y2="338" stroke="#2a2622"/>
+  <text x="32" y="359" fill="#9b9082">Add “blo” as a new tag</text>
+  <text x="400" y="232" fill="#9b9082" font-size="12">Tag page — unchanged look, server-fed</text>
+  <text x="400" y="258" fill="#f3ece1" font-size="12">Parent field: native suggestions, ≤10 tags as typed;</text>
+  <text x="400" y="276" fill="#f3ece1" font-size="12">Set parent resolves the typed name exactly.</text>
+  <text x="400" y="302" fill="#f3ece1" font-size="12">+ Add category: “Type a name to find or create a</text>
+  <text x="400" y="320" fill="#f3ece1" font-size="12">category.”, then ≤10 matches and “+ Create” once</text>
+  <text x="400" y="338" fill="#f3ece1" font-size="12">no category has the typed name.</text>
+</svg>
