@@ -16,7 +16,7 @@ release_note: The merge picker, the add-tag box, and the tag page's parent and c
 approved:
   design:
     on: 2026-10-18
-    at: 74697074
+    at: ed5928ca
 ---
 
 # HOLODEX-586 · Pickers and datalists search the server, not whole tables
@@ -62,7 +62,7 @@ architecture: none (no technology fork)
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Mark draft PR #539 ready once HOLODEX-354 has looked (CI moves HOLODEX-586 to In Review, then Done on merge)
+1. [ ] [—] Squash-merge #539 with its clean subject (CI moves HOLODEX-586 to Done)
 2. [ ] [—] Depends on HOLODEX-354: /tags still reads every category; it fetches them only for remove mode once it pages that route — `web/src/routes/tags/+page.svelte:175`
 3. [ ] [backend] Category `?q=` folds ASCII case only (SQLite lower()); an FTS table would fold like the tag picker → HOLODEX-588
 
@@ -75,6 +75,10 @@ architecture: none (no technology fork)
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-19 · design sign-off re-pinned
+- skills: —
+- handoff: Design sign-off re-pinned to ed5928ca (the owner chose the ranked-substring category rule on 2026-10-18, the handoff amendment's only change); #539 is ready — next is the squash-merge.
 
 ### 2026-10-18 · category search folded into GET /categories?q=
 - skills: code-review high --fix
