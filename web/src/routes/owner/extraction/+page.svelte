@@ -12,6 +12,7 @@
 	import ExtractionQueueRow from '#lib/components/extraction/ExtractionQueueRow.svelte';
 	import ExtractionPreviewDialog from '#lib/components/extraction/ExtractionPreviewDialog.svelte';
 	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
+	import { appendUnique, nextPage, QUEUE_PAGE, windowLimit } from '#lib/queuePaging.ts';
 	import {
 		buildPreviewItems,
 		groupByVideo,
@@ -54,8 +55,8 @@
 	const stagedCount = $derived(Object.keys(staged).length);
 	let showPreview = $state(false);
 
-	// Indexed once per rows change, not per staged click — this queue is the whole
-	// library, so rebuilding the Map on every stage/unstage would be O(rows) per click.
+	// Indexed once per rows change, not per staged click — this queue can hold many
+	// loaded pages, so rebuilding the Map on every stage/unstage would be O(rows) per click.
 	const rowsById = $derived(new Map(rows.map((r) => [r.id, r])));
 	const previewItems = $derived(buildPreviewItems(staged, rowsById, fieldLabel));
 
@@ -65,17 +66,48 @@
 	function unstage(reviewId: number) {
 		staged = unstagePick(staged, reviewId);
 	}
+	// Paged by video (HOLODEX-587): groupTotal counts videos across every page, rowTotal
+	// their rows. The server orders videos most-pending-first, so a video that loses a
+	// row may sort later than an unloaded one; `moved` holds those, and the next page
+	// over-fetches by that many (queuePaging.ts). Not reactive: only Load more reads it.
+	let groupTotal = $state(0);
+	let rowTotal = $state(0);
+	let loadingMore = $state(false);
+	let moved = new Set<number>();
+	// Bumped by every whole-window read, so a Load more sent before a Refresh landed
+	// can't append to the window that replaced it.
+	let windowGen = 0;
+
+	function accept(queue: { items: QueueRow[]; total: number; row_total: number }) {
+		windowGen++;
+		rows = queue.items ?? [];
+		groupTotal = queue.total;
+		rowTotal = queue.row_total;
+		moved = new Set();
+	}
+
 	function dropRow(reviewId: number) {
+		const row = rows.find((r) => r.id === reviewId);
 		rows = rows.filter((r) => r.id !== reviewId);
 		unstage(reviewId);
+		if (!row) return;
+		rowTotal = Math.max(rowTotal - 1, 0);
+		if (rows.some((r) => r.video_id === row.video_id)) moved.add(row.video_id);
+		else {
+			moved.delete(row.video_id);
+			groupTotal = Math.max(groupTotal - 1, 0);
+		}
 	}
 
 	async function load() {
 		loading = true;
 		error = '';
 		try {
-			const [queue, facets] = await Promise.all([api.extractionQueue(), api.facets()]);
-			rows = queue.rows ?? [];
+			const [queue, facets] = await Promise.all([
+				api.extractionQueue(undefined, { limit: QUEUE_PAGE }),
+				api.facets()
+			]);
+			accept(queue);
 			labelByField = Object.fromEntries(facets.facets.map((f) => [f.canonical, f.label]));
 		} catch (e) {
 			error = toMessage(e);
@@ -87,13 +119,30 @@
 		load();
 	});
 
+	async function loadMore() {
+		loadingMore = true;
+		const mine = windowGen;
+		try {
+			const queue = await api.extractionQueue(undefined, nextPage(groups.length, moved.size));
+			if (!alive || mine !== windowGen) return;
+			rows = appendUnique(rows, queue.items ?? [], (r) => String(r.id));
+			groupTotal = queue.total;
+			rowTotal = queue.row_total;
+		} catch (e) {
+			if (alive) extractError = toMessage(e);
+		} finally {
+			if (alive) loadingMore = false;
+		}
+	}
+
 	// Reload the queue without the full-screen "Loading…" state, so an
 	// auto/manual refresh updates rows in place instead of blanking the list.
+	// It re-reads every loaded video's window, not just the first page.
 	async function refresh() {
 		refreshing = true;
 		try {
-			const queue = await api.extractionQueue();
-			if (alive) rows = queue.rows ?? [];
+			const queue = await api.extractionQueue(undefined, { limit: windowLimit(groups.length) });
+			if (alive) accept(queue);
 		} catch (e) {
 			if (alive) error = toMessage(e);
 		} finally {
@@ -167,7 +216,7 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if error}
 		<p class="py-16 text-center text-sm text-warn" role="alert">{error}</p>
-	{:else if groups.length === 0}
+	{:else if groupTotal === 0}
 		<p class="py-16 text-center text-sm text-muted">Nothing left to review.</p>
 	{:else}
 		{#each groups as g (g.videoId)}
@@ -198,6 +247,15 @@
 				{/each}
 			</section>
 		{/each}
+		{#if groups.length < groupTotal}
+			<div class="flex justify-center">
+				<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
+					{loadingMore
+						? 'Loading…'
+						: `Load more (${groupTotal - groups.length} video${groupTotal - groups.length === 1 ? '' : 's'} left)`}
+				</button>
+			</div>
+		{/if}
 
 		<!-- Commit bar. Sticky and unconditionally mounted whenever there are rows, so
 		     staging the first pick doesn't shift the queue and the write control stays
@@ -206,7 +264,7 @@
 			class="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-surface px-3 py-2.5"
 		>
 			<p class="text-sm text-muted" aria-live="polite">
-				{stagedCount} staged · {rows.length} row{rows.length === 1 ? '' : 's'} left
+				{stagedCount} staged · {rowTotal} row{rowTotal === 1 ? '' : 's'} left
 			</p>
 			<div class="flex items-center gap-2">
 				<button

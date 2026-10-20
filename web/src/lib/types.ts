@@ -612,6 +612,20 @@ export interface TrashEntry {
 	purge_at: string | null;
 }
 
+// QueuePage is an owner queue's list envelope (HOLODEX-587), GET /media's shape: one
+// page of items, the total across every page, and the limit/offset the server actually
+// used (it clamps them). QueuePageOpts is the request half.
+export interface QueuePage<T> {
+	items: T[];
+	total: number;
+	limit: number;
+	offset: number;
+}
+export type QueuePageOpts = {
+	limit?: number;
+	offset?: number;
+};
+
 export interface FacetValue {
 	value: string;
 	count: number;
@@ -1343,6 +1357,8 @@ export interface CompletenessFacetGroup {
 	criticality: string;
 	candidate_ready: CompletenessQueueRow[];
 	needs_research: CompletenessQueueRow[];
+	// The group's row count across every page (HOLODEX-587); the lists hold one page.
+	total: number;
 }
 
 export interface MediaFilters {

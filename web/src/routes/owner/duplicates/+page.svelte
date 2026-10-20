@@ -17,12 +17,20 @@
 	import VideoPairRow from '#lib/components/duplicates/VideoPairRow.svelte';
 	import { focusLandingIds, groupId, pairKey, QUEUE_ID } from '#lib/components/duplicates/queue.ts';
 	import { videoFocusLandingIds, videoPairKey } from '#lib/components/duplicates/videoPairs.ts';
+	import { appendUnique, nextPage, QUEUE_PAGE, windowLimit } from '#lib/queuePaging.ts';
 
 	let pairs = $state<DuplicatePair[]>([]);
 	// Duplicate videos (F76): two files matched to the same provider item. Their own group,
 	// last, with file verbs instead of Merge / Keep separate.
 	let videoPairs = $state<VideoDuplicatePair[]>([]);
+	// Paged (HOLODEX-587): the totals across every page, and every type's pair count for
+	// the group headings (a heading counts its whole group, not the loaded rows).
+	let pairTotal = $state(0);
+	let videoTotal = $state(0);
+	let counts = $state<Partial<Record<EntityKind, number>>>({});
 	let loading = $state(true);
+	let loadingMore = $state(false);
+	let moreError = $state(''); // a failed Load more keeps the loaded rows
 	let error = $state('');
 
 	// Optional ?type= filter (person|studio|tag|film|video) from a deep-link; invalid/absent shows all.
@@ -41,17 +49,42 @@
 	const groups = $derived(groupByKind(shown, groupOrder, (p) => p.entity_type));
 	const shownVideos = $derived(typeFilter && typeFilter !== 'video' ? [] : videoPairs);
 
+	// The server filters by type, so a deep-linked filter pages its own pairs.
+	const entityType = $derived(typeFilter && typeFilter !== 'video' ? typeFilter : undefined);
+	const wantsEntities = $derived(typeFilter !== 'video');
+	const wantsVideos = $derived(!typeFilter || typeFilter === 'video');
+	const noVideos = { items: [] as VideoDuplicatePair[], total: 0 };
+
+	const noPairs = { items: [] as DuplicatePair[], total: 0, counts: {} };
+	// Bumped by every load and resolve; a read that started before a newer change is
+	// dropped, so a slow re-read can't bring back a pair resolved after it was sent.
+	let pairGen = 0;
+	let videoGen = 0;
+
+	function readEntities(offset: number, limit: number) {
+		return api.duplicates({ type: entityType, offset, limit });
+	}
+
+	function acceptEntities(res: { items: DuplicatePair[]; total: number; counts?: typeof counts }) {
+		pairTotal = res.total;
+		counts = res.counts ?? {};
+		return res.items ?? [];
+	}
+
 	async function load() {
 		loading = true;
 		error = '';
+		const mine = [++pairGen, ++videoGen];
 		try {
 			// A failing video read must not hide the entity pairs, so it degrades to none.
 			const [entity, video] = await Promise.all([
-				api.duplicates(),
-				api.videoDuplicates().catch(() => ({ pairs: [] as VideoDuplicatePair[] }))
+				wantsEntities ? readEntities(0, QUEUE_PAGE) : noPairs,
+				wantsVideos ? api.videoDuplicates({ limit: QUEUE_PAGE }).catch(() => noVideos) : noVideos
 			]);
-			pairs = entity.pairs ?? [];
-			videoPairs = video.pairs ?? [];
+			if (mine[0] !== pairGen || mine[1] !== videoGen) return;
+			pairs = acceptEntities(entity);
+			videoPairs = video.items ?? [];
+			videoTotal = video.total;
 		} catch (e) {
 			error = toMessage(e);
 		} finally {
@@ -62,11 +95,43 @@
 		load();
 	});
 
+	// Resolving drops its own row, so pairs.length is already the next offset.
+	async function loadMorePairs() {
+		loadingMore = true;
+		moreError = '';
+		const mine = pairGen;
+		try {
+			const p = nextPage(pairs.length);
+			const res = await readEntities(p.offset, p.limit);
+			if (mine === pairGen) pairs = appendUnique(pairs, acceptEntities(res), pairKey);
+		} catch (e) {
+			moreError = toMessage(e);
+		} finally {
+			loadingMore = false;
+		}
+	}
+
+	async function loadMoreVideos() {
+		loadingMore = true;
+		moreError = '';
+		const mine = videoGen;
+		try {
+			const res = await api.videoDuplicates(nextPage(videoPairs.length));
+			if (mine !== videoGen) return;
+			videoPairs = appendUnique(videoPairs, res.items ?? [], videoPairKey);
+			videoTotal = res.total;
+		} catch (e) {
+			moreError = toMessage(e);
+		} finally {
+			loadingMore = false;
+		}
+	}
+
 	// At most one compare panel open at a time (RD12): opening a second collapses the
 	// first, so the page never holds two sets of evidence you aren't reading.
 	let openKey = $state<string | null>(null);
 
-	// Resolve one pair (merged or dismissed): drop it from the list without a refetch.
+	// Resolve one pair (merged or dismissed): drop it from the list at once, then re-read.
 	// The removal is instant and unanimated, so focus would land on <body> if we didn't
 	// move it (P0-6). `focusLandingIds` owns the ladder (and the reasons for each rung);
 	// this takes the first of them that actually rendered.
@@ -76,14 +141,26 @@
 			shown.filter((p) => p.entity_type === pair.entity_type)
 		);
 		if (openKey === pairKey(pair)) openKey = null;
+		const mine = ++pairGen;
 		pairs = pairs.filter((p) => p !== pair);
+		pairTotal = Math.max(pairTotal - 1, pairs.length);
+		counts = { ...counts, [pair.entity_type]: Math.max((counts[pair.entity_type] ?? 1) - 1, 0) };
 		await tick();
 		for (const id of ids) {
 			const el = document.getElementById(id);
 			if (el) {
 				el.focus();
-				return;
+				break;
 			}
+		}
+		// A merge also ends every other pair the merged-away entity was in, which may be
+		// loaded or not; re-read the loaded window rather than guess, so the next Load
+		// more's offset stays true (HOLODEX-587).
+		try {
+			const res = await readEntities(0, windowLimit(pairs.length));
+			if (mine === pairGen) pairs = acceptEntities(res);
+		} catch {
+			// The optimistic removal already stands; the next load reconciles.
 		}
 	}
 
@@ -92,7 +169,9 @@
 		if (openKey === videoPairKey(pair)) openKey = null;
 		// Keeping one copy trashes a file that may sit in other pairs too; refetch rather than
 		// guess which rows it took with it.
+		const mine = ++videoGen;
 		videoPairs = videoPairs.filter((p) => p !== pair);
+		videoTotal = Math.max(videoTotal - 1, videoPairs.length);
 		await tick();
 		for (const id of ids) {
 			const el = document.getElementById(id);
@@ -102,7 +181,10 @@
 			}
 		}
 		try {
-			videoPairs = (await api.videoDuplicates()).pairs ?? [];
+			const res = await api.videoDuplicates({ limit: windowLimit(videoPairs.length) });
+			if (mine !== videoGen) return;
+			videoPairs = res.items ?? [];
+			videoTotal = res.total;
 		} catch {
 			// The optimistic removal already stands; the next load reconciles.
 		}
@@ -127,7 +209,7 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if error}
 		<p class="py-16 text-center text-sm text-warn" role="alert">{error}</p>
-	{:else if groups.length === 0 && shownVideos.length === 0}
+	{:else if pairTotal + videoTotal === 0}
 		<p class="py-16 text-center text-sm text-muted">No possible duplicates.</p>
 	{:else}
 		{#each groups as g (g.type)}
@@ -139,7 +221,7 @@
 					tabindex="-1"
 					class="px-3 pb-2 pt-3 text-xs uppercase tracking-wide text-muted"
 				>
-					{groupLabel[g.type]} · {g.items.length}
+					{groupLabel[g.type]} · {counts[g.type] ?? g.items.length}
 				</h2>
 				{#each g.items as pair (pairKey(pair))}
 					<DuplicatePairRow
@@ -153,6 +235,16 @@
 				{/each}
 			</section>
 		{/each}
+		<!-- Entity pairs page as one stream across the groups (tags first), so their Load
+		     more sits after the last group, ahead of Videos (HOLODEX-587). -->
+		{#if moreError}<p class="text-sm text-warn" role="alert">{moreError}</p>{/if}
+		{#if pairs.length < pairTotal}
+			<div class="flex justify-center">
+				<button onclick={loadMorePairs} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
+					{loadingMore ? 'Loading…' : `Load more (${pairTotal - pairs.length} left)`}
+				</button>
+			</div>
+		{/if}
 		{#if shownVideos.length}
 			<section class="space-y-0 rounded-theme border border-rule bg-surface">
 				<h2
@@ -160,7 +252,7 @@
 					tabindex="-1"
 					class="px-3 pb-2 pt-3 text-xs uppercase tracking-wide text-muted"
 				>
-					Videos · {shownVideos.length}
+					Videos · {videoTotal}
 				</h2>
 				<!-- The page intro describes name pairs; files need their own line. -->
 				<p class="px-3 pb-2 text-xs text-muted">
@@ -174,6 +266,13 @@
 						onexpand={(v) => (openKey = v ? videoPairKey(vp) : null)}
 					/>
 				{/each}
+				{#if videoPairs.length < videoTotal}
+					<div class="flex justify-center py-3">
+						<button onclick={loadMoreVideos} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
+							{loadingMore ? 'Loading…' : `Load more (${videoTotal - videoPairs.length} left)`}
+						</button>
+					</div>
+				{/if}
 			</section>
 		{/if}
 	{/if}

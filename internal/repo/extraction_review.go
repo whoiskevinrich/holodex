@@ -184,8 +184,8 @@ type ExtractionCandidate struct {
 // ExtractionQueue lists pending review rows, joined with its video's
 // title/path, ordered per-video so the frontend's grouping stays stable
 // across reloads. Video-level ordering (most-pending-fields-first, per the
-// design handoff) is a client-side derivation over this flat list, same as
-// enrichment's client-side kind grouping.
+// design handoff) is applied by the API handler, which pages by video
+// (HOLODEX-587, extractionGroups).
 //
 // videoID 0 means the whole library (the owner tab, F48.6a). A non-zero id
 // scopes the queue to one video (F48.6k) so the media detail page's inline

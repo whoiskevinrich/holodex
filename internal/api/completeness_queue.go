@@ -41,9 +41,27 @@ type FacetGroup struct {
 	Criticality    string     `json:"criticality"`
 	CandidateReady []QueueRow `json:"candidate_ready"`
 	NeedsResearch  []QueueRow `json:"needs_research"`
+	// Total is the group's row count across every page (HOLODEX-587); the two lists
+	// above hold only the requested page's rows.
+	Total int `json:"total"`
 }
 
 func (g FacetGroup) count() int { return len(g.CandidateReady) + len(g.NeedsResearch) }
+
+// window narrows g to p's rows of its candidate-ready-then-needs-research order (each
+// list name-sorted), recording the full count in Total. Rows page within a group, not
+// across groups: group order follows group size, which every resolve changes, so an
+// offset into a cross-group order would skip rows; a group's own name order holds.
+func (g FacetGroup) window(p page) FacetGroup {
+	g.Total = g.count()
+	ready := len(g.CandidateReady)
+	// end is start plus what is left, never Offset+Limit, which overflows on a huge offset.
+	start := min(p.Offset, g.Total)
+	end := start + min(p.Limit, g.Total-start)
+	g.CandidateReady = g.CandidateReady[min(start, ready):min(end, ready)]
+	g.NeedsResearch = g.NeedsResearch[max(start-ready, 0):max(end-ready, 0)]
+	return g
+}
 
 // remediationQueue builds the F55.7 remediation queue: every video/person/
 // studio's missing (non-not-applicable) scored facets, grouped by facet and
@@ -187,14 +205,28 @@ func sortFacetGroups(groups []FacetGroup) {
 // completenessQueue handles GET /owner/completeness-queue (F55.7): the
 // facet-first remediation queue. Owner-gated: mounted in the requireOwner
 // group (Mount), same as extraction-queue.
+//
+// Paged per group (HOLODEX-587): every group carries its first ?limit rows
+// and its Total; ?facet=<canonical> returns that one group alone, windowed by
+// ?limit/offset, for its Load more. Offset applies only with facet. A facet
+// with nothing left missing returns no group.
 func (h *Handlers) completenessQueue(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	p := pageFromQuery(q)
+	facet := q.Get("facet")
+	if facet == "" {
+		p.Offset = 0
+	}
 	groups, err := h.remediationQueue(r.Context())
 	if err != nil {
 		h.fail(w, "completeness queue", err)
 		return
 	}
-	if groups == nil {
-		groups = []FacetGroup{}
+	out := []FacetGroup{}
+	for _, g := range groups {
+		if facet == "" || g.Canonical == facet {
+			out = append(out, g.window(p))
+		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"groups": groups})
+	writeJSON(w, http.StatusOK, map[string]any{"groups": out, "limit": p.Limit, "offset": p.Offset})
 }

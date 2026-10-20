@@ -229,7 +229,7 @@ func TestQueues_CarryPart(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("GET /owner/enrich-queue = %d", code)
 	}
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	got := map[int64]string{}
 	for _, row := range rows {
 		m := row.(map[string]any)
@@ -250,7 +250,7 @@ func TestQueues_CarryPart(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("GET /owner/extraction-queue = %d", code)
 	}
-	rows, _ = body["rows"].([]any)
+	rows, _ = body["items"].([]any)
 	got = map[int64]string{}
 	for _, row := range rows {
 		m := row.(map[string]any)

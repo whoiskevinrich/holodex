@@ -168,9 +168,9 @@ func TestEnrichQueue_Listing(t *testing.T) {
 	if *resolveCalls != 0 {
 		t.Errorf("resolveCalls = %d, want 0 (queue must never call a provider)", *resolveCalls)
 	}
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	if len(rows) != 3 {
-		t.Fatalf("rows = %v, want 3 (person+studio+video)", body["rows"])
+		t.Fatalf("rows = %v, want 3 (person+studio+video)", body["items"])
 	}
 	// entity_id alone is not unique across types (each table auto-increments from 1),
 	// so key on (entity_type, entity_id) together.
@@ -215,7 +215,7 @@ func TestEnrichQueue_IncludesFilms(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("queue = %d, want 200", code)
 	}
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	var filmRow map[string]any
 	for _, raw := range rows {
 		row, _ := raw.(map[string]any)
@@ -300,7 +300,7 @@ func TestEnrichDismissUndismiss(t *testing.T) {
 
 	// The queue no longer lists the person (its only provider is now dismissed).
 	_, body := getJSONTok(t, queue, "s3cret")
-	rows, _ := body["rows"].([]any)
+	rows, _ := body["items"].([]any)
 	for _, raw := range rows {
 		row, _ := raw.(map[string]any)
 		if row["entity_type"] == "person" && int64(row["entity_id"].(float64)) == pid {
