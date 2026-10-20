@@ -1334,7 +1334,7 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 // `completeness` (F65.5).
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	f := repo.NamedListFilter{Sort: q.Get("sort"), MissingFacets: q["missing_facet"]}
+	f, p := namedListFilterFromQuery(q)
 	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return
 	}
@@ -1347,13 +1347,23 @@ func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list people", err)
 		return
 	}
+	total, err := h.repo.CountPeople(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list people", err)
+		return
+	}
 	if isOwner {
 		if err := h.attachPersonCompleteness(r.Context(), people); err != nil {
 			h.fail(w, "list people", err)
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": people})
+	extra, err := letterExtra(q, func() (map[string]int, error) { return h.repo.PeopleLetterOffsets(r.Context(), f) })
+	if err != nil {
+		h.fail(w, "list people", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p.envelope(people, total, extra))
 }
 
 func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
@@ -1431,12 +1441,22 @@ func (h *Handlers) skippedAliases(r *http.Request, entityType string, id int64, 
 }
 
 func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {
-	tags, err := h.repo.ListTags(r.Context(), r.URL.Query().Get("sort") == "count")
+	f, p := namedListFilterFromQuery(r.URL.Query())
+	if f.Sort != "count" && f.Sort != "random" {
+		f.Sort = "name" // tags have no completeness sort
+	}
+	f.MissingFacets = nil
+	tags, err := h.repo.ListTagsFiltered(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list tags", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": tags})
+	total, err := h.repo.CountTags(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list tags", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p.envelope(tags, total, nil))
 }
 
 func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {

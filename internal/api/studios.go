@@ -140,7 +140,7 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 // owner's items carry `completeness` (F65.5). Empty studios never appear.
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	f := repo.NamedListFilter{Sort: q.Get("sort"), MissingFacets: q["missing_facet"]}
+	f, p := namedListFilterFromQuery(q)
 	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return
 	}
@@ -149,6 +149,11 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 		h.drainCompleteness(r.Context())
 	}
 	studios, err := h.repo.ListStudiosFiltered(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list studios", err)
+		return
+	}
+	total, err := h.repo.CountStudios(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list studios", err)
 		return
@@ -162,7 +167,12 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": studios})
+	extra, err := letterExtra(q, func() (map[string]int, error) { return h.repo.StudioLetterOffsets(r.Context(), f) })
+	if err != nil {
+		h.fail(w, "list studios", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p.envelope(studios, total, extra))
 }
 
 // getStudio handles GET /studios/{id} (F38): the studio, its resolved[] fields (record

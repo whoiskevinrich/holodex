@@ -271,7 +271,7 @@ func TestListAndSearchFilms(t *testing.T) {
 
 	// Empty (zero-attachment) films still list -- no prune-on-empty for an
 	// asserted link, unlike ListStudios.
-	all, err := r.ListFilms(ctx)
+	all, _, err := r.ListFilmsPage(ctx, repo.FilmListFilter{Limit: 50})
 	if err != nil {
 		t.Fatalf("list films: %v", err)
 	}

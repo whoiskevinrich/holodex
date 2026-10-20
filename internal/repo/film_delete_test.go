@@ -61,8 +61,8 @@ func TestSoftDeleteFilmHidesFromEverySurface(t *testing.T) {
 	if vis, err := r.FilmVisible(ctx, fx.film); err != nil || vis {
 		t.Errorf("FilmVisible = %v,%v want false,nil", vis, err)
 	}
-	if films, err := r.ListFilms(ctx); err != nil || len(films) != 0 {
-		t.Errorf("ListFilms = %d films, %v; want none", len(films), err)
+	if films, total, err := r.ListFilmsPage(ctx, repo.FilmListFilter{Limit: 50}); err != nil || len(films) != 0 || total != 0 {
+		t.Errorf("ListFilmsPage = %d films (total %d), %v; want none", len(films), total, err)
 	}
 	if films, err := r.SearchFilms(ctx, "Heat", 10); err != nil || len(films) != 0 {
 		t.Errorf("SearchFilms = %d films, %v; want none", len(films), err)

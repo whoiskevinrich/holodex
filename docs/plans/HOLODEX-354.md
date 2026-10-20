@@ -39,23 +39,38 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
   - Tags run straight into categories in one cloud
 
   The owner approved option B and the Load more control on 2026-10-18; pinned to `542851ec`.
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**`. People, Studios, Tags and Films are paged on the server.
+  - The shared `NamedListFilter` gains Query, Seed, Limit and Offset. Rows are ordered by the shown label with an id tie-break, and Random uses `holo_shuffle`.
+  - Each endpoint answers in the `/media` envelope `{items,total,limit,offset}`. `letters=1` adds the name-order offsets for the A–Z restart.
+  - `/categories` pages only when `?limit=` is sent, so the HOLODEX-586 picker shape is unchanged.
+  - Films get `ListFilmsPage`, which replaces the now-unused `ListFilms`.
+  - No technology fork: this is the same offset paging and ADR-045 shuffle as `/media`.
+  - Covered by `internal/api/entity_list_paging_test.go`.
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Backend: limit/offset/q/seed plus a letter start (`from`) on the four list endpoints and the `/categories` filter struct, in the `/media` envelope `{items,total,limit,offset}`. Add per-letter presence for the A–Z dimming. Reuse ADR-045's seeded ordering. No technology fork is expected (same offset paging as `/media`); record it here if that changes
-2. [ ] [—] Frontend: the four routes plus `AlphaIndex` active state, the count-line suffix, the Load more live region, and Back restoring the loaded count (the `listScroll` `loaded` field, as `EntityVideos` does)
-3. [ ] [—] `/testing-strategy`: endpoint contract tests, a test that every entry is reachable, and the -big fixture metrics from the spec
-4. [ ] [—] Build on HOLODEX-586 (PR #539, `ed5928ca`):
-   - `GET /categories?q=` is in, via `repo.ListCategories(ctx, repo.CategoryFilter{Query})`. With `q` it is capped at `repo.CategoryQueryCap` = 25 and ranked exact, then prefix, then word start, then anywhere. Add the paging fields to `CategoryFilter`.
-   - The TS signature is now `api.listCategories(opts = {}, fetchFn?)`.
-   - `/tags/+page.svelte:175` needs categories only for remove mode.
-   - Merge whichever of the two lands second onto the other.
-5. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
+1. [ ] [—] Frontend. Until this lands, the branch's list pages show only the first 50 entries, because the server pages now and the pages don't. The work:
+   - the four routes on `{items,total,limit,offset}`
+   - A–Z from `letters=1`, clicked through to `offset = letters[L]`
+   - Tags All tab: tags then `/categories?limit=`
+   - the `AlphaIndex` active state, the count-line "from M · Back to start", and the Load more live region
+   - Back restoring the loaded count (the `listScroll` `loaded` field, as `EntityVideos` does)
+   - the `/tags/+page.svelte:175` categories fetch is needed only for remove mode (HOLODEX-586)
+2. [ ] [—] `/testing-strategy`:
+   - endpoint contract tests, done for the backend
+   - a test that every entry is reachable
+   - a search test on a person's Displayed-As spelling (deferred from the code review)
+   - the `-big` fixture metrics from the spec
+3. [ ] [—] Perf follow-up, if measured: `attachPersonDisplayNames` reads every person's display names on each page. Narrow `DisplayNames` to the page's ids if the `-big` profile shows it
+4. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-19 · session (backend)
+- skills: code-review (high --fix)
+- handoff: The server now pages People, Studios, Tags and Films (and `/categories` when `?limit=` is sent), with search, seeded Random and the A–Z letter offsets; the Go suite is green. The frontend hasn't caught up, so the list pages show only their first 50 entries until Up next item 1 lands.
 
 ### 2026-10-18 · session (design)
 - skills: design-handoff, implement

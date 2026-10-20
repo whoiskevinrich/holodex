@@ -65,7 +65,23 @@ func (h *Handlers) listFilms(w http.ResponseWriter, r *http.Request) {
 			int64(atoiDefault(q.Get("studio_id"), 0)),
 			int64(atoiDefault(q.Get("tag_id"), 0)))
 	default:
-		films, err = h.repo.ListFilms(r.Context())
+		// The /films list itself pages (F80); the search and entity reads above are
+		// already bounded or scoped.
+		p := pageFromQuery(q)
+		f := repo.FilmListFilter{Sort: q.Get("sort"), Limit: p.Limit, Offset: p.Offset}
+		if f.Sort == "random" {
+			f.Seed = parseSeedOrRandom(q.Get("seed"))
+		}
+		var total int
+		if films, total, err = h.repo.ListFilmsPage(r.Context(), f); err != nil {
+			h.fail(w, op, err)
+			return
+		}
+		for i := range films {
+			setFilmImageURLs(&films[i])
+		}
+		writeJSON(w, http.StatusOK, p.envelope(films, total, nil))
+		return
 	}
 	if err != nil {
 		h.fail(w, op, err)

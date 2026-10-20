@@ -42,13 +42,32 @@ func (h *Handlers) mountCategoryMutations(r chi.Router) {
 // listCategories is GET /categories. Optional ?q= keeps the names containing it,
 // closest matches first, capped (HOLODEX-586, the category picker's typed search);
 // without it, every category.
+//
+// With ?limit= it is instead a page of the /tags list in name order (F80): ?q= still
+// filters but isn't capped or ranked, and the response is the /media envelope.
 func (h *Handlers) listCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.repo.ListCategories(r.Context(), repo.CategoryFilter{Query: r.URL.Query().Get("q")})
+	q := r.URL.Query()
+	f := repo.CategoryFilter{Query: q.Get("q")}
+	var p page
+	if q.Has("limit") {
+		p = pageFromQuery(q)
+		f.Limit, f.Offset = p.Limit, p.Offset
+	}
+	categories, err := h.repo.ListCategories(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list categories", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": categories})
+	if f.Limit == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"items": categories})
+		return
+	}
+	total, err := h.repo.CountCategories(r.Context(), f)
+	if err != nil {
+		h.fail(w, "list categories", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p.envelope(categories, total, nil))
 }
 
 func (h *Handlers) getCategory(w http.ResponseWriter, r *http.Request) {
