@@ -2,10 +2,12 @@ package repo_test
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"testing"
 
 	"holodex/internal/model"
+	"holodex/internal/repo"
 )
 
 // TestDisplayNames pins the SQL mirror of the resolver's decided-replace rule for
@@ -133,6 +135,64 @@ func TestListPeopleDisplayNames(t *testing.T) {
 	}
 	if want := []string{"bravo", "Charlie", "Alpha"}; !slices.Equal(countOrder, want) {
 		t.Errorf("ListPeople(count) canonical order = %v, want %v (Alpha shows as zulu)", countOrder, want)
+	}
+}
+
+// TestPeopleListSearchAndLettersFollowDisplayName pins F80 EL5/EL6 on a person whose
+// Displayed As spelling differs from the canonical name: search finds them by either
+// spelling, and the A–Z offsets bucket and order them by the shown one.
+func TestPeopleListSearchAndLettersFollowDisplayName(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	for _, n := range []string{"Alpha", "bravo", "Charlie"} {
+		vid, err := r.UpsertVideo(ctx, sampleVideo("/m/"+n+".mkv", n, []string{n}, nil), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		linkPeople(t, r, vid, n)
+	}
+	alpha, _, err := r.PersonIDByName(ctx, "Alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityPerson, alpha, "name", "manual", "zulu"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, q := range []string{"ZUL", "alph"} {
+		got, err := r.ListPeopleFiltered(ctx, repo.NamedListFilter{Query: q, Limit: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, err := r.CountPeople(ctx, repo.NamedListFilter{Query: q})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != 1 || got[0].ID != alpha || n != 1 {
+			t.Errorf("q=%q = %d rows (total %d), want only Alpha (shown as zulu)", q, len(got), n)
+		}
+	}
+
+	letters, err := r.PeopleLetterOffsets(ctx, repo.NamedListFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := map[string]int{"B": 0, "C": 1, "Z": 2}; !maps.Equal(letters, want) {
+		t.Errorf("letters = %v, want %v (Alpha files under Z, as zulu)", letters, want)
+	}
+	// Every letter's restart lands on a row shown under that letter.
+	for L, off := range letters {
+		page, err := r.ListPeopleFiltered(ctx, repo.NamedListFilter{Limit: 1, Offset: off})
+		if err != nil || len(page) != 1 {
+			t.Fatalf("restart at %s (offset %d) = %d rows, %v", L, off, len(page), err)
+		}
+		label := page[0].Name
+		if page[0].DisplayName != "" {
+			label = page[0].DisplayName
+		}
+		if repo.IndexLetter(label) != L {
+			t.Errorf("restart at %s lands on %q", L, label)
+		}
 	}
 }
 

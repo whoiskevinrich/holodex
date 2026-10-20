@@ -57,24 +57,18 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
     - the S/Z restart, Back restoring 100 rows at scroll 6,145, search across the library, tags running into categories, and random films tiling 100 unique
 
   Vitest 674 green.
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy`. `docs/testing-strategy.md` §32: risks, the endpoint tests (each one a reachability walk), the Displayed-As search and letter test (mutation-tested), the `PagedList` unit tests, and the `-big` before/after metrics. The §12.4 harness assertion `people-list-does-not-render-everything` is re-pointed and passes 4/4 on `-big`, no longer `blockedBy`. The owner compared the build to the approved mockup on 2026-10-19 and confirmed it matches.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] `/testing-strategy`:
-   - endpoint contract tests, done for the backend
-   - a test that every entry is reachable
-   - a search test on a person's Displayed-As spelling (deferred from the code review)
-   - the `-big` fixture metrics from the spec
-2. [ ] [—] Code-review follow-ups (all deliberately skipped):
-   - In Manage mode the last Load more on /tags drops focus, because tag pills there are buttons, not links. Give the pill a focus target.
-   - The All tab reads 200 categories up front just to count them. A `limit=1` read gives the total.
-   - The tags page is 31KB per 200 pills, over the spec's 15KB target, because each tag carries its aliases.
-3. [ ] [—] Move browse, `EntityVideos`, playlists and the five owner queues onto `shared/LoadMoreButton.svelte`
-4. [ ] [—] Perf follow-up, if measured: `attachPersonDisplayNames` reads every person's display names on each page. Narrow `DisplayNames` to the page's ids if the `-big` profile shows it
-5. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
+1. [ ] [—] Merge PR #541, then confirm CI moves HOLODEX-354 to Done, and that 586/587 (merged on their own keyed branches) are Done
+2. [ ] [—] Paged-list follow-ups (shared Load more everywhere, Tags manage-mode focus, lighter Tags pages, display-name read) → HOLODEX-589
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-19 · session (testing)
+- skills: testing-strategy, code-review (high --fix), handoff
+- handoff: Every gate is settled and the owner confirmed the build matches the mockup, so PR #541 is marked ready. Next: merge it and confirm the Jira moves. The follow-ups live in HOLODEX-589.
 
 ### 2026-10-19 · session (frontend)
 - skills: code-review (high --fix)
