@@ -1215,8 +1215,8 @@ func (r *Repo) namedLetterOffsets(ctx context.Context, table, junction, fk, enti
 }
 
 // IndexLetter buckets a label under the A–Z index: its first letter, upper-cased,
-// or "#" for anything that doesn't start with an ASCII letter. It mirrors the web
-// app's firstLetter (peopleNav.ts).
+// or "#" for anything that doesn't start with an ASCII letter (digits, symbols, and
+// accented or non-Latin initials), matching the page's plain A–Z bar.
 func IndexLetter(label string) string {
 	s := strings.TrimSpace(label)
 	if s == "" {

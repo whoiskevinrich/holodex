@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { api, ApiError } from '#lib/api.ts';
 	import { listScroll } from '#lib/listScroll.svelte.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { navSearch } from '#lib/navSearch.svelte.ts';
-	import { toMessage, videoCount, tagCount, filterByName } from '#lib/format.ts';
+	import { toMessage, videoCount, tagCount } from '#lib/format.ts';
+	import { PagedList, settledQuery } from '#lib/pagedList.svelte.ts';
+	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { findTagByName, cycleMessage } from '#lib/tagHierarchy.ts';
 	import type { Category, EntityRef, Tag } from '#lib/types.ts';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
@@ -23,20 +26,14 @@
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import { PopoverMenu } from '#lib/actions/popoverMenu.svelte.ts';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
-	import { seededShuffle } from '#lib/shuffle.ts';
 
-	let tags = $state<Tag[]>([]);
-	let categories = $state<Category[]>([]);
 	// Sort and the All/Tags/Categories type are one F73 list state (ADR-114): sort sticky +
 	// in the URL, type in the URL only (`?type=`), both held by ListController.
 	const list = listController(tagsSchema, '/tags');
 	const sortBy = $derived(list.state.sort);
-	let loading = $state(true);
 
-	// Unified type filter (HOLODEX-240) + search (now driven by the shared nav box,
-	// NS2/NS3/HOLODEX-249) — filters client-side against the already-loaded, unpaged
-	// tag+category lists (personal-library scale, no dedicated search endpoint — same
-	// posture EntityPicker already takes). The type filter is a URL-only
+	// Unified type filter (HOLODEX-240) + search (driven by the shared nav box,
+	// NS2/NS3/HOLODEX-249; a server search since F80 EL5). The type filter is a URL-only
 	// query (ADR-114 D1), rendered as tabs under the title (F73 R4).
 	const typeFilter = $derived(list.state.query.type);
 	const TYPE_TABS: { value: TagType; label: string }[] = [
@@ -47,7 +44,22 @@
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (Tags) — otherwise it's previewing another
 	// type via the overlay panel.
-	const query = $derived(navSearch.inPlace ? navSearch.query : '');
+	const search = settledQuery(() => (navSearch.inPlace ? navSearch.query : ''));
+	const query = $derived(search.value);
+
+	// One stream of pills, 200 a page (F80 EL8): tags in the chosen sort, then the
+	// categories in name order once the tags run out (categories are never shuffled). The
+	// Tags and Categories tabs each page only their own kind. The first page of categories
+	// is read alongside the tags so the stream's "left" count is known from the start.
+	const PILL_PAGE = 200;
+	const tags = new PagedList<Tag>(
+		(offset, limit) => api.listTags({ sort: sortBy, q: query, seed: shuffleSeed.value, limit, offset }),
+		PILL_PAGE
+	);
+	const categories = new PagedList<Category>(
+		(offset, limit) => api.pageCategories({ q: query, limit, offset }),
+		PILL_PAGE
+	);
 	// The create form's Tag/Category switch uses the shared segmented-control classes.
 	const typeCls = segmentedToggleClass;
 
@@ -60,10 +72,11 @@
 
 	// Select-to-merge: pick 2+ pills, then choose the surviving name in MergeCanonicalDialog
 	// (mirrors /people).
-	let selectedIds = $state<number[]>([]);
+	// The picked tags are kept whole, so a selection survives Load more (EL9).
+	let selectedTags = $state<Tag[]>([]);
 	let choosing = $state(false); // the "Keep which name?" dialog is open
 	let selectHint = $state('');
-	const selectedTags = $derived(tags.filter((t) => selectedIds.includes(t.id)));
+	const selectedIds = $derived(selectedTags.map((t) => t.id));
 
 	// Bulk writeback actions (HOLODEX-239, ADR-077 D2): on/off stay two separate
 	// buttons since a selection can span tags already in different states (spec
@@ -126,7 +139,7 @@
 	// Bulk/single "Add to category…" / "Remove from category…" (§4) — one shared
 	// picker instance for both the Manage-bar bulk actions and a tag pill's own
 	// ⋯ menu item (tagIds is a single-element array in the latter case).
-	let catPicker = $state<{ mode: 'add' | 'remove'; tagIds: number[]; categories: Category[] } | null>(null);
+	let catPicker = $state<{ mode: 'add' | 'remove'; tagIds: number[]; categories?: Category[] } | null>(null);
 	let catPickerHint = $state(''); // "select two or more" / "none belong to a category" hints
 
 	// ── Standing "+ New" create pill (HOLODEX-243) ───────────────────────────────────
@@ -144,58 +157,81 @@
 	let createResult = $state<{ tagId: number; nearMiss: EntityRef } | null>(null);
 
 	// Scroll restoration (HOLODEX-248, ADR-032): keyed on the canonical list view (sort +
-	// type, ADR-114 D5) plus the search query — everything that changes which pills are
-	// visible/where — so a mismatch safely skips the restore. On the first load only; later
-	// reloads (rename, merge, category edits) stay put.
+	// type, ADR-114 D5) plus the search query, so a mismatch safely skips the restore. On
+	// the first load only, Back re-reads the pills that were loaded, then scrolls (EL7);
+	// later reloads (rename, merge, category edits) keep the loaded run.
 	const scrollKey = $derived(`${list.key}:${query}`);
 	let firstLoad = true;
 
 	function reload() {
-		loading = true;
-		api
-			.listTags(sortBy)
-			.then((res) => (tags = res.items ?? []))
-			.finally(() => {
-				loading = false;
-				if (firstLoad) {
-					firstLoad = false;
-					const snap = listScroll.take('tags', scrollKey);
-					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
-				}
-			});
+		return tags.refresh();
 	}
-
-	// Stash the scroll offset on the way out (e.g. opening a tag or category) so ← Back
-	// restores where the list was.
-	beforeNavigate(() => {
-		listScroll.save('tags', { key: scrollKey, scrollY: window.scrollY });
-	});
-
 	function reloadCategories() {
-		api.listCategories().then((res) => (categories = res.items ?? []));
+		return categories.refresh();
 	}
 
 	$effect(() => {
-		void sortBy; // re-run on sort change
-		reload();
+		void sortBy;
+		void query;
+		void typeFilter;
+		if (sortBy === 'random') void shuffleSeed.value;
+		untrack(async () => {
+			const snap = firstLoad ? listScroll.take('tags', scrollKey) : null;
+			firstLoad = false;
+			await Promise.all([
+				showTags ? tags.load({ count: snap?.loaded }) : undefined,
+				showCategories ? categories.load({ count: snap?.loadedCategories }) : undefined
+			]);
+			if (snap) {
+				await tick();
+				window.scrollTo(0, snap.scrollY);
+			}
+		});
 	});
 
-	// Categories don't have a sort toggle of their own — loaded once, always
-	// name-ordered (as the server returns them).
-	$effect(() => {
-		reloadCategories();
+	// Stash the run and scroll offset on the way out (e.g. opening a tag or category).
+	beforeNavigate(() => {
+		listScroll.save('tags', {
+			key: scrollKey,
+			scrollY: window.scrollY,
+			loaded: tags.items.length,
+			loadedCategories: visibleCategories.length
+		});
 	});
 
-	// "Random" shuffles the name-ordered list client-side with the session seed, so
-	// the order holds across re-renders and reshuffles only on reroll/new session.
-	const shuffled = $derived(sortBy === 'random' ? seededShuffle(tags, shuffleSeed.value) : tags);
-	const displayed = $derived(filterByName(shuffled, query));
-	const displayedCategories = $derived(filterByName(categories, query));
 	const showTags = $derived(typeFilter !== 'categories');
 	const showCategories = $derived(typeFilter !== 'tags');
-	const visibleTags = $derived(showTags ? displayed : []);
-	const visibleCategories = $derived(showCategories ? displayedCategories : []);
-	const resultsCount = $derived(visibleTags.length + visibleCategories.length);
+	const loading = $derived(
+		(showTags && tags.loading && tags.items.length === 0) ||
+			(showCategories && categories.loading && categories.items.length === 0)
+	);
+	const visibleTags = $derived(showTags ? tags.items : []);
+	// On the All tab the categories wait until every tag is shown (one stream, EL8).
+	const tagsDone = $derived(!showTags || !tags.hasMore);
+	const visibleCategories = $derived(showCategories && tagsDone ? categories.items : []);
+	const resultsCount = $derived((showTags ? tags.total : 0) + (showCategories ? categories.total : 0));
+	const pillsLeft = $derived(
+		(showTags ? tags.left : 0) +
+			(showCategories ? categories.total - visibleCategories.length : 0)
+	);
+	const pillError = $derived(tags.error || categories.error);
+	let pillsEl = $state<HTMLElement>();
+
+	// Load more serves the stream: tags until they run out, then categories. Once the tags
+	// are done the first page of categories is already loaded, so it just appears.
+	let pillAnnounce = $state('');
+	async function loadMorePills() {
+		const before = visibleTags.length + visibleCategories.length;
+		const from = showTags && tags.hasMore ? tags : categories;
+		await from.loadMore();
+		const added = visibleTags.length + visibleCategories.length - before;
+		pillAnnounce = added > 0 ? `Loaded ${added} more. ${pillsLeft.toLocaleString()} left.` : '';
+		if (pillsLeft === 0) {
+			await tick();
+			// The first new pill's link; the + New pill is a button, so links index pills.
+			pillsEl?.querySelectorAll<HTMLElement>('a[href]')[before]?.focus();
+		}
+	}
 	const emptyMessage = $derived(
 		typeFilter === 'tags'
 			? 'No tags indexed yet.'
@@ -218,17 +254,17 @@
 
 	function exitManage() {
 		manage = false;
-		selectedIds = [];
+		selectedTags = [];
 		choosing = false;
 		selectHint = '';
 		tagMenu.close(false);
 	}
 
-	function toggleSelect(id: number) {
+	function toggleSelect(t: Tag) {
 		selectHint = '';
-		selectedIds = selectedIds.includes(id)
-			? selectedIds.filter((x) => x !== id)
-			: [...selectedIds, id];
+		selectedTags = selectedIds.includes(t.id)
+			? selectedTags.filter((x) => x.id !== t.id)
+			: [...selectedTags, t];
 	}
 
 	// Merge bar: the button stays enabled below 2 selected (CDS: avoid disabled) and
@@ -248,6 +284,17 @@
 		tagMenu.error = '';
 		actionConflict = null;
 		actionNearMiss = null;
+		if (kind === 'parent') {
+			// The parent may not be among the loaded pills; read its name.
+			parentSearch.set('');
+			parentName = tag.parent_tag_id ? '…' : '';
+			if (tag.parent_tag_id) {
+				api
+					.getTag(tag.parent_tag_id)
+					.then((r) => (parentName = r.tag.name))
+					.catch(() => (parentName = '—'));
+			}
+		}
 		await Promise.resolve();
 		actionInput?.focus();
 		if (kind === 'rename') actionInput?.select();
@@ -323,11 +370,22 @@
 		});
 	}
 
-	function submitParent(e: SubmitEvent, tag: Tag) {
+	// The parent typeahead and its exact-name check ask the server, so any tag in the
+	// library can be the parent, not only the loaded pills (EL10; the tag page's pattern).
+	const parentSearch = new ServerSearch<Tag>(async (q) => (await api.search(q)).tags ?? []);
+	let parentName = $state('');
+
+	async function submitParent(e: SubmitEvent, tag: Tag) {
 		e.preventDefault();
 		const name = tagMenu.value.trim();
 		if (!name || tagMenu.busy) return;
-		const match = findTagByName(tags, name, tag.id);
+		let match: Tag | undefined;
+		try {
+			match = findTagByName((await api.search(name)).tags ?? [], name, tag.id);
+		} catch (err) {
+			tagMenu.error = toMessage(err);
+			return;
+		}
 		if (!match) {
 			tagMenu.error = `No tag named "${name}".`;
 			return;
@@ -379,12 +437,22 @@
 	// ── Bulk/single "Add to category…" / "Remove from category…" (§4) ───────────────
 	function openAddToCategory(tagIds: number[]) {
 		catPickerHint = '';
-		catPicker = { mode: 'add', tagIds, categories };
+		// Add mode searches the server as the owner types (HOLODEX-586), so no list here.
+		catPicker = { mode: 'add', tagIds };
 	}
 
-	function openRemoveFromCategory(tagIds: number[]) {
+	// Remove mode offers only the categories the selected tags belong to. The loaded
+	// pills may not include them, so read every category's membership on demand.
+	async function openRemoveFromCategory(tagIds: number[]) {
 		const ids = new Set(tagIds);
-		const relevant = categories.filter((c) => (c.tag_ids ?? []).some((id) => ids.has(id)));
+		let all: Category[];
+		try {
+			all = (await api.listCategories()).items ?? [];
+		} catch (err) {
+			catPickerHint = toMessage(err);
+			return;
+		}
+		const relevant = all.filter((c) => (c.tag_ids ?? []).some((id) => ids.has(id)));
 		if (relevant.length === 0) {
 			catPickerHint = "None of the selected tags belong to a category yet.";
 			return;
@@ -413,7 +481,7 @@
 
 	function categoryPickerApplied() {
 		reloadCategories();
-		selectedIds = [];
+		selectedTags = [];
 	}
 
 	// ── Standing "+ New" create pill (HOLODEX-243) ───────────────────────────────────
@@ -635,7 +703,10 @@
 	{#if loading}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else}
+		<!-- A failed load or Load more keeps whatever is loaded and says so above it. -->
+		{#if pillError}<p class="pb-2 text-sm text-warn">Couldn’t load tags: {pillError}</p>{/if}
 		<div
+			bind:this={pillsEl}
 			class="flex flex-wrap gap-2"
 			use:dismissable={{ enabled: tagMenu.openId !== null, inside: '[data-tag-pill]', onclose: tagMenu.close }}
 			use:dismissable={{ enabled: catMenu.openId !== null, inside: '[data-cat-pill]', onclose: catMenu.close }}
@@ -723,7 +794,7 @@
 						<button
 							type="button"
 							aria-pressed={selected}
-							onclick={() => toggleSelect(t.id)}
+							onclick={() => toggleSelect(t)}
 							class="inline-flex items-center gap-1 rounded-full py-1.5 pl-3 pr-2 text-ink"
 						>
 							{#if selected}<span aria-hidden="true" class="text-accent">✓</span>{/if}
@@ -803,9 +874,8 @@
 									     already-loaded tag list -- no new search endpoint. -->
 									<form onsubmit={(e) => submitParent(e, t)} class="space-y-2 p-1">
 										{#if t.parent_tag_id}
-											{@const parentName = tags.find((x) => x.id === t.parent_tag_id)?.name}
 											<p class="text-sm text-ink">
-												Parent: {parentName ?? '—'}
+												Parent: {parentName || '—'}
 												<button
 													type="button"
 													onclick={() => applyParent(t, null)}
@@ -819,6 +889,7 @@
 										<input
 											bind:this={actionInput}
 											bind:value={tagMenu.value}
+											oninput={() => parentSearch.set(tagMenu.value)}
 											type="text"
 											list={`parent-options-${t.id}`}
 											placeholder="New parent tag"
@@ -826,7 +897,7 @@
 											class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
 										/>
 										<datalist id={`parent-options-${t.id}`}>
-											{#each tags.filter((x) => x.id !== t.id) as opt (opt.id)}
+											{#each parentSearch.items.filter((x) => x.id !== t.id) as opt (opt.id)}
 												<option value={opt.name}></option>
 											{/each}
 										</datalist>
@@ -1017,7 +1088,13 @@
 				{/if}
 			{/each}
 		</div>
-		{#if visibleTags.length === 0 && visibleCategories.length === 0 && !query.trim()}
+		<LoadMoreButton
+			left={pillsLeft}
+			loading={tags.loadingMore || categories.loadingMore}
+			announce={pillAnnounce}
+			onclick={loadMorePills}
+		/>
+		{#if visibleTags.length === 0 && visibleCategories.length === 0 && !query && !pillError}
 			<p class="py-2 text-sm text-muted">
 				{isOwner ? 'Nothing here yet — create your first one above.' : emptyMessage}
 			</p>
@@ -1034,7 +1111,7 @@
 		items={selectedTags}
 		onclose={() => (choosing = false)}
 		onmerged={() => {
-			selectedIds = [];
+			selectedTags = [];
 			reload();
 		}}
 	/>

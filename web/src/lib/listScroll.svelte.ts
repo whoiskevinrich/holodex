@@ -14,6 +14,10 @@ export interface ListScrollSnapshot extends Keyed {
 	// How many items a paged list had loaded, so the restore can fetch them all before
 	// scrolling (EntityVideos, HOLODEX-501). Unpaged lists omit it.
 	loaded?: number;
+	// The offset the loaded run began at: an A–Z letter restart (F80 EL6), else 0.
+	start?: number;
+	// The /tags stream's second list: how many categories were showing (F80 EL8).
+	loadedCategories?: number;
 }
 
 export const listScroll = createNavSnapshotRegistry<ListScrollSnapshot>('holodex:listScroll');

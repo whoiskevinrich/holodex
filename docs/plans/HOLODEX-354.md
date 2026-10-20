@@ -46,27 +46,39 @@ branches. The home page's whole-tag fetch (item 4 in the issue) is already gone.
   - Films get `ListFilmsPage`, which replaces the now-unused `ListFilms`.
   - No technology fork: this is the same offset paging and ADR-045 shuffle as `/media`.
   - Covered by `internal/api/entity_list_paging_test.go`.
-- [ ] frontend → `web/src/**`
+- [x] frontend → `web/src/**`. People, Studios, Films and Tags run on the shared `lib/pagedList.svelte.ts`.
+  - `PagedList` owns the run, the letter restart, Back's snapshot and restore, and the stale-reply guard. `pagedListPage` and `settledQuery` wire a page to it.
+  - New: `shared/LoadMoreButton.svelte`, and an `AlphaIndex` `active` state with the count-line "from L · Back to start".
+  - Tags pages tags, then categories, 200 a page. Its parent picker uses server search, and remove-from-category reads memberships on demand.
+  - `peopleNav.ts` and `shuffle.ts` lost their last callers and were removed.
+  - QA'd live on `-big` (`backend-stress-open-9800` + `web-9800`):
+    - /people: 50 rows, 728 elements, 4,261px (was 12,477 elements, 112,285px)
+    - /tags: 200 pills, 465 elements, 4,608px (was 452,541px)
+    - the S/Z restart, Back restoring 100 rows at scroll 6,145, search across the library, tags running into categories, and random films tiling 100 unique
+
+  Vitest 674 green.
 - [ ] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Frontend. Until this lands, the branch's list pages show only the first 50 entries, because the server pages now and the pages don't. The work:
-   - the four routes on `{items,total,limit,offset}`
-   - A–Z from `letters=1`, clicked through to `offset = letters[L]`
-   - Tags All tab: tags then `/categories?limit=`
-   - the `AlphaIndex` active state, the count-line "from M · Back to start", and the Load more live region
-   - Back restoring the loaded count (the `listScroll` `loaded` field, as `EntityVideos` does)
-   - the `/tags/+page.svelte:175` categories fetch is needed only for remove mode (HOLODEX-586)
-2. [ ] [—] `/testing-strategy`:
+1. [ ] [—] `/testing-strategy`:
    - endpoint contract tests, done for the backend
    - a test that every entry is reachable
    - a search test on a person's Displayed-As spelling (deferred from the code review)
    - the `-big` fixture metrics from the spec
-3. [ ] [—] Perf follow-up, if measured: `attachPersonDisplayNames` reads every person's display names on each page. Narrow `DisplayNames` to the page's ids if the `-big` profile shows it
-4. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
+2. [ ] [—] Code-review follow-ups (all deliberately skipped):
+   - In Manage mode the last Load more on /tags drops focus, because tag pills there are buttons, not links. Give the pill a focus target.
+   - The All tab reads 200 categories up front just to count them. A `limit=1` read gives the total.
+   - The tags page is 31KB per 200 pills, over the spec's 15KB target, because each tag carries its aliases.
+3. [ ] [—] Move browse, `EntityVideos`, playlists and the five owner queues onto `shared/LoadMoreButton.svelte`
+4. [ ] [—] Perf follow-up, if measured: `attachPersonDisplayNames` reads every person's display names on each page. Narrow `DisplayNames` to the page's ids if the `-big` profile shows it
+5. [ ] [—] Sweep subtasks HOLODEX-586/587 by hand with this story: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-19 · session (frontend)
+- skills: code-review (high --fix)
+- handoff: The four list pages now page through the server with Load more, the A–Z restart, the Tags stream and Back restore, QA'd live on the -big fixture. The `/testing-strategy` gate is the only one left, then the PR can be marked ready.
 
 ### 2026-10-19 · session (backend)
 - skills: code-review (high --fix)

@@ -1,57 +1,37 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { beforeNavigate } from '$app/navigation';
 	import { api } from '#lib/api.ts';
-	import { toMessage, monogram } from '#lib/format.ts';
+	import { monogram } from '#lib/format.ts';
 	import type { Film } from '#lib/types.ts';
-	import { listScroll } from '#lib/listScroll.svelte.ts';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
-	import { seededShuffle } from '#lib/shuffle.ts';
 	import { FILM_SORTS, filmsSchema } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
+	import { PagedList, pagedListPage } from '#lib/pagedList.svelte.ts';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 
 	// Films index (F56, design handoff §1): poster-forward grid, closer to the
 	// media-browse density than the People/Studio logo-well rows — a film's default
-	// image IS the portrait poster. No A–Z jump bar and no "Most videos" sort in v1
-	// (ListFilms has no server-side count sort); only name/random. Sort state follows the
-	// F73 list contract (ADR-114): URL + saved preference, via ListController.
+	// image IS the portrait poster. No A–Z jump bar, no search and no "Most videos" sort;
+	// only name/random. Sort state follows the F73 list contract (ADR-114): URL + saved
+	// preference, via ListController. One page at a time from the server (F80), Random
+	// with the session seed so pages tile (SP2).
 	const list = listController(filmsSchema, '/films');
-	let films = $state<Film[]>([]);
-	let loading = $state(true);
-	let loadError = $state('');
+	const sortBy = $derived(list.state.sort);
+	const films = new PagedList<Film>((offset, limit) =>
+		api.pageFilms({ sort: sortBy, seed: shuffleSeed.value, limit, offset })
+	);
+	let listEl = $state<HTMLElement>();
 
-	const displayed = $derived(list.state.sort === 'random' ? seededShuffle(films, shuffleSeed.value) : films);
-
-	let firstLoad = true;
-	function reload() {
-		loading = true;
-		loadError = '';
-		api
-			.listFilms()
-			.then((res) => (films = res.items ?? []))
-			.catch((err) => {
-				loadError = toMessage(err);
-				films = [];
-			})
-			.finally(() => {
-				loading = false;
-				if (firstLoad) {
-					firstLoad = false;
-					const snap = listScroll.take('films', list.key);
-					if (snap) tick().then(() => window.scrollTo(0, snap.scrollY));
-				}
-			});
-	}
-
-	// Sorting is entirely client-derived (`displayed` above) -- this only needs to run
-	// once on mount, not on every `sort` change (a $effect reading `sort` would refire
-	// reload() and refetch from the server on every A–Z/Random toggle for no reason).
-	onMount(reload);
-
-	beforeNavigate(() => {
-		listScroll.save('films', { key: list.key, scrollY: window.scrollY });
+	const { loadMore } = pagedListPage({
+		id: 'films',
+		list: films,
+		key: () => list.key,
+		restartOn: () => {
+			void sortBy;
+			if (sortBy === 'random') void shuffleSeed.value;
+		},
+		root: () => listEl
 	});
 
 	function sceneCountLabel(f: Film): string {
@@ -68,21 +48,24 @@
 			<SortDropdown compact options={FILM_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
 		{/snippet}
 		{#snippet count()}
-			{#if !loading && !loadError}{films.length} {films.length === 1 ? 'film' : 'films'}{/if}
+			{#if !films.loading && !(films.error && films.items.length === 0)}{films.total.toLocaleString()}
+				{films.total === 1 ? 'film' : 'films'}{/if}
 		{/snippet}
 	</ListToolbar>
 
-	{#if loading}
+	{#if films.loading && films.items.length === 0}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
-	{:else if loadError}
-		<p class="py-16 text-center text-sm text-warn">Couldn’t load films: {loadError}</p>
-	{:else if films.length === 0}
+	{:else if films.error && films.items.length === 0}
+		<p class="py-16 text-center text-sm text-warn">Couldn’t load films: {films.error}</p>
+	{:else if films.items.length === 0}
 		<p class="py-16 text-center text-sm text-muted">
 			No films yet — attach a video to a film from its media page to get started.
 		</p>
 	{:else}
-		<ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-			{#each displayed as f (f.id)}
+		<!-- A failed Load more keeps the loaded grid and says so above it. -->
+		{#if films.error}<p class="text-sm text-warn">{films.error}</p>{/if}
+		<ul bind:this={listEl} class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+			{#each films.items as f (f.id)}
 				<li>
 					<a
 						href={`/films/${f.id}`}
@@ -117,5 +100,6 @@
 				</li>
 			{/each}
 		</ul>
+		<LoadMoreButton left={films.left} loading={films.loadingMore} announce={films.announce} onclick={loadMore} />
 	{/if}
 </section>
