@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '#lib/api.ts';
@@ -394,11 +395,7 @@
 			{:else}
 				<VideoGrid videos={items} onRemove={isOwner && !smart ? remove : undefined} />
 				{#if hasMore}
-					<div class="flex justify-center pt-2">
-						<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-							{loadingMore ? 'Loading…' : `Load more (${total - items.length} left)`}
-						</button>
-					</div>
+					<LoadMoreButton left={total - items.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
 				{/if}
 			{/if}
 

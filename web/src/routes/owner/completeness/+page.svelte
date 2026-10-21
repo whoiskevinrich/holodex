@@ -3,6 +3,7 @@
 	// §1). The backend (GET /owner/completeness-queue) already groups by facet, orders
 	// critical-first-then-count-desc, and splits candidate-ready/needs-research (DD1) — this
 	// page renders that shape directly with zero client-side grouping/sorting.
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
 	import { appendUnique, nextPage, QUEUE_PAGE } from '#lib/queuePaging.ts';
@@ -139,17 +140,13 @@
 						/>
 					{/each}
 				{/if}
-				{#if loaded(g) < g.total}
-					<div class="flex justify-center px-3 py-3">
-						<button
-							onclick={() => loadMore(g)}
-							disabled={loadingFacet !== null}
-							class="btn-ghost px-4 py-2 text-sm"
-						>
-							{loadingFacet === g.canonical ? 'Loading…' : `Load more (${g.total - loaded(g)} left)`}
-						</button>
-					</div>
-				{/if}
+				<LoadMoreButton
+					left={g.total - loaded(g)}
+					loading={loadingFacet === g.canonical}
+					disabled={loadingFacet !== null}
+					onclick={() => loadMore(g)}
+					class="px-3 py-3"
+				/>
 			</section>
 		{/each}
 		{#if moreError}<p class="text-sm text-warn" role="alert">{moreError}</p>{/if}

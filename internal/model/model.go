@@ -233,7 +233,7 @@ type Tag struct {
 	Name       string `json:"name"`
 	VideoCount int    `json:"video_count,omitempty"`
 	// Aliases are owner-curated alternate names (F43, ADR-061), each searchable.
-	// Populated on the tags-list read (tags have no detail page, RD7); omitted elsewhere.
+	// Populated on the tag-detail read (GetTag); omitted on the /tags list (HOLODEX-589).
 	Aliases []EntityAlias `json:"aliases,omitempty"`
 	// ParentTagID is the broader tag this tag sits under, or nil at the root
 	// (F50, ADR-075 D1) — a strict one-parent tree, no DAG.

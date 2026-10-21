@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { tick } from 'svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { api } from '#lib/api.ts';
@@ -85,8 +86,6 @@
 		showRecent = !showRecent;
 		localStorage.setItem(RECENT_KEY, showRecent ? '1' : '0');
 	}
-
-	const hasMore = $derived(videos.length < total);
 
 	function currentFilters(): MediaFilters {
 		return {
@@ -522,16 +521,6 @@
 				<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
 			</div>
 		{/if}
-		{#if hasMore}
-			<div class="flex justify-center pt-2">
-				<button
-					onclick={loadMore}
-					disabled={loadingMore}
-					class="btn-ghost px-4 py-2 text-sm"
-				>
-					{loadingMore ? 'Loading…' : `Load more (${total - videos.length} left)`}
-				</button>
-			</div>
-		{/if}
+		<LoadMoreButton left={total - videos.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
 	{/if}
 </section>

@@ -49,8 +49,9 @@
 
 	// One stream of pills, 200 a page (F80 EL8): tags in the chosen sort, then the
 	// categories in name order once the tags run out (categories are never shuffled). The
-	// Tags and Categories tabs each page only their own kind. The first page of categories
-	// is read alongside the tags so the stream's "left" count is known from the start.
+	// Tags and Categories tabs each page only their own kind. On the All tab the categories
+	// are only counted alongside the tags, so the stream's "left" count is known from the
+	// start; their first page is read once the tags run out (HOLODEX-589).
 	const PILL_PAGE = 200;
 	const tags = new PagedList<Tag>(
 		(offset, limit) => api.listTags({ sort: sortBy, q: query, seed: shuffleSeed.value, limit, offset }),
@@ -163,8 +164,9 @@
 	const scrollKey = $derived(`${list.key}:${query}`);
 	let firstLoad = true;
 
+	// A merge or delete can use up the tags, so counted categories may need their page.
 	function reload() {
-		return tags.refresh();
+		return tags.refresh().then(fillCategories);
 	}
 	function reloadCategories() {
 		return categories.refresh();
@@ -178,10 +180,17 @@
 		untrack(async () => {
 			const snap = firstLoad ? listScroll.take('tags', scrollKey) : null;
 			firstLoad = false;
+			// A Back restore that had categories on screen reads them in full straight away.
+			const countOnly = showTags && !snap?.loadedCategories;
 			await Promise.all([
 				showTags ? tags.load({ count: snap?.loaded }) : undefined,
-				showCategories ? categories.load({ count: snap?.loadedCategories }) : undefined
+				showCategories
+					? countOnly
+						? categories.count()
+						: categories.load({ count: snap?.loadedCategories })
+					: undefined
 			]);
+			await fillCategories();
 			if (snap) {
 				await tick();
 				window.scrollTo(0, snap.scrollY);
@@ -217,19 +226,27 @@
 	const pillError = $derived(tags.error || categories.error);
 	let pillsEl = $state<HTMLElement>();
 
-	// Load more serves the stream: tags until they run out, then categories. Once the tags
-	// are done the first page of categories is already loaded, so it just appears.
+	// Once the tags run out, a categories list that was only counted reads its first page.
+	async function fillCategories() {
+		if (tagsDone && showCategories && categories.items.length === 0 && categories.hasMore)
+			await categories.loadMore();
+	}
+
+	// Load more serves the stream: tags until they run out, then categories. The click that
+	// loads the last tags also reads the first page of categories, so they appear together.
 	let pillAnnounce = $state('');
 	async function loadMorePills() {
 		const before = visibleTags.length + visibleCategories.length;
 		const from = showTags && tags.hasMore ? tags : categories;
 		await from.loadMore();
+		await fillCategories();
 		const added = visibleTags.length + visibleCategories.length - before;
 		pillAnnounce = added > 0 ? `Loaded ${added} more. ${pillsLeft.toLocaleString()} left.` : '';
 		if (pillsLeft === 0) {
 			await tick();
-			// The first new pill's link; the + New pill is a button, so links index pills.
-			pillsEl?.querySelectorAll<HTMLElement>('a[href]')[before]?.focus();
+			// The first new pill's focus target: its link, or in Manage mode a tag's select
+			// button (HOLODEX-589).
+			pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')[before]?.focus();
 		}
 	}
 	const emptyMessage = $derived(
@@ -792,6 +809,7 @@
 					>
 						<!-- Pill body toggles selection (aria-pressed); the ✓ is decorative. -->
 						<button
+							data-pill
 							type="button"
 							aria-pressed={selected}
 							onclick={() => toggleSelect(t)}
@@ -983,6 +1001,7 @@
 					</div>
 				{:else}
 					<a
+						data-pill
 						href={`/tags/${t.id}`}
 						class="rounded-full border border-rule bg-surface px-3 py-1.5 text-sm text-ink hover:border-accent"
 					>
@@ -998,6 +1017,7 @@
 					     navigates even while manage is on. Reduced ⋯ menu: Rename/Delete only. -->
 					<div data-cat-pill class="relative inline-flex items-stretch rounded-full border border-accent bg-surface text-sm">
 						<a
+							data-pill
 							href={`/categories/${c.id}`}
 							class="inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-2 text-ink hover:text-accent"
 						>
@@ -1079,6 +1099,7 @@
 					</div>
 				{:else}
 					<a
+						data-pill
 						href={`/categories/${c.id}`}
 						class="inline-flex items-center gap-1.5 rounded-full border border-accent bg-surface px-3 py-1.5 text-sm text-ink hover:bg-surface-2"
 					>

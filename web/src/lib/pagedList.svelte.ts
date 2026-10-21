@@ -121,6 +121,8 @@ export class PagedList<T> {
 	letter = $state('');
 
 	#seq = 0;
+	/** The last replace was count(): entries come later, via loadMore(). */
+	#counted = false;
 	readonly #fetch: PageFetcher<T>;
 	readonly pageSize: number;
 
@@ -142,24 +144,34 @@ export class PagedList<T> {
 	 * or a Back restore of everything that was loaded). A failure keeps nothing stale on
 	 * screen: the error replaces the list.
 	 */
-	async load({
+	load({
 		start = 0,
 		count = this.pageSize,
 		letter = ''
 	}: { start?: number; count?: number; letter?: string } = {}) {
+		return this.#replace(start, Math.min(Math.max(count, this.pageSize), MAX_LIMIT), letter);
+	}
+
+	/**
+	 * Read only the total and leave the list empty, for entries that are shown later but
+	 * already count toward "N left" (the /tags All tab's categories, EL8). The first
+	 * loadMore() then reads their first page.
+	 */
+	count() {
+		return this.#replace(0, 1, '', true);
+	}
+
+	async #replace(start: number, limit: number, letter: string, countOnly = false) {
 		const mine = ++this.#seq;
+		this.#counted = countOnly;
 		this.loading = true;
 		this.error = '';
 		this.announce = '';
 		this.letter = letter;
 		try {
-			const res = await this.#fetch(
-				start,
-				Math.min(Math.max(count, this.pageSize), MAX_LIMIT),
-				true
-			);
+			const res = await this.#fetch(start, limit, !countOnly);
 			if (mine !== this.#seq) return;
-			this.items = res.items ?? [];
+			this.items = countOnly ? [] : (res.items ?? []);
 			this.total = res.total ?? 0;
 			this.letters = res.letters ?? {};
 			this.start = start;
@@ -173,8 +185,12 @@ export class PagedList<T> {
 		}
 	}
 
-	/** Re-read the same run (same start, same count) after a mutation, keeping its size. */
+	/**
+	 * Re-read the same run (same start, same count) after a mutation, keeping its size.
+	 * A list that was only counted stays only counted.
+	 */
 	refresh() {
+		if (this.#counted && this.items.length === 0) return this.count();
 		return this.load({
 			start: this.start,
 			count: this.items.length,
