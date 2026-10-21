@@ -5,7 +5,13 @@
 	// displayed, so assistive tech sees one "Jump to letter" nav. The page renders it only
 	// while sorted by name, and gives its rows `pr-5` below `sm` so the rail never covers a
 	// tappable row. Absent letters stay as decorative, aria-hidden placeholders.
-	let { anchors, onjump }: { anchors: Record<string, number>; onjump: (letter: string) => void } = $props();
+	// `active` is the letter the paged list was restarted at (F80 EL6): gold, underlined,
+	// aria-current, and still clickable (it reloads from that letter).
+	let {
+		anchors,
+		active = '',
+		onjump
+	}: { anchors: Record<string, number>; active?: string; onjump: (letter: string) => void } = $props();
 
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const label = (L: string) => `Jump to ${L === '#' ? 'non-alphabetic names' : L}`;
@@ -20,7 +26,10 @@
 			<button
 				onclick={() => onjump(L)}
 				aria-label={label(L)}
-				class="rounded-theme px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-surface-2 hover:text-accent"
+				aria-current={L === active ? 'true' : undefined}
+				class="rounded-theme px-1.5 py-0.5 text-xs font-medium hover:bg-surface-2 hover:text-accent {L === active
+					? 'border-b-2 border-accent text-accent'
+					: 'text-muted'}"
 			>
 				{L}
 			</button>
@@ -36,7 +45,10 @@
 			<button
 				onclick={() => onjump(L)}
 				aria-label={label(L)}
-				class="px-1 text-xs font-medium leading-4 text-muted hover:text-accent focus-visible:text-accent"
+				aria-current={L === active ? 'true' : undefined}
+				class="px-1 text-xs font-medium leading-4 hover:text-accent focus-visible:text-accent {L === active
+					? 'border-b-2 border-accent text-accent'
+					: 'text-muted'}"
 			>
 				{L}
 			</button>

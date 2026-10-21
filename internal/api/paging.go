@@ -30,6 +30,33 @@ func pageFromQuery(q url.Values) page {
 	}
 }
 
+// namedListFilterFromQuery reads the People / Studios / Tags list params (F80): sort,
+// the owner's missing_facet, q (search), seed (random), and a page.
+func namedListFilterFromQuery(q url.Values) (repo.NamedListFilter, page) {
+	p := pageFromQuery(q)
+	f := repo.NamedListFilter{
+		Sort: q.Get("sort"), MissingFacets: q["missing_facet"], Query: q.Get("q"),
+		Limit: p.Limit, Offset: p.Offset,
+	}
+	if f.Sort == "random" {
+		f.Seed = parseSeedOrRandom(q.Get("seed"))
+	}
+	return f, p
+}
+
+// letterExtra adds the A–Z restart offsets as `letters` when the request asks with
+// letters=1 (F80 EL6): the client asks once per list, not on every Load more.
+func letterExtra(q url.Values, offsets func() (map[string]int, error)) (map[string]any, error) {
+	if q.Get("letters") != "1" {
+		return nil, nil
+	}
+	m, err := offsets()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"letters": m}, nil
+}
+
 // pageOf returns p's window of all: never nil, so an empty page marshals as `[]`
 // (HOLODEX-275), and empty rather than a panic when the offset runs past the end.
 func pageOf[T any](all []T, p page) []T {

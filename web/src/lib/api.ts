@@ -348,6 +348,29 @@ function queueQuery(params: Record<string, string | number | undefined>): string
 	return s ? `?${s}` : '';
 }
 
+// The paged entity-list read (F80): People, Studios, Tags, and the /tags categories and
+// /films pages. sort 'name' is the server default, so it's left off the URL.
+export interface EntityListOpts {
+	sort?: PeopleTagSort | 'completeness_asc' | 'completeness_desc';
+	q?: string;
+	seed?: number;
+	limit?: number;
+	offset?: number;
+	letters?: boolean;
+}
+export type EntityListPage<T> = QueuePage<T> & { letters?: Record<string, number> };
+
+function entityListQuery(o: EntityListOpts): string {
+	return queueQuery({
+		sort: o.sort && o.sort !== 'name' ? o.sort : undefined,
+		q: o.q?.trim() || undefined,
+		seed: o.sort === 'random' ? o.seed : undefined,
+		limit: o.limit,
+		offset: o.offset || undefined,
+		letters: o.letters ? 1 : undefined
+	});
+}
+
 export const api = {
 	listMedia: (f: MediaFilters = {}, fetchFn?: typeof fetch) =>
 		get<MediaListResponse>(`/media${buildQuery(f)}`, fetchFn),
@@ -514,21 +537,13 @@ export const api = {
 	reorderPersonImages: (id: number, order: number[]) =>
 		sendAuthed<{ images: PersonImageSet }>('POST', `/people/${id}/images/reorder`, { order }),
 
-	// People/Tags accept name|count|random (ADR-045 §3). The server returns the full
-	// list in canonical name order for both 'name' and 'random' — the random shuffle
-	// is applied client-side (these lists are unpaged) — so only 'count' reorders
-	// server-side. 'random' is still sent so the contract is exercised/observable.
-	// completeness_asc/desc (F55.5) is owner-only — the server 401s a non-owner request
-	// using it; callers gate on isOwner before passing it.
-	listPeople: (
-		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
-		fetchFn?: typeof fetch
-	) => {
-		const p = new URLSearchParams();
-		if (sort !== 'name') p.set('sort', sort);
-		const qs = p.toString();
-		return get<{ items: Person[] }>(`/people${qs ? `?${qs}` : ''}`, fetchFn);
-	},
+	// The People / Studios / Tags / Films lists page server-side (F80): sort name|count|
+	// random (random with the session seed, so pages tile — ADR-045), q searches the
+	// whole library, and letters asks for the A–Z restart offsets. completeness_asc/desc
+	// (F55.5) is owner-only — the server 401s a non-owner request using it; callers gate
+	// on isOwner before passing it.
+	listPeople: (opts: EntityListOpts = {}, fetchFn?: typeof fetch) =>
+		get<EntityListPage<Person>>(`/people${entityListQuery(opts)}`, fetchFn),
 
 	getPerson: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonDetailResponse>(`/people/${id}`, fetchFn),
@@ -538,8 +553,8 @@ export const api = {
 	getPersonImages: (id: number, fetchFn?: typeof fetch) =>
 		get<PersonImageSet>(`/people/${id}/images`, fetchFn),
 
-	listTags: (sort: PeopleTagSort = 'name', fetchFn?: typeof fetch) =>
-		get<{ items: Tag[] }>(`/tags${sort === 'name' ? '' : `?sort=${sort}`}`, fetchFn),
+	listTags: (opts: EntityListOpts = {}, fetchFn?: typeof fetch) =>
+		get<EntityListPage<Tag>>(`/tags${entityListQuery(opts)}`, fetchFn),
 
 	getTag: (id: number, fetchFn?: typeof fetch) =>
 		get<{ tag: Tag }>(`/tags/${id}`, fetchFn),
@@ -584,6 +599,11 @@ export const api = {
 	listCategories: (opts: { q?: string } = {}, fetchFn?: typeof fetch) =>
 		get<{ items: Category[] }>(`/categories${opts.q ? `?q=${encodeURIComponent(opts.q)}` : ''}`, fetchFn),
 
+	// One page of the categories in name order, for the /tags list (F80). q filters by
+	// substring here and is neither capped nor ranked (that's listCategories' picker read).
+	pageCategories: (opts: Pick<EntityListOpts, 'q' | 'limit' | 'offset'>, fetchFn?: typeof fetch) =>
+		get<EntityListPage<Category>>(`/categories${entityListQuery({ limit: 50, ...opts })}`, fetchFn),
+
 	getCategory: (id: number, fetchFn?: typeof fetch) =>
 		get<{ category: Category }>(`/categories/${id}`, fetchFn),
 
@@ -606,20 +626,10 @@ export const api = {
 	// addVideoTag (deny-list / too long / collides with a category).
 	resolveOrCreateTag: (name: string) => sendAuthed<{ tag: Tag }>('POST', `/tags`, { name }),
 
-	// Studio entities (F38, ADR-053). Same list contract as people/tags (name|count|
-	// random; random shuffled client-side). Detail carries resolved[] in the record
-	// vocabulary (no in_sync) plus the studio's videos.
-	// completeness_asc/desc (F55.5) mirrors listPeople — owner-only, callers gate on
-	// isOwner before passing it.
-	listStudios: (
-		sort: PeopleTagSort | 'completeness_asc' | 'completeness_desc' = 'name',
-		fetchFn?: typeof fetch
-	) => {
-		const p = new URLSearchParams();
-		if (sort !== 'name') p.set('sort', sort);
-		const qs = p.toString();
-		return get<{ items: Studio[] }>(`/studios${qs ? `?${qs}` : ''}`, fetchFn);
-	},
+	// Studio entities (F38, ADR-053). Same paged list contract as listPeople. Detail
+	// carries resolved[] in the record vocabulary (no in_sync) plus the studio's videos.
+	listStudios: (opts: EntityListOpts = {}, fetchFn?: typeof fetch) =>
+		get<EntityListPage<Studio>>(`/studios${entityListQuery(opts)}`, fetchFn),
 
 	getStudio: (id: number, fetchFn?: typeof fetch) =>
 		get<StudioDetailResponse>(`/studios/${id}`, fetchFn),
@@ -645,6 +655,11 @@ export const api = {
 	// Reads are public (gated on films_enabled server-side at Mount); mutations are
 	// owner-gated. ?q= name-searches (FTS); ?person_id=/?studio_id=/?tag_id= filter to
 	// films whose video union includes that entity (mutually exclusive with ?q).
+	// The /films list itself: one page, name order or the seeded shuffle (F80). The
+	// search and entity reads below stay unpaged (bounded / scoped server-side).
+	pageFilms: (opts: Pick<EntityListOpts, 'sort' | 'seed' | 'limit' | 'offset'>, fetchFn?: typeof fetch) =>
+		get<EntityListPage<Film>>(`/films${entityListQuery(opts)}`, fetchFn),
+
 	listFilms: (
 		opts: { q?: string; personId?: number; studioId?: number; tagId?: number } = {},
 		fetchFn?: typeof fetch

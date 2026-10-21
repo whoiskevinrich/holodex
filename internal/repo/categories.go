@@ -148,6 +148,26 @@ type CategoryFilter struct {
 	// Query, when non-blank, keeps the categories whose name contains it
 	// (case-insensitive) and caps the result at CategoryQueryCap (HOLODEX-586).
 	Query string
+	// Limit, when set, pages the read in name order instead (the /tags list, F80):
+	// Query still filters, but neither the cap nor the closest-first ranking applies.
+	Limit, Offset int
+}
+
+func (f CategoryFilter) pagedWhere() (string, []any) {
+	if q := strings.TrimSpace(f.Query); q != "" {
+		return `WHERE instr(lower(name), lower(?)) > 0`, []any{q}
+	}
+	return "", nil
+}
+
+// CountCategories is the number of categories a paged ListCategories read spans.
+func (r *Repo) CountCategories(ctx context.Context, f CategoryFilter) (int, error) {
+	where, args := f.pagedWhere()
+	var n int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM categories `+where, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count categories: %w", err)
+	}
+	return n, nil
 }
 
 // CategoryQueryCap bounds a ListCategories read that carries a Query: the category
@@ -166,7 +186,13 @@ func (r *Repo) ListCategories(ctx context.Context, f CategoryFilter) ([]model.Ca
 	query := `SELECT id, name FROM categories ORDER BY name COLLATE NOCASE`
 	var args []any
 	q := strings.TrimSpace(f.Query)
-	if q != "" {
+	switch {
+	case f.Limit > 0:
+		// A page of the /tags list (F80): name order, any substring, never ranked.
+		where, wargs := f.pagedWhere()
+		query = `SELECT id, name FROM categories ` + where + ` ORDER BY name COLLATE NOCASE, id LIMIT ? OFFSET ?`
+		args = append(wargs, f.Limit, max(f.Offset, 0))
+	case q != "":
 		query = `SELECT id, name FROM categories
 			WHERE instr(lower(name), lower(?1)) > 0
 			ORDER BY (name = ?1 COLLATE NOCASE) DESC,
@@ -206,7 +232,7 @@ func (r *Repo) ListCategories(ctx context.Context, f CategoryFilter) ([]model.Ca
 		ids[i] = out[i].ID
 	}
 	memberQuery, memberArgs := `SELECT category_id, tag_id FROM category_tags`, []any(nil)
-	if q != "" {
+	if q != "" || f.Limit > 0 {
 		if len(ids) == 0 {
 			return out, nil
 		}

@@ -1130,20 +1130,106 @@ func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool,
 // cnt=0 — set only by ListTags (HOLODEX-243: a tag can now be created bare
 // via "+ New" on /tags, no video attach); ListStudios keeps the inner-join
 // default, since studios have no such empty-creation path.
+//
+// The query selects a fourth column, lbl: the spelling the row is shown and name-sorted
+// by (labelExpr). A set f.Limit pages it (F80); zero reads every row.
 func namedCountQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (string, []any) {
+	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, true)
+	order, orderArgs := f.orderBy(entityType, "b.id")
+	q := `SELECT b.id, b.name, b.cnt, b.lbl FROM (` + base + `) b ORDER BY ` + order
+	args = append(args, orderArgs...)
+	if f.Limit > 0 {
+		q += ` LIMIT ? OFFSET ?`
+		args = append(args, f.Limit, max(f.Offset, 0))
+	}
+	return q, args
+}
+
+// namedBaseQuery is namedCountQuery's unordered, unpaged row set, which namedCount
+// also counts. withLabel=false selects a NULL lbl, sparing a count the person label's
+// per-row correlated subquery.
+func namedBaseQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero, withLabel bool) (string, []any) {
 	joinKind := "JOIN"
 	if includeZero {
 		joinKind = "LEFT JOIN"
 	}
+	label := "NULL"
+	if withLabel {
+		label = labelExpr(entityType, "e.id")
+	}
 	where, args := f.build(entityType, "e.id")
 	return fmt.Sprintf(`
-		SELECT e.id, e.name, COUNT(v.id) AS cnt
+		SELECT e.id AS id, e.name AS name, COUNT(v.id) AS cnt, %s AS lbl
 		FROM %s e
 		%s %s j     ON j.%s = e.id
 		%s videos v ON v.id = j.video_id AND v.active = 1 AND v.deleted_at IS NULL
 		%s
-		GROUP BY e.id, e.name
-		ORDER BY %s`, table, joinKind, junction, fk, joinKind, where, f.orderBy(entityType, "e.id")), args
+		GROUP BY e.id, e.name`, label, table, joinKind, junction, fk, joinKind, where), args
+}
+
+// labelExpr is the SQL for the spelling an entity's list row shows: a person's
+// Displayed As (HOLODEX-461), else the canonical name.
+func labelExpr(entityType, idCol string) string {
+	if entityType == model.EnrichEntityPerson {
+		return personLabelExpr(idCol)
+	}
+	return "e.name"
+}
+
+// namedCount is the number of rows namedCountQuery reads with f's paging removed:
+// the list's total (F80 EL2).
+func (r *Repo) namedCount(ctx context.Context, table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (int, error) {
+	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, false)
+	var n int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM (`+base+`)`, args...).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count %s: %w", table, err)
+	}
+	return n, nil
+}
+
+// namedLetterOffsets maps each A–Z index letter to the offset of the first row under
+// it in f's name order, so a letter restarts the list there (F80 EL6). A letter with
+// no rows is absent. f's sort and paging are ignored: the offsets are name-order ones.
+func (r *Repo) namedLetterOffsets(ctx context.Context, table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (map[string]int, error) {
+	f.Sort, f.Limit, f.Offset = "name", 0, 0
+	// Read the ordered query itself: a subquery's ORDER BY isn't guaranteed to survive.
+	q, args := namedCountQuery(table, junction, fk, entityType, f, includeZero)
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("letter offsets %s: %w", table, err)
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for i := 0; rows.Next(); i++ {
+		var id int64
+		var name, lbl string
+		var cnt int
+		if err := rows.Scan(&id, &name, &cnt, &lbl); err != nil {
+			return nil, err
+		}
+		if _, seen := out[IndexLetter(lbl)]; !seen {
+			out[IndexLetter(lbl)] = i
+		}
+	}
+	return out, rows.Err()
+}
+
+// IndexLetter buckets a label under the A–Z index: its first letter, upper-cased,
+// or "#" for anything that doesn't start with an ASCII letter (digits, symbols, and
+// accented or non-Latin initials), matching the page's plain A–Z bar.
+func IndexLetter(label string) string {
+	s := strings.TrimSpace(label)
+	if s == "" {
+		return "#"
+	}
+	c := s[0]
+	if c >= 'a' && c <= 'z' {
+		c -= 'a' - 'A'
+	}
+	if c >= 'A' && c <= 'Z' {
+		return string(c)
+	}
+	return "#"
 }
 
 // Completeness sort keys (F55.5) shared by every list surface; the SQL they
@@ -1160,11 +1246,27 @@ type NamedListFilter struct {
 	Sort          string
 	MissingFacets []string
 	IDs           []int64
+	// Query keeps the rows whose name, or a person's shown spelling, contains it
+	// (case-insensitive; the list pages' in-place search, F80 EL5).
+	Query string
+	// Seed fixes the "random" sort's shuffle (ADR-045), so pages tile.
+	Seed int64
+	// Limit pages the read (F80); zero reads every row. Offset skips rows.
+	Limit, Offset int
 }
 
 func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
 	var clauses []string
 	var args []any
+	if q := strings.TrimSpace(f.Query); q != "" {
+		clause := "instr(lower(e.name), lower(?)) > 0"
+		args = append(args, q)
+		if entityType == model.EnrichEntityPerson {
+			clause = "(" + clause + " OR instr(lower(" + personLabelExpr(idCol) + "), lower(?)) > 0)"
+			args = append(args, q)
+		}
+		clauses = append(clauses, clause)
+	}
 	for _, c := range f.MissingFacets {
 		clauses = append(clauses, missingFacetClause(entityType, idCol))
 		args = append(args, c)
@@ -1179,22 +1281,22 @@ func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
 
-func (f NamedListFilter) orderBy(entityType, idCol string) string {
-	name := "e.name COLLATE NOCASE ASC"
-	if entityType == model.EnrichEntityPerson {
-		// A person row is labelled by its Displayed As spelling (HOLODEX-461), so the
-		// name order and every tie-break follow that label.
-		name = personLabelExpr(idCol) + " COLLATE NOCASE ASC"
-	}
+// orderBy orders namedCountQuery's outer select, the base row set aliased b. Rows sort
+// by their shown label (a person's Displayed As spelling, HOLODEX-461), and every order
+// ends on the id so a page boundary never splits ties differently twice (F80).
+func (f NamedListFilter) orderBy(entityType, idCol string) (string, []any) {
+	name := "b.lbl COLLATE NOCASE ASC, " + idCol + " ASC"
 	switch f.Sort {
 	case "count":
-		return "cnt DESC, " + name
+		return "b.cnt DESC, " + name, nil
+	case "random":
+		return "holo_shuffle(" + idCol + ", ?), " + idCol + " ASC", []any{f.Seed}
 	case SortCompletenessAsc:
-		return completenessOrder(entityType, idCol, "ASC") + ", " + name
+		return completenessOrder(entityType, idCol, "ASC") + ", " + name, nil
 	case SortCompletenessDesc:
-		return completenessOrder(entityType, idCol, "DESC") + ", " + name
+		return completenessOrder(entityType, idCol, "DESC") + ", " + name, nil
 	default:
-		return name
+		return name, nil
 	}
 }
 
@@ -1256,7 +1358,8 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 	out := []model.Person{}
 	for rows.Next() {
 		var p model.Person
-		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount); err != nil {
+		var lbl string
+		if err := rows.Scan(&p.ID, &p.Name, &p.VideoCount, &lbl); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -1271,6 +1374,16 @@ func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]mod
 		return nil, err
 	}
 	return out, nil
+}
+
+// CountPeople is the number of people ListPeopleFiltered reads with f's paging removed.
+func (r *Repo) CountPeople(ctx context.Context, f NamedListFilter) (int, error) {
+	return r.namedCount(ctx, "people", "video_people", "person_id", model.EnrichEntityPerson, f, false)
+}
+
+// PeopleLetterOffsets is the People list's A–Z restart offsets (namedLetterOffsets).
+func (r *Repo) PeopleLetterOffsets(ctx context.Context, f NamedListFilter) (map[string]int, error) {
+	return r.namedLetterOffsets(ctx, "people", "video_people", "person_id", model.EnrichEntityPerson, f, false)
 }
 
 // personImageVersions returns personID -> {role: rowID} for every person in ids, in ONE
@@ -1352,7 +1465,18 @@ func (r *Repo) attachPersonDisplayNames(ctx context.Context, people []model.Pers
 
 // ListTags mirrors ListPeople for tags.
 func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, error) {
-	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", countSortFilter(sortByCount), true)
+	return r.ListTagsFiltered(ctx, countSortFilter(sortByCount))
+}
+
+// CountTags is the number of tags ListTagsFiltered reads with f's paging removed.
+func (r *Repo) CountTags(ctx context.Context, f NamedListFilter) (int, error) {
+	return r.namedCount(ctx, "tags", "video_tags", "tag_id", "tag", f, true)
+}
+
+// ListTagsFiltered is ListTags with the full NamedListFilter (search, seeded random,
+// paging — F80).
+func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model.Tag, error) {
+	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", f, true)
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
@@ -1362,7 +1486,8 @@ func (r *Repo) ListTags(ctx context.Context, sortByCount bool) ([]model.Tag, err
 	out := []model.Tag{}
 	for rows.Next() {
 		var t model.Tag
-		if err := rows.Scan(&t.ID, &t.Name, &t.VideoCount); err != nil {
+		var lbl string
+		if err := rows.Scan(&t.ID, &t.Name, &t.VideoCount, &lbl); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

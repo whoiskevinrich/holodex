@@ -196,7 +196,7 @@ func nullableYear(year int) any {
 }
 
 // scanFilm reads one films row plus its active-video count from a *sql.Row-shaped
-// scanner, shared by GetFilm/ListFilms/SearchFilms.
+// scanner, shared by GetFilm/ListFilmsPage/SearchFilms.
 func scanFilm(scan func(...any) error) (model.Film, error) {
 	var f model.Film
 	var year sql.NullInt64
@@ -464,32 +464,50 @@ func (r *Repo) SetFilmYear(ctx context.Context, filmID int64, year int) (*FilmYe
 	return nil, nil
 }
 
-// ListFilms returns every film, name-sorted, with its active-video count. Unlike
-// ListStudios, a zero-count film is NOT excluded: film_videos has no prune-on-empty
-// reconciler (it's an assertion, not a derived index), so an empty film is a
-// legitimate, persistent record -- e.g. just created and not yet attached to
+// FilmListFilter pages the /films list (F80): Sort is "name" (default) or "random",
+// whose Seed fixes the shuffle (ADR-045) so pages tile.
+type FilmListFilter struct {
+	Sort          string
+	Seed          int64
+	Limit, Offset int
+}
+
+// ListFilmsPage is one page of the films, in f's order, with active-video counts, plus
+// the total. Unlike ListStudios, a zero-count film is NOT excluded: film_videos has no
+// prune-on-empty reconciler (it's an assertion, not a derived index), so an empty film
+// is a legitimate, persistent record -- e.g. just created and not yet attached to
 // anything, or every scene since detached.
-func (r *Repo) ListFilms(ctx context.Context) ([]model.Film, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE `+liveFilm+` ORDER BY f.name COLLATE NOCASE`)
+func (r *Repo) ListFilmsPage(ctx context.Context, f FilmListFilter) ([]model.Film, int, error) {
+	var total int
+	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM films f WHERE `+liveFilm).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count films: %w", err)
+	}
+	order, args := "f.name COLLATE NOCASE, f.id", []any{}
+	if f.Sort == "random" {
+		order, args = "holo_shuffle(f.id, ?), f.id", []any{f.Seed}
+	}
+	args = append(args, f.Limit, max(f.Offset, 0))
+	rows, err := r.db.QueryContext(ctx, `SELECT `+filmSelectCols+` FROM films f WHERE `+liveFilm+
+		` ORDER BY `+order+` LIMIT ? OFFSET ?`, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list films: %w", err)
+		return nil, 0, fmt.Errorf("list films: %w", err)
 	}
 	defer rows.Close()
 	films, err := scanFilms(rows)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if err := r.attachFilmImages(ctx, films); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return films, nil
+	return films, total, nil
 }
 
 // ListFilmsForEntity returns every film whose video union (film_videos joined
 // through video_people/video_studios/video_tags) includes the given
 // person/studio/tag, name-sorted -- the films row on person/studio/tag detail
 // pages (F56). Zero-valued ids are ignored; a call with every id zero behaves
-// like ListFilms. Multiple non-zero ids AND together (mirrors VideoFilter).
+// like an unpaged ListFilmsPage. Multiple non-zero ids AND together (mirrors VideoFilter).
 func (r *Repo) ListFilmsForEntity(ctx context.Context, personID, studioID, tagID int64) ([]model.Film, error) {
 	where := liveFilm
 	var args []any

@@ -359,18 +359,18 @@ export const ASSERTIONS = [
 		key: 'people-list-does-not-render-everything',
 		finds:
 			'The People list rendering every row it is given, unpaginated and unvirtualized — ' +
-			'HOLODEX-354, found by this fixture. Only meaningful on a large fixture: at the ' +
-			'default size the whole table fits under any sane page budget, so a small run ' +
-			'cannot tell a paginated list from an unpaginated one.',
+			'HOLODEX-354, found by this fixture and fixed by F80 paging (50 a page + Load more). ' +
+			'Only meaningful on a large fixture: at the default size the whole table fits under ' +
+			'any sane page budget, so a small run cannot tell a paginated list from an ' +
+			'unpaginated one. The `min` keeps an empty match (a renamed row class) from passing.',
 		urls: ['/people'],
 		requires: {
 			why: 'needs a large fixture — reseed with `go run ./testdata/stressseed -big`',
 			met: (m) => (m.breadth?.tables?.people?.n ?? 0) >= 500
 		},
-		selector: 'main ul > li.scroll-mt-16',
+		selector: 'main ul > li',
 		applies: 'count',
-		expect: { max: 200 },
-		blockedBy: 'HOLODEX-354'
+		expect: { min: 1, max: 200 }
 	},
 
 	// --- Media parts (HOLODEX-389). The part ladder seeds three files of one media

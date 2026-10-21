@@ -74,6 +74,8 @@ second way to browse the same list.
 - **Backend contract changes beyond the one additive field (RD8/P0-6).** No new endpoint, no
   pagination change, no new owner-gated mutation. *(Why: `ListPeople` already returns the full
   set in one call; Poster View is a rendering mode over data that (almost) already exists.)*
+  *Amended by [`entity-list-paging.md`](entity-list-paging.md) (F80): People is now paged, and
+  Poster view pages exactly like List view.*
 
 ## Resolved Decisions
 

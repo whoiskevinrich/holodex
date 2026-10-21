@@ -200,6 +200,10 @@ the route; verified live against `backend-amv`.
 - **Tags (`/tags`).** Same client-side mechanism as today, now driven by the top box
   instead of its own removed input (see NS4).
 - None of the above require new backend endpoints or query params for P0.
+- **Amended by [`entity-list-paging.md`](entity-list-paging.md) EL5 (F80).** People, Studios and Tags
+  now load a page at a time, so in-place filtering asks the server for matches across the whole
+  library instead of filtering an already-fetched list. What matches is unchanged. Results now update
+  after a short pause in typing, not on every keystroke.
 
 **Acceptance criteria — NS3** — Implemented (HOLODEX-249), verified live against
 `backend-amv`.

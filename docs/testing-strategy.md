@@ -2642,7 +2642,7 @@ exercised only by running the harness.
 | `person-card-no-page-overflow` · `person-card-inside-gutter` | **pass** — 6 checks each in the `cinematheque` cells (HOLODEX-439, F68 R3/RD10; the other two skins error on the HOLODEX-460 skin-pin break, like every rung). Both run under `person-card-open` on the `people >= 25` media pages: the right-most tile's 288px card needs a clamp at every width (`translateX` −170 / −159.3 / −112 at wide / lg / narrow) and lands at exactly 16px. **Film pages were rejected as hosts** — a film's Cast grid ends 40px+ short of the clamp zone at every cell, so the rungs would have passed with the clamp deleted. **Mutation-tested**: `placeCard` returning `shiftX: 0` fails all 12 (page overflow 96px at `wide`; gutter −154 / −143.3 / −96). `gutterRight` (viewport right edge minus the element's right edge) is a new probe metric for this. |
 | `tag-chips-stay-tappable` | **open** — HOLODEX-357 |
 | `source-chips-stay-tappable` | **open** — HOLODEX-357 |
-| `people-list-does-not-render-everything` | **open** — HOLODEX-354; skipped unless seeded `-big` |
+| `people-list-does-not-render-everything` | **passes** — 4 checks on a `-big` seed (HOLODEX-354, fixed by F80 paging, §32); skipped otherwise. The selector became `main ul > li` with `min: 1`, because the old `li.scroll-mt-16` matched nothing once rows lost that class, and an empty match passed a bare `max`. |
 
 **The matrix is now three widths** — `wide` 1440, `lg` 1024, `narrow` 768 — and the
 `PREPARATIONS` registry has a third kind of step: `visitor-view` flips the header switch
@@ -2688,7 +2688,8 @@ outlives its marker is the same failure one level up.
 - **The monogram slot and any cross-row parity are outside the matrix** (F64, HOLODEX-406). `enrich-picker-open:flood` pictures every row, so the slot assertions see only the `<img>` branch; the monogram branch (absent key, 404, stripped foreign host) lives on the `twins` persona and was measured live in three skins (40 × 60 on all eight rows, label x identical). Opening `twins` in the harness is one preparation argument away, but its eight auto-expanded rows would need their own bounds. Separately, the harness bounds one metric on one selector — "row A's label x equals row B's" is asserted by construction (every slot 40 wide), not measured; a `left` metric and a two-selector comparison would close that.
 - **One assertion is unexercised at default fixture size.**
   `people-list-does-not-render-everything` is `requires`-gated to a `-big` seed and skips
-  otherwise, so a routine run does not cover HOLODEX-354.
+  otherwise, so a routine run does not guard F80's paging. The runner reads the default
+  `data/stress` manifest; a separately seeded dir needs `--manifest <dir>/manifest.json`.
 - **Playwright is now a `web/` devDependency**, which partially closes the standing "the
   Playwright E2E suite — covered manually for Phase 1; to be automated" gap in §0: the
   browser tooling now exists, but the ~10 E2E *flows* in §6 remain unautomated. This
@@ -4984,3 +4985,72 @@ Completeness per-group Load more grew its group by 50 and lowered "left" to matc
 Load mores are covered by the unit tests only, not live. Nothing tests the page code that applies
 the offset rules (which count each page passes to `nextPage`). That stays live QA until the §20.6
 nav harness gains a queue scenario.
+
+## 32. Entity lists load a page at a time (F80, HOLODEX-354)
+
+People, Studios, Tags and Films page through the server with Load more, and the A–Z index
+restarts the list at a letter ([spec](specs/entity-list-paging.md),
+[handoff](design/entity-list-paging-handoff.md)). Risks, ranked:
+1. A page boundary that repeats or drops an entry, under any sort including Random. The owner
+   would never notice a missing person.
+2. An A–Z offset that lands on the wrong row.
+3. Search that misses a person renamed by a Displayed-As decision.
+4. Back that restores a shorter run than was loaded, then scrolls into nothing.
+5. An unbounded read creeping back in.
+
+**Endpoint, Go (`internal/api/entity_list_paging_test.go`).** `walkPages` reads a list page by
+page and fails on a repeated name or a total that changes between pages, so every test using it is
+also a reachability check.
+- `/people` pages tile in NOCASE name order, `q` searches across every row, and an
+  unparameterised read is the 50 default.
+- `letters=1` gives name-order offsets whatever the page's sort, and a restart at
+  `letters.M` lands on the first M.
+- `sort=random&seed=42` covers every person once, in one order at page sizes 4 and 3.
+- `/studios` and `/tags` page, and `/tags` reads a completeness sort as name order.
+- `/categories` pages only with `?limit=` and keeps HOLODEX-586's bare shape without it.
+- `/films` pages, and its random sort covers every film.
+
+**Repo, Go (`internal/repo/display_names_test.go`,
+`TestPeopleListSearchAndLettersFollowDisplayName`).** A person decided to display as "zulu" is
+found by `ZUL` and by their canonical `alph`. They are filed under Z, and every letter's restart
+lands on a row shown under that letter. **Mutation-tested**: dropping the Displayed-As branch of
+the search clause returns 0 rows for `ZUL`.
+
+**Unit, web (`web/src/lib/pagedList.test.ts`).** `PagedList`:
+- pages through every entry once, announces each page, and asks for letters only on a fresh load;
+- restarts at a letter and continues Load more from there, and `jump('')` returns to the top;
+- restores a saved run with its letter;
+- keeps the loaded entries when a Load more fails;
+- drops a slower, older load.
+
+**Harness (§12.4).** `people-list-does-not-render-everything` passes on a `-big` seed: 4 checks,
+at most 200 rows per width cell. It was `blockedBy: HOLODEX-354` until this change.
+
+**Live QA, 2026-10-19, `-big` fixture** (`backend-stress-open-9800` + `web-9800`, Cinémathèque).
+Each endpoint answered in 3–15ms. First-load results against the HOLODEX-354 baseline:
+
+| Page | Before | After |
+|---|---|---|
+| `/people` | 2,064 rows · 12,477 elements · 112,285px | 50 rows · 728 elements · 4,261px · 6KB page |
+| `/studios` | the whole table | 50 rows · 715 elements · 4,260px · 6KB |
+| `/tags` | 4,037 pills · 14,136 elements · 452,541px | 200 pills · 465 elements · 4,608px · 31KB (tags + aliases) |
+| `/films` | 2,017 posters · 14,171 elements | 50 posters · 408 elements · 4KB |
+
+What was exercised:
+- The S and Z restarts, with the gold active letter, "from S · Back to start" and focus on the
+  first row. Back to start worked.
+- Load more: "Loaded 50 more. 1,963 left." in the live region.
+- Back from the 81st row of a 100-row S run restored 100 rows, the S letter and scroll 6,145
+  exactly.
+- A search for "person 019" returned 11 matches from the whole library, with the index hidden.
+- Tags' 10th Load more crossed from the last tag into the first 200 categories, with 1,800 left.
+- Random films tiled 100 unique cards over two pages.
+
+**Standing gaps.**
+- `/tags` is 31KB per 200-pill page, over the spec's 15KB target, because every tag carries its
+  aliases.
+- On the All tab, `/tags` reads 200 categories up front just to know the remaining count.
+- In Manage mode on `/tags`, the last Load more leaves focus nowhere, because tag pills there are
+  buttons, not links.
+- Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
+  would need a paged-list scenario.

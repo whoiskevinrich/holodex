@@ -133,7 +133,8 @@ func (r *Repo) ListStudiosFiltered(ctx context.Context, f NamedListFilter) ([]mo
 	out := []model.Studio{}
 	for rows.Next() {
 		var s model.Studio
-		if err := rows.Scan(&s.ID, &s.Name, &s.VideoCount); err != nil {
+		var lbl string
+		if err := rows.Scan(&s.ID, &s.Name, &s.VideoCount, &lbl); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -145,6 +146,16 @@ func (r *Repo) ListStudiosFiltered(ctx context.Context, f NamedListFilter) ([]mo
 		return nil, err
 	}
 	return out, nil
+}
+
+// CountStudios is the number of studios ListStudiosFiltered reads with f's paging removed.
+func (r *Repo) CountStudios(ctx context.Context, f NamedListFilter) (int, error) {
+	return r.namedCount(ctx, "studios", "video_studios", "studio_id", model.EnrichEntityStudio, f, false)
+}
+
+// StudioLetterOffsets is the Studios list's A–Z restart offsets (namedLetterOffsets).
+func (r *Repo) StudioLetterOffsets(ctx context.Context, f NamedListFilter) (map[string]int, error) {
+	return r.namedLetterOffsets(ctx, "studios", "video_studios", "studio_id", model.EnrichEntityStudio, f, false)
 }
 
 // studioActiveVideoCountSubquery is the correlated count-of-active-videos-linked-

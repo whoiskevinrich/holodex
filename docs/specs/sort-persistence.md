@@ -16,8 +16,8 @@ media/people/tags list APIs.
   produce duplicate/skipped rows across pages. ADR-045 defines a **deterministic,
   seed-parameterized ordering** (a stable hash of row id + a client-supplied seed) so a
   single shuffle tiles correctly across pages, plus the `sort=random&seed=…` contract.
-  *People/Tags return their full list in one call and are shuffled **client-side** — they
-  need no ADR.*
+  *People, Studios, Tags and Films are paged too ([`entity-list-paging.md`](entity-list-paging.md)
+  EL4, F80), so Random on them uses the same seeded, page-stable ordering.*
 
 > **Routing note.** Persisting the sort **choice** is client-only (localStorage) and
 > carries no ADR. The **named-sort param unification** for `/people` and `/tags` (today a
