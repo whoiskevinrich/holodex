@@ -73,8 +73,9 @@ Decided in [`0ebf20ef`](https://github.com/whoiskevinrich/holodex/commit/0ebf20e
 
 ## Person image width variants: lazy, disk-cached, fixed tiers
 
-Both person serve routes take an optional `?w=`. The tiers are fixed: **160, 320 and 640** (longest
-side, in px). With no `w`, the original is served.
+Both person serve routes take an optional `?w=`. The tiers are fixed: **160, 320 and 640**. A tier
+is the output **width** in px, not the longest side, so a `srcset` `w` descriptor is exact for every
+role and ratio. With no `w`, the original is served.
 
 - **Snap, never free-form.** A `w` that is not a tier snaps up to the next tier. Anything above 640,
   zero, negative or non-numeric serves the original. The set of files per image therefore stays at
@@ -84,7 +85,7 @@ side, in px). With no `w`, the original is served.
   alpha, else JPEG), and writes `{person_id}/{image_id}-w{N}{ext}` atomically. It uses a unique temp
   name per writer, so two concurrent first requests both land a whole file. Later requests stat and
   serve that file under the same immutable headers.
-- **No upscale.** When the original's longest side is at or below the tier, the original is served
+- **No upscale.** When the original's width is at or below the tier, the original is served
   and no variant file is written.
 - **Invalidation is free.** A stored original is never rewritten under its id: replace and promote
   insert a new row, so a variant can never go stale. `Remove` and `RemoveAll` clear the variants with
