@@ -34,8 +34,8 @@ Done when every small person-image surface fetches a lazily generated, disk-cach
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-20 · contract locked
-- skills: architecture, testing-strategy
-- handoff: The contract is locked (lazy cached tiers 160/320/640 via `?w=`, snap-up, no upscale) in images.md, the spec and testing strategy; next is the backend and frontend lanes in parallel sessions.
+- skills: architecture, testing-strategy, implement
+- handoff: Crossed into build. The contract is locked: lazy cached tiers 160/320/640 via `?w=`, with snap-up and no upscale, in images.md, the spec and the testing strategy. No sign-off was owed (design `[~]`), main is merged in, and the Draft PR is open. Start at the backend and frontend lanes.
 
 ## Dropped — newest first (the reason is the point)
 
