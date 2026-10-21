@@ -18,20 +18,20 @@ Done when every small person-image surface fetches a lazily generated, disk-cach
 - [x] spec `write-spec` → `docs/specs/**` — `people-images.md` "Image size per surface"
 - [x] architecture `architecture` → `docs/architecture/**` — `images.md` "Person image width variants" (lazy cached tiers; eager write-time tiers rejected)
 - [~] design `design-handoff` → `docs/design/**` — no visual change: markup only (`srcset` / `sizes`), every surface looks the same
-- [ ] backend → `{cmd,internal,providers}/**` — lane A: `?w=` on both person routes, lazy variant cache, `Remove` clears variants
-- [ ] frontend → `web/src/**` — lane B: width option on the URL builders, `srcset` / `sizes` in `PersonImageFrame` and its wrappers
-- [x] testing `testing-strategy` — testing-strategy §4 row "Person image width variants"
-- [ ] security `security-review` — a public route now writes to disk: confirm the tier bound and the path discipline
+- [x] backend → `{cmd,internal,providers}/**` — `personimage.Variant` / `SnapWidth` (bounded, shared decodes), `entityimage.StoreVariant` and variant-aware `Remove`, `?w=` in `servePersonImageFile`
+- [x] frontend → `web/src/**` — `personImageSrcset.ts`, `sizes` in `PersonImageFrame` and every small-surface caller; banner, viewer and crop editor stay on the original
+- [x] testing `testing-strategy` — testing-strategy §4 row "Person image width variants"; `variant_test.go`, `person_image_variants_test.go`, `entityimage_test.go`, `personImageSrcset.test.ts`, `api.test.ts`
+- [x] security `security-review` — no request value reaches a path (`SnapWidth` → fixed tiers, ids server-assigned); variants serve only after the existing ownership checks; hard-link publish never replaces a file
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Lane A (backend) and lane B (frontend) in parallel sessions, each merging into `HOLODEX-332-person-image-widths`
-2. [ ] [—] Integrated QA on the stress fixture: `w=320` per poster card at max density; banner fetches no `w`
-3. [ ] [—] `/code-review high --fix`, `/security-review`, then mark the Draft PR ready
-4. [ ] [—] Pin images.md's "Decided in" to the squash sha after merge
-5. [ ] [—] File a Relates issue: the same width variants for studio and film images
+1. [ ] [—] Pin images.md's "Decided in" to the squash sha after #543 merges — `docs/architecture/images.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-20 · build lanes merged
+- skills: code-review, security-review, handoff
+- handoff: Backend and frontend lanes merged and QA'd together on the stress fixture: tiers serve correctly, poster cards pick `w=160`/`320`/`640` by density, the banner and viewer keep the original. Code review bounded the variant decodes; security review clean. PR #543 marked ready. Next: pin images.md's "Decided in" after merge. Studio and film variants spun out to HOLODEX-590.
 
 ### 2026-10-20 · contract locked
 - skills: architecture, testing-strategy, implement
@@ -39,4 +39,4 @@ Done when every small person-image surface fetches a lazily generated, disk-cach
 
 ## Dropped — newest first (the reason is the point)
 
-- Eager write-time tiers (the video poster model) — every ingest path plus a boot backfill, for what lazy generation gets from one code path.
+- [~] [architecture] Eager write-time tiers (the video poster model) — dropped 2026-10-20: every ingest path plus a boot backfill, for what lazy generation gets from one code path
