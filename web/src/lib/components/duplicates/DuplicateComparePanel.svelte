@@ -132,6 +132,7 @@
 					name={name}
 					version={card.headshot_version}
 					frameClass="portrait-frame--1x1 w-11 shrink-0"
+					sizes="44px"
 					eager
 				/>
 				{#each side.gallery as img (img.id)}
@@ -144,6 +145,7 @@
 						alt=""
 						version={img.version}
 						frameClass="portrait-frame--1x1 w-11 shrink-0"
+						sizes="44px"
 					/>
 				{/each}
 			{:else}

@@ -171,6 +171,9 @@ export type ResolvedPerson = Person & { role: 'actor' | 'director' };
 // free-form `extra` gallery. Mirrors model.ValidPersonImageRole on the server.
 export type PersonImageRole = 'headshot' | 'banner' | 'poster' | 'extra';
 
+// The person image routes' `?w=` tiers (HOLODEX-332): each is the output width in px.
+export type PersonImageWidth = 160 | 320 | 640;
+
 // The three single-slot core roles (the croppable, promotable slots — not the `extra`
 // gallery). Canonical list + derived type, so the role set lives in exactly one place;
 // `satisfies` guarantees every entry is a real non-extra role.

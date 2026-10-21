@@ -8,13 +8,16 @@
 		personId,
 		name,
 		version,
-		eager = false
+		eager = false,
+		sizes
 	}: {
 		personId: number;
 		name: string;
 		version?: number;
 		eager?: boolean;
+		// The width the consumer's box gives this full-width poster (see PersonImageFrame).
+		sizes: string;
 	} = $props();
 </script>
 
-<PersonImageFrame {personId} role="poster" {name} {version} {eager} frameClass="portrait-frame--2x3 w-full" />
+<PersonImageFrame {personId} role="poster" {name} {version} {eager} {sizes} frameClass="portrait-frame--2x3 w-full" />

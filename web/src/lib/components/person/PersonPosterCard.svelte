@@ -9,7 +9,8 @@
 	import PersonImageFrame from './PersonImageFrame.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 
-	let { person, eager = false }: { person: Person; eager?: boolean } = $props();
+	// `sizes` is the grid column's width, which only the grid knows (PersonPosterGrid).
+	let { person, eager = false, sizes }: { person: Person; eager?: boolean; sizes: string } = $props();
 
 	// poster_version, NOT headshot_version (P0-6) — the two image roles are independently
 	// fillable; a person can have a headshot with no poster, or vice versa.
@@ -30,6 +31,7 @@
 			name={person.display_name ?? person.name}
 			version={person.poster_version}
 			{eager}
+			{sizes}
 			frameClass={`portrait-frame--2x3 w-full poster-card-frame ${hasPoster ? 'border-transparent' : 'border-rule'} group-focus-visible:ring-2 group-focus-visible:ring-accent`}
 		/>
 		<h3 class="skin-title line-clamp-1 pt-1.5 text-sm font-medium text-ink" title={person.display_name ?? person.name}>

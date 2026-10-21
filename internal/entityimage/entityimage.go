@@ -17,10 +17,13 @@ package entityimage
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 // exts lists the on-disk extensions in lookup order (.jpg first: the overwhelmingly
@@ -96,6 +99,43 @@ func Store(dir string, entityID, imageID int64, data []byte) error {
 	return nil
 }
 
+// VariantPath is the on-disk location of a width variant of a stored original
+// (HOLODEX-332): {dir}/{entityID}/{imageID}-w{width}{ext}, a sibling of the original
+// carrying its extension. original is a path Find returned, so it is built from
+// server-assigned ids only; Find never resolves a -w file, it builds exact names.
+func VariantPath(original string, width int) string {
+	ext := filepath.Ext(original)
+	return strings.TrimSuffix(original, ext) + "-w" + strconv.Itoa(width) + ext
+}
+
+// StoreVariant writes a width variant atomically to path. Unlike Store's fixed .tmp
+// name, each writer gets its own temp file, so two concurrent first requests for the
+// same tier never write into one file. The whole temp is then published with a hard
+// link, which never replaces an existing file: the first writer's variant stands and
+// a later racer drops its identical copy. A replacing rename would do on Linux, but on
+// Windows it locks the name while it runs, so a request opening the variant in that
+// moment fails.
+func StoreVariant(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("create entity image variant temp: %w", err)
+	}
+	defer os.Remove(tmp.Name())
+	_, werr := tmp.Write(data)
+	if cerr := tmp.Close(); werr != nil || cerr != nil {
+		return fmt.Errorf("write entity image variant: %w", errors.Join(werr, cerr))
+	}
+	err = os.Link(tmp.Name(), path)
+	if err == nil || errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	// A filesystem without hard links: fall back to the replacing rename.
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("publish entity image variant: %w", err)
+	}
+	return nil
+}
+
 // RemoveAll deletes an entity's whole image directory — the purge of an entity whose
 // rows are going too (F78 RD3). A missing directory is not an error. entityID is a
 // server-assigned integer, so the path can't escape dir.
@@ -106,15 +146,35 @@ func RemoveAll(dir string, entityID int64) error {
 	return nil
 }
 
-// Remove deletes a stored image file under either extension. A missing file is not
-// an error (the row may have outlived its bytes, or a prior delete was interrupted)
-// — the DB row is the source of truth and is removed separately.
+// Remove deletes a stored image file under either extension, with its width variants
+// (and any temp a crashed variant write left). A missing file is not an error (the
+// row may have outlived its bytes, or a prior delete was interrupted) — the DB row is
+// the source of truth and is removed separately.
 func Remove(dir string, entityID, imageID int64) error {
+	// A prefix match over the listing, not filepath.Glob: the data dir is config and may
+	// hold glob metacharacters.
+	// A failure on one file never stops the rest: a variant held open by a reader on
+	// Windows must not leave the original behind.
+	sub := entityDir(dir, entityID)
+	var paths []string
 	for _, ext := range exts {
-		err := os.Remove(Path(dir, entityID, imageID, ext))
-		if err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove entity image: %w", err)
+		paths = append(paths, Path(dir, entityID, imageID, ext))
+	}
+	var errs error
+	entries, err := os.ReadDir(sub)
+	if err != nil && !os.IsNotExist(err) {
+		errs = fmt.Errorf("list entity images: %w", err)
+	}
+	prefix := strconv.FormatInt(imageID, 10) + "-w"
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), prefix) {
+			paths = append(paths, filepath.Join(sub, e.Name()))
 		}
 	}
-	return nil
+	for _, p := range paths {
+		if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+			errs = errors.Join(errs, fmt.Errorf("remove entity image: %w", err))
+		}
+	}
+	return errs
 }

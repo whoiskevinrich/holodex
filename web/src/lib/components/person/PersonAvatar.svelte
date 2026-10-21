@@ -17,7 +17,12 @@
 		eager?: boolean;
 	} = $props();
 
-	const widths: Record<typeof size, string> = { sm: 'w-12', md: 'w-20', lg: 'w-32' };
+	// Each size's width class and the same width in px for the image's `sizes` (HOLODEX-332).
+	const widths: Record<typeof size, { cls: string; px: string }> = {
+		sm: { cls: 'w-12', px: '48px' },
+		md: { cls: 'w-20', px: '80px' },
+		lg: { cls: 'w-32', px: '128px' }
+	};
 </script>
 
 <PersonImageFrame
@@ -26,5 +31,6 @@
 	{name}
 	{version}
 	{eager}
-	frameClass={`portrait-frame--1x1 ${widths[size]}`}
+	frameClass={`portrait-frame--1x1 ${widths[size].cls}`}
+	sizes={widths[size].px}
 />

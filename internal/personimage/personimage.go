@@ -24,6 +24,14 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"sync"
+
+	"golang.org/x/image/draw"
 
 	// Register the decoders Normalize sniffs for — jpeg/png/gif from the stdlib, all
 	// re-encoded to jpeg or png on the way in. webp (F42) comes from
@@ -115,16 +123,26 @@ func normalize(input []byte, maxOutDimension int, keepAlpha bool) (out []byte, w
 		img = downscale(img, maxOutDimension)
 	}
 
-	var buf bytes.Buffer
-	if keepAlpha && !opaque(img) {
-		if err := png.Encode(&buf, img); err != nil {
-			return nil, 0, 0, fmt.Errorf("encode png: %w", err)
-		}
-	} else if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: jpegQuality}); err != nil {
-		return nil, 0, 0, fmt.Errorf("encode jpeg: %w", err)
+	out, err = encode(img, keepAlpha && !opaque(img))
+	if err != nil {
+		return nil, 0, 0, err
 	}
 	b := img.Bounds()
-	return buf.Bytes(), b.Dx(), b.Dy(), nil
+	return out, b.Dx(), b.Dy(), nil
+}
+
+// encode is the spine's encoder: PNG (lossless, alpha intact) when asPNG, else JPEG
+// at jpegQuality. Neither stdlib encoder writes EXIF/XMP/ICC.
+func encode(img image.Image, asPNG bool) ([]byte, error) {
+	var buf bytes.Buffer
+	if asPNG {
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, fmt.Errorf("encode png: %w", err)
+		}
+	} else if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: jpegQuality}); err != nil {
+		return nil, fmt.Errorf("encode jpeg: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 // opaque reports whether every pixel is fully opaque. Every stdlib and x/image
@@ -139,9 +157,9 @@ func opaque(img image.Image) bool {
 }
 
 // downscale shrinks img so its longest side is at most maxSide, preserving aspect
-// ratio, via nearest-neighbour sampling (stdlib-only; quality is adequate for small
-// portraits, so it does not reach for golang.org/x/image/draw even though x/image is
-// now on the module graph for webp decoding). Images already within bounds are
+// ratio, via nearest-neighbour sampling (stdlib-only; quality is adequate for the
+// ingest cap's mild reductions). The served width variants downscale much further and
+// use x/image/draw CatmullRom instead (Variant). Images already within bounds are
 // returned unchanged.
 func downscale(img image.Image, maxSide int) image.Image {
 	b := img.Bounds()
@@ -172,6 +190,111 @@ func downscale(img image.Image, maxSide int) image.Image {
 		}
 	}
 	return dst
+}
+
+// Tiers are the served width variants, ascending (HOLODEX-332). A tier is the output
+// width in px; the height follows the aspect ratio.
+var Tiers = []int{160, 320, 640}
+
+// SnapWidth maps a request's ?w= to a tier: a non-tier value snaps up to the next
+// tier. Empty, non-numeric, zero, negative and anything above the largest tier return
+// 0, meaning "serve the original" — so a crafted w can never mint a new file.
+func SnapWidth(raw string) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	for _, t := range Tiers {
+		if n <= t {
+			return t
+		}
+	}
+	return 0
+}
+
+// Variant returns the path to serve for a tier of a stored original (a path Find
+// returned), generating the variant on its first request (HOLODEX-332): decode,
+// downscale to width with CatmullRom, re-encode, and write it atomically beside the
+// original. An original at or below width is returned as is and no file is written.
+//
+// The variant keeps the original's format: a stored .png is the alpha path, so its
+// variant stays PNG even if the downscale happened to blend every edge opaque. That
+// keeps the cached name deterministic from the original alone. The original is our own
+// normalized output, bounded by the ingest bomb guard, so it is decoded without one.
+//
+// Generation is bounded: concurrent requests for one variant share a single decode,
+// and at most NumCPU decodes run at once, so a first view of a dense grid (or a client
+// walking every image's tiers) cannot stack full-size decodes in memory.
+func Variant(original string, width int) (string, error) {
+	dst := entityimage.VariantPath(original, width)
+	if _, err := os.Stat(dst); err == nil {
+		return dst, nil
+	}
+	variantMu.Lock()
+	if c, ok := variantInflight[dst]; ok {
+		variantMu.Unlock()
+		<-c.done
+		return c.path, c.err
+	}
+	c := &variantCall{done: make(chan struct{})}
+	variantInflight[dst] = c
+	variantMu.Unlock()
+
+	variantSlots <- struct{}{}
+	c.path, c.err = generateVariant(original, dst, width)
+	<-variantSlots
+
+	variantMu.Lock()
+	delete(variantInflight, dst)
+	variantMu.Unlock()
+	close(c.done)
+	return c.path, c.err
+}
+
+// variantCall is one in-flight generation; waiters read path and err once done closes.
+type variantCall struct {
+	done chan struct{}
+	path string
+	err  error
+}
+
+var (
+	variantMu       sync.Mutex
+	variantInflight = map[string]*variantCall{}
+	variantSlots    = make(chan struct{}, runtime.NumCPU())
+)
+
+func generateVariant(original, dst string, width int) (string, error) {
+	f, err := os.Open(original)
+	if err != nil {
+		return "", fmt.Errorf("open person image: %w", err)
+	}
+	defer f.Close()
+	cfg, _, err := image.DecodeConfig(f)
+	if err != nil {
+		return "", fmt.Errorf("decode person image config: %w", err)
+	}
+	if cfg.Width <= width {
+		return original, nil
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return "", fmt.Errorf("rewind person image: %w", err)
+	}
+	src, _, err := image.Decode(f)
+	if err != nil {
+		return "", fmt.Errorf("decode person image: %w", err)
+	}
+	h := max((cfg.Height*width+cfg.Width/2)/cfg.Width, 1)
+	scaled := image.NewRGBA(image.Rect(0, 0, width, h))
+	draw.CatmullRom.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Src, nil)
+	data, err := encode(scaled, filepath.Ext(original) == ".png")
+	if err != nil {
+		return "", err
+	}
+	if err := entityimage.StoreVariant(dst, data); err != nil {
+		return "", err
+	}
+	return dst, nil
 }
 
 // Store writes normalized JPEG/PNG bytes to their id-named path under {dir}/{personID},

@@ -46,6 +46,7 @@ import type {
 	PeopleTagSort,
 	PersonImageRole,
 	PersonImageSet,
+	PersonImageWidth,
 	ReadbackGap,
 	RefreshAllResult,
 	RefreshReport,
@@ -371,6 +372,17 @@ function entityListQuery(o: EntityListOpts): string {
 	});
 }
 
+// The person image routes' query: `v` busts the immutable cache after a replace, `w` asks for
+// a width tier (HOLODEX-332). With neither, the URL is the bare route.
+type PersonImageURLOpts = { version?: number; width?: PersonImageWidth };
+
+function personImageQuery(opts?: PersonImageURLOpts): string {
+	const q = [opts?.version ? `v=${opts.version}` : '', opts?.width ? `w=${opts.width}` : '']
+		.filter(Boolean)
+		.join('&');
+	return q ? `?${q}` : '';
+}
+
 export const api = {
 	listMedia: (f: MediaFilters = {}, fetchFn?: typeof fetch) =>
 		get<MediaListResponse>(`/media${buildQuery(f)}`, fetchFn),
@@ -502,14 +514,15 @@ export const api = {
 
 	// Person images (F25, ADR-038). Reads are public; a filled role serves the real
 	// JPEG, an empty one a themed placeholder (the server picks the silhouette from the
-	// person's gender). Pass version for the immutable cache-bust after a replace.
-	personImageURL: (id: number, role: PersonImageRole, opts?: { version?: number }): string =>
-		`${BASE}/people/${id}/image/${role}${opts?.version ? `?v=${opts.version}` : ''}`,
+	// person's gender). Pass version for the immutable cache-bust after a replace, and
+	// width for a downsized tier (no width = the original).
+	personImageURL: (id: number, role: PersonImageRole, opts?: PersonImageURLOpts): string =>
+		`${BASE}/people/${id}/image/${role}${personImageQuery(opts)}`,
 
 	// A specific gallery image by id, version-stamped for the immutable cache. Mirrors
-	// personImageURL's opts so callers don't hand-append the version query.
-	personGalleryImageURL: (id: number, imageId: number, opts?: { version?: number }): string =>
-		`${BASE}/people/${id}/images/${imageId}${opts?.version ? `?v=${opts.version}` : ''}`,
+	// personImageURL's opts so callers don't hand-append the query.
+	personGalleryImageURL: (id: number, imageId: number, opts?: PersonImageURLOpts): string =>
+		`${BASE}/people/${id}/images/${imageId}${personImageQuery(opts)}`,
 
 	// Owner-gated mutations (ADR-030). Upload posts a multipart {image, role};
 	// 409 surfaces "gallery is full" via uploadAuthed's error. allowOverCap lets the
