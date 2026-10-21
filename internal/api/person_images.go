@@ -91,13 +91,23 @@ func (h *Handlers) servePersonImageByID(w http.ResponseWriter, r *http.Request) 
 // immutable long-lived cache: the URL carries the image id (and the caller appends
 // ?v=), and a replaced core slot gets a NEW id, so a stale image is never pinned.
 // A missing file is a 404 (the row outlived its bytes — shouldn't happen, but fail
-// closed rather than serve garbage).
+// closed rather than serve garbage). A `?w=` snaps to a width tier and serves that
+// variant, generated on first request (HOLODEX-332); a variant that fails to generate
+// is logged and the original served instead, so a card degrades to a heavier image
+// rather than a broken one.
 func (h *Handlers) servePersonImageFile(w http.ResponseWriter, r *http.Request, personID, imageID int64) {
 	if h.personImageDir == "" {
 		writeError(w, http.StatusNotFound, "image not available")
 		return
 	}
 	path, err := personimage.Find(h.personImageDir, personID, imageID)
+	if tier := personimage.SnapWidth(r.URL.Query().Get("w")); err == nil && tier > 0 {
+		if v, verr := personimage.Variant(path, tier); verr == nil {
+			path = v
+		} else {
+			h.log.Warn("person image variant failed", "person", personID, "image", imageID, "w", tier, "err", verr)
+		}
+	}
 	serveEntityImageFile(w, r, path, err)
 }
 
