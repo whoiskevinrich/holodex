@@ -8,8 +8,9 @@
 	// Tokens only; QA Cinémathèque.
 	import { onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
-	import type { PersonImage } from '#lib/types.ts';
+	import type { PersonImage, PersonImageWidth } from '#lib/types.ts';
 	import Modal from '#lib/components/shared/Modal.svelte';
+	import { personImageSrcset } from './personImageSrcset.ts';
 
 	let {
 		personId,
@@ -34,9 +35,15 @@
 		dialogEl?.querySelector<HTMLElement>('ul button')?.focus();
 	});
 
-	function thumbSrc(img: PersonImage): string {
-		return api.personGalleryImageURL(personId, img.id, { version: img.version });
+	function thumbSrc(img: PersonImage, width?: PersonImageWidth): string {
+		return api.personGalleryImageURL(personId, img.id, { version: img.version, width });
 	}
+
+	// One grid column (HOLODEX-332): Modal's `media` panel caps at max-w-5xl (1024px), less its
+	// p-4 (32px) and the grid's gap-3 gaps (12px each), split over 3 / 4 (sm) / 6 (md) columns.
+	const THUMB_SIZES =
+		'(min-width: 1024px) 156px, (min-width: 768px) calc((100vw - 92px) / 6), ' +
+		'(min-width: 640px) calc((100vw - 68px) / 4), calc((100vw - 56px) / 3)';
 </script>
 
 <Modal titleId="gallery-modal-title" {onclose} size="media" align="center" bind:panel={dialogEl}>
@@ -65,6 +72,8 @@
 						class="block aspect-[3/4] w-full overflow-hidden rounded-theme border border-rule bg-surface-2"
 					>
 						<img
+							srcset={personImageSrcset((w) => thumbSrc(img, w), img.width)}
+							sizes={THUMB_SIZES}
 							src={thumbSrc(img)}
 							alt={`${name} — gallery image ${i + 1}`}
 							loading="lazy"

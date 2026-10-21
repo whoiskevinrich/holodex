@@ -90,7 +90,7 @@
 						<div class="rounded-theme transition group-hover:opacity-90">
 							<!-- poster_version is the ?v= cache-buster: the image route is served
 							     immutable, so a versionless URL would pin the first poster forever. -->
-							<PersonPoster personId={p.id} name={p.display_name ?? p.name} version={p.poster_version} />
+							<PersonPoster personId={p.id} name={p.display_name ?? p.name} version={p.poster_version} sizes="80px" />
 						</div>
 					{/snippet}
 				</PosterTile>

@@ -9,7 +9,8 @@
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { toMessage } from '#lib/format.ts';
-	import { CORE_ROLES, type CoreRole, type PersonImage } from '#lib/types.ts';
+	import { CORE_ROLES, type CoreRole, type PersonImage, type PersonImageWidth } from '#lib/types.ts';
+	import { personImageSrcset } from './personImageSrcset.ts';
 	import CropEditor from '../writeback/CropEditor.svelte';
 	import PersonGalleryModal from './PersonGalleryModal.svelte';
 	import PersonImageViewer from './PersonImageViewer.svelte';
@@ -72,8 +73,14 @@
 		}
 	}
 
-	function thumbSrc(img: PersonImage): string {
-		return api.personGalleryImageURL(personId, img.id, { version: img.version });
+	function thumbSrc(img: PersonImage, width?: PersonImageWidth): string {
+		return api.personGalleryImageURL(personId, img.id, { version: img.version, width });
+	}
+
+	// A thumb is `h-40` (160px) tall with its width from the image's own aspect, so its
+	// rendered width is known per image (HOLODEX-332).
+	function thumbSizes(img: PersonImage): string {
+		return `${Math.ceil((160 * img.width) / img.height)}px`;
 	}
 
 	// Open the file picker; overCap=true marks the batch as an explicit over-cap add.
@@ -168,6 +175,8 @@
 					     so the gallery would never load. The gallery is a small bounded set (≤20). -->
 					<button onclick={() => openViewer(i)} aria-label={`${name} — gallery image ${i + 1}`} class="block">
 						<img
+							srcset={personImageSrcset((w) => thumbSrc(img, w), img.width)}
+							sizes={thumbSizes(img)}
 							src={thumbSrc(img)}
 							alt={`${name} — gallery image ${i + 1}`}
 							loading="eager"

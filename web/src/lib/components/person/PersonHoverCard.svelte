@@ -63,6 +63,7 @@
 					name={shownName}
 					version={card.headshot_version}
 					frameClass="portrait-frame--1x1 w-12"
+					sizes="48px"
 					eager
 				/>
 			{:else}

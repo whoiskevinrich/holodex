@@ -544,6 +544,7 @@
 									alt={`${person?.name ?? ''}'s poster`}
 									version={roleVersion('poster')}
 									frameClass="portrait-frame--2x3 h-36 w-auto sm:h-44"
+									sizes="(min-width: 640px) 118px, 96px"
 									eager
 								/>
 								{@render editBtn('poster', 'right-1 top-1')}
@@ -556,6 +557,7 @@
 										name={person?.name ?? ''}
 										version={roleVersion('headshot')}
 										frameClass="portrait-frame--1x1 h-16 w-16 sm:h-20 sm:w-20"
+										sizes="(min-width: 640px) 80px, 64px"
 										eager
 									/>
 									{@render editBtn('headshot', '-bottom-1 -right-1', true)}
@@ -570,6 +572,7 @@
 								name={person?.name ?? ''}
 								version={roleVersion('headshot')}
 								frameClass="portrait-frame--1x1 h-28 w-auto sm:h-36"
+								sizes="(min-width: 640px) 144px, 112px"
 								eager
 							/>
 							{@render editBtn('headshot', 'bottom-1 right-1')}

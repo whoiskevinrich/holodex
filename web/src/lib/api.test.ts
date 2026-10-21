@@ -2,13 +2,24 @@ import { afterEach, describe, it, expect, vi } from 'vitest';
 import { api, ApiError, ENRICH_ENTITY_BASE } from './api';
 import { runEnrichRefresh, runEnrichRefreshAll } from './enrichRefresh';
 
-// Person image serving URLs (F25, ADR-038). The only query is the `?v=` cache-buster,
-// appended when a version is known — a replaced core slot gets a new version and so a
-// new, non-cached URL. There is no `?skin=` any more: Cinémathèque is the only look
-// (ADR-115), so the empty-slot placeholder never varies.
+// Person image serving URLs (F25, ADR-038). The query is the `?v=` cache-buster, appended
+// when a version is known — a replaced core slot gets a new version and so a new,
+// non-cached URL — and the `?w=` width tier, only when a caller asks for one (HOLODEX-332).
+// There is no `?skin=` any more: Cinémathèque is the only look (ADR-115), so the
+// empty-slot placeholder never varies.
 describe('personImageURL', () => {
 	it('stamps the version', () => {
 		expect(api.personImageURL(7, 'headshot', { version: 42 })).toBe('/api/v1/people/7/image/headshot?v=42');
+	});
+
+	it('appends the width tier after the version', () => {
+		expect(api.personImageURL(7, 'poster', { version: 42, width: 320 })).toBe(
+			'/api/v1/people/7/image/poster?v=42&w=320'
+		);
+	});
+
+	it('appends the width alone when there is no version', () => {
+		expect(api.personImageURL(7, 'poster', { width: 160 })).toBe('/api/v1/people/7/image/poster?w=160');
 	});
 
 	it('omits the query entirely with no opts', () => {
@@ -23,6 +34,12 @@ describe('personImageURL', () => {
 describe('personGalleryImageURL', () => {
 	it('stamps the version when present', () => {
 		expect(api.personGalleryImageURL(5, 88, { version: 88 })).toBe('/api/v1/people/5/images/88?v=88');
+	});
+
+	it('appends the width tier when asked', () => {
+		expect(api.personGalleryImageURL(5, 88, { version: 88, width: 640 })).toBe(
+			'/api/v1/people/5/images/88?v=88&w=640'
+		);
 	});
 
 	it('omits the query when no opts', () => {
