@@ -5018,6 +5018,8 @@ the search clause returns 0 rows for `ZUL`.
 
 **Unit, web (`web/src/lib/pagedList.test.ts`).** `PagedList`:
 - pages through every entry once, announces each page, and asks for letters only on a fresh load;
+- `count()` reads `limit=1` and leaves the list empty, a refresh keeps it only counted, and the
+  first Load more reads the first page (HOLODEX-589, the /tags All tab's categories);
 - restarts at a letter and continues Load more from there, and `jump('')` returns to the top;
 - restores a saved run with its letter;
 - keeps the loaded entries when a Load more fails;
@@ -5046,11 +5048,23 @@ What was exercised:
 - Tags' 10th Load more crossed from the last tag into the first 200 categories, with 1,800 left.
 - Random films tiled 100 unique cards over two pages.
 
+**Follow-ups, HOLODEX-589, live QA 2026-10-20 on the same fixture.**
+- The tag list read no longer carries aliases (the tag detail page has them). A 200-pill page
+  went from 31KB to 19.6KB. The rest is about 100 bytes of id, name, count and `ref` per pill,
+  so it stays over 15KB, a target set for 50-row pages. `TestEntityAliases` now asserts that
+  `ListTags` leaves aliases out and `GetTag` keeps them.
+- The All tab reads `categories?limit=1` up front. The click that shows the last tags also reads
+  the first 200 categories: the 9th Load more showed all 2,037 tags and 200 categories. The Tags
+  tab reads no categories.
+- In Manage mode, the last Load more focuses the first new pill: a tag's select button on the
+  Tags tab (index 2,000), a category link on the All tab (index 3,837). Every pill's focus
+  target carries `data-pill`.
+- Browse, `EntityVideos`, playlists and the five owner queues render `LoadMoreButton`.
+  Completeness says "Loading…" only on the clicked group and holds its siblings disabled.
+- `attachPersonDisplayNames` was measured and left alone. `DisplayNames` reads only entities
+  with a name decision, through the decisions table's covering index. The `-big` fixture has 0
+  of them against 2,064 people, and `/people` answered in 3–15ms.
+
 **Standing gaps.**
-- `/tags` is 31KB per 200-pill page, over the spec's 15KB target, because every tag carries its
-  aliases.
-- On the All tab, `/tags` reads 200 categories up front just to know the remaining count.
-- In Manage mode on `/tags`, the last Load more leaves focus nowhere, because tag pills there are
-  buttons, not links.
 - Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
   would need a paged-list scenario.

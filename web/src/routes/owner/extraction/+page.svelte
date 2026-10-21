@@ -7,6 +7,7 @@
 	// tag"/"Dismiss" never touch the file and resolve immediately in place; the other
 	// actions stage a pending write the owner commits via the sticky commit bar's
 	// preview dialog (F48.7a). Tokens only; QA Cinémathèque.
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
 	import ExtractionQueueRow from '#lib/components/extraction/ExtractionQueueRow.svelte';
@@ -247,15 +248,7 @@
 				{/each}
 			</section>
 		{/each}
-		{#if groups.length < groupTotal}
-			<div class="flex justify-center">
-				<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-					{loadingMore
-						? 'Loading…'
-						: `Load more (${groupTotal - groups.length} video${groupTotal - groups.length === 1 ? '' : 's'} left)`}
-				</button>
-			</div>
-		{/if}
+		<LoadMoreButton left={groupTotal - groups.length} loading={loadingMore} noun="video" onclick={loadMore} class="" />
 
 		<!-- Commit bar. Sticky and unconditionally mounted whenever there are rows, so
 		     staging the first pick doesn't shift the queue and the write control stays

@@ -410,7 +410,7 @@ POST   /people|studios|tags/{id}/aliases          {"alias":"…"}   → 200 {ali
 DELETE /people|studios|tags/{id}/aliases/{aliasId}                 → 204 | 404
 POST   /people|studios|tags/{id}/merge            {"from_id":N}    → 200 {entity}      (self-merge → 400)
 POST   /people|studios|tags/{id}/rename           {"name":"…"}     → 200 {entity} | 409 {conflict:…}
-GET    /studios/{id} | /tags?…                                     aliases included in the payload (public)
+GET    /studios/{id} | /tags/{id}                                  aliases included in the payload (public; the /tags list leaves them out, HOLODEX-589)
 GET    /owner/duplicates                                           → {pairs:[{entity_type,a,b,variation}]} (owner)   [P1]
 POST   /owner/duplicates/dismiss                  {entity_type,id_a,id_b} → 204 (records keep-separate)         [P1]
 ```

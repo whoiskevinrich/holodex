@@ -208,7 +208,7 @@ export interface Tag {
 	name: string;
 	video_count?: number;
 	// Owner-curated alternate names (F43, ADR-061), each searchable. Present on the
-	// /tags list and the tag-detail read; omitted (undefined) elsewhere.
+	// tag-detail read only; omitted (undefined) elsewhere, the /tags list included.
 	aliases?: PersonAlias[];
 	// Per-video provenance — "file" | "manual" | "provider:<name>" (F50, ADR-075 D3).
 	// Present only on Video.tags; absent elsewhere (no single video context for it).
