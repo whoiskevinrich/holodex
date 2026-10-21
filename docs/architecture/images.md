@@ -81,9 +81,11 @@ role and ratio. With no `w`, the original is served.
   zero, negative or non-numeric serves the original. The set of files per image therefore stays at
   most four, and a crafted `w` cannot fill the disk.
 - **Lazy and cached.** The first request for a tier decodes the stored original, downscales it with
-  `x/image/draw` CatmullRom, re-encodes it through the normalization spine's encoder choice (PNG when
-  alpha, else JPEG), and writes `{person_id}/{image_id}-w{N}{ext}` atomically. It uses a unique temp
-  name per writer, so two concurrent first requests both land a whole file. Later requests stat and
+  `x/image/draw` CatmullRom, re-encodes it in the original's format (a `.png` original is the alpha
+  path, so its variants stay PNG; a `.jpg` stays JPEG), and writes `{person_id}/{image_id}-w{N}{ext}`
+  atomically from a unique temp per writer, published by hard link so an existing variant is never
+  replaced under a reader. Concurrent requests for one variant share a single decode, and at most
+  `NumCPU` decodes run at once, so an unauthenticated burst cannot stack full-size decodes in memory. Later requests stat and
   serve that file under the same immutable headers.
 - **No upscale.** When the original's width is at or below the tier, the original is served
   and no variant file is written.

@@ -27,7 +27,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"sync"
 
 	"golang.org/x/image/draw"
 
@@ -219,11 +221,50 @@ func SnapWidth(raw string) int {
 // variant stays PNG even if the downscale happened to blend every edge opaque. That
 // keeps the cached name deterministic from the original alone. The original is our own
 // normalized output, bounded by the ingest bomb guard, so it is decoded without one.
+//
+// Generation is bounded: concurrent requests for one variant share a single decode,
+// and at most NumCPU decodes run at once, so a first view of a dense grid (or a client
+// walking every image's tiers) cannot stack full-size decodes in memory.
 func Variant(original string, width int) (string, error) {
 	dst := entityimage.VariantPath(original, width)
 	if _, err := os.Stat(dst); err == nil {
 		return dst, nil
 	}
+	variantMu.Lock()
+	if c, ok := variantInflight[dst]; ok {
+		variantMu.Unlock()
+		<-c.done
+		return c.path, c.err
+	}
+	c := &variantCall{done: make(chan struct{})}
+	variantInflight[dst] = c
+	variantMu.Unlock()
+
+	variantSlots <- struct{}{}
+	c.path, c.err = generateVariant(original, dst, width)
+	<-variantSlots
+
+	variantMu.Lock()
+	delete(variantInflight, dst)
+	variantMu.Unlock()
+	close(c.done)
+	return c.path, c.err
+}
+
+// variantCall is one in-flight generation; waiters read path and err once done closes.
+type variantCall struct {
+	done chan struct{}
+	path string
+	err  error
+}
+
+var (
+	variantMu       sync.Mutex
+	variantInflight = map[string]*variantCall{}
+	variantSlots    = make(chan struct{}, runtime.NumCPU())
+)
+
+func generateVariant(original, dst string, width int) (string, error) {
 	f, err := os.Open(original)
 	if err != nil {
 		return "", fmt.Errorf("open person image: %w", err)
