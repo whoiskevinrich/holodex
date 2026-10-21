@@ -15,6 +15,9 @@
 	let { people, empty = 'No people.' }: { people: Person[]; empty?: string } = $props();
 
 	const cols = $derived(posterColumns());
+	// One column's width for the posters' `sizes` (HOLODEX-332): the viewport less the layout's
+	// `<main class="px-6">` gutters (48px) and this grid's `gap-4` gaps (16px each), split N ways.
+	const sizes = $derived(`calc((100vw - ${48 + 16 * (cols - 1)}px) / ${cols})`);
 </script>
 
 {#if people.length === 0}
@@ -25,7 +28,7 @@
 		style={`grid-template-columns: repeat(${cols}, minmax(0, 1fr))`}
 	>
 		{#each people as person, i (person.id)}
-			<PersonPosterCard {person} eager={i < cols} />
+			<PersonPosterCard {person} eager={i < cols} {sizes} />
 		{/each}
 	</div>
 {/if}
