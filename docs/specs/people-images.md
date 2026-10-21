@@ -372,6 +372,20 @@ column/route names are settled in the new ADR.
 - **Read model**: the person payload gives the frontend, per role, whether a real image exists and the
   current `?v=` stamp (and the ordered gallery image ids) — without leaking filesystem detail.
 
+### Image size per surface (HOLODEX-332)
+
+A person image is fetched at a size that fits where it is shown, not at its stored size.
+
+- **Small surfaces get a downsized copy.** Every avatar, poster card, cast tile, hover card, queue
+  row and gallery thumbnail loads a copy whose width is within about 2× its rendered width on the
+  viewer's display. The 2× covers high-density screens. A poster card at the People index's densest
+  grid therefore downloads a few hundred pixels, not the stored original.
+- **Full-resolution surfaces are unchanged.** The person-page banner, the image viewer and the crop
+  editor always load the original.
+- **No visible quality loss.** At its rendered size, a downsized copy looks the same as the original.
+- **Nothing to manage.** The owner never sees, chooses or regenerates a size. Replacing, promoting or
+  deleting an image behaves exactly as it does today, and a replaced image never shows an old copy.
+
 ---
 
 ## Access control & security

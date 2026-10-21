@@ -71,6 +71,37 @@ Each store has a public typed route; mutations sit behind `requireOwner`.
 
 Decided in [`0ebf20ef`](https://github.com/whoiskevinrich/holodex/commit/0ebf20ef).
 
+## Person image width variants: lazy, disk-cached, fixed tiers
+
+Both person serve routes take an optional `?w=`. The tiers are fixed: **160, 320 and 640** (longest
+side, in px). With no `w`, the original is served.
+
+- **Snap, never free-form.** A `w` that is not a tier snaps up to the next tier. Anything above 640,
+  zero, negative or non-numeric serves the original. The set of files per image therefore stays at
+  most four, and a crafted `w` cannot fill the disk.
+- **Lazy and cached.** The first request for a tier decodes the stored original, downscales it with
+  `x/image/draw` CatmullRom, re-encodes it through the normalization spine's encoder choice (PNG when
+  alpha, else JPEG), and writes `{person_id}/{image_id}-w{N}{ext}` atomically. It uses a unique temp
+  name per writer, so two concurrent first requests both land a whole file. Later requests stat and
+  serve that file under the same immutable headers.
+- **No upscale.** When the original's longest side is at or below the tier, the original is served
+  and no variant file is written.
+- **Invalidation is free.** A stored original is never rewritten under its id: replace and promote
+  insert a new row, so a variant can never go stale. `Remove` and `RemoveAll` clear the variants with
+  the original. `Find` builds exact paths, so a `-w{N}` file is never mistaken for an original.
+- **The SPA picks the tier** with `srcset` / `sizes`. Full-resolution surfaces (the banner, image
+  viewer and crop editor) request no `w`.
+
+**Rejected:** eager tiers written at ingest, the video poster model
+([media-ingest.md](media-ingest.md)). Every ingest path (upload, promote, the enrichment sink) would
+have to write the tiers, and the existing images would need a boot-time backfill. Lazy generation
+covers both with one code path, at the cost of one decode on a tier's first view.
+**Rejected:** resize per request with no cache — a decode on every view of every card.
+**Rejected:** the existing nearest-neighbour `downscale` for variants — it aliases visibly at the 6×
+to 12× reductions the tiers ask for.
+
+Decided in HOLODEX-332 (squash pending).
+
 ## Entity-generic asset orchestration over per-entity stores
 
 `enrich.Service.downloadAssets` and `enrich.ImageSink` take a leading `entityType`;
