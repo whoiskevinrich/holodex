@@ -103,7 +103,7 @@ covers both with one code path, at the cost of one decode on a tier's first view
 **Rejected:** the existing nearest-neighbour `downscale` for variants — it aliases visibly at the 6×
 to 12× reductions the tiers ask for.
 
-Decided in HOLODEX-332 (squash pending).
+Decided in [`3ef196a9`](https://github.com/whoiskevinrich/holodex/commit/3ef196a9) (HOLODEX-332).
 
 ## Entity-generic asset orchestration over per-entity stores
 

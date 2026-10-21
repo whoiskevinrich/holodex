@@ -25,7 +25,6 @@ Done when every small person-image surface fetches a lazily generated, disk-cach
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Pin images.md's "Decided in" to the squash sha after #543 merges — `docs/architecture/images.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
