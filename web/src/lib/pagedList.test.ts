@@ -32,6 +32,21 @@ describe('PagedList', () => {
 		expect(fetch.mock.calls.map((c) => c[2])).toEqual([true, false, false]);
 	});
 
+	it('counts without loading, then Load more reads the first page (HOLODEX-589)', async () => {
+		const fetch = server();
+		const list = new PagedList(fetch, 3);
+		await list.count();
+		expect(list.items).toEqual([]);
+		expect(list.left).toBe(7);
+		expect(fetch.mock.calls[0]).toEqual([0, 1, false]);
+		await list.refresh(); // a counted list stays counted
+		expect(list.items).toEqual([]);
+		expect(fetch.mock.calls[1]).toEqual([0, 1, false]);
+		expect(await list.loadMore()).toBe(0);
+		expect(list.items).toEqual(['a', 'b', 'c']);
+		expect(list.left).toBe(4);
+	});
+
 	it('restarts at a letter, and Load more continues from there', async () => {
 		const list = new PagedList(server(), 2);
 		await list.load();

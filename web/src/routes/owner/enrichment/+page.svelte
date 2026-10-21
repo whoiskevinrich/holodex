@@ -6,6 +6,7 @@
 	// $derived groups, $effect load-once — except rows update chips in place on
 	// resolve instead of dropping out (the handoff's Animation/Motion table). Tokens
 	// only; QA Cinémathèque.
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
 	import { groupByKind } from '#lib/entityGroups.ts';
@@ -165,12 +166,6 @@
 			</section>
 		{/each}
 		{#if moreError}<p class="text-sm text-warn" role="alert">{moreError}</p>{/if}
-		{#if stillQueued < total}
-			<div class="flex justify-center">
-				<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-					{loadingMore ? 'Loading…' : `Load more (${total - stillQueued} left)`}
-				</button>
-			</div>
-		{/if}
+		<LoadMoreButton left={total - stillQueued} loading={loadingMore} onclick={loadMore} class="" />
 	{/if}
 </div>

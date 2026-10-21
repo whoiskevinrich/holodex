@@ -1495,18 +1495,14 @@ func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	// Attach owner-curated aliases (F43, ADR-061) in one batch — tags have no detail
-	// page, so the list is where the owner sees and manages them (RD7).
+	// No aliases here: the tag detail page shows and manages them (HOLODEX-507), and a
+	// 200-pill page carrying them was twice F80's 15KB target (HOLODEX-589).
 	ids := make([]int64, len(out))
 	for i, t := range out {
 		ids[i] = t.ID
 	}
-	byTag, err := r.AliasesForEntities(ctx, model.EntityTag, ids)
-	if err != nil {
-		return nil, err
-	}
 	// parent_tag_id isn't part of namedCountQuery (shared with ListStudios, which
-	// has no such column) -- attach it in its own batch, same pattern as aliases.
+	// has no such column) -- attach it in its own batch.
 	parents, err := r.tagParents(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -1518,7 +1514,6 @@ func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model
 		return nil, err
 	}
 	for i := range out {
-		out[i].Aliases = byTag[out[i].ID]
 		out[i].ParentTagID = parents[out[i].ID]
 		out[i].WritebackEnabled = writebackEnabled[out[i].ID]
 	}

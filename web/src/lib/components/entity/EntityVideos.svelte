@@ -1,4 +1,5 @@
 <script lang="ts">
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
@@ -127,7 +128,6 @@
 	const emptyMessage = $derived(videoQuery ? `No videos match “${videoQuery}”.` : empty);
 	// The current query's match count; equals `total` when no title filter is set.
 	let matched = $state(0);
-	const hasMore = $derived(videos.length < matched);
 
 	function applyCount(f: MediaFilters, n: number) {
 		matched = n;
@@ -312,13 +312,7 @@
 				</div>
 			{/if}
 			<VideoGrid {videos} empty={emptyMessage} />
-			{#if hasMore}
-				<div class="flex justify-center pt-4">
-					<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-						{loadingMore ? 'Loading…' : `Load more (${matched - videos.length} left)`}
-					</button>
-				</div>
-			{/if}
+			<LoadMoreButton left={matched - videos.length} loading={loadingMore} onclick={loadMore} />
 		{/if}
 	</div>
 	{#if footer}{@render footer()}{/if}

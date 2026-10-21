@@ -7,6 +7,7 @@
 	// a two-column compare panel (F70, HOLODEX-451); this page owns which one is open so
 	// only one ever is, and owns where focus lands when a row is removed under it.
 	// Tokens only; QA Cinémathèque.
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { api } from '#lib/api.ts';
@@ -238,13 +239,7 @@
 		<!-- Entity pairs page as one stream across the groups (tags first), so their Load
 		     more sits after the last group, ahead of Videos (HOLODEX-587). -->
 		{#if moreError}<p class="text-sm text-warn" role="alert">{moreError}</p>{/if}
-		{#if pairs.length < pairTotal}
-			<div class="flex justify-center">
-				<button onclick={loadMorePairs} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-					{loadingMore ? 'Loading…' : `Load more (${pairTotal - pairs.length} left)`}
-				</button>
-			</div>
-		{/if}
+		<LoadMoreButton left={pairTotal - pairs.length} loading={loadingMore} onclick={loadMorePairs} class="" />
 		{#if shownVideos.length}
 			<section class="space-y-0 rounded-theme border border-rule bg-surface">
 				<h2
@@ -266,13 +261,7 @@
 						onexpand={(v) => (openKey = v ? videoPairKey(vp) : null)}
 					/>
 				{/each}
-				{#if videoPairs.length < videoTotal}
-					<div class="flex justify-center py-3">
-						<button onclick={loadMoreVideos} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-							{loadingMore ? 'Loading…' : `Load more (${videoTotal - videoPairs.length} left)`}
-						</button>
-					</div>
-				{/if}
+				<LoadMoreButton left={videoTotal - videoPairs.length} loading={loadingMore} onclick={loadMoreVideos} class="py-3" />
 			</section>
 		{/if}
 	{/if}

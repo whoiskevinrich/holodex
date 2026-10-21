@@ -3,6 +3,7 @@
 	// Restore (safe — accent) and Delete permanently (destructive — warn, confirmed).
 	// A tab under the Owner hub (F35); the /owner gate hides it from non-owners and the
 	// API 401s. Tokens only; QA Cinémathèque.
+	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { formatAgo, formatUntil, toMessage } from '#lib/format.ts';
@@ -157,13 +158,7 @@
 						</li>
 					{/each}
 				</ul>
-				{#if items.length < total}
-					<div class="flex justify-center pt-2">
-						<button onclick={loadMore} disabled={loadingMore} class="btn-ghost px-4 py-2 text-sm">
-							{loadingMore ? 'Loading…' : `Load more (${total - items.length} left)`}
-						</button>
-					</div>
-				{/if}
+				<LoadMoreButton left={total - items.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
 			{/if}
 		</AsyncState>
 	{/if}

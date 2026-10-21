@@ -98,13 +98,16 @@ func TestTagAliasCRUD(t *testing.T) {
 	if _, err := r.AddEntityAlias(ctx, model.EntityTag, scifi, "   "); err == nil {
 		t.Error("whitespace-only tag alias accepted, want an error")
 	}
-	// The tags list carries aliases too, not only the detail read.
+	// The detail read carries the aliases; the tags list leaves them out (HOLODEX-589).
 	tags, err := r.ListTags(ctx, false)
 	if err != nil {
 		t.Fatalf("list tags: %v", err)
 	}
-	if len(tags) != 1 || len(tags[0].Aliases) != 2 {
-		t.Errorf("ListTags aliases = %+v, want two on the sole tag", tags)
+	if len(tags) != 1 || len(tags[0].Aliases) != 0 {
+		t.Errorf("ListTags aliases = %+v, want none on the sole tag", tags)
+	}
+	if got, err := r.GetTag(ctx, scifi); err != nil || len(got.Aliases) != 2 {
+		t.Errorf("GetTag aliases = %+v, %v; want two", got, err)
 	}
 }
 
