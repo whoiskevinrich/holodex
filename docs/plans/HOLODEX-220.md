@@ -49,7 +49,8 @@ and no data-model change. Both halves are subtractive.
 ### 2026-10-21 · session
 - skills: design-handoff, implement, code-review, handoff
 - handoff: All gates settled. Parts A, B and C are built, the owner re-confirmed the design at
-  0b80a9db and matched the build to the mockup, and PR #546 is ready. Next: sweep HOLODEX-97 with it.
+  0b80a9db and matched the build to the mockup, and PR #546 is ready. Main merged in for the
+  gitleaks allowlist (#547), which clears `secrets`. Next: sweep HOLODEX-97 to Done on merge.
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
