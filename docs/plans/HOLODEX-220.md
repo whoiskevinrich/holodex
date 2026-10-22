@@ -9,8 +9,9 @@ depends-on: [HOLODEX-114]    # [KEY-…] cross-epic deps that must land first
 approved:
   design:
     on: 2026-10-21
-    at: 3217a709
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
+    at: 0b80a9db
+release_note: The media page's metadata header has one Sync button and a sources summary in place of four refresh controls, fields that match the file fold into one line, and the raw source data sits in one disclosure.
+                             # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 ---
@@ -29,8 +30,8 @@ and no data-model change. Both halves are subtractive.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] design `design-handoff` → `docs/design/media-page-restructure-handoff.md`
-- [/] frontend
-- [/] testing `testing-strategy`
+- [x] frontend
+- [x] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
@@ -38,25 +39,17 @@ and no data-model change. Both halves are subtractive.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [frontend] Part B — "file differs" wording, and fields that match the file as one summary
-   line — `web/src/lib/components/curation/SourceBadge.svelte`, `web/src/routes/media/[id]/+page.svelte`
-2. [ ] [frontend] Part B — feed the cast grid from resolved `actors` (confirm `RelinkVideoEntity`
-   is the sole writer of `video_people` first) — `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [testing] Measure the handoff's "still to measure" contrast pairs; record the new tests in
-   `docs/testing-strategy.md`
-4. [ ] Owner call: Sync reports a rate-limited provider as "lookup failed" (Refresh all said
-   "retry in N s"); widening `RefreshReport` is backend work — `internal/refresh`
-5. [ ] Owner call: `POST /media/{id}/thumbnail` is not owner-gated; the visitor's player button
-   stays hover-only — `internal/api/handlers.go`
-6. [ ] Sweep HOLODEX-97 with this epic (it has no branch of its own): In Review when the PR is
+1. [ ] Sweep HOLODEX-97 with this epic (it has no branch of its own): In Review when the PR is
    ready, Done on merge
+2. [ ] [—] Sync's rate-limit message, which Refresh all had → HOLODEX-591
+3. [ ] [—] Visitor thumbnail regenerate: gate the endpoint or make the button touch-reachable → HOLODEX-592
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-21 · session
 - skills: design-handoff, implement, code-review, handoff
-- handoff: Design signed off at 3217a709; Part A (one Sync) and Part C (HOLODEX-97 Source data)
-  built in 908db316 with component tests, QA'd on stress media/902. Draft PR #546. Next: Part B.
+- handoff: All gates settled. Parts A, B and C are built, the owner re-confirmed the design at
+  0b80a9db and matched the build to the mockup, and PR #546 is ready. Next: sweep HOLODEX-97 with it.
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
