@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"holodex/internal/enrich"
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -337,7 +339,9 @@ func materialize(ctx context.Context, r *repo.Repo, ff fixtureFields, dim dimens
 	case dim.entity.derived():
 		return materializeNamed(ctx, r, ff, dim, rg, s)
 	case dim.entity == kindFilm:
-		return materializeFilm(ctx, r, ff, s, scenePool)
+		return materializeFilm(ctx, r, ff, dim, s, scenePool)
+	case dim.entity == kindCategory:
+		return materializeCategory(ctx, r, dim, s)
 	default:
 		return materializeVideo(ctx, r, ff, dim, rg, s)
 	}
@@ -594,8 +598,8 @@ func upsertVideo(ctx context.Context, r *repo.Repo, ff fixtureFields, filePath, 
 // Neither relationship is derived: film_videos and film_people_roles are asserted
 // owner links with no reconciler at all (ADR-085 section 2), so unlike the video
 // half there is no file layer to write and nothing that could re-derive these away.
-func materializeFilm(ctx context.Context, r *repo.Repo, ff fixtureFields, s spec, scenePool []int64) (int64, error) {
-	name := encodeName(kindFilm, s)
+func materializeFilm(ctx context.Context, r *repo.Repo, ff fixtureFields, dim dimension, s spec, scenePool []int64) (int64, error) {
+	name := title(dim, s)
 
 	// Year 0 stores SQL NULL. Films are addressed by name here, and CreateFilm
 	// resolves-or-creates on (name, year) — so a year would be a second identity
@@ -607,9 +611,19 @@ func materializeFilm(ctx context.Context, r *repo.Repo, ff fixtureFields, s spec
 		// same name, which would silently fuse two addresses into one entity.
 		if errors.Is(err, repo.ErrFilmExists) {
 			return 0, fmt.Errorf("film name %q is already taken by film %d — two rungs "+
-				"encode the same (cast, scenes) coordinate", name, id)
+				"name the same film", name, id)
 		}
 		return 0, fmt.Errorf("create film: %w", err)
+	}
+
+	// The description is the film page's one free-text container, so a dimension
+	// that owns the text drives it too (HOLODEX-359). It goes in as a manual
+	// decision because that is what the page's own pencil writes: a film has no
+	// file layer, and a provider value would put a chip row on the page as well.
+	if dim.ownsTitle {
+		if err := seedFilmDescription(ctx, r, id, s.text.value); err != nil {
+			return 0, err
+		}
 	}
 
 	if s.scenes > len(scenePool) {
@@ -648,6 +662,53 @@ func materializeFilm(ctx context.Context, r *repo.Repo, ff fixtureFields, s spec
 		}
 	}
 	return id, nil
+}
+
+// filmDescriptionField is the canonical key the film page reads its description
+// from (internal/api/film_fields.go's filmScalarFields).
+const filmDescriptionField = "description"
+
+// seedFilmDescription writes the description the way POST /films/{id}/decisions
+// does for a manual value — sanitized first, so a value the handler would rewrite
+// is refused here rather than stored as something the manifest does not describe.
+func seedFilmDescription(ctx context.Context, r *repo.Repo, filmID int64, value string) error {
+	if clean := enrich.SanitizeValue(value); clean != value {
+		return fmt.Errorf("description %q would be stored as %q by the decisions handler, "+
+			"so the manifest would name a value the page cannot show", value, clean)
+	}
+	if err := r.SetDecision(ctx, model.EnrichEntityFilm, filmID, filmDescriptionField,
+		fieldsource.Manual, value); err != nil {
+		return fmt.Errorf("set film description: %w", err)
+	}
+	return nil
+}
+
+// materializeCategory builds one addressed category and gives it the baseline's
+// tags as members, so its page renders a member list rather than the empty state:
+// constant and non-zero, for the reason seedScenePool gives scene videos a cast.
+// The tags are the video baseline's own pool tags, which exist by the time any
+// non-video dimension runs.
+func materializeCategory(ctx context.Context, r *repo.Repo, dim dimension, s spec) (int64, error) {
+	cat, err := r.CreateCategory(ctx, title(dim, s))
+	if err != nil {
+		return 0, fmt.Errorf("create category: %w", err)
+	}
+	members := make([]int64, 0, s.tags)
+	for _, name := range poolNames("tag", s.tags) {
+		tid, ok, err := r.TagIDByName(ctx, name)
+		if err != nil {
+			return 0, fmt.Errorf("look up %q: %w", name, err)
+		}
+		if !ok {
+			return 0, fmt.Errorf("tag %q does not exist; the video tags ladder is meant to "+
+				"have created it", name)
+		}
+		members = append(members, tid)
+	}
+	if _, err := r.AssignTagsToCategory(ctx, cat.ID, members); err != nil {
+		return 0, fmt.Errorf("assign members: %w", err)
+	}
+	return cat.ID, nil
 }
 
 // seedScenePool builds the videos films attach as scenes.

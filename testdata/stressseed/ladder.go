@@ -69,6 +69,11 @@ const (
 	kindVideo entityKind = "video"
 	kindFilm  entityKind = "film"
 
+	// A category is addressed below poolBase like a film, because it is the other
+	// kind the repo creates from a name alone: CreateCategory, no carrier needed
+	// (HOLODEX-359). Its page's h1 is the name, and nothing else on it is authored.
+	kindCategory entityKind = "category"
+
 	// The derived kinds. Each has its own detail page — /people/{id},
 	// /studios/{id}, /tags/{id} — which is why their names are worth addressing
 	// rather than leaving to fall out of the video ladder: the name is an h1 there,
@@ -90,6 +95,8 @@ func (k entityKind) urlFor(id int64) string {
 		return fmt.Sprintf("/media/%d", id)
 	case kindFilm:
 		return fmt.Sprintf("/films/%d", id)
+	case kindCategory:
+		return fmt.Sprintf("/categories/%d", id)
 	case kindPerson:
 		return fmt.Sprintf("/people/%d", id)
 	case kindStudio:
@@ -109,6 +116,8 @@ func (k entityKind) table() string {
 		return "videos"
 	case kindFilm:
 		return "films"
+	case kindCategory:
+		return categoriesTable
 	case kindPerson:
 		return "people"
 	case kindStudio:
@@ -458,6 +467,32 @@ var ladder = []dimension{
 		// not a scrim), so `bright` is the rung to look at first here.
 		rungs: images(imagePalette...),
 	},
+	{
+		key:       "filmtext",
+		ownsTitle: true,
+		entity:    kindFilm,
+		// Above the video half's 1000 for the reason videoimage sits at 700: blocks are
+		// unique across the table and never move, so a new row takes the next free one.
+		block: 1100,
+		finds: "film heading wrap below ~440px, the description's expand chevron (absent when " +
+			"the prose fits), bidi bleed in the hero",
+		// HOLODEX-359. One knob reaching two containers, as the video text rung does with
+		// title and overview: the h1 and the description's ExpandableText. `plain` leads
+		// because the chevron gate needs prose that fits as much as prose that does not.
+		noEmptyRung: "CreateFilm and POST /films both refuse an empty name, so an unnamed film " +
+			"cannot exist — the absent description is every other film rung, none of which writes one",
+		rungs: texts(prosePalette(kindFilm)...),
+	},
+	{
+		key:       "categorytext",
+		ownsTitle: true,
+		entity:    kindCategory,
+		block:     1200,
+		finds:     "category heading wrap, the /tags category pill, the rename control beside the heading",
+		noEmptyRung: "CreateCategory and POST /categories both refuse an empty name; the empty " +
+			"category *list* is the zero breadth count",
+		rungs: texts(prosePalette(kindCategory)...),
+	},
 
 	// The derived half (HOLODEX-346). These three exist because a person, studio
 	// and tag each has a detail page of its own where the name is the h1 — the same
@@ -592,17 +627,41 @@ func hasEmptyRung(dim dimension) bool {
 // Tag values are lowercased here because resolveOrCreateByName lowercases a tag
 // on the way in (curationNorm, the "fox"/"Fox" fix). Seeding the mixed-case form
 // would store something other than what the manifest claims, and the manifest
-// being true is the entire point of addressing these at all.
+// being true is the entire point of addressing these at all. Category values carry
+// categoryMark for the matching reason: unmarked, they would not be stored at all.
 func namePalette(kind entityKind) []textVariant {
 	out := make([]textVariant, 0, len(textPalette))
 	for _, v := range textPalette {
 		if nameRejects(kind, v) != "" {
 			continue
 		}
-		if kind == kindTag {
+		switch kind {
+		case kindTag:
 			v.value = strings.ToLower(v.value)
+		case kindCategory:
+			v.value += categoryMark
 		}
 		out = append(out, v)
+	}
+	return out
+}
+
+// categoryMark is appended to every category rung's name. The tagtext dimension
+// already owns the bare palette strings, and migration 0035 refuses a category
+// whose folded name equals a tag's — so without a mark every category rung would be
+// refused. One trailing rune, so the unbroken token stays unbroken and a script's
+// own direction still decides the line.
+const categoryMark = "¶"
+
+// prosePalette is namePalette for the kinds named straight from the repo — a film
+// and a category — with the baseline's short `plain` prose in front. The other name
+// dimensions start at `single`; these need a realistic short string too, because
+// the film description's chevron gate asserts on prose that fits as well as on
+// prose that does not (HOLODEX-361).
+func prosePalette(kind entityKind) []textVariant {
+	out := append([]textVariant{baseline().text}, namePalette(kind)...)
+	if kind == kindCategory {
+		out[0].value += categoryMark
 	}
 	return out
 }
@@ -610,11 +669,15 @@ func namePalette(kind entityKind) []textVariant {
 // nameRejects explains why this kind cannot be named with this variant, or ""
 // when it can. Each reason is a real limit in the code, not a preference.
 func nameRejects(kind entityKind, v textVariant) string {
-	if !kind.derived() {
+	if kind == kindVideo {
 		return ""
 	}
 	if v.value == "" {
-		if kind == kindTag {
+		switch kind {
+		case kindFilm, kindCategory:
+			return "the repo and the HTTP layer both refuse an empty name, so the entity " +
+				"would never be created at all"
+		case kindTag:
 			// Unlike people and studios, an empty tag row really is creatable — the
 			// repo path has no guard and would insert one. The HTTP layer refuses it
 			// (400 "name is required"), so seeding one would put a state on the page
@@ -644,7 +707,17 @@ func nameRejects(kind entityKind, v textVariant) string {
 			return fmt.Sprintf("%d characters is over model.MaxNameLen (%d), which the repo "+
 				"rejects with ErrTagNameTooLong", n, model.MaxNameLen)
 		}
+	case kindCategory:
+		// The repo would store it, but parseCategoryName refuses it with "name is too
+		// long" — the same unreachable-state argument as the empty tag. Counted with
+		// the mark, because that is the name the HTTP layer would be judging.
+		if n := utf8.RuneCountInString(v.value + categoryMark); n > model.MaxNameLen {
+			return fmt.Sprintf("%d characters is over model.MaxNameLen (%d), which the HTTP "+
+				"layer refuses as \"name is too long\"", n, model.MaxNameLen)
+		}
 	}
+	// A film's name has no length limit on either path, so lorem is kept: it is the
+	// vertical-overflow case for the heading and the description at once.
 	return ""
 }
 
@@ -704,9 +777,15 @@ func encodeName(kind entityKind, s spec) string {
 	if kind == kindFilm {
 		// A film's name is also its identity: CreateFilm resolves-or-creates by
 		// (name, year), so two rungs sharing a name would silently become one
-		// film. Every film rung varies one of these three axes, so the triple is
-		// unique across the whole film half of the ladder.
-		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d image=%s", s.cast, s.scenes, s.image.key)
+		// film. Every film rung that is named by this varies one of these three axes,
+		// so the triple is unique among them; filmtext owns its names and is named by
+		// the variant instead. The text axis is still reported, so each filmtext rung
+		// has a coordinate of its own in the manifest.
+		return fmt.Sprintf("STRESS FILM cast=%02d scenes=%02d image=%s text=%s",
+			s.cast, s.scenes, s.image.key, s.text.key)
+	}
+	if kind == kindCategory {
+		return fmt.Sprintf("STRESS CATEGORY text=%s", s.text.key)
 	}
 	part := s.part
 	if part == "" {
