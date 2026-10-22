@@ -6,6 +6,10 @@ key: HOLODEX-220                 # the tracker key; must match the branch key re
 status: in-progress
 profile: ui
 depends-on: [HOLODEX-114]    # [KEY-…] cross-epic deps that must land first
+approved:
+  design:
+    on: 2026-10-21
+    at: 3217a709
 release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
@@ -49,7 +53,9 @@ and no data-model change. Both halves are subtractive.
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-21 · session
-- skills: design-handoff
+- skills: design-handoff, implement
+- handoff: Crossed into build — design signed off at 3217a709 (HOLODEX-97 folded in as Part C,
+  HOLODEX-113 Won't Do, HOLODEX-114 shipped). Start at Part A (Up next item 1).
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
