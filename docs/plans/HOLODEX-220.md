@@ -38,12 +38,18 @@ and no data-model change. Both halves are subtractive.
    slot off `Refresh all` — `web/src/routes/media/[id]/+page.svelte`
 2. [ ] [frontend] Part B — chip radiogroup becomes the expanded state of a field row —
    `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [frontend] Part B — merge the duplicate cast renders — ⛔ blocked on HOLODEX-114 (F40/ADR-059)
-   making `RelinkVideoEntity` the sole writer of `video_people` from resolved values; until then label
-   the grid file-only rather than merging
-4. [ ] [testing] Three-skin QA + the contrast pairs marked "still to measure" in the handoff
+3. [ ] [frontend] Part C — HOLODEX-97: one Source data disclosure in place of the per-source
+   `Enrichment data:` toggles — `web/src/routes/media/[id]/+page.svelte`
+4. [ ] [frontend] Part B — merge the duplicate cast renders (HOLODEX-114 has shipped; confirm
+   `RelinkVideoEntity` is the sole writer of `video_people` first)
+5. [ ] [testing] Cinémathèque QA + the contrast pairs marked "still to measure" in the handoff
+6. [ ] Sweep HOLODEX-97 with this epic (it has no branch of its own): In Review when the PR is
+   ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-21 · session
+- skills: design-handoff
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);

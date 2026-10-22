@@ -6,8 +6,10 @@
 [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
-**Issue**: HOLODEX-220 · **Surface**: `web/src/routes/media/[id]/+page.svelte`,
-`EnrichProviderChips.svelte`, `SourceSelect.svelte`.
+**Issue**: HOLODEX-220, with HOLODEX-97 folded in as Part C · **Surface**:
+`web/src/routes/media/[id]/+page.svelte`, `EnrichProviderChips.svelte`, `SourceBadge.svelte`.
+
+![Mockup: the Metadata header and the page-bottom audit group, today and after](media-page-restructure-mockup.svg)
 
 ---
 
@@ -27,6 +29,23 @@ Neither is a defect in any single component; each was correct in the slice that 
 
 Both parts are **subtractive** — same capabilities, fewer controls. No new endpoint, no new
 capability, no data-model change.
+
+### Where the page stands (2026-10-21)
+
+Later media-page work landed some of this design. Build only what is still open.
+
+| Item | State |
+|---|---|
+| Part A, all of it | Open. The page still carries the four refresh controls and `Refresh all` holds the accent. |
+| Part B, rows collapsed at rest | Done. `SourceBadge` shows the value and a `ProvenanceBadge` toggle; the chip row renders only when expanded. It replaced `SourceSelect` on this page. |
+| Part B, poster out of the field list | Done. Title, overview, poster and genres each render once. |
+| Part B, `file differs` wording | Open. `SourceBadge` and the header pill still say "out of sync". |
+| Part B, matching fields as one summary line | Open. |
+| Part B, cast grid from resolved `actors` | Unblocked: HOLODEX-114 has shipped. |
+| Part C, one Source data disclosure | Open. It is HOLODEX-97, approved by the owner on 2026-10-21. |
+
+HOLODEX-113 ("show hints while metadata is updating") was closed as Won't Do, so it adds nothing
+to Part A's Syncing state.
 
 ### Design-system fit (the `/design-system` check)
 
@@ -189,6 +208,7 @@ enrichment. Only `studio` reconciles into a real entity (`ReconcileVideoStudios`
   people today. **Do not implement Part B's cast merge before HOLODEX-114 (F40 / ADR-059)**, which
   makes `RelinkVideoEntity` the sole writer of `video_people` derived from resolved values. Until
   then, the poster grid can only show file people, and the honest interim is to label it as such.
+  HOLODEX-114 has since shipped, so the merge is unblocked.
 - **`poster_url` leaves the metadata `<dl>`.** A 256px image inside a two-column definition list
   is the single largest contributor to page length. It becomes the cover control next to the
   player, where the thumbnail already is.
@@ -198,6 +218,57 @@ enrichment. Only `studio` reconciles into a real entity (`ReconcileVideoStudios`
 - **`text-[0.65rem]` (10.4px) must not spread.** It appears in `SourceSelect` and
   `CurationChip` today, alongside `text-[10px]` elsewhere — two invented spellings of "smaller
   than `text-xs`". Settle one micro step before adding rows that would use it.
+
+---
+
+## Part C — One Source data disclosure (HOLODEX-97)
+
+### The duplication
+
+The owner audit group at the page bottom opens one disclosure per source: `Enrichment data: File
+Extraction (n)`, then `Enrichment data: {provider} (n)` for each provider. They use two layouts, a
+key/value table for the file and a label/value grid for providers. A provider's image field draws
+the poster a fourth time, at `max-h-64`. The payloads stay as an audit view; only the disclosures
+and the duplicated rendering go.
+
+### Layout
+
+```
+File  (unchanged)
+▾ Source data · 3 sources, 45 keys
+  (● File) ( tmdb ) ( imdb )
+  title        Blade Runner 2049
+  poster_url   …/w500/gajva2L0.jpg
+```
+
+- **One disclosure** in place of the per-source toggles, in the same spot: after `File`, inside the
+  audit group (see `web/src/routes/CLAUDE.md`). The trigger keeps today's treatment, `text-sm
+  text-muted hover:text-ink`, and reads `Source data · {n} sources, {k} keys`.
+- **A source switcher** under the trigger: one chip per source, File first and then providers in
+  their existing order. The selected chip uses the `.btn-accent` outline; the others use `.btn-quiet`
+  with a `border-rule` outline, as in the mockup.
+- **One table for every source.** Column one is the raw key in `font-mono text-xs text-muted`: the
+  file's `source_key`, or the provider field's canonical. Column two is the value in `text-xs
+  text-ink`. Rows are separated by `border-b border-rule`, as the file table is today.
+- **Values.** Several values join with `, `. `long_text` cuts at 120 characters, with `…` only when
+  something was cut. `image_url` shows its URL as `font-mono` text, `break-all`, with the full URL
+  in `title`. No image renders in this group.
+
+### States
+
+- **Closed (default)**: the trigger alone. Opening it selects File, or the first provider when the
+  file payload is empty.
+- **One source**: no switcher. The trigger still names the count (`1 source`).
+- **No sources**: the disclosure does not render, as each toggle self-omits today.
+- **Visitor**: never rendered. The audit group stays wholly owner-gated.
+
+### Accessibility
+
+- The trigger is a `button` with `aria-expanded` and `aria-controls`, and the panel stays in the DOM
+  toggled with `hidden`, the disclosure idiom Part B reuses.
+- The switcher is `role="radiogroup"` with `aria-label="Source"`. Chips are `role="radio"` with
+  `aria-checked`, and arrow keys move with a roving tabindex. That matches `SourceBadge`'s chip row.
+- The table carries a visually hidden caption naming the selected source.
 
 ---
 
