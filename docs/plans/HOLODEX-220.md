@@ -29,8 +29,8 @@ and no data-model change. Both halves are subtractive.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] design `design-handoff` → `docs/design/media-page-restructure-handoff.md`
-- [ ] frontend
-- [ ] testing `testing-strategy`
+- [/] frontend
+- [/] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
@@ -38,24 +38,25 @@ and no data-model change. Both halves are subtractive.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [frontend] Part A — collapse the four refresh controls to one sync verb; move the solid-accent
-   slot off `Refresh all` — `web/src/routes/media/[id]/+page.svelte`
-2. [ ] [frontend] Part B — chip radiogroup becomes the expanded state of a field row —
-   `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [frontend] Part C — HOLODEX-97: one Source data disclosure in place of the per-source
-   `Enrichment data:` toggles — `web/src/routes/media/[id]/+page.svelte`
-4. [ ] [frontend] Part B — merge the duplicate cast renders (HOLODEX-114 has shipped; confirm
-   `RelinkVideoEntity` is the sole writer of `video_people` first)
-5. [ ] [testing] Cinémathèque QA + the contrast pairs marked "still to measure" in the handoff
+1. [ ] [frontend] Part B — "file differs" wording, and fields that match the file as one summary
+   line — `web/src/lib/components/curation/SourceBadge.svelte`, `web/src/routes/media/[id]/+page.svelte`
+2. [ ] [frontend] Part B — feed the cast grid from resolved `actors` (confirm `RelinkVideoEntity`
+   is the sole writer of `video_people` first) — `web/src/routes/media/[id]/+page.svelte`
+3. [ ] [testing] Measure the handoff's "still to measure" contrast pairs; record the new tests in
+   `docs/testing-strategy.md`
+4. [ ] Owner call: Sync reports a rate-limited provider as "lookup failed" (Refresh all said
+   "retry in N s"); widening `RefreshReport` is backend work — `internal/refresh`
+5. [ ] Owner call: `POST /media/{id}/thumbnail` is not owner-gated; the visitor's player button
+   stays hover-only — `internal/api/handlers.go`
 6. [ ] Sweep HOLODEX-97 with this epic (it has no branch of its own): In Review when the PR is
    ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-21 · session
-- skills: design-handoff, implement
-- handoff: Crossed into build — design signed off at 3217a709 (HOLODEX-97 folded in as Part C,
-  HOLODEX-113 Won't Do, HOLODEX-114 shipped). Start at Part A (Up next item 1).
+- skills: design-handoff, implement, code-review, handoff
+- handoff: Design signed off at 3217a709; Part A (one Sync) and Part C (HOLODEX-97 Source data)
+  built in 908db316 with component tests, QA'd on stress media/902. Draft PR #546. Next: Part B.
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
