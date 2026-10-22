@@ -262,6 +262,24 @@ export function needsWriteback(field: ResolvedField): boolean {
 	return (isReplaceField(field) || isTagSetRow(field)) && outOfSync(field) && isWritable(field);
 }
 
+// matchesFile is true for a replace field with nothing to decide (HOLODEX-220 Part B): no
+// standing decision, the value comes from the file, and every candidate agrees with it. The
+// media page folds these into one summary line, since the common task is fixing one field that
+// disagrees, not reading the many that don't. A provider offering a different value keeps the
+// row listed: that is a live choice, even with no decision made.
+export function matchesFile(field: ResolvedField): boolean {
+	const value = field.values[0]?.trim();
+	return (
+		isReplaceField(field) &&
+		!field.computed &&
+		!field.decision?.standing &&
+		!!value &&
+		!!field.winning_source?.startsWith('file:') &&
+		// An empty provider value offers no choice (it yields no chip), so it doesn't count.
+		(field.candidates ?? []).every((c) => c.source === 'file' || !c.value.trim() || c.value.trim() === value)
+	);
+}
+
 // outOfSyncCount is the aggregate the header surfaces as "Write decisions to file · {n} out of
 // sync" (RD2).
 export function outOfSyncCount(fields: ResolvedField[]): number {

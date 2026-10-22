@@ -36,13 +36,13 @@ Later media-page work landed some of this design. Build only what is still open.
 
 | Item | State |
 |---|---|
-| Part A, all of it | Open. The page still carries the four refresh controls and `Refresh all` holds the accent. |
+| Part A, all of it | Built. |
 | Part B, rows collapsed at rest | Done. `SourceBadge` shows the value and a `ProvenanceBadge` toggle; the chip row renders only when expanded. It replaced `SourceSelect` on this page. |
 | Part B, poster out of the field list | Done. Title, overview, poster and genres each render once. |
-| Part B, `file differs` wording | Open. `SourceBadge` and the header pill still say "out of sync". |
-| Part B, matching fields as one summary line | Open. |
-| Part B, cast grid from resolved `actors` | Unblocked: HOLODEX-114 has shipped. |
-| Part C, one Source data disclosure | Open. It is HOLODEX-97, approved by the owner on 2026-10-21. |
+| Part B, `file differs` wording | Built. The header pill is gone; its count rides the write button. |
+| Part B, matching fields as one summary line | Built, owner view only. A row folds when nothing is left to decide: no standing decision, the file's value wins, and every provider offering a value agrees with it. |
+| Part B, cast grid from resolved `actors` | Holds without a change. Since HOLODEX-114, `video_people` is re-derived from the resolved person fields on every scan, refresh, enrich and decision, so the grid already shows them. |
+| Part C, one Source data disclosure | Built (HOLODEX-97). |
 
 HOLODEX-113 ("show hints while metadata is updating") was closed as Won't Do, so it adds nothing
 to Part A's Syncing state.

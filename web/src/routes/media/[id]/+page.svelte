@@ -21,7 +21,7 @@
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import { enrichedLine, runEnrichRefresh } from '#lib/enrichRefresh.ts';
 	import { StatusLine } from '#lib/statusLine.svelte.ts';
-	import { isReplaceField, outOfSyncCount } from '#lib/f36.ts';
+	import { isReplaceField, matchesFile, outOfSyncCount } from '#lib/f36.ts';
 	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
@@ -375,6 +375,11 @@
 	const visibleResolved = $derived(
 		isOwner ? canonicalResolved : canonicalResolved.filter((f) => f.values.some((v) => v?.trim()))
 	);
+	// Owner rows with nothing to decide (matchesFile) fold into one summary line naming them
+	// (HOLODEX-220 Part B). A visitor has no decisions to make, so their list stays whole.
+	const matchingResolved = $derived(isOwner ? visibleResolved.filter(matchesFile) : []);
+	const listedResolved = $derived(visibleResolved.filter((f) => !matchingResolved.includes(f)));
+	let showMatching = $state(false);
 	// The file-only `fields` list is a fallback for NO resolver output, not for "the resolved
 	// list came up empty": a visitor whose every resolved field is either shown elsewhere or
 	// valueless must not drop into it, or the raw file tags for overview/actors/studio
@@ -643,7 +648,7 @@
 	// writebackStatus.pending going true — set by applyMediaDetail on initial load (a
 	// page opened mid-write) or after the dialog's onenqueued reload (a write just
 	// submitted) — and keeps checking until it clears, so the badge and the per-field
-	// "file out of sync" pills clear without a manual refresh. Reuses
+	// "file differs" pills clear without a manual refresh. Reuses
 	// waitForVideoWriteback's backoff loop rather than a bespoke interval; extracts
 	// just writeback_status from each tick's getMedia response rather than calling
 	// applyMediaDetail on every poll (which would repeatedly reassign resolved/video
@@ -1391,6 +1396,8 @@
 		// (HOLODEX-389 human QA 4.3: "could not find where to enter the part"; the film
 		// page's "+ Set edition" had landed the same way since the fold arrived).
 		if (!hasPageAnchor(m[1])) metadataExpanded = true;
+		// A file-matching row only renders once its summary line is open.
+		if (matchingResolved.some((f) => f.canonical === m[1])) showMatching = true;
 		await tick();
 		expandedField.expand(m[1]);
 		const row = document.getElementById(`field-${m[1]}`);
@@ -2476,7 +2483,8 @@
 						>
 						{#if visibleResolved.length || extraFields.length || deepLinkedMissing}
 						<dl class="field-grid gap-3 rounded-theme border border-rule bg-surface p-4 text-sm">
-							{#each visibleResolved as f (f.canonical)}
+							<!-- One row's markup, shared by the listed rows and the folded file-matching ones. -->
+							{#snippet fieldRow(f: ResolvedField)}
 								{@const winnerProvider = f.winning_source && !f.winning_source.startsWith('file:') ? f.winning_source.split(':')[0] : ''}
 								{#if f.display === 'image_url'}
 									<div class="col-span-full" id={`field-${f.canonical}`}>
@@ -2525,7 +2533,7 @@
 													field={f}
 													videoId={id}
 													{isOwner}
-													people={video.people ?? []}
+													people={video?.people ?? []}
 													personStyle={f.canonical === 'actors' || f.canonical === 'director'}
 													onchanged={reloadDetail}
 												/>
@@ -2534,7 +2542,32 @@
 									</div>
 								{/if}
 								<PromotedFieldEdit {isOwner} field={f} entityType="video" entityNoun="videos" onchanged={reloadDetail} />
+							{/snippet}
+							{#each listedResolved as f (f.canonical)}
+								{@render fieldRow(f)}
 							{/each}
+							{#if matchingResolved.length}
+								<!-- HOLODEX-220 Part B: fields with nothing to decide fold into one line naming them.
+								     A #field-* deep link to one of them opens it (expandDeepLinkedField). -->
+								<div class="col-span-full">
+									<dt class="sr-only">Fields that match the file</dt>
+									<dd>
+										<button
+											type="button"
+											onclick={() => (showMatching = !showMatching)}
+											aria-expanded={showMatching}
+											class="text-left text-xs text-muted hover:text-ink"
+										>
+											{showMatching ? '▾' : '▸'} {matchingResolved.map((m) => m.label).join(' · ')} — {matchingResolved.length === 1 ? 'matches' : 'all match'} the file
+										</button>
+									</dd>
+								</div>
+								{#if showMatching}
+									{#each matchingResolved as f (f.canonical)}
+										{@render fieldRow(f)}
+									{/each}
+								{/if}
+							{/if}
 							{#if deepLinkedMissing}
 								{@const df = deepLinkedMissing}
 								<!-- Empty, deep-linked replace field (see deepLinkedMissing): the same row shape
