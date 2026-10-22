@@ -1,0 +1,12 @@
+# gitleaks config for the CI `secrets` job (.github/workflows/ci.yml).
+# Keep gitleaks' default ruleset; only add path allowlists here.
+[extend]
+useDefault = true
+
+# graphify-out/ is a generated knowledge-graph snapshot, refreshed by the graphify bot on
+# bot/graphify-refresh. Its node labels are free text that trips generic-api-key on
+# entropy alone (GRAPH_REPORT.md, 66eafb44), and a fingerprint ignore would break on the
+# next refresh. Nothing hand-written lives there.
+[[allowlists]]
+description = "Generated graphify snapshot"
+paths = ['''^graphify-out/''']
