@@ -19,7 +19,7 @@
 		videoCount
 	} from '#lib/format.ts';
 	import { dismissable } from '#lib/actions/dismissable.ts';
-	import { enrichedLine, runEnrichRefresh, runEnrichRefreshAll } from '#lib/enrichRefresh.ts';
+	import { enrichedLine, runEnrichRefresh } from '#lib/enrichRefresh.ts';
 	import { StatusLine } from '#lib/statusLine.svelte.ts';
 	import { isReplaceField, outOfSyncCount } from '#lib/f36.ts';
 	import { expandedField } from '#lib/expandedField.svelte.ts';
@@ -36,7 +36,8 @@
 	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 	import ExpandableText from '#lib/components/shared/ExpandableText.svelte';
 	import EnrichPicker from '#lib/components/enrichment/EnrichPicker.svelte';
-	import EnrichProviderChips from '#lib/components/enrichment/EnrichProviderChips.svelte';
+	import EnrichSourcesSummary from '#lib/components/enrichment/EnrichSourcesSummary.svelte';
+	import SourceDataDisclosure from '#lib/components/enrichment/SourceDataDisclosure.svelte';
 	import NoProviderHint from '#lib/components/enrichment/NoProviderHint.svelte';
 	import ProvenanceBadge from '#lib/components/enrichment/ProvenanceBadge.svelte';
 	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
@@ -110,10 +111,6 @@
 	let loading = $state(true);
 	let error = $state('');
 	let playFailed = $state(false);
-	let showRaw = $state(false);
-	// Per-provider raw-enrichment disclosures (HOLODEX-119): one open/closed flag per
-	// provider name, since a video can now carry enrichment from several providers.
-	let openEnriched = $state<Record<string, boolean>>({});
 	let regenerating = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
@@ -157,8 +154,7 @@
 	// Film enrichment (F26). sources loaded once; picker drives resolve→apply.
 	// pickerProvider holds the provider whose EnrichPicker is open ('' = closed);
 	// enrichBusy holds the provider name currently being cleared or refreshed
-	// (HOLODEX-119, F47 RD7). enrichRefreshingAll is Refresh-all's own busy flag (F47
-	// RD8, distinct from the unrelated file-refresh `refreshing` below).
+	// (HOLODEX-119, F47 RD7).
 	let sources = $state<EnrichSource[]>([]);
 	// Set once /enrich/sources answers, so an empty list means "none configured" rather
 	// than "not loaded yet" or "the fetch failed" (HOLODEX-88).
@@ -172,7 +168,6 @@
 		pickerProvider = p;
 	}
 	let enrichBusy = $state('');
-	let enrichRefreshingAll = $state(false);
 	let enrichError = $state('');
 	// The enrich success line (HOLODEX-86) — beside enrichError, cleared after 4 s.
 	const enrichStatus = new StatusLine();
@@ -1559,8 +1554,8 @@
 		}
 	}
 
-	// "Refresh" (RD7/P0-5) and "Refresh all" (RD8/P1-2) — shared with the person/studio
-	// detail pages via #lib/enrichRefresh; only the busy/error state and reload differ.
+	// Per-provider "Refresh" (RD7/P0-5), shared with the person/studio detail pages via
+	// #lib/enrichRefresh. This page has no "Refresh all": Sync is its superset (HOLODEX-220).
 	async function refreshProvider(p: string) {
 		await runEnrichRefresh(
 			'video',
@@ -1569,18 +1564,6 @@
 			(v) => (enrichBusy = v),
 			(v) => (enrichError = v),
 			reloadDetail,
-			(v) => enrichStatus.show(v)
-		);
-	}
-
-	async function refreshAllProviders() {
-		await runEnrichRefreshAll(
-			'video',
-			id,
-			(v) => (enrichRefreshingAll = v),
-			(v) => (enrichError = v),
-			reloadDetail,
-			openPicker,
 			(v) => enrichStatus.show(v)
 		);
 	}
@@ -1700,6 +1683,9 @@
 								</button>
 							{/if}
 						{/if}
+						<!-- The owner's Regenerate lives in the Metadata sources popover, reachable on
+						     touch (HOLODEX-220). The endpoint is public, so a visitor keeps this one. -->
+						{#if !isOwner}
 						<button
 							onclick={regenerateThumbnail}
 							disabled={regenerating}
@@ -1718,6 +1704,7 @@
 								/>
 							</svg>
 						</button>
+						{/if}
 					{/if}
 				</div>
 				<!-- Next-up strip (F69 handoff §5, F75 handoff §3): a sibling of the player box,
@@ -2208,14 +2195,56 @@
 								<h2 class="text-xs uppercase tracking-wide text-muted">Metadata</h2>
 								<span class="text-xs text-muted">{metadataFieldCount} field{metadataFieldCount === 1 ? '' : 's'}</span>
 							</div>
-							<div class="flex flex-wrap items-center gap-2">
+							<div class="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Metadata actions">
 								{#if isOwner}
+									{#if !videoProviders.length && sourcesLoaded}
+										<NoProviderHint />
+									{/if}
+									<!-- HOLODEX-220 Part A: provider status collapses to one summary whose
+									     popover holds the per-provider exceptions, and the one-shot extras ride
+									     its footer. Extraction stays ghost text, never chip chrome (ADR-090 D2).
+									     With no provider configured the trigger reads "More" and holds only them. -->
+									<EnrichSourcesSummary
+										providers={videoProviders}
+										linked={(p) => enrichedByProvider.has(p)}
+										syncedAt={(p) =>
+											enrichedByProvider
+												.get(p)
+												?.map((f) => f.fetched_at ?? '')
+												.reduce((a, b) => (b > a ? b : a), '') || undefined}
+										busy={enrichBusy}
+										syncing={refreshing}
+										onenrich={openPicker}
+										onrefresh={refreshProvider}
+										onclear={clearProvider}
+									>
+										{#snippet footer()}
+											<button
+												onclick={runExtract}
+												disabled={extracting}
+												title="Read this file's name for metadata (title, studio, people, year)"
+												class="btn-quiet rounded-theme px-3 py-1.5 text-left text-xs"
+											>
+												{extracting ? 'Extracting…' : 'Extract from filename'}
+											</button>
+											<button
+												onclick={regenerateThumbnail}
+												disabled={regenerating}
+												class="btn-quiet rounded-theme px-3 py-1.5 text-left text-xs"
+											>
+												{regenerating ? 'Regenerating…' : 'Regenerate thumbnail'}
+											</button>
+										{/snippet}
+									</EnrichSourcesSummary>
+									<!-- The one sync verb: re-extract the file and re-enrich every linked
+									     provider (F31). It is a strict superset of the retired "Refresh all",
+									     so it takes that control's hotkey. -->
 									<button
+										use:hotkey={'e'}
 										onclick={refreshMetadata}
 										disabled={refreshing}
-										title="Refresh metadata from the file and providers"
-										aria-label="Refresh metadata from the file and providers"
-										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+										title="Re-read the file and re-pull every linked provider"
+										class="btn-quiet flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs"
 									>
 										<svg
 											class="h-3.5 w-3.5 {refreshing ? 'animate-spin' : ''}"
@@ -2227,49 +2256,14 @@
 												d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
 											/>
 										</svg>
-										{refreshing ? 'Refreshing…' : 'Refresh'}
+										{refreshing ? 'Syncing…' : 'Sync'}
 									</button>
-								{/if}
-								{#if isOwner}
-									<!-- F48.5a: the single-video extraction trigger. Ghost text, no border, no chip —
-									     the identical treatment Refresh uses beside it. It is a one-shot action, not a
-									     stateful provider link, so it must never grow chip chrome that would read as a
-									     sibling of the provider chips (ADR-090 D2). -->
-									<button
-										onclick={runExtract}
-										disabled={extracting}
-										title="Read this file's name for metadata (title, studio, people, year)"
-										aria-label="Extract metadata from the filename"
-										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
-									>
-										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v5h5M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-5z"/></svg>
-										{extracting ? 'Extracting…' : 'Extract from filename'}
-									</button>
-									{#if videoProviders.length}
-										<!-- HOLODEX-136: compact per-provider enrich chips (icon + name +
-										     Enrich), Clear in a ⋯ overflow once matched. -->
-										<EnrichProviderChips
-											providers={videoProviders}
-											linked={(p) => enrichedByProvider.has(p)}
-											busy={enrichBusy}
-											refreshingAll={enrichRefreshingAll}
-											size="xs"
-											onenrich={openPicker}
-											onrefresh={refreshProvider}
-											onclear={clearProvider}
-											onrefreshall={refreshAllProviders}
-										/>
-									{:else if sourcesLoaded}
-										<NoProviderHint />
-									{/if}
 								{/if}
 								{#if canWriteback}
 									<!-- Writeback badges (ADR-091, HOLODEX-323, spec R2.3): sit beside the write
 									     action they're all about, not the section label — see the design
-									     handoff. One pill geometry, two weights: "out of sync" is a steady
-									     state (outline only, no fill — reuses SourceBadge's own "file out of
-									     sync" pill treatment so the two read as one family) and is never
-									     hidden by pending/failed (R2.4/RD6) — the file genuinely still
+									     handoff. The out-of-sync count rides the write button (HOLODEX-220) and is
+									     never hidden by pending/failed (R2.4/RD6) — the file genuinely still
 									     differs until a queued write lands, and a write can sit behind a
 									     large batch. Pending/failed are events (filled). RD5 clears a
 									     video's failed row only when a NEW write is submitted through this
@@ -2301,19 +2295,19 @@
 											couldn't write
 										</span>
 									{/if}
-									{#if outOfSyncN > 0}
-										<span class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn">
-											out of sync
-										</span>
-									{/if}
+									<!-- The page's one primary action (HOLODEX-220 Part A): solid accent and a
+									     count of the fields that differ from the file, which replaces the old
+									     "out of sync" pill. With nothing to write it stays, demoted to quiet. -->
 									<button
 										use:hotkey={'f'}
 										onclick={() => (writebackOpen = true)}
-										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs text-muted hover:text-accent focus-visible:text-accent"
+										class="flex items-center gap-1 rounded-theme px-2 py-0.5 text-xs {outOfSyncN > 0
+											? 'bg-accent font-medium text-accent-ink'
+											: 'btn-quiet'}"
 										title="Write decided field values to the file tags"
 									>
 										<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v13m0 0l-4-4m4 4l4-4M5 20h14"/></svg>
-										Write decisions to file
+										{outOfSyncN > 0 ? `Write ${outOfSyncN} change${outOfSyncN === 1 ? '' : 's'}` : 'Write to file'}
 									</button>
 								{/if}
 								{#if isOwner}
@@ -2454,9 +2448,9 @@
 								{/if}
 							</section>
 						{/if}
-						{#if enrichError}
-							<p class="text-xs text-warn">{enrichError}</p>
-						{/if}
+						<!-- Live regions render unconditionally, empty when idle: a region created in
+						     the same tick as its text is not announced by most screen readers. -->
+						<p class="text-xs text-warn empty:hidden" role="alert">{enrichError}</p>
 						{#if enrichStatus.text}
 							<p class="text-xs text-muted" aria-live="polite">{enrichStatus.text}</p>
 						{/if}
@@ -2467,14 +2461,10 @@
 								<a href="/owner/status" class="text-accent hover:underline">Status → Recent jobs → Log</a>.
 							</p>
 						{/if}
-						{#if refreshStatus}
-							<p
-								class="text-xs {refreshStatus.tone === 'warn' ? 'text-warn' : 'text-muted'}"
-								aria-live="polite"
-							>
-								{refreshStatus.text}
-							</p>
-						{/if}
+						<p
+							class="text-xs empty:hidden {refreshStatus?.tone === 'warn' ? 'text-warn' : 'text-muted'}"
+							aria-live="polite"
+						>{refreshStatus?.text ?? ''}</p>
 						<!-- The fold covers the field list only: Refresh / Extract / provider chips /
 						     writeback stay reachable while collapsed, and the extraction review panel
 						     above stays visible because it is transient work waiting on the owner. -->
@@ -2800,66 +2790,9 @@
 		</div>
 		</section>
 
-		<!-- Full width beneath both zones: raw audit payloads are wide <dl> dumps that
-		     would be unreadable squeezed into the rail. -->
-		<!-- Admin-only metadata sources (F29): the raw file-extracted payload and the raw
-		     provider enrichment payload, kept as audit/debug disclosures at the bottom of
-		     the page. Owner + Owner view only (effectiveOwner); each self-omits when
-		     empty. Headings aligned to "Enrichment data: {source}". -->
-		{#if isOwner && extra.length}
-			<section>
-				<button onclick={() => (showRaw = !showRaw)} class="text-sm text-muted hover:text-ink">
-					{showRaw ? '▾' : '▸'} Enrichment data: File Extraction ({extra.length})
-				</button>
-				{#if showRaw}
-					<table class="mt-2 w-full text-left text-xs">
-						<tbody>
-							{#each extra as m (m.source_key)}
-								<tr class="border-b border-rule">
-									<td class="py-1 pr-4 font-mono text-muted">{m.source_key}</td>
-									<td class="py-1 text-ink">{m.value}</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				{/if}
-			</section>
-		{/if}
-
-		{#if isOwner && enriched.length}
-			<!-- One raw-payload disclosure per provider (HOLODEX-119): a video may carry
-			     enrichment from several providers, each its own audit/debug block. -->
-			{#each [...enrichedByProvider] as [p, fields] (p)}
-				<section>
-					<button onclick={() => (openEnriched[p] = !openEnriched[p])} class="text-sm text-muted hover:text-ink">
-						{openEnriched[p] ? '▾' : '▸'} Enrichment data: {p} ({fields.length})
-					</button>
-					{#if openEnriched[p]}
-						<dl class="mt-2 field-grid gap-2 text-xs">
-							{#each fields as f (f.canonical + f.provider)}
-								{#if f.display === 'image_url'}
-									<div class="col-span-full">
-										<dt class="mb-1 text-muted">{f.label}:</dt>
-										<dd>
-											<img
-												src={f.values[0]}
-												alt={f.label}
-												class="max-h-64 rounded-theme border border-rule object-contain"
-											/>
-										</dd>
-									</div>
-								{:else}
-									<div>
-										<dt class="inline text-muted">{f.label}:</dt>
-										<dd class="inline text-ink">{f.display === 'long_text' ? f.values[0].slice(0, 120) + '…' : f.values.join(', ')}</dd>
-									</div>
-								{/if}
-							{/each}
-						</dl>
-					{/if}
-				</section>
-			{/each}
-		{/if}
+		<!-- Full width beneath both zones: the raw source payloads (F29), owner-only and
+		     kept as an audit view. One disclosure with a source switcher (HOLODEX-97). -->
+		<SourceDataDisclosure file={extra} providers={enrichedByProvider} />
 		</div>
 		{/if}
 		{/if}
