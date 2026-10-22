@@ -41,6 +41,15 @@ import { METRICS } from './evaluate.mjs';
  *   and a *pass* is reported as news — the marker has gone stale.
  */
 
+/**
+ * The rungs whose variant is also the page's long prose: a video's overview (`text`) and a
+ * film's description (`filmtext`, HOLODEX-359). Both render through ExpandableText.
+ * @param {import('./manifest.mjs').Entry} e
+ */
+const isProseRung = (e) =>
+	(e.entity === 'video' && e.dimension === 'text') ||
+	(e.entity === 'film' && e.dimension === 'filmtext');
+
 /** The five list pages at rest (F73), and their worst toolbar states. */
 const LIST_PAGES = ['/', '/people', '/studios', '/films', '/tags?type=categories'];
 const LIST_WORST = [
@@ -103,7 +112,10 @@ export const ASSERTIONS = [
 			'wrap — is designed to cause exactly this, and CJK and the bidi pair each cause ' +
 			'it differently. Scoped to the text dimensions because that is where a title, an ' +
 			'overview or an entity name is the thing under test.',
-		when: (e) => ['text', 'persontext', 'studiotext', 'tagtext'].includes(e.dimension),
+		when: (e) =>
+			['text', 'persontext', 'studiotext', 'tagtext', 'filmtext', 'categorytext'].includes(
+				e.dimension
+			),
 		selector: ':document',
 		measure: 'overflowX',
 		expect: { max: 0 }
@@ -166,6 +178,36 @@ export const ASSERTIONS = [
 		selector: '#field-overview',
 		applies: 'count',
 		expect: { max: 1 }
+	},
+
+	{
+		key: 'prose-chevron-only-when-clamped',
+		finds:
+			'An expand chevron under prose that already fits (HOLODEX-361). It cannot change what ' +
+			'the reader sees, and its aria-expanded announces a collapsed region that is not there. ' +
+			'Every prose rung but `lorem` fits the five-line clamp at every width, so any chevron ' +
+			'here means ExpandableText stopped measuring against the clamp budget. Video overview ' +
+			'and film description both, since they are the two ExpandableText sites the fixture ' +
+			'drives.',
+		when: (e) => isProseRung(e) && e.variant !== 'empty' && e.variant !== 'lorem',
+		selector: '#field-overview button[aria-controls], #field-description button[aria-controls]',
+		applies: 'count',
+		// Zero matches is the passing state, so the vacuity guard cannot stand behind this
+		// one; its partner below proves the selector still finds a chevron when one is due.
+		atLeast: 0,
+		expect: { max: 0 }
+	},
+
+	{
+		key: 'prose-chevron-when-clamped',
+		finds:
+			'The other half of the gate above, and what keeps it from passing vacuously: 1500 ' +
+			'characters of `lorem` overflow five lines at any width, so a missing chevron strands ' +
+			'the reader with the tail cut off — or means the selector above no longer matches.',
+		when: (e) => isProseRung(e) && e.variant === 'lorem',
+		selector: '#field-overview button[aria-controls], #field-description button[aria-controls]',
+		applies: 'count',
+		expect: { min: 1 }
 	},
 
 	{

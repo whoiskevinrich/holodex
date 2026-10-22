@@ -86,6 +86,31 @@ palette re-derives them and changing a limit follows it. Tag values are lowercas
 palette because `resolveOrCreateByName` lowercases a tag on the way in (the "fox"/"Fox"
 fix) — seeding the mixed-case form would store something other than what the manifest says.
 
+## Film and category text
+
+`filmtext` (block 1100) and `categorytext` (block 1200, HOLODEX-359) carry the palette to
+the film page and the category page, whose headings overflowed below ~440px with no fixture
+able to show it. Both kinds are created straight from a name (`CreateFilm`,
+`CreateCategory`), so they need no carrier and sit below `poolBase` like the other films.
+Both lead with a short **`plain`** rung (`Stress baseline`), because the film description's
+expand chevron has to be checked on prose that fits as well as on prose that does not.
+
+A `filmtext` rung names the film *and* fills its description — one knob, two containers,
+as the `text` rung does with a video's title and overview. The description goes in as a
+manual decision, which is what the page's own pencil writes; every other film dimension
+writes none, so the absent description is covered there. The manifest reports the variant
+as `axes.film.text`, present only on these rungs.
+
+Every `categorytext` name ends in **`¶`**. `tagtext` already owns the bare palette strings,
+and migration 0035 refuses a category whose folded name equals a tag's, so an unmarked rung
+could not be created. One trailing rune keeps the unbroken token unbroken. Each category
+holds the baseline's three pool tags, so its page renders a member list.
+
+| rung | film | category |
+|---|---|---|
+| `empty` | `CreateFilm` and `POST /films` refuse an empty name | `CreateCategory` and `POST /categories` refuse an empty name |
+| `lorem` | kept: a film name has no length limit | over `model.MaxNameLen`, which the HTTP layer refuses as "name is too long" |
+
 **`role` is deliberately not tortured.** `video_people.role` and `film_people_roles.role`
 are free text with no validation, so a rung there would seed cleanly — and find nothing:
 no Svelte component renders a role string, `credited_roles` has no frontend consumer at
@@ -240,8 +265,8 @@ go run ./testdata/stressseed -count 0   # the ladder alone, for a fast reseed
 ```
 
 Every kind the app has a list page for is populated, not just media: videos, people,
-studios, tags, films **and categories** — the last being the one entity no dimension
-addresses, so this is the fixture's only coverage of it.
+studios, tags, films **and categories**. `categorytext` addresses a few categories by
+name; this is the only coverage of how many there are.
 
 Bulk entities are **pool** entities, not addressed ones. They are named
 `stress bulk <kind> NNNN`, they live in `[9000, 20000)` outside every reserved block, and
@@ -262,9 +287,10 @@ fixture it was about to decline to replace.
 
 Every dimension is in. The skeleton (HOLODEX-343), the ladder machinery (HOLODEX-344), the
 relationship cardinality ladder (HOLODEX-347), the text palette (HOLODEX-346) and the
-adversarial image set (HOLODEX-345) give thirteen dimensions: `people`, `text`, `tags`,
-`studios`, `scenes`, `filmcast`, `videoimage`, `filmimage`, `persontext`, `studiotext`,
-`tagtext`, `personimage` and `studioimage`. The palette reaches every free-text field the
+adversarial image set (HOLODEX-345), with `enrich`, `part` (HOLODEX-389) and the film and
+category text rungs (HOLODEX-359), give seventeen dimensions: `people`, `text`, `tags`,
+`studios`, `videoimage`, `enrich`, `part`, `scenes`, `filmcast`, `filmimage`, `filmtext`,
+`categorytext`, `persontext`, `studiotext`, `tagtext`, `personimage` and `studioimage`. The palette reaches every free-text field the
 app renders; the image rungs reach every picture-rendering kind. Collection breadth
 (HOLODEX-350) adds the population axis above.
 

@@ -44,9 +44,10 @@ type axes struct {
 	Video *videoAxes `json:"video,omitempty"`
 	Film  *filmAxes  `json:"film,omitempty"`
 
-	// Name is the coordinate of a derived kind — a person, studio or tag whose
-	// own name is the rung. It is one axis rather than a struct because there is
-	// only one: an addressed person has no cardinality of its own, it has a name.
+	// Name is the coordinate of a derived kind or a category — a person, studio,
+	// tag or category whose own name is the rung. It is one axis rather than a
+	// struct because there is only one: an addressed person has no cardinality of
+	// its own, it has a name.
 	Name *nameAxes `json:"name,omitempty"`
 
 	// Image is the exception to "exactly one half": it is present alongside
@@ -80,6 +81,12 @@ type videoAxes struct {
 type filmAxes struct {
 	Cast   int `json:"cast"`
 	Scenes int `json:"scenes"`
+
+	// Text is the variant naming the film and filling its description, present only
+	// on the filmtext rungs (HOLODEX-359). Every other film is named by its
+	// coordinate and has no description, so reporting the baseline's `plain` there
+	// would claim prose the page does not render.
+	Text string `json:"text,omitempty"`
 }
 
 type nameAxes struct {
@@ -125,10 +132,15 @@ type imageSlotAxes struct {
 func axesOf(dim dimension, s spec, enrichable []string) axes {
 	var a axes
 	switch kind := dim.entity; {
-	case kind.derived():
+	case kind.derived(), kind == kindCategory:
+		// A category has a name and nothing else authored, so it is described the
+		// way a derived kind is even though it is created straight from the repo.
 		a.Name = &nameAxes{Text: s.text.key, Value: title(dim, s)}
 	case kind == kindFilm:
 		a.Film = &filmAxes{Cast: s.cast, Scenes: s.scenes}
+		if dim.ownsTitle {
+			a.Film.Text = s.text.key
+		}
 	default:
 		v := &videoAxes{People: s.people, Tags: s.tags, Studios: s.studios, Text: s.text.key,
 			Namespaces: s.namespaces, Part: s.part}

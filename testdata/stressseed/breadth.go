@@ -34,10 +34,10 @@ import (
 // cast; only one of them is supposed to be numerous.
 const bulkPrefix = "stress bulk"
 
-// categoriesTable is the one seeded table with no entityKind behind it. A
-// category has a page and a list, but no dimension addresses one — there is
-// nothing about a category to torture that a tag does not already cover — so it
-// exists only in the breadth pool, and only needs its table name.
+// categoriesTable is kindCategory's table, named here because the breadth half
+// steers and counts it alongside the other bulk tables. The categorytext
+// dimension (HOLODEX-359) addresses a handful below poolBase; the bulk ones sit
+// above it like every other pool entity.
 const categoriesTable = "categories"
 
 // imageNeutral is the breadth pool's image: correctly framed, correctly sized,
@@ -240,9 +240,9 @@ func seedBreadthFilms(ctx context.Context, database *sql.DB, r *repo.Repo, count
 
 // seedBreadthCategories populates count categories, each holding one bulk tag.
 //
-// Categories are the one entity the ladder does not address at all, so this is
-// the fixture's only coverage of them — /tags renders the whole category list
-// beside the whole tag list, and /categories/{id} renders its members in full.
+// The categorytext dimension addresses a few categories by name; this is the
+// fixture's only coverage of how many there are — /tags renders the whole category
+// list beside the whole tag list, and /categories/{id} renders its members in full.
 //
 // A category cannot share a name with a tag (migration 0035's collision
 // triggers), which the bulk naming already satisfies: "stress bulk category 0001"

@@ -145,8 +145,10 @@ func TestEveryDimensionHasAnEmptyRung(t *testing.T) {
 				"zero case ships the empty-state bugs (spec D2)", dim.key)
 			continue
 		}
-		if !dim.entity.derived() {
-			t.Errorf("dimension %q excuses itself from the empty rung, but only the derived "+
+		// A video title can be empty, so a video dimension never has the excuse; every
+		// named kind does, because each refuses an empty name somewhere on its path.
+		if dim.entity == kindVideo {
+			t.Errorf("dimension %q excuses itself from the empty rung, but only the named "+
 				"kinds have a structural reason to: %q", dim.key, dim.noEmptyRung)
 		}
 	}

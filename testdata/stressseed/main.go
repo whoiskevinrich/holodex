@@ -292,7 +292,7 @@ func printBreadth(pool *breadthPool) {
 	}
 }
 
-// printPaletteExclusions reports every text rung a derived kind cannot be named
+// printPaletteExclusions reports every text rung a named kind cannot be named
 // with, and why. Reasons are grouped so the common ones are stated once.
 func printPaletteExclusions() {
 	type exclusion struct {
@@ -306,8 +306,9 @@ func printPaletteExclusions() {
 		// names. A derived kind now also has an image dimension (HOLODEX-345), which
 		// draws no rung from the text palette at all; listing its exclusions would
 		// claim it lost rungs it never asked for, and would print each kind's
-		// exclusions twice besides.
-		if !dim.entity.derived() || !dim.ownsTitle {
+		// exclusions twice besides. Film and category text are named the same way
+		// (HOLODEX-359), so they are reported too; a video title can carry anything.
+		if dim.entity == kindVideo || !dim.ownsTitle {
 			continue
 		}
 		for _, v := range textPalette {
@@ -325,7 +326,7 @@ func printPaletteExclusions() {
 		return
 	}
 
-	fmt.Printf("\ntext rungs a derived entity's name cannot carry:\n")
+	fmt.Printf("\ntext rungs an entity's name cannot carry:\n")
 	for _, reason := range order {
 		names := make([]string, 0, len(byReason[reason]))
 		for _, e := range byReason[reason] {

@@ -1015,11 +1015,11 @@
 					<!-- Category pill — Manage mode, deliberately asymmetric from tag pills: not
 					     selectable (bulk actions only ever target tags), so the body still
 					     navigates even while manage is on. Reduced ⋯ menu: Rename/Delete only. -->
-					<div data-cat-pill class="relative inline-flex items-stretch rounded-full border border-accent bg-surface text-sm">
+					<div data-cat-pill class="relative inline-flex max-w-full items-stretch rounded-full border border-accent bg-surface text-sm">
 						<a
 							data-pill
 							href={`/categories/${c.id}`}
-							class="inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-2 text-ink hover:text-accent"
+							class="inline-flex min-w-0 items-center gap-1.5 rounded-full py-1.5 pl-3 pr-2 text-ink wrap-anywhere hover:text-accent"
 						>
 							{@render categoryIcon()}
 							{c.name} <span class="text-xs text-muted">{tagCount(c.tag_count)}</span>
@@ -1101,7 +1101,7 @@
 					<a
 						data-pill
 						href={`/categories/${c.id}`}
-						class="inline-flex items-center gap-1.5 rounded-full border border-accent bg-surface px-3 py-1.5 text-sm text-ink hover:bg-surface-2"
+						class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-accent bg-surface px-3 py-1.5 text-sm text-ink wrap-anywhere hover:bg-surface-2"
 					>
 						{@render categoryIcon()}
 						{c.name} <span class="text-xs text-muted">{tagCount(c.tag_count)}</span>
