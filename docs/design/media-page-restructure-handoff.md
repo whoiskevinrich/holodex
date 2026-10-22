@@ -282,10 +282,16 @@ Part A and Part B reuse token pairs already measured for the writeback dialog ag
 | `text-muted` label | 6.00 |
 | `.btn-accent` | 8.71 |
 
-**Still to measure during implementation** — these pairs are new to this surface and are not
-carried over: solid `bg-accent` + `text-accent-ink` for the primary write button, `text-warn` on
-`--surface` at the `file differs` pill's final size, and the popover's `bg-surface` over
-`bg-surface-2` rows.
+Pairs new to this surface, measured from the Cinémathèque tokens at build:
+
+| Pair | Ratio |
+|---|---|
+| `text-accent-ink` on solid `bg-accent` (the write button) | 8.59 |
+| `text-warn` on `--surface` (`file differs`, `· N unmatched`, `not matched`) | 5.35 |
+| `text-muted` on `--surface` (popover status, Source data keys) | 6.00 |
+
+The popover's `bg-surface` sits on the page with a `border-rule` edge; it has no `bg-surface-2`
+rows, so that pair doesn't arise.
 
 No element in either part may use `opacity` on a `text-muted` label — the theming rules treat that
 as a contrast bug, and the writeback dialog just removed its last instance.
