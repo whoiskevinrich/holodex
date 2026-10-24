@@ -7,6 +7,11 @@
 # Use the "Metadata keys" view (/keys) to discover which raw source keys your
 # files actually carry.
 #
+# This is a SAMPLE shaped around one provider (tmdb). Fields whose sources are only
+# `tmdb:` keys (tagline, genres, status, homepage, …) exist only where that provider
+# is configured, so they are not standard fields. Docs and mockups illustrate with
+# file-backed fields instead (docs/reference/doc-types.md, "Examples").
+#
 # Each field maps one or more namespaced sources to a single canonical field:
 #   canonical   stable id used in the API, as a query-param, and in the registry
 #   label       display label on the detail page (defaults to the registry label)
