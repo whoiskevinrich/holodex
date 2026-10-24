@@ -14,7 +14,8 @@ views and the remembered People choice are unchanged.
 **Reuses**: [`studio-images.md`](studio-images.md) (F51). A tag's poster image follows the owner
 upload rules that studio and person images already have.
 
-**Design handoff**: to come (`/design-handoff`). **Test plan**: to come (`/testing-strategy`).
+**Design handoff**: [`list-views-handoff.md`](../design/list-views-handoff.md), with committed SVG
+mockups. **Test plan**: to come (`/testing-strategy`).
 
 ---
 
@@ -225,10 +226,6 @@ This is a single-owner app with no analytics, so the measures are QA checks and 
 
 ## Open Questions
 
-- **[design]** What the tag placeholder looks like: a pattern, an icon or the tag's name set large.
-  Not blocking the spec; the handoff decides it.
-- **[design]** What poster shape tags use, and whether it matches People's poster shape. Not
-  blocking the spec.
 - **[engineering]** Whether every Media column already has a matching Sort entry. Any that doesn't
   stays a plain header under P0-5. Not blocking.
 
@@ -243,7 +240,8 @@ This is a single-owner app with no analytics, so the measures are QA checks and 
 ## Gate status
 
 - [x] `/write-spec` — this document
-- [ ] `/design-handoff` — Table view, Tags Posters, the tag page upload control, 375px
+- [x] `/design-handoff` — [`list-views-handoff.md`](../design/list-views-handoff.md); owner
+  sign-off at `/implement`
 - [ ] `/testing-strategy`
 - [ ] `/security-review` — the new tag image upload
 - [ ] `/architecture` — expected `[~]`, no technology fork: tag images reuse the studio image store
