@@ -9,8 +9,10 @@
 	// (`showWriteToggle={false}` — persons have no writeback).
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
+	import { rowProvenance } from '#lib/chipProvenance.ts';
 	import type { CurationRequest, Person, ResolvedField, ResolvedValue } from '#lib/types.ts';
 	import CurationChip from './CurationChip.svelte';
+	import ProvenanceBadge from '../enrichment/ProvenanceBadge.svelte';
 	import EntityPickerDialog from '../entity/EntityPickerDialog.svelte';
 
 	let {
@@ -56,6 +58,9 @@
 	const items = $derived<ResolvedValue[]>(
 		field.items ?? field.values.map((v) => ({ value: v, sources: [] as string[] }))
 	);
+	// HOLODEX-144: one row badge when every value shares a provenance, else a 12px icon on
+	// each provider value (chip-row-provenance-handoff.md).
+	const provenance = $derived(rowProvenance(items));
 	// Add + per-value remove are for set (merge-mode) fields; a scalar shows a single
 	// overridable chip without add/remove (handoff: scalar = one value).
 	const isSet = $derived(!!field.multi);
@@ -136,18 +141,26 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-1.5" class:opacity-60={busy} aria-busy={busy}>
-	{#each items as it (it.value)}
+	{#each items as it, i (it.value)}
 		<CurationChip
 			item={it}
 			{isOwner}
 			showRemove={isSet}
 			{showWriteToggle}
 			person={personFor(it.value)}
+			mark={provenance.marks[i]}
 			onedit={edit}
 			onremove={remove}
 			ontogglewrite={toggleWrite}
 		/>
 	{/each}
+	{#if provenance.badge}
+		<ProvenanceBadge
+			provider={provenance.badge.provider}
+			label={provenance.badge.provider}
+			manual={provenance.badge.manual}
+		/>
+	{/if}
 
 	{#if isOwner && isSet}
 		{#if isPersonLink}
