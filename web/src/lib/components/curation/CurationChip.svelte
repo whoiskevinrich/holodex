@@ -105,7 +105,7 @@
 		aria-label={`${item.value || radio.placeholder || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
 		title={item.value || undefined}
 		onclick={radio.onselect}
-		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
+		class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
 			? `border-accent bg-surface-2 text-ink ${pending ? 'border-dashed' : ''}`
 			: 'border-rule bg-surface-2 text-muted hover:text-ink'}"
 	>
