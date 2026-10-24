@@ -95,40 +95,42 @@ sees and touches.
 | sortable header | a `<button>` filling the cell, `hover:text-ink`, focus `ring-1 ring-accent` | plain text when the column has no sort key |
 | body row | `h-11 border-b border-rule` (44px) | |
 | row hover | `bg-surface-2` | |
-| row keyboard focus | `ring-1 ring-inset ring-accent` on the row (`:has(a:focus-visible)`) | |
+| row keyboard focus | a 1px inset accent outline on the row (`has-[a:focus-visible]:outline -outline-offset-1 outline-accent`) | an outline, because a box-shadow ring doesn't paint on a table row in every browser |
 | body cell | `px-2 truncate` (`whitespace-nowrap overflow-hidden text-ellipsis`) | text never wraps |
 | primary cell text | `text-ink` | title, name, date |
 | numeric cell | `text-right tabular-nums text-muted` | duration, size, counts |
 
 ### Columns
 
-The width figures are desktop `<col>` widths. The **keep below** figure is the narrowest width at
-which the column still shows.
+Widths are fixed, set on each header cell, and sized so an uppercase header fits its column at
+every width it shows at; the first column takes the rest. They were percentages until a 686px
+check showed a 9% Duration column was 56px, narrower than its 64px header. The **keep below**
+figure is the narrowest width at which the column still shows.
 
 **Media**
 | Column | Cell | Align | Width | Keep below | Visitor |
 |---|---|---|---|---|---|
 | Title | 48×27 thumbnail (`rounded-theme bg-surface-2 border-rule`, 40×23 below `sm`), then title | left | auto | always | yes |
-| Duration | `formatDuration` | right | 9% | always | yes |
-| Res | the existing resolution badge (`bg-accent text-accent-ink text-[10px]`, `4K`/`FHD`/`HD`/`SD`) | left | 7% | `sm` (640px) | yes |
-| Added | `shortDate` ("12 Oct", or "3 Mar 2025" in another year) | left | 13% | `sm` | yes |
-| Size | `formatBytes` | right | 10% | `lg` (1024px) | owner only |
-| Done | CompletenessRing `size="card"` (14px) | left | 6% | `lg` | owner only |
+| Duration | `formatDuration` | right | 5.5rem | always | yes |
+| Res | the existing resolution badge (`bg-accent text-accent-ink text-[10px]`, `4K`/`FHD`/`HD`/`SD`) | left | 3.5rem | `sm` (640px) | yes |
+| Added | `shortDate` ("12 Oct", or "3 Mar 2025" in another year) | left | 6.5rem | `sm` | yes |
+| Size | `formatBytes` | right | 5.5rem | `lg` (1024px) | owner only |
+| Done | CompletenessRing `size="card"` (14px) | left | 4rem | `lg` | owner only |
 
 **People**
 | Column | Cell | Align | Width | Keep below | Visitor |
 |---|---|---|---|---|---|
-| Name | 32px square avatar (`PersonAvatar`, `w-8`), then name | left | auto | always | yes |
-| Videos | count | right | 12% | always | yes |
-| Done | CompletenessRing 14px | left | 8% | always | owner only |
+| Name | 32px square avatar (`PersonAvatar size="xs"`, `w-8`), then name | left | auto | always | yes |
+| Videos | count | right | 5.5rem | always | yes |
+| Done | CompletenessRing 14px | left | 4rem | always | owner only |
 
 **Tags**
-| Column | Tag row | Category row | Align | Keep below |
-|---|---|---|---|---|
-| Name | name | 14px accent tag icon (as on the category pill), then name | left | always |
-| Videos / tags | video count | "12 tags" | right | always |
-| Parent | parent tag's name, blank when there is none | blank | left | `sm` |
-| ⋯ | owner menu, only while Manage tags is on | none | right, 40px | always |
+| Column | Tag row | Category row | Align | Width | Keep below |
+|---|---|---|---|---|---|
+| Name | name | 14px accent tag icon (as on the category pill), then name | left | auto | always |
+| Videos / tags | video count | "12 tags" | right | 5.5rem | always |
+| Parent | parent tag's name, blank when there is none | blank | left | 30% | `sm` |
+| ⋯ | owner menu, only while Manage tags is on | none | right | 40px | always |
 
 The All tab shows tag rows, then category rows, in the same order the Chips view loads them.
 

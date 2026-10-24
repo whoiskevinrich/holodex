@@ -11,6 +11,8 @@
 	import PersonAvatar from '#lib/components/person/PersonAvatar.svelte';
 	import PersonPosterGrid from '#lib/components/person/PersonPosterGrid.svelte';
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
+	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import { PEOPLE_COLUMNS } from '#lib/listColumns.ts';
 	import MergeCanonicalDialog from '#lib/components/entity/MergeCanonicalDialog.svelte';
 	import AlphaIndex from '#lib/components/entity/AlphaIndex.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
@@ -34,6 +36,10 @@
 	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own
 	// holodex:sort:people. Only the toggle's change handler writes it (F73 R7).
 	let activeView = $state<PersonView>(readView('people'));
+	const tableColumns = PEOPLE_COLUMNS.map((c) => ({
+		...c,
+		cell: { name: nameCell, videos: videosCell, done: doneCell }[c.id]!
+	}));
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (People) — otherwise it's previewing another
@@ -54,7 +60,7 @@
 			letters: fresh && sortBy === 'name' && !query
 		})
 	);
-	const showIndex = $derived(sortBy === 'name' && !query && activeView === 'list');
+	const showIndex = $derived(sortBy === 'name' && !query && activeView !== 'poster');
 	let listEl = $state<HTMLElement>();
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
@@ -80,9 +86,10 @@
 		root: () => listEl
 	});
 
-	// Leaving List view drops a letter restart (handoff, A–Z).
+	// Poster view has no A–Z index, so switching to it drops a letter restart (handoff, A–Z).
+	// Table keeps the index as List does (F82 P0-7).
 	$effect(() => {
-		if (activeView !== 'list' && untrack(() => people.letter)) people.jump('');
+		if (activeView === 'poster' && untrack(() => people.letter)) people.jump('');
 	});
 
 	function toggle(p: Person) {
@@ -173,6 +180,20 @@
 		<div bind:this={listEl} class="scroll-mt-16">
 		{#if activeView === 'poster'}
 			<PersonPosterGrid people={people.items} />
+		{:else if activeView === 'table' && !selecting}
+			<!-- pr-6 keeps the phone A–Z rail clear of the Done ring (handoff, "At 375px"). -->
+			<div class={showIndex ? 'pr-6 sm:pr-0' : ''}>
+				<ListTable
+					columns={tableColumns}
+					items={people.items}
+					key={(p) => p.id}
+					href={(p) => `/people/${p.id}`}
+					sort={sortBy}
+					sorts={ENTITY_SORTS}
+					owner={isOwner}
+					onsort={(s) => list.setSort(s)}
+				/>
+			</div>
 		{:else}
 		<!-- Shared row body for both modes — the only difference between select mode and
 		     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
@@ -242,6 +263,27 @@
 		<LoadMoreButton left={people.left} loading={people.loadingMore} announce={people.announce} onclick={loadMore} />
 	{/if}
 </section>
+
+<!-- Table view cells (F82 handoff, "Columns"); the column list is PEOPLE_COLUMNS. -->
+{#snippet nameCell(p: Person)}
+	<span class="flex min-w-0 items-center gap-3">
+		<span class="shrink-0">
+			<PersonAvatar personId={p.id} name={p.display_name ?? p.name} version={p.headshot_version} size="xs" />
+		</span>
+		<span class="truncate">{p.display_name ?? p.name}</span>
+	</span>
+{/snippet}
+{#snippet videosCell(p: Person)}{p.video_count}{/snippet}
+{#snippet doneCell(p: Person)}
+	{#if p.completeness}
+		<CompletenessRing
+			required={p.completeness.required}
+			extras={p.completeness.extras}
+			size="card"
+			entity={{ kind: 'person', id: p.id }}
+		/>
+	{/if}
+{/snippet}
 
 <!-- "Keep which name?" — pick the survivor for a multi-select merge, then fold the rest in. -->
 {#if choosing}

@@ -3,6 +3,7 @@ package repo_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"holodex/internal/model"
@@ -79,6 +80,31 @@ func TestSetTagParent_CycleGuard(t *testing.T) {
 	}
 	if tag.ParentTagID != nil {
 		t.Errorf("Dog.ParentTagID after clear = %v, want nil", tag.ParentTagID)
+	}
+}
+
+// TestListTagsCarriesParentName: the /tags list names each tag's parent for the
+// Table view's Parent column (F82), and a root tag carries neither id nor name.
+func TestListTagsCarriesParentName(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	ids := seedTagTree(t, r)
+
+	tags, err := r.ListTagsFiltered(ctx, repo.NamedListFilter{})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	byID := make(map[int64]model.Tag, len(tags))
+	for _, tg := range tags {
+		byID[tg.ID] = tg
+	}
+	dog := byID[ids["Dog"]]
+	if dog.ParentTagID == nil || *dog.ParentTagID != ids["Mammal"] || !strings.EqualFold(dog.ParentName, "Mammal") {
+		t.Errorf("Dog parent = %v %q, want %d \"mammal\"", dog.ParentTagID, dog.ParentName, ids["Mammal"])
+	}
+	animal := byID[ids["Animal"]]
+	if animal.ParentTagID != nil || animal.ParentName != "" {
+		t.Errorf("root Animal parent = %v %q, want none", animal.ParentTagID, animal.ParentName)
 	}
 }
 

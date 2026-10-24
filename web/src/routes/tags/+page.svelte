@@ -26,6 +26,10 @@
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import { PopoverMenu } from '#lib/actions/popoverMenu.svelte.ts';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
+	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import { TAG_COLUMNS } from '#lib/listColumns.ts';
+	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
 
 	// Sort and the All/Tags/Categories type are one F73 list state (ADR-114): sort sticky +
 	// in the URL, type in the URL only (`?type=`), both held by ListController.
@@ -70,6 +74,19 @@
 	// pill-native "Manage tags" mode: selectable pills + a Merge bar, and a per-pill ⋯ menu
 	// (rename / add alias / merge into…). No decision chips. Everything owner-gated.
 	let manage = $state(false);
+
+	// Chips or Table (F82), remembered per page; only the toggle writes it (F73 R7). Manage
+	// mode shows Chips without saving it: the per-tag ⋯ menu lives on the pill until it is
+	// extracted for the Posters view, which brings it to table rows too (spec P0-8).
+	let activeView = $state(readView('tags'));
+	const shownView = $derived(manage ? 'chips' : activeView);
+	let tableEl = $state<HTMLElement>();
+	// One Table row per tag, then per category (the All tab's stream order, EL8).
+	type TagRow = { kind: 'tag'; tag: Tag } | { kind: 'category'; cat: Category };
+	const tableColumns = TAG_COLUMNS.map((c) => ({
+		...c,
+		cell: { name: nameCell, videos: countCell, parent: parentCell }[c.id]!
+	}));
 
 	// Select-to-merge: pick 2+ pills, then choose the surviving name in MergeCanonicalDialog
 	// (mirrors /people).
@@ -224,6 +241,10 @@
 			(showCategories ? categories.total - visibleCategories.length : 0)
 	);
 	const pillError = $derived(tags.error || categories.error);
+	const tableRows = $derived<TagRow[]>([
+		...visibleTags.map((tag) => ({ kind: 'tag' as const, tag })),
+		...visibleCategories.map((cat) => ({ kind: 'category' as const, cat }))
+	]);
 	let pillsEl = $state<HTMLElement>();
 
 	// Once the tags run out, a categories list that was only counted reads its first page.
@@ -245,8 +266,12 @@
 		if (pillsLeft === 0) {
 			await tick();
 			// The first new pill's focus target: its link, or in Manage mode a tag's select
-			// button (HOLODEX-589).
-			pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')[before]?.focus();
+			// button (HOLODEX-589). In Table view, the first new row's link.
+			const targets =
+				shownView === 'table'
+					? tableEl?.querySelectorAll<HTMLElement>('tbody a[href]')
+					: pillsEl?.querySelectorAll<HTMLElement>('[data-pill]');
+			targets?.[before]?.focus();
 		}
 	}
 	const emptyMessage = $derived(
@@ -588,14 +613,6 @@
 </script>
 
 <section class="space-y-4">
-	<!-- Decorative tag-glyph icon shared by both category pill variants below. -->
-	{#snippet categoryIcon()}
-		<svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-			<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
-		</svg>
-	{/snippet}
-
 	<!-- Non-blocking near-miss (P1-5): an edit/create already saved; this is an advisory
 	     nudge. "Keep both" records keep-separate so it won't nag again. Shared by the
 	     per-pill ⋯ menu and the standing create pill (HOLODEX-243) — same copy, same
@@ -677,6 +694,9 @@
 	>
 		{#snippet sort()}
 			<SortDropdown compact options={TAG_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet view()}
+			<ViewToggle options={PAGE_VIEWS.tags} bind:view={activeView} onchange={(v) => writeView('tags', v)} />
 		{/snippet}
 	</ListToolbar>
 
@@ -798,6 +818,7 @@
 					{/if}
 				</div>
 			{/if}
+			{#if shownView === 'chips'}
 			{#each visibleTags as t (t.id)}
 				{#if manage}
 					{@const selected = selectedIds.includes(t.id)}
@@ -1108,7 +1129,22 @@
 					</a>
 				{/if}
 			{/each}
+			{/if}
 		</div>
+		{#if shownView === 'table'}
+			<div bind:this={tableEl} class={isOwner ? 'pt-3' : ''}>
+				<ListTable
+					columns={tableColumns}
+					items={tableRows}
+					key={(r) => (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
+					href={(r) => (r.kind === 'tag' ? `/tags/${r.tag.id}` : `/categories/${r.cat.id}`)}
+					sort={sortBy}
+					sorts={TAG_SORTS}
+					owner={isOwner}
+					onsort={(s) => list.setSort(s)}
+				/>
+			</div>
+		{/if}
 		<LoadMoreButton
 			left={pillsLeft}
 			loading={tags.loadingMore || categories.loadingMore}
@@ -1123,6 +1159,27 @@
 	{/if}
 	</div>
 </section>
+
+<!-- Decorative tag-glyph icon shared by both category pill variants and the Table view's
+     category rows. -->
+{#snippet categoryIcon()}
+	<svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+		<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+		<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+	</svg>
+{/snippet}
+
+<!-- Table view cells (F82 handoff, "Columns"); the column list is TAG_COLUMNS. A category's
+     count is its tags, and it has no parent. -->
+{#snippet nameCell(r: TagRow)}
+	{#if r.kind === 'tag'}
+		{r.tag.name}
+	{:else}
+		<span class="inline-flex min-w-0 items-center gap-1.5">{@render categoryIcon()}<span class="truncate">{r.cat.name}</span></span>
+	{/if}
+{/snippet}
+{#snippet countCell(r: TagRow)}{r.kind === 'tag' ? (r.tag.video_count ?? 0) : tagCount(r.cat.tag_count)}{/snippet}
+{#snippet parentCell(r: TagRow)}{r.kind === 'tag' ? (r.tag.parent_name ?? '') : ''}{/snippet}
 
 <!-- "Keep which name?" — choose the surviving tag when merging a multi-select (mirrors
      /people). The others become its aliases and their videos move under it. -->

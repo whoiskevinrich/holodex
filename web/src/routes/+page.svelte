@@ -8,12 +8,12 @@
 	import { activity } from '#lib/activity.svelte.ts';
 	import { browseCache } from '#lib/browse.svelte.ts';
 	import { navSearch } from '#lib/navSearch.svelte.ts';
-	import { DEFAULT_SORT, filtersToParams } from '#lib/filters.ts';
+	import { DEFAULT_SORT, MEDIA_SORTS, filtersToParams } from '#lib/filters.ts';
 	import { filterLabels, loadScopeNames } from '#lib/filterLabels.ts';
 	import { beginRun, queryLabel } from '#lib/runContext.ts';
 	import type { RunMode } from '#lib/run.ts';
 	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
-	import { toMessage, videoCount } from '#lib/format.ts';
+	import { formatBytes, formatDuration, resolutionBucket, toMessage, videoCount } from '#lib/format.ts';
 	import type { Facet, MediaFilters, Resolution, Video } from '#lib/types.ts';
 	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
@@ -24,8 +24,14 @@
 	import MappedFacets from '#lib/components/curation/MappedFacets.svelte';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
+	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
+	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
+	import { MEDIA_COLUMNS } from '#lib/listColumns.ts';
+	import { shortDate } from '#lib/maintenance.ts';
+	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 	const PAGE_SIZE = 50;
@@ -75,6 +81,15 @@
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	$effect(() => list.setOwner(isOwner));
+
+	// Grid or Table (F82), remembered per page; only the toggle writes it (F73 R7).
+	let activeView = $state(readView('media'));
+	const tableColumns = MEDIA_COLUMNS.map((c) => ({
+		...c,
+		cell: { title: titleCell, duration: durationCell, res: resCell, added: addedCell, size: sizeCell, done: doneCell }[
+			c.id
+		]!
+	}));
 
 	// "Recently Added" shelf is redundant with the default newest-first sort, so the
 	// owner can toggle it off (⋯ menu). Per-browser preference; defaults on.
@@ -477,7 +492,10 @@
 			</FilterPanel>
 		{/snippet}
 		{#snippet view()}
-			<DensitySlider />
+			<ViewToggle options={PAGE_VIEWS.media} bind:view={activeView} onchange={(v) => writeView('media', v)} />
+			{#if activeView === 'grid'}
+				<DensitySlider />
+			{/if}
 		{/snippet}
 		{#snippet chips()}
 			{#each activeChips as c (c.id)}
@@ -515,7 +533,20 @@
 				onclose={() => (saveOpen = false)}
 			/>
 		{/if}
-		<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
+		{#if activeView === 'table' && videos.length > 0}
+			<ListTable
+				columns={tableColumns}
+				items={videos}
+				key={(v) => v.id}
+				href={(v) => `/media/${v.id}`}
+				sort={sortBy}
+				sorts={MEDIA_SORTS}
+				owner={isOwner}
+				onsort={(s) => list.setSort(s)}
+			/>
+		{:else}
+			<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
+		{/if}
 		{#if hasFilters && !loading && videos.length === 0}
 			<div class="flex justify-center">
 				<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
@@ -524,3 +555,38 @@
 		<LoadMoreButton left={total - videos.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
 	{/if}
 </section>
+
+<!-- Table view cells (F82 handoff, "Columns"); the column list is MEDIA_COLUMNS. -->
+{#snippet titleCell(v: Video)}
+	<span class="flex min-w-0 items-center gap-3">
+		<!-- The frame stays when there's no thumbnail yet; the failed image hides, never a broken glyph. -->
+		<span class="block h-[23px] w-10 shrink-0 overflow-hidden rounded-theme border border-rule bg-surface-2 sm:h-[27px] sm:w-12">
+			<img
+				src={v.thumbnail_url || api.thumbnailURL(v.id)}
+				alt=""
+				loading="lazy"
+				onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
+				class="h-full w-full object-cover"
+			/>
+		</span>
+		<span class="truncate">{v.title}</span>
+	</span>
+{/snippet}
+{#snippet durationCell(v: Video)}{formatDuration(v.duration_sec)}{/snippet}
+{#snippet resCell(v: Video)}
+	{#if v.width > 0}
+		<span class="rounded-theme bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-accent-ink">{resolutionBucket(v.width)}</span>
+	{/if}
+{/snippet}
+{#snippet addedCell(v: Video)}{shortDate(v.indexed_at)}{/snippet}
+{#snippet sizeCell(v: Video)}{v.file_size ? formatBytes(v.file_size) : ''}{/snippet}
+{#snippet doneCell(v: Video)}
+	{#if v.completeness}
+		<CompletenessRing
+			required={v.completeness.required}
+			extras={v.completeness.extras}
+			size="card"
+			entity={{ kind: 'video', id: v.id }}
+		/>
+	{/if}
+{/snippet}

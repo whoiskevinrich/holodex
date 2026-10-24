@@ -9,7 +9,9 @@
 
 // Each page's views in toggle order; the first is the page's default.
 export const PAGE_VIEWS = {
-	people: ['list', 'poster']
+	media: ['grid', 'table'],
+	people: ['list', 'poster', 'table'],
+	tags: ['chips', 'table']
 } as const;
 
 export type ViewPage = keyof typeof PAGE_VIEWS;

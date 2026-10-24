@@ -13,7 +13,13 @@
 		onchange
 	}: { options: readonly V[]; view: V; onchange?: (v: V) => void } = $props();
 
-	const LABELS: Record<AnyView, string> = { list: 'List', poster: 'Poster' };
+	const LABELS: Record<AnyView, string> = {
+		list: 'List',
+		poster: 'Poster',
+		grid: 'Grid',
+		table: 'Table',
+		chips: 'Chips'
+	};
 
 	// segmentedToggleClass's px-3 can't be overridden per breakpoint (Tailwind orders
 	// conflicting utilities by stylesheet, not class order), so the cell spells its own
@@ -41,8 +47,12 @@
 			<svg class="h-3.5 w-3.5 sm:hidden" viewBox="0 0 14 14" fill="none" aria-hidden="true">
 				{#if v === 'list'}
 					<path d="M1 3h12M1 7h12M1 11h12" stroke="currentColor" stroke-width="1.5" />
-				{:else if v === 'poster'}
+				{:else if v === 'poster' || v === 'grid'}
 					<path d="M1.5 1.5h4.5v4.5H1.5zM8 1.5h4.5v4.5H8zM1.5 8h4.5v4.5H1.5zM8 8h4.5v4.5H8z" stroke="currentColor" stroke-width="1.3" />
+				{:else if v === 'table'}
+					<path d="M0.5 0.5h13v13h-13zM0.5 5h13M0.5 9h13M5 0.5v13" stroke="currentColor" stroke-width="1.3" />
+				{:else if v === 'chips'}
+					<rect x="0.75" y="3.5" width="12.5" height="7" rx="3.5" stroke="currentColor" stroke-width="1.3" />
 				{/if}
 			</svg>
 			<span class="hidden sm:inline">{LABELS[v]}</span>

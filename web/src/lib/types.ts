@@ -219,6 +219,8 @@ export interface Tag {
 	// The broader tag this tag sits under, or absent at the root (F50, ADR-075 D1).
 	// Present on both the /tags list and the tag-detail read.
 	parent_tag_id?: number;
+	// That parent's name — on the /tags list only, for the Table view's Parent column (F82).
+	parent_name?: string;
 	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
 	// Present only on the tag-detail read (getTag); absent on the /tags list.
 	ancestors?: string[];
