@@ -12,7 +12,11 @@ profile: ui                  # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: [HOLODEX-357]    # chips at 24px land first (PR #549)
-release_note: Chip rows such as Genres and Actors show where their values came from with the provider's icon, like single values already do, instead of a "·tmdb" label on every chip.
+release_note: Chip rows such as Actors and Director show where their values came from with the provider's icon, like single values already do, instead of a source label on every chip.
+approved:
+  design:
+    on: 2026-10-24
+    at: 72205022
 ---
 
 # HOLODEX-144 · Chip-row provenance (epic 2: Provenance badges)
@@ -28,27 +32,28 @@ owner closed 92 as Won't Do on 2026-10-24, because its only possible link is the
 
 <!-- Rows match the `ui` posture. -->
 
-- [x] design `design-handoff` → `docs/design/**` — `chip-row-provenance-handoff.md` + mockup SVG (option B); sign-off asked at /implement
+- [x] design `design-handoff` → `docs/design/**` — `chip-row-provenance-handoff.md` + mockup SVG (option B); owner signed off 2026-10-24
 - [ ] frontend → `web/src/**` — `CurationFieldRow` row rule, `CurationChip` plain branch drops the `·` suffix for an optional 12px icon
 - [ ] testing `testing-strategy` — unit tests for the row-key rule, component tests for both chips, handoff QA list
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Wait for PR #549 (HOLODEX-357) to merge, then merge `main` in
-2. [ ] [design] Owner sign-off on the handoff, then `/implement`
+1. [x] [—] Wait for PR #549 (HOLODEX-357) to merge, then merge `main` in
+2. [x] [design] Owner sign-off on the handoff, then `/implement`
 3. [ ] [frontend] Build the row rule in `CurationFieldRow` and the icon in `CurationChip` — `web/src/lib/components/curation/`
 4. [ ] [testing] Row-key unit tests, component tests, QA list §1–7
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-24 · session
-- skills: design-handoff
+- skills: design-handoff, implement
 - decided: HOLODEX-357 first (adopt 24px, PR #549); for 144, option B (one row badge, icons only
   when mixed); HOLODEX-92 is Won't Do.
 - then: the owner caught provider-specific fields in the mockup (Tagline, Genres, an invented
   Keywords). Redrew it with Actors and Director and a generic `provider-1`; Tags is out of scope
   (no provenance by design). The rule for future docs went to its own PR, #550.
-- handoff: The redrawn chip-row provenance handoff is committed and waiting on the owner's sign-off; build after PR #549 merges.
+- then: PR #549 squash-merged (87a08a42); HOLODEX-357 and HOLODEX-580 moved to Done; `main` merged in.
+- handoff: Crossed into build — design signed off at 72205022; draft PR open. Start at Up next item 3: the row rule in `CurationFieldRow`.
 
 ## Dropped — newest first (the reason is the point)
 
