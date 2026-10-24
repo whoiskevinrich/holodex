@@ -659,6 +659,17 @@ export const api = {
 	deleteStudioImage: (id: number, role: StudioImageRole) =>
 		sendAuthed<Record<string, never>>('DELETE', `/studios/${id}/images/${role}`),
 
+	// A tag's one poster image (F82): owner upload/replace/remove. The role argument is
+	// only there to fit EntityImageSlot's upload/remove shape; a tag has the one slot.
+	uploadTagImage: (id: number, file: File, _role: 'poster') => {
+		const form = new FormData();
+		form.append('image', file);
+		return uploadAuthed<{ id: number; version: number }>(`/tags/${id}/image`, form);
+	},
+
+	deleteTagImage: (id: number, _role: 'poster') =>
+		sendAuthed<Record<string, never>>('DELETE', `/tags/${id}/image`),
+
 	// Owner's per-role halo choice for one palette mode (HOLODEX-463, ADR-109).
 	setStudioImageHalo: (id: number, role: StudioImageRole, mode: HaloMode, on: boolean) =>
 		sendAuthed<Record<string, never>>('PUT', `/studios/${id}/images/${role}/halo`, { mode, on }),

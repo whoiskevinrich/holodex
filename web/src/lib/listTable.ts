@@ -23,6 +23,11 @@ export interface ColumnSpec<S extends string> {
 	keepBelow?: 'sm' | 'lg';
 	ownerOnly?: boolean;
 	sorts?: readonly ColumnSort<S>[];
+	// The cell isn't clipped or truncated — for one that opens a popover (the Tags owner
+	// ⋯ menu, F82 P0-8), which would otherwise be cut off at the cell's edge.
+	noClip?: boolean;
+	// The header is read to screen readers only (a narrow icon column).
+	hideHeader?: boolean;
 }
 
 // The columns this viewer sees: owner-only ones never reach a visitor (spec P0-4).

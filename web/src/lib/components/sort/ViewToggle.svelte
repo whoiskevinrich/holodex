@@ -18,7 +18,8 @@
 		poster: 'Poster',
 		grid: 'Grid',
 		table: 'Table',
-		chips: 'Chips'
+		chips: 'Chips',
+		posters: 'Posters'
 	};
 
 	// segmentedToggleClass's px-3 can't be overridden per breakpoint (Tailwind orders
@@ -53,6 +54,8 @@
 					<path d="M0.5 0.5h13v13h-13zM0.5 5h13M0.5 9h13M5 0.5v13" stroke="currentColor" stroke-width="1.3" />
 				{:else if v === 'chips'}
 					<rect x="0.75" y="3.5" width="12.5" height="7" rx="3.5" stroke="currentColor" stroke-width="1.3" />
+				{:else if v === 'posters'}
+					<path d="M0.5 2.5h13v8h-13zM0.5 13h13" stroke="currentColor" stroke-width="1.3" />
 				{/if}
 			</svg>
 			<span class="hidden sm:inline">{LABELS[v]}</span>

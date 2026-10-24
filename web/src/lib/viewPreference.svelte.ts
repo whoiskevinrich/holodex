@@ -11,7 +11,7 @@
 export const PAGE_VIEWS = {
 	media: ['grid', 'table'],
 	people: ['list', 'poster', 'table'],
-	tags: ['chips', 'table']
+	tags: ['chips', 'posters', 'table']
 } as const;
 
 export type ViewPage = keyof typeof PAGE_VIEWS;

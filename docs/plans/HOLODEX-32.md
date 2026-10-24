@@ -67,11 +67,10 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Tags Posters view + tag page poster control; extract the per-tag ⋯ menu so cards AND Table rows get it, then drop Manage mode's switch to Chips (spec P0-8) — `web/src/routes/tags/`
-2. [ ] [backend] A failed file store on a tag image REPLACE must restore the previous row, not leave the tag imageless (security review note) — `internal/api/tag_images.go`
-3. [ ] [frontend] Media Table thumbnail retries while generating, sharing VideoCard's backoff rather than copying it — `web/src/routes/+page.svelte`
-4. [ ] [testing] §33 geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
-5. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
+1. [ ] [backend] A failed file store on a tag image REPLACE must restore the previous row, not leave the tag imageless (security review note) — `internal/api/tag_images.go`
+2. [ ] [frontend] Media Table thumbnail retries while generating, sharing VideoCard's backoff rather than copying it — `web/src/routes/+page.svelte`
+3. [ ] [testing] §33 geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
+4. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +84,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 
 ### 2026-10-24 · Epic 4 started; spec, handoff and test plan landed
 - skills: write-spec, design-handoff, testing-strategy, handoff, implement, code-review, security-review
-- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings; start at the Tags Posters view + tag page control (Up next 1).
+- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings. Tags Posters view, the tag page poster slot and the shared per-tag ⋯ menu (chips, cards, Table rows; Manage no longer forces Chips) landed and were QA'd live; the empty slot's "+" is the upload, with no separate Upload button as the mockup drew it (asked the owner); start at the failed-replace fix (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 

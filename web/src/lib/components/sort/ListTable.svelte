@@ -54,7 +54,7 @@
 	function clickRow(e: MouseEvent, item: T) {
 		// The link and any control in a cell handle their own clicks. A modified or non-primary
 		// click, or one that ends a text selection, is left alone rather than navigating here.
-		if ((e.target as Element).closest('a, button, input, select')) return;
+		if ((e.target as Element).closest('a, button, input, select, [role="menu"]')) return;
 		if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 		if (window.getSelection()?.toString()) return;
 		goto(href(item));
@@ -73,7 +73,9 @@
 						style:width={c.width}
 						class="px-2 py-1.5 text-xs font-medium uppercase tracking-wide {alignClass(c)} {keepClass(c)} {dir === 'ascending' || dir === 'descending' ? 'text-accent' : 'text-muted'}"
 					>
-						{#if dir === undefined}
+						{#if c.hideHeader}
+							<span class="sr-only">{c.header}</span>
+						{:else if dir === undefined}
 							{c.header}
 						{:else}
 							<button
@@ -95,7 +97,7 @@
 					class="h-11 cursor-pointer border-b border-rule text-ink hover:bg-surface-2 has-[a:focus-visible]:outline has-[a:focus-visible]:-outline-offset-1 has-[a:focus-visible]:outline-accent"
 				>
 					{#each shown as c, i (c.id)}
-						<td class="truncate px-2 {alignClass(c)} {keepClass(c)} {c.align === 'right' ? 'text-muted' : ''}">
+						<td class="px-2 {c.noClip ? 'relative overflow-visible' : 'truncate'} {alignClass(c)} {keepClass(c)} {c.align === 'right' ? 'text-muted' : ''}">
 							{#if i === 0}
 								<a href={href(item)} class="block truncate focus-visible:outline-none">{@render c.cell(item)}</a>
 							{:else}
