@@ -148,7 +148,7 @@
 	}
 
 	const pillClass =
-		'inline-flex items-center gap-1 rounded-full border border-rule px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent focus-visible:text-accent';
+		'inline-flex min-h-6 items-center gap-1 rounded-full border border-rule px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-accent focus-visible:text-accent';
 </script>
 
 <!-- The provenance badge and the two owner pills. `inline` is the F44 placement (a leading
