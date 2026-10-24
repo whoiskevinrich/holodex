@@ -24,3 +24,7 @@ now and is edited in place; git is the history. **One fact lives in one doc** â€
   line linking the deciding squash commit (format in `docs/reference/doc-types.md`).
 - Material that belongs to another type goes there (or onto the ticket), not into this doc
   "for context".
+- **Examples use fields every library has**: title, actors, director, studio, Tags, and a
+  person's or studio's name. Name providers generically (`provider-1`). Never take a field from
+  the registry's `KnownFields` or `metadata-mappings.yaml.example`; both list provider-only fields
+  like tagline. See `docs/reference/doc-types.md` "Examples".
