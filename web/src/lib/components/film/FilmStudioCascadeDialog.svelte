@@ -209,7 +209,7 @@
 							type="button"
 							disabled={busyKey !== null}
 							onclick={() => commit(`current:${s.id}`, 'manual', s.name)}
-							class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-ink disabled:cursor-default"
+							class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-muted hover:border-accent hover:text-ink disabled:cursor-default"
 						>
 							<span class="max-w-[10rem] truncate">{s.name}{busyKey === `current:${s.id}` ? '…' : ''}</span>
 						</button>

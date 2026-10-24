@@ -70,6 +70,15 @@ falls to 2.9:1 against `--surface` in Cinémathèque.
 Instead the *affordance* is withdrawn — the border drops, or the accent demotes to neutral —
 so the label stays at full token contrast (4.7:1 or better).
 
+## Target size
+
+Every interactive target is at least **24×24 CSS px**: WCAG 2.2 AA, SC 2.5.8, adopted by
+HOLODEX-357. Measure the element that takes the click, not the chip around it. A `text-xs`
+pill (`px-2 py-0.5`, 22px) takes `min-h-6`. A chip that wraps a link puts its padding on the
+link, as `TagLinkChip` does. The geometry harness guards the tag and source chips
+(`tag-chips-stay-tappable`, `source-chips-stay-tappable`). The chips' own small controls (a
+tag's remove `×`, a value chip's edit and remove buttons, a picker's attached-chip `×`) don't
+meet it yet; HOLODEX-593 tracks them.
 
 ## Adding a skin
 
