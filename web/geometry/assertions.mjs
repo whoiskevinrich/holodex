@@ -218,18 +218,15 @@ export const ASSERTIONS = [
 		when: (e) => (e.axes.video?.tags ?? 0) >= 5,
 		// The inner <a>, not the chip around it, and deliberately so: a target-size
 		// bound is a claim about the *actionable* region. TagLinkChip's owner branch
-		// (the one the harness runs in, since it pins admin mode) moved the padding
-		// onto a wrapping <span> to make room for the remove ×, leaving the link an
-		// unpadded 20px text box — clicking the chip's padding activates nothing. The
-		// visitor branch keeps the padding on the <a> and would measure 30px. Measuring
-		// the wrapper here would report the chip as compliant while the thing you can
-		// actually tap is not, so HOLODEX-357 is only fixed when *this* node clears 24.
+		// (the one the harness runs in, since it pins admin mode) wraps the link in a
+		// <span> that also holds the remove ×. Before HOLODEX-357 the padding sat on that
+		// span and the link was an unpadded 20px text box; the fix moved it onto the link
+		// (28px). Measuring the wrapper would report the chip as compliant even if the
+		// padding drifted back off the link, so keep measuring *this* node.
 		selector: '#field-genres a[href^="/tags/"]',
 		measure: 'height',
-		// 24px is WCAG 2.2 AA (SC 2.5.8 Target Size, Minimum). The project has not
-		// explicitly adopted it, so the bound is a proposal and HOLODEX-357 is the ruling.
-		expect: { min: 24 },
-		blockedBy: 'HOLODEX-357'
+		// 24px is WCAG 2.2 AA (SC 2.5.8 Target Size, Minimum), adopted by HOLODEX-357.
+		expect: { min: 24 }
 	},
 
 	{
@@ -243,8 +240,7 @@ export const ASSERTIONS = [
 		prepare: ['metadata-fold', 'source-badge:tagline'],
 		selector: '[data-source-badge="tagline"] [data-seg]',
 		measure: 'height',
-		expect: { min: 24 },
-		blockedBy: 'HOLODEX-357'
+		expect: { min: 24 }
 	},
 
 	// --- The Enrich picker's "Searched" caption, stressed (ADR-095 D6, HOLODEX-369/372) ---

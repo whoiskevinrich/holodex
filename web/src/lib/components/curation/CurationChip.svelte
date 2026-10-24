@@ -9,6 +9,8 @@
 	// person page. Faces live in the page's dedicated People section, so the chip stays
 	// text-only here to avoid showing the same cast twice in two treatments.
 	import type { ResolvedValue } from '#lib/types.ts';
+	import { providers } from '#lib/providers.svelte.ts';
+	import ProviderIcon from '../enrichment/ProviderIcon.svelte';
 
 	let {
 		item,
@@ -16,6 +18,7 @@
 		showRemove = true,
 		showWriteToggle = true,
 		person,
+		mark = '',
 		radio,
 		onedit,
 		onremove,
@@ -28,6 +31,10 @@
 		// no file, so `nowrite` has no referent on person merge fields).
 		showWriteToggle?: boolean;
 		person?: { id: number; headshot_version?: number };
+		// The provider whose 12px icon this chip carries (HOLODEX-144, chip-row-provenance-handoff.md).
+		// CurationFieldRow decides it for the whole row: set only in a mixed row, and only on a
+		// provider value. Plain branch only — the radio chips keep their ·source text.
+		mark?: string;
 		// Pick-one (radio) mode for the F36 source-of-truth control (HOLODEX-112). When set, the
 		// same chip shell renders as a role="radio" button led by a ● dot instead of the merge
 		// ✕/edit controls — one shared vocabulary, a different *glyph* per selection model (replace
@@ -64,6 +71,10 @@
 		item.sources.some((s) => s !== 'file' && s !== 'record' && s !== 'manual')
 	);
 	const provenance = $derived(item.manual ? 'manual' : item.sources.join(' + '));
+
+	$effect(() => {
+		if (mark) void providers.load();
+	});
 
 	function startEdit() {
 		draft = item.value;
@@ -105,7 +116,7 @@
 		aria-label={`${item.value || radio.placeholder || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
 		title={item.value || undefined}
 		onclick={radio.onselect}
-		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
+		class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
 			? `border-accent bg-surface-2 text-ink ${pending ? 'border-dashed' : ''}`
 			: 'border-rule bg-surface-2 text-muted hover:text-ink'}"
 	>
@@ -142,7 +153,12 @@
 		{:else}
 			<span>{item.value}</span>
 		{/if}
-		<span class="{isProvider ? 'text-accent' : 'text-muted'} text-[0.65rem]">·{provenance}</span>
+		{#if mark}
+			<!-- Decorative: the chip's aria-label already names the source. -->
+			<span class="inline-flex shrink-0" title={`from ${item.sources.join(' and ')}`}>
+				<ProviderIcon name={mark} iconUrl={providers.iconUrl(mark)} size={12} decorative />
+			</span>
+		{/if}
 
 		{#if isOwner}
 			<!-- Controls reveal on hover/focus (.curation-actions in app.css) to reduce
