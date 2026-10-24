@@ -16,7 +16,7 @@ release_note: Tag links, source chips and the Promote and Attach pills are now a
 approved:
   design:
     on: 2026-10-24
-    at: 70aa0160
+    at: 4ec9f848
 ---
 
 # HOLODEX-357 · Chips adopt the 24px target size
@@ -48,6 +48,7 @@ in [theming.md "Target size"](../design/theming.md).
 - built: option A. Full harness: 468 passed, 0 failed; the 36 ERR and 4 VOID are the known setup
   gaps also seen on HOLODEX-359 (no `enrich-stub` for the flood picker, a stale `/people` selector).
   Type-check clean, 700 unit tests pass.
+- then: the owner signed off on the theming.md "Target size" text as committed in 4ec9f848; sign-off re-pinned there.
 - handoff: Option A is built and both tap-target checks are green; next, merge and close 357 and 580, then design epic 2's provenance badges at 24px.
 
 ## Dropped — newest first (the reason is the point)
