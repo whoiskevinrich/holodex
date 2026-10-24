@@ -1,13 +1,13 @@
 # Design Handoff — Chip-row provenance (HOLODEX-144)
 
-![Today versus after: chip rows lose the "·tmdb" suffix](chip-row-provenance-mockup.svg)
+![Today versus after: chip rows lose the per-chip source suffix](chip-row-provenance-mockup.svg)
 
 ## Overview
 
 A field list shows provenance two ways today. A single value carries a `ProvenanceBadge`: the
-provider's brand icon, or a muted `file` / `custom` pill. A chip row (Genres, Actors, aliases)
-instead ends every chip with a `·tmdb` / `·file` text suffix. On an enriched page a visitor sees
-both looks side by side, and a 30-actor row repeats `·tmdb` thirty times.
+provider's brand icon, or a muted `file` / `custom` pill. A chip row (Actors, Director) instead
+ends every chip with a `·<provider>` / `·file` text suffix. On an enriched page a visitor sees both
+looks side by side, and a 30-actor row repeats the provider's name thirty times.
 
 After this change a chip row speaks the single-value language. The owner picked this option on
 2026-10-24 from three: an icon on every chip, a row badge with icons only when the row is mixed
@@ -48,6 +48,9 @@ one new optional prop (the provider to mark, or none) instead of computing its o
 
 **Out of scope, and they keep their text:**
 
+- **Tags.** A field mapped into Tags renders as tag links. A provider's genres often feed Tags,
+  but Tags carry no provenance by design (ADR-090; the owner's on-file glyph replaced the old
+  suffix in HOLODEX-401).
 - The radio chips in `SourceBadge`, `SourceChipRow`, `SourceImageTiles` and the writeback dialog.
   There the label names a *candidate source* the owner is choosing between: it's the content of
   the choice, not a provenance mark.
@@ -59,14 +62,14 @@ one new optional prop (the provider to mark, or none) instead of computing its o
 | Component | Change |
 |---|---|
 | `CurationFieldRow` | Computes the row's keys. If they're uniform, renders `ProvenanceBadge` after the chips (before the owner's `+ Add`) and passes no mark to the chips; if mixed, passes each provider chip its provider |
-| `CurationChip` (plain branch) | Drops the `·{provenance}` span. With a mark, renders `ProviderIcon` `size={12}` `decorative` after the value (inside the chip's existing `gap-1`), wrapped in a span whose `title` is `from tmdb` (or `from tmdb and file` when the value has several sources) |
+| `CurationChip` (plain branch) | Drops the `·{provenance}` span. With a mark, renders `ProviderIcon` `size={12}` `decorative` after the value (inside the chip's existing `gap-1`), wrapped in a span whose `title` is `from <provider>` (or `from <provider> and file` when the value has several sources) |
 | `ProvenanceBadge` | Unchanged. Its own `ml-2` plus the row's `gap-1.5` puts 14px between the last chip and the badge, a gap that reads as "about the row", not "about the last chip" |
 
 ## Measurements and tokens
 
 - **Chip:** unchanged from HOLODEX-357. 24px tall (`min-h-6`), `px-2`, `text-xs`, `rounded-full
   border-rule bg-surface-2 text-ink`, `gap-1` inside. A marked chip grows by 16px (4px gap + 12px
-  icon). An unmarked chip shrinks by the old suffix, about 21–31px.
+  icon). An unmarked chip shrinks by the old suffix, which is as wide as the provider's name.
 - **12px icon:** `ProviderIcon` on `bg-logo-plate`, `rounded-theme`. The monogram falls back at
   the same size. A wide brand image may run past 12px wide (the component caps it at four times
   its height), and the chip grows with it.
@@ -81,16 +84,16 @@ one new optional prop (the provider to mark, or none) instead of computing its o
 | Row badge, chip icon | Hover | Native tooltip, `from <sources>`. Neither one is interactive, so no 24px target applies |
 | Chip (owner) | Hover / focus | Unchanged: edit, don't-write and remove controls reveal. The icon sits before them |
 | Chip, don't-write | — | Unchanged: struck through at reduced opacity. The icon stays inside the chip and is dimmed with it |
-| Row, after an edit | Values change | The rule re-runs: adding one file value to a tmdb row turns it mixed (the badge goes, the icons appear); removing it turns it back |
+| Row, after an edit | Values change | The rule re-runs: adding one file value to a single-provider row turns it mixed (the badge goes, the icons appear); removing it turns it back |
 | Provider directory still loading | — | The monogram shows until `providers.load()` resolves, the same as every badge today |
 
 ## Edge cases
 
 - **One value:** a uniform row of one, so it gets the row badge, exactly like a single-value field.
-- **A value with several providers** (`tmdb + tvdb`): keyed by the first provider; the tooltip
-  names them all.
-- **A value both the file and a provider agree on** (`tmdb + file`): keyed to the provider, as the
-  accent suffix was.
+- **A value with several providers** (`provider-1 + provider-2`): keyed by the first provider; the
+  tooltip names them all.
+- **A value both the file and a provider agree on** (`provider-1 + file`): keyed to the provider,
+  as the accent suffix was.
 - **Long rows** (30 actors): a uniform row ends with one badge on the last wrapped line; a mixed
   row marks only its provider values. Either way it's shorter than today.
 - **Person and studio baselines** (`record`): the row badge shows the same `file` pill a single
@@ -102,21 +105,26 @@ one new optional prop (the provider to mark, or none) instead of computing its o
 
 - **The value's source stays announced.** The chip keeps `aria-label="<value>, from <sources>"`.
   The 12px icon is `decorative`, so screen readers don't read the source twice.
-- **The row badge keeps `ProvenanceBadge`'s labelling:** icon alt or title `from tmdb`, or the
-  pill's `aria-label`.
+- **The row badge keeps `ProvenanceBadge`'s labelling:** icon alt or title `from <provider>`, or
+  the pill's `aria-label`.
 - No new focus stops and no change to the owner's keyboard order.
 - **Colour isn't the signal.** The mark is the brand icon or monogram; the old accent-versus-muted
   text tint goes away.
 
 ## QA (Cinémathèque)
 
-1. **Uniform tmdb row on media 902:** one 16px icon after the last chip, and no `·` text anywhere
-   in the row.
-2. **Mixed row:** only the provider chips carry a 12px icon, and the file chips are bare.
-3. **All-file row:** the `file` pill after the last chip.
+Use a video with an enriching provider configured. Its Actors and Director rows merge the file's
+tags with the provider's values.
+
+1. **Directors all from one provider:** one 16px icon after the last chip, and no `·` text
+   anywhere in the row.
+2. **Actors from the file and the provider:** only the provider chips carry a 12px icon, and the
+   file chips are bare.
+3. **An un-enriched video's Actors (all file):** the `file` pill after the last chip.
 4. **Owner view of the same rows:** the edit controls still reveal on hover; `+ Add` follows the
    badge.
-5. **The owner source chooser is unchanged:** the radio chips still read `·tmdb` / `·file`.
+5. **The owner source chooser is unchanged:** the radio chips still read `·<provider>` / `·file`.
 6. **Phone width:** a long uniform row wraps with the badge on the last line and no horizontal
    overflow.
-7. **Screen reader:** each chip reads "value, from tmdb" once.
+7. **Screen reader:** each chip reads "value, from <provider>" once.
+8. **Tags:** unchanged. No icon or pill on tag links, even where the provider's genres feed them.
