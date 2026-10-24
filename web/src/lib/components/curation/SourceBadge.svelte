@@ -347,9 +347,9 @@
 	{#if outOfSync(field)}
 		<span
 			class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn"
-			aria-label={`${field.label} is out of sync with the file`}
+			aria-label={`${field.label} differs from the file`}
 		>
-			file out of sync
+			file differs
 		</span>
 	{/if}
 </div>

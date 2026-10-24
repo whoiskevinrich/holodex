@@ -101,7 +101,7 @@ Metadata                         [Enrich ▾] [Clear …] [⤓ Write decisions t
 │ Genres:  [ Drama ·file ✎ ✕ ] [ Thriller ·tmdb ✎ ✕ ] [ + Add ]               │ ← merge field: UNCHANGED (CurationFieldRow)
 │                                                                              │
 │ Title:   [● Blade Runner ·file] [○ Blade Runner: Final Cut ·tmdb] [＋ Custom]│ ← replace field: one chip radiogroup
-│                                                       ( file out of sync ⚠ ) │   …+ trailing warn pill when decided ≠ in-file
+│                                                       ( file differs ⚠ )    │   …+ trailing warn pill when decided ≠ in-file
 │                                                                              │
 │ Studio:  [● Legendary Pictures ·file + tmdb] [＋ Custom]                     │ ← agreeing sources FOLD to one chip (·file + tmdb)
 └────────────────────────────────────────────────────────────────────────────┘
@@ -198,7 +198,7 @@ caps at `max-w-[14rem] truncate` (a layout clamp, not a token) so a long title c
 | provider chips | two sources agree | fold to **one** chip tagged `·file + tmdb` / `·tmdb + imdb` (value shown once) |
 | Custom chip | undecided | opener: leading `＋` + "Custom"; opens the inline input on select |
 | Custom input | open | inline input focused; Enter commit / Esc cancel (+ focus back) / blur commit / empty cancel |
-| Out-of-sync pill | decided ≠ in-file | `text-warn`/`border-warn` pill "file out of sync" trailing the row; hidden when in sync |
+| Out-of-sync pill | decided ≠ in-file | `text-warn`/`border-warn` pill "file differs" trailing the row; hidden when in sync |
 | Write button | n>0 out of sync | shows `· {n} out of sync` (warn count); spinner while the job is submitted |
 | Write button | n=0 | no count; enabled (no-op re-write allowed) |
 | Whole control | visitor / non-owner | absent; field renders read-only resolved value as today |
@@ -258,7 +258,7 @@ doesn't resize on select).
 - `aria-label` per chip names the value + provenance: `Blade Runner, from file`,
   `Blade Runner: Final Cut, from tmdb`, `Set a custom value for {field}` (opener) /
   `{literal}, from manual` (once set). The group has `aria-label="Source of truth for {field label}"`.
-- The out-of-sync pill uses `aria-label="{field label} is out of sync with the file"`.
+- The out-of-sync pill uses `aria-label="{field label} differs from the file"`.
 - Focus-visible ring (`focus:ring-accent`) on chips and the input; the Custom input traps nothing
   (inline), and Escape returns focus to the Custom chip (`await tick()` before refocus).
 - **Colour is never the only signal:** selection reads via the **● dot + `aria-checked` + border**, not

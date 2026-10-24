@@ -6,6 +6,7 @@ import {
 	isPendingSelection,
 	isReplaceField,
 	isWritable,
+	matchesFile,
 	needsWriteback,
 	outOfSync,
 	outOfSyncCount,
@@ -436,6 +437,36 @@ describe('baselineKey default (media page unchanged)', () => {
 		};
 		expect(baselineCandidateValue(f)).toBe(fileCandidateValue(f));
 		expect(baselineCandidateValue(f)).toBe('Blade Runner');
+	});
+});
+
+describe('matchesFile', () => {
+	const agreeing = (over: Partial<ResolvedField> = {}) =>
+		field({
+			winning_source: 'file:Title',
+			candidates: [
+				{ source: 'file', value: 'Blade Runner' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Blade Runner ' }
+			],
+			...over
+		});
+	it('is true for an undecided file value every source agrees with', () => {
+		expect(matchesFile(agreeing())).toBe(true);
+		expect(matchesFile(agreeing({ decision: { source: 'file', standing: false } }))).toBe(true);
+	});
+	it('ignores a provider candidate with no value', () => {
+		expect(
+			matchesFile(agreeing({ candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: '' }] }))
+		).toBe(true);
+	});
+	it('is false when a provider offers a different value', () => {
+		expect(matchesFile(field({ winning_source: 'file:Title' }))).toBe(false);
+	});
+	it('is false for a standing decision, a provider winner, an empty value or a merge field', () => {
+		expect(matchesFile(agreeing({ decision: { source: 'file', standing: true } }))).toBe(false);
+		expect(matchesFile(agreeing({ winning_source: 'tmdb:title' }))).toBe(false);
+		expect(matchesFile(agreeing({ values: [' '] }))).toBe(false);
+		expect(matchesFile(agreeing({ multi: true }))).toBe(false);
 	});
 });
 

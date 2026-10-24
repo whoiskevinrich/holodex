@@ -6,7 +6,12 @@ key: HOLODEX-220                 # the tracker key; must match the branch key re
 status: in-progress
 profile: ui
 depends-on: [HOLODEX-114]    # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
+approved:
+  design:
+    on: 2026-10-21
+    at: 0b80a9db
+release_note: The media page's metadata header has one Sync button and a sources summary in place of four refresh controls, fields that match the file fold into one line, and the raw source data sits in one disclosure.
+                             # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 ---
@@ -25,8 +30,8 @@ and no data-model change. Both halves are subtractive.
      PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY /handoff sets [x]. -->
 
 - [x] design `design-handoff` → `docs/design/media-page-restructure-handoff.md`
-- [ ] frontend
-- [ ] testing `testing-strategy`
+- [x] frontend
+- [x] testing `testing-strategy`
 
 ## Up next — ordered (position = priority)
 
@@ -34,16 +39,18 @@ and no data-model change. Both halves are subtractive.
      ⛔ marks blocked (say on what). → KEY promotes a separable item to its own issue.
      The top item is surfaced verbatim in the SessionStart banner. -->
 
-1. [ ] [frontend] Part A — collapse the four refresh controls to one sync verb; move the solid-accent
-   slot off `Refresh all` — `web/src/routes/media/[id]/+page.svelte`
-2. [ ] [frontend] Part B — chip radiogroup becomes the expanded state of a field row —
-   `web/src/routes/media/[id]/+page.svelte`
-3. [ ] [frontend] Part B — merge the duplicate cast renders — ⛔ blocked on HOLODEX-114 (F40/ADR-059)
-   making `RelinkVideoEntity` the sole writer of `video_people` from resolved values; until then label
-   the grid file-only rather than merging
-4. [ ] [testing] Three-skin QA + the contrast pairs marked "still to measure" in the handoff
+1. [ ] Sweep HOLODEX-97 with this epic (it has no branch of its own): In Review when the PR is
+   ready, Done on merge
+2. [ ] [—] Sync's rate-limit message, which Refresh all had → HOLODEX-591
+3. [ ] [—] Visitor thumbnail regenerate: gate the endpoint or make the button touch-reachable → HOLODEX-592
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
+
+### 2026-10-21 · session
+- skills: design-handoff, implement, code-review, handoff
+- handoff: All gates settled. Parts A, B and C are built, the owner re-confirmed the design at
+  0b80a9db and matched the build to the mockup, and PR #546 is ready. Main merged in for the
+  gitleaks allowlist (#547), which clears `secrets`. Next: sweep HOLODEX-97 to Done on merge.
 
 ### 2026-07-29 · status reconciled against Jira — In Progress
 - handoff: Frontmatter said `in-review` (stale from PR #179's design-handoff-only review round);
