@@ -10,14 +10,14 @@
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import PersonAvatar from '#lib/components/person/PersonAvatar.svelte';
 	import PersonPosterGrid from '#lib/components/person/PersonPosterGrid.svelte';
-	import PersonViewToggle from '#lib/components/person/PersonViewToggle.svelte';
+	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import MergeCanonicalDialog from '#lib/components/entity/MergeCanonicalDialog.svelte';
 	import AlphaIndex from '#lib/components/entity/AlphaIndex.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import DuplicatesBanner from '#lib/components/duplicates/DuplicatesBanner.svelte';
 	import SweepStatusLine from '#lib/components/activity/SweepStatusLine.svelte';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
-	import { readView, writeView, type PersonView } from '#lib/viewPreference.svelte.ts';
+	import { PAGE_VIEWS, readView, writeView, type PersonView } from '#lib/viewPreference.svelte.ts';
 	import { ENTITY_SORTS, peopleSchema } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
@@ -32,11 +32,8 @@
 	const sortBy = $derived(list.state.sort);
 
 	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own
-	// holodex:sort:people, same validated-read/fallback-on-corrupt shape.
-	let activeView = $state<PersonView>(readView());
-	$effect(() => {
-		writeView(activeView);
-	});
+	// holodex:sort:people. Only the toggle's change handler writes it (F73 R7).
+	let activeView = $state<PersonView>(readView('people'));
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (People) — otherwise it's previewing another
@@ -122,7 +119,7 @@
 			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
 		{/snippet}
 		{#snippet view()}
-			<PersonViewToggle bind:view={activeView} />
+			<ViewToggle options={PAGE_VIEWS.people} bind:view={activeView} onchange={(v) => writeView('people', v)} />
 			{#if activeView === 'poster'}
 				<DensitySlider />
 			{/if}
