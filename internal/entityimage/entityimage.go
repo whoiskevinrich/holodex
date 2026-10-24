@@ -136,6 +136,24 @@ func StoreVariant(path string, data []byte) error {
 	return nil
 }
 
+// Move re-files a stored image under another entity, keeping its id and extension — for
+// a merge that hands the loser's image row to the survivor. Width variants are not
+// moved: they are a cache and regenerate on request. Both entity ids and the image id
+// are server-assigned integers, so neither path can escape dir.
+func Move(dir string, fromEntityID, toEntityID, imageID int64) error {
+	src, err := Find(dir, fromEntityID, imageID)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(entityDir(dir, toEntityID), 0o755); err != nil {
+		return fmt.Errorf("create entity image dir: %w", err)
+	}
+	if err := os.Rename(src, Path(dir, toEntityID, imageID, filepath.Ext(src))); err != nil {
+		return fmt.Errorf("move entity image: %w", err)
+	}
+	return nil
+}
+
 // RemoveAll deletes an entity's whole image directory — the purge of an entity whose
 // rows are going too (F78 RD3). A missing directory is not an error. entityID is a
 // server-assigned integer, so the path can't escape dir.

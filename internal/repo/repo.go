@@ -1513,12 +1513,18 @@ func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model
 	if err != nil {
 		return nil, err
 	}
+	// The Posters view's image (F82) — same batch-attach pattern.
+	images, err := r.tagImageVersions(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		if p, ok := parents[out[i].ID]; ok {
 			out[i].ParentTagID = &p.id
 			out[i].ParentName = p.name
 		}
 		out[i].WritebackEnabled = writebackEnabled[out[i].ID]
+		out[i].ImageVersion = images[out[i].ID]
 	}
 	return out, nil
 }
@@ -1673,6 +1679,11 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	if t.Categories, err = r.CategoriesForTag(ctx, id); err != nil {
 		return nil, err
 	}
+	images, err := r.tagImageVersions(ctx, []int64{id})
+	if err != nil {
+		return nil, err
+	}
+	t.ImageVersion = images[id]
 	return &t, nil
 }
 

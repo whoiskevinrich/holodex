@@ -116,6 +116,12 @@ type Handlers struct {
 	studioImageMaxBytes int64
 	studioImageMaxDim   int
 
+	// Tag images (F82; the owner's one poster per tag). Same bounds as studio images.
+	// Zero tagImageDir leaves the serve route 404 and uploads 503.
+	tagImageDir      string
+	tagImageMaxBytes int64
+	tagImageMaxDim   int
+
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). filmImageDir is the
 	// on-disk root; the bounds guard untrusted uploads like studioImage's. Zero
 	// filmImageDir leaves the image endpoints returning 404/503 (the SPA renders its
@@ -239,6 +245,14 @@ func (h *Handlers) SetStudioImages(dir string, maxBytes int64, maxDim int) {
 	h.studioImageDir = dir
 	h.studioImageMaxBytes = maxBytes
 	h.studioImageMaxDim = maxDim
+}
+
+// SetTagImages wires tag image storage (F82): the on-disk root and the upload bounds —
+// mirrors SetStudioImages. Called once at startup.
+func (h *Handlers) SetTagImages(dir string, maxBytes int64, maxDim int) {
+	h.tagImageDir = dir
+	h.tagImageMaxBytes = maxBytes
+	h.tagImageMaxDim = maxDim
 }
 
 // SetFilmImages wires film image storage (F56/HOLODEX-280, ADR-086): the on-disk
@@ -384,6 +398,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
+	// Tag poster image (F82) — public read, or 404 (the SPA draws its placeholder).
+	r.Get("/tags/{id}/image", h.serveTagImage)
 	// Tag Categories (HOLODEX-240, ADR-078) — public reads; mutations gated below.
 	h.mountCategories(r)
 	h.mountPlaylists(r) // visibility-filtered reads (F69, ADR-104 D5)
@@ -429,6 +445,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
 		h.mountStudioImages(r)
+		// Tag images — owner-gated upload/delete of a tag's poster (F82).
+		h.mountTagImages(r)
 		// Films — create + attach/detach/bulk-attach (F56, ADR-085); unregistered
 		// entirely when films_enabled is off, mirroring the public routes above.
 		if h.filmsEnabled {
@@ -1456,6 +1474,9 @@ func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list tags", err)
 		return
 	}
+	for i := range tags {
+		setTagImageURL(&tags[i])
+	}
 	writeJSON(w, http.StatusOK, p.envelope(tags, total, nil))
 }
 
@@ -1473,6 +1494,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get tag", err)
 		return
 	}
+	setTagImageURL(t)
 	// Videos load through GET /media?tag=<id> with paging (ADR-121 D6, HOLODEX-501).
 	writeJSON(w, http.StatusOK, map[string]any{"tag": t})
 }

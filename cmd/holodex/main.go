@@ -253,6 +253,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if err := os.MkdirAll(cfg.StudioImagePath, 0o755); err != nil {
 		log.Warn("studio image dir create failed", "dir", cfg.StudioImagePath, "err", err)
 	}
+	// Tag images (F82): the owner's tag posters under DATA_PATH/tag-images.
+	if err := os.MkdirAll(cfg.TagImagePath, 0o755); err != nil {
+		log.Warn("tag image dir create failed", "dir", cfg.TagImagePath, "err", err)
+	}
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb): on-disk store under
 	// DATA_PATH/film-images.
 	if err := os.MkdirAll(cfg.FilmImagePath, 0o755); err != nil {
@@ -415,6 +419,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// 'logo') as part of the schema change itself, unlike ADR-057's original derived-
 	// cache backfill (which had to reconstruct state the old table never had).
 	handlers.SetStudioImages(cfg.StudioImagePath, cfg.StudioImageMaxBytes, cfg.StudioImageMaxDimension)
+	handlers.SetTagImages(cfg.TagImagePath, cfg.StudioImageMaxBytes, cfg.StudioImageMaxDimension)
 	handlers.SetFilmImages(cfg.FilmImagePath, cfg.FilmImageMaxBytes, cfg.FilmImageMaxDimension)
 	handlers.SetProviderIcons(cfg.ProviderIconPath, cfg.ProviderIconMaxDimension)
 	// Provider brand-icon refresh (ADR-059): fetch/normalize each enabled provider's

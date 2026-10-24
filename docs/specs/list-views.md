@@ -192,7 +192,9 @@ name and tag count (RD6).
 - Removing it returns the tag to the placeholder.
 - Renaming or merging a tag keeps its poster. In a merge, the surviving tag keeps its own poster,
   or takes the merged tag's if it had none.
-- Deleting a tag deletes its poster.
+- A tag with a poster counts as one you've worked on, so it is never removed automatically as an
+  unused tag. It goes only when you merge it away, and its poster goes with it unless the merge
+  carried it over.
 
 *Acceptance:*
 - [ ] An upload larger than the person-image limit is refused with the same message.

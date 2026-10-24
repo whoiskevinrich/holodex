@@ -221,6 +221,9 @@ export interface Tag {
 	parent_tag_id?: number;
 	// That parent's name — on the /tags list only, for the Table view's Parent column (F82).
 	parent_name?: string;
+	// The owner's poster image (F82), stamped ?v={id}; on the /tags list and the detail
+	// read, absent when the tag has none.
+	image_url?: string;
 	// Ancestor chain, root-first (F50, ADR-075 D1 P1-3) — the tag-detail breadcrumb.
 	// Present only on the tag-detail read (getTag); absent on the /tags list.
 	ancestors?: string[];

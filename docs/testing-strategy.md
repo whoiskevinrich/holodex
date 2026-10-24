@@ -5108,25 +5108,31 @@ backed by an owner-uploaded tag image ([spec](specs/list-views.md),
 
 ### 33.2 Go: the tag image (`internal/api/tag_images_test.go`, new)
 
-The tests mirror the studio image tests, and `/security-review` reads them.
-- **Owner gate.** A visitor's upload and delete return 401 (403 for a wrong token), and nothing is
-  stored.
-- **The bytes gate.**
-  - An upload over the person-image cap is refused with the same error.
-  - A non-image is refused.
-  - A decompression bomb is refused by the shared normaliser.
-  - An accepted JPEG is stored re-encoded, with its metadata stripped.
-  - A transparent PNG stays PNG.
-- **Serve.** With no image, the serve route returns 404. After an upload it returns the bytes with
-  `nosniff` and the immutable cache header. A replace changes the version in the URL.
-- **List payload.** The tag list carries an image URL for a tag with an image and none for a tag
-  without one. A 200-tag page stays within 10% of today's HOLODEX-589 size: a URL, never a blob.
+The tests mirror the studio image tests, and `/security-review` reads them. Seven `TestTagImage_*`
+cases, plus an `image` case in the repo's `TestOrphanTag_AuthoredSurvives`.
+- **Owner gate.** A visitor's or a wrong token's upload, and a visitor's delete, are refused 401/403,
+  and nothing is stored or removed.
+- **The bytes gate.** Uploads use the studio image bounds (10 MiB, 1000px) through the shared
+  `parseImageUpload` → `personimage.Normalize`.
+  - An upload over the cap is refused 400, and so is a non-image.
+  - A transparent PNG is served as PNG (alpha kept).
+  - The decompression-bomb guard and the metadata strip are the normaliser's own, tested once in
+    `internal/personimage`; they are not re-tested per store.
+- **Serve.** With no image the route returns 404. After an upload it returns decodable bytes with
+  `nosniff` and the immutable cache header. A replace advances the version and leaves only the new
+  file on disk.
+- **List and detail.** Both carry `image_url` stamped `?v={id}` for a tag with an image and nothing
+  for a tag without one: a URL, never a blob.
 - **Lifecycle.**
   - Renaming a tag keeps its image.
-  - In a merge, the survivor keeps its own image, or takes the merged tag's image when it had none.
-  - Deleting a tag removes both its row and its file.
-  - **Mutation-test** the merge carry-over and the owner gate: the test must fail when either is
-    removed.
+  - A merge into a survivor with no image carries the loser's image (same version) and removes the
+    loser's directory. A merge into a survivor with its own keeps the survivor's and removes the
+    loser's file.
+  - A tag with an image is never orphan-swept. Merge is the only way a tag with an image goes, so no
+    file is ever stranded.
+  - **Mutation-tested (2026-10-24):** dropping the `tag_images` id move fails
+    `TestTagImage_MergeCarriesImageToASurvivorWithout`, and mounting the mutations outside
+    `requireOwner` fails `TestTagImage_MutationsRequireOwner` ("visitor upload = 201").
 
 ### 33.3 Geometry harness (§12)
 

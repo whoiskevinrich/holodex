@@ -241,6 +241,10 @@ type Tag struct {
 	// ParentName is that parent's name, set on the /tags list only — the Table view's
 	// Parent column (F82). The detail read has Ancestors instead.
 	ParentName string `json:"parent_name,omitempty"`
+	// ImageVersion is the tag's owner-uploaded poster image's row id (F82), 0 for none;
+	// the api layer turns it into ImageURL. Set on the /tags list and the detail read.
+	ImageVersion int64  `json:"-"`
+	ImageURL     string `json:"image_url,omitempty"`
 	// Ancestors is this tag's ancestor chain, root-first (F50, ADR-075 D1
 	// P1-3) — the tag-detail breadcrumb. Populated only on the tag-detail
 	// read (GetTag); omitted on the /tags list, which has no per-row use
