@@ -33,27 +33,35 @@ owner closed 92 as Won't Do on 2026-10-24, because its only possible link is the
 <!-- Rows match the `ui` posture. -->
 
 - [x] design `design-handoff` → `docs/design/**` — `chip-row-provenance-handoff.md` + mockup SVG (option B); owner signed off 2026-10-24
-- [ ] frontend → `web/src/**` — `CurationFieldRow` row rule, `CurationChip` plain branch drops the `·` suffix for an optional 12px icon
-- [ ] testing `testing-strategy` — unit tests for the row-key rule, component tests for both chips, handoff QA list
+- [x] frontend → `web/src/**` — `#lib/chipProvenance` (row rule, reusing `providerFromWinningSource`); `CurationFieldRow` renders the row badge and passes `mark`; `CurationChip` plain branch drops the `·` text for an optional 12px `ProviderIcon`
+- [x] testing `testing-strategy` — `chipProvenance.test.ts` (10), `CurationFieldRow.svelte.test.ts` (6); live QA on media 902 visitor rows; testing-strategy §5 row
 
 ## Up next — ordered (position = priority)
 
 1. [x] [—] Wait for PR #549 (HOLODEX-357) to merge, then merge `main` in
 2. [x] [design] Owner sign-off on the handoff, then `/implement`
-3. [ ] [frontend] Build the row rule in `CurationFieldRow` and the icon in `CurationChip` — `web/src/lib/components/curation/`
-4. [ ] [testing] Row-key unit tests, component tests, QA list §1–7
+3. [x] [frontend] Build the row rule in `CurationFieldRow` and the icon in `CurationChip` — `web/src/lib/components/curation/`
+4. [x] [testing] Row-key unit tests, component tests, QA list §1–7
+5. [ ] [design] The handoff's QA list and mockup use Actors, but on the media page Actors render in the People section, not a chip row. Name Director (and a visitor's replace fields) instead. Changing `docs/design/**` needs the owner to re-confirm the sign-off — `docs/design/chip-row-provenance-handoff.md`
+6. [ ] [—] Mark PR #551 ready once 5 is settled; on merge, sweep HOLODEX-144 to Done
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-24 · session
-- skills: design-handoff, implement
+- skills: design-handoff, implement, code-review
 - decided: HOLODEX-357 first (adopt 24px, PR #549); for 144, option B (one row badge, icons only
   when mixed); HOLODEX-92 is Won't Do.
 - then: the owner caught provider-specific fields in the mockup (Tagline, Genres, an invented
   Keywords). Redrew it with Actors and Director and a generic `provider-1`; Tags is out of scope
   (no provenance by design). The rule for future docs went to its own PR, #550.
 - then: PR #549 squash-merged (87a08a42); HOLODEX-357 and HOLODEX-580 moved to Done; `main` merged in.
-- handoff: Crossed into build — design signed off at 72205022; draft PR open. Start at Up next item 3: the row rule in `CurationFieldRow`.
+- then: built it. 716 frontend tests pass, type-check clean. Live QA on media 902 (visitor): the
+  Language and Tagline rows end with one `from alpha` badge, with no `·alpha` text. The stress
+  fixture has no mixed-source merge row, so the mixed case is covered by the component test.
+  `/code-review high --fix`: reused `providerFromWinningSource` (it also excludes `computed` and
+  `tag`); updated the curation CLAUDE.md table and testing-strategy. Skipped one finding: the
+  handoff names a row the media page doesn't render this way (Up next 5).
+- handoff: Built and tested; draft PR #551 waits only on correcting the handoff's QA rows (Actors → Director) with the owner's re-confirm.
 
 ## Dropped — newest first (the reason is the point)
 
