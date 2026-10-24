@@ -15,7 +15,7 @@ views and the remembered People choice are unchanged.
 upload rules that studio and person images already have.
 
 **Design handoff**: [`list-views-handoff.md`](../design/list-views-handoff.md), with committed SVG
-mockups. **Test plan**: to come (`/testing-strategy`).
+mockups. **Test plan**: [testing-strategy §33](../testing-strategy.md#33-list-views--the-shared-table-view-and-tags-posters-f82-holodex-32--42--46).
 
 ---
 
@@ -129,7 +129,7 @@ hover and focus states, and empty and loading states. Only the columns differ.
 
 *Acceptance:*
 - [ ] Clicking or pressing Enter on a row opens that video, person or tag.
-- [ ] Scrolling to the end loads the next page, with no gap or duplicate row.
+- [ ] Load more adds the next page under the last row, with no gap or duplicate row.
 - [ ] A filter that matches nothing shows the page's existing empty message.
 
 **P0-4 — Columns per page.** Columns marked (owner) are hidden from visitors. The name or title
@@ -242,6 +242,6 @@ This is a single-owner app with no analytics, so the measures are QA checks and 
 - [x] `/write-spec` — this document
 - [x] `/design-handoff` — [`list-views-handoff.md`](../design/list-views-handoff.md); owner
   sign-off at `/implement`
-- [ ] `/testing-strategy`
+- [x] `/testing-strategy` — §33
 - [ ] `/security-review` — the new tag image upload
 - [ ] `/architecture` — expected `[~]`, no technology fork: tag images reuse the studio image store

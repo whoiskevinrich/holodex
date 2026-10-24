@@ -80,8 +80,9 @@ sees and touches.
 - **The whole row is the link.** The first cell holds the item's `<a>`, stretched over the row with
   the same stretched-link pattern People's List rows use. Other cells are text. When Manage tags is
   on, the ⋯ cell sits above the stretch (`relative z-10`).
-- **Paging is unchanged.** The page's existing infinite-scroll sentinel goes after the table. Rows
-  are appended into the same `<tbody>`, so nothing jumps.
+- **Paging is unchanged.** The page's existing Load more button (F80) goes under the table. New
+  rows are appended into the same `<tbody>`, so nothing jumps, and focus moves to the first new
+  row's link, as Load more already does for pills and cards.
 
 ### Tokens and classes
 
@@ -178,7 +179,7 @@ The All tab shows tag rows, then category rows, in the same order the Chips view
 | Sortable header | click on another column | that column becomes the Sort select's choice, the URL `sort` updates |
 | Sortable header | click on the active column | the direction flips, if Sort has both directions; otherwise nothing happens |
 | Table | loading first page | 8 skeleton rows at 44px (`bg-surface-2` bars, the existing shimmer) |
-| Table | loading next page | the existing sentinel spinner under the table |
+| Table | loading next page | the Load more button's existing "Loading…" state |
 | Table | no results | the page's existing empty message; no header row |
 | Table | error | the page's existing error banner |
 | Posters card | image loading | the media card's shimmer in the 16:9 frame |
