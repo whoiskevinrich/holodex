@@ -1,7 +1,7 @@
-# Spec: List views — a shared Details table, and Posters for Tags (F82)
+# Spec: List views — a shared Table view, and Posters for Tags (F82)
 
 **Status**: Draft
-**Epic**: HOLODEX-32 (Media view toggle) · with HOLODEX-42 (People Details) and HOLODEX-46 (Tags
+**Epic**: HOLODEX-32 (Media view toggle) · with HOLODEX-42 (People Table) and HOLODEX-46 (Tags
 views). HOLODEX-57 (add to a playlist from the grid by multi-select) was split out on 2026-10-24.
 **Owner**: Project owner
 **Date**: 2026-10-24
@@ -34,7 +34,7 @@ would repeat that.
 
 ## Goals
 
-1. **One Details view, the same on every page that has one.** Media, People and Tags show the
+1. **One Table view, the same on every page that has one.** Media, People and Tags show the
    same table: same row height, header behaviour, narrow-width rules and empty state. Only the
    columns differ.
 2. **Scan and re-sort from the table.** Clicking a column header sorts by it, through the same
@@ -56,12 +56,13 @@ would repeat that.
 - **Chosen or resizable columns, and column reordering.** The column set is fixed per page.
 - **Images for categories, and images for tags from a provider.** Tag images are owner uploads
   only. Tags aren't in the per-field source model (see `field-resolution.md`).
-- **View toggles on Studios and Films.** Neither page asked for one. The Details pattern is built
+- **View toggles on Studios and Films.** Neither page asked for one. The Table pattern is built
   so either can adopt it later.
 
 ## Resolved Decisions
 
-- **RD1 — Details is a table with fixed columns per page.** Decided 2026-10-24.
+- **RD1 — The Table view has fixed columns per page.** It is called Table, not Details, so it
+  never collides with the Media Details page. Decided 2026-10-24.
 - **RD2 — Media's columns are file facts only:** title, duration, resolution, date added, plus file
   size and completeness for the owner. Decided 2026-10-24. Anything else needs a list change (P2).
 - **RD3 — A column header sets the toolbar sort.** Clicking it picks the matching entry in Sort.
@@ -87,15 +88,15 @@ would repeat that.
 - As the owner, I want to replace or remove a tag's poster, so that a bad upload isn't permanent.
 
 **Visitor**
-- As a visitor, I want the same Details view without owner-only columns, so that I can browse
+- As a visitor, I want the same Table view without owner-only columns, so that I can browse
   densely without seeing columns I can't act on.
 - As a visitor, I want the Posters view of Tags to look complete even when few tags have images,
   so that the page doesn't look broken.
 
 **Edge cases**
-- As anyone on a phone, I want the Details table to fit the screen, so that I never scroll
+- As anyone on a phone, I want the Table view to fit the screen, so that I never scroll
   sideways to read a row.
-- As anyone whose filters match nothing, I want the Details view to show the same "no matches"
+- As anyone whose filters match nothing, I want the Table view to show the same "no matches"
   message the grid does.
 
 ## Requirements
@@ -103,9 +104,9 @@ would repeat that.
 ### Must-have (P0)
 
 **P0-1 — The View slot offers these choices.** The first is the default.
-- Media: **Grid**, **Details**.
-- People: **List**, **Poster**, **Details**.
-- Tags: **Chips**, **Posters**, **Details**, on every tab (All, Tags, Categories).
+- Media: **Grid**, **Table**.
+- People: **List**, **Poster**, **Table**.
+- Tags: **Chips**, **Posters**, **Table**, on every tab (All, Tags, Categories).
 
 *Acceptance:*
 - [ ] Each page's View slot shows exactly its choices, in this order.
@@ -115,15 +116,15 @@ would repeat that.
 **P0-2 — The choice is remembered per page, on this device.** As F73 R7 says, the view is not in
 the URL and only an explicit choice saves it. A first visit gets the page's default.
 *Acceptance:*
-- [ ] Choosing Details on Media and reloading shows Details. People is unaffected.
+- [ ] Choosing Table on Media and reloading shows Table. People is unaffected.
 - [ ] An owner who chose Poster on People before this ships still lands in Poster.
 - [ ] A shared link never carries or forces a view.
 
-**P0-3 — Details is one shared table.** Every Details view has the same row height, header style,
+**P0-3 — One shared Table view.** Every Table view has the same row height, header style,
 hover and focus states, and empty and loading states. Only the columns differ.
 - Each row opens its item, as a card or chip does.
 - Rows load in the same pages as the other views.
-- The density slider is hidden in Details, as it is in People's List view.
+- The density slider is hidden in Table, as it is in People's List view.
 
 *Acceptance:*
 - [ ] Clicking or pressing Enter on a row opens that video, person or tag.
@@ -158,20 +159,20 @@ column is always kept. The others are listed from the highest priority down.
 **P0-6 — Narrow widths drop columns, never scroll (RD4).** As the page narrows, the
 lowest-priority columns drop first. At 375px a row shows the name plus at least one other column.
 *Acceptance:*
-- [ ] At 375px the page has no horizontal scroll in Details on Media, People or Tags.
+- [ ] At 375px the page has no horizontal scroll in Table on Media, People or Tags.
 - [ ] Media at 375px keeps title and duration. People keeps name and videos. Tags keeps name and
   videos.
 
-**P0-7 — The A–Z rail follows People's rule.** It shows in Details under the same conditions as in
+**P0-7 — The A–Z rail follows People's rule.** It shows in Table under the same conditions as in
 List: name sort, no search query.
 *Acceptance:*
-- [ ] The rail appears in People Details when sorted by name, and jumps to that letter's first row.
+- [ ] The rail appears in People Table when sorted by name, and jumps to that letter's first row.
 
 **P0-8 — Owner tag actions work in every Tags view.** The per-tag owner menu (rename, alias, set
-parent, merge) is reachable from a chip, a poster card and a Details row. Bulk select stays in
+parent, merge) is reachable from a chip, a poster card and a Table row. Bulk select stays in
 Chips.
 *Acceptance:*
-- [ ] Each of the four actions can be started from a Posters card and from a Details row.
+- [ ] Each of the four actions can be started from a Posters card and from a Table row.
 
 **P0-9 — Tags Posters view.** Each tag is a poster card with its image, or the shared placeholder
 when it has none, plus its name and video count. Categories show as placeholder cards with their
@@ -199,7 +200,7 @@ name and tag count (RD6).
 
 ### Should-have (P1)
 
-- **P1-1 — Details on Studios and Films.** Both pages adopt the shared table, with their own
+- **P1-1 — Table on Studios and Films.** Both pages adopt the shared table, with their own
   columns, once the pattern has shipped.
 - **P1-2 — Tag poster on the tag's own page as a header image**, not only on the list.
 
@@ -209,15 +210,15 @@ name and tag count (RD6).
 - **P2-2 — People aliases and Tags aliases as columns.** These need the lists to return them;
   aliases were left out of the tags list on purpose (HOLODEX-589).
 - **P2-3 — Category images**, using the same upload rule as tags.
-- **P2-4 — Multi-select in Details**, which HOLODEX-57's epic may want.
+- **P2-4 — Multi-select in Table**, which HOLODEX-57's epic may want.
 
 ## Success Metrics
 
 This is a single-owner app with no analytics, so the measures are QA checks and owner use.
 - **Leading:** every P0 acceptance box passes in live QA on the stress fixture at desktop width
   and at 375px, as owner and as visitor.
-- **Leading:** zero horizontal scroll at 375px on all three Details views (geometry check).
-- **Lagging:** the owner keeps choosing Details on Media or People a month after shipping. If not,
+- **Leading:** zero horizontal scroll at 375px on all three Table views (geometry check).
+- **Lagging:** the owner keeps choosing Table on Media or People a month after shipping. If not,
   revisit the column set.
 - **Lagging:** the owner uploads posters to at least their 20 most-used tags within a month, which
   shows Posters is worth having.
@@ -234,7 +235,7 @@ This is a single-owner app with no analytics, so the measures are QA checks and 
 ## Timeline Considerations
 
 - No deadline.
-- Phase 1, frontend only: the shared Details table on Media, People and Tags.
+- Phase 1, frontend only: the shared Table view on Media, People and Tags.
 - Phase 2, needs backend work: tag poster upload and the Posters view. It reuses the studio image
   pattern, so it needs `/security-review` as a new upload surface before merge.
 - Both phases can ship in one PR or two. The design handoff covers both.
@@ -242,7 +243,7 @@ This is a single-owner app with no analytics, so the measures are QA checks and 
 ## Gate status
 
 - [x] `/write-spec` — this document
-- [ ] `/design-handoff` — Details table, Tags Posters, the tag page upload control, 375px
+- [ ] `/design-handoff` — Table view, Tags Posters, the tag page upload control, 375px
 - [ ] `/testing-strategy`
 - [ ] `/security-review` — the new tag image upload
 - [ ] `/architecture` — expected `[~]`, no technology fork: tag images reuse the studio image store
