@@ -16,7 +16,7 @@ release_note: Chip rows such as Actors and Director show where their values came
 approved:
   design:
     on: 2026-10-24
-    at: 72205022
+    at: 4d6cc4b9
 ---
 
 # HOLODEX-144 · Chip-row provenance (epic 2: Provenance badges)
@@ -42,8 +42,9 @@ owner closed 92 as Won't Do on 2026-10-24, because its only possible link is the
 2. [x] [design] Owner sign-off on the handoff, then `/implement`
 3. [x] [frontend] Build the row rule in `CurationFieldRow` and the icon in `CurationChip` — `web/src/lib/components/curation/`
 4. [x] [testing] Row-key unit tests, component tests, QA list §1–7
-5. [ ] [design] The handoff's QA list and mockup use Actors, but on the media page Actors render in the People section, not a chip row. Name Director (and a visitor's replace fields) instead. Changing `docs/design/**` needs the owner to re-confirm the sign-off — `docs/design/chip-row-provenance-handoff.md`
-6. [ ] [—] Mark PR #551 ready once 5 is settled; on merge, sweep HOLODEX-144 to Done
+5. [x] [design] The handoff's QA list and mockup use Actors, but on the media page Actors render in the People section, not a chip row. Name Director (and a visitor's replace fields) instead. Changing `docs/design/**` needs the owner to re-confirm the sign-off — `docs/design/chip-row-provenance-handoff.md`
+6. [x] [—] Mark PR #551 ready once 5 is settled
+7. [ ] [—] On merge, check HOLODEX-144 reached Done (CI moves the branch's own key)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -61,7 +62,9 @@ owner closed 92 as Won't Do on 2026-10-24, because its only possible link is the
   `/code-review high --fix`: reused `providerFromWinningSource` (it also excludes `computed` and
   `tag`); updated the curation CLAUDE.md table and testing-strategy. Skipped one finding: the
   handoff names a row the media page doesn't render this way (Up next 5).
-- handoff: Built and tested; draft PR #551 waits only on correcting the handoff's QA rows (Actors → Director) with the owner's re-confirm.
+- then: the handoff and mockup now name Director, not Actors (4d6cc4b9). The owner re-confirmed
+  the design sign-off against that diff, and it's re-pinned at 4d6cc4b9.
+- handoff: Every gate is settled and PR #551 is ready for review; next is the merge and checking HOLODEX-144 reached Done.
 
 ## Dropped — newest first (the reason is the point)
 
