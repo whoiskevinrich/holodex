@@ -67,13 +67,12 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Shared ListTable with column priority, header→sort, aria-sort — `web/src/lib/components/list/ListTable.svelte`
-2. [ ] [frontend] Table view on Media, People and Tags (columns per handoff; register views in PAGE_VIEWS) — `web/src/routes/`
-3. [ ] [backend] Tag image store, owner upload/delete, serve route, list URL, merge/delete lifecycle — `internal/`
-4. [ ] [frontend] Tags Posters view + tag page poster control — `web/src/routes/tags/`
-5. [ ] [testing] §33 unit (V3–V7), Go, geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
-6. [ ] [security] `/security-review` on the tag image upload — `internal/api/`
-7. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
+1. [ ] [frontend] Table view on Media, People and Tags: columns per handoff, register views in PAGE_VIEWS, Load more focus, V3/V7 tests — `web/src/routes/`
+2. [ ] [backend] Tag image store, owner upload/delete, serve route, list URL, merge/delete lifecycle — `internal/`
+3. [ ] [frontend] Tags Posters view + tag page poster control — `web/src/routes/tags/`
+4. [ ] [testing] §33 Go, geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
+5. [ ] [security] `/security-review` on the tag image upload — `internal/api/`
+6. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -87,7 +86,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 
 ### 2026-10-24 · Epic 4 started; spec, handoff and test plan landed
 - skills: write-spec, design-handoff, testing-strategy, handoff, implement, code-review
-- handoff: Build started — per-page view preference and the shared ViewToggle landed (People moved onto them, V1–V2 tested); start at the shared ListTable (Up next 1).
+- handoff: Build under way — ViewToggle + per-page view preference (V1–V2) and the shared ListTable in `sort/` with its pure rules in `lib/listTable.ts` (V4–V6) landed, not yet mounted on any page; start at wiring the Table view into Media, People and Tags (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 
