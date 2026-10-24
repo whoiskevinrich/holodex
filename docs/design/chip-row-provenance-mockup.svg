@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="900" height="280" font-family="Archivo, 'Archivo Variable', sans-serif">
+  <!-- HOLODEX-144 chip-row provenance, option B (owner pick 2026-10-24). Cinémathèque tokens:
+       bg #0c0a09, surface-2 #181310, rule #2a2622, ink #f3ece1, muted #9b9082, accent #e8a33d,
+       logo-plate #e9e0d0 / ink #2a2018. Text widths measured in the app (Archivo Variable 12px);
+       chips are 24px tall (min-h-6, HOLODEX-357), px-2, gap-1 inside, gap-1.5 between chips. -->
+  <rect width="900" height="280" fill="#0c0a09"/>
+  <text x="20" y="30" fill="#f3ece1" font-size="14" font-weight="500">Today</text>
+  <text x="460" y="30" fill="#e8a33d" font-size="14" font-weight="500">After: one row badge, icons only when mixed</text>
+  <line x1="450" y1="14" x2="450" y2="214" stroke="#2a2622"/>
+
+  <!-- ===== Today ===== -->
+  <g font-size="12" fill="#9b9082">
+    <text x="20" y="72">Genres</text><text x="20" y="112">Actors</text><text x="20" y="152">Keywords</text><text x="20" y="192">Tagline</text>
+  </g>
+  <g font-size="12">
+    <rect x="90" y="56" width="85.4" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="99" y="72" fill="#f3ece1">Drama</text><text x="139.1" y="72" fill="#e8a33d" font-size="10.4">·tmdb</text>
+    <rect x="181.4" y="56" width="71.7" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="190.4" y="72" fill="#f3ece1">Noir</text><text x="216.8" y="72" fill="#e8a33d" font-size="10.4">·tmdb</text>
+    <rect x="259.1" y="56" width="93.4" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="268.1" y="72" fill="#f3ece1">Western</text><text x="316.2" y="72" fill="#e8a33d" font-size="10.4">·tmdb</text>
+
+    <rect x="90" y="96" width="108.2" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="99" y="112" fill="#f3ece1">Ana Keßler</text><text x="161.9" y="112" fill="#e8a33d" font-size="10.4">·tmdb</text>
+    <rect x="204.2" y="96" width="83.5" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="213.2" y="112" fill="#f3ece1">Rui Dias</text><text x="261.9" y="112" fill="#9b9082" font-size="10.4">·file</text>
+    <rect x="293.7" y="96" width="105.2" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="302.7" y="112" fill="#f3ece1">Mara Voss</text><text x="362.6" y="112" fill="#e8a33d" font-size="10.4">·tmdb</text>
+
+    <rect x="90" y="136" width="66.6" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="99" y="152" fill="#f3ece1">Heist</text><text x="130.8" y="152" fill="#9b9082" font-size="10.4">·file</text>
+  </g>
+  <text x="90" y="192" fill="#f3ece1" font-size="14">One last job.</text>
+  <rect x="175.4" y="180" width="16" height="16" rx="2" fill="#e9e0d0"/><text x="183.4" y="192.5" fill="#2a2018" font-size="11" text-anchor="middle" font-family="Fraunces, Georgia, serif">T</text>
+
+  <!-- ===== After ===== -->
+  <g font-size="12" fill="#9b9082">
+    <text x="460" y="72">Genres</text><text x="460" y="112">Actors</text><text x="460" y="152">Keywords</text><text x="460" y="192">Tagline</text>
+  </g>
+  <g font-size="12" fill="#f3ece1">
+    <!-- single source (tmdb): plain chips + one trailing 16px ProvenanceBadge (ml-2 after the row gap) -->
+    <rect x="530" y="56" width="54.1" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="539" y="72">Drama</text>
+    <rect x="590.1" y="56" width="40.4" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="599.1" y="72">Noir</text>
+    <rect x="636.5" y="56" width="62.1" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="645.5" y="72">Western</text>
+    <rect x="712.6" y="60" width="16" height="16" rx="2" fill="#e9e0d0"/><text x="720.6" y="72.5" fill="#2a2018" font-size="11" text-anchor="middle" font-family="Fraunces, Georgia, serif">T</text>
+
+    <!-- mixed: provider values carry a 12px icon, the file value carries nothing, no row badge -->
+    <rect x="530" y="96" width="92.9" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="539" y="112">Ana Keßler</text>
+    <rect x="601.9" y="102" width="12" height="12" rx="2" fill="#e9e0d0"/><text x="607.9" y="111.5" fill="#2a2018" font-size="8.5" text-anchor="middle" font-family="Fraunces, Georgia, serif">T</text>
+    <rect x="628.9" y="96" width="62.7" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="637.9" y="112">Rui Dias</text>
+    <rect x="697.6" y="96" width="89.9" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="706.6" y="112">Mara Voss</text>
+    <rect x="766.5" y="102" width="12" height="12" rx="2" fill="#e9e0d0"/><text x="772.5" y="111.5" fill="#2a2018" font-size="8.5" text-anchor="middle" font-family="Fraunces, Georgia, serif">T</text>
+
+    <!-- all baseline: plain chips + the same muted "file" pill a single file value shows -->
+    <rect x="530" y="136" width="45.8" height="24" rx="12" fill="#181310" stroke="#2a2622"/><text x="539" y="152">Heist</text>
+    <rect x="589.8" y="138" width="31.3" height="20" rx="10" fill="#181310"/><text x="597.8" y="152" fill="#9b9082">file</text>
+  </g>
+  <text x="530" y="192" fill="#f3ece1" font-size="14">One last job.</text>
+  <rect x="615.4" y="180" width="16" height="16" rx="2" fill="#e9e0d0"/><text x="623.4" y="192.5" fill="#2a2018" font-size="11" text-anchor="middle" font-family="Fraunces, Georgia, serif">T</text>
+
+  <g font-size="11" fill="#9b9082">
+    <text x="20" y="240">Two looks today: "·tmdb" text on chips, an icon beside a single value.</text>
+    <text x="460" y="240">A row of one provenance reads like a single value.</text>
+    <text x="460" y="256">Only a mixed row marks values, and only the provider ones.</text>
+    <text x="20" y="272">"T" is the monogram fallback; a cached brand icon replaces it.</text>
+  </g>
+</svg>
