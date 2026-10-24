@@ -45,7 +45,10 @@ owner closed 92 as Won't Do on 2026-10-24, because its only possible link is the
 - skills: design-handoff
 - decided: HOLODEX-357 first (adopt 24px, PR #549); for 144, option B (one row badge, icons only
   when mixed); HOLODEX-92 is Won't Do.
-- handoff: The design handoff for chip-row provenance is committed and waiting on the owner's sign-off; build after PR #549 merges.
+- then: the owner caught provider-specific fields in the mockup (Tagline, Genres, an invented
+  Keywords). Redrew it with Actors and Director and a generic `provider-1`; Tags is out of scope
+  (no provenance by design). The rule for future docs went to its own PR, #550.
+- handoff: The redrawn chip-row provenance handoff is committed and waiting on the owner's sign-off; build after PR #549 merges.
 
 ## Dropped — newest first (the reason is the point)
 
