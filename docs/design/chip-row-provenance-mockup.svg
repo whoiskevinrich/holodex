@@ -3,7 +3,8 @@
        bg #0c0a09, surface-2 #181310, rule #2a2622, ink #f3ece1, muted #9b9082, accent #e8a33d,
        logo-plate #e9e0d0 / ink #2a2018. Text widths measured in the app (Archivo Variable 12px);
        chips are 24px tall (min-h-6, HOLODEX-357), px-2, gap-1 inside, gap-1.5 between chips.
-       Fields are standard ones with a file-tag baseline (Actors, Director); the provider is a
+       The field is Director, a standard one with a file-tag baseline that the media page renders
+       as a chip row (Actors render in the People section, not as chips); the provider is a
        generic "provider-1" with its monogram "P" (docs/reference/doc-types.md, "Examples"). -->
   <rect width="900" height="260" fill="#0c0a09"/>
   <text x="20" y="30" fill="#f3ece1" font-size="14" font-weight="500">Today</text>
@@ -12,8 +13,8 @@
 
   <!-- row labels + the scenario each row shows -->
   <g font-size="12" fill="#9b9082">
-    <text x="20" y="68">Actors</text><text x="20" y="116">Director</text><text x="20" y="164">Director</text>
-    <text x="470" y="68">Actors</text><text x="470" y="116">Director</text><text x="470" y="164">Director</text>
+    <text x="20" y="68">Director</text><text x="20" y="116">Director</text><text x="20" y="164">Director</text>
+    <text x="470" y="68">Director</text><text x="470" y="116">Director</text><text x="470" y="164">Director</text>
   </g>
   <g font-size="10" fill="#9b9082">
     <text x="20" y="82">mixed</text><text x="20" y="130">all provider-1</text><text x="20" y="178">all file</text>

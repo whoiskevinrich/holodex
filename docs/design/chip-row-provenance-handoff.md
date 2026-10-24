@@ -5,9 +5,9 @@
 ## Overview
 
 A field list shows provenance two ways today. A single value carries a `ProvenanceBadge`: the
-provider's brand icon, or a muted `file` / `custom` pill. A chip row (Actors, Director) instead
-ends every chip with a `·<provider>` / `·file` text suffix. On an enriched page a visitor sees both
-looks side by side, and a 30-actor row repeats the provider's name thirty times.
+provider's brand icon, or a muted `file` / `custom` pill. A chip row (Director, for example)
+instead ends every chip with a `·<provider>` / `·file` text suffix. On an enriched page a visitor
+sees both looks side by side, and a long row repeats the provider's name on every chip.
 
 After this change a chip row speaks the single-value language. The owner picked this option on
 2026-10-24 from three: an icon on every chip, a row badge with icons only when the row is mixed
@@ -94,7 +94,7 @@ one new optional prop (the provider to mark, or none) instead of computing its o
   tooltip names them all.
 - **A value both the file and a provider agree on** (`provider-1 + file`): keyed to the provider,
   as the accent suffix was.
-- **Long rows** (30 actors): a uniform row ends with one badge on the last wrapped line; a mixed
+- **Long rows** (many directors): a uniform row ends with one badge on the last wrapped line; a mixed
   row marks only its provider values. Either way it's shorter than today.
 - **Person and studio baselines** (`record`): the row badge shows the same `file` pill a single
   value shows on those pages today. Fixing that wording is out of scope.
@@ -113,14 +113,15 @@ one new optional prop (the provider to mark, or none) instead of computing its o
 
 ## QA (Cinémathèque)
 
-Use a video with an enriching provider configured. Its Actors and Director rows merge the file's
-tags with the provider's values.
+Use a video with an enriching provider configured. On the media page the chip rows are Director
+and the other multi-value fields in Metadata, plus every field a visitor sees there. Actors render
+in the People section, not as a chip row.
 
 1. **Directors all from one provider:** one 16px icon after the last chip, and no `·` text
    anywhere in the row.
-2. **Actors from the file and the provider:** only the provider chips carry a 12px icon, and the
-   file chips are bare.
-3. **An un-enriched video's Actors (all file):** the `file` pill after the last chip.
+2. **Directors from the file and the provider:** only the provider chips carry a 12px icon, and
+   the file chips are bare.
+3. **An un-enriched video's Director (all file):** the `file` pill after the last chip.
 4. **Owner view of the same rows:** the edit controls still reveal on hover; `+ Add` follows the
    badge.
 5. **The owner source chooser is unchanged:** the radio chips still read `·<provider>` / `·file`.
