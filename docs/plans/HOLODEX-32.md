@@ -16,7 +16,7 @@ release_note: Media, People and Tags can switch to a sortable Table view, and Ta
 approved:
   design:
     on: 2026-10-24
-    at: 6ca51996
+    at: fb4da965
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -86,7 +86,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 
 ### 2026-10-24 · Epic 4 started; spec, handoff and test plan landed
 - skills: write-spec, design-handoff, testing-strategy, handoff, implement, code-review
-- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, so the design sign-off needs a re-confirm at /handoff; start at the tag image backend (Up next 1).
+- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965; start at the tag image backend (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 
