@@ -49,7 +49,7 @@ locks it.
 - [x] backend → `{cmd,internal,providers}/**` — `resolver.Options.ListRemoved` + `ResolvedField.Removed` (not-sent-now marked), set on the owner's media, person and studio detail reads; person spellings fold to one removal; the genre writeback pass keeps an all-removed genres row. Resolver and endpoint tests pass, with two mutation checks
 - [x] frontend → `web/src/**` — the fold (`foldKey`/`sameChoice` in f36.ts), CurationChip removed mode, and the CurationFieldRow Removed (N) disclosure with Restore, focus and announcements; + Add or the person picker lifts a removal. Live QA'd on the stress fixture 2026-10-25 (§34.5)
 - [/] testing `testing-strategy`
-- [/] security `security-review`
+- [x] security `security-review` — reviewed 2026-10-25 at e932f810, no findings. ListRemoved is set only from `h.auth.authorized(r)` (media, person and studio detail) or `false` (hover card). No list or cache path carries removals. Restore and lift use the existing curation set/clear routes inside `requireOwner`. No new SQL, and no `{@html}`
 
 ## Up next — ordered (position = priority)
 
