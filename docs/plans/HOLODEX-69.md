@@ -39,7 +39,7 @@ locks it.
      both count as SETTLED. PostToolUse(Skill) flips a gate to [/] when its skill runs; ONLY
      /handoff writes [~] or [x]. -->
 
-- [/] spec `write-spec` → `docs/specs/**` — F36 P1-6 (same-ish fold) + F30.3g (Removed (N) restore) drafted
+- [x] spec `write-spec` → `docs/specs/**` — F36 P1-6 (same-ish fold) + F30.3g (Removed (N) restore). The owner reviewed both on 2026-10-25 and kept: all punctuation and symbols dropped, the top provider's spelling when only providers fold, and stale removals listed and tagged
 - [~] architecture `architecture` → `docs/architecture/**` — no technology fork. Removed values ride the owner's detail read the way offered empty fields already do (field-resolution.md, "Empty replace fields are offered through the resolver"). The resolver takes an owner-only option, lists each field's removals from the curation rows it already loads (which store the displayed value), and marks a removal no source sends now. The same option keeps a field whose every value was removed. Visitor reads are unchanged. A separate owner fetch would have to re-resolve to know "not sent now" and would add a second request to every curated page, so it is not a credible alternative
 - [x] design `design-handoff` → `docs/design/**` — `docs/design/source-choices-restore-handoff.md` + SVG mockup (option A, the inline disclosure, picked by the owner 2026-10-25; sign-off still to be recorded at /implement)
 - [ ] backend → `{cmd,internal,providers}/**`
@@ -49,15 +49,14 @@ locks it.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [spec] Owner reviews P1-6's punctuation rule and F30.3g's list-everything rule — docs/specs/
+1. [ ] [—] /implement: record the design sign-off, merge main, open the Draft PR (design phase is settled)
 2. [ ] [testing] /testing-strategy: the fold's match key, Removed (N) states and focus, visitor gating — docs/testing-strategy.md
-3. [ ] [—] /implement once 1 settles (records the design sign-off, opens the Draft PR)
-4. [ ] [backend] Owner-only resolver option listing removals + "not sent now" on media, person and studio detail reads — internal/resolver, internal/api
+3. [ ] [backend] Owner-only resolver option listing removals + "not sent now" on media, person and studio detail reads — internal/resolver, internal/api
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
 - skills: docs, design-handoff, handoff
-- handoff: Epic 5 is HOLODEX-69 + HOLODEX-138; HOLODEX-44 is Won't Do. Spec rules F36 P1-6 (same-ish fold) and F30.3g (Removed (N)) are drafted, and both specs now link topic docs, not archived ADRs. The design handoff is committed: the owner picked option A, the inline disclosure, and accepted the folded chip, which needs no new visual, only a wider match in sourceChips. ui-vocabulary gained "Removed disclosure" and "Folded choice". Architecture settled as no fork: removals ride the owner's detail read through a resolver option, like offered empty fields. Next: the owner reviews the two spec rules (Up next 1), then /testing-strategy and /implement.
+- handoff: Epic 5 is HOLODEX-69 + HOLODEX-138; HOLODEX-44 is Won't Do. Spec rules F36 P1-6 (same-ish fold) and F30.3g (Removed (N)) are drafted, and both specs now link topic docs, not archived ADRs. The design handoff is committed: the owner picked option A, the inline disclosure, and accepted the folded chip, which needs no new visual, only a wider match in sourceChips. ui-vocabulary gained "Removed disclosure" and "Folded choice". Architecture settled as no fork: removals ride the owner's detail read through a resolver option, like offered empty fields. The owner reviewed both spec rules and kept them as written, so the design phase is settled and HOLODEX-69 carries fp:ready-to-build. Next: /implement (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
