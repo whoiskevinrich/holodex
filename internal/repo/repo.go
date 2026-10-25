@@ -1513,22 +1513,37 @@ func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model
 	if err != nil {
 		return nil, err
 	}
+	// The Posters view's image (F82) — same batch-attach pattern.
+	images, err := r.tagImageVersions(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
-		out[i].ParentTagID = parents[out[i].ID]
+		if p, ok := parents[out[i].ID]; ok {
+			out[i].ParentTagID = &p.id
+			out[i].ParentName = p.name
+		}
 		out[i].WritebackEnabled = writebackEnabled[out[i].ID]
+		out[i].ImageVersion = images[out[i].ID]
 	}
 	return out, nil
 }
 
-// tagParents returns each id's parent_tag_id, keyed by id — absent from the
-// map when the tag is a root (nil parent).
-func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, error) {
-	out := make(map[int64]*int64, len(ids))
+type tagParent struct {
+	id   int64
+	name string
+}
+
+// tagParents returns each id's parent tag (id and name), keyed by id — absent from
+// the map when the tag is a root (nil parent).
+func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]tagParent, error) {
+	out := make(map[int64]tagParent, len(ids))
 	if len(ids) == 0 {
 		return out, nil
 	}
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, parent_tag_id FROM tags WHERE id IN (`+placeholders(len(ids))+`)`,
+		`SELECT t.id, p.id, p.name FROM tags t JOIN tags p ON p.id = t.parent_tag_id
+		 WHERE t.id IN (`+placeholders(len(ids))+`)`,
 		toAnySlice(ids)...)
 	if err != nil {
 		return nil, fmt.Errorf("tag parents: %w", err)
@@ -1536,13 +1551,11 @@ func (r *Repo) tagParents(ctx context.Context, ids []int64) (map[int64]*int64, e
 	defer rows.Close()
 	for rows.Next() {
 		var id int64
-		var parentID sql.NullInt64
-		if err := rows.Scan(&id, &parentID); err != nil {
+		var p tagParent
+		if err := rows.Scan(&id, &p.id, &p.name); err != nil {
 			return nil, err
 		}
-		if parentID.Valid {
-			out[id] = &parentID.Int64
-		}
+		out[id] = p
 	}
 	return out, rows.Err()
 }
@@ -1666,6 +1679,11 @@ func (r *Repo) GetTag(ctx context.Context, id int64) (*model.Tag, error) {
 	if t.Categories, err = r.CategoriesForTag(ctx, id); err != nil {
 		return nil, err
 	}
+	images, err := r.tagImageVersions(ctx, []int64{id})
+	if err != nil {
+		return nil, err
+	}
+	t.ImageVersion = images[id]
 	return &t, nil
 }
 

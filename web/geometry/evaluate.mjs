@@ -16,12 +16,13 @@
  * @property {number} fontSize
  * @property {number} gutterRight  Viewport right edge minus the element's right edge;
  *   negative when the element runs off the right of the viewport.
+ * @property {number|null} aspect  Width ÷ height to three places; null for a zero-height box.
  * @property {boolean} visible
  * @property {string} text
  */
 
 /** The metrics an assertion may bound. Anything else is a typo, and is refused. */
-export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize', 'gutterRight', 'mainTop'];
+export const METRICS = ['width', 'height', 'overflowX', 'overflowY', 'fontSize', 'gutterRight', 'mainTop', 'aspect'];
 
 /**
  * within reports whether a value satisfies a {min, max} bound, and how it reads when

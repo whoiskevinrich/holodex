@@ -68,12 +68,12 @@ adding.
 | `when(entry)` | Selects pages by their manifest coordinate. **Write the property, not the id.** |
 | `urls` | …or literal pages, for surfaces the manifest does not address (the list pages). Exactly one of `when` / `urls`. |
 | `selector` | CSS, or `:document` for the page itself. |
-| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` · `gutterRight` (viewport right edge − element right edge) · `mainTop` (element top − `<main>` top, so the site header's wrap never moves it) |
+| `measure` | `width` · `height` · `overflowX` · `overflowY` · `fontSize` · `gutterRight` (viewport right edge − element right edge) · `mainTop` (element top − `<main>` top, so the site header's wrap never moves it) · `aspect` (width ÷ height, three places — a frame's shape, e.g. Tags Posters' 16:9) |
 | `widths` | Width keys to run at (`wide`, `lg`, `narrow`, `phone`). Default: all. For an invariant that only exists at one width — the phone-only list layout — so it is never measured, and never vacuously passed, where that layout doesn't apply. |
 | `expect` | `{ min }`, `{ max }`, or both. Inclusive. |
 | `applies` | `each` (default) bounds every match; `count` bounds how many matched. |
 | `atLeast` | Matches required before the assertion means anything. Default 1. |
-| `prepare` | `metadata-fold`, `source-badge:<field>`, `visitor-view`, `enrich-picker-open:<provider>`, `person-card-open` — subtrees that exist only after an interaction (two folds, the role switch, the Enrich picker opened on the stub's ten-entry `searched[]` cascade, and the person hover card on the right-most People tile). |
+| `prepare` | `metadata-fold`, `source-badge:<field>`, `visitor-view`, `enrich-picker-open:<provider>`, `person-card-open`, `view:<view>` — subtrees that exist only after an interaction (two folds, the role switch, the Enrich picker opened on the stub's ten-entry `searched[]` cascade, the person hover card on the right-most People tile, and a list page's remembered view — `view:table` / `view:posters` sets `holodex:view:<page>` from the URL's page, reloads, then removes the key so later pages in the cell keep their default). |
 | `requires` | `{why, met(manifest)}` — skip, with the reason printed, when the fixture is the wrong shape. |
 | `blockedBy` | A filed, unfixed ticket. Reported but does not fail the run. |
 
@@ -165,6 +165,8 @@ URL, `localStorage['holodex:sort:*']` and `scrollY`:
 | `two-tabs-independent` | item 5 | Two tabs on different People views don't each return to their own sort and scroll. |
 | `back-after-reload-restores-scroll` | HOLODEX-477 | A full reload on a Person page (re-auth, deploy) makes Back to People land at the top (ADR-118). |
 | `link-arrival-starts-fresh` | HOLODEX-573 | A header link back to People or Media restores the scroll (or Media's loaded pages) from the last visit, instead of starting at the top. |
+| `table-back-restores-view-rows-scroll` | §33.4 (F82) | Back from a video opened out of Media's Table view lands on the Grid, loses the rows Load more added, or loses the scroll. |
+| `table-header-sets-the-one-sort` | §33.4 (F82) | A People Table header click keeps its own sort: the Sort select, `?sort=`, the saved sort or `aria-sort` doesn't follow it (HOLODEX-473). |
 | `hash-anchor-lands` | HOLODEX-459 | A `#videos` / `#films` link leaves a Person page at the top or at a stale snapshot, or Back to a `#videos` entry jumps to the anchor instead of restoring. |
 
 Nothing here reads the manifest. Any default-open owner library with a screenful of videos

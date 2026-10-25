@@ -263,6 +263,12 @@ func TestOrphanTag_AuthoredSurvives(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
+		// An owner-uploaded poster (F82): a sweep would drop its row and strand the file.
+		{"image", func(t *testing.T, r *repo.Repo, id int64) {
+			if _, err := r.ReplaceTagImage(ctx, id, 16, 9, 100); err != nil {
+				t.Fatal(err)
+			}
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

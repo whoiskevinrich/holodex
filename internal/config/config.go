@@ -88,6 +88,10 @@ type Config struct {
 	StudioImageMaxBytes     int64  `yaml:"studio_image_max_bytes"`
 	StudioImageMaxDimension int    `yaml:"studio_image_max_dimension"`
 
+	// Tag images (F82): the owner's one poster per tag, at
+	// DataPath/tag-images/{tagID}/{id}.jpg|.png. Uploads use the studio image bounds.
+	TagImagePath string `yaml:"-"` // derived: DataPath/tag-images
+
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). Bytes live at
 	// DataPath/film-images/{filmID}/{id}.jpg|.png, derived like StudioImagePath. The
 	// bounds mirror the studio ones.
@@ -279,6 +283,9 @@ func (c *Config) derive() {
 	if c.StudioImagePath == "" {
 		c.StudioImagePath = filepath.Join(c.DataPath, "studio-images")
 	}
+	if c.TagImagePath == "" {
+		c.TagImagePath = filepath.Join(c.DataPath, "tag-images")
+	}
 	if c.FilmImagePath == "" {
 		c.FilmImagePath = filepath.Join(c.DataPath, "film-images")
 	}
@@ -316,6 +323,7 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.ThumbnailPath = ""
 		c.PersonImagePath = ""
 		c.StudioImagePath = ""
+		c.TagImagePath = ""
 		c.FilmImagePath = ""
 		c.ProviderIconPath = ""
 	}

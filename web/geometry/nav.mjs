@@ -424,6 +424,53 @@ const SCENARIOS = [
 				expect(await landed('films'), `a cold load of ${path}#films did not land on #films`);
 			} else console.log(`      (${path} has no films; #films not checked)`);
 		}
+	},
+	{
+		// F82: Back from a video opened out of Media's Table view returns to the Table,
+		// with every row Load more had added and the scroll where it was.
+		key: 'table-back-restores-view-rows-scroll',
+		qa: '§33.4 · F82 P0-2/P0-3',
+		run: async ({ page }) => {
+			const rows = 'main tbody tr';
+			const tableOn = 'button[aria-label="Table view"][aria-pressed="true"]';
+			await goto(page, `${base}/`);
+			await page.locator('button[aria-label="Table view"]').click();
+			await page.waitForSelector(tableOn, { timeout: 5000 });
+			const first = await page.locator(rows).count();
+			await page.getByRole('button', { name: /^Load more/ }).click();
+			await page.waitForFunction(
+				([sel, n]) => document.querySelectorAll(sel).length > n,
+				[rows, first],
+				{ timeout: 10000 }
+			);
+			const loaded = await page.locator(rows).count();
+			const y = await page.$$eval(rows, (els) => Math.round(els[Math.min(59, els.length - 1)].getBoundingClientRect().top + window.scrollY - 200));
+			await scrollTo(page, y);
+			await openVisible(page, 'main tbody a[href^="/media/"]', /^\/media\/\d+$/);
+			await backTo(page, '/', y);
+			expect((await page.locator(tableOn).count()) === 1, 'Back did not return to the Table view');
+			const after = await page.locator(rows).count();
+			expect(after === loaded, `Back restored ${after} rows, expected the ${loaded} loaded before`);
+		}
+	},
+	{
+		// F82 P0-5: a header click is the toolbar's one sort — the select, the URL and the
+		// saved sort all move together, and the header announces the direction.
+		key: 'table-header-sets-the-one-sort',
+		qa: '§33.4 · F82 P0-5 · HOLODEX-473',
+		run: async ({ page }) => {
+			await goto(page, `${base}/people`);
+			await page.locator('button[aria-label="Table view"]').click();
+			await page.waitForSelector('main thead', { timeout: 5000 });
+			await page.locator('main thead th button', { hasText: /^Videos/ }).click();
+			await page.waitForURL((u) => u.searchParams.get('sort') === 'count', { timeout: 5000 }).catch(() => {});
+			await settle(page);
+			expect(new URL(page.url()).searchParams.get('sort') === 'count', `the URL sort is ${here(page)}, expected sort=count`);
+			expect((await page.locator(SORT).inputValue()) === 'count', 'the Sort select did not follow the header click');
+			expect((await sortKeys(page))['holodex:sort:people'] === 'count', 'the header click did not save the sort');
+			const aria = await page.locator('main thead th', { hasText: /^Videos/ }).getAttribute('aria-sort');
+			expect(aria === 'descending', `the Videos header reads aria-sort=${aria}, expected descending`);
+		}
 	}
 ];
 

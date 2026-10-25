@@ -28,7 +28,7 @@ import { METRICS } from './evaluate.mjs';
  * @property {string[]} [prepare]    Named page preparations to run before measuring.
  * @property {string} selector       CSS selector, or `:document` for the page itself.
  * @property {'each'|'count'} [applies]  Default `each`.
- * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'|'mainTop'} [measure]
+ * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'|'mainTop'|'aspect'} [measure]
  *   Required for `each`; ignored for `count`.
  * @property {{min?: number, max?: number}} expect
  * @property {string[]} [widths]    Width keys to run at (browser.mjs WIDTHS). Default: every
@@ -49,6 +49,9 @@ import { METRICS } from './evaluate.mjs';
 const isProseRung = (e) =>
 	(e.entity === 'video' && e.dimension === 'text') ||
 	(e.entity === 'film' && e.dimension === 'filmtext');
+
+/** The pages with a Table view (F82), the Tags tab that lists categories included. */
+const TABLE_PAGES = ['/', '/people', '/tags', '/tags?type=categories'];
 
 /** The five list pages at rest (F73), and their worst toolbar states. */
 const LIST_PAGES = ['/', '/people', '/studios', '/films', '/tags?type=categories'];
@@ -552,6 +555,84 @@ export const ASSERTIONS = [
 		selector: 'main ul > li.scroll-mt-16',
 		measure: 'gutterRight',
 		expect: { min: 26 }
+	},
+
+	// --- F82 list views: the shared Table view and Tags Posters (testing-strategy §33.3) ---
+	// The view is a remembered choice, not a URL state, so each of these reaches it
+	// through the `view` preparation.
+
+	{
+		key: 'list-table-no-horizontal-overflow',
+		finds:
+			'A Table view scrolling sideways: a column that should have dropped at this width, ' +
+			'or a long title widening a table that is not fixed-layout.',
+		urls: TABLE_PAGES,
+		prepare: ['view:table'],
+		selector: ':document',
+		measure: 'overflowX',
+		expect: { max: 0 }
+	},
+	{
+		key: 'list-table-row-height',
+		finds: 'A Table row off its 44px: a cell wrapping instead of truncating, or a stray padding.',
+		urls: TABLE_PAGES,
+		prepare: ['view:table'],
+		selector: 'main tbody tr',
+		measure: 'height',
+		expect: { min: 43, max: 45 }
+	},
+	{
+		key: 'list-table-drops-columns-at-phone',
+		finds:
+			'A low-priority column still taking width at 375px (Media: res, added, size, done; ' +
+			'Tags: parent), the priority rule having regressed.',
+		urls: ['/', '/tags'],
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main thead th.hidden',
+		measure: 'width',
+		expect: { max: 0 }
+	},
+	{
+		key: 'list-table-keeps-columns-at-phone',
+		finds: 'A Table at 375px showing the name alone: every row needs at least one more column.',
+		urls: TABLE_PAGES,
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main thead th:not(.hidden)',
+		applies: 'count',
+		expect: { min: 2 }
+	},
+	{
+		key: 'list-table-visitor-no-owner-columns',
+		finds: 'An owner-only column (size, done) reaching a visitor: Media shows four columns to them.',
+		urls: ['/'],
+		widths: ['wide'],
+		prepare: ['view:table', 'visitor-view'],
+		selector: 'main thead th',
+		applies: 'count',
+		expect: { min: 4, max: 4 }
+	},
+	{
+		key: 'az-rail-clear-of-table',
+		finds:
+			'The A–Z rail covering the People Table’s last column (the Done ring): the table ' +
+			'keeps `pr-6` below `sm`, so its cells end at least 26px from the edge.',
+		urls: ['/people'],
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main tbody td:last-child',
+		measure: 'gutterRight',
+		expect: { min: 26 }
+	},
+	{
+		key: 'tag-poster-aspect',
+		finds: 'A Tags Posters frame drifting off 16:9 — the media thumbnail shape, not People’s 2:3.',
+		urls: ['/tags', '/tags?type=categories'],
+		prepare: ['view:posters'],
+		selector: 'main .poster-card-frame',
+		measure: 'aspect',
+		expect: { min: 1.76, max: 1.79 }
 	}
 ];
 

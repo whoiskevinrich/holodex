@@ -5072,3 +5072,153 @@ What was exercised:
 **Standing gaps.**
 - Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
   would need a paged-list scenario.
+
+## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
+
+Media, People and Tags gain a Table view drawn by one shared table, and Tags gains a Posters view
+backed by an owner-uploaded tag image ([spec](specs/list-views.md),
+[handoff](design/list-views-handoff.md)). Risks, ranked by how quietly they would fail:
+
+1. **Two sorts again (HOLODEX-473).** A header click that keeps its own sort state, or that maps to
+   a value Sort doesn't offer, splits the header's arrow from the Sort select and the URL.
+2. **A tag image upload that skips the image gate.** This is a new upload surface: a visitor upload,
+   an oversized or hostile file, or bytes stored without the clean-and-re-encode step that person
+   and studio images pass through.
+3. **Owner-only columns reach a visitor.** Size and Done would show as blank columns, or as values
+   if the redaction ever regressed.
+4. **The table scrolls sideways on a phone**, because a column didn't drop or a long title widened
+   a non-fixed table.
+5. **A view choice that is lost or forced.** People's existing List/Poster choice is dropped when
+   its storage moves to the generic key, or arrival writes storage (F73 R7).
+6. **A tag poster that leaks or vanishes across a merge or delete.** The surviving tag loses the
+   image, or a deleted tag leaves its file on disk.
+7. **Load more or Back breaks in Table view.** Rows repeat, focus is lost, or Back restores Grid.
+
+### 33.1 Unit (Vitest)
+
+| # | Case | Guards risk |
+|---|---|---|
+| V1 | The view preference reads `holodex:view:<page>` per page. An absent or unknown value gives the page's default. People's stored `list` and `poster` still resolve, so no one's choice changes. | 5 |
+| V2 | **Reading the preference makes zero `localStorage.setItem` calls** (spy). The toggle handler writes exactly that page's key. | 5 |
+| V3 | **Every column with a sort key names an entry in that page's sort list**, for Media, People and Tags. A column whose key is missing fails here, not in the browser. | 1 |
+| V4 | Header click: another column's key returns that sort value. The active column returns its opposite direction when the list has one, and the same value when it doesn't. A column with no key returns nothing. | 1 |
+| V5 | `aria-sort`: `ascending` or `descending` on the active column, `none` on the other sortable columns, and absent on plain headers. | 1, a11y |
+| V6 | Column visibility for (columns, width, owner): owner-only columns never appear for a visitor at any width. The name column always appears. Each page's keep-below breakpoints match the handoff's column tables. | 3, 4 |
+| V7 | Each page's column list is the handoff's, in its order. This is a snapshot of labels and alignment, so a reorder is a deliberate diff. | spec P0-4 |
+
+### 33.2 Go: the tag image (`internal/api/tag_images_test.go`, new)
+
+The tests mirror the studio image tests, and `/security-review` reads them. Seven `TestTagImage_*`
+cases, plus an `image` case in the repo's `TestOrphanTag_AuthoredSurvives`.
+- **Owner gate.** A visitor's or a wrong token's upload, and a visitor's delete, are refused 401/403,
+  and nothing is stored or removed.
+- **The bytes gate.** Uploads use the studio image bounds (10 MiB, 1000px) through the shared
+  `parseImageUpload` → `personimage.Normalize`.
+  - An upload over the cap is refused 400, and so is a non-image.
+  - A transparent PNG is served as PNG (alpha kept).
+  - The decompression-bomb guard and the metadata strip are the normaliser's own, tested once in
+    `internal/personimage`; they are not re-tested per store.
+- **Serve.** With no image the route returns 404. After an upload it returns decodable bytes with
+  `nosniff` and the immutable cache header. A replace advances the version and leaves only the new
+  file on disk. A replace whose file can't be written answers 500 and leaves the previous image
+  serving at its old version (`TestTagImage_FailedReplaceKeepsThePreviousImage`).
+- **List and detail.** Both carry `image_url` stamped `?v={id}` for a tag with an image and nothing
+  for a tag without one: a URL, never a blob.
+- **Lifecycle.**
+  - Renaming a tag keeps its image.
+  - A merge into a survivor with no image carries the loser's image (same version) and removes the
+    loser's directory. A merge into a survivor with its own keeps the survivor's and removes the
+    loser's file.
+  - A tag with an image is never orphan-swept. Merge is the only way a tag with an image goes, so no
+    file is ever stranded.
+  - **Mutation-tested (2026-10-24):** dropping the `tag_images` id move fails
+    `TestTagImage_MergeCarriesImageToASurvivorWithout`, and mounting the mutations outside
+    `requireOwner` fails `TestTagImage_MutationsRequireOwner` ("visitor upload = 201").
+
+### 33.3 Geometry harness (§12)
+
+The view is a remembered choice, not a URL state, and the harness addresses pages by URL, so a
+new **`view:<view>` preparation** (`browser.mjs`) reaches it: it writes `holodex:view:<page>` for
+the URL's page, reloads, waits for that view's toggle cell to be pressed, then removes the key so
+the rest of the width cell's shared context keeps its default. A new **`aspect`** metric (width ÷
+height) measures the poster frame's shape. The pages are `TABLE_PAGES`: `/`, `/people`, `/tags`
+and `/tags?type=categories`.
+
+| Key | Pages · widths | Measure | Expect | Finds |
+|---|---|---|---|---|
+| `list-table-no-horizontal-overflow` | `TABLE_PAGES` · all | `:document` `overflowX` | 0 | A column that didn't drop, or a table that isn't fixed-layout (risk 4). |
+| `list-table-row-height` | `TABLE_PAGES` · all | each `tbody tr` height | 43–45 | A wrapping cell or a stray padding. |
+| `list-table-drops-columns-at-phone` | `/`, `/tags` · phone | each `th.hidden` width | 0 | A low-priority column still taking width (the priority rule regressed). |
+| `list-table-keeps-columns-at-phone` | `TABLE_PAGES` · phone | count of `th:not(.hidden)` | ≥ 2 | A row down to its name alone. |
+| `list-table-visitor-no-owner-columns` | `/` · wide, `visitor-view` | count of `thead th` | exactly 4 | Size or Done reaching a visitor (risk 3). |
+| `az-rail-clear-of-table` | `/people` · phone | each last `td` `gutterRight` | ≥ 26 | The A–Z rail over the Done ring. |
+| `tag-poster-aspect` | `/tags`, `?type=categories` · all | each `.poster-card-frame` `aspect` | 1.76–1.79 | A poster frame that drifted off 16:9. |
+
+**As built and run (2026-10-24, `backend-stress-open-9600` + `web-9600`, the stress fixture).**
+All seven pass: 48 checks over 4 width cells, with F73's `list-page-no-horizontal-overflow`
+still passing 32/32 beside them. The same run reported `az-rail-clear-of-rows` (§20.2) **VOID** on
+`/people` and `/studios`: its `li.scroll-mt-16` selector matches nothing since F80 moved
+`scroll-mt-16` onto the list wrapper. That is stale on `main` too and is not this epic's; it needs
+its selector updated.
+
+### 33.4 Navigation harness (§20.6)
+
+Two scenarios:
+- **`table-back-restores-view-rows-scroll`.** Media in Table view: Load more, scroll to the 60th
+  row, open a row in view, go Back. Expect the Table view, every loaded row, and the same `scrollY`.
+- **`table-header-sets-the-one-sort`.** People in Table view: click the Videos header. Expect
+  `?sort=count`, `holodex:sort:people` = `count`, the Sort select on `count`, and
+  `aria-sort="descending"` on the header.
+
+**Run 2026-10-24 (same pair):** both new scenarios pass, and so do 9 of the 10 existing ones.
+`two-tabs-independent` fails with "could not scroll to 800 (stuck at 737)": its random-sort People
+tab has only the 50-row first page since F80, too short for its 800px target at 1440px. This
+branch doesn't touch the People List view, so the failure is very likely on `main` as well (not
+confirmed there); the scenario needs a target the first page can reach.
+
+### 33.5 Live QA (`backend-stress` + `web`, Cinémathèque)
+
+1. `[smoke]` Media: switch to Table, reload, still Table. People and Tags keep their own views.
+2. `[agent]` Click each header on each page. The Sort select, the URL and the header arrow agree
+   after every click. Click it again to flip the direction where both directions exist.
+3. `[agent]` As a visitor, Media's Table has no Size or Done column, and nothing shows where they
+   were.
+4. `[agent]` At 375px, each page's Table has its kept columns, and the page has no sideways
+   scroll. In People with name sort, the A–Z rail doesn't cover the rings.
+5. `[agent]` Load more in Table view on all three pages: no duplicate rows, and focus lands on the
+   first new row.
+6. `[human]` Keyboard: Tab goes toolbar → headers → rows. Enter on a row opens the item. A screen
+   reader announces "Added, sorted newest first".
+7. `[agent]` Upload, replace and remove a poster on a tag's page. Check the list card each time,
+   then the placeholder.
+8. `[agent]` Merge a tag that has a poster into one that doesn't: the image carries over. Merge two
+   tags that both have posters: the survivor keeps its own.
+9. `[human]` Tags Posters with no images at all reads as a deliberate, even grid of placeholders.
+   Categories are distinguishable by the accent glyph.
+10. `[smoke]` An owner who had People set to Poster before the upgrade still lands in Poster.
+
+**Run 2026-10-24** (`backend-stress` and the open pair, Cinémathèque):
+- **1, 10:** pass. A seeded `poster` choice opened People in Poster. Table survived a reload on
+  Media, and each page kept its own view.
+- **2:** pass. Tags' Videos header moved the Sort select, `?sort=`, `holodex:sort:tags` and
+  `aria-sort` together. The nav scenario repeats it on People.
+- **3, 4:** pass, by the §33.3 geometry run.
+- **5:** pass with one note. People loaded 164 rows and Media 183, with no duplicates.
+  - On People's last Load more, focus landed on the first new row's link (row 151).
+  - Media's Load more has never moved focus, in the grid either, so it doesn't here. That is
+    existing behaviour, not this epic's.
+  - Tags fits in one page on this fixture (137 tags + 100 categories), so its Load more wasn't
+    exercised.
+- **7:** pass. Upload (through the route) showed on the list card and the tag page, Remove went
+  through its "Remove?" confirm to the empty slot, and the empty slot shows Upload beside its "+".
+  Replace is covered by the Go tests, not live.
+- **8:** covered by the Go merge tests (§33.2), not live: a merge can't be undone on the shared
+  fixture.
+- **6, 9:** `[human]`, run by the owner on 2026-10-24 on the open pair: pass ("looks fine").
+
+### 33.6 Standing gaps
+
+- Nothing automated checks the placeholder's look. Item 9 is a human judgement.
+- Nothing automated checks the keyboard order or the screen-reader announcement (item 6).
+- The upload's busy and error states are QA'd by hand. They are the existing slot's states, which
+  the studio image QA already covered.
