@@ -36,8 +36,10 @@ background, so it can make a montage the same way.
    ask for reduced motion always see stills.
 3. **Browsing never gets worse.** A card whose montage isn't ready behaves exactly as it does
    today. Montages never delay a still, a page load or a scan.
-4. **The owner controls the cost.** Montage generation can be turned off. Its share of the machine
-   is set separately from stills, and it defaults to one montage at a time.
+4. **The owner controls the cost.** Montage generation can be off, manual (only when the owner
+   asks) or automatic. It ships as manual, so nothing is generated until the owner has tried it on
+   their own library. Its share of the machine is set separately from stills, and it defaults to
+   one montage at a time.
 5. **Stills stay free to change.** Still thumbnails keep working exactly as they do today, and a
    later change to how stills work doesn't have to account for montages.
 
@@ -68,9 +70,9 @@ background, so it can make a montage the same way.
   smaller for the same clip, and every browser decodes it in hardware. The file choice belongs to
   the pipeline doc.
 - **RD3: montages are made in the background, behind stills.** Waiting stills always come first.
-  Montages have their own on/off switch and worker count, and the worker count defaults to 1
-  (decided 2026-10-25). A card without a montage keeps its still. Browsing a page also moves its
-  videos up the montage queue.
+  Montages have their own generation mode and worker count, and the worker count defaults to 1
+  (decided 2026-10-25). A card without a montage keeps its still. In automatic mode, browsing a
+  page also moves its videos up the montage queue.
 - **RD4: HOLODEX-27 is closed as superseded by this spec.**
 - **RD5: stills never depend on montages** (decided 2026-10-25). The dependency runs one way only:
   a card falls back to its still when it has no montage. Nothing about how a still is made,
@@ -78,6 +80,11 @@ background, so it can make a montage the same way.
   because of them. The two have separate settings, queues, failure handling and owner actions, so
   a future change to stills needs no montage work. Rules in this spec that resemble a still's rule
   are stated for montages alone, not as "same as the still", so they can drift apart safely.
+- **RD6: generation ships in manual mode** (decided 2026-10-25). The mode is **off**, **manual** or
+  **automatic**, and the default is manual. In manual mode, a montage is made only when the owner
+  asks for one, so the owner can test generation cost and quality on their production library
+  before anything runs unattended. Switching to automatic is a deliberate owner step. A later
+  spec edit may change the default once the owner has tested it.
 
 ## User Stories
 
@@ -87,6 +94,8 @@ background, so it can make a montage the same way.
 - As a keyboard user, I want the focused card to play its montage, so I get what a pointer user
   gets.
 - As someone who has asked the system for reduced motion, I want cards to stay still.
+- As the owner, I want montages made only when I ask until I've tested them on my production
+  library, so nothing runs unattended before I trust its cost and quality.
 - As the owner, I want to turn montages off, or limit how much of the machine they use, so a large
   library's backfill doesn't compete with everything else.
 - As the owner, I want to see montage generation progress where I see still-thumbnail progress, so
@@ -123,26 +132,39 @@ background, so it can make a montage the same way.
   alike. When a video is soft-deleted, its montage is hidden.
 - **P0-10: Background generation.** Montages are made from the video file itself. Any waiting
   still is made before any montage. Montage work runs at the lowest machine priority and never
-  blocks a scan. On startup, videos with no montage are queued (eager backfill), unless montages
-  are turned off.
-- **P0-11: Owner switches.** The owner can turn montage generation off and can set how many
-  montages are made at once. The default is **1**. These are new settings of their own: no
-  still-thumbnail setting changes meaning or default. Turning generation off stops new work.
-  Existing montages still play, so turning it back on doesn't start from zero.
+  blocks a scan. What puts a video in the montage queue depends on the mode (P0-11).
+- **P0-11: Generation mode and workers.** The owner sets the mode and how many montages are made
+  at once. These are new settings of their own: no still-thumbnail setting changes meaning or
+  default.
+  - **Manual (default):** nothing is queued on startup, by a scan or by browsing. A montage is made
+    only when the owner asks (P0-15). Any montage that already exists still plays.
+  - **Automatic:** on startup, videos with no montage are queued (eager backfill), and browsing a
+    page moves its videos up the queue.
+  - **Off:** no montage is made, not even on request. Existing montages still play, so turning
+    generation back on doesn't start from zero.
+  - **Workers:** the default is **1**. It applies in both manual and automatic mode.
+  - Switching from manual to automatic starts the backfill. Switching from automatic to manual or
+    off lets the montage in progress finish and drops the rest of the queue.
 - **P0-12: Staying current.** When a video's file changes (file maintenance, or a writeback that
   rewrites the file), its montage is remade. A change to the still alone (an owner uploading a
   poster, regenerating the still, embedded art being found) does not touch the montage.
 - **P0-13: Failure.** A video whose montage fails to generate keeps its still. Failed montages are
   retried on the next startup and never block other videos in the montage queue. A montage
   failure is never recorded as a still failure, and a still failure never stops a montage.
-- **P0-14: Progress.** Montage queue progress (waiting, in progress, workers) appears in the
-  activity view next to still-thumbnail progress.
+- **P0-14: Progress.** Montage queue progress (waiting, in progress, workers) and the current
+  mode appear in the activity view next to still-thumbnail progress.
+- **P0-15: Owner requests.** In manual or automatic mode, the owner can make, or remake, one
+  video's montage from that video's page. The request goes to the front of the montage queue
+  (stills still come first). It is its own action and is owner-only, like every owner action
+  ([`admin-mode.md`](admin-mode.md)). Regenerating the still leaves the montage alone, and
+  regenerating the montage leaves the still alone. Visitors never see the action. In off mode the
+  action is hidden.
 
 ### Should-have (P1)
 
-- **P1-1: Regenerate a montage.** The owner can remake one video's montage. This is its own
-  action and is owner-only, like every owner action ([`admin-mode.md`](admin-mode.md)). Regenerating
-  the still leaves the montage alone, and regenerating the montage leaves the still alone.
+- **P1-1: Make montages for a batch.** In manual mode, the owner can queue montages for a chosen
+  set of videos (for example, the videos currently on screen) to test at a larger scale without
+  switching to automatic.
 - **P1-2: Configuration reference.** The new settings are documented with the thumbnail settings
   in the configuration reference.
 
@@ -158,7 +180,10 @@ background, so it can make a montage the same way.
 
 This is a single-owner library, so these are QA checks, not analytics.
 
-- **Leading:** after backfill finishes, at least 95% of videos 6 seconds or longer have a montage.
+- **Leading:** in manual mode, montages made on request for a sample of the owner's production
+  videos play correctly, and their generation time and size are acceptable. This is the gate for
+  switching to automatic.
+- **Leading:** in automatic mode, after backfill finishes, at least 95% of videos 6 seconds or longer have a montage.
   The rest are listed as failed in the activity view, not silently missing.
 - **Leading:** resting the pointer on a card with a ready montage starts motion within about
   0.5 s on a local network. A page of 40 cards loads no montage data until a card is hovered.
