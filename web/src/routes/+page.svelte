@@ -26,6 +26,7 @@
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import VideoThumb from '#lib/components/video/VideoThumb.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
@@ -559,16 +560,7 @@
 <!-- Table view cells (F82 handoff, "Columns"); the column list is MEDIA_COLUMNS. -->
 {#snippet titleCell(v: Video)}
 	<span class="flex min-w-0 items-center gap-3">
-		<!-- The frame stays when there's no thumbnail yet; the failed image hides, never a broken glyph. -->
-		<span class="block h-[23px] w-10 shrink-0 overflow-hidden rounded-theme border border-rule bg-surface-2 sm:h-[27px] sm:w-12">
-			<img
-				src={v.thumbnail_url || api.thumbnailURL(v.id)}
-				alt=""
-				loading="lazy"
-				onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
-				class="h-full w-full object-cover"
-			/>
-		</span>
+		<VideoThumb video={v} />
 		<span class="truncate">{v.title}</span>
 	</span>
 {/snippet}

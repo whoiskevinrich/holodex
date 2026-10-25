@@ -5,6 +5,7 @@
 	import { sceneBadgeLabel } from '#lib/components/film/sceneNumber.ts';
 	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
+	import { ThumbnailLoad } from './thumbnailLoad.svelte.ts';
 
 	let {
 		video,
@@ -14,32 +15,11 @@
 
 	const bucket = $derived(resolutionBucket(video.width));
 
-	// Thumbnails are generated in the background (ADR-009). The card attempts the
-	// image immediately; while it is still generating the server returns 404, so
-	// we retry with backoff until it lands, then give up to the placeholder.
-	const MAX_RETRIES = 5;
-	let attempt = $state(0);
-	let loaded = $state(false);
-	let gaveUp = $state(false);
+	// Thumbnails are generated in the background (ADR-009): the card attempts the image
+	// at once and retries with backoff while it's still generating (thumbnailLoad.svelte.ts).
 	// Prefer the server-provided URL — it carries a ?v={mtime} cache-bust token so a
 	// writeback that rewrites the cover art isn't masked by a stale browser cache.
-	// Fall back to the bare URL while the thumbnail is still generating (no
-	// thumbnail_url yet) so the 404-retry loop below still has something to poll.
-	const base = $derived(video.thumbnail_url || api.thumbnailURL(video.id));
-	const src = $derived(api.thumbnailReload(base, attempt));
-
-	function onError() {
-		if (attempt < MAX_RETRIES) {
-			// Exponential backoff with jitter so a freshly-scanned grid doesn't
-			// retry every card in lockstep (thundering herd) against the API.
-			const base = Math.min(2000 * 2 ** attempt, 30000);
-			const delay = base * (0.5 + Math.random());
-			const next = attempt + 1;
-			setTimeout(() => (attempt = next), delay);
-		} else {
-			gaveUp = true;
-		}
-	}
+	const thumb = new ThumbnailLoad(() => video.thumbnail_url || api.thumbnailURL(video.id));
 </script>
 
 <div class="group relative block">
@@ -48,28 +28,28 @@
 		     carries the flourishes (letterbox bars) from
 		     app.css; the <img> sits beneath them (their z-index is 1). -->
 		<div
-			class="video-frame flex items-center justify-center transition group-hover:border-accent {!loaded &&
-			!gaveUp
+			class="video-frame flex items-center justify-center transition group-hover:border-accent {!thumb.loaded &&
+			!thumb.gaveUp
 				? 'thumb-shimmer'
 				: ''}"
 		>
-			{#if !gaveUp}
+			{#if !thumb.gaveUp}
 				<img
-					{src}
+					src={thumb.src}
 					alt=""
-					class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 {loaded
+					class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 {thumb.loaded
 						? 'opacity-100'
 						: 'opacity-0'}"
-					onload={() => (loaded = true)}
-					onerror={onError}
+					onload={thumb.onload}
+					onerror={thumb.onerror}
 				/>
 			{/if}
-			{#if !loaded}
+			{#if !thumb.loaded}
 				<svg class="h-10 w-10 text-rule" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 					<path d="M8 5v14l11-7z" />
 				</svg>
 			{/if}
-			{#if loaded}
+			{#if thumb.loaded}
 				<!-- "Click to watch" affordance: a play glyph fades in over the cover on hover. -->
 				<div
 					class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-black/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
