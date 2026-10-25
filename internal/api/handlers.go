@@ -359,7 +359,6 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
 	r.Get("/media/{id}/thumbnail", h.serveThumbnail)
-	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	// Detail-page poster tier (F53, HOLODEX-253) — public read, mirrors
 	// /thumbnail's posture exactly; falls back to thumbnail bytes (servePoster).
 	r.Get("/media/{id}/poster", h.servePoster)
@@ -458,6 +457,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		// Video poster — owner-gated upload/remove, a new tier on the existing
 		// thumbnail pipeline (F52, HOLODEX-252).
 		h.mountVideoPoster(r)
+		// Thumbnail regenerate (F11.6) — resets state and queues high-priority ffmpeg
+		// work, so owner-only; the GET above stays public (HOLODEX-596).
+		r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).

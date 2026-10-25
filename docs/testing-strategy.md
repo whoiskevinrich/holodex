@@ -557,7 +557,7 @@ Conventions:
 
 ### Phase 2 — MCP, thumbnails, mapping
 - MCP tool tests + **REST/MCP parity** (ADR-005).
-- Thumbnail pipeline (ADR-009): Tier-1 embedded-art extraction vs Tier-2 generated frame; bounded worker pool + high-priority bump; single-column state machine with sweep-retried `failed`; serve 404-while-pending → 200; `POST .../thumbnail` regenerate; `thumbnail_queue_depth` on `/admin/status` (full Prometheus deferred); a `-tags integration` test runs real ffmpeg so the argv/muxer is exercised.
+- Thumbnail pipeline (ADR-009): Tier-1 embedded-art extraction vs Tier-2 generated frame; bounded worker pool + high-priority bump; single-column state machine with sweep-retried `failed`; serve 404-while-pending → 200; `POST .../thumbnail` regenerate, owner-gated (visitor 401 with no state reset or enqueue, owner 202 — `TestRegenerateThumbnailOwnerGated`, HOLODEX-596); `thumbnail_queue_depth` on `/admin/status` (full Prometheus deferred); a `-tags integration` test runs real ffmpeg so the argv/muxer is exercised.
 - Mapping: normalization, precedence, `multi`, facets, reload endpoint, key-discovery view (ADR-013, F20).
 - Sort, keyboard nav, responsive, Prometheus `/metrics` shape.
 - E2E flows 8–10.

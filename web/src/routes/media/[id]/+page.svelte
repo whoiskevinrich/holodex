@@ -1690,28 +1690,6 @@
 								</button>
 							{/if}
 						{/if}
-						<!-- The owner's Regenerate lives in the Metadata sources popover, reachable on
-						     touch (HOLODEX-220). The endpoint is public, so a visitor keeps this one. -->
-						{#if !isOwner}
-						<button
-							onclick={regenerateThumbnail}
-							disabled={regenerating}
-							title="Regenerate thumbnail from file"
-							aria-label="Regenerate thumbnail from file"
-							class="absolute right-2 top-2 z-10 rounded-theme bg-black/60 p-1.5 text-muted opacity-0 transition hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-						>
-							<svg
-								class="h-4 w-4 {regenerating ? 'animate-spin' : ''}"
-								fill="currentColor"
-								viewBox="0 0 24 24"
-								aria-hidden="true"
-							>
-								<path
-									d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-								/>
-							</svg>
-						</button>
-						{/if}
 					{/if}
 				</div>
 				<!-- Next-up strip (F69 handoff §5, F75 handoff §3): a sibling of the player box,
