@@ -137,7 +137,7 @@ background, so it can make a montage the same way.
   at once. These are new settings of their own: no still-thumbnail setting changes meaning or
   default.
   - **Manual (default):** nothing is queued on startup, by a scan or by browsing. A montage is made
-    only when the owner asks (P0-15). Any montage that already exists still plays.
+    only when the owner asks, for one video (P0-15) or a batch (P0-16). Any montage that already exists still plays.
   - **Automatic:** on startup, videos with no montage are queued (eager backfill), and browsing a
     page moves its videos up the queue.
   - **Off:** no montage is made, not even on request. Existing montages still play, so turning
@@ -159,13 +159,18 @@ background, so it can make a montage the same way.
   ([`admin-mode.md`](admin-mode.md)). Regenerating the still leaves the montage alone, and
   regenerating the montage leaves the still alone. Visitors never see the action. In off mode the
   action is hidden.
+- **P0-16: Batch requests.** In manual mode, the owner can queue montages for every video in the
+  library list they are looking at, with its current filters, in one action. This lets the owner
+  test at scale without switching to automatic. Before anything is queued, the owner confirms with
+  the count of videos that have no montage yet. Videos that already have one are skipped. A batch
+  waits behind stills and behind single-video requests, and it uses the normal worker count.
+  Progress shows in the activity view (P0-14), where the owner can cancel what is left of the
+  batch. The montage in progress finishes. The action is owner-only and hidden in off mode. In
+  automatic mode it isn't needed, so it isn't shown. Promoted to must-have on 2026-10-25.
 
 ### Should-have (P1)
 
-- **P1-1: Make montages for a batch.** In manual mode, the owner can queue montages for a chosen
-  set of videos (for example, the videos currently on screen) to test at a larger scale without
-  switching to automatic.
-- **P1-2: Configuration reference.** The new settings are documented with the thumbnail settings
+- **P1-1: Configuration reference.** The new settings are documented with the thumbnail settings
   in the configuration reference.
 
 ### Future considerations (P2)
