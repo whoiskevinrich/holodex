@@ -1,16 +1,16 @@
 # Spec: Granular Metadata Curation & Merge (F30)
 
-**Status**: Draft — scope decisions locked 2026-06-27 (see [Resolved Decisions](#resolved-decisions)); architecture recorded in [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md) (Proposed); pending `/security-review`
+**Status**: Draft — scope decisions locked 2026-06-27 (see [Resolved Decisions](#resolved-decisions)); architecture recorded in [writeback.md](../architecture/writeback.md) (Proposed); pending `/security-review`
 **Feature block**: F30
 **Phase**: 3 (Enrichment) — follow-on to F22/F27/F28
 **Date**: 2026-06-27
 **Depends on**:
 [F27 unified field resolution](metadata-plugins.md#f27--unified-field-resolution-implements-f223) (`internal/resolver`, `internal/registry`) ·
-[F28 metadata writeback](metadata-plugins.md#f28-metadata-writeback) / [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md) (`internal/writeback`, `WriteBatch`) ·
-[F22 metadata source plugins](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md) (shadow store, `entity_enrichment`) ·
-[ADR-028](../architecture/archive/ADR-028-activity-surface-and-job-history.md) (job history / activity surface) ·
-[ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md) (owner gating)
-**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in Cinémathèque.
+[F28 metadata writeback](metadata-plugins.md#f28-metadata-writeback) / [writeback.md](../architecture/writeback.md) (`internal/writeback`, `WriteBatch`) ·
+[F22 metadata source plugins](metadata-plugins.md) / [metadata-providers.md](../architecture/metadata-providers.md) (shadow store, `entity_enrichment`) ·
+[observability-and-jobs.md](../architecture/observability-and-jobs.md) (job history / activity surface) ·
+[security-perimeter.md](../architecture/security-perimeter.md) (owner gating)
+**Routing**: touches data model + outbound file writes + a job queue → architecture recorded in **[writeback.md](../architecture/writeback.md)** (curation/merge resolution model + queued batch-write pipeline; see [Architecture impact](#architecture-impact)); **`/security-review`** required before merge (modifies library files, owner-gated); **`/testing-strategy`** must gain merge/dedupe/suppression + queued-write cases; frontend uses semantic tokens and is QA'd in Cinémathèque.
 
 ---
 
@@ -60,7 +60,7 @@ file's value and lose the enrichment entirely — and curated intent is never ca
 **Lagging**
 
 - The `browse:true` shadow-store read-path (F27.4) demonstrably shrinks over time as owners
-  curate-and-write libraries (carried from [ADR-041 Consequences](../architecture/archive/ADR-041-metadata-writeback.md#consequences)).
+  curate-and-write libraries (carried from [writeback.md](../architecture/writeback.md)).
 - The merge/curation model generalizes to **person** entities (bio aliases, etc.) with no
   resolver change — only a new `entity_type` — validating the keystone claim of F22/F27.
 
@@ -72,16 +72,16 @@ file's value and lose the enrichment entirely — and curated intent is never ca
   *different* values and both survive the union. Dedup is exact-after-normalization
   (trim + Unicode-casefold), not semantic. A synonym/alias map is a separate future item —
   conflating distinct strings risks silently dropping an owner's value.
-- **Automatic / rule-based writeback.** Writes remain **owner-initiated** (ADR-041 keeps
+- **Automatic / rule-based writeback.** Writes remain **owner-initiated** ([writeback.md](../architecture/writeback.md) keeps
   explicit-only; the `writeback: if_empty|overwrite` rules DSL stays on the backlog). This
   spec adds *queuing and batching* of owner-triggered writes, not a scheduler or crawler.
-- **Prior-value capture / undo of the file's pre-write tags.** Still deferred (ADR-041). The
+- **Prior-value capture / undo of the file's pre-write tags.** Still deferred ([writeback.md](../architecture/writeback.md)). The
   owner reviews the curated set before committing; the `file_writebacks` audit records what
   was written. (Note: the **curation store is itself reversible** — suppressions and manual
   adds can be cleared — but the file's *previous on-disk tag* is not snapshotted.)
 - **Reordering values within a field.** Curation is set membership (add / keep / remove /
   edit), not ordering. Write order follows source precedence then insertion order.
-- **Multi-user curation / per-user overrides.** Single owner gate (ADR-030); curation is
+- **Multi-user curation / per-user overrides.** Single owner gate ([security-perimeter.md](../architecture/security-perimeter.md)); curation is
   global to the instance.
 
 ---
@@ -206,7 +206,7 @@ survives re-fetch — answer: persistent suppression).
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F30.3a | Each resolved value renders inline as a chip/row with: provenance, a write toggle, and edit/remove affordances (owner only) | Hidden entirely for non-owner clients (ADR-030) |
+| F30.3a | Each resolved value renders inline as a chip/row with: provenance, a write toggle, and edit/remove affordances (owner only) | Hidden entirely for non-owner clients ([security-perimeter.md](../architecture/security-perimeter.md)) |
 | F30.3b | An "add value" affordance per field lets the owner type a new value | New value appears immediately as a `manual` chip; persisted via F30.2 |
 | F30.3c | Edit replaces a value in place; remove tombstones it; both reflect immediately and persist | After page reload the curated state is identical |
 | F30.3d | A per-value "don't write" toggle excludes a shown value from the file write | Toggling off marks `nowrite`; the value stays visible but is excluded from the next write |
@@ -218,14 +218,14 @@ survives re-fetch — answer: persistent suppression).
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F30.4a | A single "Write to file" action for a video enqueues **one** write job carrying the full curated, write-enabled set across all fields | The job embeds all fields via a single `WriteBatch` call (one tool invocation per file — ADR-041 atomicity) |
+| F30.4a | A single "Write to file" action for a video enqueues **one** write job carrying the full curated, write-enabled set across all fields | The job embeds all fields via a single `WriteBatch` call (one tool invocation per file — [writeback.md](../architecture/writeback.md) atomicity) |
 | F30.4b | Suppressed and `nowrite` values are excluded; duplicates are collapsed before the write | The written file contains each surviving value exactly once; suppressed values absent |
 | F30.4c | Writes run through a **bounded-concurrency queue** so concurrent/bulk writes do not thrash the filesystem | Worker limit defaults to **1** (fully serialized) and is overridable via `WRITEBACK_CONCURRENCY` (decision #2); queue depth is observable |
 | F30.4d | The queue is **durable**: enqueued writes persist and replay after a restart (decision #1) | Pending jobs survive process exit; on boot the worker resumes them; an owner does not have to re-trigger |
-| F30.4e | **Crash-safe mid-write**: a write interrupted by shutdown/crash leaves the original file intact and is safely retried | ADR-041 copy→write→rename guarantees the original is untouched until the atomic rename; on boot, orphan `.holodex-tmp`/`.holodex-new` files are cleaned up and the job is re-run or marked failed (never half-applied) |
-| F30.4f | Each write is recorded as a `job_runs` row with `kind=writeback` (ADR-028) and surfaced in the activity feed | A completed/failed write shows in the 30-day history with video, fields, outcome |
+| F30.4e | **Crash-safe mid-write**: a write interrupted by shutdown/crash leaves the original file intact and is safely retried | [writeback.md](../architecture/writeback.md) copy→write→rename guarantees the original is untouched until the atomic rename; on boot, orphan `.holodex-tmp`/`.holodex-new` files are cleaned up and the job is re-run or marked failed (never half-applied) |
+| F30.4f | Each write is recorded as a `job_runs` row with `kind=writeback` ([observability-and-jobs.md](../architecture/observability-and-jobs.md)) and surfaced in the activity feed | A completed/failed write shows in the 30-day history with video, fields, outcome |
 | F30.4g | Per-field audit rows continue to be written to `file_writebacks` (F28) for each field in the batch | One audit row per field written; multi-value joined with `\n` as today |
-| F30.4h | Atomicity & failure semantics from ADR-041 are preserved | On any failure the original file is byte-for-byte untouched; temp files cleaned up; no audit/`job_runs` success row |
+| F30.4h | Atomicity & failure semantics from [writeback.md](../architecture/writeback.md) are preserved | On any failure the original file is byte-for-byte untouched; temp files cleaned up; no audit/`job_runs` success row |
 | F30.4i | A field with no tag mapping for the container is skipped with a clear per-field reason, not a whole-batch failure | Batch writes the mappable fields; unmappable fields reported (e.g. `.avi` → field-level 422-equivalent in the job result) |
 
 ### F30.5 — API
@@ -235,15 +235,15 @@ survives re-fetch — answer: persistent suppression).
 | F30.5a | Curation CRUD endpoints (owner-gated): add / edit / remove (suppress) / nowrite a value for `(video, field)` | `requireOwner`; non-owner → `401`; invalid field/value → `400` |
 | F30.5b | The detail response returns, per resolved value, provenance + curation state (`written?`, `suppressed?`, `manual?`) | SPA renders chips and toggles directly from this; no client-side re-resolution |
 | F30.5c | `POST /api/media/{id}/writeback` evolves to accept the **curated batch** (all fields) and enqueue a job, returning `202 Accepted` + a job handle | Back-compat: the single-field body (F28) still accepted and enqueued as a one-field batch |
-| F30.5d | A queued/running/failed write is queryable (job status) and visible in activity | Status reachable via the activity surface (ADR-028) |
+| F30.5d | A queued/running/failed write is queryable (job status) and visible in activity | Status reachable via the activity surface ([observability-and-jobs.md](../architecture/observability-and-jobs.md)) |
 
 ### F30.6 — Security
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|---------------------|
-| F30.6a | All curation + writeback endpoints behind `requireOwner` (ADR-030) | Token-less/non-owner client gets `401`; controls hidden in the SPA |
+| F30.6a | All curation + writeback endpoints behind `requireOwner` ([security-perimeter.md](../architecture/security-perimeter.md)) | Token-less/non-owner client gets `401`; controls hidden in the SPA |
 | F30.6b | Manual values are untrusted input: length-capped and sanitized before storage/write | Over-long or control-character input rejected/sanitized; consistent with F22.9b provider-value handling |
-| F30.6c | No new outbound network surface introduced by curation | Curation is local DB only; image writeback continues to use the existing https-only, size-capped downloader (ADR-039 asset-host allowlist applies to image fields) |
+| F30.6c | No new outbound network surface introduced by curation | Curation is local DB only; image writeback continues to use the existing https-only, size-capped downloader ([security-perimeter.md](../architecture/security-perimeter.md) asset-host allowlist applies to image fields) |
 
 ### F30.7 — Testability / CI
 
@@ -291,7 +291,7 @@ files left by a crash and removes them. `done`/`failed` rows are pruned on the s
 retention basis as `job_runs`.
 
 Reuses the existing `file_writebacks` audit table (F28, migration 0011) unchanged — one row
-per field per successful write. Reuses `job_runs` (ADR-028) with a new `kind=writeback`
+per field per successful write. Reuses `job_runs` ([observability-and-jobs.md](../architecture/observability-and-jobs.md)) with a new `kind=writeback`
 value; no schema change to `job_runs` (it already carries `kind`, `trigger`, counts,
 `detail`).
 
@@ -331,9 +331,9 @@ Curation = map[field_key] -> { add: []string, suppress: set[norm], nowrite: set[
 
 ---
 
-## Architecture impact ([ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md))
+## Architecture impact ([writeback.md](../architecture/writeback.md))
 
-Two cross-cutting decisions are recorded in [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md) (Proposed):
+Two cross-cutting decisions are recorded in [writeback.md](../architecture/writeback.md):
 
 1. **Merge resolution model** — generalizing F27's "first source wins" to a deduplicated
    union with per-value provenance and a persistent `manual` source + tombstones. This
@@ -342,10 +342,9 @@ Two cross-cutting decisions are recorded in [ADR-048](../architecture/archive/AD
 2. **Queued batch writeback pipeline** — introducing a bounded-concurrency write queue and
    `kind=writeback` job runs on top of the existing synchronous `WriteBatch`. This is the
    first internal job *queue* (scans are triggered, not queued), so the concurrency model,
-   backpressure, and crash/restart behavior warrant a recorded decision. It also partially
-   realizes ADR-041's deferred **batch writeback (Option C)** — the ADR should note it
-   supersedes that backlog item's "all fields at once" portion while leaving rule-based
-   (auto) writeback deferred.
+   backpressure, and crash/restart behavior warrant a recorded decision. It also delivers
+   the **batch writeback** (all fields at once) that the first writeback design deferred.
+   Rule-based (auto) writeback stays deferred.
 
 ---
 
@@ -393,7 +392,6 @@ All five open questions were resolved with the owner (2026-06-27):
 ## Cross-references to update on landing
 
 - `docs/reference/canonical-fields.md` — document merge mode and the `manual:` namespace.
-- `docs/architecture/README.md` — index the new ADR.
 - `docs/testing-strategy.md` — add merge/dedupe/suppression + queued-write cases.
 - `metadata-plugins.md` §F28 backlog — mark "batch writeback" partially realized by F30.4.
 - A `qa-metadata-curation.md` checklist (mirroring [qa-writeback.md](qa-writeback.md)) with
