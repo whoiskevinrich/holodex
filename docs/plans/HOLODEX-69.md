@@ -12,7 +12,7 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:
+release_note: You can now see and restore the values you removed from a field, and source choices that differ only in case, spacing or punctuation show as one.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -30,7 +30,8 @@ frontend backlog plan. HOLODEX-44 (an explicit per-slot image lock) was closed a
 locks it.
 
 **Design package:** spec [F36 P1-6](../specs/field-source-of-truth.md) and
-[F30.3g](../specs/metadata-curation.md) · no architecture doc yet · handoff pending
+[F30.3g](../specs/metadata-curation.md) · no architecture doc yet ·
+[handoff](../design/source-choices-restore-handoff.md) + [mockup](../design/source-choices-restore-mockup.svg)
 
 ## Gates — definition of done
 
@@ -40,7 +41,7 @@ locks it.
 
 - [/] spec `write-spec` → `docs/specs/**` — F36 P1-6 (same-ish fold) + F30.3g (Removed (N) restore) drafted
 - [ ] architecture `architecture` → `docs/architecture/**`
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/**` — `docs/design/source-choices-restore-handoff.md` + SVG mockup (option A, the inline disclosure, picked by the owner 2026-10-25; sign-off still to be recorded at /implement)
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
@@ -48,14 +49,15 @@ locks it.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] /design-handoff: the Removed (N) disclosure on CurationFieldRow, plus a mockup of a folded chip — docs/design/
-2. [ ] [architecture] Decide how removed values reach the owner: a field on the detail response, or a separate owner fetch. Record [~] if it's no fork — docs/architecture/
-3. [ ] [spec] Owner reviews P1-6's punctuation rule and F30.3g's list-everything rule — docs/specs/
+1. [ ] [architecture] Decide how removed values reach the owner: a field on the detail response, or a separate owner fetch. Record [~] if it's no fork — docs/architecture/
+2. [ ] [spec] Owner reviews P1-6's punctuation rule and F30.3g's list-everything rule — docs/specs/
+3. [ ] [testing] /testing-strategy: the fold's match key, Removed (N) states and focus, visitor gating — docs/testing-strategy.md
+4. [ ] [—] /implement once 1–2 settle (records the design sign-off, opens the Draft PR)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
-### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules drafted
-- skills: docs
-- handoff: Epic 5 is now HOLODEX-69 + HOLODEX-138 (HOLODEX-44 is Won't Do, linked Relates). Two spec rules are drafted: F36 P1-6 folds candidates that differ only in case, whitespace or punctuation, which the owner chose over whitespace-and-case only; F30.3g adds the Removed (N) restore. Next: the design handoff, starting from the F30 handoff's existing "Show removed (N)" sketch.
+### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
+- skills: docs, design-handoff, handoff
+- handoff: Epic 5 is HOLODEX-69 + HOLODEX-138; HOLODEX-44 is Won't Do. Spec rules F36 P1-6 (same-ish fold) and F30.3g (Removed (N)) are drafted, and both specs now link topic docs, not archived ADRs. The design handoff is committed: the owner picked option A, the inline disclosure, and accepted the folded chip, which needs no new visual, only a wider match in sourceChips. ui-vocabulary gained "Removed disclosure" and "Folded choice". Next: the architecture call on how removed values reach the owner (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
