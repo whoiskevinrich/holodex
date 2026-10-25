@@ -477,6 +477,7 @@
 							url={t.image_url}
 							{isOwner}
 							halo={[]}
+							uploadButton
 							frameClass="h-[90px] w-40"
 							upload={api.uploadTagImage}
 							remove={api.deleteTagImage}
