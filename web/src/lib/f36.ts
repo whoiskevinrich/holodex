@@ -85,12 +85,38 @@ export function chipToResolvedValue(chip: SourceChip): ResolvedValue {
 	return { value: chip.value, sources: chip.labels, manual: chip.manual };
 }
 
+// foldKey is the match key for folding candidates (F36 P1-6): two values that differ only in
+// letter case, whitespace, or punctuation and symbols (quote and dash style included) share a
+// key. Punctuation becomes a space before whitespace collapses, so "Part-1" meets "Part 1" and
+// "Rock & Roll" meets "Rock Roll". The key only decides which choices are offered; it is never
+// shown or written.
+export function foldKey(value: string): string {
+	return value
+		.normalize('NFKC')
+		.replace(/[\p{P}\p{S}]/gu, ' ')
+		.replace(/\s+/g, ' ')
+		.trim()
+		.toLocaleLowerCase();
+}
+
+// sameChoice: two non-empty candidate values that offer one choice — identical once trimmed,
+// or equal under foldKey. The identity check keeps an all-punctuation value ("—", whose key is
+// empty) folding with its exact twin, as it did before P1-6.
+function sameChoice(a: string, b: string): boolean {
+	const ta = a.trim();
+	if (ta === '' || b.trim() === '') return false;
+	if (ta === b.trim()) return true;
+	const ka = foldKey(a);
+	return ka !== '' && ka === foldKey(b);
+}
+
 // sourceChips builds the one-row chip model for a replace field. The entity baseline is always
 // the first, anchored chip (tagged `·file` / `·record`) — the baseline-first mental model is the
 // whole point of F36, so the baseline never becomes just another value in the row. A provider
-// whose value equals the baseline value folds into that baseline chip (`·file + tmdb`,
+// whose value matches the baseline value (foldKey) folds into that baseline chip (`·file + tmdb`,
 // `·record + tmdb`) rather than repeating the value; providers that share a distinct value fold
-// together too. Selecting a folded baseline chip still pins the baseline.
+// together too, under the first one's spelling. Selecting a folded baseline chip still pins the
+// baseline.
 // The Custom chip is always last: the frozen manual literal when decided, else the inline-input opener.
 export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceChip[] {
 	const baseVal = baselineCandidateValue(field, baselineKey);
@@ -106,15 +132,14 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 	for (const c of providerCandidates(field)) {
 		const ns = providerOf(c.source);
 		const label = c.provider || ns;
-		const v = c.value.trim();
-		if (baseVal.trim() !== '' && v === baseVal.trim()) {
+		if (sameChoice(baseVal, c.value)) {
 			if (!base.sources.includes(ns)) {
 				base.sources.push(ns);
 				base.labels.push(label);
 			}
 			continue;
 		}
-		const twin = chips.find((ch) => ch.decisionSource !== baselineKey && ch.value.trim() === v);
+		const twin = chips.find((ch) => ch.decisionSource !== baselineKey && sameChoice(ch.value, c.value));
 		if (twin) {
 			if (!twin.sources.includes(ns)) {
 				twin.sources.push(ns);

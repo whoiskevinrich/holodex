@@ -20,6 +20,7 @@
 		person,
 		mark = '',
 		radio,
+		removed,
 		onedit,
 		onremove,
 		ontogglewrite
@@ -54,6 +55,10 @@
 			pending?: boolean;
 			placeholder?: string;
 		};
+		// Removed mode (F30.3g, source-choices-restore-handoff.md): a value the owner removed,
+		// drawn dashed and muted (not in effect) with one always-visible Restore. notSent adds the
+		// `·not sent now` suffix for a removal no source sends any more.
+		removed?: { notSent: boolean; onrestore: () => void };
 		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
 		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
 		// block, so an owner caller must still supply them.
@@ -100,7 +105,22 @@
 	const ctrl = 'rounded p-1 -m-0.5 text-muted hover:text-accent focus-visible:text-accent';
 </script>
 
-{#if radio}
+{#if removed}
+	<!-- Removed chip (F30.3g): dashed = not in effect, a status — not an add affordance. Restore
+	     is the chip's only action, so it stays visible on every device rather than hover-revealed. -->
+	<span
+		class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-dashed border-rule px-2 py-0.5 text-xs text-muted"
+		aria-label={`${item.value}, removed${removed.notSent ? ', not sent by any source now' : ''}`}
+	>
+		<span class="truncate">{item.value}</span>
+		{#if removed.notSent}
+			<span class="shrink-0 text-[0.65rem]">·not sent now</span>
+		{/if}
+		<button type="button" data-restore onclick={removed.onrestore} aria-label={`Restore ${item.value}`} class="-my-1 -mr-1.5 ml-0 shrink-0 rounded p-1.5 text-muted hover:text-accent focus-visible:text-accent">
+			<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1"/></svg>
+		</button>
+	</span>
+{:else if radio}
 	{@const pending = radio.checked && !!radio.pending}
 	<!-- Pick-one source chip (F36 / HOLODEX-112): the same shell as a merge chip, but led by a
 	     ● radio dot and acting as the radiogroup's radio button. No per-chip edit/remove controls —

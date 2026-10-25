@@ -5315,6 +5315,14 @@ test fails when the read ignores the owner flag. Media and studio set the option
 one-line way as person. **Gap:** the 34.2.1 visitor test covers person only, because the media and
 studio test servers have no token-gated variant yet.
 
+**Built (frontend), 2026-10-25.**
+- `f36.test.ts` "sourceChips folding (P1-6)" covers 34.3.1–34.3.7. One case is new: an
+  all-punctuation value still folds with its exact twin.
+- `CurationFieldRow.svelte.test.ts` "Removed (N)" covers 34.4.1–34.4.8. Its focus case checks the
+  move to + Add once the last removal is restored.
+- Mutation-checked: matching providers on the trimmed value fails 11 fold cases, and keeping
+  symbols in `foldKey` fails the `+` case.
+
 ### 34.5 Live QA
 
 Run the handoff's QA list (1–10) against the stress fixture's owner backend, with a media merge
@@ -5323,6 +5331,24 @@ field, a studio field and a person bio:
 - The `[agent]` items go through the browser pane.
 - Items 9 and 10 (keyboard, screen reader, the Cinémathèque read of the dashed chip) are the
   owner's.
+
+**Run 2026-10-25** (`backend-stress-open-9600` + `web-9600`, media 9146's Director row, since the
+fixture has no other curated merge row on the media page):
+
+- Items 1–4 pass. Removed (1) appeared closed and muted. It opened in ink, with a dashed 24px chip
+  and a visible Restore. Restore returned the value, removed the toggle, moved focus to + Add and
+  announced "Restored …".
+- Item 4: with both values removed, the row kept + Add and Removed (2).
+- Removing through ✕ announced "Removed … 1 removed."
+- Re-adding a removed director through the person picker lifted the removal.
+- Item 8: at 375px there was no horizontal scroll, and the Restore hit area measured 24×24.
+- Not run live:
+  - Item 5 (not sent now) and item 7 (the fold) are unit- and browser-tested only. The fixture
+    has neither case.
+  - Item 6 (visitor): the open backend treats everyone as the owner. It's covered by 34.2.1.
+
+The QA data was cleared afterwards. The two director names stay as person rows in the fixture,
+created by the add's relink.
 
 ### 34.6 Mutation checks
 
