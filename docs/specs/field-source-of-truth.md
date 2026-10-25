@@ -166,6 +166,11 @@ global rule decide for them.
   - Given the owner activates the pill or the pencil, Then the Edit Overview dialog opens with **Custom** selected and its textarea focused; saving sets a `manual` decision (P0-1) and no file is touched (P0-4).
   - Given the owner opens Write metadata to file on that video, Then an Overview row is listed under "Not yet decided" with File "No value" and Custom, is not preselected or counted, and typing a Custom value confirms it for the one atomic write.
   - Given a field that has not adopted offering, Then it is dropped from `resolved[]` exactly as before.
+- **P1-6 — Same-ish candidates are one choice.** Two candidates whose values differ only in letter case, in whitespace, or in punctuation are one choice, not two. The match ignores leading and trailing whitespace, treats any run of whitespace as one space, folds case, and drops punctuation and symbols, including quote and dash style. Folding changes which choices are offered. It never changes the value that is shown or written. A provider that matches the baseline joins the baseline's choice, and providers that match each other share one choice. That choice shows the baseline's value, or else the value of the first provider in trust order (P1-2), and picking it pins that source exactly as before. This rule holds on every entity that offers source choices ([F37](people-source-of-truth.md) people, studios) and for long prose (a person's bio, a video's overview) as much as for short fields. It covers HOLODEX-138.
+  - Given a person whose record bio and provider-1 bio differ only in a doubled space and a trailing full stop, When the owner opens the bio's source choices, Then they see one choice for the record and provider-1, plus Custom.
+  - Given a video whose file title is `The Long Night` and provider-1's is `the long night`, Then the title offers one file choice that names provider-1 too.
+  - Given provider-1 and provider-2 send the same director with different apostrophes and neither matches the file, Then those two share one choice, which shows provider-1's spelling when provider-1 ranks ahead.
+  - Given two bios that differ in any word, Then each keeps its own choice.
 
 ### Future considerations (P2)
 

@@ -212,6 +212,7 @@ survives re-fetch — answer: persistent suppression).
 | F30.3d | A per-value "don't write" toggle excludes a shown value from the file write | Toggling off marks `nowrite`; the value stays visible but is excluded from the next write |
 | F30.3e | All controls use semantic tokens; QA'd in Cinémathèque | No `zinc-*`/hex/`rounded-(lg\|md\|sm\|xl)` in the components; chips, toggles, and provenance read correctly in Cinémathèque |
 | F30.3f | Keyboard-accessible: chips and the add-input are reachable and operable by keyboard | Roving-tabindex / focus rules consistent with existing pickers |
+| F30.3g | **Removed values are restorable in place** (HOLODEX-69). Wherever a value can be removed (a video's, person's or studio's multi-value fields), a field with at least one removed value offers the owner **Removed (N)**. Opening it lists each removed value, with a Restore action that brings it back as F30.2e describes. The list includes values that no source supplies any more: restoring one of those only lifts the removal, so nothing reappears until a source sends it again. A field whose every value was removed still renders for the owner, so its removals stay reachable. Visitors never see removed values or the count | Remove one value from a video's multi-value field → **Removed (1)** appears; Restore → the value is back with its original provenance, and a re-enrich keeps it. A field with nothing removed shows no **Removed** control. A visitor sees neither the control nor the value |
 
 ### F30.4 — Queued, atomic, batch writeback
 
