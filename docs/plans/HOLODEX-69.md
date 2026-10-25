@@ -54,7 +54,7 @@ locks it.
 ## Up next — ordered (position = priority)
 
 1. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 (tests §34.3) — web/src/lib/f36.ts
-3. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode + + Add of a removed value lifts it (tests §34.4) — web/src/lib/components/curation/
+2. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode + + Add of a removed value lifts it (tests §34.4) — web/src/lib/components/curation/
 3. [ ] [testing] Live QA §34.5 and the mutation checks §34.6 once the frontend lands — docs/testing-strategy.md
 4. [ ] [security] /security-review: the owner-only removal list on detail reads — internal/api
 5. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
