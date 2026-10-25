@@ -95,6 +95,23 @@ describe('waitForWritebackBatch', () => {
 		expect(result).toEqual({ pending: 0, running: 0, done: 4, failed: 0 });
 	});
 
+	it('reports every fetched count through onProgress, not just the settled one', async () => {
+		// The dialog's bar reads these; without them it sat at "0 of N" until the
+		// batch settled or the poll cap ran out.
+		const answers = [
+			{ pending: 3, running: 1, done: 0, failed: 0 },
+			{ pending: 0, running: 2, done: 2, failed: 0 },
+			{ pending: 0, running: 0, done: 4, failed: 0 }
+		];
+		const seen = [...answers];
+		const batchStatus = vi.fn(async () => answers.shift()!);
+		const onProgress = vi.fn();
+
+		await waitForWritebackBatch('b1', batchStatus, { ...fast, onProgress });
+
+		expect(onProgress.mock.calls.map(([s]) => s)).toEqual(seen);
+	});
+
 	it('resolves (does not throw) once failed > 0 but the batch is otherwise settled', async () => {
 		// Spec P0: enqueue failures are logged and non-fatal — the caller reads
 		// `failed` off the resolved result, this never rejects for it.

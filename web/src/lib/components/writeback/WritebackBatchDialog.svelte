@@ -105,7 +105,8 @@
 	async function watch(batchId: string) {
 		try {
 			const final = await waitForWritebackBatch(batchId, batchStatus, {
-				cancelled: () => unmounted
+				cancelled: () => unmounted,
+				onProgress: (s) => (status = s)
 			});
 			status = final;
 			const settled = final.pending + final.running === 0;
