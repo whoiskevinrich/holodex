@@ -16,7 +16,7 @@ release_note: You can now see and restore the values you removed from a field, a
 approved:
   design:
     on: 2026-10-25
-    at: ee0c6268
+    at: 63c1bec2
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -53,17 +53,16 @@ locks it.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [design] Re-confirm the sign-off: the handoff's "re-add a removed value" row now says + Add lifts the removal (the old wording claimed today's add already did) — docs/design/source-choices-restore-handoff.md
-2. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 (tests §34.3) — web/src/lib/f36.ts
+1. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 (tests §34.3) — web/src/lib/f36.ts
 3. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode + + Add of a removed value lifts it (tests §34.4) — web/src/lib/components/curation/
-4. [ ] [testing] Live QA §34.5 and the mutation checks §34.6 once the frontend lands — docs/testing-strategy.md
-5. [ ] [security] /security-review: the owner-only removal list on detail reads — internal/api
-6. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
+3. [ ] [testing] Live QA §34.5 and the mutation checks §34.6 once the frontend lands — docs/testing-strategy.md
+4. [ ] [security] /security-review: the owner-only removal list on detail reads — internal/api
+5. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
 - skills: docs, design-handoff, handoff, implement, testing-strategy, code-review
-- handoff: Crossed into build: the design was signed off at ee0c6268, and Draft PR #554 is open. The test plan is §34 of testing-strategy.md. The backend landed, with owner-only removals on media, person and studio reads. Building it showed that typing a removed value into + Add never restored it (suppress beats a manual add), so the handoff now says + Add lifts the removal, and that delta needs the owner's re-confirm (Up next 1). Next: the frontend, starting with the fold in f36.ts.
+- handoff: Crossed into build: the design was signed off at ee0c6268, and Draft PR #554 is open. The test plan is §34 of testing-strategy.md. The backend landed, with owner-only removals on media, person and studio reads. Building it showed that typing a removed value into + Add never restored it (suppress beats a manual add), so the handoff now says + Add lifts the removal. The owner re-confirmed the sign-off at 63c1bec2 with that delta. Next: the frontend, starting with the fold in f36.ts (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
