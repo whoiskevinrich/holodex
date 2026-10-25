@@ -5137,30 +5137,44 @@ cases, plus an `image` case in the repo's `TestOrphanTag_AuthoredSurvives`.
 
 ### 33.3 Geometry harness (§12)
 
-The harness already seeds `localStorage` in its init script. Add manifest entries that seed
-`holodex:view:<page>`:
-- `media-table` and `people-table`, as owner and as visitor;
-- `tags-table` on `?type=` all and on categories;
-- `tags-posters` on all.
+The view is a remembered choice, not a URL state, and the harness addresses pages by URL, so a
+new **`view:<view>` preparation** (`browser.mjs`) reaches it: it writes `holodex:view:<page>` for
+the URL's page, reloads, waits for that view's toggle cell to be pressed, then removes the key so
+the rest of the width cell's shared context keeps its default. A new **`aspect`** metric (width ÷
+height) measures the poster frame's shape. The pages are `TABLE_PAGES`: `/`, `/people`, `/tags`
+and `/tags?type=categories`.
 
-New assertions, at every width:
+| Key | Pages · widths | Measure | Expect | Finds |
+|---|---|---|---|---|
+| `list-table-no-horizontal-overflow` | `TABLE_PAGES` · all | `:document` `overflowX` | 0 | A column that didn't drop, or a table that isn't fixed-layout (risk 4). |
+| `list-table-row-height` | `TABLE_PAGES` · all | each `tbody tr` height | 43–45 | A wrapping cell or a stray padding. |
+| `list-table-drops-columns-at-phone` | `/`, `/tags` · phone | each `th.hidden` width | 0 | A low-priority column still taking width (the priority rule regressed). |
+| `list-table-keeps-columns-at-phone` | `TABLE_PAGES` · phone | count of `th:not(.hidden)` | ≥ 2 | A row down to its name alone. |
+| `list-table-visitor-no-owner-columns` | `/` · wide, `visitor-view` | count of `thead th` | exactly 4 | Size or Done reaching a visitor (risk 3). |
+| `az-rail-clear-of-table` | `/people` · phone | each last `td` `gutterRight` | ≥ 26 | The A–Z rail over the Done ring. |
+| `tag-poster-aspect` | `/tags`, `?type=categories` · all | each `.poster-card-frame` `aspect` | 1.76–1.79 | A poster frame that drifted off 16:9. |
 
-| Key | Measure | Expect | Finds |
-|---|---|---|---|
-| `list-table-no-horizontal-overflow` | `:document` `overflowX` | 0 | A column that didn't drop, or a table that isn't fixed-layout (risk 4). |
-| `list-table-row-height` | each `tbody tr` height | 44 ±1 | A wrapping cell or a stray padding. |
-| `list-table-columns-at-phone` | visible `th` count at `phone` | Media 2, People 3 (owner) or 2, Tags 2 | The priority rule regressed. |
-| `list-table-visitor-no-owner-columns` | header labels as visitor | no Size, no Done | Risk 3. |
-| `az-rail-clear-of-rows` (§20.2, reused) | in People Table at `phone` | empty | The Done ring under the rail. |
-| `tag-poster-aspect` | `.aspect-video` frame w/h | 16:9 ±1px | A poster frame that drifted to 2:3. |
+**As built and run (2026-10-24, `backend-stress-open-9600` + `web-9600`, the stress fixture).**
+All seven pass: 48 checks over 4 width cells, with F73's `list-page-no-horizontal-overflow`
+still passing 32/32 beside them. The same run reported `az-rail-clear-of-rows` (§20.2) **VOID** on
+`/people` and `/studios`: its `li.scroll-mt-16` selector matches nothing since F80 moved
+`scroll-mt-16` onto the list wrapper. That is stale on `main` too and is not this epic's; it needs
+its selector updated.
 
 ### 33.4 Navigation harness (§20.6)
 
 Two scenarios:
-- **Media, Table view.** Load more, open the 60th row, go Back. Expect Table view, 100 rows and
-  the same `scrollY`.
-- **People, Table view, sorted by name.** Click the Videos header. Expect `sort` in the URL to
-  change, `holodex:sort:people` to be written, and the Sort select to show Videos.
+- **`table-back-restores-view-rows-scroll`.** Media in Table view: Load more, scroll to the 60th
+  row, open a row in view, go Back. Expect the Table view, every loaded row, and the same `scrollY`.
+- **`table-header-sets-the-one-sort`.** People in Table view: click the Videos header. Expect
+  `?sort=count`, `holodex:sort:people` = `count`, the Sort select on `count`, and
+  `aria-sort="descending"` on the header.
+
+**Run 2026-10-24 (same pair):** both new scenarios pass, and so do 9 of the 10 existing ones.
+`two-tabs-independent` fails with "could not scroll to 800 (stuck at 737)": its random-sort People
+tab has only the 50-row first page since F80, too short for its 800px target at 1440px. This
+branch doesn't touch the People List view, so the failure is very likely on `main` as well (not
+confirmed there); the scenario needs a target the first page can reach.
 
 ### 33.5 Live QA (`backend-stress` + `web`, Cinémathèque)
 
@@ -5183,8 +5197,28 @@ Two scenarios:
    Categories are distinguishable by the accent glyph.
 10. `[smoke]` An owner who had People set to Poster before the upgrade still lands in Poster.
 
+**Run 2026-10-24** (`backend-stress` and the open pair, Cinémathèque):
+- **1, 10:** pass. A seeded `poster` choice opened People in Poster. Table survived a reload on
+  Media, and each page kept its own view.
+- **2:** pass. Tags' Videos header moved the Sort select, `?sort=`, `holodex:sort:tags` and
+  `aria-sort` together. The nav scenario repeats it on People.
+- **3, 4:** pass, by the §33.3 geometry run.
+- **5:** pass with one note. People loaded 164 rows and Media 183, with no duplicates.
+  - On People's last Load more, focus landed on the first new row's link (row 151).
+  - Media's Load more has never moved focus, in the grid either, so it doesn't here. That is
+    existing behaviour, not this epic's.
+  - Tags fits in one page on this fixture (137 tags + 100 categories), so its Load more wasn't
+    exercised.
+- **7:** pass. Upload (through the route) showed on the list card and the tag page, Remove went
+  through its "Remove?" confirm to the empty slot, and the empty slot shows Upload beside its "+".
+  Replace is covered by the Go tests, not live.
+- **8:** covered by the Go merge tests (§33.2), not live: a merge can't be undone on the shared
+  fixture.
+- **6, 9:** `[human]`, still for the owner.
+
 ### 33.6 Standing gaps
 
 - Nothing automated checks the placeholder's look. Item 9 is a human judgement.
+- Live item 6 (keyboard order and the screen-reader announcement) is the owner's to run.
 - The upload's busy and error states are QA'd by hand. They are the existing slot's states, which
   the studio image QA already covered.
