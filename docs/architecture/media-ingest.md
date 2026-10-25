@@ -201,7 +201,75 @@ per-video lifecycle is `videos.thumbnail_state`, which is one of: empty (never a
 **Rejected:** generating at view time — it moves the CPU spike to the moment a grid opens, adding
 latency.
 
+Hover montages are a separate tier (next section). Nothing in this section reads, waits on or
+writes montage state.
+
 Decided in [`59798d1b`](https://github.com/whoiskevinrich/holodex/commit/59798d1b).
+
+## Hover montages: a silent MP4 tier beside the still pipeline, owner-gated by mode
+
+The montage ([F83](../specs/moving-thumbnails.md)) is a separate derived tier with its own state,
+queue, workers, storage and routes. It sits next to the still pipeline, never inside it. The
+dependency runs one way: montage code may read the still queue's stats, but `internal/thumbnail`
+never imports, calls or reads anything montage-related. A later change to stills therefore needs no
+montage work.
+
+- **Package:** `internal/montage.Manager` is its own in-process instance, wired in
+  `cmd/holodex` beside the thumbnail manager. It may reuse the deduplicating priority-queue type,
+  but each manager owns a separate queue instance.
+- **State:** a `video_montages` table (`video_id` PK, `state` of `generated` or `failed`, `error`,
+  `updated_at`), where no row means never attempted. It adds no column to `videos` and no value to
+  `thumbnail_state`.
+- **Format:** H.264 (`yuv420p`), with no audio stream (`-an`) and `+faststart` so the first frame
+  plays before the file has fully loaded.
+  - It is no wider than `thumbnail_width`, at a reduced frame rate.
+  - It is built by **one** ffmpeg invocation: one input-side `-ss … -t 1 -i` per sampled clip,
+    joined by the `concat` filter and scaled once.
+  - The clip count and the sampling span are the spec's (P0-1, P0-2). The code takes them as
+    parameters and doesn't hardcode them.
+  - It runs under the same `nice`/`ionice` throttle as stills.
+- **Priority:** a montage worker takes a job only while the still queue reports nothing waiting.
+  This is the one permitted read across the boundary. Owner requests are pushed to the front of
+  the montage queue.
+- **Mode:** `montage_mode` is `off`, `manual` or `automatic` (env `MONTAGE_MODE`), and its default
+  is `manual`. `montage_workers` (env `MONTAGE_WORKERS`) defaults to `1`. Both are read at startup
+  like the thumbnail settings; `runtime-settings.md` is the path if they ever change live.
+  - **Manual:** no startup sweep, no enqueue from scans or list responses. Only the owner request
+    route enqueues.
+  - **Automatic:** adds a startup sweep for videos with no row, and list responses enqueue visible
+    never-attempted videos.
+  - **Off:** no workers start, and the request route refuses.
+  - Changing mode means a restart, and the in-memory queue doesn't survive one, so the spec's "drop
+    the rest of the queue" holds without extra code.
+- **File changes:** file maintenance and a rewriting writeback re-enqueue a video's montage only if
+  a row exists. They do this through their own call into the montage manager, never through the
+  thumbnail manager. Changes to the still alone (poster upload, still regenerate, embedded art) do
+  not reach the montage manager at all.
+- **Storage:** `DATA_PATH/montages/{id}.mp4`, a directory of its own, written to `.tmp` and renamed
+  into place. Purge or cleanup rules for montages can therefore differ from stills.
+- **Serving:** `GET /api/v1/media/{id}/montage`, by id, after `repo.VideoVisible`, through
+  `http.ServeContent`. That supports Range requests (which `<video>` needs), returns 304 for an
+  unchanged file, and sends `Cache-Control: no-cache`.
+  - The video payload carries `montage_url` (`?v=<mtime>`) **only when the file exists**. The
+    client never requests a missing montage, so there is no 404 retry loop like the still's.
+- **Owner request:** `POST /api/v1/media/{id}/montage` sits inside the `requireOwner` group.
+- **Progress:** the montage queue exposes its own `QueueStats` (depth, high, in flight, workers)
+  plus the mode, on the activity surface and in `/metrics`. These are never merged into the
+  thumbnail gauge.
+
+**Rejected:** an animated WebP, which is 3–5× larger for the same clip, decoded on the CPU, and has
+no faststart-style early first frame.
+**Rejected:** a JPEG sprite sheet or storyboard. It shows stepped frames instead of motion and needs
+script-driven frame stepping. It fits pointer scrubbing, which F83 leaves out of scope.
+**Rejected:** cutting each clip with its own ffmpeg run and concatenating them afterwards. That
+means N+1 processes plus temp files per video, instead of one process.
+**Rejected:** folding montages into `thumbnail.Manager`, either as a `thumbnail_state` value or as
+a second output of the still job. That couples the two lifecycles, so a still change or failure
+would have to account for montages (F83 RD5).
+**Rejected:** a `montage_state` column on `videos`. A table of its own leaves the hot `videos` row
+untouched, and the whole tier can be dropped or rebuilt without touching still state.
+
+Decided in: pending squash (HOLODEX-578).
 
 ## Video bytes streamed by id through `http.ServeContent`
 

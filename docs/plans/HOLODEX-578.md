@@ -27,7 +27,7 @@ release_note:                # the ONE user-facing sentence; authored once by /h
 Resting the pointer on (or focusing) a grid card plays a short silent montage of clips sampled
 across the video; montages are built in the background after stills. Supersedes HOLODEX-27.
 
-**Design package:** [spec F83](../specs/moving-thumbnails.md) · architecture: pending (`media-ingest.md` "Tiered thumbnails") · handoff: pending · testing-strategy §: pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F83](../specs/moving-thumbnails.md) · [architecture](../architecture/media-ingest.md#hover-montages-a-silent-mp4-tier-beside-the-still-pipeline-owner-gated-by-mode) · handoff: pending · testing-strategy §: pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -40,7 +40,7 @@ across the video; montages are built in the background after stills. Supersedes 
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
@@ -62,11 +62,10 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Record montage format (silent MP4) + separate low-priority queue — `docs/architecture/media-ingest.md`
-2. [ ] [design] Hover/focus handover, still→motion, poster-layout crop (spec Q1) — `docs/design/`
-3. [ ] [testing] Add the F83 section — `docs/testing-strategy.md`
-4. [ ] [security] Review new public derived file + browse-triggered ffmpeg work — `/security-review`
-5. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
+1. [ ] [design] Hover/focus handover, still→motion, poster-layout crop (spec Q1) — `docs/design/`
+2. [ ] [testing] Add the F83 section — `docs/testing-strategy.md`
+3. [ ] [security] Review new public montage route + owner request route + ffmpeg concat job — `/security-review`
+4. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -79,8 +78,8 @@ across the video; montages are built in the background after stills. Supersedes 
 -->
 
 ### 2026-10-25 · session
-- skills: write-spec, handoff
-- handoff: Spec F83 landed (hover/focus only, silent MP4, background queue after stills, supersedes HOLODEX-27; montage workers default 1; RD5 stills never depend on montages; RD6 off/manual/automatic mode, ships manual; manual testing is per-video only via P0-15, no batch); still regenerate owner-gated on main via #556; design phase continues — run /architecture on media-ingest.md next.
+- skills: write-spec, handoff, architecture
+- handoff: Spec F83 settled (hover/focus only, manual mode default, 1 worker, per-video testing, RD5 stills independent) and the montage tier is recorded in media-ingest.md (silent MP4, own package/table/queue/routes); design phase continues — run /design-handoff next.
 
 ## Dropped — newest first (the reason is the point)
 
