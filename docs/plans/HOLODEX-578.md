@@ -80,7 +80,7 @@ across the video; montages are built in the background after stills. Supersedes 
 
 ### 2026-10-25 · session
 - skills: write-spec, handoff
-- handoff: Spec F83 landed (hover/focus only, silent MP4, background queue after stills, supersedes HOLODEX-27; montage workers default 1; RD5 stills never depend on montages; RD6 off/manual/automatic mode, ships manual; P0-16 batch requests in manual mode); still regenerate owner-gated on main via #556; design phase continues — run /architecture on media-ingest.md next.
+- handoff: Spec F83 landed (hover/focus only, silent MP4, background queue after stills, supersedes HOLODEX-27; montage workers default 1; RD5 stills never depend on montages; RD6 off/manual/automatic mode, ships manual; manual testing is per-video only via P0-15, no batch); still regenerate owner-gated on main via #556; design phase continues — run /architecture on media-ingest.md next.
 
 ## Dropped — newest first (the reason is the point)
 

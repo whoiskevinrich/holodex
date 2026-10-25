@@ -137,7 +137,8 @@ background, so it can make a montage the same way.
   at once. These are new settings of their own: no still-thumbnail setting changes meaning or
   default.
   - **Manual (default):** nothing is queued on startup, by a scan or by browsing. A montage is made
-    only when the owner asks, for one video (P0-15) or a batch (P0-16). Any montage that already exists still plays.
+    only when the owner asks for it on a specific video (P0-15). Any montage that already exists
+    still plays.
   - **Automatic:** on startup, videos with no montage are queued (eager backfill), and browsing a
     page moves its videos up the queue.
   - **Off:** no montage is made, not even on request. Existing montages still play, so turning
@@ -153,20 +154,16 @@ background, so it can make a montage the same way.
   failure is never recorded as a still failure, and a still failure never stops a montage.
 - **P0-14: Progress.** Montage queue progress (waiting, in progress, workers) and the current
   mode appear in the activity view next to still-thumbnail progress.
-- **P0-15: Owner requests.** In manual or automatic mode, the owner can make, or remake, one
-  video's montage from that video's page. The request goes to the front of the montage queue
-  (stills still come first). It is its own action and is owner-only, like every owner action
-  ([`admin-mode.md`](admin-mode.md)). Regenerating the still leaves the montage alone, and
-  regenerating the montage leaves the still alone. Visitors never see the action. In off mode the
-  action is hidden.
-- **P0-16: Batch requests.** In manual mode, the owner can queue montages for every video in the
-  library list they are looking at, with its current filters, in one action. This lets the owner
-  test at scale without switching to automatic. Before anything is queued, the owner confirms with
-  the count of videos that have no montage yet. Videos that already have one are skipped. A batch
-  waits behind stills and behind single-video requests, and it uses the normal worker count.
-  Progress shows in the activity view (P0-14), where the owner can cancel what is left of the
-  batch. The montage in progress finishes. The action is owner-only and hidden in off mode. In
-  automatic mode it isn't needed, so it isn't shown. Promoted to must-have on 2026-10-25.
+- **P0-15: Per-video requests, the testing path.** In manual or automatic mode, the owner can make,
+  or remake, the montage for one specific video from that video's page. In manual mode this is how
+  the owner tests montages in production: they choose the videos one at a time, and nothing else in
+  the library is touched. The request goes to the front of the montage queue (stills still come
+  first). The owner can see when it is waiting, being made, ready, or failed, and a failure says so
+  on that video's page. Once it is ready, the video's cards play it. It is its own action and is
+  owner-only, like every owner action ([`admin-mode.md`](admin-mode.md)). Regenerating the still
+  leaves the montage alone, and regenerating the montage leaves the still alone. Visitors never see
+  the action. In off mode the action is hidden. Narrowed to single videos on 2026-10-25: there is
+  no library-wide or list-wide request in manual mode.
 
 ### Should-have (P1)
 
@@ -185,7 +182,7 @@ background, so it can make a montage the same way.
 
 This is a single-owner library, so these are QA checks, not analytics.
 
-- **Leading:** in manual mode, montages made on request for a sample of the owner's production
+- **Leading:** in manual mode, montages the owner requests one by one for hand-picked production
   videos play correctly, and their generation time and size are acceptable. This is the gate for
   switching to automatic.
 - **Leading:** in automatic mode, after backfill finishes, at least 95% of videos 6 seconds or longer have a montage.
