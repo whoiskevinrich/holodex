@@ -313,9 +313,11 @@ const SCENARIOS = [
 		key: 'two-tabs-independent',
 		qa: '§20.3 item 5',
 		run: async ({ context, page }) => {
+			// Both targets stay inside the 50-row first page (F80 paging); on the stress
+			// fixture it scrolls to about 737px, so 800 is out of reach.
 			const tabs = [
 				{ page, list: '/people?sort=count', y: 400 },
-				{ page: await context.newPage(), list: '/people?sort=random', y: 800 }
+				{ page: await context.newPage(), list: '/people?sort=random', y: 600 }
 			];
 			for (const t of tabs) {
 				await goto(t.page, `${base}${t.list}`);

@@ -528,7 +528,7 @@ export const ASSERTIONS = [
 			'data) stays out of it.',
 		urls: ['/?sort=title_asc', '/people', '/studios'],
 		widths: ['phone'],
-		selector: ':is(.video-grid > :first-child, main ul > li.scroll-mt-16:first-child)',
+		selector: ':is(.video-grid > :first-child, main ul > li:first-child)',
 		measure: 'mainTop',
 		expect: { max: 200 }
 	},
@@ -552,7 +552,7 @@ export const ASSERTIONS = [
 			'right edge and is ~21px wide, so every row must keep 26px clear (`pr-5` below `sm`).',
 		urls: ['/people', '/studios'],
 		widths: ['phone'],
-		selector: 'main ul > li.scroll-mt-16',
+		selector: 'main ul > li',
 		measure: 'gutterRight',
 		expect: { min: 26 }
 	},
