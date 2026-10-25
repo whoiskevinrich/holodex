@@ -69,3 +69,100 @@ describe('CurationFieldRow provenance', () => {
 		expect(badge.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 });
+
+// F30.3g (testing-strategy §34.4, source-choices-restore-handoff.md): the owner's Removed (N).
+describe('CurationFieldRow Removed (N)', () => {
+	type Req = { field: string; value: string; action: string };
+	function owned(items: ResolvedValue[], removed: { value: string; not_sent?: boolean }[]) {
+		const calls: string[] = [];
+		const f = { ...field(items), canonical: 'genres', label: 'Genres', removed } as ResolvedField;
+		const props = {
+			field: f,
+			isOwner: true,
+			curate: async (r: Req) => void calls.push(`curate ${r.action} ${r.value}`),
+			clearCuration: async (r: Req) => void calls.push(`clear ${r.action} ${r.value}`),
+			onchanged: () => {}
+		};
+		return { calls, props };
+	}
+	const toggle = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('[aria-controls="removed-genres"]');
+
+	it('renders no toggle when nothing is removed', async () => {
+		const { props } = owned([{ value: 'Drama', sources: ['file'] }], []);
+		const { container } = await render(CurationFieldRow, props);
+		expect(toggle(container)).toBeNull();
+	});
+
+	it('opens a line of dashed removed chips without sending anything', async () => {
+		const { calls, props } = owned([{ value: 'Drama', sources: ['file'] }], [
+			{ value: 'Noir' },
+			{ value: 'Western', not_sent: true }
+		]);
+		const { container } = await render(CurationFieldRow, props);
+		const t = toggle(container)!;
+		expect(t.textContent).toContain('Removed (2)');
+		expect(t.getAttribute('aria-expanded')).toBe('false');
+		t.click();
+		await expect.poll(() => container.querySelector('#removed-genres')).not.toBeNull();
+		expect(t.getAttribute('aria-expanded')).toBe('true');
+		const chips = [...container.querySelectorAll('#removed-genres .curation-chip')];
+		expect(chips.map((c) => c.getAttribute('aria-label'))).toEqual([
+			'Noir, removed',
+			'Western, removed, not sent by any source now'
+		]);
+		expect(chips.every((c) => c.className.includes('border-dashed'))).toBe(true);
+		expect(container.querySelector('#removed-genres [aria-label="Edit Noir"]')).toBeNull();
+		expect(calls).toEqual([]);
+	});
+
+	it('restores through the clear transport and announces it', async () => {
+		const { calls, props } = owned([], [{ value: 'Western', not_sent: true }]);
+		const { container } = await render(CurationFieldRow, props);
+		toggle(container)!.click();
+		await expect.poll(() => container.querySelector('[aria-label="Restore Western"]')).not.toBeNull();
+		container.querySelector<HTMLButtonElement>('[aria-label="Restore Western"]')!.click();
+		await expect.poll(() => calls).toEqual(['clear suppress Western', 'curate add Western']);
+		await expect.poll(() => container.querySelector('[aria-live="polite"].sr-only')?.textContent).toBe(
+			'Restored Western. No source sends it now.'
+		);
+	});
+
+	it('moves focus to + Add once the last removal is restored', async () => {
+		const { props } = owned([{ value: 'Drama', sources: ['file'] }], [{ value: 'Noir' }]);
+		const screen = await render(CurationFieldRow, props);
+		const { container } = screen;
+		toggle(container)!.click();
+		await expect.poll(() => container.querySelector('[aria-label="Restore Noir"]')).not.toBeNull();
+		// The parent reloads the field without the removal, as the page does after onchanged.
+		props.onchanged = () => screen.rerender({ ...props, field: { ...props.field, removed: [] } });
+		await screen.rerender(props);
+		container.querySelector<HTMLButtonElement>('[aria-label="Restore Noir"]')!.click();
+		await expect.poll(() => document.activeElement?.hasAttribute('data-add')).toBe(true);
+	});
+
+	it('shows + Add and the toggle on a field whose every value was removed', async () => {
+		const { props } = owned([], [{ value: 'Noir' }]);
+		const { container } = await render(CurationFieldRow, props);
+		expect(container.querySelector('[data-add]')).not.toBeNull();
+		expect(toggle(container)).not.toBeNull();
+	});
+
+	it('lifts a removal when the owner types the value back into + Add', async () => {
+		const { calls, props } = owned([{ value: 'Drama', sources: ['file'] }], [{ value: 'Noir' }]);
+		const { container } = await render(CurationFieldRow, props);
+		container.querySelector<HTMLButtonElement>('[data-add]')!.click();
+		await expect.poll(() => container.querySelector('input')).not.toBeNull();
+		const el = container.querySelector<HTMLInputElement>('input')!;
+		el.value = 'noir';
+		el.dispatchEvent(new Event('input', { bubbles: true }));
+		el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await expect.poll(() => calls).toEqual(['clear suppress Noir']);
+	});
+
+	it('shows a visitor no toggle and no removed chips', async () => {
+		const { props } = owned([{ value: 'Drama', sources: ['file'] }], [{ value: 'Noir' }]);
+		const { container } = await render(CurationFieldRow, { ...props, isOwner: false });
+		expect(toggle(container)).toBeNull();
+		expect(container.textContent).not.toContain('Noir');
+	});
+});

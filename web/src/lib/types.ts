@@ -420,6 +420,16 @@ export interface ResolvedField {
 	// The genres (tag set) row only (HOLODEX-401, ADR-111 D3): the file's recorded tags a
 	// write would drop, in file spelling. Present only when the file's tags are known.
 	file_only?: string[];
+	// A merge field's removed values (F30.3g), on the owner's detail read only. Absent for
+	// visitors and when nothing was removed.
+	removed?: RemovedValue[];
+}
+
+// RemovedValue is one value the owner removed from a merge field (F30.3g). not_sent: no source
+// sends it now and no manual add holds it, so restoring it brings nothing back by itself.
+export interface RemovedValue {
+	value: string;
+	not_sent?: boolean;
 }
 
 // ReadbackGapHint is a resolved field's read-back gap (ADR-119 D4).
