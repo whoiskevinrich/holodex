@@ -5222,3 +5222,117 @@ confirmed there); the scenario needs a target the first page can reach.
 - Nothing automated checks the keyboard order or the screen-reader announcement (item 6).
 - The upload's busy and error states are QA'd by hand. They are the existing slot's states, which
   the studio image QA already covered.
+
+## 34. Source choices — Removed (N) and the folded chip (F30.3g, F36 P1-6, HOLODEX-69 / 138)
+
+There are two changes ([F30.3g](specs/metadata-curation.md), [F36 P1-6](specs/field-source-of-truth.md),
+[handoff](design/source-choices-restore-handoff.md)). The owner's detail read now lists each multi-value
+field's removed values. And source candidates that differ only in case, spacing or punctuation fold
+into one choice.
+
+The risks, ranked:
+
+1. **A visitor read leaks removed values.** This is the one security-relevant failure: curation is
+   owner data.
+2. **The fold swallows a real difference.** Two bios that differ in a word become one choice, and
+   the owner can't pick the other.
+3. **Restore doesn't bring the value back,** or brings it back without its provenance.
+4. **A field whose every value was removed drops out of the owner's read,** so its removals become
+   unreachable.
+
+### 34.1 Unit, Go: the resolver option (`internal/resolver/resolver_test.go`)
+
+Table-driven and pure, in-memory curation and enrichment maps as the existing F30 cases use.
+
+1. With the owner option on, a merge field with one `suppress` row lists that value under its
+   removals, spelled as stored (the display value, not the norm key).
+2. A removal whose norm key no layer supplies now carries `not sent now`. One a provider still
+   sends doesn't.
+3. Every value suppressed: with the option on, the field stays in `resolved[]`, with no values and
+   N removals. With the option off, it's dropped exactly as today.
+4. **With the option off, `Resolve` returns exactly what it returns today** for the same inputs. A
+   deep-equal against the option-less call is the guard for risk 1 at the unit level.
+5. `nowrite` and `add` rows never appear as removals. A suppressed value that's also manually added
+   stays hidden (suppress beats a manual add) and lists as a removal without `not sent now`,
+   because lifting the removal would bring it back.
+6. Replace (single-value) fields never carry removals.
+7. The same cases hold over a person baseline (`record`), so the option is entity-generic.
+
+### 34.2 Endpoint, Go: owner and visitor reads
+
+`internal/api` tests for the media, person and studio detail reads, against the test DB:
+
+1. Owner, gated backend: the field carries its removals. Visitor (no token) on the same entity: no
+   removals key anywhere in the payload, and a fully removed field is absent. These are risk 1's
+   tests, one per entity type.
+2. Restore round trip: suppress, read (one removal), clear the suppress row, read (the value is back
+   in `values`, with its sources, and there are zero removals). F30.2e is already tested at
+   `person_decisions_test.go`; these extend it to read the removal list on both sides.
+3. An open backend (no `ADMIN_TOKEN`) treats every client as the owner and gets removals. That's the
+   documented posture, not a leak.
+
+### 34.3 Unit, web: the fold (`web/src/lib/f36.test.ts`)
+
+`sourceChips` cases, each asserting the chip count, every chip's `labels`, and the shown `value`:
+
+1. Case only (`The Long Night` / `the long night`): one baseline chip naming both.
+2. Whitespace only: a doubled space and leading or trailing space fold.
+3. Punctuation and symbols: a trailing full stop, curly versus straight apostrophes, an en dash
+   versus a hyphen, and `&` versus nothing all fold. These are the owner's 2026-10-25 calls.
+4. Provider-only fold: two providers that match each other but not the baseline share one chip.
+   It shows the first provider in trust order, and its `decisionSource` is that provider's.
+5. **A one-word difference does not fold.** These are risk 2's tests: two bios differing in one
+   word, and two titles differing in one digit.
+6. An empty baseline doesn't absorb a provider. That's today's guard, kept.
+7. Custom stays last, and selection resolution (`resolveSelection`) still finds the decided chip
+   when its source folded into the baseline.
+
+### 34.4 Browser, web: the disclosure
+
+These run in `CurationFieldRow.svelte.test.ts` and a `CurationChip` removed-mode case.
+
+1. No removals: no toggle in the DOM.
+2. N removals: the toggle reads `Removed (N)` with `aria-expanded="false"`. Clicking it opens the
+   line (`aria-expanded="true"`, the `aria-controls` target present), and nothing is sent.
+3. Removed chip: dashed, no edit or don't-write control, and its `Restore {value}` button is
+   present without hover. A not-sent-now chip carries the suffix and the longer `aria-label`.
+4. Restore calls the clear transport with `{action:'suppress', value}`, then `onchanged`. Focus
+   moves to the next Restore, or to + Add when the line empties.
+5. The `aria-live` region announces the three messages from the handoff.
+6. A field with no values and N removals renders + Add and the toggle.
+7. `isOwner={false}`: no toggle and no removed chips, even when the field carries removals.
+8. Typing a removed value (any casing) into + Add calls the clear transport for its removal. For a
+   not-sent-now value, it then adds the value too. It never sends only an add, which would stay
+   hidden behind the removal.
+
+**Built (backend), 2026-10-25.** `internal/resolver/removed_test.go` covers 34.1.1–34.1.7, with
+`Options.ListRemoved` and `ResolvedField.Removed`. `internal/api/removed_values_test.go` covers
+34.2.1 for person and 34.2.2. It also adds a media actor case: a removed person folds into one
+entry under their canonical name, and a removal still held by a manual add isn't `not sent now`.
+`TestRemovedValues_MediaGenresAllRemovedKept` pins that the genre writeback pass keeps a genres row
+whose every genre was removed. Mutation-checked: it fails without that fix, and the person visitor
+test fails when the read ignores the owner flag. Media and studio set the option in the same
+one-line way as person. **Gap:** the 34.2.1 visitor test covers person only, because the media and
+studio test servers have no token-gated variant yet.
+
+### 34.5 Live QA
+
+Run the handoff's QA list (1–10) against the stress fixture's owner backend, with a media merge
+field, a studio field and a person bio:
+
+- The `[agent]` items go through the browser pane.
+- Items 9 and 10 (keyboard, screen reader, the Cinémathèque read of the dashed chip) are the
+  owner's.
+
+### 34.6 Mutation checks
+
+- Force the owner option on for every read in one detail handler: 34.2.1's visitor test must fail.
+- Revert the fold to `trim()` equality: 34.3.1–34.3.3 must fail.
+- Drop punctuation stripping alone: only 34.3.3 fails.
+
+### 34.7 Standing gaps
+
+- How the dashed chip reads (not in effect, not an add affordance) is a human judgement (handoff
+  QA 10).
+- Folding over a person's bio in the writeback dialog is covered by the shared `sourceChips` unit
+  tests, not by a dialog test.

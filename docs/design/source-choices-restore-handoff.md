@@ -57,7 +57,7 @@ and the one control differ. Add a `CurationChip` row note to `curation/CLAUDE.md
 | Click **Removed (N)** | Toggles the line. Nothing is sent. |
 | Restore | The value returns to the row with its original provenance (F30.2e), and N goes down by one. When N reaches 0, the toggle and the line both go away. |
 | Restore a "not sent now" value | The chip leaves the removed line, but no chip comes back, because no source sends that value (F30.3g). The live announcement says so (see Accessibility). |
-| Re-add a removed value by typing it into + Add | Same as Restore. Typing the same value through + Add adds it back, as it does today. |
+| Re-add a removed value by typing it into + Add | Same as Restore: the row lifts the removal instead of sending a plain add. A plain add would stay hidden behind the removal, which is what happens today. For a "not sent now" value, it also adds the value, so what the owner typed appears. |
 
 No motion. Chips appear and disappear in place, like they do today.
 

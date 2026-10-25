@@ -45,24 +45,25 @@ locks it.
 
 - [x] spec `write-spec` → `docs/specs/**` — F36 P1-6 (same-ish fold) + F30.3g (Removed (N) restore). The owner reviewed both on 2026-10-25 and kept: all punctuation and symbols dropped, the top provider's spelling when only providers fold, and stale removals listed and tagged
 - [~] architecture `architecture` → `docs/architecture/**` — no technology fork. Removed values ride the owner's detail read the way offered empty fields already do (field-resolution.md, "Empty replace fields are offered through the resolver"). The resolver takes an owner-only option, lists each field's removals from the curation rows it already loads (which store the displayed value), and marks a removal no source sends now. The same option keeps a field whose every value was removed. Visitor reads are unchanged. A separate owner fetch would have to re-resolve to know "not sent now" and would add a second request to every curated page, so it is not a credible alternative
-- [x] design `design-handoff` → `docs/design/**` — `docs/design/source-choices-restore-handoff.md` + SVG mockup (option A, the inline disclosure, picked by the owner 2026-10-25; sign-off still to be recorded at /implement)
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] design `design-handoff` → `docs/design/**` — `docs/design/source-choices-restore-handoff.md` + SVG mockup (option A, the inline disclosure, picked by the owner 2026-10-25; signed off at ee0c6268)
+- [x] backend → `{cmd,internal,providers}/**` — `resolver.Options.ListRemoved` + `ResolvedField.Removed` (not-sent-now marked), set on the owner's media, person and studio detail reads; person spellings fold to one removal; the genre writeback pass keeps an all-removed genres row. Resolver and endpoint tests pass, with two mutation checks
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [/] testing `testing-strategy`
 - [ ] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [testing] /testing-strategy: the fold's match key, Removed (N) states and focus, visitor gating — docs/testing-strategy.md
-2. [ ] [backend] Owner-only resolver option listing removals + "not sent now" on media, person and studio detail reads — internal/resolver, internal/api
-3. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 — web/src/lib/f36.ts
-4. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode per the handoff — web/src/lib/components/curation/
-5. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
+1. [ ] [design] Re-confirm the sign-off: the handoff's "re-add a removed value" row now says + Add lifts the removal (the old wording claimed today's add already did) — docs/design/source-choices-restore-handoff.md
+2. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 (tests §34.3) — web/src/lib/f36.ts
+3. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode + + Add of a removed value lifts it (tests §34.4) — web/src/lib/components/curation/
+4. [ ] [testing] Live QA §34.5 and the mutation checks §34.6 once the frontend lands — docs/testing-strategy.md
+5. [ ] [security] /security-review: the owner-only removal list on detail reads — internal/api
+6. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
-- skills: docs, design-handoff, handoff, implement
-- handoff: Crossed into build. The design was signed off at ee0c6268 (the inline Removed (N) disclosure plus the folded chip). main was already in, and the Draft PR is open. Start at /testing-strategy (Up next 1), then the backend resolver option.
+- skills: docs, design-handoff, handoff, implement, testing-strategy, code-review
+- handoff: Crossed into build: the design was signed off at ee0c6268, and Draft PR #554 is open. The test plan is §34 of testing-strategy.md. The backend landed, with owner-only removals on media, person and studio reads. Building it showed that typing a removed value into + Add never restored it (suppress beats a manual add), so the handoff now says + Add lifts the removal, and that delta needs the owner's re-confirm (Up next 1). Next: the frontend, starting with the fold in f36.ts.
 
 ## Dropped — newest first (the reason is the point)

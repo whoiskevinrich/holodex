@@ -896,6 +896,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// below, so an offered row is writable in the dialog.
 			if authorized {
 				opts.Offer = registry.OffersWhenEmpty
+				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			h.markPromoted(resolved, promoted)
@@ -1397,7 +1398,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	// The person's videos are not embedded: the page loads them through GET
 	// /media?person=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	resolved, fields := h.personResolve(r, id, p)
+	resolved, fields := h.personResolve(r, id, p, authorized)
 	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
 	var completeness *resolver.Completeness
 	if authorized {
@@ -1643,8 +1644,10 @@ func curationFromRows(rows []repo.CurationRow) resolver.Curation {
 		case repo.CurationSuppress:
 			if fc.Suppress == nil {
 				fc.Suppress = make(map[string]bool)
+				fc.SuppressedAs = make(map[string]string)
 			}
 			fc.Suppress[r.NormValue] = true
+			fc.SuppressedAs[r.NormValue] = r.Value
 		case repo.CurationNoWrite:
 			if fc.NoWrite == nil {
 				fc.NoWrite = make(map[string]bool)

@@ -122,6 +122,18 @@ type ResolvedField struct {
 	// on the genres row only, never by the resolver; the API stamps it alongside a
 	// set-valued InSync.
 	FileOnly []string `json:"file_only,omitempty"`
+
+	// Removed lists a merge field's removed values, on the owner's detail read only
+	// (Options.ListRemoved, F30.3g). nil for every visitor read.
+	Removed []RemovedValue `json:"removed,omitempty"`
+}
+
+// RemovedValue is one value the owner removed from a merge field (F30.3g). NotSent
+// is true when lifting the removal would bring nothing back: no source sends the
+// value now and no manual add holds it.
+type RemovedValue struct {
+	Value   string `json:"value"`
+	NotSent bool   `json:"not_sent,omitempty"`
 }
 
 // ReadbackGapHint is ResolvedField.ReadbackGap's payload (ADR-119 D4).
@@ -222,6 +234,10 @@ type Options struct {
 	// (file candidate "", non-standing decision), which is the owner's File "No value"
 	// + Custom row. nil offers nothing. Callers set it only for the owner (D3).
 	Offer func(canonical string) bool
+
+	// ListRemoved fills each merge field's Removed list and keeps a merge field whose
+	// every value was removed (F30.3g). Callers set it only for the owner, like Offer.
+	ListRemoved bool
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
@@ -272,7 +288,10 @@ type Enrichment map[string]map[string][]string
 type FieldCuration struct {
 	Add      []string        // owner-added manual values (display form)
 	Suppress map[string]bool // normalized value → suppressed (tombstone)
-	NoWrite  map[string]bool // normalized value → excluded from file write
+	// SuppressedAs is each suppressed value as the owner removed it (normalized →
+	// stored spelling), for the owner's removed list (F30.3g). Matching uses Suppress.
+	SuppressedAs map[string]string
+	NoWrite      map[string]bool // normalized value → excluded from file write
 }
 
 // Curation is the pre-loaded curation for one video, keyed by canonical field.
@@ -368,6 +387,10 @@ func ResolveFields(
 	filmNS := filmNamespaces(enrichment)
 	for _, f := range fields {
 		items, winner := resolveField(baseline, enrichment, curation[f.Canonical], opts, f, filmNS)
+		var removed []RemovedValue
+		if opts.ListRemoved && (f.Multi || f.Merge) {
+			removed = removedValues(fieldGather(baseline, enrichment, f), curation[f.Canonical], f)
+		}
 		if len(items) == 0 {
 			// A replace field with a *standing* decision stays in the output even
 			// when the decided value is empty (e.g. a blank-pin to an empty person
@@ -378,12 +401,14 @@ func ResolveFields(
 			// items empty until the owner decides — dropping the field here would
 			// hide the only chips that let them do so. Other
 			// undecided empty fields (no file/provider/film value at all) still drop,
-			// unless the caller offers the field to the owner (ADR-113 D1).
+			// unless the caller offers the field to the owner (ADR-113 D1). A merge
+			// field whose every value the owner removed stays too when removals are
+			// listed, so they remain reachable (F30.3g).
 			_, decided := opts.lookup(f.Canonical)
 			replace := !f.Multi && !f.Merge
 			hasFilmCand := replace && hasFilmCandidate(enrichment, filmNS, f.Canonical)
 			offered := replace && opts.Offer != nil && opts.Offer(f.Canonical)
-			if !decided && !hasFilmCand && !offered {
+			if !decided && !hasFilmCand && !offered && len(removed) == 0 {
 				continue
 			}
 		}
@@ -402,6 +427,7 @@ func ResolveFields(
 			Multi:         f.Multi || f.Merge,
 			WinningSource: winner,
 			EntityKind:    registry.Lookup(f.Canonical).EntityKind,
+			Removed:       removed,
 		}
 		// F36 markers are replace-only (RD1): merge fields keep F30 per-value
 		// curation and carry no source decision.
@@ -529,15 +555,10 @@ func BrowseTitle(
 	return "", ""
 }
 
-func resolveField(
-	baseline BaselineSource,
-	enrichment Enrichment,
-	fc FieldCuration,
-	opts Options,
-	f mapping.Field,
-	filmNS []string,
-) (items []ResolvedValue, winner string) {
-	gather := func(src mapping.Source) []string {
+// fieldGather returns the raw values one mapping source supplies for f: the entity's
+// baseline, a linked film's value, or a provider's enrichment.
+func fieldGather(baseline BaselineSource, enrichment Enrichment, f mapping.Field) func(mapping.Source) []string {
+	return func(src mapping.Source) []string {
 		if vals, ok := baseline.Baseline(src); ok {
 			return vals
 		}
@@ -549,6 +570,17 @@ func resolveField(
 		}
 		return nil
 	}
+}
+
+func resolveField(
+	baseline BaselineSource,
+	enrichment Enrichment,
+	fc FieldCuration,
+	opts Options,
+	f mapping.Field,
+	filmNS []string,
+) (items []ResolvedValue, winner string) {
+	gather := fieldGather(baseline, enrichment, f)
 
 	if f.Multi || f.Merge {
 		// Merge fields keep F30 per-value curation, untouched by F36 (RD1).
@@ -971,6 +1003,39 @@ func resolveMerge(gather func(mapping.Source) []string, fc FieldCuration, f mapp
 		})
 	}
 	return items, winner
+}
+
+// removedValues lists a merge field's removals for the owner (F30.3g): one entry per
+// suppress row, in the spelling it was stored with, sorted case-insensitively. NotSent
+// marks a removal nothing would bring back if it were lifted: no source sends it now
+// and no manual add holds it.
+func removedValues(gather func(mapping.Source) []string, fc FieldCuration, f mapping.Field) []RemovedValue {
+	if len(fc.Suppress) == 0 {
+		return nil
+	}
+	sent := map[string]bool{}
+	for _, src := range f.ParsedSources {
+		for _, raw := range gather(src) {
+			for _, part := range mapping.SplitMulti(raw) {
+				sent[normKey(part)] = true
+			}
+		}
+	}
+	for _, mv := range fc.Add {
+		sent[normKey(mv)] = true
+	}
+	out := make([]RemovedValue, 0, len(fc.Suppress))
+	for nk := range fc.Suppress {
+		v := fc.SuppressedAs[nk]
+		if v == "" {
+			v = nk
+		}
+		out = append(out, RemovedValue{Value: applyCasing(v, f.Casing), NotSent: !sent[nk]})
+	}
+	slices.SortFunc(out, func(a, b RemovedValue) int {
+		return strings.Compare(strings.ToLower(a.Value), strings.ToLower(b.Value))
+	})
+	return out
 }
 
 // applyCasing applies a field's configured output casing (F30, decision #4). Dedup

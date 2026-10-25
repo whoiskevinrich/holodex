@@ -68,7 +68,7 @@ func (h *Handlers) getPersonCard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resolved, _ := h.personResolve(r, id, p)
+	resolved, _ := h.personResolve(r, id, p, false)
 	for _, f := range resolved {
 		switch f.Canonical {
 		case "name":
