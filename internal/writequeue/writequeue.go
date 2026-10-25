@@ -248,9 +248,10 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	// trigger's batch, HOLODEX-239/ADR-077 D3) so every job_runs row this job
 	// produces -- including an early-return no-op/failure that never reaches a
 	// snapshot -- is attributable to its batch (ADR-071); GetWritebackBatchStatus
-	// aggregates job_runs by this column. snapshotBeforeWrite below still
-	// reassigns it once a write is actually attempted, to the same value (or an
-	// id-derived fallback when job.BatchID is "").
+	// aggregates job_runs by this column. A snapshot below overrides it with its
+	// own id (the same value, or an id-derived fallback when job.BatchID is ""),
+	// but a failed snapshot leaves it alone — clearing it filed the run under no
+	// batch, and the tag-sync dialog never counted it.
 	batchID := job.BatchID
 	finish := func(ok bool, errMsg string, written int, detail string) {
 		run := model.JobRun{
@@ -304,10 +305,13 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	}
 
 	// F48.9a (ADR-067): snapshot each field's current on-disk value before it
-	// is overwritten, so a bad batch can be reverted. batchID is "" when
+	// is overwritten, so a bad batch can be reverted. snapBatch is "" when
 	// nothing was recorded — logged, not fatal (a snapshot hiccup must not
-	// block a working write).
-	batchID = q.snapshotBeforeWrite(ctx, job, v.FilePath, mapped)
+	// block a working write) — and then the detail line offers no revert.
+	snapBatch := q.snapshotBeforeWrite(ctx, job, v.FilePath, mapped)
+	if snapBatch != "" {
+		batchID = snapBatch
+	}
 
 	if err := q.write(ctx, v.FilePath, batch); err != nil {
 		q.log.Warn("writeback batch failed", "id", job.ID, "video", job.VideoID, "err", err)
@@ -331,7 +335,7 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	if q.postWrite != nil {
 		q.postWrite(ctx, job.VideoID, v.FilePath)
 	}
-	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped, batchID))
+	finish(true, "", len(mapped), detailLine(v.FilePath, len(mapped), unmapped, snapBatch))
 }
 
 // withTagKeyFilter adds a genres job's derived tag-key writes (ADR-110 D2): every
