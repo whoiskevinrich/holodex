@@ -13,6 +13,10 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: You can now see and restore the values you removed from a field, and source choices that differ only in case, spacing or punctuation show as one.
+approved:
+  design:
+    on: 2026-10-25
+    at: ee0c6268
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -49,14 +53,16 @@ locks it.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] /implement: record the design sign-off, merge main, open the Draft PR (design phase is settled)
-2. [ ] [testing] /testing-strategy: the fold's match key, Removed (N) states and focus, visitor gating — docs/testing-strategy.md
-3. [ ] [backend] Owner-only resolver option listing removals + "not sent now" on media, person and studio detail reads — internal/resolver, internal/api
+1. [ ] [testing] /testing-strategy: the fold's match key, Removed (N) states and focus, visitor gating — docs/testing-strategy.md
+2. [ ] [backend] Owner-only resolver option listing removals + "not sent now" on media, person and studio detail reads — internal/resolver, internal/api
+3. [ ] [frontend] Folded match: widen sourceChips' value comparison per F36 P1-6 — web/src/lib/f36.ts
+4. [ ] [frontend] Removed (N) disclosure + CurationChip `removed` mode per the handoff — web/src/lib/components/curation/
+5. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
-- skills: docs, design-handoff, handoff
-- handoff: Epic 5 is HOLODEX-69 + HOLODEX-138; HOLODEX-44 is Won't Do. Spec rules F36 P1-6 (same-ish fold) and F30.3g (Removed (N)) are drafted, and both specs now link topic docs, not archived ADRs. The design handoff is committed: the owner picked option A, the inline disclosure, and accepted the folded chip, which needs no new visual, only a wider match in sourceChips. ui-vocabulary gained "Removed disclosure" and "Folded choice". Architecture settled as no fork: removals ride the owner's detail read through a resolver option, like offered empty fields. The owner reviewed both spec rules and kept them as written, so the design phase is settled and HOLODEX-69 carries fp:ready-to-build. Next: /implement (Up next 1).
+- skills: docs, design-handoff, handoff, implement
+- handoff: Crossed into build. The design was signed off at ee0c6268 (the inline Removed (N) disclosure plus the folded chip). main was already in, and the Draft PR is open. Start at /testing-strategy (Up next 1), then the backend resolver option.
 
 ## Dropped — newest first (the reason is the point)
