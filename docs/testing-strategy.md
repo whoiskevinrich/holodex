@@ -5120,7 +5120,8 @@ cases, plus an `image` case in the repo's `TestOrphanTag_AuthoredSurvives`.
     `internal/personimage`; they are not re-tested per store.
 - **Serve.** With no image the route returns 404. After an upload it returns decodable bytes with
   `nosniff` and the immutable cache header. A replace advances the version and leaves only the new
-  file on disk.
+  file on disk. A replace whose file can't be written answers 500 and leaves the previous image
+  serving at its old version (`TestTagImage_FailedReplaceKeepsThePreviousImage`).
 - **List and detail.** Both carry `image_url` stamped `?v={id}` for a tag with an image and nothing
   for a tag without one: a URL, never a blob.
 - **Lifecycle.**

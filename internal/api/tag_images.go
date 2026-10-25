@@ -60,7 +60,7 @@ func (h *Handlers) serveTagImage(w http.ResponseWriter, r *http.Request) {
 
 // uploadTagImage ingests a multipart upload (`image` file), normalizes it, stores it,
 // and replaces the tag's row; the superseded file is removed best-effort, and a failed
-// store rolls the new row back. 404 on an unknown tag, 400 on a bad upload, 201 with
+// store puts the previous row back. 404 on an unknown tag, 400 on a bad upload, 201 with
 // {id, version} on success.
 func (h *Handlers) uploadTagImage(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
@@ -90,7 +90,15 @@ func (h *Handlers) uploadTagImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := tagimage.Store(h.tagImageDir, id, imgID, norm); err != nil {
-		_ = h.repo.DeleteTagImage(r.Context(), id)
+		// Undo the row swap: the tag keeps its previous image (whose file is untouched),
+		// or goes back to having none.
+		if existErr == nil && existing.ID != 0 {
+			if rerr := h.repo.RestoreTagImage(r.Context(), existing); rerr != nil {
+				h.log.Warn("restore tag image after failed store", "tag", id, "err", rerr)
+			}
+		} else {
+			_ = h.repo.DeleteTagImage(r.Context(), id)
+		}
 		h.fail(w, "store tag image", err)
 		return
 	}

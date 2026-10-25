@@ -47,7 +47,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 - [x] spec `write-spec` → `docs/specs/**` — `docs/specs/list-views.md` (F82)
 - [~] architecture `architecture` → `docs/architecture/**` — no technology fork: tag images reuse the studio image store and upload gate
 - [x] design `design-handoff` → `docs/design/**` — `docs/design/list-views-handoff.md` + 3 SVG mockups
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**` — tag image store/routes/lifecycle (migration 0065), failed-replace restore, /tags `parent_name`; Go tests + two mutation checks
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 - [x] security `security-review` — tag image upload reviewed 2026-10-24 at 01a02fb2: no findings at or above 8/10 (owner gate, server-assigned paths, shared normaliser, bound SQL)
@@ -67,10 +67,9 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] A failed file store on a tag image REPLACE must restore the previous row, not leave the tag imageless (security review note) — `internal/api/tag_images.go`
-2. [ ] [frontend] Media Table thumbnail retries while generating, sharing VideoCard's backoff rather than copying it — `web/src/routes/+page.svelte`
-3. [ ] [testing] §33 geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
-4. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
+1. [ ] [frontend] Media Table thumbnail retries while generating, sharing VideoCard's backoff rather than copying it — `web/src/routes/+page.svelte`
+2. [ ] [testing] §33 geometry and nav harness cases; live QA checklist — `docs/testing-strategy.md`
+3. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,7 +83,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 
 ### 2026-10-24 · Epic 4 started; spec, handoff and test plan landed
 - skills: write-spec, design-handoff, testing-strategy, handoff, implement, code-review, security-review
-- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings. Tags Posters view, the tag page poster slot and the shared per-tag ⋯ menu (chips, cards, Table rows; Manage no longer forces Chips) landed and were QA'd live; the empty slot carries the mockup's Upload button beside its "+" (owner's call; EntityImageSlot `uploadButton`, tag page only); start at the failed-replace fix (Up next 1).
+- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings. Tags Posters view, the tag page poster slot and the shared per-tag ⋯ menu (chips, cards, Table rows; Manage no longer forces Chips) landed and were QA'd live; the empty slot carries the mockup's Upload button beside its "+" (owner's call; EntityImageSlot `uploadButton`, tag page only). A failed replace now restores the previous image row (RestoreTagImage, tested), and the backend gate is settled. Frontend and testing remain; start at the Media Table thumbnail retry (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 

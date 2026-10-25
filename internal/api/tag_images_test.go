@@ -247,6 +247,39 @@ func TestTagImage_ReplaceAdvancesVersionAndDropsOldFile(t *testing.T) {
 	}
 }
 
+// A replace whose file can't be written must leave the tag its previous image (the
+// security review's correctness note), not an empty slot.
+func TestTagImage_FailedReplaceKeepsThePreviousImage(t *testing.T) {
+	e := tagImageServer(t, "tok", 5<<20)
+	_, v1 := e.upload(t, "tok", "noir", tinyJPEG(t))
+
+	// The next row id is v1+1 (AUTOINCREMENT). A directory where Store writes that row's
+	// temp file makes the write fail.
+	blocker := filepath.Join(e.dir, itoa(e.ids["noir"]), itoa(v1+1)+".jpg.tmp")
+	if err := os.MkdirAll(blocker, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if code, _ := e.upload(t, "tok", "noir", tinyJPEG(t)); code != http.StatusInternalServerError {
+		t.Fatalf("replace with an unwritable file = %d, want 500", code)
+	}
+
+	if code := e.serve(t, "noir").StatusCode; code != http.StatusOK {
+		t.Fatalf("GET after a failed replace = %d, want 200 (the previous image)", code)
+	}
+	if u := e.imageURLs(t)["noir"]; !strings.HasSuffix(u, "?v="+itoa(v1)) {
+		t.Errorf("image_url after a failed replace = %q, want the previous version %d", u, v1)
+	}
+
+	// A later replace still works and advances past both ids.
+	if err := os.RemoveAll(blocker); err != nil {
+		t.Fatal(err)
+	}
+	code, v3 := e.upload(t, "tok", "noir", tinyJPEG(t))
+	if code != http.StatusCreated || v3 <= v1+1 {
+		t.Errorf("replace after recovery = %d v%d, want 201 past %d", code, v3, v1+1)
+	}
+}
+
 func TestTagImage_MutationsRequireOwner(t *testing.T) {
 	e := tagImageServer(t, "tok", 5<<20)
 	if code, _ := e.upload(t, "", "noir", tinyJPEG(t)); code != http.StatusUnauthorized && code != http.StatusForbidden {

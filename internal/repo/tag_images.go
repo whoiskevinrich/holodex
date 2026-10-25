@@ -78,6 +78,34 @@ func (r *Repo) ReplaceTagImage(ctx context.Context, tagID int64, width, height, 
 	return id, nil
 }
 
+// RestoreTagImage puts a superseded row back, id and all, in place of whatever the tag
+// has now — the undo for a replace whose file couldn't be stored. The old file is still
+// on disk under the old id (the replace removes it only after a successful store), so the
+// restored row serves it again.
+func (r *Repo) RestoreTagImage(ctx context.Context, prev TagImage) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM tag_images WHERE tag_id = ?`, prev.TagID); err != nil {
+		return fmt.Errorf("clear tag image slot: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO tag_images (id, tag_id, width, height, byte_size, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		prev.ID, prev.TagID, prev.Width, prev.Height, prev.ByteSize, prev.CreatedAt.UTC().Format(timeLayout)); err != nil {
+		return fmt.Errorf("restore tag image: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit tag image restore: %w", err)
+	}
+	return nil
+}
+
 // DeleteTagImage removes the tag's image row. Idempotent — deleting an empty slot is a
 // no-op success.
 func (r *Repo) DeleteTagImage(ctx context.Context, tagID int64) error {
