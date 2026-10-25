@@ -49,19 +49,18 @@ locks it.
 - [x] backend → `{cmd,internal,providers}/**` — `resolver.Options.ListRemoved` + `ResolvedField.Removed` (not-sent-now marked), set on the owner's media, person and studio detail reads; person spellings fold to one removal; the genre writeback pass keeps an all-removed genres row. Resolver and endpoint tests pass, with two mutation checks
 - [x] frontend → `web/src/**` — the fold (`foldKey`/`sameChoice` in f36.ts), CurationChip removed mode, and the CurationFieldRow Removed (N) disclosure with Restore, focus and announcements; + Add or the person picker lifts a removal. Live QA'd on the stress fixture 2026-10-25 (§34.5)
 - [/] testing `testing-strategy`
-- [ ] security `security-review`
+- [/] security `security-review`
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [security] /security-review: the owner-only removal list on detail reads — internal/api
-2. [ ] [testing] Owner's [human] QA: handoff items 9 (keyboard, screen reader) and 10 (does the dashed chip read as "not in effect"?) — docs/design/source-choices-restore-handoff.md
-3. [ ] [design] /handoff §3d: owner compares the built Removed (N) to the approved mockup before the last gate settles
-4. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
+1. [ ] [testing] Owner's [human] QA: handoff items 9 (keyboard, screen reader) and 10 (does the dashed chip read as "not in effect"?) — docs/design/source-choices-restore-handoff.md
+2. [ ] [design] /handoff §3d: owner compares the built Removed (N) to the approved mockup before the last gate settles
+3. [ ] [—] Sweep HOLODEX-138 by hand with the PR (In Review on ready, Done on merge); CI moves only HOLODEX-69
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-25 · Epic 5 scoped against HOLODEX-267; spec rules and design handoff
-- skills: docs, design-handoff, handoff, implement, testing-strategy, code-review
-- handoff: Crossed into build: the design was signed off at ee0c6268, and Draft PR #554 is open. The test plan is §34 of testing-strategy.md. The backend landed, with owner-only removals on media, person and studio reads. Building it showed that typing a removed value into + Add never restored it (suppress beats a manual add), so the handoff now says + Add lifts the removal. The owner re-confirmed the sign-off at 63c1bec2 with that delta. The frontend landed: the fold in f36.ts, and Removed (N) on CurationFieldRow, live QA'd on the stress fixture. Next: /security-review (Up next 1), then the owner's [human] QA and the build-versus-mockup check.
+- skills: docs, design-handoff, handoff, implement, testing-strategy, code-review, security-review
+- handoff: Crossed into build: the design was signed off at ee0c6268, and Draft PR #554 is open. The test plan is §34 of testing-strategy.md. The backend landed, with owner-only removals on media, person and studio reads. Building it showed that typing a removed value into + Add never restored it (suppress beats a manual add), so the handoff now says + Add lifts the removal. The owner re-confirmed the sign-off at 63c1bec2 with that delta. The frontend landed: the fold in f36.ts, and Removed (N) on CurationFieldRow, live QA'd on the stress fixture. /security-review passed at e932f810 with no findings. Next: the owner's [human] QA (Up next 1) and the build-versus-mockup check, then /handoff marks the PR ready.
 
 ## Dropped — newest first (the reason is the point)
