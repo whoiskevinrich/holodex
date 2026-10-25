@@ -7,8 +7,9 @@ in the grid" this covers.
 **Date**: 2026-10-25
 
 **Builds on**: the still thumbnail ([`phase-2-mcp-polish.md`](phase-2-mcp-polish.md), F11) and the
-two image tiers ([`video-poster-multi-size.md`](video-poster-multi-size.md), F53). A montage is a
-third derivative of the same video. It never replaces the still, the poster or an uploaded poster.
+two image tiers ([`video-poster-multi-size.md`](video-poster-multi-size.md), F53). A montage is an
+optional extra made from the same video. It never replaces the still, the poster or an uploaded
+poster, and nothing about stills depends on it (RD5).
 **Pipeline**: [`media-ingest.md`, "Tiered thumbnails"](../architecture/media-ingest.md) owns how
 derived media is made, stored and served.
 
@@ -35,8 +36,10 @@ background, so it can make a montage the same way.
    ask for reduced motion always see stills.
 3. **Browsing never gets worse.** A card whose montage isn't ready behaves exactly as it does
    today. Montages never delay a still, a page load or a scan.
-4. **The owner controls the cost.** Montage generation can be turned off, and its share of the
-   machine is set separately from stills.
+4. **The owner controls the cost.** Montage generation can be turned off. Its share of the machine
+   is set separately from stills, and it defaults to one montage at a time.
+5. **Stills stay free to change.** Still thumbnails keep working exactly as they do today, and a
+   later change to how stills work doesn't have to account for montages.
 
 ## Non-Goals
 
@@ -52,8 +55,8 @@ background, so it can make a montage the same way.
 - **Montages for people, studios, films or tags.** *(Why: those images are not videos.)*
 - **Choosing which moments the montage uses.** Sampling is automatic. *(Why: per-video curation
   is a larger feature with no ask behind it yet.)*
-- **Removing a montage when its video is purged.** Stills are not removed on purge today either.
-  The montage follows the still's rule, and changing that rule is separate work.
+- **Removing a montage when its video is purged.** *(Why: purge cleanup of derived files is its
+  own piece of work. The rule chosen for montages there doesn't have to match the one for stills.)*
 
 ## Resolved Decisions
 
@@ -64,11 +67,17 @@ background, so it can make a montage the same way.
 - **RD2: the montage is a short silent video file**, not an animated image. It is several times
   smaller for the same clip, and every browser decodes it in hardware. The file choice belongs to
   the pipeline doc.
-- **RD3: montages are made in the background, after the still.** They run at lower priority than
-  stills and have their own on/off switch and worker count. A card without a montage keeps its
-  still. Browsing a page moves its videos up the montage queue, as browsing already does for
-  stills.
+- **RD3: montages are made in the background, behind stills.** Waiting stills always come first.
+  Montages have their own on/off switch and worker count, and the worker count defaults to 1
+  (decided 2026-10-25). A card without a montage keeps its still. Browsing a page also moves its
+  videos up the montage queue.
 - **RD4: HOLODEX-27 is closed as superseded by this spec.**
+- **RD5: stills never depend on montages** (decided 2026-10-25). The dependency runs one way only:
+  a card falls back to its still when it has no montage. Nothing about how a still is made,
+  stored, served, replaced, regenerated or configured waits on montages, reads them or changes
+  because of them. The two have separate settings, queues, failure handling and owner actions, so
+  a future change to stills needs no montage work. Rules in this spec that resemble a still's rule
+  are stated for montages alone, not as "same as the still", so they can drift apart safely.
 
 ## User Stories
 
@@ -110,27 +119,30 @@ background, so it can make a montage the same way.
   hover tint exactly as before. The montage plays in the card's image frame only. In the poster
   card layout, the montage fills the frame the same way the still does (the design handoff sets
   the crop).
-- **P0-9: Who sees it.** A montage is visible to everyone who can see the video's still, owner
-  and visitor alike. A soft-deleted video's montage is hidden exactly as its still is.
-- **P0-10: Background generation.** A montage is made only for a video that already has a still.
-  It runs after all waiting stills, at the lowest machine priority, and never blocks a scan. On
-  startup, videos with no montage are queued (eager backfill), unless montages are turned off.
-- **P0-11: Owner switches.** The owner can turn montage generation off, and can set how many
-  montages are made at once, separately from stills. Turning it off stops new work. Existing
-  montages are still played, so turning it back on doesn't start from zero. The settings follow
-  the same config rules as the still-thumbnail settings.
+- **P0-9: Who sees it.** Anyone who can see the video can see its montage, owner and visitor
+  alike. When a video is soft-deleted, its montage is hidden.
+- **P0-10: Background generation.** Montages are made from the video file itself. Any waiting
+  still is made before any montage. Montage work runs at the lowest machine priority and never
+  blocks a scan. On startup, videos with no montage are queued (eager backfill), unless montages
+  are turned off.
+- **P0-11: Owner switches.** The owner can turn montage generation off and can set how many
+  montages are made at once. The default is **1**. These are new settings of their own: no
+  still-thumbnail setting changes meaning or default. Turning generation off stops new work.
+  Existing montages still play, so turning it back on doesn't start from zero.
 - **P0-12: Staying current.** When a video's file changes (file maintenance, or a writeback that
-  rewrites the file), its montage is remade, as its still is. An owner uploading a poster does not
-  touch the montage, because the montage comes from the video, not the poster.
+  rewrites the file), its montage is remade. A change to the still alone (an owner uploading a
+  poster, regenerating the still, embedded art being found) does not touch the montage.
 - **P0-13: Failure.** A video whose montage fails to generate keeps its still. Failed montages are
-  retried on the next startup, as failed stills are, and never block other videos in the queue.
+  retried on the next startup and never block other videos in the montage queue. A montage
+  failure is never recorded as a still failure, and a still failure never stops a montage.
 - **P0-14: Progress.** Montage queue progress (waiting, in progress, workers) appears in the
   activity view next to still-thumbnail progress.
 
 ### Should-have (P1)
 
-- **P1-1: Regenerate includes the montage.** The existing per-video "regenerate thumbnail" action
-  also remakes the montage.
+- **P1-1: Regenerate a montage.** The owner can remake one video's montage. This is its own
+  action and is owner-only, like every owner action ([`admin-mode.md`](admin-mode.md)). Regenerating
+  the still leaves the montage alone, and regenerating the montage leaves the still alone.
 - **P1-2: Configuration reference.** The new settings are documented with the thumbnail settings
   in the configuration reference.
 
@@ -172,7 +184,8 @@ No deadline. Low priority (HOLODEX-578).
 
 - **Architecture:** expected. Picking a short video file over an animated image or a sprite
   sheet, and adding a separate lower-priority queue, are technology forks. They are recorded by
-  editing the "Tiered thumbnails" section of `media-ingest.md`, not in this spec.
+  editing the "Tiered thumbnails" section of `media-ingest.md`, not in this spec. That edit has to
+  keep RD5: montage state and work sit beside the still pipeline, never inside it.
 - **Design:** required. The hover behaviour, the still-to-motion handover and the poster-layout
   crop are visible surface (`/design-handoff`).
 - **Testing strategy:** required (`/testing-strategy`).
