@@ -13,7 +13,8 @@ poster, and nothing about stills depends on it (RD5).
 **Pipeline**: [`media-ingest.md`, "Tiered thumbnails"](../architecture/media-ingest.md) owns how
 derived media is made, stored and served.
 
-**Design handoff**: pending (`/design-handoff`). **Test plan**: pending (`/testing-strategy`).
+**Design handoff**: [`moving-thumbnails-handoff.md`](../design/moving-thumbnails-handoff.md), with a
+committed SVG mockup. **Test plan**: pending (`/testing-strategy`).
 
 ---
 
@@ -126,8 +127,8 @@ background, so it can make a montage the same way.
 - **P0-8: Where it applies.** Every video card in a grid or a shelf (the library grid, Home's
   shelves, related videos, a film's videos). Cards still link, open, and show their badges and
   hover tint exactly as before. The montage plays in the card's image frame only. In the poster
-  card layout, the montage fills the frame the same way the still does (the design handoff sets
-  the crop).
+  card layout, the montage fills the frame the same way the still does. The design handoff shows
+  the crop.
 - **P0-9: Who sees it.** Anyone who can see the video can see its montage, owner and visitor
   alike. When a video is soft-deleted, its montage is hidden.
 - **P0-10: Background generation.** Montages are made from the video file itself. Any waiting
@@ -197,8 +198,6 @@ This is a single-owner library, so these are QA checks, not analytics.
 
 ## Open Questions
 
-- **Q1 (design, non-blocking):** how a 16:9 montage sits in the 2:3 poster card layout (crop to
-  fill, or letterbox). This is settled in the design handoff.
 - **Q2 (engineering, non-blocking):** do the defaults (6 × 1 s, 10%–90%, 400 ms) feel right on real
   videos? Tune them during QA. Changing them is a spec edit.
 - **Q3 (engineering, non-blocking):** how much disk the montages take across a large library.
