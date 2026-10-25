@@ -48,8 +48,8 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 - [~] architecture `architecture` → `docs/architecture/**` — no technology fork: tag images reuse the studio image store and upload gate
 - [x] design `design-handoff` → `docs/design/**` — `docs/design/list-views-handoff.md` + 3 SVG mockups
 - [x] backend → `{cmd,internal,providers}/**` — tag image store/routes/lifecycle (migration 0065), failed-replace restore, /tags `parent_name`; Go tests + two mutation checks
-- [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [x] frontend → `web/src/**` — Table view (Media/People/Tags), Tags Posters, tag page poster slot, shared ⋯ menu, ViewToggle, thumbnail retry; owner confirmed the build matches the mockups 2026-10-24
+- [x] testing `testing-strategy` — §33: Vitest V1–V7 + thumbnailLoad, Go tag image tests + 2 mutation checks, 7 geometry assertions (48 checks) + 2 nav scenarios, live QA 1–10 (6 and 9 by the owner)
 - [x] security `security-review` — tag image upload reviewed 2026-10-24 at 01a02fb2: no findings at or above 8/10 (owner gate, server-assigned paths, shared normaliser, bound SQL)
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,8 +67,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Owner runs live QA §33.5 items 6 (keyboard + screen reader) and 9 (placeholder grid look) — `docs/testing-strategy.md`
-2. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 with this epic: In Review when the PR is ready, Done on merge
+1. [ ] [—] Sweep HOLODEX-42 and HOLODEX-46 to Done when PR #552 merges (moved to In Review with the PR)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,7 +81,7 @@ HOLODEX-32, HOLODEX-42 and HOLODEX-46. HOLODEX-57 (grid multi-select) was split 
 
 ### 2026-10-24 · Epic 4 started; spec, handoff and test plan landed
 - skills: write-spec, design-handoff, testing-strategy, handoff, implement, code-review, security-review
-- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings. Tags Posters view, the tag page poster slot and the shared per-tag ⋯ menu (chips, cards, Table rows; Manage no longer forces Chips) landed and were QA'd live; the empty slot carries the mockup's Upload button beside its "+" (owner's call; EntityImageSlot `uploadButton`, tag page only). A failed replace now restores the previous image row (RestoreTagImage, tested), and the backend gate is settled. The Media Table thumbnail now retries like the card (shared ThumbnailLoad + VideoThumb), so the frontend work is complete for /handoff to judge (a stray root node_modules/ vitest cache slipped into e05b71cd and was removed in the next commit); §33 harnesses built and run: 7 new geometry assertions pass (48 checks) and both new nav scenarios pass; two pre-F82 harness checks found stale → HOLODEX-594. Agent live QA done; the owner's two [human] QA items (Up next 1) remain before /handoff can settle frontend + testing.
+- handoff: Table view live on Media, People and Tags (V1–V7 tested; /tags list now carries parent_name); the handoff's column widths moved to rem after a measured overflow, and the owner re-confirmed the sign-off at fb4da965. Tag image backend landed (migration 0065, owner upload/delete, GET /tags/{id}/image, image_url on list/detail/merge, merge carry-over, sweep protection) and passed /security-review with no findings. Tags Posters view, the tag page poster slot and the shared per-tag ⋯ menu (chips, cards, Table rows; Manage no longer forces Chips) landed and were QA'd live; the empty slot carries the mockup's Upload button beside its "+" (owner's call; EntityImageSlot `uploadButton`, tag page only). A failed replace now restores the previous image row (RestoreTagImage, tested), and the backend gate is settled. The Media Table thumbnail now retries like the card (shared ThumbnailLoad + VideoThumb), so the frontend work is complete for /handoff to judge (a stray root node_modules/ vitest cache slipped into e05b71cd and was removed in the next commit); §33 harnesses built and run: 7 new geometry assertions pass (48 checks) and both new nav scenarios pass; two pre-F82 harness checks found stale → HOLODEX-594. Owner passed the [human] QA items and confirmed the build matches the mockups; every gate is settled and PR #552 is marked ready for review — next: review and squash-merge, then sweep HOLODEX-42/46 to Done (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 

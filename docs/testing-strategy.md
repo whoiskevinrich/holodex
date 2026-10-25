@@ -5214,11 +5214,11 @@ confirmed there); the scenario needs a target the first page can reach.
   Replace is covered by the Go tests, not live.
 - **8:** covered by the Go merge tests (§33.2), not live: a merge can't be undone on the shared
   fixture.
-- **6, 9:** `[human]`, still for the owner.
+- **6, 9:** `[human]`, run by the owner on 2026-10-24 on the open pair: pass ("looks fine").
 
 ### 33.6 Standing gaps
 
 - Nothing automated checks the placeholder's look. Item 9 is a human judgement.
-- Live item 6 (keyboard order and the screen-reader announcement) is the owner's to run.
+- Nothing automated checks the keyboard order or the screen-reader announcement (item 6).
 - The upload's busy and error states are QA'd by hand. They are the existing slot's states, which
   the studio image QA already covered.
