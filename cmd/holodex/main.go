@@ -33,6 +33,7 @@ import (
 	"holodex/internal/metadata"
 	"holodex/internal/metrics"
 	"holodex/internal/model"
+	"holodex/internal/montage"
 	"holodex/internal/orphansweep"
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
@@ -167,11 +168,29 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Warn("ffmpeg unavailable; thumbnail generation will error until installed", "err", err)
 	}
 
+	// Hover montages (F83, HOLODEX-578): a pipeline of their own beside the stills.
+	// They read the still queue's depth to wait behind it; the still pipeline never
+	// sees them. Manual mode (the default) makes one only when the owner asks.
+	montageMode, err := montage.ParseMode(cfg.MontageMode)
+	if err != nil {
+		return err
+	}
+	montages := montage.New(montage.Config{
+		Mode:       montageMode,
+		Workers:    cfg.MontageWorkers,
+		Width:      cfg.ThumbnailWidth,
+		Nice:       cfg.ThumbnailNice,
+		Dir:        cfg.MontagePath,
+		FfmpegPath: "ffmpeg",
+	}, log, repository, thumbs)
+	log.Info("hover montages", "mode", montageMode, "workers", cfg.MontageWorkers)
+
 	// Metrics registry (ADR-019/ADR-026, F13): the queue-depth gauge is pulled
 	// live from the thumbnail pipeline at scrape time; scan and search durations
 	// are pushed by the scanner and handlers below.
 	reg := metrics.New()
 	reg.SetQueueDepthSource(thumbs.QueueDepth)
+	reg.SetMontageQueueDepthSource(montages.QueueDepth)
 
 	// Configurable metadata field mapping (ADR-013) + facet cache (ADR-008/022).
 	cacheBackend := cache.New(cfg.CacheBackend)
@@ -302,6 +321,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	health := api.NewHealth()
 	handlers := api.NewHandlers(repository, log, thumbs, cfg.ThumbnailPath, sc, reg)
 	handlers.SetMetadataFields(mappings, cacheBackend)
+	handlers.SetMontages(montages, cfg.MontagePath)
 	handlers.SetEnrichment(enrichSvc)
 	sweep := enrich.NewSweepRunner(enrichSvc, repository, log)
 	sweep.SetBaseContext(ctx)
@@ -351,6 +371,10 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
 			}
 		}
+		// The file changed (a writeback, or a maintenance re-encode, which shares
+		// this hook): remake its montage if it had one (F83 P0-12). Its own call,
+		// never routed through the thumbnail manager.
+		montages.Invalidate(ctx, id)
 		// Read the file back, unconditionally: it materializes a newly-written
 		// Person/Studio (HOLODEX-196 #4) and refreshes the stored file tags that
 		// `in_sync` is compared against (HOLODEX-214). See ADR-073, which
@@ -495,6 +519,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 
 	go sc.Run(ctx, time.Duration(cfg.ScanIntervalSeconds)*time.Second)
 	go thumbs.Run(ctx)
+	go montages.Run(ctx)
 	go purger.Run(ctx)
 	go orphanSweeper.Run(ctx)
 	go writeQ.Start(ctx)    // boot recovery + orphan sweep + worker pool (F30, ADR-048)

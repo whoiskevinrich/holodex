@@ -100,6 +100,8 @@ Cover art shown on browse cards. Embedded poster art (iTunes atoms / Matroska co
 | `thumbnail_seek_percent` | `THUMBNAIL_SEEK_PERCENT` | `10` | Which point in the video to grab the frame from, as a percentage of total duration (`0`–`100`). `10` skips the opening titles. |
 | `thumbnail_width` | `THUMBNAIL_WIDTH` | `400` | Width of the generated thumbnail image in pixels. Height is derived from the source aspect ratio. Increase for sharper cards at a storage cost. |
 | `poster_width` | `POSTER_WIDTH` | `1200` | Width of the larger detail-page poster tier, in pixels (F53). Generated as a sibling of the thumbnail in the same extraction pass — a video's `media/{id}` detail page uses this instead of `thumbnail_width` so its poster isn't an upscaled list thumbnail. |
+| `montage_mode` | `MONTAGE_MODE` | `manual` | Hover montages (F83): `manual` makes a montage only when the owner asks from a video's page; `automatic` also backfills the library on startup and while browsing; `off` makes none (existing montages still play). Any other value stops startup. Independent of every `thumbnail_*` setting. |
+| `montage_workers` | `MONTAGE_WORKERS` | `1` | How many montages are made at once. Montages always wait until no still thumbnail is waiting. |
 
 > **What controls browse-card dimensions?** `thumbnail_width` sets the pixel width of the *stored image*. The *display aspect ratio* (16:9 vs 2:3) is set by `card_layout` (see [Presentation](#presentation)). These are independent: the image is always cropped/letterboxed at display time to match the layout.
 

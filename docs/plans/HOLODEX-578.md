@@ -46,10 +46,10 @@ across the video; montages are built in the background after stills. Supersedes 
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`
-- [ ] security `security-review`
+- [/] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -66,10 +66,10 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Montage package, table, queue, routes, mode/worker config — `internal/montage/`
-2. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
-3. [ ] [testing] Write the §35 tests alongside each slice; tick when they're green — `docs/testing-strategy.md`
-4. [ ] [security] Review new public montage route + owner request route + ffmpeg concat job — `/security-review`
+1. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
+2. [ ] [testing] §35.5 Vitest cases F1–F5 with the frontend slice (Go 35.1–35.4 are green) — `web/src/`
+3. [ ] [security] Re-run /security-review once the frontend lands (backend slice: clean, 2026-10-25) — `/security-review`
+4. [ ] [—] Owner call: should a tag-only writeback remake montages? (spec P0-12 says yes; frames don't change) — `docs/specs/moving-thumbnails.md`
 5. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -83,8 +83,8 @@ across the video; montages are built in the background after stills. Supersedes 
 -->
 
 ### 2026-10-25 · session
-- skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy
-- handoff: Crossed into build (design signed off at 3787a33d, Draft PR #557); test plan §35 written; next is the backend slice in internal/montage/.
+- skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy, code-review, security-review
+- handoff: Backend slice landed on Draft PR #557 (internal/montage, migration 0066, owner-gated request/status routes, manual default, 1 worker; Go tests incl. real-ffmpeg green; security review clean); next is the frontend slice in VideoCard and the media-page status line.
 
 ## Dropped — newest first (the reason is the point)
 

@@ -252,7 +252,10 @@ montage work.
   unchanged file, and sends `Cache-Control: no-cache`.
   - The video payload carries `montage_url` (`?v=<mtime>`) **only when the file exists**. The
     client never requests a missing montage, so there is no 404 retry loop like the still's.
-- **Owner request:** `POST /api/v1/media/{id}/montage` sits inside the `requireOwner` group.
+- **Owner request and status:** `POST /api/v1/media/{id}/montage` (queue it) and
+  `GET /api/v1/media/{id}/montage/status` (none, waiting, making, ready or failed, plus the mode)
+  sit inside the `requireOwner` group. Waiting and making come from the in-memory queue, and ready
+  and failed from the file and the row.
 - **Progress:** the montage queue exposes its own `QueueStats` (depth, high, in flight, workers)
   plus the mode, on the activity surface and in `/metrics`. These are never merged into the
   thumbnail gauge.

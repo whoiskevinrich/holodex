@@ -124,6 +124,7 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 	fullFilms := []repo.FilmVideo{}
 	for _, fv := range fvs {
 		h.setThumbnailURL(&fv.Video)
+		h.setMontageURL(&fv.Video)
 		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
 			fv.Edition = h.videoEdition(r.Context(), fv.Video.ID)

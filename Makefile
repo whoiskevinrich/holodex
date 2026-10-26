@@ -43,7 +43,7 @@ test-integration:
 # tests (HOLODEX-487), so run this before any release that changes the Dockerfile or these
 # packages. Each test binary is static and built for the image's OS; the source is mounted
 # so the tests' relative paths resolve.
-IMAGE_TEST_PKGS := writeback thumbnail metadata maintenance
+IMAGE_TEST_PKGS := writeback thumbnail montage metadata maintenance
 
 test-image:
 	docker build -t holodex:test-image .
