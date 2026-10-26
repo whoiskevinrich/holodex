@@ -1,5 +1,5 @@
-// The owner's montage status line on the media page (F83, handoff "Media page: the
-// owner's status line"): what each status reads as, and which actions it offers. Waiting
+// The owner's Hover montage row in the media page's Maintenance section (F83, handoff
+// "Media page: the Maintenance rows"): what each status reads as, and which actions it offers. Waiting
 // and making offer none rather than a disabled button.
 import { formatBytes } from '#lib/format.ts';
 import type { MontageStatus } from '#lib/types.ts';

@@ -106,42 +106,36 @@
     <text x="0" y="295" font-size="12" fill="#9b9082">poster art jumps to a thin band</text>
   </g>
 
-  <!-- ===== Section 4: owner request ===== -->
-  <text x="520" y="610" font-size="13" font-weight="600" fill="#e8a33d">4 · Owner's per-video request on the media page (owner only, hidden when off)</text>
-  <!-- Option A: popover footer -->
+  <!-- ===== Section 4: owner rows in Maintenance (revised 2026-10-25) ===== -->
+  <text x="520" y="610" font-size="13" font-weight="600" fill="#e8a33d">4 · Owner rows in the media page's Maintenance section (owner only)</text>
   <g transform="translate(520,640)">
-    <text x="0" y="0" font-size="13" font-weight="600" fill="#9b9082">A · In the Metadata "More" popover · rejected</text>
-    <text x="0" y="16" font-size="12" fill="#9b9082">beside Regenerate thumbnail; label carries the status</text>
-    <rect y="28" width="250" height="118" rx="2" fill="#15110e" stroke="#2a2622"/>
-    <text x="12" y="52" font-size="12" fill="#f3ece1">Extract from filename</text>
-    <text x="12" y="78" font-size="12" fill="#f3ece1">Regenerate thumbnail</text>
-    <line x1="0" y1="92" x2="250" y2="92" stroke="#2a2622"/>
-    <text x="12" y="112" font-size="12" fill="#f3ece1">Make montage</text>
-    <text x="12" y="134" font-size="11" fill="#9b9082">No montage yet</text>
-    <g transform="translate(0,160)" font-size="12">
-      <text x="0" y="0" fill="#9b9082">other states of the last row:</text>
-      <text x="12" y="20" fill="#9b9082">Montage queued…   (disabled)</text>
-      <text x="12" y="38" fill="#9b9082">Making montage…   (disabled)</text>
-      <text x="12" y="56" fill="#f3ece1">Remake montage <tspan fill="#9b9082">· ready, 248 KB</tspan></text>
-      <text x="12" y="74" fill="#f3ece1">Retry montage <tspan fill="#9b9082">· failed: can't read file</tspan></text>
+    <line x1="0" y1="0" x2="656" y2="0" stroke="#2a2622"/>
+    <text x="0" y="24" font-size="12" letter-spacing="0.6" fill="#9b9082">MAINTENANCE</text>
+    <g font-size="14">
+      <text x="0" y="62" fill="#9b9082">Thumbnail</text>
+      <rect x="124" y="44" width="168" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="208" y="64" text-anchor="middle" fill="#f3ece1">Regenerate thumbnail</text>
+
+      <text x="0" y="108" fill="#9b9082">Hover montage</text>
+      <text x="124" y="108" fill="#f3ece1" font-weight="600">Ready <tspan fill="#9b9082" font-weight="400">· 105.9 KB</tspan></text>
+      <rect x="250" y="90" width="76" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="288" y="110" text-anchor="middle" fill="#f3ece1">Preview</text>
+      <rect x="334" y="90" width="80" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="374" y="110" text-anchor="middle" fill="#f3ece1">Remake</text>
+      <rect x="124" y="130" width="240" height="135" rx="2" fill="url(#motion)" stroke="#2a2622"/>
+      <text x="374" y="200" font-size="11" fill="#9b9082">Preview open</text>
+
+      <text x="0" y="296" fill="#9b9082">Picture</text>
+      <rect x="124" y="278" width="150" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="199" y="298" text-anchor="middle" fill="#f3ece1">Flip horizontally…</text>
     </g>
-  </g>
-  <!-- Option B: status line under the player -->
-  <g transform="translate(860,640)">
-    <text x="0" y="0" font-size="13" font-weight="600" fill="#f3ece1">B · Status line under the player <tspan fill="#e8a33d">· chosen</tspan></text>
-    <text x="0" y="16" font-size="12" fill="#9b9082">always visible to the owner while testing</text>
-    <rect y="28" width="316" height="40" fill="#000" stroke="#2a2622"/>
-    <text x="158" y="53" font-size="11" text-anchor="middle" fill="#9b9082">… player (bottom edge)</text>
-    <g font-size="12">
-      <text x="0" y="92" fill="#9b9082">Montage</text><text x="62" y="92" fill="#f3ece1">None yet</text>
-      <rect x="226" y="78" width="90" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="271" y="93" text-anchor="middle" fill="#f3ece1">Make montage</text>
-      <text x="0" y="122" fill="#9b9082">Montage</text><text x="62" y="122" fill="#f3ece1">Waiting in queue…</text>
-      <text x="0" y="148" fill="#9b9082">Montage</text><text x="62" y="148" fill="#f3ece1">Making…</text>
-      <text x="0" y="174" fill="#9b9082">Montage</text><text x="62" y="174" fill="#f3ece1">Ready <tspan fill="#9b9082">· 248 KB</tspan></text>
-      <rect x="162" y="160" width="58" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="191" y="175" text-anchor="middle" fill="#f3ece1">Preview</text>
-      <rect x="226" y="160" width="90" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="271" y="175" text-anchor="middle" fill="#f3ece1">Remake</text>
-      <text x="0" y="200" fill="#9b9082">Montage</text><text x="62" y="200" fill="#f3ece1">Failed <tspan fill="#9b9082">· can't read file</tspan></text>
-      <rect x="226" y="186" width="90" height="22" rx="2" fill="none" stroke="#2a2622"/><text x="271" y="201" text-anchor="middle" fill="#f3ece1">Retry</text>
+    <g font-size="11" fill="#9b9082">
+      <text x="440" y="50">Hover montage value by status:</text>
+      <text x="440" y="68">None yet · Make montage</text>
+      <text x="440" y="84">Waiting in queue… (no button)</text>
+      <text x="440" y="100">Making… (no button)</text>
+      <text x="440" y="116">Ready · size · Preview · Remake</text>
+      <text x="440" y="132">Failed · reason · Retry</text>
+      <text x="440" y="160">Row hidden when generation is off.</text>
+      <text x="440" y="188">Replaces the status line under the</text>
+      <text x="440" y="204">player, and moves Regenerate</text>
+      <text x="440" y="220">thumbnail out of Metadata › More.</text>
     </g>
   </g>
 </svg>

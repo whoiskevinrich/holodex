@@ -1,7 +1,7 @@
 <script lang="ts">
-	// The owner's hover-montage status line under the player (F83, handoff "Media page:
-	// the owner's status line"). Owner-only: the caller mounts it only for the owner, and
-	// it hides itself when generation is off. In manual mode this is how the owner tests
+	// The owner's "Hover montage" row in the media page's Maintenance section (F83, handoff
+	// "Media page: the Maintenance rows"). Owner-only: the caller mounts it inside the
+	// owner-only section, and it hides itself when generation is off. In manual mode this is how the owner tests
 	// montages in production, one video at a time.
 	import { api } from '#lib/api.ts';
 	import type { MontageStatus } from '#lib/types.ts';
@@ -66,29 +66,26 @@
 </script>
 
 {#if status && view && status.mode !== 'off'}
-	<div class="space-y-2">
-		<div class="flex flex-wrap items-center gap-2 text-xs">
-			<span class="text-muted">Montage</span>
-			<span class="min-w-0 flex-1 text-ink" aria-live="polite">
+	<div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+		<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">Hover montage</span>
+		<div class="min-w-0 flex-1 space-y-2">
+		<div class="flex flex-wrap items-center gap-2 text-sm">
+			<span class="text-ink" aria-live="polite">
 				{view.value}{#if view.detail}<span class="text-muted" title={view.detail}
 						>{' · '}<span class="inline-block max-w-[32ch] truncate align-bottom">{view.detail}</span></span
 					>{/if}
 			</span>
-			{#if view.actions.length}
-				<span class="flex items-center gap-2">
-					{#each view.actions as a (a)}
-						<button
-							type="button"
-							class="btn-quiet rounded-theme px-2 py-0.5 text-xs"
-							disabled={busy}
-							aria-pressed={a === 'preview' ? previewing : undefined}
-							onclick={() => act(a)}
-						>
-							{montageActionLabel[a]}
-						</button>
-					{/each}
-				</span>
-			{/if}
+			{#each view.actions as a (a)}
+				<button
+					type="button"
+					class="btn-ghost rounded-theme px-3 py-1.5 text-sm"
+					disabled={busy}
+					aria-pressed={a === 'preview' ? previewing : undefined}
+					onclick={() => act(a)}
+				>
+					{montageActionLabel[a]}
+				</button>
+			{/each}
 		</div>
 		{#if previewing && status.state === 'ready'}
 			<!-- Card-size preview: the same silent attributes as the grid card's layer. Under
@@ -105,7 +102,8 @@
 				class="w-60 rounded-theme border border-rule bg-black"
 			></video>
 		{/if}
+		</div>
 	</div>
 {:else if failedToLoad}
-	<p class="text-xs text-warn">Couldn't load the montage status.</p>
+	<p class="text-sm text-warn">Couldn't load the montage status.</p>
 {/if}

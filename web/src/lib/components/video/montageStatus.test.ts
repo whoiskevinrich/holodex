@@ -1,4 +1,4 @@
-// The owner's montage status line (F83, testing-strategy §35.5 F5).
+// The owner's Hover montage row (F83, testing-strategy §35.5 F5).
 import { describe, expect, it } from 'vitest';
 import { montageStatusView, shouldPollMontage } from './montageStatus';
 import type { MontageStatus } from '#lib/types.ts';

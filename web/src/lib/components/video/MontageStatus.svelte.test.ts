@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import type { MontageStatus as Status } from '#lib/types.ts';
 
-// The owner's montage status line (F83, testing-strategy §35.5 F5): hidden in off mode,
+// The owner's Hover montage row (F83, testing-strategy §35.5 F5): hidden in off mode,
 // polls only while waiting or making, and stops on ready and on unmount.
 
 const statuses: Status[] = [];

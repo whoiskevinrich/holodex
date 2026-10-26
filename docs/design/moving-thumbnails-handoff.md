@@ -9,9 +9,15 @@ Decided with the owner on 2026-10-25, from side-by-side mockups:
 - **Poster layout crops to fill.** In the 2:3 card the montage fills the frame, centre-cropped,
   the same way a frame-grab still is cropped there today. Letterboxing was rejected because the
   card would jump from a full poster to a thin band on black.
-- **The owner's request is a status line under the player.** It is always visible to the owner
-  while testing in production. A row in the Metadata "More" popover was rejected because its status
-  would only be visible with the popover open.
+- **Generation controls live in the media page's Maintenance section** (revised with the owner
+  on 2026-10-25). The section gets labelled rows: **Thumbnail** (the still's Regenerate thumbnail,
+  moved out of Metadata › More), **Hover montage** (status and actions), then **Picture** (Flip
+  horizontally). The first approved placement, a status line under the player, was replaced
+  because image generation is file upkeep and belongs with the other repairs. A row in the More
+  popover was rejected earlier because its status would only show with the popover open.
+- **Escape claims the key.** When it stops a playing card it calls `preventDefault`, so the
+  browse page's window-level Escape doesn't also clear the filters. On a card that isn't playing,
+  Escape still reaches the page.
 
 ## Mockup
 
@@ -24,22 +30,23 @@ poster card. Text was measured in a browser and nothing overlaps.
 
 `VideoCard` gains a silent `<video>` layer that plays the video's montage while the card is
 hovered or keyboard-focused, then hands back to the still. This happens everywhere `VideoCard`
-renders: the library grid, Home's shelves, related videos and a film's scenes. The media page gains
-one owner-only row under the player, where the owner asks for a montage and watches it get made.
-Nothing else changes: the list-view `VideoThumb`, the player, the poster controls and the still's
-load and retry logic are untouched.
+renders: the library grid, Home's shelves, related videos and a film's scenes. The media page's
+owner-only Maintenance section gains a Hover montage row, where the owner asks for a montage and
+watches it get made, and takes in the still's Regenerate thumbnail as its own row. Nothing else
+changes: the list-view `VideoThumb`, the player, the poster controls and the still's load and
+retry logic are untouched.
 
 ## Design tokens used
 
 | Token / class | Usage |
 |---|---|
 | `--accent` (`border-accent`) | Card border while hovered, focused or playing (unchanged from today's hover) |
-| `--rule` (`border-rule`) | Card border at rest; status-line button outline |
+| `--rule` (`border-rule`) | Card border at rest; the Maintenance row buttons' outline |
 | `--ink` (`text-ink`) | Status value text; button label |
-| `--muted` (`text-muted`) | The "Montage" label; the size and failure reason |
+| `--muted` (`text-muted`) | The row labels (Thumbnail, Hover montage, Picture); the size and failure reason |
 | `--surface-2` | Frame background behind the still and the montage (`.video-frame`, unchanged) |
-| `rounded-theme` (`--radius`) | Status-line button |
-| `btn-quiet` | Status-line buttons, the same class as the media page's other quiet actions |
+| `rounded-theme` (`--radius`) | Maintenance row buttons |
+| `btn-ghost` | Maintenance row buttons, the same class Flip horizontally already uses |
 | `bg-black/25` | Today's hover tint. It fades out while the montage plays |
 
 There are no new tokens, and no hex value appears in a component.
@@ -50,7 +57,8 @@ There are no new tokens, and no hex value appears in a component.
 |---|---|---|
 | `VideoCard.svelte` | Adds a `<video>` layer inside `.video-frame`, mounted only when the video has a montage URL | The layer sits where the `<img>` sits (`absolute inset-0 h-full w-full object-cover`), under the letterbox bars (`z-index: 1`) and the badges (`z-[2]`) |
 | `montagePlayback.svelte.ts` (new, shared) | A single playback controller for the page | It holds the one active card (spec P0-4). Starting a card stops the previous one |
-| `MontageStatus.svelte` (new) | The owner-only status line on the media page | It sits directly under the player box and above `NextUpStrip`, inside the same `space-y-6` column |
+| `MontageStatus.svelte` (new) | The owner-only Hover montage row | Mounted in the media page's Maintenance section between the Thumbnail and Picture rows. It renders its whole row, label included, so it can hide that row in off mode |
+| `media/[id]/+page.svelte` | Maintenance becomes labelled rows | `Regenerate thumbnail` leaves the Metadata › More footer for the Thumbnail row |
 | `VideoThumb.svelte`, the player, poster controls | No change | |
 
 ### The `<video>` layer
@@ -86,11 +94,17 @@ There are no new tokens, and no hex value appears in a component.
 - **Failure:** the `<video>` `error` event marks that card's montage as failed for this page view.
   The card falls back to f, with no retry and no console noise beyond one `console.debug`.
 
-## Media page: the owner's status line
+## Media page: the Maintenance rows
 
-It is owner-only and hidden entirely when the generation mode is off. The line is one row,
-`text-xs`, laid out as `flex items-center gap-2`: a muted `Montage` label, the status value in
-`text-ink` (with `flex-1`), then the actions aligned right.
+The owner-only Maintenance section (`space-y-3`) holds three labelled rows. Each row is
+`flex flex-wrap items-start gap-x-3`, with a `w-28` muted `text-sm` label and then its content.
+The buttons are `btn-ghost rounded-theme px-3 py-1.5 text-sm`, like Flip horizontally.
+
+1. **Thumbnail:** `Regenerate thumbnail` (`Regenerating…` while the request runs).
+2. **Hover montage:** the status value in `text-ink`, then its actions inline. The whole row is
+   hidden when the generation mode is off.
+3. **Picture:** the existing Flip horizontally button, its status pill, held-original card and
+   retry line, unchanged.
 
 | Status | Value text | Actions |
 |---|---|---|
@@ -125,8 +139,8 @@ progress and workers (spec P0-14). There is no new pattern, so no mockup.
 | Breakpoint | Changes |
 |---|---|
 | Any width, fine pointer | Hover and focus behaviour as specified |
-| Touch-only devices | f only: cards never play. The media page status line still works, so the owner can make montages from a phone |
-| < `sm` | The status line wraps its actions under the value |
+| Touch-only devices | f only: cards never play. The Maintenance rows still work, so the owner can make montages from a phone |
+| < `sm` | A Maintenance row wraps its actions under its value |
 
 ## Edge cases
 
@@ -134,7 +148,7 @@ progress and workers (spec P0-14). There is no new pattern, so no mockup.
   list payload is not refetched.
 - **Slow connection:** the card stays in b (still, tint, glyph) until the first frame plays. There's
   no spinner, because the still is the loading state.
-- **Very short video with no montage** (spec P0-2): f. On the status line that is `None yet`, and
+- **Very short video with no montage** (spec P0-2): f. On the Hover montage row that is `None yet`, and
   if the owner asks anyway, `Failed · too short`.
 - **The still itself is still generating** (`thumb-shimmer`): the montage layer is not armed
   until the still has loaded. That keeps both layers from shimmering at once.
@@ -158,5 +172,5 @@ layer never mounts.
 - Keyboard users get the same preview on focus and can stop it with Escape.
 - Reduced motion is honoured on every card, and the Preview on the media page falls back to a
   paused first frame.
-- The status line's buttons use plain verbs (`Make montage`, `Preview`, `Remake`, `Retry`). Its
+- The Hover montage row's buttons use plain verbs (`Make montage`, `Preview`, `Remake`, `Retry`). Its
   value is announced politely.

@@ -5440,7 +5440,7 @@ Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is th
 | F2 | Arm timing (fake timers): `src` is set on pointer enter. Visibility flips only after **both** 400 ms **and** a `playing` event. Leaving before 400 ms clears `src` and calls `load()`. | 6 |
 | F3 | Focus plays at once, and Escape and blur release. | 6, a11y |
 | F4 | Reduced motion, a coarse pointer, no `montage_url`, or a prior `error` event: no `<video>` is mounted, so no request is possible. | 6 |
-| F5 | (`montageStatus.test.ts`, `MontageStatus.svelte.test.ts`) The status line maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
+| F5 | (`montageStatus.test.ts`, `MontageStatus.svelte.test.ts`) The Maintenance section's Hover montage row maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
 
 ### 35.6 QA checklist (`[smoke]` / `[agent]` / `[human]`)
 
@@ -5453,7 +5453,7 @@ Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is th
 5. `[agent]` Tab across ready cards: each plays on focus, Escape stops it, and only one plays at a
    time.
 6. `[agent]` Poster layout: the montage fills the 2:3 frame, cropped, with no letterbox.
-7. `[agent]` As a visitor (gated backend), there's no status line, and `POST …/montage` is refused.
+7. `[agent]` As a visitor (gated backend), there's no Maintenance section (so no Hover montage or Thumbnail row), and `POST …/montage` is refused.
 8. `[agent]` Regenerate the still of a video with a montage, then write back a tag change to it:
    in both cases the montage file, its status and the montage queue stay unchanged.
 9. `[human]` Production test in manual mode: request montages for hand-picked videos, then judge
