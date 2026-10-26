@@ -5440,7 +5440,7 @@ Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is th
 | F2 | Arm timing (fake timers): `src` is set on pointer enter. Visibility flips only after **both** 400 ms **and** a `playing` event. Leaving before 400 ms clears `src` and calls `load()`. | 6 |
 | F3 | Focus plays at once, and Escape and blur release. | 6, a11y |
 | F4 | Reduced motion, a coarse pointer, no `montage_url`, or a prior `error` event: no `<video>` is mounted, so no request is possible. | 6 |
-| F5 | The status line maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
+| F5 | (`montageStatus.test.ts`, `MontageStatus.svelte.test.ts`) The status line maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
 
 ### 35.6 QA checklist (`[smoke]` / `[agent]` / `[human]`)
 

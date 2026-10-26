@@ -11,6 +11,7 @@ import type {
 	VideoDuplicatePair,
 	Activity,
 	Capabilities,
+	MontageStatus,
 	Category,
 	CompletenessSummary,
 	PersonCard,
@@ -499,6 +500,13 @@ export const api = {
 		}
 		return res.status;
 	},
+
+	// Hover montages (F83). The file is public like the still; the request (it starts
+	// ffmpeg work) and the status are owner-only. `n` is a client reload counter for the
+	// media page's Preview after a remake.
+	montageURL: (id: number, n = 0) => `${BASE}/media/${id}/montage${n > 0 ? `?r=${n}` : ''}`,
+	montageStatus: (id: number) => getAuthed<MontageStatus>(`/media/${id}/montage/status`),
+	requestMontage: (id: number) => sendAuthed<{ status: string }>('POST', `/media/${id}/montage`),
 
 	// Video poster upload (F52, HOLODEX-252). The poster IS the existing thumbnail
 	// (ADR-009) — upload adds a new highest-precedence tier to that same pipeline,

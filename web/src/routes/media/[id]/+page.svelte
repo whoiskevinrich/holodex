@@ -25,6 +25,7 @@
 	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
+	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
 	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
 	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '#lib/run.ts';
@@ -1692,6 +1693,11 @@
 						{/if}
 					{/if}
 				</div>
+				<!-- Hover-montage status line (F83 handoff): wholly owner machinery, so fully
+				     gated; a sibling of the player box like the strip below. -->
+				{#if isOwner && video && !error}
+					<MontageStatus videoId={video.id} />
+				{/if}
 				<!-- Next-up strip (F69 handoff §5, F75 handoff §3): a sibling of the player box,
 				     never a wrapper. Stays mounted across a hop within the run (video is still
 				     the previous item until the next one lands); gone on an error. -->

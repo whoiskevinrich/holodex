@@ -47,8 +47,8 @@ across the video; montages are built in the background after stills. Supersedes 
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy`
+- [x] frontend → `web/src/**`
+- [x] testing `testing-strategy`
 - [/] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,9 +66,9 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
-2. [ ] [testing] §35.5 Vitest cases F1–F5 with the frontend slice (Go 35.1–35.4 are green) — `web/src/`
-3. [ ] [security] Re-run /security-review once the frontend lands (backend slice: clean, 2026-10-25) — `/security-review`
+1. [ ] [design] Owner compares the built card + status line with the approved mockup (poster-layout crop not yet seen live) — `docs/design/moving-thumbnails-mockup.svg`
+2. [ ] [security] Re-run /security-review over the whole branch before ready (backend slice: clean 2026-10-25) — `/security-review`
+3. [ ] [testing] Owner's production test in manual mode (§35.6 items 9–10) — gates switching to automatic
 4. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -83,7 +83,7 @@ across the video; montages are built in the background after stills. Supersedes 
 
 ### 2026-10-25 · session
 - skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy, code-review, security-review
-- handoff: Backend slice landed on Draft PR #557 (internal/montage, migration 0066, owner-gated request/status routes, manual default, 1 worker; Go tests incl. real-ffmpeg green; security review clean; writeback never touches montages, only maintenance re-encodes do); next is the frontend slice in VideoCard and the media-page status line.
+- handoff: Backend and frontend slices are on Draft PR #557 (card montage layer, playback controller, owner status line, Montages activity card; Go + Vitest green, browser QA on the stress fixture); next is the owner's build-vs-mockup check, then a final /security-review before ready.
 
 ## Dropped — newest first (the reason is the point)
 

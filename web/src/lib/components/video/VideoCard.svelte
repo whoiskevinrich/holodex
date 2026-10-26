@@ -6,6 +6,7 @@
 	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import { ThumbnailLoad } from './thumbnailLoad.svelte.ts';
+	import { CardMontage } from './montagePlayback.svelte.ts';
 
 	let {
 		video,
@@ -20,14 +21,59 @@
 	// Prefer the server-provided URL — it carries a ?v={mtime} cache-bust token so a
 	// writeback that rewrites the cover art isn't masked by a stale browser cache.
 	const thumb = new ThumbnailLoad(() => video.thumbnail_url || api.thumbnailURL(video.id));
+
+	// Hover montage (F83, docs/design/moving-thumbnails-handoff.md): armed only once the
+	// still has loaded and only when the video has one. The <video> mounts on demand, so a
+	// card nobody hovers never requests a montage.
+	const montage = new CardMontage(() => (thumb.loaded ? video.montage_url : undefined));
+	let montageEl = $state<HTMLVideoElement>();
+	let frameEl = $state<HTMLDivElement>();
+
+	$effect(() => {
+		if (!montageEl) return;
+		if (montage.play) montageEl.play().catch(() => {});
+		else montageEl.pause();
+	});
+
+	// A playing card scrolled out of view lets go.
+	$effect(() => {
+		if (!montage.src || !frameEl || typeof IntersectionObserver === 'undefined') return;
+		const io = new IntersectionObserver(([e]) => {
+			if (!e.isIntersecting) montage.release();
+		});
+		io.observe(frameEl);
+		return () => io.disconnect();
+	});
+
+	function onFocusIn(e: FocusEvent) {
+		if ((e.target as HTMLElement).matches?.(':focus-visible')) montage.focus();
+	}
+
+	// Escape stops a playing montage and claims the key (preventDefault), so the browse
+	// page's window-level Escape doesn't also clear the filters. A card that isn't playing
+	// leaves Escape to the page.
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && montage.play) {
+			e.preventDefault();
+			montage.release();
+		}
+	}
 </script>
 
-<div class="group relative block">
-	<a href={`/media/${video.id}`} class="block">
+<!-- The pointer handlers only preview (the montage is decorative); keyboard users get the
+     same preview from the link's focus, so the wrapper needs no role. -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="group relative block"
+	onpointerenter={(e) => montage.pointerenter(e.pointerType)}
+	onpointerleave={montage.release}
+>
+	<a href={`/media/${video.id}`} class="block" onfocusin={onFocusIn} onfocusout={montage.release} onkeydown={onKeydown}>
 		<!-- Cover image with background-generation fallback (ADR-009). `.video-frame`
 		     carries the flourishes (letterbox bars) from
 		     app.css; the <img> sits beneath them (their z-index is 1). -->
 		<div
+			bind:this={frameEl}
 			class="video-frame flex items-center justify-center transition group-hover:border-accent {!thumb.loaded &&
 			!thumb.gaveUp
 				? 'thumb-shimmer'
@@ -44,15 +90,39 @@
 					onerror={thumb.onerror}
 				/>
 			{/if}
+			{#if montage.src}
+				<!-- The montage sits where the still sits, under the letterbox bars and badges,
+				     and fades in only on its first real frame (handoff state c). Silent, so
+				     muted is honest; devSilence.ts still pins dev volume to 0. -->
+				<video
+					bind:this={montageEl}
+					src={montage.src}
+					muted
+					playsinline
+					loop
+					preload="auto"
+					disablepictureinpicture
+					aria-hidden="true"
+					tabindex="-1"
+					class="pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-150 {montage.visible
+						? 'opacity-100'
+						: 'opacity-0'}"
+					onplaying={montage.onplaying}
+					onerror={montage.onerror}
+				></video>
+			{/if}
 			{#if !thumb.loaded}
 				<svg class="h-10 w-10 text-rule" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 					<path d="M8 5v14l11-7z" />
 				</svg>
 			{/if}
 			{#if thumb.loaded}
-				<!-- "Click to watch" affordance: a play glyph fades in over the cover on hover. -->
+				<!-- "Click to watch" affordance: a play glyph fades in over the cover on hover,
+				     and fades back out while a montage plays (F83 handoff state c). -->
 				<div
-					class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-black/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+					class="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-black/25 opacity-0 transition-opacity duration-200 {montage.visible
+						? ''
+						: 'group-hover:opacity-100'}"
 				>
 					<svg class="h-11 w-11 text-ink drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 						<path d="M8 5v14l11-7z" />
