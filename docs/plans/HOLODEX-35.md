@@ -20,6 +20,10 @@ release_note: "Regenerate thumbnail now opens a frame picker: scrub the video si
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-26
+    at: a079d8f4
 ---
 
 # HOLODEX-35 · Thumbnail frame picker (F84)
@@ -52,9 +56,8 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
      The CHECKBOX settles an item and nothing else does: [x] done, [~] dropped (ADR-008).
      This queue holds LIVE work only (ADR-010). -->
 
-1. [ ] [design] Owner sign-off on the handoff at `/implement`, then open the Draft PR
-2. [ ] [testing] `[human]` QA §36.3 item 7 in a visible window: measured frame step and exact-frame capture on an MPEG-TS and a VFR file
-3. [ ] [—] Sweep HOLODEX-35 to In Review if CI's ready event doesn't move it, and to Done on merge
+1. [ ] [testing] `[human]` QA §36.3 item 7 in a visible window: measured frame step and exact-frame capture on an MPEG-TS and a VFR file
+2. [ ] [—] Sweep HOLODEX-35 to In Review if CI's ready event doesn't move it, and to Done on merge
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -65,8 +68,8 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
 -->
 
 ### 2026-10-26 · session
-- skills: code-review, handoff
-- handoff: Built and agent-QA'd (opens at the player's position, one frame per key/notch, silent, saved poster matched frame 225 exactly); the next move is `/implement` for the owner's design sign-off and the Draft PR, then the `[human]` frame-accuracy check in a visible window.
+- skills: code-review, handoff, implement
+- handoff: Crossed into build — design signed off at a079d8f4; built and agent-QA'd (saved poster matched frame 225 exactly), Draft PR open. Start at the `[human]` frame-accuracy check in a visible window (§36.3 item 7).
 
 ## Dropped — newest first (the reason is the point)
 
