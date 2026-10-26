@@ -12,7 +12,7 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
+release_note: "Resting the pointer on a grid card (or focusing it) now plays a short silent montage of clips from across the video; montages are made only when you ask from a video's Maintenance section until you switch montage_mode to automatic."  # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
@@ -66,7 +66,7 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner confirms the build matches the revised mockup (Maintenance rows, poster crop) — then write release_note — `docs/design/moving-thumbnails-mockup.svg`
+1. [ ] [—] Sweep HOLODEX-578 to In Review if CI's ready event doesn't move it, and to Done on merge
 2. [ ] [testing] Owner's production test in manual mode (§35.6 items 9–10) — gates switching to automatic
 3. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
@@ -82,7 +82,7 @@ across the video; montages are built in the background after stills. Supersedes 
 
 ### 2026-10-25 · session
 - skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy, code-review, security-review
-- handoff: All seven gates settled on Draft PR #557 (whole-branch security review clean; the owner moved thumbnail + montage controls into Maintenance, sign-off re-pinned to c88aaa4e with that yes); next is the owner's build-vs-mockup confirmation, then the release_note and ready.
+- handoff: In review — the owner confirmed the build matches the revised mockup, all seven gates are settled and PR #557 is marked ready; next is review and squash-merge, then the owner's production test in manual mode.
 
 ## Dropped — newest first (the reason is the point)
 
