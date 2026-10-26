@@ -14,7 +14,7 @@
   <rect x="62" y="554" width="736" height="6" rx="3" fill="#2a2622"/>
   <rect x="62" y="554" width="228" height="6" rx="3" fill="#e8a33d"/>
   <circle cx="290" cy="557" r="7" fill="#e8a33d" stroke="#f3ece1" stroke-width="2"/>
-  <text x="62" y="584" font-size="12" fill="#9b9082">00:13:04 · frame 12</text>
+  <text x="62" y="584" font-size="12" fill="#9b9082">13:04 · frame 12</text>
   <text x="798" y="584" font-size="12" fill="#9b9082" text-anchor="end">42:10</text>
   <text x="62" y="606" font-size="12" fill="#9b9082">Drag to scrub · ← → or the mouse wheel step one frame</text>
   <!-- current rail -->

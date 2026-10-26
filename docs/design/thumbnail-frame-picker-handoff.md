@@ -48,7 +48,7 @@ wheel accumulator and the timecode lives in `video/framePicker.ts`, which is uni
   `lg`, with the Current rail under the scrub bar.
   - **Selected frame** (label `text-xs uppercase tracking-wide text-muted`): a `<video>` in a
     `aspect-video bg-black border border-rule` frame, `object-contain`, with no native `controls`.
-    Under it sit the scrub bar, then a row with the position on the left (`00:13:04 · frame 12`) and
+    Under it sit the scrub bar, then a row with the position on the left (`13:04 · frame 12`) and
     the length on the right (`text-xs text-muted tabular-nums`), then the hint line
     "Drag to scrub · ← → or the mouse wheel step one frame".
   - **Current:** the current thumbnail `<img>` in the same frame chrome.

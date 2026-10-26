@@ -26,6 +26,7 @@
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
 	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
+	import ThumbnailFramePicker from '#lib/components/video/ThumbnailFramePicker.svelte';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
 	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
 	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '#lib/run.ts';
@@ -113,6 +114,8 @@
 	let error = $state('');
 	let playFailed = $state(false);
 	let regenerating = $state(false);
+	// Thumbnail frame picker (F84): open, and the player position it opens at.
+	let framePickerAt = $state<number | null>(null);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
 	// thumbnail pipeline regenerate/thumbVersion already drive.
@@ -587,6 +590,30 @@
 		} finally {
 			regenerating = false;
 		}
+	}
+
+	// Regenerate thumbnail opens the frame picker (F84) at the player's position, with the
+	// player paused so nothing on the page sounds while the owner scrubs. The picked frame is
+	// stored as an uploaded poster; "Reset to automatic" is the old one-click regenerate.
+	function openFramePicker() {
+		videoEl?.pause();
+		framePickerAt = videoEl?.currentTime ?? 0;
+	}
+	async function useFrame(file: File) {
+		if (!video) return;
+		await api.uploadVideoPoster(video.id, file);
+		framePickerAt = null;
+		thumbVersion += 1;
+		// The picker is gone by now, so a failed refetch reports where a poster upload's does.
+		try {
+			await reloadDetail();
+		} catch (e) {
+			posterError = toMessage(e);
+		}
+	}
+	function resetToAutomatic() {
+		framePickerAt = null;
+		void regenerateThumbnail();
 	}
 
 	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
@@ -2592,13 +2619,23 @@
 							<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">Thumbnail</span>
 							<button
 								type="button"
-								onclick={regenerateThumbnail}
+								onclick={openFramePicker}
 								disabled={regenerating}
 								class="btn-ghost rounded-theme px-3 py-1.5 text-sm"
 							>
 								{regenerating ? 'Regenerating…' : 'Regenerate thumbnail'}
 							</button>
 						</div>
+						{#if video && framePickerAt !== null}
+							<ThumbnailFramePicker
+								src={api.streamURL(video.id, streamVersion)}
+								currentSrc={video.poster_url ? api.thumbnailReload(video.poster_url, thumbVersion) : undefined}
+								startAt={framePickerAt}
+								onuse={useFrame}
+								onreset={resetToAutomatic}
+								onclose={() => (framePickerAt = null)}
+							/>
+						{/if}
 						{#if video}
 							<MontageStatus videoId={video.id} />
 						{/if}
