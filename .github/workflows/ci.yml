@@ -66,9 +66,18 @@ jobs:
       - name: Type-check
         run: npm run check
 
-      # The `client` Vitest project runs *.svelte.test.ts in headless Chromium (HOLODEX-223).
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      # The `client` Vitest project runs *.svelte.test.ts in headless Chromium (HOLODEX-223),
+      # so only the headless shell is needed. No --with-deps: the runner image already has
+      # Chrome's libraries, and the apt mirror has stalled this step for 12 minutes.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 3
+        run: npx playwright install --only-shell chromium
 
       - name: Unit tests
         run: npm run test -- --passWithNoTests   # drop the flag once Vitest specs exist
