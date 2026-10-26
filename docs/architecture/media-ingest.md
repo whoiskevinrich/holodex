@@ -241,10 +241,11 @@ montage work.
   - **Off:** no workers start, and the request route refuses.
   - Changing mode means a restart, and the in-memory queue doesn't survive one, so the spec's "drop
     the rest of the queue" holds without extra code.
-- **File changes:** file maintenance and a rewriting writeback re-enqueue a video's montage only if
-  a row exists. They do this through their own call into the montage manager, never through the
-  thumbnail manager. Changes to the still alone (poster upload, still regenerate, embedded art) do
-  not reach the montage manager at all.
+- **File changes:** only the maintenance worker's post-write hook calls `Invalidate`, which
+  re-enqueues a video's montage only if a row exists. The writeback queue's hook doesn't, because a
+  writeback rewrites tags, not frames. Neither goes through the thumbnail manager. Changes to the
+  still alone (poster upload, still regenerate, embedded art) do not reach the montage manager at
+  all.
 - **Storage:** `DATA_PATH/montages/{id}.mp4`, a directory of its own, written to `.tmp` and renamed
   into place. Purge or cleanup rules for montages can therefore differ from stills.
 - **Serving:** `GET /api/v1/media/{id}/montage`, by id, after `repo.VideoVisible`, through

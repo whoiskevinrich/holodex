@@ -147,9 +147,10 @@ background, so it can make a montage the same way.
   - **Workers:** the default is **1**. It applies in both manual and automatic mode.
   - Switching from manual to automatic starts the backfill. Switching from automatic to manual or
     off lets the montage in progress finish and drops the rest of the queue.
-- **P0-12: Staying current.** When a video's file changes (file maintenance, or a writeback that
-  rewrites the file), its montage is remade. A change to the still alone (an owner uploading a
-  poster, regenerating the still, embedded art being found) does not touch the montage.
+- **P0-12: Staying current.** When file maintenance re-encodes a video's picture, an existing
+  montage is remade. A writeback never makes or remakes a montage, because it rewrites tags, not
+  frames (decided 2026-10-25). A change to the still alone (an owner uploading a poster,
+  regenerating the still, embedded art being found) doesn't touch the montage either.
 - **P0-13: Failure.** A video whose montage fails to generate keeps its still. Failed montages are
   retried on the next startup and never block other videos in the montage queue. A montage
   failure is never recorded as a still failure, and a still failure never stops a montage.

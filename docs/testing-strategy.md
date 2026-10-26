@@ -5402,7 +5402,7 @@ background pipeline, beside the stills, and ship in manual mode
 | G6 | Sampling: for durations of 600 s, 60 s, 20 s, 6 s and 5 s, the clip start times match the spec (6 clips over 10%–90%; fewer under 30 s, at least 2; none under 6 s, which gives `ErrTooShort`). The function is table-driven and pure. | 5 |
 | G7 | `buildArgs` pins the argv: one `-ss t -t 1 -i` per clip **before** each input, a `concat=n=N:v=1:a=0` filter, `-an`, `-movflags +faststart`, `-pix_fmt yuv420p`, and a scale no wider than `thumbnail_width`. It writes a `.tmp` that is renamed into place. | 5 |
 | G8 | State: success upserts `generated`, and an ffmpeg error upserts `failed` with the error text. Neither touches `videos.thumbnail_state` (asserted by reading the column). | 3 |
-| G9 | File change: `Invalidate(id)` re-enqueues only when a row exists, and does nothing in off mode. | 3 |
+| G9 | File change: `Invalidate(id)` re-enqueues only when a row exists, and does nothing in off mode. It is wired to the maintenance worker's post-write hook only, never the writeback queue's (QA 8). | 3 |
 | G10 | Dedup: requesting the same id twice while it is queued leaves one job. | 7 |
 
 ### 35.2 Go: the boundary (RD5)
@@ -5454,8 +5454,8 @@ Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is th
    time.
 6. `[agent]` Poster layout: the montage fills the 2:3 frame, cropped, with no letterbox.
 7. `[agent]` As a visitor (gated backend), there's no status line, and `POST …/montage` is refused.
-8. `[agent]` Regenerate the still of a video with a montage: the montage and its status stay
-   unchanged.
+8. `[agent]` Regenerate the still of a video with a montage, then write back a tag change to it:
+   in both cases the montage file, its status and the montage queue stay unchanged.
 9. `[human]` Production test in manual mode: request montages for hand-picked videos, then judge
    generation time, size and quality. This gates switching to automatic (spec Success Metrics).
 10. `[human]` Does motion over the still feel right, or is 400 ms too eager or too slow? This feeds

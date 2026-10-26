@@ -69,8 +69,7 @@ across the video; montages are built in the background after stills. Supersedes 
 1. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
 2. [ ] [testing] §35.5 Vitest cases F1–F5 with the frontend slice (Go 35.1–35.4 are green) — `web/src/`
 3. [ ] [security] Re-run /security-review once the frontend lands (backend slice: clean, 2026-10-25) — `/security-review`
-4. [ ] [—] Owner call: should a tag-only writeback remake montages? (spec P0-12 says yes; frames don't change) — `docs/specs/moving-thumbnails.md`
-5. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
+4. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,7 +83,7 @@ across the video; montages are built in the background after stills. Supersedes 
 
 ### 2026-10-25 · session
 - skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy, code-review, security-review
-- handoff: Backend slice landed on Draft PR #557 (internal/montage, migration 0066, owner-gated request/status routes, manual default, 1 worker; Go tests incl. real-ffmpeg green; security review clean); next is the frontend slice in VideoCard and the media-page status line.
+- handoff: Backend slice landed on Draft PR #557 (internal/montage, migration 0066, owner-gated request/status routes, manual default, 1 worker; Go tests incl. real-ffmpeg green; security review clean; writeback never touches montages, only maintenance re-encodes do); next is the frontend slice in VideoCard and the media-page status line.
 
 ## Dropped — newest first (the reason is the point)
 

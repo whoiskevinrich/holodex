@@ -371,10 +371,6 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 				log.Warn("post-writeback thumbnail re-extract", "id", id, "err", err)
 			}
 		}
-		// The file changed (a writeback, or a maintenance re-encode, which shares
-		// this hook): remake its montage if it had one (F83 P0-12). Its own call,
-		// never routed through the thumbnail manager.
-		montages.Invalidate(ctx, id)
 		// Read the file back, unconditionally: it materializes a newly-written
 		// Person/Studio (HOLODEX-196 #4) and refreshes the stored file tags that
 		// `in_sync` is compared against (HOLODEX-214). See ADR-073, which
@@ -400,7 +396,13 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	} else if n > 0 {
 		log.Info("maintenance: recovered interrupted swaps", "count", n)
 	}
-	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, postWrite, writeQ.Kick, log)
+	// A re-encode changes the picture, so it remakes an existing montage (F83
+	// P0-12). A writeback never does: it only rewrites tags, never the frames.
+	maintPostWrite := func(ctx context.Context, id int64, path string) {
+		postWrite(ctx, id, path)
+		montages.Invalidate(ctx, id)
+	}
+	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, maintPostWrite, writeQ.Kick, log)
 	handlers.SetMaintenance(maintWorker)
 
 	// Filename extraction (F48, ADR-067): the orchestrator ties pattern
