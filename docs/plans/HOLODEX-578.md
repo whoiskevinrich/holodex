@@ -23,7 +23,7 @@ release_note:                # the ONE user-facing sentence; authored once by /h
 approved:
   design:
     on: 2026-10-25
-    at: 3787a33d
+    at: c88aaa4e
 ---
 
 # HOLODEX-578 · Moving thumbnails (F83)
@@ -49,7 +49,7 @@ across the video; montages are built in the background after stills. Supersedes 
 - [x] backend → `{cmd,internal,providers}/**`
 - [x] frontend → `web/src/**`
 - [x] testing `testing-strategy`
-- [/] security `security-review`
+- [x] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -66,10 +66,9 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner compares the built card + status line with the approved mockup (poster-layout crop not yet seen live) — `docs/design/moving-thumbnails-mockup.svg`
-2. [ ] [security] Re-run /security-review over the whole branch before ready (backend slice: clean 2026-10-25) — `/security-review`
-3. [ ] [testing] Owner's production test in manual mode (§35.6 items 9–10) — gates switching to automatic
-4. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
+1. [ ] [design] Owner confirms the build matches the revised mockup (Maintenance rows, poster crop) — then write release_note — `docs/design/moving-thumbnails-mockup.svg`
+2. [ ] [testing] Owner's production test in manual mode (§35.6 items 9–10) — gates switching to automatic
+3. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,7 +82,7 @@ across the video; montages are built in the background after stills. Supersedes 
 
 ### 2026-10-25 · session
 - skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy, code-review, security-review
-- handoff: Backend and frontend slices are on Draft PR #557 (card montage layer, playback controller, owner status line, Montages activity card; Go + Vitest green, browser QA on the stress fixture); next is the owner's build-vs-mockup check, then a final /security-review before ready.
+- handoff: All seven gates settled on Draft PR #557 (whole-branch security review clean; the owner moved thumbnail + montage controls into Maintenance, sign-off re-pinned to c88aaa4e with that yes); next is the owner's build-vs-mockup confirmation, then the release_note and ready.
 
 ## Dropped — newest first (the reason is the point)
 
