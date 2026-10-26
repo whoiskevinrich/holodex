@@ -175,9 +175,11 @@ func applyGenreWriteback(resolved []resolver.ResolvedField, field mapping.Field,
 		if !strings.EqualFold(rf.Canonical, "genres") {
 			continue
 		}
-		if len(items) == 0 {
+		if len(items) == 0 && len(rf.Removed) == 0 {
 			// Mirrors writebackMedia's own "drop rather than leave an empty
-			// field" posture: nothing to decide, so no row to show.
+			// field" posture: nothing to decide, so no row to show. A row whose
+			// every genre the owner removed stays, so its removals remain
+			// reachable (F30.3g).
 			return append(resolved[:i], resolved[i+1:]...)
 		}
 		resolved[i].Values, resolved[i].Items, resolved[i].WinningSource = values, items, winner

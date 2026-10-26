@@ -7,6 +7,7 @@
 	import type { EntityRef, PersonAlias, Tag, Video } from '#lib/types.ts';
 	import AsyncState from '#lib/components/shared/AsyncState.svelte';
 	import EntityVideos from '#lib/components/entity/EntityVideos.svelte';
+	import EntityImageSlot from '#lib/components/entity/EntityImageSlot.svelte';
 	import FilmsRow from '#lib/components/entity/FilmsRow.svelte';
 	import { filmsRow } from '#lib/filmsRow.svelte.ts';
 	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
@@ -53,13 +54,14 @@
 	// Films row (F56, design handoff §5) — see filmsRow.svelte.ts.
 	const filmsState = filmsRow(() => id, 'tagId');
 
-	async function reloadTag() {
+	// refreshGrid is false for a change that can't touch the video set (the poster image).
+	async function reloadTag(refreshGrid = true) {
 		if (!tag) return;
 		try {
 			const res = await api.getTag(tag.id);
 			tag = res.tag;
 			aliases = res.tag.aliases ?? [];
-			gridRefresh++;
+			if (refreshGrid) gridRefresh++;
 		} catch {
 			// Non-fatal — the mutation already succeeded; a full reload reconciles.
 		}
@@ -461,6 +463,28 @@
 			     affordances are owner-gated. -->
 			{#if tag}
 				{@const t = tag}
+				<!-- The tag's poster (F82, list-views handoff "Tag page"): the image the Tags page's
+				     Posters view shows. Owners always see the slot; a visitor sees it only when there
+				     is an image. 16:9 like the Posters card, contained (never cropped), no halo. -->
+				{#if isOwner || t.image_url}
+					<section class="space-y-2">
+						<h2 class="text-xs uppercase tracking-wide text-muted">Image</h2>
+						<EntityImageSlot
+							entityId={t.id}
+							entityName={t.name}
+							role="poster"
+							label="Poster"
+							url={t.image_url}
+							{isOwner}
+							halo={[]}
+							uploadButton
+							frameClass="h-[90px] w-40"
+							upload={api.uploadTagImage}
+							remove={api.deleteTagImage}
+							onchanged={() => reloadTag(false)}
+						/>
+					</section>
+				{/if}
 				<!-- Aliases (F43 RD7, HOLODEX-507): identity reads above taxonomy, as on the
 				     film and studio pages. Rename stays on the hero's NameEditControl. -->
 				<AliasPanel

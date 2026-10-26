@@ -90,6 +90,12 @@ const (
 
 // KnownFields is the full canonical field registry. Order is documentation order;
 // lookup is by Canonical key via Lookup().
+//
+// It is a catalogue of every field the code can label, not the set a library has: that
+// is whatever the deployment's metadata-mappings.yaml declares. Several entries
+// (tagline, status, homepage, original_language, …) only ever come from a provider, so
+// don't treat this list as "standard fields" in docs or mockups (docs/reference/doc-types.md,
+// "Examples").
 var KnownFields = []FieldDef{
 	// ---- Video / film fields ----
 	{

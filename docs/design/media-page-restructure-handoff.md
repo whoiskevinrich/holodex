@@ -6,8 +6,10 @@
 [ADR-056](../architecture/archive/ADR-056-provider-field-render-hints.md)
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) +
 [theming.md](theming.md) — **tokens only, QA Cinémathèque.**
-**Issue**: HOLODEX-220 · **Surface**: `web/src/routes/media/[id]/+page.svelte`,
-`EnrichProviderChips.svelte`, `SourceSelect.svelte`.
+**Issue**: HOLODEX-220, with HOLODEX-97 folded in as Part C · **Surface**:
+`web/src/routes/media/[id]/+page.svelte`, `EnrichProviderChips.svelte`, `SourceBadge.svelte`.
+
+![Mockup: the Metadata header and the page-bottom audit group, today and after](media-page-restructure-mockup.svg)
 
 ---
 
@@ -27,6 +29,23 @@ Neither is a defect in any single component; each was correct in the slice that 
 
 Both parts are **subtractive** — same capabilities, fewer controls. No new endpoint, no new
 capability, no data-model change.
+
+### Where the page stands (2026-10-21)
+
+Later media-page work landed some of this design. Build only what is still open.
+
+| Item | State |
+|---|---|
+| Part A, all of it | Built. |
+| Part B, rows collapsed at rest | Done. `SourceBadge` shows the value and a `ProvenanceBadge` toggle; the chip row renders only when expanded. It replaced `SourceSelect` on this page. |
+| Part B, poster out of the field list | Done. Title, overview, poster and genres each render once. |
+| Part B, `file differs` wording | Built. The header pill is gone; its count rides the write button. |
+| Part B, matching fields as one summary line | Built, owner view only. A row folds when nothing is left to decide: no standing decision, the file's value wins, and every provider offering a value agrees with it. |
+| Part B, cast grid from resolved `actors` | Holds without a change. Since HOLODEX-114, `video_people` is re-derived from the resolved person fields on every scan, refresh, enrich and decision, so the grid already shows them. |
+| Part C, one Source data disclosure | Built (HOLODEX-97). |
+
+HOLODEX-113 ("show hints while metadata is updating") was closed as Won't Do, so it adds nothing
+to Part A's Syncing state.
 
 ### Design-system fit (the `/design-system` check)
 
@@ -189,6 +208,7 @@ enrichment. Only `studio` reconciles into a real entity (`ReconcileVideoStudios`
   people today. **Do not implement Part B's cast merge before HOLODEX-114 (F40 / ADR-059)**, which
   makes `RelinkVideoEntity` the sole writer of `video_people` derived from resolved values. Until
   then, the poster grid can only show file people, and the honest interim is to label it as such.
+  HOLODEX-114 has since shipped, so the merge is unblocked.
 - **`poster_url` leaves the metadata `<dl>`.** A 256px image inside a two-column definition list
   is the single largest contributor to page length. It becomes the cover control next to the
   player, where the thumbnail already is.
@@ -198,6 +218,57 @@ enrichment. Only `studio` reconciles into a real entity (`ReconcileVideoStudios`
 - **`text-[0.65rem]` (10.4px) must not spread.** It appears in `SourceSelect` and
   `CurationChip` today, alongside `text-[10px]` elsewhere — two invented spellings of "smaller
   than `text-xs`". Settle one micro step before adding rows that would use it.
+
+---
+
+## Part C — One Source data disclosure (HOLODEX-97)
+
+### The duplication
+
+The owner audit group at the page bottom opens one disclosure per source: `Enrichment data: File
+Extraction (n)`, then `Enrichment data: {provider} (n)` for each provider. They use two layouts, a
+key/value table for the file and a label/value grid for providers. A provider's image field draws
+the poster a fourth time, at `max-h-64`. The payloads stay as an audit view; only the disclosures
+and the duplicated rendering go.
+
+### Layout
+
+```
+File  (unchanged)
+▾ Source data · 3 sources, 45 keys
+  (● File) ( tmdb ) ( imdb )
+  title        Blade Runner 2049
+  poster_url   …/w500/gajva2L0.jpg
+```
+
+- **One disclosure** in place of the per-source toggles, in the same spot: after `File`, inside the
+  audit group (see `web/src/routes/CLAUDE.md`). The trigger keeps today's treatment, `text-sm
+  text-muted hover:text-ink`, and reads `Source data · {n} sources, {k} keys`.
+- **A source switcher** under the trigger: one chip per source, File first and then providers in
+  their existing order. The selected chip uses the `.btn-accent` outline; the others use `.btn-quiet`
+  with a `border-rule` outline, as in the mockup.
+- **One table for every source.** Column one is the raw key in `font-mono text-xs text-muted`: the
+  file's `source_key`, or the provider field's canonical. Column two is the value in `text-xs
+  text-ink`. Rows are separated by `border-b border-rule`, as the file table is today.
+- **Values.** Several values join with `, `. `long_text` cuts at 120 characters, with `…` only when
+  something was cut. `image_url` shows its URL as `font-mono` text, `break-all`, with the full URL
+  in `title`. No image renders in this group.
+
+### States
+
+- **Closed (default)**: the trigger alone. Opening it selects File, or the first provider when the
+  file payload is empty.
+- **One source**: no switcher. The trigger still names the count (`1 source`).
+- **No sources**: the disclosure does not render, as each toggle self-omits today.
+- **Visitor**: never rendered. The audit group stays wholly owner-gated.
+
+### Accessibility
+
+- The trigger is a `button` with `aria-expanded` and `aria-controls`, and the panel stays in the DOM
+  toggled with `hidden`, the disclosure idiom Part B reuses.
+- The switcher is `role="radiogroup"` with `aria-label="Source"`. Chips are `role="radio"` with
+  `aria-checked`, and arrow keys move with a roving tabindex. That matches `SourceBadge`'s chip row.
+- The table carries a visually hidden caption naming the selected source.
 
 ---
 
@@ -211,10 +282,16 @@ Part A and Part B reuse token pairs already measured for the writeback dialog ag
 | `text-muted` label | 6.00 |
 | `.btn-accent` | 8.71 |
 
-**Still to measure during implementation** — these pairs are new to this surface and are not
-carried over: solid `bg-accent` + `text-accent-ink` for the primary write button, `text-warn` on
-`--surface` at the `file differs` pill's final size, and the popover's `bg-surface` over
-`bg-surface-2` rows.
+Pairs new to this surface, measured from the Cinémathèque tokens at build:
+
+| Pair | Ratio |
+|---|---|
+| `text-accent-ink` on solid `bg-accent` (the write button) | 8.59 |
+| `text-warn` on `--surface` (`file differs`, `· N unmatched`, `not matched`) | 5.35 |
+| `text-muted` on `--surface` (popover status, Source data keys) | 6.00 |
+
+The popover's `bg-surface` sits on the page with a `border-rule` edge; it has no `bg-surface-2`
+rows, so that pair doesn't arise.
 
 No element in either part may use `opacity` on a `text-muted` label — the theming rules treat that
 as a contrast bug, and the writeback dialog just removed its last instance.

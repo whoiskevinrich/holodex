@@ -10,22 +10,21 @@ for a field, defaulting to the file baseline, driving both display and writeback
 
 **Depends on**: Only shipped surfaces —
 - the unified field resolver with `file:`/`{provider}:` provenance ([F27](metadata-plugins.md), `internal/resolver`)
-- value-level curation + the durable write queue ([F30](metadata-curation.md) / [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md), `metadata_curation`)
-- per-item refresh / forced re-extract + re-enrich ([F31](metadata-refresh.md) / [ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md))
-- the enrichment shadow store + per-provider matches ([F22](metadata-plugins.md) / [ADR-033](../architecture/archive/ADR-033-metadata-source-plugins.md), `entity_enrichment`)
-- configurable field mapping / precedence ([ADR-013](../architecture/archive/ADR-013-metadata-field-mapping.md), `internal/mapping`)
-- metadata writeback ([F28](metadata-curation.md) / [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md))
-- the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
+- value-level curation + the durable write queue ([F30](metadata-curation.md) / [writeback.md](../architecture/writeback.md), `metadata_curation`)
+- per-item refresh / forced re-extract + re-enrich ([F31](metadata-refresh.md) / [media-ingest.md](../architecture/media-ingest.md))
+- the enrichment shadow store + per-provider matches ([F22](metadata-plugins.md) / [metadata-providers.md](../architecture/metadata-providers.md), `entity_enrichment`)
+- configurable field mapping / precedence ([field-resolution.md](../architecture/field-resolution.md), `internal/mapping`)
+- metadata writeback ([F28](metadata-curation.md) / [writeback.md](../architecture/writeback.md))
+- the owner gate ([security-perimeter.md](../architecture/security-perimeter.md), `requireOwner`)
 
-**New ADR**: **Already written** — [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)
-(supersedes the deferred F31.11 slice of [ADR-047](../architecture/archive/ADR-047-per-item-metadata-refresh.md)).
+**Architecture**: [field-resolution.md](../architecture/field-resolution.md) (per-field source decisions).
 Touches **access + persisted owner input that feeds file writeback** → a `/security-review`
 sign-off is required before merge.
 
-> **Pickup status (2026-06-29):** design **complete** — ADR-051, this spec (RD1–RD5),
+> **Pickup status (2026-06-29):** design **complete** — the architecture ([field-resolution.md](../architecture/field-resolution.md)), this spec (RD1–RD5),
 > [handoff](../design/field-source-of-truth-handoff.md) + [QA checklist](../design/field-source-of-truth-qa-checklist.md),
 > and [testing-strategy §9](../testing-strategy.md) F36 block are all done. **Implementation not started.**
-> Next: the `[P2·XL]` ADR-051 parent task in the main `TASKS.md` ("Entity-generic source-of-truth"
+> Next: the `[P2·XL]` parent task in the main `TASKS.md` ("Entity-generic source-of-truth"
 > section). Recommended first step — a short `/architecture` addendum pinning the `BaselineSource`
 > contract so the resolver decision short-circuit (here) and the entity-agnostic-resolver fast-follow
 > ① don't fight over `resolver.Resolve`'s signature. `/security-review` is the remaining gate and runs
@@ -62,7 +61,7 @@ global rule decide for them.
 5. **Surface conflict and sync state** — when matched providers disagree, say so; when a decided
    value differs from what's embedded in the file, show it, per field and in aggregate. Say nothing
    when the field's mapping declares no file source to read back through: the state is then unknown,
-   not out of sync ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)).
+   not out of sync ([writeback.md](../architecture/writeback.md)).
 6. **Keep it legible and safe** — owner-gated, themed in Cinémathèque, reusing the
    existing curation components and provenance vocabulary.
 
@@ -83,7 +82,7 @@ global rule decide for them.
 
 ## Resolved Decisions
 
-*(Locked with the owner 2026-06-29; the leaning options in [ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) were all confirmed.)*
+*(Locked with the owner 2026-06-29; the leaning options in [field-resolution.md](../architecture/field-resolution.md) were all confirmed.)*
 
 - **RD1 — Replace-only source control.** The segmented `Keep file / Adopt <provider> / Custom`
   selector appears **only on scalar (replace) fields**. Merge fields keep the existing F30 chips
@@ -101,8 +100,8 @@ global rule decide for them.
   decision is a **DB-only** operation with **zero file I/O**. File tags are written **only** by the
   explicit "Write decisions to file" action, which collects **all** of an item's decided +
   out-of-sync fields and performs **one atomic `WriteBatch` per file** through the existing durable
-  write queue — copy→write→rename ([ADR-041](../architecture/archive/ADR-041-metadata-writeback.md)), one
-  job per file ([ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)). **No
+  write queue — copy→write→rename ([writeback.md](../architecture/writeback.md)), one
+  job per file ([writeback.md](../architecture/writeback.md)). **No
   per-field, per-toggle, or per-decision file writes.** Writing tags is I/O-intensive; collapsing
   to a single invocation per file is required, not optional.
 
@@ -144,7 +143,7 @@ global rule decide for them.
   - Given a field decided `adopt tmdb`, When a re-enrich changes TMDB's value, Then the field updates.
   - Given a field decided `custom`, When the file or provider changes, Then the custom value is unchanged.
 - **P0-3 — Decision drives display.** The resolver consults the decision **before** mapping order, pre-loaded with the curation/enrichment maps (pure, no new I/O). A decided field ignores mapping precedence.
-- **P0-4 — Decision drives writeback, atomically and batched per file (RD5, NON-NEGOTIABLE).** "Write decisions to file" writes the **decided** value per replace field and the curated set per merge field, as a **single atomic `WriteBatch` per file** via the durable queue (copy→write→rename, [ADR-041](../architecture/archive/ADR-041-metadata-writeback.md) / one-job-per-file, [ADR-048](../architecture/archive/ADR-048-metadata-curation-and-write-queue.md)). The write payload equals the displayed truth.
+- **P0-4 — Decision drives writeback, atomically and batched per file (RD5, NON-NEGOTIABLE).** "Write decisions to file" writes the **decided** value per replace field and the curated set per merge field, as a **single atomic `WriteBatch` per file** via the durable queue (copy→write→rename, [writeback.md](../architecture/writeback.md) / one-job-per-file, [writeback.md](../architecture/writeback.md)). The write payload equals the displayed truth.
   - Given several fields are decided/edited, When the owner writes, Then exactly **one** queued job runs **one** `WriteBatch` invocation for that file — never one write per field.
   - Given the owner sets or clears a decision, Then **no file is touched** (DB only); the file changes only on the explicit write action.
   - Given a write fails part-way, Then the original file is byte-for-byte intact (temp discarded) and the job is replayable on restart.
@@ -158,14 +157,19 @@ global rule decide for them.
 - **P1-1 — Multi-provider control.** One `Adopt` option per **matched** provider (`Keep file / IMDB / TMDB / Custom`).
   - Given two providers supply different values for a replace field, Then a per-field "sources disagree" hint shows and each provider is selectable.
 - **P1-2 — Inter-provider trust order.** ✅ **implemented** ([HOLODEX-118](https://whoiskevinrich.atlassian.net/browse/HOLODEX-118)): the `provider_trust_order` config orders providers for the *undecided* winner among providers (file still ahead of all under `default_source: file`; unlisted providers keep mapping order behind the listed ones). Per-field decision overrides it. Applied under the file-first default; `default_source: mapping` keeps literal `sources` order. Backend-only — the SourceSelect chips are already per-provider.
-- **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision — provided the field declares a `file:` source matching the tag writeback writes. When it does not, there is no file value to compare against: the field shows **no chip and is excluded from the count**, because the state is unknown rather than in sync ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md) D1).
+- **P1-3 — Sync indicator (RD2).** Per-field out-of-sync chip when the decided value ≠ the value embedded in the file, plus an "N fields out of sync" summary by the Write button. After a successful write, sync clears without flipping the decision — provided the field declares a `file:` source matching the tag writeback writes. When it does not, there is no file value to compare against: the field shows **no chip and is excluded from the count**, because the state is unknown rather than in sync ([writeback.md](../architecture/writeback.md) D1).
 - **P1-4 — Candidate visibility.** Under a replace field, show the available candidates (file value, each provider value) so the choice is informed, not blind.
-- **P1-5 — Add a value no source has (owner-offered empty fields).** A replace field that no layer supplies a value for and that has no decision is still offered to the owner, so they can type a Custom value, **if the field has adopted offering** ([ADR-113](../architecture/archive/ADR-113-owner-offered-empty-fields.md); registry `OfferWhenEmpty`). Fields adopt one at a time, each with its own designed empty state. First adopter: `overview` ([HOLODEX-471](https://whoiskevinrich.atlassian.net/browse/HOLODEX-471); [handoff](../design/overview-add-handoff.md)). The rest are HOLODEX-304.
+- **P1-5 — Add a value no source has (owner-offered empty fields).** A replace field that no layer supplies a value for and that has no decision is still offered to the owner, so they can type a Custom value, **if the field has adopted offering** ([field-resolution.md](../architecture/field-resolution.md); registry `OfferWhenEmpty`). Fields adopt one at a time, each with its own designed empty state. First adopter: `overview` ([HOLODEX-471](https://whoiskevinrich.atlassian.net/browse/HOLODEX-471); [handoff](../design/overview-add-handoff.md)). The rest are HOLODEX-304.
   - Given a video whose file and providers have no `overview`, When the owner opens it, Then the Overview block shows its heading, the pencil and a **+ Add overview** pill.
   - Given the same video, When a visitor opens it, Then no Overview block renders and `resolved[]` has no `overview` row.
   - Given the owner activates the pill or the pencil, Then the Edit Overview dialog opens with **Custom** selected and its textarea focused; saving sets a `manual` decision (P0-1) and no file is touched (P0-4).
   - Given the owner opens Write metadata to file on that video, Then an Overview row is listed under "Not yet decided" with File "No value" and Custom, is not preselected or counted, and typing a Custom value confirms it for the one atomic write.
   - Given a field that has not adopted offering, Then it is dropped from `resolved[]` exactly as before.
+- **P1-6 — Same-ish candidates are one choice.** Two candidates whose values differ only in letter case, in whitespace, or in punctuation are one choice, not two. The match ignores leading and trailing whitespace, treats any run of whitespace as one space, folds case, and drops punctuation and symbols, including quote and dash style. Folding changes which choices are offered. It never changes the value that is shown or written. A provider that matches the baseline joins the baseline's choice, and providers that match each other share one choice. That choice shows the baseline's value, or else the value of the first provider in trust order (P1-2), and picking it pins that source exactly as before. This rule holds on every entity that offers source choices ([F37](people-source-of-truth.md) people, studios) and for long prose (a person's bio, a video's overview) as much as for short fields. It covers HOLODEX-138.
+  - Given a person whose record bio and provider-1 bio differ only in a doubled space and a trailing full stop, When the owner opens the bio's source choices, Then they see one choice for the record and provider-1, plus Custom.
+  - Given a video whose file title is `The Long Night` and provider-1's is `the long night`, Then the title offers one file choice that names provider-1 too.
+  - Given provider-1 and provider-2 send the same director with different apostrophes and neither matches the file, Then those two share one choice, which shows provider-1's spelling when provider-1 ranks ahead.
+  - Given two bios that differ in any word, Then each keeps its own choice.
 
 ### Future considerations (P2)
 
@@ -180,23 +184,23 @@ global rule decide for them.
 1. If a decision row exists → return the decided source's **current** value (`file` baseline / `provider:<name>` shadow value / `manual` literal). Stop.
 2. Else if `default_source: file` (default) → file value if present; else the inter-provider-trust-ordered first provider; else empty.
 3. Else (`default_source: mapping`) → today's first-non-empty in mapping order.
-4. If that is empty and there is no decision and no film candidate, the field is **dropped** from `resolved[]`, unless the request is the owner's and the field has adopted offering (P1-5, [ADR-113](../architecture/archive/ADR-113-owner-offered-empty-fields.md)). In that case it is kept with no values, file candidate `""`, and a non-standing `file` decision.
+4. If that is empty and there is no decision and no film candidate, the field is **dropped** from `resolved[]`, unless the request is the owner's and the field has adopted offering (P1-5, [field-resolution.md](../architecture/field-resolution.md)). In that case it is kept with no values, file candidate `""`, and a non-standing `file` decision.
 Merge fields are unchanged: F30 union + per-value curation; decisions do not apply.
 
 ### Writeback
 - **Decisions are DB-only; the file is touched only by the explicit write action (RD5).** Toggling a source, typing a custom value, clearing a decision → no file I/O.
-- The write action collects **all** of the item's decided + out-of-sync fields — out-of-sync meaning `in_sync === false`, so a decided field whose sync state is *unknown* (ADR-093) is neither counted nor pre-checked, though it still lists and stays checkable by hand — and issues **one** durable job → **one atomic `WriteBatch` per file** (copy→write→rename; all tags in a single tool invocation). Never per-field. This rides the existing `internal/writeback.WriteBatch` + the F30 queue unchanged — F36 adds *which values* to write, not a new write mechanism.
+- The write action collects **all** of the item's decided + out-of-sync fields — out-of-sync meaning `in_sync === false`, so a decided field whose sync state is *unknown* ([writeback.md](../architecture/writeback.md)) is neither counted nor pre-checked, though it still lists and stays checkable by hand — and issues **one** durable job → **one atomic `WriteBatch` per file** (copy→write→rename; all tags in a single tool invocation). Never per-field. This rides the existing `internal/writeback.WriteBatch` + the F30 queue unchanged — F36 adds *which values* to write, not a new write mechanism.
 - **The dialog's default selection is exactly that set** (HOLODEX-213). Both the header's out-of-sync count and the dialog's initial `checked` derive from one exported predicate, `needsWriteback()` in `f36.ts`, so they cannot disagree. An **undecided** provider value — one winning by mapping precedence, `poster_url` included — stays listed and writable but is not pre-selected; those rows follow the decided ones under a static `Not yet decided` caption, every row with its chooser open (HOLODEX-434, [always-open handoff](../design/writeback-dialog-always-open-handoff.md) — retired the HOLODEX-213 disclosure and the per-row `change` toggle; the dialog is `max-w-3xl` on wide screens, phone width unchanged). See the [selection handoff](../design/writeback-selection-handoff.md) + [QA checklist](../design/writeback-selection-qa-checklist.md).
 - The write payload per replace field = the decided value (P0-4). Merge fields = the curated write-enabled set (F30).
-- After write, recompute per-field sync (decided value vs. the tag now in the file). The decision is **not** mutated (aligned with ADR-051 §5).
+- After write, recompute per-field sync (decided value vs. the tag now in the file). The decision is **not** mutated (aligned with [field-resolution.md](../architecture/field-resolution.md)).
 
 ### Sync state
 - A field is *out of sync* when its decided value differs from the value currently embedded in the file's tag (read via the existing extract path / last writeback audit). Surfaced per-field + aggregate (RD2).
-- Sync state is **tri-state**, not boolean ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)): in sync, out of sync, or **unknown** when the field's `sources:` list declares no `file:` source — there is then no embedded value to compare against, and reporting "differs" would be a claim the resolver cannot support. Unknown is what person and studio entities already report (F37), having no file at all.
-- **Image fields are witnessed by the write ledger, not by read-back** ([ADR-101](../architecture/archive/ADR-101-ledger-witnessed-image-sync.md); HOLODEX-403). Nothing reads embedded cover art back, so for a `Display: image_url` field with a standing decision, *in sync* means the newest successful `file_writebacks` row for the field carries the decided URL; a row with another URL is *out of sync*; no row is *unknown*. Text fields keep the file read-back. Consequence in the cockpit: a poster written once reads `=` until its winner changes, instead of re-embedding on every Write.
-- **A text field writeback cannot read back is witnessed by the write ledger too** ([ADR-119](../architecture/archive/ADR-119-ledger-witness-for-readback-gaps.md); HOLODEX-489). "Cannot read back" means the field appears in `writeback.ReadbackGaps` for the live mapping: no `file:` source whose key matches the tag writeback writes, such as `title` → `Title` or `release_date` → `Year` mapped only to provider and filename sources. For such a field with a standing decision, *in sync* means the newest successful `file_writebacks` row holds the decided canonical value, a different value is *out of sync*, and no row is *unknown*. The gap set is the one definition: a declared `file:` source that reads a different tag still shows as the file candidate, but it no longer decides sync. Consequence: a written title or release date reads `=` instead of rewriting on every dialog open. Accepted limit: an edit made to the file outside Holodex goes unseen until the mapping gains the read-back source.
-- **The read-back gap is visible to the owner** (ADR-119 D4). `GET /api/v1/owner/readback-gaps` lists each gap as `{canonical, write_tag, add_one_of[]}`, and `POST /api/v1/admin/reload-config` reports `readback_gaps` (the count). On the owner's detail read, a resolved field in the gap set carries `readback_gap: {write_tag, add_one_of[]}`. System Activity shows a *Mapping checks* block beside *Reload config*. In the writeback dialog, a decided gap row with no ledger row yet carries one `text-muted` hint naming the key to add. That line is setup guidance, never a warning, and it goes away after the first write.
-- **The writeback dialog's Poster row is a chooser** (HOLODEX-403, [design handoff](../design/writeback-poster-chooser-handoff.md)): image tiles — the file's cover art and each provider poster — with the same staged pick, gutter and gates as every other cockpit row; no Custom tile (a pasted URL cannot pass the asset-host allowlist, ADR-039), and an owner upload is neither a candidate nor disturbed (ADR-049 — it keeps the page; the row is the cover art *inside the file*).
+- Sync state is **tri-state**, not boolean ([writeback.md](../architecture/writeback.md)): in sync, out of sync, or **unknown** when the field's `sources:` list declares no `file:` source — there is then no embedded value to compare against, and reporting "differs" would be a claim the resolver cannot support. Unknown is what person and studio entities already report (F37), having no file at all.
+- **Image fields are witnessed by the write ledger, not by read-back** ([writeback.md](../architecture/writeback.md); HOLODEX-403). Nothing reads embedded cover art back, so for a `Display: image_url` field with a standing decision, *in sync* means the newest successful `file_writebacks` row for the field carries the decided URL; a row with another URL is *out of sync*; no row is *unknown*. Text fields keep the file read-back. Consequence in the cockpit: a poster written once reads `=` until its winner changes, instead of re-embedding on every Write.
+- **A text field writeback cannot read back is witnessed by the write ledger too** ([writeback.md](../architecture/writeback.md); HOLODEX-489). "Cannot read back" means the field appears in `writeback.ReadbackGaps` for the live mapping: no `file:` source whose key matches the tag writeback writes, such as `title` → `Title` or `release_date` → `Year` mapped only to provider and filename sources. For such a field with a standing decision, *in sync* means the newest successful `file_writebacks` row holds the decided canonical value, a different value is *out of sync*, and no row is *unknown*. The gap set is the one definition: a declared `file:` source that reads a different tag still shows as the file candidate, but it no longer decides sync. Consequence: a written title or release date reads `=` instead of rewriting on every dialog open. Accepted limit: an edit made to the file outside Holodex goes unseen until the mapping gains the read-back source.
+- **The read-back gap is visible to the owner** ([writeback.md](../architecture/writeback.md)). `GET /api/v1/owner/readback-gaps` lists each gap as `{canonical, write_tag, add_one_of[]}`, and `POST /api/v1/admin/reload-config` reports `readback_gaps` (the count). On the owner's detail read, a resolved field in the gap set carries `readback_gap: {write_tag, add_one_of[]}`. System Activity shows a *Mapping checks* block beside *Reload config*. In the writeback dialog, a decided gap row with no ledger row yet carries one `text-muted` hint naming the key to add. That line is setup guidance, never a warning, and it goes away after the first write.
+- **The writeback dialog's Poster row is a chooser** (HOLODEX-403, [design handoff](../design/writeback-poster-chooser-handoff.md)): image tiles — the file's cover art and each provider poster — with the same staged pick, gutter and gates as every other cockpit row; no Custom tile (a pasted URL cannot pass the asset-host allowlist, [security-perimeter.md](../architecture/security-perimeter.md)), and an owner upload is neither a candidate nor disturbed ([images.md](../architecture/images.md) — it keeps the page; the row is the cover art *inside the file*).
 
 ## API
 
@@ -206,7 +210,7 @@ DELETE /api/v1/media/{id}/fields/{canonical}/decision                           
 
 200/204 on success · 400 bad source/canonical · 401/403 owner gate · 404 unknown id/field · 409 soft-deleted
 ```
-`source ∈ { "file", "provider:<name>", "manual" }`; `manual_value` required (and sanitized) iff `source="manual"`; a `provider:<name>` must be a currently-matched provider. The media detail payload gains a per-field `decision` marker (chosen source + standing flag) and per-field `in_sync`. `in_sync` is **omitted** when the field's sync state is unknown (ADR-093), so consumers must treat it as tri-state rather than defaulting an absent value to `false`.
+`source ∈ { "file", "provider:<name>", "manual" }`; `manual_value` required (and sanitized) iff `source="manual"`; a `provider:<name>` must be a currently-matched provider. The media detail payload gains a per-field `decision` marker (chosen source + standing flag) and per-field `in_sync`. `in_sync` is **omitted** when the field's sync state is unknown ([writeback.md](../architecture/writeback.md)), so consumers must treat it as tri-state rather than defaulting an absent value to `false`.
 
 ## UI (grounded in real components)
 
@@ -225,7 +229,7 @@ This is a single-owner correctness/control feature, not a funnel. Success =
 
 ## Open Questions
 
-- **Q1 (engineering, non-blocking) — ✅ resolved.** Sync read source is the **stored baseline**: `baselineValue` walks the field's declared `file:` sources over `videos`/`extra_metadata`. Neither option in the original question was taken — not a fresh extract, and not the `file_writebacks` audit, which is also not a faithful record of the written bytes for multi-value fields ([HOLODEX-338](https://whoiskevinrich.atlassian.net/browse/HOLODEX-338)). Staleness is handled by the unconditional post-write re-extract ([ADR-073](../architecture/archive/ADR-073-post-write-baseline-resync.md) D1); the *absence* of a declared source is what makes the state unknown ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)).
+- **Q1 (engineering, non-blocking) — ✅ resolved.** Sync read source is the **stored baseline**: `baselineValue` walks the field's declared `file:` sources over `videos`/`extra_metadata`. Neither option in the original question was taken — not a fresh extract, and not the `file_writebacks` audit, which is also not a faithful record of the written bytes for multi-value fields ([HOLODEX-338](https://whoiskevinrich.atlassian.net/browse/HOLODEX-338)). Staleness is handled by the unconditional post-write re-extract ([writeback.md](../architecture/writeback.md) D1); the *absence* of a declared source is what makes the state unknown ([writeback.md](../architecture/writeback.md)).
 - **Q2 (engineering, non-blocking):** Should `DELETE decision` on a field that was `custom` also clear any F30 manual-add row for that field, or are they independent stores? (Lean: independent; deleting a decision reverts source selection only.)
 - **Q3 (design) — ✅ resolved in [handoff](../design/field-source-of-truth-handoff.md).** Only the out-of-sync pill is `text-warn` (value row); "providers differ" is a **muted** informational hint on the candidates line (different rows, different weights) — so the two never read as one alarm.
 
@@ -236,4 +240,4 @@ No hard deadline. Remaining artifacts before/with implementation, per the projec
 2. **`/testing-strategy`** — ✅ done: F36 block added to [testing-strategy.md](../testing-strategy.md) §9 (decision short-circuit + merge-untouched regression, file-first default + escape hatch, source-pin, **one-`WriteBatch`-per-file** assertion, DB-only decisions, sync recompute, multi-provider, API auth, `SourceSelect` a11y/Cinémathèque) — mapped to the QA §2 smoke items.
 3. **`/security-review`** — owner gate + untrusted `manual_value` feeding file writeback.
 
-Implementation lands video-first ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md) parent task, migration 0016); People/Studio inherit via the tracked fast-follows.
+Implementation lands video-first (the parent task, migration 0016); People/Studio inherit via the tracked fast-follows.

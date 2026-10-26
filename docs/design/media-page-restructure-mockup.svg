@@ -1,0 +1,98 @@
+<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" font-family="'Archivo Variable', sans-serif">
+  <defs>
+    <style>
+      .bg { fill: #0c0a09; }
+      .surface { fill: #15110e; stroke: #2a2622; stroke-width: 1; }
+      .rule { stroke: #2a2622; stroke-width: 1; fill: none; }
+      .ink { fill: #f3ece1; }
+      .muted { fill: #9b9082; }
+      .warn { fill: #e2603f; }
+      .accent { fill: #e8a33d; }
+      .accentInk { fill: #1a1206; }
+      .quiet { fill: none; stroke: #2a2622; stroke-width: 1; }
+      .outline { fill: none; stroke: #e8a33d; stroke-width: 1; }
+      .label { font-size: 11px; letter-spacing: 0.06em; }
+      .mono { font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace; font-size: 11px; }
+      .title { font-family: 'Fraunces Variable', serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="960" height="640" />
+  <text x="24" y="34" class="title ink" font-size="17">Media page &#8212; one Sync verb and one Source data disclosure</text>
+  <text x="24" y="54" class="muted" font-size="12">HOLODEX-220 Part A + HOLODEX-97. Cinémathèque. Owner view, rail Metadata header and page-bottom audit group.</text>
+
+  <text x="24" y="92" class="label muted">TODAY</text>
+  <text x="496" y="92" class="label muted">AFTER</text>
+
+  <!-- TODAY: Metadata header -->
+  <rect x="24" y="104" width="440" height="236" rx="8" class="surface" />
+  <text x="44" y="132" class="label muted">METADATA</text>
+  <text x="400" y="132" class="muted" font-size="11">9 fields</text>
+  <rect x="44" y="148" width="80" height="26" rx="6" class="quiet" />
+  <text x="56" y="165" class="muted" font-size="12">&#10227; Refresh</text>
+  <rect x="132" y="148" width="148" height="26" rx="6" class="quiet" />
+  <text x="144" y="165" class="muted" font-size="12">Extract from filename</text>
+  <rect x="44" y="184" width="150" height="26" rx="6" class="quiet" />
+  <text x="56" y="201" class="muted" font-size="12">tmdb · Refresh · &#8943;</text>
+  <rect x="202" y="184" width="150" height="26" rx="6" class="quiet" />
+  <text x="214" y="201" class="muted" font-size="12">imdb · Refresh · &#8943;</text>
+  <rect x="360" y="184" width="84" height="26" rx="6" class="outline" />
+  <text x="370" y="201" class="accent" font-size="12">Refresh all</text>
+  <text x="44" y="238" class="warn" font-size="11">3 out of sync</text>
+  <text x="136" y="238" class="muted" font-size="12">Write decisions to file</text>
+  <text x="44" y="276" class="muted" font-size="11">Four refresh-family controls, three named "Refresh".</text>
+  <text x="44" y="294" class="muted" font-size="11">The solid-accent slot sits on Refresh all, not on the write.</text>
+  <text x="44" y="312" class="muted" font-size="11">Regenerate thumbnail is hover-only on the player.</text>
+
+  <!-- AFTER: Metadata header -->
+  <rect x="496" y="104" width="440" height="236" rx="8" class="surface" />
+  <text x="516" y="132" class="label muted">METADATA</text>
+  <text x="872" y="132" class="muted" font-size="11">9 fields</text>
+  <rect x="516" y="148" width="150" height="26" rx="6" class="quiet" />
+  <text x="528" y="165" class="muted" font-size="12">2 sources linked &#8964;</text>
+  <rect x="674" y="148" width="70" height="26" rx="6" class="quiet" />
+  <text x="686" y="165" class="muted" font-size="12">&#10227; Sync</text>
+  <rect x="752" y="148" width="124" height="26" rx="6" class="accent" />
+  <text x="764" y="165" class="accentInk" font-size="12" font-weight="500">Write 3 changes</text>
+  <rect x="516" y="186" width="400" height="92" rx="6" fill="#181310" stroke="#2a2622" />
+  <text x="530" y="208" class="ink" font-size="12">tmdb</text>
+  <text x="790" y="208" class="muted" font-size="11">synced 2h ago  &#8943;</text>
+  <text x="530" y="232" class="ink" font-size="12">imdb</text>
+  <text x="790" y="232" class="muted" font-size="11">synced 2h ago  &#8943;</text>
+  <line x1="530" y1="246" x2="902" y2="246" class="rule" />
+  <text x="530" y="266" class="muted" font-size="11">Extract from filename · Regenerate thumbnail</text>
+  <text x="516" y="304" class="muted" font-size="11">One Sync (file re-extract + every linked provider). The popover</text>
+  <text x="516" y="322" class="muted" font-size="11">holds per-provider exceptions. The write takes the solid accent.</text>
+
+  <!-- TODAY: audit group -->
+  <rect x="24" y="360" width="440" height="256" rx="8" class="surface" />
+  <text x="44" y="388" class="label muted">PAGE BOTTOM · OWNER AUDIT GROUP</text>
+  <text x="44" y="414" class="muted" font-size="12">File  (unchanged)</text>
+  <text x="44" y="446" class="muted" font-size="13">&#9656; Enrichment data: File Extraction (14)</text>
+  <text x="44" y="472" class="muted" font-size="13">&#9656; Enrichment data: tmdb (22)</text>
+  <text x="44" y="498" class="muted" font-size="13">&#9656; Enrichment data: imdb (9)</text>
+  <text x="44" y="540" class="muted" font-size="11">One toggle per source, two layouts (a table for the file,</text>
+  <text x="44" y="558" class="muted" font-size="11">a label/value grid for providers). Provider image fields</text>
+  <text x="44" y="576" class="muted" font-size="11">render the poster a second time at max-h-64.</text>
+
+  <!-- AFTER: audit group -->
+  <rect x="496" y="360" width="440" height="256" rx="8" class="surface" />
+  <text x="516" y="388" class="label muted">PAGE BOTTOM · OWNER AUDIT GROUP</text>
+  <text x="516" y="414" class="muted" font-size="12">File  (unchanged)</text>
+  <text x="516" y="446" class="ink" font-size="13">&#9662; Source data</text>
+  <text x="608" y="446" class="muted" font-size="13">· 3 sources, 45 keys</text>
+  <rect x="516" y="460" width="48" height="24" rx="6" class="outline" />
+  <text x="528" y="476" class="accent" font-size="12">File</text>
+  <rect x="570" y="460" width="56" height="24" rx="6" class="quiet" />
+  <text x="582" y="476" class="muted" font-size="12">tmdb</text>
+  <rect x="632" y="460" width="56" height="24" rx="6" class="quiet" />
+  <text x="644" y="476" class="muted" font-size="12">imdb</text>
+  <line x1="516" y1="508" x2="916" y2="508" class="rule" />
+  <text x="516" y="502" class="mono muted">title</text>
+  <text x="640" y="502" class="ink" font-size="12">Blade Runner 2049</text>
+  <line x1="516" y1="532" x2="916" y2="532" class="rule" />
+  <text x="516" y="526" class="mono muted">poster_url</text>
+  <text x="640" y="526" class="mono ink">…/w500/gajva2L0.jpg</text>
+  <text x="516" y="566" class="muted" font-size="11">One disclosure, a source switcher (radiogroup), one key/value</text>
+  <text x="516" y="584" class="muted" font-size="11">table for every source. Image fields show their URL as text.</text>
+</svg>

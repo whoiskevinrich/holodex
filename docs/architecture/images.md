@@ -17,11 +17,18 @@ Image bytes live on disk under `DATA_PATH`; the DB holds one metadata row per im
 | `person-images/` (`PersonImagePath`) | `{person_id}/{image_id}{ext}` | `person_images` |
 | `studio-images/` (`StudioImagePath`) | `{studio_id}/{image_id}{ext}` | `studio_images` |
 | `film-images/` (`FilmImagePath`) | `{film_id}/{image_id}{ext}` | `film_images` |
+| `tag-images/` (`TagImagePath`) | `{tag_id}/{image_id}{ext}` | `tag_images` |
 | `provider-icons/` (`ProviderIconPath`) | `{icon_id}{ext}` (flat) | `provider_icons` |
 
 - **Server-assigned paths only.** A filename is the row id; no request value, provider name or URL
   ever becomes a path component. `internal/entityimage` owns the per-entity layout (`Store`, `Find`,
-  `Remove`) behind `personimage` / `studioimage` / `filmimage`; `providericon` mirrors it flat.
+  `Remove`, `Move`) behind `personimage` / `studioimage` / `filmimage` / `tagimage`; `providericon`
+  mirrors it flat.
+- **A tag has one slot and only owner uploads** (F82), so `tag_images` carries no role, source or
+  provider column. A tag merge hands the loser's row to a survivor that has none (`UPDATE OR IGNORE`
+  against `UNIQUE(tag_id)`, inside the merge transaction), and the merge handler then moves the file
+  with `entityimage.Move` or removes it. A tag with an image counts as owner-authored, so the orphan
+  sweep never deletes it and strands the file.
 - **The row id is the cache version.** A replace is delete + insert, so the id changes and the
   served `?v={id}` changes. There is no version column.
 - **Separate tables per entity, by design.** They diverge (person has a gallery and `sort_order`;
@@ -59,13 +66,15 @@ Each store has a public typed route; mutations sit behind `requireOwner`.
 
 - **Routes:** `GET /api/v1/people/{id}/image/{role}` and `/people/{id}/images/{imageId}`,
   `GET /api/v1/studios/{id}/images/{role}`, `GET /api/v1/films/{id}/images/{role}`,
+  `GET /api/v1/tags/{id}/image`,
   `GET /api/v1/providers/{name}/icon` (`{name}` selects a row, never a file).
 - **Headers:** a stored file is served `Cache-Control: public, max-age=31536000, immutable` with
   `X-Content-Type-Options: nosniff` and a `Content-Type` from `entityimage.ContentType` (an explicit
   extension map, not `mime.TypeByExtension`, which reads the Windows registry). Read models emit the
   URL already stamped `?v={id}`.
 - **Empty slot:** a person role serves a generated placeholder SVG (gender bucket from the enriched
-  `gender` field, `max-age=300`). Studio, film and provider-icon routes `404`; the SPA owns that state.
+  `gender` field, `max-age=300`). Studio, film, tag and provider-icon routes `404`; the SPA owns that
+state.
 
 **Rejected:** ETag or short `max-age` revalidation — a round-trip per view where a stamp is free.
 

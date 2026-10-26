@@ -99,14 +99,15 @@ func (h *Handlers) studioProviders(rows []repo.EnrichmentRow) []string {
 // vocabulary. Mirrors personResolve; degraded reads log and resolve without the
 // failing layer. Also returns the synthesized field list, so callers (e.g. the F55
 // completeness breakdown panel) can score the same resolve pass instead of
-// re-resolving from scratch.
-func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio) ([]resolver.ResolvedField, []mapping.Field) {
-	return h.resolveStudio(r.Context(), id, s)
+// re-resolving from scratch. owner lists each merge field's removals (F30.3g); pass
+// it only for an authorized read.
+func (h *Handlers) studioResolved(r *http.Request, id int64, s *model.Studio, owner bool) ([]resolver.ResolvedField, []mapping.Field) {
+	return h.resolveStudio(r.Context(), id, s, owner)
 }
 
 // resolveStudio is the ctx-based core of studioResolved, so it is callable off the
 // request path. Degraded reads log and resolve without the failing layer.
-func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio) ([]resolver.ResolvedField, []mapping.Field) {
+func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio, owner bool) ([]resolver.ResolvedField, []mapping.Field) {
 	rows, err := h.repo.EnrichmentForEntity(ctx, model.EnrichEntityStudio, id)
 	if err != nil {
 		h.log.Warn("enrichment for studio detail", "id", id, "err", err)
@@ -127,7 +128,9 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio)
 	fields := studioFields(h.studioProviders(rows))
 	fields, promoted := h.mergePromotions(ctx, model.EnrichEntityStudio, fields, rows)
 	fields = h.mergeClaims(ctx, model.EnrichEntityStudio, fields)
-	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
+	opts := h.resolveOptions(dec)
+	opts.ListRemoved = owner
+	resolved := resolver.ResolveFields(resolver.NewStudioBaseline(s), enrichmentFromRows(rows), cur, fields, opts)
 	h.markPromoted(resolved, promoted)
 	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved)), fields
 }
@@ -190,7 +193,7 @@ func (h *Handlers) getStudio(w http.ResponseWriter, r *http.Request) {
 	setStudioImageURLs(s)
 	// Videos load through GET /media?studio_id=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	resolved, fields := h.studioResolved(r, id, s)
+	resolved, fields := h.studioResolved(r, id, s, authorized)
 	var completeness *resolver.Completeness
 	if authorized {
 		na, naErr := h.repo.FacetsNotApplicableForEntity(r.Context(), model.EnrichEntityStudio, id)

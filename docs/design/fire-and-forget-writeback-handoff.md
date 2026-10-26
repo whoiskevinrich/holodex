@@ -28,7 +28,7 @@ would be a fourth thing to read in the state where nothing is wrong.
 
 ADR-073 introduced the dialog's wait because refetching on the `202` returns *pre-write*
 state — `resolved[]` recomputes `in_sync` against the old baseline, and fields that were
-just written render as "file out of sync". Closing the dialog early **without** a page-level
+just written render as "file differs". Closing the dialog early **without** a page-level
 pending signal reproduces exactly that failure: the user submits, the dialog vanishes, the
 section still reads "3 out of sync", and the reasonable response is to write again.
 
@@ -60,10 +60,10 @@ Tokens only — no hardcoded values. QA Cinémathèque per `.claude/rules/fronte
 | `text-ink` | Section label, field values |
 | `text-muted` | Secondary copy, `was:` line, action row |
 | `bg-surface` | Chip fill |
-| `rounded-full` | Chip shape, matching the existing `file out of sync` pill |
+| `rounded-full` | Chip shape, matching the existing `file differs` pill |
 | `text-[0.65rem]` | Chip label size, matching `SourceBadge`'s pill |
 
-The pending chip deliberately reuses the geometry of the existing `file out of sync` pill in
+The pending chip deliberately reuses the geometry of the existing `file differs` pill in
 `SourceBadge.svelte` so the two read as one family.
 
 ## States and interactions
@@ -152,7 +152,7 @@ last chance to notice you left a row checked). A post-action status count only t
 can no longer act on field-by-field, because the write is atomic. Scope counts, status doesn't.
 
 This changes the existing `· {outOfSyncN} out of sync` text in the media page action row. The
-per-field `file out of sync` pill on individual rows (`SourceBadge`) is unchanged
+per-field `file differs` pill on individual rows (`SourceBadge`) is unchanged
 and never carried a count — the section badge now matches its wording, which is what makes the two
 read as one system.
 

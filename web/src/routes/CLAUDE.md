@@ -39,8 +39,8 @@ Gate the affordance, never the value: `{#if isOwner || hasValue}`, not a bare `{
 wrapped round the whole section. Visitors get values plus their `ProvenanceBadge`; owners
 additionally get `SourceBadge`, the enrichment controls, writeback and the edit affordances.
 
-Blocks that are wholly owner machinery — Manage, Completeness, File, the `Enrichment data:`
-payload disclosures — are the exception and stay fully gated.
+Blocks that are wholly owner machinery — Manage, Completeness, File, the `Source data` payload
+disclosure — are the exception and stay fully gated.
 
 **A fold is not a gate, and the two field-list folds differ on purpose.** The media Metadata fold
 is closed for the owner only, and visitors get it open with no chevron. The Person Details fold
@@ -80,8 +80,8 @@ isn't `curatable` (an image or merge field would get the wrong editor).
 
 ## Page-bottom audit group
 
-`File` and the `Enrichment data:` disclosures are one owner-only group at the very bottom, in that
-order, and never separate. They sit inside `max-w-stage` so `field-grid` gets real width for the
+`File` and the `Source data` disclosure (HOLODEX-97) are one owner-only group at the very bottom,
+in that order, and never separate. They sit inside `max-w-stage` so `field-grid` gets real width for the
 `col-span-full` `Path:` row.
 
 ## Width scope

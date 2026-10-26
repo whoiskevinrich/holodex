@@ -252,6 +252,25 @@ export const PREPARATIONS = {
 		}
 		// Past the 250ms hover-intent delay plus the /card round trip.
 		await page.waitForSelector('.person-hover-card a[href$="#videos"]', { state: 'attached', timeout: 5000 });
+	},
+	// The sixth kind is a remembered choice: a list page's view (F82: Media/People/Tags
+	// Table, Tags Posters) lives in localStorage, never the URL, so no `urls` entry can
+	// reach it. This writes the page's key, reloads, waits for the view's toggle cell to be
+	// pressed, then removes the key again: the page read it once at mount, and leaving it
+	// would carry the view to every later page in this width cell's shared context. The
+	// list comes from the URL, so one assertion can name all three pages. Idempotent: a
+	// page already showing the view is left be.
+	view: async (page, view) => {
+		const list = { '/': 'media', '/people': 'people', '/tags': 'tags' }[new URL(page.url()).pathname];
+		if (!list) throw new Error(`view preparation: ${page.url()} is not a list page with views`);
+		const key = `holodex:view:${list}`;
+		const pressed = `button[aria-label="${view[0].toUpperCase()}${view.slice(1)} view"][aria-pressed="true"]`;
+		if ((await page.locator(pressed).count()) === 0) {
+			await page.evaluate(([k, v]) => localStorage.setItem(k, v), [key, view]);
+			await page.reload({ waitUntil: 'networkidle' });
+			await page.locator(pressed).waitFor({ state: 'attached', timeout: 10000 });
+		}
+		await page.evaluate((k) => localStorage.removeItem(k), key);
 	}
 };
 
@@ -332,6 +351,7 @@ export async function probe(page, selector) {
 					overflowY: measurableY ? el.scrollHeight - el.clientHeight : null,
 					// window.innerWidth, not clientWidth: it is the width placeCard clamps against.
 					gutterRight: Math.round((window.innerWidth - rect.right) * 100) / 100,
+				aspect: rect.height > 0 ? Math.round((rect.width / rect.height) * 1000) / 1000 : null,
 					mainTop: mainTopEdge === null ? null : Math.round((rect.top - mainTopEdge) * 100) / 100,
 					fontSize: parseFloat(style.fontSize) || 0,
 					visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden',

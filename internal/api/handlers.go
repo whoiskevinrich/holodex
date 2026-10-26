@@ -66,6 +66,8 @@ type Handlers struct {
 	log        *slog.Logger
 	thumbs     thumbnailer
 	thumbDir   string
+	montages   montager // hover montages (F83); nil when not wired
+	montageDir string
 	scanner    rescanner
 	metrics    searchMetrics
 	mappings   *mapping.Store    // configurable metadata fields (F20); nil disables them
@@ -115,6 +117,12 @@ type Handlers struct {
 	studioImageDir      string
 	studioImageMaxBytes int64
 	studioImageMaxDim   int
+
+	// Tag images (F82; the owner's one poster per tag). Same bounds as studio images.
+	// Zero tagImageDir leaves the serve route 404 and uploads 503.
+	tagImageDir      string
+	tagImageMaxBytes int64
+	tagImageMaxDim   int
 
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). filmImageDir is the
 	// on-disk root; the bounds guard untrusted uploads like studioImage's. Zero
@@ -241,6 +249,14 @@ func (h *Handlers) SetStudioImages(dir string, maxBytes int64, maxDim int) {
 	h.studioImageMaxDim = maxDim
 }
 
+// SetTagImages wires tag image storage (F82): the on-disk root and the upload bounds —
+// mirrors SetStudioImages. Called once at startup.
+func (h *Handlers) SetTagImages(dir string, maxBytes int64, maxDim int) {
+	h.tagImageDir = dir
+	h.tagImageMaxBytes = maxBytes
+	h.tagImageMaxDim = maxDim
+}
+
 // SetFilmImages wires film image storage (F56/HOLODEX-280, ADR-086): the on-disk
 // root, the upload bounds, and the downscale bound — mirrors SetStudioImages. An
 // empty dir leaves the serve routes returning 404 (the SPA renders its own fallback)
@@ -345,10 +361,12 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/media/{id}/related", h.getRelated)
 	r.Get("/media/{id}/stream", h.streamMedia)
 	r.Get("/media/{id}/thumbnail", h.serveThumbnail)
-	r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 	// Detail-page poster tier (F53, HOLODEX-253) — public read, mirrors
 	// /thumbnail's posture exactly; falls back to thumbnail bytes (servePoster).
 	r.Get("/media/{id}/poster", h.servePoster)
+	// Hover montage (F83, HOLODEX-578) — public read like the still; the request
+	// and status routes below are owner-only.
+	r.Get("/media/{id}/montage", h.serveMontage)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
 	// Films (F56, ADR-085) — unregistered entirely when films_enabled is off,
@@ -384,6 +402,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/people/{id}/images/{imageId}", h.servePersonImageByID)
 	r.Get("/tags", h.listTags)
 	r.Get("/tags/{id}", h.getTag)
+	// Tag poster image (F82) — public read, or 404 (the SPA draws its placeholder).
+	r.Get("/tags/{id}/image", h.serveTagImage)
 	// Tag Categories (HOLODEX-240, ADR-078) — public reads; mutations gated below.
 	h.mountCategories(r)
 	h.mountPlaylists(r) // visibility-filtered reads (F69, ADR-104 D5)
@@ -429,6 +449,8 @@ func (h *Handlers) Mount(r chi.Router) {
 		h.mountPersonImages(r)
 		// Studio images — owner-gated upload/delete for icon/logo/poster (F51, ADR-079).
 		h.mountStudioImages(r)
+		// Tag images — owner-gated upload/delete of a tag's poster (F82).
+		h.mountTagImages(r)
 		// Films — create + attach/detach/bulk-attach (F56, ADR-085); unregistered
 		// entirely when films_enabled is off, mirroring the public routes above.
 		if h.filmsEnabled {
@@ -440,6 +462,12 @@ func (h *Handlers) Mount(r chi.Router) {
 		// Video poster — owner-gated upload/remove, a new tier on the existing
 		// thumbnail pipeline (F52, HOLODEX-252).
 		h.mountVideoPoster(r)
+		// Thumbnail regenerate (F11.6) — resets state and queues high-priority ffmpeg
+		// work, so owner-only; the GET above stays public (HOLODEX-596).
+		r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
+		// Hover montage request and status (F83): a request starts ffmpeg work.
+		r.Post("/media/{id}/montage", h.requestMontage)
+		r.Get("/media/{id}/montage/status", h.montageStatus)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
@@ -533,6 +561,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // it so a tile renders, and redacts, identically on both (ADR-121 D3).
 func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
 	h.prepareThumbnails(items)
+	h.prepareMontages(ctx, items)
 	if h.mappings != nil {
 		h.applyBrowseTitles(ctx, items, h.mappings.Current().Fields())
 	}
@@ -780,6 +809,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setThumbnailURL(v)
+	h.setMontageURL(v)
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
@@ -878,6 +908,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// below, so an offered row is writable in the dialog.
 			if authorized {
 				opts.Offer = registry.OffersWhenEmpty
+				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			h.markPromoted(resolved, promoted)
@@ -1032,6 +1063,7 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 	for _, shelf := range []*repo.RelatedShelf{related.Person, related.Tag} {
 		if shelf != nil {
 			h.prepareThumbnails(shelf.Items)
+			h.prepareMontages(r.Context(), shelf.Items)
 			h.applyPartsTo(r.Context(), shelf.Items)
 			redactFileMetadataForVisitors(shelf.Items, isOwner)
 		}
@@ -1379,7 +1411,7 @@ func (h *Handlers) getPerson(w http.ResponseWriter, r *http.Request) {
 	// The person's videos are not embedded: the page loads them through GET
 	// /media?person=<id> with paging (ADR-121 D6, HOLODEX-501).
 	authorized := h.auth.authorized(r)
-	resolved, fields := h.personResolve(r, id, p)
+	resolved, fields := h.personResolve(r, id, p, authorized)
 	images := h.personImageSet(r, id) // F25: per-role presence + version + gallery
 	var completeness *resolver.Completeness
 	if authorized {
@@ -1456,6 +1488,9 @@ func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list tags", err)
 		return
 	}
+	for i := range tags {
+		setTagImageURL(&tags[i])
+	}
 	writeJSON(w, http.StatusOK, p.envelope(tags, total, nil))
 }
 
@@ -1473,6 +1508,7 @@ func (h *Handlers) getTag(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "get tag", err)
 		return
 	}
+	setTagImageURL(t)
 	// Videos load through GET /media?tag=<id> with paging (ADR-121 D6, HOLODEX-501).
 	writeJSON(w, http.StatusOK, map[string]any{"tag": t})
 }
@@ -1621,8 +1657,10 @@ func curationFromRows(rows []repo.CurationRow) resolver.Curation {
 		case repo.CurationSuppress:
 			if fc.Suppress == nil {
 				fc.Suppress = make(map[string]bool)
+				fc.SuppressedAs = make(map[string]string)
 			}
 			fc.Suppress[r.NormValue] = true
+			fc.SuppressedAs[r.NormValue] = r.Value
 		case repo.CurationNoWrite:
 			if fc.NoWrite == nil {
 				fc.NoWrite = make(map[string]bool)

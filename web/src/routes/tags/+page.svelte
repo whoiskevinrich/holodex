@@ -26,6 +26,12 @@
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import { PopoverMenu } from '#lib/actions/popoverMenu.svelte.ts';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
+	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
+	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import { TAG_COLUMNS } from '#lib/listColumns.ts';
+	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
+	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
+	import { effectiveDensity } from '#lib/density.svelte.ts';
 
 	// Sort and the All/Tags/Categories type are one F73 list state (ADR-114): sort sticky +
 	// in the URL, type in the URL only (`?type=`), both held by ListController.
@@ -70,6 +76,25 @@
 	// pill-native "Manage tags" mode: selectable pills + a Merge bar, and a per-pill ⋯ menu
 	// (rename / add alias / merge into…). No decision chips. Everything owner-gated.
 	let manage = $state(false);
+
+	// Chips, Posters or Table (F82), remembered per page; only the toggle writes it (F73 R7).
+	// Manage tags works in every view: each tag's ⋯ menu rides its pill, card or row (P0-8);
+	// selecting several for a bulk action stays in Chips.
+	let activeView = $state(readView('tags'));
+	let viewEl = $state<HTMLElement>(); // the Posters grid or the Table's wrapper
+	// One Posters card / Table row per tag, then per category (the All tab's stream, EL8).
+	type TagRow = { kind: 'tag'; tag: Tag } | { kind: 'category'; cat: Category };
+	const baseColumns = TAG_COLUMNS.map((c) => ({
+		...c,
+		cell: { name: nameCell, videos: countCell, parent: parentCell }[c.id]!
+	}));
+	// While managing, a trailing ⋯ column; unclipped so its menu can open past the cell.
+	const tableColumns = $derived(
+		manage
+			? [...baseColumns, { id: 'menu', header: 'Actions', hideHeader: true, align: 'right' as const, width: '40px', noClip: true, cell: menuCell }]
+			: baseColumns
+	);
+	const posterCols = $derived(effectiveDensity());
 
 	// Select-to-merge: pick 2+ pills, then choose the surviving name in MergeCanonicalDialog
 	// (mirrors /people).
@@ -224,6 +249,10 @@
 			(showCategories ? categories.total - visibleCategories.length : 0)
 	);
 	const pillError = $derived(tags.error || categories.error);
+	const tableRows = $derived<TagRow[]>([
+		...visibleTags.map((tag) => ({ kind: 'tag' as const, tag })),
+		...visibleCategories.map((cat) => ({ kind: 'category' as const, cat }))
+	]);
 	let pillsEl = $state<HTMLElement>();
 
 	// Once the tags run out, a categories list that was only counted reads its first page.
@@ -245,8 +274,12 @@
 		if (pillsLeft === 0) {
 			await tick();
 			// The first new pill's focus target: its link, or in Manage mode a tag's select
-			// button (HOLODEX-589).
-			pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')[before]?.focus();
+			// button (HOLODEX-589). In Table view, the first new row's link.
+			const targets =
+				activeView === 'chips'
+					? pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')
+					: viewEl?.querySelectorAll<HTMLElement>('a[href]');
+			targets?.[before]?.focus();
 		}
 	}
 	const emptyMessage = $derived(
@@ -588,54 +621,6 @@
 </script>
 
 <section class="space-y-4">
-	<!-- Decorative tag-glyph icon shared by both category pill variants below. -->
-	{#snippet categoryIcon()}
-		<svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-			<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
-		</svg>
-	{/snippet}
-
-	<!-- Non-blocking near-miss (P1-5): an edit/create already saved; this is an advisory
-	     nudge. "Keep both" records keep-separate so it won't nag again. Shared by the
-	     per-pill ⋯ menu and the standing create pill (HOLODEX-243) — same copy, same
-	     actions, wired to whichever tag id is relevant. -->
-	{#snippet nearMissCard(
-		target: EntityRef,
-		busy: boolean,
-		error: string,
-		onMerge: () => void,
-		onKeepBoth: () => void
-	)}
-		<div class="space-y-2 p-1">
-			<p class="text-sm text-ink">
-				Saved. Looks a lot like
-				<span class="font-semibold">{target.name}</span>
-				({videoCount(target.video_count ?? 0)}) — merge them?
-			</p>
-			<div class="flex flex-wrap gap-2">
-				<button
-					type="button"
-					onclick={onMerge}
-					disabled={busy}
-					class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-				>
-					Merge them in
-				</button>
-				<button
-					type="button"
-					onclick={onKeepBoth}
-					disabled={busy}
-					class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
-				>
-					Keep both
-				</button>
-			</div>
-			{#if error}
-				<p class="text-sm text-warn">{error}</p>
-			{/if}
-		</div>
-	{/snippet}
 
 	<h1 class="skin-title text-2xl font-semibold text-ink">Tags</h1>
 
@@ -678,6 +663,12 @@
 		{#snippet sort()}
 			<SortDropdown compact options={TAG_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
 		{/snippet}
+		{#snippet view()}
+			<ViewToggle options={PAGE_VIEWS.tags} bind:view={activeView} onchange={(v) => writeView('tags', v)} />
+			{#if activeView === 'posters'}
+				<DensitySlider />
+			{/if}
+		{/snippet}
 	</ListToolbar>
 
 	{#if query.trim()}
@@ -710,7 +701,11 @@
 		<button onclick={exitManage} class="btn-ghost h-8 shrink-0 px-3 text-sm">Done</button>
 	{/snippet}
 	{#snippet manageHint()}
-		Select two or more, then merge; or use a tag’s ⋯ menu to rename, alias, or merge into another.
+		{#if activeView === 'chips'}
+			Select two or more, then merge; or use a tag’s ⋯ menu to rename, alias, or merge into another.
+		{:else}
+			Use a tag’s ⋯ menu to rename, alias, or merge into another. Switch to Chips to select several.
+		{/if}
 		{#if selectHint}<span class="text-warn">{selectHint}</span>{/if}
 		{#if catPickerHint}<span class="text-warn">{catPickerHint}</span>{/if}
 		{#if bulkError}<span class="text-warn">{bulkError}</span>{/if}
@@ -798,6 +793,7 @@
 					{/if}
 				</div>
 			{/if}
+			{#if activeView === 'chips'}
 			{#each visibleTags as t (t.id)}
 				{#if manage}
 					{@const selected = selectedIds.includes(t.id)}
@@ -819,185 +815,10 @@
 							{t.name}
 							<span class="text-xs text-muted">{t.video_count}</span>
 						</button>
-						<!-- ⋯ opens the per-pill identity menu. -->
-						<button
-							type="button"
-							bind:this={tagMenu.triggers[t.id]}
-							onclick={() => tagMenu.toggle(t.id, () => firstItem?.focus())}
-							aria-haspopup="menu"
-							aria-expanded={tagMenu.isOpen(t.id)}
-							aria-label={`Tag actions: ${t.name}`}
-							class="inline-flex items-center rounded-r-full border-l border-rule px-2 text-muted hover:text-accent"
-						>
-							⋯
-						</button>
+						<!-- ⋯ opens the per-tag identity menu (shared with Posters cards and Table rows). -->
+						{@render tagMenuButton(t, 'inline-flex items-center rounded-r-full border-l border-rule px-2 text-muted hover:text-accent')}
 
-						{#if tagMenu.isOpen(t.id)}
-							<div
-								role="menu"
-								class="absolute right-0 top-full z-10 mt-1 min-w-[13rem] rounded-theme border border-rule bg-surface-2 p-1 shadow-sm"
-							>
-								{#if tagMenu.action === 'menu'}
-									<button
-										bind:this={firstItem}
-										role="menuitem"
-										type="button"
-										onclick={() => startAction('rename', t)}
-										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
-									>
-										Rename
-									</button>
-									<button
-										role="menuitem"
-										type="button"
-										onclick={() => startAction('alias', t)}
-										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
-									>
-										Add alias
-									</button>
-									<button
-										role="menuitem"
-										type="button"
-										onclick={() => startAction('parent', t)}
-										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
-									>
-										{t.parent_tag_id ? 'Change parent…' : 'Set parent…'}
-									</button>
-									<button
-										role="menuitem"
-										type="button"
-										onclick={() => {
-											mergeInto = t;
-											tagMenu.close(false);
-										}}
-										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
-									>
-										Merge into…
-									</button>
-									<button
-										role="menuitem"
-										type="button"
-										onclick={() => {
-											openAddToCategory([t.id]);
-											tagMenu.close(false);
-										}}
-										class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
-									>
-										Add to category…
-									</button>
-								{:else if actionNearMiss}
-									{@render nearMissCard(actionNearMiss, tagMenu.busy, tagMenu.error, () => mergeNearMiss(t.id), () => keepBoth(t.id))}
-								{:else if tagMenu.action === 'parent'}
-									<!-- Hierarchy: set/clear parent (P1-2). Typeahead is a <datalist> over the
-									     already-loaded tag list -- no new search endpoint. -->
-									<form onsubmit={(e) => submitParent(e, t)} class="space-y-2 p-1">
-										{#if t.parent_tag_id}
-											<p class="text-sm text-ink">
-												Parent: {parentName || '—'}
-												<button
-													type="button"
-													onclick={() => applyParent(t, null)}
-													disabled={tagMenu.busy}
-													class="btn-quiet ml-1"
-												>
-													Clear
-												</button>
-											</p>
-										{/if}
-										<input
-											bind:this={actionInput}
-											bind:value={tagMenu.value}
-											oninput={() => parentSearch.set(tagMenu.value)}
-											type="text"
-											list={`parent-options-${t.id}`}
-											placeholder="New parent tag"
-											aria-label={`Set parent for ${t.name}`}
-											class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
-										/>
-										<datalist id={`parent-options-${t.id}`}>
-											{#each parentSearch.items.filter((x) => x.id !== t.id) as opt (opt.id)}
-												<option value={opt.name}></option>
-											{/each}
-										</datalist>
-										<div class="flex flex-wrap gap-2">
-											<button type="submit" disabled={tagMenu.busy} class="btn-accent px-3 py-1.5 text-sm">
-												Set parent
-											</button>
-											<button
-												type="button"
-												onclick={() => tagMenu.close()}
-												disabled={tagMenu.busy}
-												class="btn-ghost px-3 py-1.5 text-sm"
-											>
-												Cancel
-											</button>
-										</div>
-										{#if tagMenu.error}
-											<p class="text-sm text-warn">{tagMenu.error}</p>
-										{/if}
-									</form>
-								{:else}
-									<!-- Inline rename/alias editor. A collision offers a merge instead of a
-									     silent fold (never auto-merge homonyms). -->
-									<form onsubmit={(e) => submitAction(e, t.id)} class="space-y-2 p-1">
-										<input
-											bind:this={actionInput}
-											bind:value={tagMenu.value}
-											type="text"
-											placeholder={tagMenu.action === 'rename' ? 'New name' : 'Add an alias'}
-											aria-label={tagMenu.action === 'rename' ? `Rename ${t.name}` : `Add an alias for ${t.name}`}
-											class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
-										/>
-										{#if actionConflict}
-											<p class="text-sm text-ink">
-												<span class="font-semibold">{actionConflict.name}</span>
-												({videoCount(actionConflict.video_count ?? 0)}) is already a separate tag. Merge
-												them in?
-											</p>
-											<div class="flex flex-wrap gap-2">
-												<button
-													type="button"
-													onclick={() => mergeConflict(t.id)}
-													disabled={tagMenu.busy}
-													class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-												>
-													Yes, merge them in
-												</button>
-												<button
-													type="button"
-													onclick={() => tagMenu.close()}
-													disabled={tagMenu.busy}
-													class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
-												>
-													No, keep separate
-												</button>
-											</div>
-										{:else}
-											<div class="flex flex-wrap gap-2">
-												<button
-													type="submit"
-													disabled={tagMenu.busy}
-													class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
-												>
-													{tagMenu.action === 'rename' ? 'Rename' : 'Add'}
-												</button>
-												<button
-													type="button"
-													onclick={() => tagMenu.close()}
-													disabled={tagMenu.busy}
-													class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
-												>
-													Cancel
-												</button>
-											</div>
-										{/if}
-										{#if tagMenu.error}
-											<p class="text-sm text-warn">{tagMenu.error}</p>
-										{/if}
-									</form>
-								{/if}
-							</div>
-						{/if}
+						{@render tagMenuPanel(t)}
 					</div>
 				{:else}
 					<a
@@ -1108,7 +929,33 @@
 					</a>
 				{/if}
 			{/each}
+			{/if}
 		</div>
+		{#if activeView === 'posters' && tableRows.length > 0}
+			<!-- Posters (F82 P0-9): the media grid's column rule and the shared density value. -->
+			<div
+				bind:this={viewEl}
+				class="grid gap-4 {isOwner ? 'pt-3' : ''}"
+				style="grid-template-columns: repeat({posterCols}, minmax(0, 1fr))"
+			>
+				{#each tableRows as r (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
+					{@render posterCard(r)}
+				{/each}
+			</div>
+		{:else if activeView === 'table'}
+			<div bind:this={viewEl} class={isOwner ? 'pt-3' : ''}>
+				<ListTable
+					columns={tableColumns}
+					items={tableRows}
+					key={(r) => (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
+					href={(r) => (r.kind === 'tag' ? `/tags/${r.tag.id}` : `/categories/${r.cat.id}`)}
+					sort={sortBy}
+					sorts={TAG_SORTS}
+					owner={isOwner}
+					onsort={(s) => list.setSort(s)}
+				/>
+			</div>
+		{/if}
 		<LoadMoreButton
 			left={pillsLeft}
 			loading={tags.loadingMore || categories.loadingMore}
@@ -1123,6 +970,323 @@
 	{/if}
 	</div>
 </section>
+
+
+<!-- The per-tag identity menu (F43 RD7): one ⋯ trigger and one panel, rendered by the Chips
+     pill, the Posters card and the Table row while Manage tags is on (F82 P0-8), so the three
+     can't drift. The wrapper that holds them carries data-tag-pill for the dismissable. -->
+{#snippet tagMenuButton(t: Tag, cls: string)}
+	<button
+		type="button"
+		bind:this={tagMenu.triggers[t.id]}
+		onclick={() => tagMenu.toggle(t.id, () => firstItem?.focus())}
+		aria-haspopup="menu"
+		aria-expanded={tagMenu.isOpen(t.id)}
+		aria-label={`Tag actions: ${t.name}`}
+		class={cls}
+	>
+		⋯
+	</button>
+{/snippet}
+{#snippet tagMenuPanel(t: Tag)}
+	{#if tagMenu.isOpen(t.id)}
+		<div
+			role="menu"
+			class="absolute right-0 top-full z-10 mt-1 min-w-[13rem] rounded-theme border border-rule bg-surface-2 p-1 shadow-sm"
+		>
+			{#if tagMenu.action === 'menu'}
+				<button
+					bind:this={firstItem}
+					role="menuitem"
+					type="button"
+					onclick={() => startAction('rename', t)}
+					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+				>
+					Rename
+				</button>
+				<button
+					role="menuitem"
+					type="button"
+					onclick={() => startAction('alias', t)}
+					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+				>
+					Add alias
+				</button>
+				<button
+					role="menuitem"
+					type="button"
+					onclick={() => startAction('parent', t)}
+					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+				>
+					{t.parent_tag_id ? 'Change parent…' : 'Set parent…'}
+				</button>
+				<button
+					role="menuitem"
+					type="button"
+					onclick={() => {
+						mergeInto = t;
+						tagMenu.close(false);
+					}}
+					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+				>
+					Merge into…
+				</button>
+				<button
+					role="menuitem"
+					type="button"
+					onclick={() => {
+						openAddToCategory([t.id]);
+						tagMenu.close(false);
+					}}
+					class="block w-full rounded-theme px-3 py-1.5 text-left text-sm text-ink hover:bg-surface"
+				>
+					Add to category…
+				</button>
+			{:else if actionNearMiss}
+				{@render nearMissCard(actionNearMiss, tagMenu.busy, tagMenu.error, () => mergeNearMiss(t.id), () => keepBoth(t.id))}
+			{:else if tagMenu.action === 'parent'}
+				<!-- Hierarchy: set/clear parent (P1-2). Typeahead is a <datalist> over the
+				     already-loaded tag list -- no new search endpoint. -->
+				<form onsubmit={(e) => submitParent(e, t)} class="space-y-2 p-1">
+					{#if t.parent_tag_id}
+						<p class="text-sm text-ink">
+							Parent: {parentName || '—'}
+							<button
+								type="button"
+								onclick={() => applyParent(t, null)}
+								disabled={tagMenu.busy}
+								class="btn-quiet ml-1"
+							>
+								Clear
+							</button>
+						</p>
+					{/if}
+					<input
+						bind:this={actionInput}
+						bind:value={tagMenu.value}
+						oninput={() => parentSearch.set(tagMenu.value)}
+						type="text"
+						list={`parent-options-${t.id}`}
+						placeholder="New parent tag"
+						aria-label={`Set parent for ${t.name}`}
+						class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+					/>
+					<datalist id={`parent-options-${t.id}`}>
+						{#each parentSearch.items.filter((x) => x.id !== t.id) as opt (opt.id)}
+							<option value={opt.name}></option>
+						{/each}
+					</datalist>
+					<div class="flex flex-wrap gap-2">
+						<button type="submit" disabled={tagMenu.busy} class="btn-accent px-3 py-1.5 text-sm">
+							Set parent
+						</button>
+						<button
+							type="button"
+							onclick={() => tagMenu.close()}
+							disabled={tagMenu.busy}
+							class="btn-ghost px-3 py-1.5 text-sm"
+						>
+							Cancel
+						</button>
+					</div>
+					{#if tagMenu.error}
+						<p class="text-sm text-warn">{tagMenu.error}</p>
+					{/if}
+				</form>
+			{:else}
+				<!-- Inline rename/alias editor. A collision offers a merge instead of a
+				     silent fold (never auto-merge homonyms). -->
+				<form onsubmit={(e) => submitAction(e, t.id)} class="space-y-2 p-1">
+					<input
+						bind:this={actionInput}
+						bind:value={tagMenu.value}
+						type="text"
+						placeholder={tagMenu.action === 'rename' ? 'New name' : 'Add an alias'}
+						aria-label={tagMenu.action === 'rename' ? `Rename ${t.name}` : `Add an alias for ${t.name}`}
+						class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 text-sm text-ink focus:border-accent focus:outline-none"
+					/>
+					{#if actionConflict}
+						<p class="text-sm text-ink">
+							<span class="font-semibold">{actionConflict.name}</span>
+							({videoCount(actionConflict.video_count ?? 0)}) is already a separate tag. Merge
+							them in?
+						</p>
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="button"
+								onclick={() => mergeConflict(t.id)}
+								disabled={tagMenu.busy}
+								class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+							>
+								Yes, merge them in
+							</button>
+							<button
+								type="button"
+								onclick={() => tagMenu.close()}
+								disabled={tagMenu.busy}
+								class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+							>
+								No, keep separate
+							</button>
+						</div>
+					{:else}
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="submit"
+								disabled={tagMenu.busy}
+								class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+							>
+								{tagMenu.action === 'rename' ? 'Rename' : 'Add'}
+							</button>
+							<button
+								type="button"
+								onclick={() => tagMenu.close()}
+								disabled={tagMenu.busy}
+								class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+							>
+								Cancel
+							</button>
+						</div>
+					{/if}
+					{#if tagMenu.error}
+						<p class="text-sm text-warn">{tagMenu.error}</p>
+					{/if}
+				</form>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+<!-- Non-blocking near-miss (P1-5): an edit/create already saved; this is an advisory
+     nudge. "Keep both" records keep-separate so it won't nag again. Shared by the
+     per-pill ⋯ menu and the standing create pill (HOLODEX-243) — same copy, same
+     actions, wired to whichever tag id is relevant. -->
+{#snippet nearMissCard(
+	target: EntityRef,
+	busy: boolean,
+	error: string,
+	onMerge: () => void,
+	onKeepBoth: () => void
+)}
+	<div class="space-y-2 p-1">
+		<p class="text-sm text-ink">
+			Saved. Looks a lot like
+			<span class="font-semibold">{target.name}</span>
+			({videoCount(target.video_count ?? 0)}) — merge them?
+		</p>
+		<div class="flex flex-wrap gap-2">
+			<button
+				type="button"
+				onclick={onMerge}
+				disabled={busy}
+				class="rounded-theme bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink disabled:opacity-60"
+			>
+				Merge them in
+			</button>
+			<button
+				type="button"
+				onclick={onKeepBoth}
+				disabled={busy}
+				class="rounded-theme border border-rule px-3 py-1.5 text-sm text-ink hover:bg-surface disabled:opacity-60"
+			>
+				Keep both
+			</button>
+		</div>
+		{#if error}
+			<p class="text-sm text-warn">{error}</p>
+		{/if}
+	</div>
+{/snippet}
+
+<!-- Decorative tag-glyph icon shared by both category pill variants and the Table view's
+     category rows. -->
+{#snippet categoryIcon()}
+	<svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+		<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+		<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+	</svg>
+{/snippet}
+
+<!-- Table view cells (F82 handoff, "Columns"); the column list is TAG_COLUMNS. A category's
+     count is its tags, and it has no parent. -->
+{#snippet nameCell(r: TagRow)}
+	{#if r.kind === 'tag'}
+		{r.tag.name}
+	{:else}
+		<span class="inline-flex min-w-0 items-center gap-1.5">{@render categoryIcon()}<span class="truncate">{r.cat.name}</span></span>
+	{/if}
+{/snippet}
+{#snippet countCell(r: TagRow)}{r.kind === 'tag' ? (r.tag.video_count ?? 0) : tagCount(r.cat.tag_count)}{/snippet}
+{#snippet parentCell(r: TagRow)}{r.kind === 'tag' ? (r.tag.parent_name ?? '') : ''}{/snippet}
+{#snippet menuCell(r: TagRow)}
+	{#if r.kind === 'tag'}
+		<span data-tag-pill class="relative inline-flex">
+			{@render tagMenuButton(r.tag, 'inline-flex h-7 w-7 items-center justify-center rounded-theme text-muted hover:text-accent')}
+			{@render tagMenuPanel(r.tag)}
+		</span>
+	{/if}
+{/snippet}
+
+<!-- A tag with no image, or a category (F82 handoff, "Tags Posters view"): a muted tag glyph
+     on surface-2 over a 3px accent baseline, the person silhouette's family. A category's glyph
+     is accent, as its pill's border is. Behind the image, so a failed load falls back to it. -->
+{#snippet tagPlaceholder(category: boolean)}
+	<span class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+		<svg
+			class="h-7 w-7 {category ? 'text-accent opacity-80' : 'text-muted opacity-55'}"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="1.5"
+		>
+			<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+			<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
+		</svg>
+	</span>
+	<span class="absolute inset-x-0 bottom-0 h-[3px] bg-accent opacity-60" aria-hidden="true"></span>
+{/snippet}
+
+<!-- One Posters card (F82 P0-9): a 16:9 frame with the tag's image contained in it (never
+     cropped: an upload can be any shape) or the placeholder, then the name and count. The
+     card lifts like People's poster cards (app.css .poster-card). While managing, a tag's
+     ⋯ sits top-right as a sibling of the link, shown on hover or focus. -->
+{#snippet posterCard(r: TagRow)}
+	{@const tag = r.kind === 'tag' ? r.tag : undefined}
+	{@const name = r.kind === 'tag' ? r.tag.name : r.cat.name}
+	{@const href = r.kind === 'tag' ? `/tags/${r.tag.id}` : `/categories/${r.cat.id}`}
+	{@const count = r.kind === 'tag' ? videoCount(r.tag.video_count ?? 0) : tagCount(r.cat.tag_count)}
+	<div class="poster-card group relative" data-tag-pill={tag ? '' : undefined}>
+		<a {href} class="block focus-visible:outline-none">
+			<span
+				class="poster-card-frame relative block aspect-video overflow-hidden rounded-theme border bg-surface-2 group-has-[a:focus-visible]:ring-2 group-has-[a:focus-visible]:ring-accent {tag?.image_url
+					? 'border-transparent'
+					: 'border-rule/50'}"
+			>
+				{@render tagPlaceholder(!tag)}
+				{#if tag?.image_url}
+					<img
+						src={tag.image_url}
+						alt={name}
+						loading="lazy"
+						onerror={(e) => ((e.currentTarget as HTMLImageElement).hidden = true)}
+						class="absolute inset-0 h-full w-full bg-surface-2 object-contain"
+					/>
+				{/if}
+			</span>
+			<span class="skin-title line-clamp-1 pt-1.5 text-sm font-medium text-ink" title={name}>{name}</span>
+		</a>
+		<span class="text-xs text-muted">{count}</span>
+		{#if manage && tag}
+			<span class="absolute right-1.5 top-1.5 z-10">
+				{@render tagMenuButton(
+					tag,
+					`inline-flex h-[22px] w-[26px] items-center justify-center rounded-theme bg-bg/80 text-ink hover:text-accent focus-visible:opacity-100 group-hover:opacity-100 ${tagMenu.isOpen(tag.id) ? 'opacity-100' : 'opacity-0'}`
+				)}
+				{@render tagMenuPanel(tag)}
+			</span>
+		{/if}
+	</div>
+{/snippet}
 
 <!-- "Keep which name?" — choose the surviving tag when merging a multi-select (mirrors
      /people). The others become its aliases and their videos move under it. -->
