@@ -332,6 +332,7 @@ export interface Video {
 	thumbnail_url?: string | null; // present once an image exists (ADR-009)
 	poster_url?: string | null; // larger detail-page poster tier (F53); falls back to thumbnail bytes server-side until generated
 	poster_uploaded?: boolean; // true when the poster is an owner upload (F52)
+	montage_url?: string; // hover montage (F83), present only once the file exists
 	part?: string; // resolved part ordinal within a multi-file media, API-stamped on every summary (HOLODEX-389)
 	people?: Person[];
 	tags?: Tag[];
@@ -821,9 +822,24 @@ export interface ActivitySystem {
 	uptime_seconds?: number;
 }
 
+// Hover montages (F83): the generation mode, and one video's status for the owner.
+export type MontageMode = 'off' | 'manual' | 'automatic';
+
+export interface MontageStats extends ThumbnailStats {
+	mode: MontageMode;
+}
+
+export interface MontageStatus {
+	mode: MontageMode;
+	state: 'none' | 'waiting' | 'making' | 'ready' | 'failed';
+	size_bytes?: number;
+	error?: string;
+}
+
 export interface Activity {
 	scan: ScanStatus;
 	thumbnails: ThumbnailStats;
+	montages?: MontageStats; // absent when the montage pipeline isn't wired
 	library: LibraryCounts;
 	system: ActivitySystem;
 	sweep: SweepStatus;

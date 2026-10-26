@@ -25,6 +25,7 @@
 	import { expandedField } from '#lib/expandedField.svelte.ts';
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
+	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
 	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
 	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '#lib/run.ts';
@@ -2212,13 +2213,6 @@
 											>
 												{extracting ? 'Extracting…' : 'Extract from filename'}
 											</button>
-											<button
-												onclick={regenerateThumbnail}
-												disabled={regenerating}
-												class="btn-quiet rounded-theme px-3 py-1.5 text-left text-xs"
-											>
-												{regenerating ? 'Regenerating…' : 'Regenerate thumbnail'}
-											</button>
 										{/snippet}
 									</EnrichSourcesSummary>
 									<!-- The one sync verb: re-extract the file and re-enrich every linked
@@ -2586,12 +2580,30 @@
 				{/if}
 
 				<!-- Owner-only Maintenance block (F77, docs/design/video-file-maintenance-handoff.md):
-				     repairs to the file's picture, apart from Manage's deletes. One entry today;
-				     aspect-ratio operations will stack under it. While a job runs the button is
-				     replaced, not disabled, by the status pill. -->
+				     repairs to the file's picture and its derived images, apart from Manage's
+				     deletes. Labelled rows: the still thumbnail, the hover montage (F83,
+				     moving-thumbnails-handoff.md), then the picture operations, where aspect-ratio
+				     operations will stack. While a picture job runs its button is replaced, not
+				     disabled, by the status pill. -->
 				{#if isOwner}
-					<section class="space-y-2 border-t border-rule pt-4" aria-labelledby="maintenance-heading">
+					<section class="space-y-3 border-t border-rule pt-4" aria-labelledby="maintenance-heading">
 						<h2 id="maintenance-heading" class="text-xs uppercase tracking-wide text-muted">Maintenance</h2>
+						<div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+							<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">Thumbnail</span>
+							<button
+								type="button"
+								onclick={regenerateThumbnail}
+								disabled={regenerating}
+								class="btn-ghost rounded-theme px-3 py-1.5 text-sm"
+							>
+								{regenerating ? 'Regenerating…' : 'Regenerate thumbnail'}
+							</button>
+						</div>
+						{#if video}
+							<MontageStatus videoId={video.id} />
+						{/if}
+						<div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+						<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">Picture</span>
 						<div class="flex flex-col items-start gap-2" aria-live="polite">
 							{#if maintenance.pending}
 								<span
@@ -2664,6 +2676,7 @@
 									Flip horizontally…
 								</button>
 							{/if}
+						</div>
 						</div>
 					</section>
 				{/if}

@@ -66,6 +66,8 @@ type Handlers struct {
 	log        *slog.Logger
 	thumbs     thumbnailer
 	thumbDir   string
+	montages   montager // hover montages (F83); nil when not wired
+	montageDir string
 	scanner    rescanner
 	metrics    searchMetrics
 	mappings   *mapping.Store    // configurable metadata fields (F20); nil disables them
@@ -362,6 +364,9 @@ func (h *Handlers) Mount(r chi.Router) {
 	// Detail-page poster tier (F53, HOLODEX-253) — public read, mirrors
 	// /thumbnail's posture exactly; falls back to thumbnail bytes (servePoster).
 	r.Get("/media/{id}/poster", h.servePoster)
+	// Hover montage (F83, HOLODEX-578) — public read like the still; the request
+	// and status routes below are owner-only.
+	r.Get("/media/{id}/montage", h.serveMontage)
 	r.Get("/studios", h.listStudios)
 	r.Get("/studios/{id}", h.getStudio)
 	// Films (F56, ADR-085) — unregistered entirely when films_enabled is off,
@@ -460,6 +465,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		// Thumbnail regenerate (F11.6) — resets state and queues high-priority ffmpeg
 		// work, so owner-only; the GET above stays public (HOLODEX-596).
 		r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
+		// Hover montage request and status (F83): a request starts ffmpeg work.
+		r.Post("/media/{id}/montage", h.requestMontage)
+		r.Get("/media/{id}/montage/status", h.montageStatus)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
 		// Metadata writeback — embed enriched values into media files (F28, ADR-041).
@@ -553,6 +561,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // it so a tile renders, and redacts, identically on both (ADR-121 D3).
 func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
 	h.prepareThumbnails(items)
+	h.prepareMontages(ctx, items)
 	if h.mappings != nil {
 		h.applyBrowseTitles(ctx, items, h.mappings.Current().Fields())
 	}
@@ -800,6 +809,7 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setThumbnailURL(v)
+	h.setMontageURL(v)
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
@@ -1053,6 +1063,7 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 	for _, shelf := range []*repo.RelatedShelf{related.Person, related.Tag} {
 		if shelf != nil {
 			h.prepareThumbnails(shelf.Items)
+			h.prepareMontages(r.Context(), shelf.Items)
 			h.applyPartsTo(r.Context(), shelf.Items)
 			redactFileMetadataForVisitors(shelf.Items, isOwner)
 		}

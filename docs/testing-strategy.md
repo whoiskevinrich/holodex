@@ -138,6 +138,7 @@ assert.JSONEq(t, string(want), string(got))
 | **API handlers** (ADR-006) | Integration | Each endpoint happy+error; 404 unknown id; pagination; OpenAPI contract conformance | ~85% |
 | **Range serving** (ADR-015) | Integration | Full 200; `Range:` → 206 + correct `Content-Range`; open-ended/suffix ranges; bad range → 416; serve-by-ID only (no path input) | ~90% |
 | **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't); **two-tier poster resolution** (F53, HOLODEX-253, planned): `extractCoverArt`/`generateFrame` each produce `{id}.jpg` (ThumbnailWidth) and `{id}-poster.jpg` (PosterWidth) from a single extraction/seek — Tier 2 must not double-seek; `GET .../poster` falls back to thumbnail-tier bytes when the poster tier doesn't exist yet (lazy-backfill safety net, RD6) | ~90% |
+| **Hover montages** (F83, [§35](#35-moving-thumbnails--the-hover-montage-f83-holodex-578)) | Unit + Integration + Vitest | Mode gating (off/manual/automatic) and the default of manual with 1 worker; montages wait behind stills; owner-only request route; serve 404→200 with Range; `montage_url` only when the file exists; the still pipeline never reaching montage code; **real-ffmpeg single-pass concat** (`-tags integration`) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no absolute paths/env/tokens — incl. history `error_message`; a scan's media-root-relative failing files are the one allowed path form) | ~90% |
@@ -5363,3 +5364,112 @@ created by the add's relink.
   QA 10).
 - Folding over a person's bio in the writeback dialog is covered by the shared `sourceChips` unit
   tests, not by a dialog test.
+
+## 35. Moving thumbnails — the hover montage (F83, HOLODEX-578)
+
+A grid card plays a short silent montage on hover or focus. Montages are made by their own
+background pipeline, beside the stills, and ship in manual mode
+([spec](specs/moving-thumbnails.md),
+[architecture](architecture/media-ingest.md#hover-montages-a-silent-mp4-tier-beside-the-still-pipeline-owner-gated-by-mode),
+[handoff](design/moving-thumbnails-handoff.md)). Risks, ranked by how quietly they would fail:
+
+1. **Manual mode leaks into automatic.** A startup sweep, a scan or a browse page queues montages
+   when the owner hasn't asked. That's unattended ffmpeg work on the production library, which is
+   exactly what RD6 exists to prevent.
+2. **Montages starve stills.** A montage worker takes a job while stills are waiting, so new
+   videos sit without a still (P0-10).
+3. **The still pipeline grows a montage dependency (RD5).** A still regenerate, a poster upload or
+   a still failure reaches, resets or records against the montage.
+4. **A visitor can start ffmpeg work.** The request route is reachable without the owner check,
+   the same class of bug as HOLODEX-596.
+5. **A broken montage file plays as a blank or frozen card.** Audio slips in, the moov atom sits at
+   the end, or the clip count or span is wrong. Only real ffmpeg shows this.
+6. **The card flashes, sticks or plays when it shouldn't.** Motion shows before its first frame, two
+   cards play at once, reduced motion or touch still plays, or a missing montage is requested on
+   every hover.
+7. **Disk or CPU blow-up on a large library.** Workers ignore the count, or a failed video is
+   retried on every browse.
+
+### 35.1 Go unit: `internal/montage`
+
+| # | Case | Guards risk |
+|---|---|---|
+| G1 | `ParseMode`: `off`, `manual` and `automatic` parse. Empty gives **manual**, and an unknown value is a startup error, never a silent default. Workers default to **1**, and 0 or less becomes 1. | 1, 7 |
+| G2 | **Manual:** `Run` performs no startup sweep, `EnqueueVisible` (the list-response hook) is a no-op, and only `Request(id)` enqueues. | 1 |
+| G3 | **Automatic:** the startup sweep queues exactly the videos with no `video_montages` row and a duration of at least 6 s. `EnqueueVisible` queues only never-attempted ids. | 1, 7 |
+| G4 | **Off:** no worker goroutine starts, and `Request` returns `ErrDisabled`. | 1 |
+| G5 | **Behind stills:** with the still-queue stats fake reporting `depth > 0`, a worker takes nothing. When it drops to 0, the worker takes the job. Owner requests jump the montage queue but still wait on stills. | 2 |
+| G6 | Sampling: for durations of 600 s, 60 s, 20 s, 6 s and 5 s, the clip start times match the spec (6 clips over 10%–90%; fewer under 30 s, at least 2; none under 6 s, which gives `ErrTooShort`). The function is table-driven and pure. | 5 |
+| G7 | `buildArgs` pins the argv: one `-ss t -t 1 -i` per clip **before** each input, a `concat=n=N:v=1:a=0` filter, `-an`, `-movflags +faststart`, `-pix_fmt yuv420p`, and a scale no wider than `thumbnail_width`. It writes a `.tmp` that is renamed into place. | 5 |
+| G8 | State: success upserts `generated`, and an ffmpeg error upserts `failed` with the error text. Neither touches `videos.thumbnail_state` (asserted by reading the column). | 3 |
+| G9 | File change: `Invalidate(id)` re-enqueues only when a row exists, and does nothing in off mode. It is wired to the maintenance worker's post-write hook only, never the writeback queue's (QA 8). | 3 |
+| G10 | Dedup: requesting the same id twice while it is queued leaves one job. | 7 |
+
+### 35.2 Go: the boundary (RD5)
+
+- **Import guard:** `go list -deps ./internal/thumbnail/...` must not contain `internal/montage`.
+  This runs as a test in `internal/thumbnail`, so a future import fails CI.
+- `TestThumbnailRegenerate_LeavesMontage`: a still regenerate, a poster upload and a still failure
+  each leave the `video_montages` row and the `.mp4` byte-identical.
+
+### 35.3 Go API (`internal/api/montage_test.go`, new)
+
+| # | Case | Guards risk |
+|---|---|---|
+| A1 | `POST /api/v1/media/{id}/montage`: a visitor and a wrong token get 401/403 and nothing is queued. The owner gets 202 in manual and automatic mode, and 409 (`ErrDisabled`) in off mode. | 4, 1 |
+| A2 | `GET /api/v1/media/{id}/montage`: 404 while missing, then 200 `video/mp4`. `Range: bytes=0-99` gives 206, an unchanged `If-Modified-Since` gives 304, and a soft-deleted video gives 404. | 5 |
+| A3 | `montage_url` appears in the list and detail payloads only when the file exists, and carries `?v=<mtime>`. | 6 |
+| A4 | The montage status read gives none, waiting, making, ready (with size) or failed (with reason) for the owner. A visitor gets no status field. | 4 |
+| A5 | A list response in manual mode calls nothing on the montage manager (spy), and in automatic mode passes only visible never-attempted ids. | 1 |
+
+### 35.4 Integration (`-tags integration`, and `make test-image`)
+
+`TestMontage_RealFFmpeg` cuts a montage from a generated 40 s test clip and probes the result:
+- the container is MP4 with exactly one H.264 video stream and **no audio stream**;
+- the duration is 6 s ± 0.2;
+- the moov atom comes before mdat (faststart);
+- the width is at most `thumbnail_width`.
+
+Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is the one tested.
+
+### 35.5 Frontend (Vitest)
+
+| # | Case | Guards risk |
+|---|---|---|
+| F1 | The playback controller holds one active card. Starting B releases A. | 6 |
+| F2 | Arm timing (fake timers): `src` is set on pointer enter. Visibility flips only after **both** 400 ms **and** a `playing` event. Leaving before 400 ms clears `src` and calls `load()`. | 6 |
+| F3 | Focus plays at once, and Escape and blur release. | 6, a11y |
+| F4 | Reduced motion, a coarse pointer, no `montage_url`, or a prior `error` event: no `<video>` is mounted, so no request is possible. | 6 |
+| F5 | (`montageStatus.test.ts`, `MontageStatus.svelte.test.ts`) The Maintenance section's Hover montage row maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
+
+### 35.6 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+1. `[smoke]` Start a backend with no montage setting: the activity view shows `Montages · manual ·
+   0 waiting · 1 worker`, and nothing is queued after a full scan.
+2. `[agent]` On a video page, press Make montage: Waiting, then Making, then Ready with a size.
+   Preview plays it. Hovering its card in the grid plays it after about 400 ms.
+3. `[agent]` Hover a card with no montage: no request for a montage appears in the network panel.
+4. `[agent]` Turn on reduced motion (emulated): hovering a ready card never plays it.
+5. `[agent]` Tab across ready cards: each plays on focus, Escape stops it, and only one plays at a
+   time.
+6. `[agent]` Poster layout: the montage fills the 2:3 frame, cropped, with no letterbox.
+7. `[agent]` As a visitor (gated backend), there's no Maintenance section (so no Hover montage or Thumbnail row), and `POST …/montage` is refused.
+8. `[agent]` Regenerate the still of a video with a montage, then write back a tag change to it:
+   in both cases the montage file, its status and the montage queue stay unchanged.
+9. `[human]` Production test in manual mode: request montages for hand-picked videos, then judge
+   generation time, size and quality. This gates switching to automatic (spec Success Metrics).
+10. `[human]` Does motion over the still feel right, or is 400 ms too eager or too slow? This feeds
+    spec Q2.
+
+### 35.7 Mutation checks
+
+- Make `EnqueueVisible` ignore the mode: G2 and A5 must fail.
+- Drop the stills-waiting check: G5 must fail.
+- Remove `-an`: 35.4 must fail on the audio-stream assertion.
+- Move the request route out of the owner group: A1 must fail.
+- Flip visibility on `src` assignment instead of `playing`: F2 must fail.
+
+### 35.8 Standing gaps
+
+- Disk use across a full library is measured once on the stress fixture (spec Q3), not asserted.
+- Real decoder behaviour (Safari Range handling, iOS) is checked by hand, not in CI.
