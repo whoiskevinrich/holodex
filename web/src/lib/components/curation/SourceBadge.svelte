@@ -278,7 +278,7 @@
 								autofocus
 								aria-label={`Custom value for ${field.label}`}
 								placeholder="Custom value…"
-								class="w-32 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
+								class="min-h-6 w-32 rounded-full border border-accent bg-bg px-2 py-0.5 text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-accent"
 							/>
 						{:else if stagedKey === 'custom' || chip.value}
 							<!-- Staged/decided manual literal: a value chip (·manual) that re-opens the editor. -->
@@ -304,7 +304,7 @@
 								tabindex={stagedKey === 'custom' ? 0 : -1}
 								aria-label={`Set a custom value for ${field.label}`}
 								onclick={() => stage(chip)}
-								class="curation-chip inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+								class="curation-chip inline-flex min-h-6 items-center gap-1.5 rounded-full border border-rule bg-surface-2 px-2 py-0.5 text-xs text-muted hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
 							>
 								<svg
 									class="h-3 w-3 shrink-0"
@@ -347,9 +347,9 @@
 	{#if outOfSync(field)}
 		<span
 			class="inline-block rounded-full border border-warn px-2 py-0.5 text-[0.65rem] text-warn"
-			aria-label={`${field.label} is out of sync with the file`}
+			aria-label={`${field.label} differs from the file`}
 		>
-			file out of sync
+			file differs
 		</span>
 	{/if}
 </div>

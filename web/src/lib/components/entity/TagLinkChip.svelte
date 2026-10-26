@@ -43,29 +43,32 @@
 </script>
 
 {#if onremove}
+	<!-- The chip's vertical and leading padding sit on the link, not the wrapper, so the
+	     link fills the chip's height and clears the 24px target (HOLODEX-357). The glyph
+	     rides inside it for the same reason: a two-letter tag is narrower than 24px alone. -->
 	<span
-		class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 px-2.5 py-1 text-sm text-ink"
+		class="curation-chip group relative inline-flex items-center gap-1 rounded-full border border-rule bg-surface-2 pr-2.5 text-sm text-ink"
 	>
-		{#if glyph}
-			<span class="inline-flex {glyph.tone}" title={glyph.label}>
-				<svg
-					class="h-3.5 w-3.5"
-					viewBox="0 0 16 16"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.6"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					aria-hidden="true"
-				>
-					<path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z" />
-					<path d={glyph.mark} />
-				</svg>
-			</span>
-		{/if}
-		<a href={`/tags/${tag.id}`} class="hover:text-accent focus-visible:text-accent"
-			>{tag.name}{#if glyph}<span class="sr-only">, {glyph.label}</span>{/if}</a
-		>
+		<a href={`/tags/${tag.id}`} class="inline-flex items-center gap-1 py-1 pl-2.5 hover:text-accent focus-visible:text-accent">
+			{#if glyph}
+				<span class="inline-flex {glyph.tone}" title={glyph.label}>
+					<svg
+						class="h-3.5 w-3.5"
+						viewBox="0 0 16 16"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.6"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M9 1H3.5A1.5 1.5 0 0 0 2 2.5v11A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V6z" />
+						<path d={glyph.mark} />
+					</svg>
+				</span>
+			{/if}
+			<span>{tag.name}{#if glyph}<span class="sr-only">, {glyph.label}</span>{/if}</span>
+		</a>
 		<span class="curation-actions ml-0.5 inline-flex items-center">
 			<button
 				type="button"

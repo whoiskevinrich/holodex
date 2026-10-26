@@ -9,6 +9,8 @@
 	// person page. Faces live in the page's dedicated People section, so the chip stays
 	// text-only here to avoid showing the same cast twice in two treatments.
 	import type { ResolvedValue } from '#lib/types.ts';
+	import { providers } from '#lib/providers.svelte.ts';
+	import ProviderIcon from '../enrichment/ProviderIcon.svelte';
 
 	let {
 		item,
@@ -16,7 +18,9 @@
 		showRemove = true,
 		showWriteToggle = true,
 		person,
+		mark = '',
 		radio,
+		removed,
 		onedit,
 		onremove,
 		ontogglewrite
@@ -28,6 +32,10 @@
 		// no file, so `nowrite` has no referent on person merge fields).
 		showWriteToggle?: boolean;
 		person?: { id: number; headshot_version?: number };
+		// The provider whose 12px icon this chip carries (HOLODEX-144, chip-row-provenance-handoff.md).
+		// CurationFieldRow decides it for the whole row: set only in a mixed row, and only on a
+		// provider value. Plain branch only — the radio chips keep their ·source text.
+		mark?: string;
 		// Pick-one (radio) mode for the F36 source-of-truth control (HOLODEX-112). When set, the
 		// same chip shell renders as a role="radio" button led by a ● dot instead of the merge
 		// ✕/edit controls — one shared vocabulary, a different *glyph* per selection model (replace
@@ -47,6 +55,10 @@
 			pending?: boolean;
 			placeholder?: string;
 		};
+		// Removed mode (F30.3g, source-choices-restore-handoff.md): a value the owner removed,
+		// drawn dashed and muted (not in effect) with one always-visible Restore. notSent adds the
+		// `·not sent now` suffix for a removal no source sends any more.
+		removed?: { notSent: boolean; onrestore: () => void };
 		// Owner-only mutation handlers — optional, so a read-only reuse (isOwner={false}, e.g.
 		// the F36 resolved chip) needs no no-op props. They are only invoked inside the isOwner
 		// block, so an owner caller must still supply them.
@@ -64,6 +76,10 @@
 		item.sources.some((s) => s !== 'file' && s !== 'record' && s !== 'manual')
 	);
 	const provenance = $derived(item.manual ? 'manual' : item.sources.join(' + '));
+
+	$effect(() => {
+		if (mark) void providers.load();
+	});
 
 	function startEdit() {
 		draft = item.value;
@@ -89,7 +105,22 @@
 	const ctrl = 'rounded p-1 -m-0.5 text-muted hover:text-accent focus-visible:text-accent';
 </script>
 
-{#if radio}
+{#if removed}
+	<!-- Removed chip (F30.3g): dashed = not in effect, a status — not an add affordance. Restore
+	     is the chip's only action, so it stays visible on every device rather than hover-revealed. -->
+	<span
+		class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border border-dashed border-rule px-2 py-0.5 text-xs text-muted"
+		aria-label={`${item.value}, removed${removed.notSent ? ', not sent by any source now' : ''}`}
+	>
+		<span class="truncate">{item.value}</span>
+		{#if removed.notSent}
+			<span class="shrink-0 text-[0.65rem]">·not sent now</span>
+		{/if}
+		<button type="button" data-restore onclick={removed.onrestore} aria-label={`Restore ${item.value}`} class="-my-1 -mr-1.5 ml-0 shrink-0 rounded p-1.5 text-muted hover:text-accent focus-visible:text-accent">
+			<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4 4-4M5 10h11a4 4 0 010 8h-1"/></svg>
+		</button>
+	</span>
+{:else if radio}
 	{@const pending = radio.checked && !!radio.pending}
 	<!-- Pick-one source chip (F36 / HOLODEX-112): the same shell as a merge chip, but led by a
 	     ● radio dot and acting as the radiogroup's radio button. No per-chip edit/remove controls —
@@ -105,7 +136,7 @@
 		aria-label={`${item.value || radio.placeholder || 'no value'}, from ${provenance}${pending ? ', pending' : ''}`}
 		title={item.value || undefined}
 		onclick={radio.onselect}
-		class="curation-chip inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
+		class="curation-chip inline-flex min-h-6 max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent {radio.checked
 			? `border-accent bg-surface-2 text-ink ${pending ? 'border-dashed' : ''}`
 			: 'border-rule bg-surface-2 text-muted hover:text-ink'}"
 	>
@@ -142,7 +173,12 @@
 		{:else}
 			<span>{item.value}</span>
 		{/if}
-		<span class="{isProvider ? 'text-accent' : 'text-muted'} text-[0.65rem]">·{provenance}</span>
+		{#if mark}
+			<!-- Decorative: the chip's aria-label already names the source. -->
+			<span class="inline-flex shrink-0" title={`from ${item.sources.join(' and ')}`}>
+				<ProviderIcon name={mark} iconUrl={providers.iconUrl(mark)} size={12} decorative />
+			</span>
+		{/if}
 
 		{#if isOwner}
 			<!-- Controls reveal on hover/focus (.curation-actions in app.css) to reduce

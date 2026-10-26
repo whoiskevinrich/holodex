@@ -69,6 +69,13 @@ type Config struct {
 	// time. Default 1200 (3x ThumbnailWidth's 400 default).
 	PosterWidth int `yaml:"poster_width"`
 
+	// Hover montages (F83, HOLODEX-578): a tier of their own beside the stills,
+	// never configured through a thumbnail setting. MontageMode is "off" | "manual"
+	// | "automatic" (montage.ParseMode rejects anything else at startup).
+	MontageMode    string `yaml:"montage_mode"`
+	MontageWorkers int    `yaml:"montage_workers"`
+	MontagePath    string `yaml:"-"` // derived: DataPath/montages
+
 	// Person images (F25, ADR-038). Bytes live at DataPath/person-images/{personID}/
 	// {id}.jpg or .png (ADR-097); the path is derived like ThumbnailPath. The bounds guard untrusted
 	// uploads: PersonImageMaxBytes caps the request body, PersonImageMaxDimension the
@@ -87,6 +94,10 @@ type Config struct {
 	StudioImagePath         string `yaml:"-"` // derived: DataPath/studio-images
 	StudioImageMaxBytes     int64  `yaml:"studio_image_max_bytes"`
 	StudioImageMaxDimension int    `yaml:"studio_image_max_dimension"`
+
+	// Tag images (F82): the owner's one poster per tag, at
+	// DataPath/tag-images/{tagID}/{id}.jpg|.png. Uploads use the studio image bounds.
+	TagImagePath string `yaml:"-"` // derived: DataPath/tag-images
 
 	// Film images (F56/HOLODEX-280, ADR-086; poster/thumb). Bytes live at
 	// DataPath/film-images/{filmID}/{id}.jpg|.png, derived like StudioImagePath. The
@@ -198,6 +209,9 @@ func Defaults() Config {
 		ThumbnailWidth:       400,
 		PosterWidth:          1200,
 
+		MontageMode:    "manual", // F83 RD6: nothing runs unattended until the owner opts in
+		MontageWorkers: 1,
+
 		PersonImageMaxBytes:     10 << 20, // 10 MiB request-body cap on an upload
 		PersonImageMaxDimension: 2000,     // downscale stored images to ≤2000px longest side
 		PersonGalleryMax:        20,       // per-person 'extra' gallery cap (F25)
@@ -273,11 +287,17 @@ func (c *Config) derive() {
 	if c.ThumbnailPath == "" {
 		c.ThumbnailPath = filepath.Join(c.DataPath, "thumbnails")
 	}
+	if c.MontagePath == "" {
+		c.MontagePath = filepath.Join(c.DataPath, "montages")
+	}
 	if c.PersonImagePath == "" {
 		c.PersonImagePath = filepath.Join(c.DataPath, "person-images")
 	}
 	if c.StudioImagePath == "" {
 		c.StudioImagePath = filepath.Join(c.DataPath, "studio-images")
+	}
+	if c.TagImagePath == "" {
+		c.TagImagePath = filepath.Join(c.DataPath, "tag-images")
 	}
 	if c.FilmImagePath == "" {
 		c.FilmImagePath = filepath.Join(c.DataPath, "film-images")
@@ -314,8 +334,10 @@ func (c *Config) ApplyOverrides(o Overrides) {
 		c.DataPath = o.DataPath
 		c.DatabasePath = "" // re-derive under the new data dir
 		c.ThumbnailPath = ""
+		c.MontagePath = ""
 		c.PersonImagePath = ""
 		c.StudioImagePath = ""
+		c.TagImagePath = ""
 		c.FilmImagePath = ""
 		c.ProviderIconPath = ""
 	}
@@ -353,6 +375,12 @@ func applyEnv(c *Config) {
 	c.ThumbnailSeekPercent = envInt("THUMBNAIL_SEEK_PERCENT", c.ThumbnailSeekPercent)
 	c.ThumbnailWidth = envInt("THUMBNAIL_WIDTH", c.ThumbnailWidth)
 	c.PosterWidth = envInt("POSTER_WIDTH", c.PosterWidth)
+
+	c.MontageMode = envStr("MONTAGE_MODE", c.MontageMode)
+	c.MontageWorkers = envInt("MONTAGE_WORKERS", c.MontageWorkers)
+	if c.MontageWorkers < 1 {
+		c.MontageWorkers = 1 // a non-positive worker count would stall the queue
+	}
 
 	c.PersonImageMaxBytes = envInt64("PERSON_IMAGE_MAX_BYTES", c.PersonImageMaxBytes)
 	c.PersonImageMaxDimension = envInt("PERSON_IMAGE_MAX_DIMENSION", c.PersonImageMaxDimension)

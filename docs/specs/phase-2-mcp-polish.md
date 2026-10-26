@@ -63,7 +63,7 @@ See ADR-009 for the full tiered strategy (embedded art at index time, throttled 
 | F11.3 | Generation is non-blocking and throttled by `THUMBNAIL_WORKERS` (default 2) at low process priority (`THUMBNAIL_NICE`); new files are indexed immediately, thumbnail appears when ready | Browse grid shows a placeholder card until thumbnail is ready, then updates; host CPU load is bounded by worker count |
 | F11.4 | Currently-visible items lacking a thumbnail are prioritized to the front of the generation queue | Opening a filtered view generates its visible items' thumbnails before continuing bulk backfill |
 | F11.5 | Backfill posture configurable via `THUMBNAIL_BACKFILL` (default `eager`; `lazy` generates only for viewed items) | In `lazy` mode, un-viewed files never trigger background generation |
-| F11.6 | Thumbnail regeneration can be triggered per-video via `POST /api/v1/media/:id/thumbnail` | API call triggers re-extraction |
+| F11.6 | Thumbnail regeneration can be triggered per-video via `POST /api/v1/media/:id/thumbnail`, owner-only (HOLODEX-596); serving the thumbnail stays public | Owner call triggers re-extraction; a visitor gets 401 and nothing is queued |
 | F11.7 | `THUMBNAIL_ENABLED` env var (default: `true`) disables Tier 2/3 generation for environments without ffmpeg or constrained hosts | Service starts and functions normally when set to `false`; embedded-art thumbnails still show |
 | F11.8 | `holodex_thumbnail_queue_depth` exposed in Prometheus metrics | Metric reflects pending generation jobs |
 

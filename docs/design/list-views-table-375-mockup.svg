@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1221" height="560" viewBox="0 0 1221 560" font-family="Archivo, 'Archivo Variable', system-ui, sans-serif" role="img">
+  <title>F82 Table view at 375px, Cinémathèque</title>
+  <desc>Media (visitor), People (owner, with the A–Z rail) and Tags (visitor) in the Table view at 375px. Low-priority columns are dropped; nothing scrolls sideways.</desc>
+  <defs>
+    <rect id="thumb" width="40" height="23" rx="2" fill="#181310" stroke="#2a2622"/>
+    <rect id="ava" width="32" height="32" rx="2" fill="#181310" stroke="#2a2622"/>
+    <g id="ring"><circle cx="7" cy="7" r="4.9" fill="none" stroke="#9b9082" stroke-width="2.1"/><circle cx="7" cy="7" r="4.9" fill="none" stroke="#e8a33d" stroke-width="2.1" stroke-dasharray="21.5 30.8" transform="rotate(-90 7 7)"/></g>
+    <g id="segTable">
+      <rect x=".5" y=".5" width="64" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+      <g fill="none" stroke="#9b9082" stroke-width="1.3"><rect x="10" y="10" width="5" height="5"/><rect x="18" y="10" width="5" height="5"/><rect x="10" y="18" width="5" height="5"/><rect x="18" y="18" width="5" height="5"/></g>
+      <rect x="32.5" y="1" width="31.5" height="31" fill="#e8a33d"/>
+      <g fill="none" stroke="#1a1206" stroke-width="1.3"><rect x="41.5" y="10" width="13" height="13"/><path d="M41.5 14.5h13M41.5 18.5h13M46.5 10v13"/></g>
+    </g>
+  </defs>
+  <rect width="1221" height="560" fill="#0c0a09"/>
+  <g font-size="12" fill="#6f665b" letter-spacing=".04em">
+    <text x="24" y="20">MEDIA · VISITOR · 375PX</text>
+    <text x="423" y="20">PEOPLE · OWNER · 375PX</text>
+    <text x="822" y="20">TAGS · TAGS TAB · VISITOR · 375PX</text>
+  </g>
+
+  <!-- Media -->
+  <g transform="translate(24 32)">
+    <rect x=".5" y=".5" width="374" height="500" fill="#0c0a09" stroke="#2a2622"/>
+    <rect x="16.5" y="16.5" width="104" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="27" y="37" font-size="14" fill="#f3ece1">Added</text><path d="M102 30l4 4 4-4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+    <rect x="128.5" y="16.5" width="70" height="32" rx="2" fill="#15110e" stroke="#2a2622"/><text x="141" y="37" font-size="14" fill="#f3ece1">Filters</text>
+    <use href="#segTable" x="294" y="16"/>
+    <text x="16" y="74" font-size="14" fill="#9b9082">38 videos</text>
+    <g font-size="12" fill="#9b9082" letter-spacing=".04em" font-weight="500"><text x="16" y="104">TITLE</text><text x="359" y="104" text-anchor="end">DURATION</text></g>
+    <line x1="16" y1="114.5" x2="359" y2="114.5" stroke="#2a2622"/>
+    <g font-size="14" fill="#f3ece1">
+      <use href="#thumb" x="16" y="125"/><text x="64" y="141">Harbor at dusk</text>
+      <use href="#thumb" x="16" y="169"/><text x="64" y="185">The long road north, part two</text>
+      <use href="#thumb" x="16" y="213"/><text x="64" y="229">Interview, studio session</text>
+      <use href="#thumb" x="16" y="257"/><text x="64" y="273">Morning market</text>
+    </g>
+    <g font-size="14" fill="#9b9082" text-anchor="end"><text x="359" y="141">1:42:10</text><text x="359" y="185">48:03</text><text x="359" y="229">6:21</text><text x="359" y="273">9:05</text></g>
+    <g stroke="#2a2622"><line x1="16" y1="158.5" x2="359" y2="158.5"/><line x1="16" y1="202.5" x2="359" y2="202.5"/><line x1="16" y1="246.5" x2="359" y2="246.5"/><line x1="16" y1="290.5" x2="359" y2="290.5"/></g>
+    <text x="16" y="324" font-size="12" fill="#6f665b">kept: title, duration</text>
+    <text x="16" y="342" font-size="12" fill="#6f665b">dropped below 640px: res, added</text>
+    <text x="16" y="360" font-size="12" fill="#6f665b">owner adds size, done from 1024px</text>
+  </g>
+
+  <!-- People -->
+  <g transform="translate(423 32)">
+    <rect x=".5" y=".5" width="374" height="500" fill="#0c0a09" stroke="#2a2622"/>
+    <rect x="16.5" y="16.5" width="92" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="27" y="37" font-size="14" fill="#f3ece1">A–Z</text><path d="M90 30l4 4 4-4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+    <rect x="198.5" y="16.5" width="96" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <g fill="none" stroke="#9b9082" stroke-width="1.5"><path d="M208 28h12M208 32h12M208 36h12"/></g>
+    <g fill="none" stroke="#9b9082" stroke-width="1.3"><rect x="241" y="26" width="5" height="5"/><rect x="249" y="26" width="5" height="5"/><rect x="241" y="34" width="5" height="5"/><rect x="249" y="34" width="5" height="5"/></g>
+    <rect x="263" y="17" width="31.5" height="31" fill="#e8a33d"/>
+    <g fill="none" stroke="#1a1206" stroke-width="1.3"><rect x="272" y="26" width="13" height="13"/><path d="M272 30.5h13M272 34.5h13M277 26v13"/></g>
+    <rect x="302.5" y="16.5" width="28" height="32" rx="2" fill="#15110e" stroke="#2a2622"/><text x="310" y="37" font-size="14" fill="#9b9082">⋯</text>
+    <text x="16" y="74" font-size="14" fill="#9b9082">412 people</text>
+    <g font-size="12" fill="#9b9082" letter-spacing=".04em" font-weight="500"><text x="16" y="104" fill="#e8a33d">NAME ↑</text><text x="315" y="104" text-anchor="end">VIDEOS</text></g>
+    <line x1="16" y1="114.5" x2="351" y2="114.5" stroke="#2a2622"/>
+    <g font-size="14" fill="#f3ece1">
+      <use href="#ava" x="16" y="121"/><text x="58" y="142">Ada Marlow</text>
+      <use href="#ava" x="16" y="165"/><text x="58" y="186">Bea Okafor</text>
+      <use href="#ava" x="16" y="209"/><text x="58" y="230">Cal Brennan</text>
+      <use href="#ava" x="16" y="253"/><text x="58" y="274">Dana Whitcombe-Lauriers…</text>
+    </g>
+    <g font-size="14" fill="#9b9082" text-anchor="end"><text x="315" y="142">42</text><text x="315" y="186">7</text><text x="315" y="230">118</text><text x="315" y="274">3</text></g>
+    <use href="#ring" x="325" y="131"/><use href="#ring" x="325" y="175"/><use href="#ring" x="325" y="219"/><use href="#ring" x="325" y="263"/>
+    <g stroke="#2a2622"><line x1="16" y1="158.5" x2="351" y2="158.5"/><line x1="16" y1="202.5" x2="351" y2="202.5"/><line x1="16" y1="246.5" x2="351" y2="246.5"/><line x1="16" y1="290.5" x2="351" y2="290.5"/></g>
+    <g font-size="12" font-weight="500" fill="#9b9082" text-anchor="middle">
+      <text x="364" y="130" fill="#e8a33d">A</text><text x="364" y="146">B</text><text x="364" y="162">C</text><text x="364" y="178">D</text><text x="364" y="194" opacity=".3">E</text><text x="364" y="210">F</text><text x="364" y="226">G</text><text x="364" y="242">H</text><text x="364" y="258" opacity=".3">I</text><text x="364" y="274">J</text><text x="364" y="290">…</text>
+    </g>
+    <line x1="359" y1="133" x2="369" y2="133" stroke="#e8a33d" stroke-width="2"/>
+    <text x="16" y="324" font-size="12" fill="#6f665b">all three columns fit; the table ends 24px</text>
+    <text x="16" y="342" font-size="12" fill="#6f665b">short of the edge so the A–Z rail never</text>
+    <text x="16" y="360" font-size="12" fill="#6f665b">covers the done ring</text>
+  </g>
+
+  <!-- Tags -->
+  <g transform="translate(822 32)">
+    <rect x=".5" y=".5" width="374" height="500" fill="#0c0a09" stroke="#2a2622"/>
+    <text x="16" y="38" font-size="24" fill="#f3ece1" font-weight="600">Tags</text>
+    <g font-size="14"><text x="16" y="74" fill="#9b9082">All</text><text x="52" y="74" fill="#e8a33d">Tags</text><text x="98" y="74" fill="#9b9082">Categories</text></g>
+    <line x1="52" y1="81" x2="84" y2="81" stroke="#e8a33d" stroke-width="2"/>
+    <rect x="16.5" y="94.5" width="104" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="27" y="115" font-size="14" fill="#f3ece1">Videos</text><path d="M102 108l4 4 4-4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+    <rect x="262.5" y="94.5" width="96" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="270" y="104" width="16" height="12" rx="6" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+    <g fill="none" stroke="#9b9082" stroke-width="1.3"><rect x="305" y="104" width="13" height="8"/><path d="M305 115h13"/></g>
+    <rect x="327" y="95" width="31.5" height="31" fill="#e8a33d"/>
+    <g fill="none" stroke="#1a1206" stroke-width="1.3"><rect x="336" y="104" width="13" height="13"/><path d="M336 108.5h13M336 112.5h13M341 104v13"/></g>
+    <g font-size="12" fill="#9b9082" letter-spacing=".04em" font-weight="500"><text x="16" y="164">NAME</text><text x="359" y="164" text-anchor="end" fill="#e8a33d">VIDEOS ↓</text></g>
+    <line x1="16" y1="174.5" x2="359" y2="174.5" stroke="#2a2622"/>
+    <g font-size="14" fill="#f3ece1"><text x="16" y="201">noir</text><text x="16" y="245">rooftops</text><text x="16" y="289">rain</text><text x="16" y="333">piers</text></g>
+    <g font-size="14" fill="#9b9082" text-anchor="end"><text x="359" y="201">142</text><text x="359" y="245">38</text><text x="359" y="289">21</text><text x="359" y="333">4</text></g>
+    <g stroke="#2a2622"><line x1="16" y1="218.5" x2="359" y2="218.5"/><line x1="16" y1="262.5" x2="359" y2="262.5"/><line x1="16" y1="306.5" x2="359" y2="306.5"/><line x1="16" y1="350.5" x2="359" y2="350.5"/></g>
+    <text x="16" y="384" font-size="12" fill="#6f665b">kept: name, videos · dropped below 640px: parent</text>
+    <text x="16" y="402" font-size="12" fill="#6f665b">toggle: Chips (pill) · Posters · Table</text>
+  </g>
+</svg>

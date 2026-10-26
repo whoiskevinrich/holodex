@@ -33,7 +33,8 @@
 		frameClass: frameClassProp,
 		fit = 'contain',
 		halo,
-		onhalo
+		onhalo,
+		uploadButton = false
 	}: {
 		entityId: number;
 		entityName: string;
@@ -58,6 +59,9 @@
 		halo?: HaloMode[];
 		// Saves the halo for one mode; given with `halo`, it adds the owner's switch.
 		onhalo?: (mode: HaloMode, on: boolean) => Promise<unknown>;
+		// An empty poster slot's dashed "+" is its upload control. `uploadButton` adds the
+		// labelled Upload button beside it as well — the tag page's poster (F82 handoff).
+		uploadButton?: boolean;
 	} = $props();
 
 	const haloOn = $derived(halo?.includes(PALETTE_MODE) ?? false);
@@ -229,7 +233,7 @@
 			{/if}
 			{#if isOwner}
 				<div class="flex items-center gap-2">
-					{#if !isPoster || url}
+					{#if !isPoster || url || uploadButton}
 						<!-- "Replace" only describes the action when something is there to
 						     replace. A non-poster role with an empty slot (e.g. a film's
 						     banner) reaches this branch too, where the verb is an upload. -->

@@ -138,6 +138,7 @@ assert.JSONEq(t, string(want), string(got))
 | **API handlers** (ADR-006) | Integration | Each endpoint happy+error; 404 unknown id; pagination; OpenAPI contract conformance | ~85% |
 | **Range serving** (ADR-015) | Integration | Full 200; `Range:` → 206 + correct `Content-Range`; open-ended/suffix ranges; bad range → 416; serve-by-ID only (no path input) | ~90% |
 | **Thumbnail pipeline** (ADR-009) | Unit + Integration | Queue dedup + high-priority-first ordering; state machine (NULL→embedded/generated/failed, failed retried by sweep only); scanner hook (art→ExtractEmbedded, else Enqueue); serve 404→200 contract; regenerate 202 + reset + enqueue; Tier-3 enqueues only NULL-state visible items; disabled → no-op; `nice` skipped on Windows; **real-ffmpeg frame gen** (`-tags integration` — catches argv/muxer breakage the stubbed seam can't); **two-tier poster resolution** (F53, HOLODEX-253, planned): `extractCoverArt`/`generateFrame` each produce `{id}.jpg` (ThumbnailWidth) and `{id}-poster.jpg` (PosterWidth) from a single extraction/seek — Tier 2 must not double-seek; `GET .../poster` falls back to thumbnail-tier bytes when the poster tier doesn't exist yet (lazy-backfill safety net, RD6) | ~90% |
+| **Hover montages** (F83, [§35](#35-moving-thumbnails--the-hover-montage-f83-holodex-578)) | Unit + Integration + Vitest | Mode gating (off/manual/automatic) and the default of manual with 1 worker; montages wait behind stills; owner-only request route; serve 404→200 with Range; `montage_url` only when the file exists; the still pipeline never reaching montage code; **real-ffmpeg single-pass concat** (`-tags integration`) | ~90% |
 | **MCP tools** (ADR-005) | Integration | 4 tools return schema-valid output; **parity with REST** (same filter → same ids); unknown id error; mapped-field params (Phase 2) | ~90% |
 | **Observability** (ADR-019) | Unit | /healthz always 200; /readyz 503→200 after bootstrap; scan summary log shape; graceful-shutdown drains | smoke |
 | **Activity read-model** (ADR-028, F21.1–F21.3) | Unit + Integration | `GET /admin/activity` shape; scanner `Status()` reflects idle/running + correct `trigger` + last-run counts (no hot-path lock); `job_runs` insert per pass + **30-day prune** + history survives restart; library counts via cache seam; **no-secrets invariant** (no absolute paths/env/tokens — incl. history `error_message`; a scan's media-root-relative failing files are the one allowed path form) | ~90% |
@@ -365,6 +366,8 @@ assert.JSONEq(t, string(want), string(got))
 |------|------|---------|-------|
 | Components (VideoCard, FilterBar, ResolutionBadge, RawTagPanel) | Component | Vitest browser mode (`*.svelte.test.ts`) | Props/state, empty/loading/error states |
 | **Component-test harness** (HOLODEX-223, [stack.md](architecture/stack.md#frontend-component-tests-in-vitest-browser-mode)) | Component | Vitest browser mode | **Where a test goes:** a test that needs the component alive (mount effects, awaited fetches, clicks, focus) is a `*.svelte.test.ts` and runs in the `client` project (headless Chromium, `vitest-browser-svelte`). Everything else, including SSR `render()` markup checks like `coreImageEditButton.test.ts`, stays a `*.test.ts` in the Node `server` project. Out-of-component modules (`#lib/api.ts`, the `activity` store, `$app/*`) are replaced with `vi.mock`, so there's no backend in the loop. **First users** (`web/src/routes/owner/status/page.svelte.test.ts`) are HOLODEX-203's two invariants. (1) **The digest paints while activity is pending** (HOLODEX-205): with `activity.loading` held true and `data` null, "No jobs recorded yet." renders next to "Loading activity…". (2) **The digest is the default view** (HOLODEX-210): Summary is `aria-selected`, the digest is fetched once and the history not at all, and clicking Log fetches it once. Both were mutation-tested on the way in: gating the job section on `a` fails both tests, and defaulting `jobMode` to `'log'` fails (2). | Both HOLODEX-203 invariants |
+| Media page sync verb and source data (HOLODEX-220, HOLODEX-97, [handoff](design/media-page-restructure-handoff.md)) | Component + unit | Vitest browser mode; Vitest | `EnrichSourcesSummary.svelte.test.ts`: the trigger counts linked and unmatched providers; Match… and the ⋯ menu's Refresh call back with the right provider; row actions disable while Sync runs; Escape closes and returns focus; no provider reads "More". `SourceDataDisclosure.svelte.test.ts`: closed at rest with the source and key counts; opens on File; arrow keys move the radio and its table; an image field shows its URL and never an `<img>`; one source drops the switcher; no source renders nothing. `f36.test.ts` `matchesFile`: only an undecided, file-won, non-empty replace field whose providers all agree (or offer nothing) folds into the summary line. The page wiring (Sync's hotkey, the deep link that opens the folded group) was QA'd on the stress fixture, not unit-tested. | Popover actions; raw data never re-renders the poster; a row with a live choice never folds |
+| Chip-row provenance (HOLODEX-144, [handoff](design/chip-row-provenance-handoff.md)) | Unit + component | Vitest; Vitest browser mode | `chipProvenance.test.ts`: a value is keyed by its first provider, else as custom, else as the baseline (`file`, `record`, `computed`, `tag`), else unknown when it has no sources. A single-source row gets one badge and no chip marks. A mixed row (including two different providers) marks only its provider values. Unknown and empty rows show nothing. `CurationFieldRow.svelte.test.ts`: renders those rows and checks that no `·` text is left, the mixed-row icon's title names every source, the chip's `aria-label` still names the source, and the owner's `+ Add` comes after the badge. Live QA on the stress fixture covered the visitor's replace-field rows (one badge each). The fixture has no mixed-source merge row, so the mixed case is covered by the component test only. |
 | Filter→URL sync (F4.7) | Interaction | Vitest | Applying filters updates URL; loading URL restores state |
 | Global search palette (F4.10) | Interaction | Vitest | Debounce; grouped results; keyboard select |
 | Virtual scroll grid (F3.1) | Interaction/perf | Vitest + Playwright | 1k items no thrash; 60fps scroll (manual/trace) |
@@ -433,6 +436,7 @@ assert.JSONEq(t, string(want), string(got))
 | **The media delete confirm never outlives its video** (HOLODEX-529) | Unit (source shape) + live `[agent]` | Vitest · browser (stress fixture, `backend-stress-9300` + `web-9300`) | The media route component is reused across `/media/A → /media/B`, and in a run playback continues behind the modal, so `ended` advanced to the next item and the still-open dialog named it (Confirm would have trashed it). `deleteConfirmReset.test.ts` pins that the per-id load effect resets `confirmMode`, `deleteMenuOpen` and `deleteBusy` — the last because a successful delete never clears it and, in a run, its `history.back()` lands on another `/media` item. `confirmDelete` also drops an in-flight result once `pageGeneration` has moved on. Live: a Play all run, Move to Trash open on item A, a dispatched `ended` advanced to B; with the reset commented out the dialog re-titled itself to B's name, with it the dialog closed. No component-test harness exists for Svelte components here, so the structural test guards the reset and the run case is a QA check. |
 | **Person Details fold** (HOLODEX-539, [design handoff](design/person-details-fold-handoff.md)) | Unit (source shape) + live `[agent]` | Vitest · browser (`backend-films` + `web`) | The Person page Details field list starts closed for owner **and** visitor (unlike the media Metadata fold). `people/[id]/detailsFold.test.ts` pins five things: closed at rest with no owner gate, clipped and `inert` rather than unmounted (so `#field-*` ids exist), a disclosure button with `aria-expanded`/`aria-controls`, a reset in the per-id load effect, and a `#field-*` landing that opens the fold only for a row inside it, keyed on `$page.url.hash`. Live: the landing is asserted the HOLODEX-398 way, with `elementFromPoint` hitting the row (not that the row exists), for a same-page hash change and a fresh load, as owner and visitor. A hidden agent pane runs no animation frames, so the `max-height` transition stalls at 0 there. Watching the animation is a `[human]` item. |
 | **A writeback job never reuses a finished job's id** (HOLODEX-510) | Unit (migration + repo) | Go test | A job with no caller batch id snapshots under its own id. The queue deletes a job's row on success, and a plain `INTEGER PRIMARY KEY` then gave the next job that same id. That job found the earlier snapshot and skipped its own. `TestMigration0057WritebackQueueAutoincrement` runs 55 → 57 → 55 → 57 and asserts four things: a live row survives each rebuild, the first new id is above every all-digit batch id in `file_writeback_snapshots` and `job_runs` (caller ids like `merge-…` are ignored), and a deleted job's id is never given out again. `TestEnqueueWritebackNeverReusesAFinishedJobsID` drives enqueue, finish and enqueue through the repo; it was red without 0057. |
+| **Tag-sync progress counts every job, live** (HOLODEX-595) | Unit + live `[agent]` | Go test · Vitest · driven browser | **Worker:** `TestQueue_SnapshotReadFailureKeepsBatchID` runs a two-video batch whose pre-write snapshot read fails, with one write succeeding and one failing. `GetWritebackBatchStatus` must read done 1, failed 1. Before the fix the worker cleared the run's `batch_id` when the snapshot failed, so the batch read 0/0 forever. **Poller:** `waitForWritebackBatch` in `writebackJob.test.ts` passes every fetched count, settled or not, to `onProgress`, which feeds the dialog's bar. Both tests were red before the fix. **Live** (`backend-stress-open-9700` + `web-9700`): syncing a 46-video stress tag moved the dialog through `0, 1, 2, 4, 7, 11, 16, 25, 35 of 46` and ended at `0 updated, 46 failed` with Close. Every write fails there because the fixture has no media files. |
 | **Read-back-gap fields are ledger-witnessed and visible to the owner** ([ADR-119](architecture/archive/ADR-119-ledger-witness-for-readback-gaps.md), HOLODEX-489, [handoff](design/readback-gap-handoff.md)) | Unit + Integration + live `[agent]` | Go test · Vitest · driven browser | **Resolver:** `TestResolveFields_ReadbackGapSyncFromLedger` is a table over a decided gap field. With no ledger row it is unknown, with the decided value it is in sync, and with another value it is out of sync. The ledger also decides when a `file:` source reads a *different* tag. A field outside `Options.ReadbackGaps` keeps the file read-back, and an undecided field stays in sync by construction. **Writeback:** `TestReadbackGaps_HintSpellings` pins the owner-facing spellings: `Year`, not `year`, and `DiskNumber,partnumber` for `part`, deduped across containers. **API:** `TestReadbackGaps_OwnerEndpointAndReloadCount` covers `GET /owner/readback-gaps` returning 401 without the token and 200 with the gap, plus the reload-config `readback_gaps` count. `TestReadbackGaps_DetailLedgerWitnessAndHint` covers a decided gap that is unknown before a write, carries `readback_gap` for the owner only, and reads `in_sync: true` once a ledger row lands. It was mutation-checked: unwiring `opts.ReadbackGaps` in the detail handler turns it red. **Frontend:** `readbackHint` in `writebackCockpit.test.ts` shows the hint only on a decided, unknown, writable gap row. **Live** (worktree backend on :9310 with a scratch MKV and a gap mapping): the dialog hint renders in `--muted` (`rgb(155,144,130)`, not `--warn`). One Write brings the reopened dialog to "No decisions to write" with Overview "matches the file" and no hint. `/owner/status` lists both gaps. Adding `Year` and pressing Reload config shows the toast `3 fields · 1 field can't be read back`, and the block drops `release_date` without a page reload. At 375 px `scrollWidth == innerWidth`. Visitor view of `/owner/status` couldn't be driven, because owner routes re-enable Admin mode on load. The block shares the Actions' `isOwner` gate, and the server gate is covered by the 401 test | ~90% |
 | **Entity refresh sweep UI — `SweepStatusLine.svelte`, status-page trigger, `JobHistory` batch chip** (F66, [design handoff](design/entity-refresh-sweep-handoff.md) Option D, [ADR-103](architecture/archive/ADR-103-provider-traffic-contract-and-enrich-sweep.md), HOLODEX-421) | Unit + live `[agent]` | Vitest + driven browser | The line's logic is pure in `web/src/lib/components/activity/sweepLine.ts` and pinned by `sweepLine.test.ts`: `doneLineFor` shows this kind's `last_run` and nothing for the other kind, idle-with-no-run, running, or the dismissed batch (a *different* batch id shows again); `sweepFinished` fires **exactly once** on this kind's running→idle edge and never for the other kind or for a page mounted after the sweep finished (its initial load was already fresh — the P0-6 `reload()`-once rule); `skippedText` groups by reason and truncates to three names + `and N more`. `api.test.ts`: a `rate_limited` refresh-all row lands on the inline error slot as `tmdb is rate-limiting — try again in 42 s` while the other provider's reload still runs, and `runEnrichRefresh` surfaces the `503` body line (which is why `sendAuthed` now passes the body `error` into `ApiError`). The components have no rendering harness (§0/§11 standing gap) and were verified live on the worktree backend (`:7810`, a real TMDB sweep of 21 people in 42.8 s) via `read_page` + `javascript_tool` on all three skins: the two buttons render after Sign out and hide at count 0; the confirm replaces the row with the count, the checkbox rewrites the question and sends `force`, Cancel restores; `Yes, refresh` toasts `Refresh started.` and within one poll the running button reads `Refreshing people 0 / 21…` with the studios button disabled and its `aria-describedby` text in the DOM; the People page shows the running line counting (`3 of 21 · linked 2 · 1 need review`), the Studios page nothing; on the edge the page reloaded (portraits appeared) and the done line read `Refreshed 21 people in 42.8s — Linked 16 · 5 need review · View in System Activity · Dismiss`; a second non-forced sweep read `Linked 0 · 5 need review · 16 recently refreshed`; Dismiss stayed dismissed across polls; `Linked N` opened `/owner/status?batch=…` on the Log with the chip and only that batch's rows, `×` cleared it and reloaded the full log; 375 px: the confirm wraps above its buttons and `scrollWidth == innerWidth` on both list pages. One whitespace defect was caught only live (Svelte trimmed the text after `{#if}` → `linked 2· 1 need review`; separators are now explicit `{' · '}` expressions). Handoff items 8 (`429` fixture) and 11 (human, sidecar stopped mid-sweep) remain open | ~85% |
 | **Video composite-key collision check** — `NameEditControl` conflict generalization, `CollisionOfferCard.svelte` (F56.3, HOLODEX-270, [spec](specs/video-composite-key-collision.md), [design handoff](design/video-collision-verdict-handoff.md)) | Unit (shipped) + Component/Interaction + visual | Vitest + Playwright | Backend: `internal/repo/video_collision_test.go`'s `TestFindTitleCollision` covers the composite-key match itself (same normalized title/date/people-set/studio-set → collision; a distinct title, a different people set, or a soft-deleted candidate → no collision) and `TestFindTitleCollision_NoPeople` regression-guards a colliding video with zero linked people — `VideoCollision.People` must marshal as JSON `[]`, never `null` (a Go nil-slice default the frontend's unconditional `video.people.length` read cannot survive); `internal/api`'s decision-endpoint test covers the Title path's 409+`override` gate (no-override proposal that collides → 409 with the `VideoCollision` payload; the same proposal resubmitted with `override:true` → commits normally). Frontend: `NameEditControl` was generalized to be generic over the conflict-payload type (shared with HOLODEX-269's `MergeOfferCard` slot) so `CollisionOfferCard` — the video-flavored sibling, "View existing video" `.btn-accent` / "Save anyway, keep both" `.btn-ghost`, no merge verb, no third option per the spec — plugs into the same `verdict` snippet on the Video Title mount; no dedicated Vitest coverage yet for `CollisionOfferCard` itself, consistent with §0/§11's standing frontend-automation gap, but **fully driven-browser QA'd this session** in an isolated backend+frontend instance seeded with two fixture videos sharing a composite key: collision-card render (this pass is what caught the nil-people bug live, before the backend fix), "Save anyway" commits with override and updates the displayed title, "View existing video" navigates away and leaves the baseline `title` column + resolved decision untouched (confirmed via direct API inspection, not just UI appearance); all 3 skins pass WCAG AA (closest margin 4.71:1, Broadcast muted meta-text/ghost-button). Studio (HOLODEX-271) and People (HOLODEX-272) trigger points are explicitly out of scope for this story and untested here — they reuse `FindTitleCollision`'s sibling once those stories wire their own trigger points |
@@ -554,7 +558,7 @@ Conventions:
 
 ### Phase 2 — MCP, thumbnails, mapping
 - MCP tool tests + **REST/MCP parity** (ADR-005).
-- Thumbnail pipeline (ADR-009): Tier-1 embedded-art extraction vs Tier-2 generated frame; bounded worker pool + high-priority bump; single-column state machine with sweep-retried `failed`; serve 404-while-pending → 200; `POST .../thumbnail` regenerate; `thumbnail_queue_depth` on `/admin/status` (full Prometheus deferred); a `-tags integration` test runs real ffmpeg so the argv/muxer is exercised.
+- Thumbnail pipeline (ADR-009): Tier-1 embedded-art extraction vs Tier-2 generated frame; bounded worker pool + high-priority bump; single-column state machine with sweep-retried `failed`; serve 404-while-pending → 200; `POST .../thumbnail` regenerate, owner-gated (visitor 401 with no state reset or enqueue, owner 202 — `TestRegenerateThumbnailOwnerGated`, HOLODEX-596); `thumbnail_queue_depth` on `/admin/status` (full Prometheus deferred); a `-tags integration` test runs real ffmpeg so the argv/muxer is exercised.
 - Mapping: normalization, precedence, `multi`, facets, reload endpoint, key-discovery view (ADR-013, F20).
 - Sort, keyboard nav, responsive, Prometheus `/metrics` shape.
 - E2E flows 8–10.
@@ -2642,8 +2646,8 @@ exercised only by running the harness.
 | `collapsed-detail-text-block-costs-one-line` | **pass** — 9 checks (F64, HOLODEX-406, guarding F61's rule). Same prepared state; `height >= 60 and <= 60` on `#enrich-opt-2 > div.min-w-0`, the text block the slot sits beside: label (20) + disambiguation (16) + the toggle's line (24). **Mutation-tested**: dropping the toggle's `py-1` lands it at 52 and this fails while the row assertion (76) passes — exactly the blind spot the split exists for; the bare-`<div>` actions line lands it at 61. |
 | `candidate-slot-is-108-wide-on-every-row` | **pass** — 9 checks (F64, HOLODEX-406; **re-keyed 2026-09-18, HOLODEX-414**: the stressed picker opens on a video page, whose slot is the `landscape` kind, `w-27` = 108). Same prepared state; `applies: each`, `atLeast: 25`; `width >= 108 and <= 108` on `[role="listbox"] > li > div[aria-hidden="true"]` — every candidate row's thumbnail slot. This is the handoff's x-offset parity asserted by construction: the `<li>` is `flex items-start gap-3`, so text x = slot width + 12 on every row. **Mutation-tested 2026-09-18**: dropping `w-27` from `SLOT_CLASS.landscape` fails all 9 (the box takes the stub's 80-wide portrait); dropping `h-15` instead passes here but fails `collapsed-detail-row-costs-one-line` on all 9 (the `h-full` image takes its intrinsic height at 108 wide and the row balloons) — the pair covers both axes, which is why the slot is an explicit width/height pair and not an aspect class. The person/film (40) and studio (120) widths are outside the matrix (no stressed picker on those pages); verified live against the stub per the HOLODEX-414 QA checklist §3. |
 | `person-card-no-page-overflow` · `person-card-inside-gutter` | **pass** — 6 checks each in the `cinematheque` cells (HOLODEX-439, F68 R3/RD10; the other two skins error on the HOLODEX-460 skin-pin break, like every rung). Both run under `person-card-open` on the `people >= 25` media pages: the right-most tile's 288px card needs a clamp at every width (`translateX` −170 / −159.3 / −112 at wide / lg / narrow) and lands at exactly 16px. **Film pages were rejected as hosts** — a film's Cast grid ends 40px+ short of the clamp zone at every cell, so the rungs would have passed with the clamp deleted. **Mutation-tested**: `placeCard` returning `shiftX: 0` fails all 12 (page overflow 96px at `wide`; gutter −154 / −143.3 / −96). `gutterRight` (viewport right edge minus the element's right edge) is a new probe metric for this. |
-| `tag-chips-stay-tappable` | **open** — HOLODEX-357 |
-| `source-chips-stay-tappable` | **open** — HOLODEX-357 |
+| `tag-chips-stay-tappable` | **passes** — 8 checks (HOLODEX-357 adopted the 24px target, `docs/design/theming.md` "Target size"). The owner tag link now carries the chip's padding and measures 28px; the marker is retired. Still measures the inner `<a>`, so padding drifting back onto the wrapper fails it. |
+| `source-chips-stay-tappable` | **passes** — 4 checks (HOLODEX-357). The `text-xs` source chips take `min-h-6` and measure 24px; the marker is retired. |
 | `people-list-does-not-render-everything` | **passes** — 4 checks on a `-big` seed (HOLODEX-354, fixed by F80 paging, §32); skipped otherwise. The selector became `main ul > li` with `min: 1`, because the old `li.scroll-mt-16` matched nothing once rows lost that class, and an empty match passed a bare `max`. |
 
 **The matrix is now three widths** — `wide` 1440, `lg` 1024, `narrow` 768 — and the
@@ -5070,3 +5074,402 @@ What was exercised:
 **Standing gaps.**
 - Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
   would need a paged-list scenario.
+
+## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
+
+Media, People and Tags gain a Table view drawn by one shared table, and Tags gains a Posters view
+backed by an owner-uploaded tag image ([spec](specs/list-views.md),
+[handoff](design/list-views-handoff.md)). Risks, ranked by how quietly they would fail:
+
+1. **Two sorts again (HOLODEX-473).** A header click that keeps its own sort state, or that maps to
+   a value Sort doesn't offer, splits the header's arrow from the Sort select and the URL.
+2. **A tag image upload that skips the image gate.** This is a new upload surface: a visitor upload,
+   an oversized or hostile file, or bytes stored without the clean-and-re-encode step that person
+   and studio images pass through.
+3. **Owner-only columns reach a visitor.** Size and Done would show as blank columns, or as values
+   if the redaction ever regressed.
+4. **The table scrolls sideways on a phone**, because a column didn't drop or a long title widened
+   a non-fixed table.
+5. **A view choice that is lost or forced.** People's existing List/Poster choice is dropped when
+   its storage moves to the generic key, or arrival writes storage (F73 R7).
+6. **A tag poster that leaks or vanishes across a merge or delete.** The surviving tag loses the
+   image, or a deleted tag leaves its file on disk.
+7. **Load more or Back breaks in Table view.** Rows repeat, focus is lost, or Back restores Grid.
+
+### 33.1 Unit (Vitest)
+
+| # | Case | Guards risk |
+|---|---|---|
+| V1 | The view preference reads `holodex:view:<page>` per page. An absent or unknown value gives the page's default. People's stored `list` and `poster` still resolve, so no one's choice changes. | 5 |
+| V2 | **Reading the preference makes zero `localStorage.setItem` calls** (spy). The toggle handler writes exactly that page's key. | 5 |
+| V3 | **Every column with a sort key names an entry in that page's sort list**, for Media, People and Tags. A column whose key is missing fails here, not in the browser. | 1 |
+| V4 | Header click: another column's key returns that sort value. The active column returns its opposite direction when the list has one, and the same value when it doesn't. A column with no key returns nothing. | 1 |
+| V5 | `aria-sort`: `ascending` or `descending` on the active column, `none` on the other sortable columns, and absent on plain headers. | 1, a11y |
+| V6 | Column visibility for (columns, width, owner): owner-only columns never appear for a visitor at any width. The name column always appears. Each page's keep-below breakpoints match the handoff's column tables. | 3, 4 |
+| V7 | Each page's column list is the handoff's, in its order. This is a snapshot of labels and alignment, so a reorder is a deliberate diff. | spec P0-4 |
+
+### 33.2 Go: the tag image (`internal/api/tag_images_test.go`, new)
+
+The tests mirror the studio image tests, and `/security-review` reads them. Seven `TestTagImage_*`
+cases, plus an `image` case in the repo's `TestOrphanTag_AuthoredSurvives`.
+- **Owner gate.** A visitor's or a wrong token's upload, and a visitor's delete, are refused 401/403,
+  and nothing is stored or removed.
+- **The bytes gate.** Uploads use the studio image bounds (10 MiB, 1000px) through the shared
+  `parseImageUpload` → `personimage.Normalize`.
+  - An upload over the cap is refused 400, and so is a non-image.
+  - A transparent PNG is served as PNG (alpha kept).
+  - The decompression-bomb guard and the metadata strip are the normaliser's own, tested once in
+    `internal/personimage`; they are not re-tested per store.
+- **Serve.** With no image the route returns 404. After an upload it returns decodable bytes with
+  `nosniff` and the immutable cache header. A replace advances the version and leaves only the new
+  file on disk. A replace whose file can't be written answers 500 and leaves the previous image
+  serving at its old version (`TestTagImage_FailedReplaceKeepsThePreviousImage`).
+- **List and detail.** Both carry `image_url` stamped `?v={id}` for a tag with an image and nothing
+  for a tag without one: a URL, never a blob.
+- **Lifecycle.**
+  - Renaming a tag keeps its image.
+  - A merge into a survivor with no image carries the loser's image (same version) and removes the
+    loser's directory. A merge into a survivor with its own keeps the survivor's and removes the
+    loser's file.
+  - A tag with an image is never orphan-swept. Merge is the only way a tag with an image goes, so no
+    file is ever stranded.
+  - **Mutation-tested (2026-10-24):** dropping the `tag_images` id move fails
+    `TestTagImage_MergeCarriesImageToASurvivorWithout`, and mounting the mutations outside
+    `requireOwner` fails `TestTagImage_MutationsRequireOwner` ("visitor upload = 201").
+
+### 33.3 Geometry harness (§12)
+
+The view is a remembered choice, not a URL state, and the harness addresses pages by URL, so a
+new **`view:<view>` preparation** (`browser.mjs`) reaches it: it writes `holodex:view:<page>` for
+the URL's page, reloads, waits for that view's toggle cell to be pressed, then removes the key so
+the rest of the width cell's shared context keeps its default. A new **`aspect`** metric (width ÷
+height) measures the poster frame's shape. The pages are `TABLE_PAGES`: `/`, `/people`, `/tags`
+and `/tags?type=categories`.
+
+| Key | Pages · widths | Measure | Expect | Finds |
+|---|---|---|---|---|
+| `list-table-no-horizontal-overflow` | `TABLE_PAGES` · all | `:document` `overflowX` | 0 | A column that didn't drop, or a table that isn't fixed-layout (risk 4). |
+| `list-table-row-height` | `TABLE_PAGES` · all | each `tbody tr` height | 43–45 | A wrapping cell or a stray padding. |
+| `list-table-drops-columns-at-phone` | `/`, `/tags` · phone | each `th.hidden` width | 0 | A low-priority column still taking width (the priority rule regressed). |
+| `list-table-keeps-columns-at-phone` | `TABLE_PAGES` · phone | count of `th:not(.hidden)` | ≥ 2 | A row down to its name alone. |
+| `list-table-visitor-no-owner-columns` | `/` · wide, `visitor-view` | count of `thead th` | exactly 4 | Size or Done reaching a visitor (risk 3). |
+| `az-rail-clear-of-table` | `/people` · phone | each last `td` `gutterRight` | ≥ 26 | The A–Z rail over the Done ring. |
+| `tag-poster-aspect` | `/tags`, `?type=categories` · all | each `.poster-card-frame` `aspect` | 1.76–1.79 | A poster frame that drifted off 16:9. |
+
+**As built and run (2026-10-24, `backend-stress-open-9600` + `web-9600`, the stress fixture).**
+All seven pass: 48 checks over 4 width cells, with F73's `list-page-no-horizontal-overflow`
+still passing 32/32 beside them. The same run reported `az-rail-clear-of-rows` (§20.2) **VOID** on
+`/people` and `/studios`: its `li.scroll-mt-16` selector matches nothing since F80 moved
+`scroll-mt-16` onto the list wrapper. That is stale on `main` too and is not this epic's; it needs
+its selector updated.
+
+### 33.4 Navigation harness (§20.6)
+
+Two scenarios:
+- **`table-back-restores-view-rows-scroll`.** Media in Table view: Load more, scroll to the 60th
+  row, open a row in view, go Back. Expect the Table view, every loaded row, and the same `scrollY`.
+- **`table-header-sets-the-one-sort`.** People in Table view: click the Videos header. Expect
+  `?sort=count`, `holodex:sort:people` = `count`, the Sort select on `count`, and
+  `aria-sort="descending"` on the header.
+
+**Run 2026-10-24 (same pair):** both new scenarios pass, and so do 9 of the 10 existing ones.
+`two-tabs-independent` fails with "could not scroll to 800 (stuck at 737)": its random-sort People
+tab has only the 50-row first page since F80, too short for its 800px target at 1440px. This
+branch doesn't touch the People List view, so the failure is very likely on `main` as well (not
+confirmed there); the scenario needs a target the first page can reach.
+
+### 33.5 Live QA (`backend-stress` + `web`, Cinémathèque)
+
+1. `[smoke]` Media: switch to Table, reload, still Table. People and Tags keep their own views.
+2. `[agent]` Click each header on each page. The Sort select, the URL and the header arrow agree
+   after every click. Click it again to flip the direction where both directions exist.
+3. `[agent]` As a visitor, Media's Table has no Size or Done column, and nothing shows where they
+   were.
+4. `[agent]` At 375px, each page's Table has its kept columns, and the page has no sideways
+   scroll. In People with name sort, the A–Z rail doesn't cover the rings.
+5. `[agent]` Load more in Table view on all three pages: no duplicate rows, and focus lands on the
+   first new row.
+6. `[human]` Keyboard: Tab goes toolbar → headers → rows. Enter on a row opens the item. A screen
+   reader announces "Added, sorted newest first".
+7. `[agent]` Upload, replace and remove a poster on a tag's page. Check the list card each time,
+   then the placeholder.
+8. `[agent]` Merge a tag that has a poster into one that doesn't: the image carries over. Merge two
+   tags that both have posters: the survivor keeps its own.
+9. `[human]` Tags Posters with no images at all reads as a deliberate, even grid of placeholders.
+   Categories are distinguishable by the accent glyph.
+10. `[smoke]` An owner who had People set to Poster before the upgrade still lands in Poster.
+
+**Run 2026-10-24** (`backend-stress` and the open pair, Cinémathèque):
+- **1, 10:** pass. A seeded `poster` choice opened People in Poster. Table survived a reload on
+  Media, and each page kept its own view.
+- **2:** pass. Tags' Videos header moved the Sort select, `?sort=`, `holodex:sort:tags` and
+  `aria-sort` together. The nav scenario repeats it on People.
+- **3, 4:** pass, by the §33.3 geometry run.
+- **5:** pass with one note. People loaded 164 rows and Media 183, with no duplicates.
+  - On People's last Load more, focus landed on the first new row's link (row 151).
+  - Media's Load more has never moved focus, in the grid either, so it doesn't here. That is
+    existing behaviour, not this epic's.
+  - Tags fits in one page on this fixture (137 tags + 100 categories), so its Load more wasn't
+    exercised.
+- **7:** pass. Upload (through the route) showed on the list card and the tag page, Remove went
+  through its "Remove?" confirm to the empty slot, and the empty slot shows Upload beside its "+".
+  Replace is covered by the Go tests, not live.
+- **8:** covered by the Go merge tests (§33.2), not live: a merge can't be undone on the shared
+  fixture.
+- **6, 9:** `[human]`, run by the owner on 2026-10-24 on the open pair: pass ("looks fine").
+
+### 33.6 Standing gaps
+
+- Nothing automated checks the placeholder's look. Item 9 is a human judgement.
+- Nothing automated checks the keyboard order or the screen-reader announcement (item 6).
+- The upload's busy and error states are QA'd by hand. They are the existing slot's states, which
+  the studio image QA already covered.
+
+## 34. Source choices — Removed (N) and the folded chip (F30.3g, F36 P1-6, HOLODEX-69 / 138)
+
+There are two changes ([F30.3g](specs/metadata-curation.md), [F36 P1-6](specs/field-source-of-truth.md),
+[handoff](design/source-choices-restore-handoff.md)). The owner's detail read now lists each multi-value
+field's removed values. And source candidates that differ only in case, spacing or punctuation fold
+into one choice.
+
+The risks, ranked:
+
+1. **A visitor read leaks removed values.** This is the one security-relevant failure: curation is
+   owner data.
+2. **The fold swallows a real difference.** Two bios that differ in a word become one choice, and
+   the owner can't pick the other.
+3. **Restore doesn't bring the value back,** or brings it back without its provenance.
+4. **A field whose every value was removed drops out of the owner's read,** so its removals become
+   unreachable.
+
+### 34.1 Unit, Go: the resolver option (`internal/resolver/resolver_test.go`)
+
+Table-driven and pure, in-memory curation and enrichment maps as the existing F30 cases use.
+
+1. With the owner option on, a merge field with one `suppress` row lists that value under its
+   removals, spelled as stored (the display value, not the norm key).
+2. A removal whose norm key no layer supplies now carries `not sent now`. One a provider still
+   sends doesn't.
+3. Every value suppressed: with the option on, the field stays in `resolved[]`, with no values and
+   N removals. With the option off, it's dropped exactly as today.
+4. **With the option off, `Resolve` returns exactly what it returns today** for the same inputs. A
+   deep-equal against the option-less call is the guard for risk 1 at the unit level.
+5. `nowrite` and `add` rows never appear as removals. A suppressed value that's also manually added
+   stays hidden (suppress beats a manual add) and lists as a removal without `not sent now`,
+   because lifting the removal would bring it back.
+6. Replace (single-value) fields never carry removals.
+7. The same cases hold over a person baseline (`record`), so the option is entity-generic.
+
+### 34.2 Endpoint, Go: owner and visitor reads
+
+`internal/api` tests for the media, person and studio detail reads, against the test DB:
+
+1. Owner, gated backend: the field carries its removals. Visitor (no token) on the same entity: no
+   removals key anywhere in the payload, and a fully removed field is absent. These are risk 1's
+   tests, one per entity type.
+2. Restore round trip: suppress, read (one removal), clear the suppress row, read (the value is back
+   in `values`, with its sources, and there are zero removals). F30.2e is already tested at
+   `person_decisions_test.go`; these extend it to read the removal list on both sides.
+3. An open backend (no `ADMIN_TOKEN`) treats every client as the owner and gets removals. That's the
+   documented posture, not a leak.
+
+### 34.3 Unit, web: the fold (`web/src/lib/f36.test.ts`)
+
+`sourceChips` cases, each asserting the chip count, every chip's `labels`, and the shown `value`:
+
+1. Case only (`The Long Night` / `the long night`): one baseline chip naming both.
+2. Whitespace only: a doubled space and leading or trailing space fold.
+3. Punctuation and symbols: a trailing full stop, curly versus straight apostrophes, an en dash
+   versus a hyphen, and `&` versus nothing all fold. These are the owner's 2026-10-25 calls.
+4. Provider-only fold: two providers that match each other but not the baseline share one chip.
+   It shows the first provider in trust order, and its `decisionSource` is that provider's.
+5. **A one-word difference does not fold.** These are risk 2's tests: two bios differing in one
+   word, and two titles differing in one digit.
+6. An empty baseline doesn't absorb a provider. That's today's guard, kept.
+7. Custom stays last, and selection resolution (`resolveSelection`) still finds the decided chip
+   when its source folded into the baseline.
+
+### 34.4 Browser, web: the disclosure
+
+These run in `CurationFieldRow.svelte.test.ts` and a `CurationChip` removed-mode case.
+
+1. No removals: no toggle in the DOM.
+2. N removals: the toggle reads `Removed (N)` with `aria-expanded="false"`. Clicking it opens the
+   line (`aria-expanded="true"`, the `aria-controls` target present), and nothing is sent.
+3. Removed chip: dashed, no edit or don't-write control, and its `Restore {value}` button is
+   present without hover. A not-sent-now chip carries the suffix and the longer `aria-label`.
+4. Restore calls the clear transport with `{action:'suppress', value}`, then `onchanged`. Focus
+   moves to the next Restore, or to + Add when the line empties.
+5. The `aria-live` region announces the three messages from the handoff.
+6. A field with no values and N removals renders + Add and the toggle.
+7. `isOwner={false}`: no toggle and no removed chips, even when the field carries removals.
+8. Typing a removed value (any casing) into + Add calls the clear transport for its removal. For a
+   not-sent-now value, it then adds the value too. It never sends only an add, which would stay
+   hidden behind the removal.
+
+**Built (backend), 2026-10-25.** `internal/resolver/removed_test.go` covers 34.1.1–34.1.7, with
+`Options.ListRemoved` and `ResolvedField.Removed`. `internal/api/removed_values_test.go` covers
+34.2.1 for person and 34.2.2. It also adds a media actor case: a removed person folds into one
+entry under their canonical name, and a removal still held by a manual add isn't `not sent now`.
+`TestRemovedValues_MediaGenresAllRemovedKept` pins that the genre writeback pass keeps a genres row
+whose every genre was removed. Mutation-checked: it fails without that fix, and the person visitor
+test fails when the read ignores the owner flag. Media and studio set the option in the same
+one-line way as person. **Gap:** the 34.2.1 visitor test covers person only, because the media and
+studio test servers have no token-gated variant yet.
+
+**Built (frontend), 2026-10-25.**
+- `f36.test.ts` "sourceChips folding (P1-6)" covers 34.3.1–34.3.7. One case is new: an
+  all-punctuation value still folds with its exact twin.
+- `CurationFieldRow.svelte.test.ts` "Removed (N)" covers 34.4.1–34.4.8. Its focus case checks the
+  move to + Add once the last removal is restored.
+- Mutation-checked: matching providers on the trimmed value fails 11 fold cases, and keeping
+  symbols in `foldKey` fails the `+` case.
+
+### 34.5 Live QA
+
+Run the handoff's QA list (1–10) against the stress fixture's owner backend, with a media merge
+field, a studio field and a person bio:
+
+- The `[agent]` items go through the browser pane.
+- Items 9 and 10 (keyboard, screen reader, the Cinémathèque read of the dashed chip) are the
+  owner's.
+
+**Run 2026-10-25** (`backend-stress-open-9600` + `web-9600`, media 9146's Director row, since the
+fixture has no other curated merge row on the media page):
+
+- Items 1–4 pass. Removed (1) appeared closed and muted. It opened in ink, with a dashed 24px chip
+  and a visible Restore. Restore returned the value, removed the toggle, moved focus to + Add and
+  announced "Restored …".
+- Item 4: with both values removed, the row kept + Add and Removed (2).
+- Removing through ✕ announced "Removed … 1 removed."
+- Re-adding a removed director through the person picker lifted the removal.
+- Item 8: at 375px there was no horizontal scroll, and the Restore hit area measured 24×24.
+- Not run live:
+  - Item 5 (not sent now) and item 7 (the fold) are unit- and browser-tested only. The fixture
+    has neither case.
+  - Item 6 (visitor): the open backend treats everyone as the owner. It's covered by 34.2.1.
+
+The QA data was cleared afterwards. The two director names stay as person rows in the fixture,
+created by the add's relink.
+
+### 34.6 Mutation checks
+
+- Force the owner option on for every read in one detail handler: 34.2.1's visitor test must fail.
+- Revert the fold to `trim()` equality: 34.3.1–34.3.3 must fail.
+- Drop punctuation stripping alone: only 34.3.3 fails.
+
+### 34.7 Standing gaps
+
+- How the dashed chip reads (not in effect, not an add affordance) is a human judgement (handoff
+  QA 10).
+- Folding over a person's bio in the writeback dialog is covered by the shared `sourceChips` unit
+  tests, not by a dialog test.
+
+## 35. Moving thumbnails — the hover montage (F83, HOLODEX-578)
+
+A grid card plays a short silent montage on hover or focus. Montages are made by their own
+background pipeline, beside the stills, and ship in manual mode
+([spec](specs/moving-thumbnails.md),
+[architecture](architecture/media-ingest.md#hover-montages-a-silent-mp4-tier-beside-the-still-pipeline-owner-gated-by-mode),
+[handoff](design/moving-thumbnails-handoff.md)). Risks, ranked by how quietly they would fail:
+
+1. **Manual mode leaks into automatic.** A startup sweep, a scan or a browse page queues montages
+   when the owner hasn't asked. That's unattended ffmpeg work on the production library, which is
+   exactly what RD6 exists to prevent.
+2. **Montages starve stills.** A montage worker takes a job while stills are waiting, so new
+   videos sit without a still (P0-10).
+3. **The still pipeline grows a montage dependency (RD5).** A still regenerate, a poster upload or
+   a still failure reaches, resets or records against the montage.
+4. **A visitor can start ffmpeg work.** The request route is reachable without the owner check,
+   the same class of bug as HOLODEX-596.
+5. **A broken montage file plays as a blank or frozen card.** Audio slips in, the moov atom sits at
+   the end, or the clip count or span is wrong. Only real ffmpeg shows this.
+6. **The card flashes, sticks or plays when it shouldn't.** Motion shows before its first frame, two
+   cards play at once, reduced motion or touch still plays, or a missing montage is requested on
+   every hover.
+7. **Disk or CPU blow-up on a large library.** Workers ignore the count, or a failed video is
+   retried on every browse.
+
+### 35.1 Go unit: `internal/montage`
+
+| # | Case | Guards risk |
+|---|---|---|
+| G1 | `ParseMode`: `off`, `manual` and `automatic` parse. Empty gives **manual**, and an unknown value is a startup error, never a silent default. Workers default to **1**, and 0 or less becomes 1. | 1, 7 |
+| G2 | **Manual:** `Run` performs no startup sweep, `EnqueueVisible` (the list-response hook) is a no-op, and only `Request(id)` enqueues. | 1 |
+| G3 | **Automatic:** the startup sweep queues exactly the videos with no `video_montages` row and a duration of at least 6 s. `EnqueueVisible` queues only never-attempted ids. | 1, 7 |
+| G4 | **Off:** no worker goroutine starts, and `Request` returns `ErrDisabled`. | 1 |
+| G5 | **Behind stills:** with the still-queue stats fake reporting `depth > 0`, a worker takes nothing. When it drops to 0, the worker takes the job. Owner requests jump the montage queue but still wait on stills. | 2 |
+| G6 | Sampling: for durations of 600 s, 60 s, 20 s, 6 s and 5 s, the clip start times match the spec (6 clips over 10%–90%; fewer under 30 s, at least 2; none under 6 s, which gives `ErrTooShort`). The function is table-driven and pure. | 5 |
+| G7 | `buildArgs` pins the argv: one `-ss t -t 1 -i` per clip **before** each input, a `concat=n=N:v=1:a=0` filter, `-an`, `-movflags +faststart`, `-pix_fmt yuv420p`, and a scale no wider than `thumbnail_width`. It writes a `.tmp` that is renamed into place. | 5 |
+| G8 | State: success upserts `generated`, and an ffmpeg error upserts `failed` with the error text. Neither touches `videos.thumbnail_state` (asserted by reading the column). | 3 |
+| G9 | File change: `Invalidate(id)` re-enqueues only when a row exists, and does nothing in off mode. It is wired to the maintenance worker's post-write hook only, never the writeback queue's (QA 8). | 3 |
+| G10 | Dedup: requesting the same id twice while it is queued leaves one job. | 7 |
+
+### 35.2 Go: the boundary (RD5)
+
+- **Import guard:** `go list -deps ./internal/thumbnail/...` must not contain `internal/montage`.
+  This runs as a test in `internal/thumbnail`, so a future import fails CI.
+- `TestThumbnailRegenerate_LeavesMontage`: a still regenerate, a poster upload and a still failure
+  each leave the `video_montages` row and the `.mp4` byte-identical.
+
+### 35.3 Go API (`internal/api/montage_test.go`, new)
+
+| # | Case | Guards risk |
+|---|---|---|
+| A1 | `POST /api/v1/media/{id}/montage`: a visitor and a wrong token get 401/403 and nothing is queued. The owner gets 202 in manual and automatic mode, and 409 (`ErrDisabled`) in off mode. | 4, 1 |
+| A2 | `GET /api/v1/media/{id}/montage`: 404 while missing, then 200 `video/mp4`. `Range: bytes=0-99` gives 206, an unchanged `If-Modified-Since` gives 304, and a soft-deleted video gives 404. | 5 |
+| A3 | `montage_url` appears in the list and detail payloads only when the file exists, and carries `?v=<mtime>`. | 6 |
+| A4 | The montage status read gives none, waiting, making, ready (with size) or failed (with reason) for the owner. A visitor gets no status field. | 4 |
+| A5 | A list response in manual mode calls nothing on the montage manager (spy), and in automatic mode passes only visible never-attempted ids. | 1 |
+
+### 35.4 Integration (`-tags integration`, and `make test-image`)
+
+`TestMontage_RealFFmpeg` cuts a montage from a generated 40 s test clip and probes the result:
+- the container is MP4 with exactly one H.264 video stream and **no audio stream**;
+- the duration is 6 s ± 0.2;
+- the moov atom comes before mdat (faststart);
+- the width is at most `thumbnail_width`.
+
+Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is the one tested.
+
+### 35.5 Frontend (Vitest)
+
+| # | Case | Guards risk |
+|---|---|---|
+| F1 | The playback controller holds one active card. Starting B releases A. | 6 |
+| F2 | Arm timing (fake timers): `src` is set on pointer enter. Visibility flips only after **both** 400 ms **and** a `playing` event. Leaving before 400 ms clears `src` and calls `load()`. | 6 |
+| F3 | Focus plays at once, and Escape and blur release. | 6, a11y |
+| F4 | Reduced motion, a coarse pointer, no `montage_url`, or a prior `error` event: no `<video>` is mounted, so no request is possible. | 6 |
+| F5 | (`montageStatus.test.ts`, `MontageStatus.svelte.test.ts`) The Maintenance section's Hover montage row maps each status to its value text and actions per the handoff table. Waiting and making show no button. Polling stops on ready or failed and on unmount. The row is absent for a visitor and in off mode. | 4, 6 |
+
+### 35.6 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+1. `[smoke]` Start a backend with no montage setting: the activity view shows `Montages · manual ·
+   0 waiting · 1 worker`, and nothing is queued after a full scan.
+2. `[agent]` On a video page, press Make montage: Waiting, then Making, then Ready with a size.
+   Preview plays it. Hovering its card in the grid plays it after about 400 ms.
+3. `[agent]` Hover a card with no montage: no request for a montage appears in the network panel.
+4. `[agent]` Turn on reduced motion (emulated): hovering a ready card never plays it.
+5. `[agent]` Tab across ready cards: each plays on focus, Escape stops it, and only one plays at a
+   time.
+6. `[agent]` Poster layout: the montage fills the 2:3 frame, cropped, with no letterbox.
+7. `[agent]` As a visitor (gated backend), there's no Maintenance section (so no Hover montage or Thumbnail row), and `POST …/montage` is refused.
+8. `[agent]` Regenerate the still of a video with a montage, then write back a tag change to it:
+   in both cases the montage file, its status and the montage queue stay unchanged.
+9. `[human]` Production test in manual mode: request montages for hand-picked videos, then judge
+   generation time, size and quality. This gates switching to automatic (spec Success Metrics).
+10. `[human]` Does motion over the still feel right, or is 400 ms too eager or too slow? This feeds
+    spec Q2.
+
+### 35.7 Mutation checks
+
+- Make `EnqueueVisible` ignore the mode: G2 and A5 must fail.
+- Drop the stills-waiting check: G5 must fail.
+- Remove `-an`: 35.4 must fail on the audio-stream assertion.
+- Move the request route out of the owner group: A1 must fail.
+- Flip visibility on `src` assignment instead of `playing`: F2 must fail.
+
+### 35.8 Standing gaps
+
+- Disk use across a full library is measured once on the stress fixture (spec Q3), not asserted.
+- Real decoder behaviour (Safari Range handling, iOS) is checked by hand, not in CI.

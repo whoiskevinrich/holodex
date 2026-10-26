@@ -11,7 +11,7 @@ import (
 // Shared mechanics for the entity-image handlers (Person F25/ADR-038, Studio
 // F51/ADR-079, Film F56/ADR-086; HOLODEX-286) — serving a stored file is
 // byte-for-byte identical across all three, so servePersonImageFile also calls
-// serveEntityImageFile. parseImageUpload is used only by Studio/Film: Person's
+// serveEntityImageFile. parseImageUpload is used only by Studio/Film/Tag: Person's
 // upload path additionally handles the gallery cap, over-cap override, and
 // dedup-by-hash in person_images.go, which are not part of this simple "replace
 // the one row for a role" shape, so folding that one in would trade a real

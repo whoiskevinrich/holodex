@@ -6,6 +6,7 @@ import (
 
 	"holodex/internal/enrich"
 	"holodex/internal/model"
+	"holodex/internal/montage"
 	"holodex/internal/repo"
 	"holodex/internal/thumbnail"
 )
@@ -16,8 +17,11 @@ import (
 type activityResponse struct {
 	Scan       model.ScanStatus     `json:"scan"`
 	Thumbnails thumbnail.QueueStats `json:"thumbnails"`
-	Library    repo.LibraryCounts   `json:"library"`
-	System     activitySystem       `json:"system"`
+	// Montages is the hover-montage queue (F83 P0-14), its own block, never merged
+	// into Thumbnails. Absent when the pipeline isn't wired.
+	Montages *montage.Stats     `json:"montages,omitempty"`
+	Library  repo.LibraryCounts `json:"library"`
+	System   activitySystem     `json:"system"`
 	// Sweep is the entity refresh sweep's live state (F66 RD5, ADR-103 D8): both the
 	// status page and the list-page status line derive from this one block.
 	Sweep enrich.SweepStatus `json:"sweep"`
@@ -46,6 +50,10 @@ func (h *Handlers) adminActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.thumbs != nil {
 		resp.Thumbnails = h.thumbs.QueueStats()
+	}
+	if h.montages != nil {
+		st := h.montages.QueueStats()
+		resp.Montages = &st
 	}
 
 	counts, err := h.repo.LibraryCounts(r.Context())

@@ -148,6 +148,16 @@ there's no "No studio" chip, remove button or footer action.
 → `web/src/lib/components/entity/CLAUDE.md` "Relationship pickers";
 [studio-detach-handoff.md](../design/studio-detach-handoff.md); HOLODEX-493
 
+**Removed disclosure.** The owner's way back to values they removed from a multi-value field: a
+quiet **Removed (N)** toggle after + Add, which opens a second line of dashed, muted chips, each with
+an always-visible Restore. It's absent when nothing is removed, and visitors never see it.
+→ [source-choices-restore-handoff.md](../design/source-choices-restore-handoff.md); HOLODEX-69
+
+**Folded choice.** One source choice standing for several sources whose values match once case,
+spacing and punctuation are ignored. It reads `·file + provider-1` on a chip and
+`RECORD + PROVIDER-1` on a modal row, and shows the baseline's spelling.
+→ [source-choices-restore-handoff.md §2](../design/source-choices-restore-handoff.md); HOLODEX-138
+
 **Deep-link anchor.** `id="field-<canonical>"` on the block that renders a field, so the
 completeness queue can jump to it. Must be unique on the page and must exist whenever the queue
 could point at it — a viewport-keyed second render is a bug, not a layout choice.

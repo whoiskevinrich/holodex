@@ -113,8 +113,9 @@ func personizeResolved(fields []resolver.ResolvedField) []resolver.ResolvedField
 // preload; degraded reads log and resolve without that layer, as there.
 // Also returns the synthesized field list, so callers (e.g. the F55
 // completeness breakdown panel) can score the same resolve pass instead of
-// re-resolving from scratch.
-func (h *Handlers) personResolve(r *http.Request, id int64, p *model.Person) ([]resolver.ResolvedField, []mapping.Field) {
+// re-resolving from scratch. owner lists each merge field's removals (F30.3g); pass
+// it only for an authorized read.
+func (h *Handlers) personResolve(r *http.Request, id int64, p *model.Person, owner bool) ([]resolver.ResolvedField, []mapping.Field) {
 	rows, err := h.repo.EnrichmentForEntity(r.Context(), model.EnrichEntityPerson, id)
 	if err != nil {
 		h.log.Warn("enrichment for person detail", "id", id, "err", err)
@@ -135,7 +136,9 @@ func (h *Handlers) personResolve(r *http.Request, id int64, p *model.Person) ([]
 	fields := personFields(h.personProviders(rows))
 	fields, promoted := h.mergePromotions(r.Context(), model.EnrichEntityPerson, fields, rows)
 	fields = h.mergeClaims(r.Context(), model.EnrichEntityPerson, fields)
-	resolved := resolver.ResolveFields(resolver.NewPersonBaseline(p), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
+	opts := h.resolveOptions(dec)
+	opts.ListRemoved = owner
+	resolved := resolver.ResolveFields(resolver.NewPersonBaseline(p), enrichmentFromRows(rows), cur, fields, opts)
 	h.markPromoted(resolved, promoted)
 	resolved = h.appendAutoRegistered(r.Context(), rows, fields, personizeResolved(resolved))
 	// F45 (ADR-063 §D5): append the derived rows (Age / Age at death) last, with the

@@ -70,6 +70,9 @@ type Video struct {
 	// PosterUploaded reports whether the current poster is an owner upload (F52) —
 	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
 	PosterUploaded bool `json:"poster_uploaded,omitempty"`
+	// MontageURL is the hover montage's serving URL (F83, HOLODEX-578), set by the
+	// API layer only when the file exists, so a card never requests a missing one.
+	MontageURL string `json:"montage_url,omitempty"`
 	// Part is this file's resolved ordinal within a multi-file media (HOLODEX-389
 	// RD9) — stamped by the API layer on every list/summary payload (like
 	// ThumbnailURL), not a column: its baseline is a container tag in video_metadata
@@ -238,6 +241,13 @@ type Tag struct {
 	// ParentTagID is the broader tag this tag sits under, or nil at the root
 	// (F50, ADR-075 D1) — a strict one-parent tree, no DAG.
 	ParentTagID *int64 `json:"parent_tag_id,omitempty"`
+	// ParentName is that parent's name, set on the /tags list only — the Table view's
+	// Parent column (F82). The detail read has Ancestors instead.
+	ParentName string `json:"parent_name,omitempty"`
+	// ImageVersion is the tag's owner-uploaded poster image's row id (F82), 0 for none;
+	// the api layer turns it into ImageURL. Set on the /tags list and the detail read.
+	ImageVersion int64  `json:"-"`
+	ImageURL     string `json:"image_url,omitempty"`
 	// Ancestors is this tag's ancestor chain, root-first (F50, ADR-075 D1
 	// P1-3) — the tag-detail breadcrumb. Populated only on the tag-detail
 	// read (GetTag); omitted on the /tags list, which has no per-row use

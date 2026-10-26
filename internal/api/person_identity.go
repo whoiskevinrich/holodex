@@ -60,7 +60,13 @@ func (h *Handlers) collapsePersonAliases(ctx context.Context, videoID int64, res
 	var linked map[int64]string // person id → canonical name; loaded on first person row
 	for i := range resolved {
 		rf := &resolved[i]
-		if rf.EntityKind != registry.EntityKindPerson || len(rf.Items) == 0 {
+		if rf.EntityKind != registry.EntityKindPerson {
+			continue
+		}
+		if err := h.collapseRemovedPeople(ctx, rf); err != nil {
+			return err
+		}
+		if len(rf.Items) == 0 {
 			continue
 		}
 		if linked == nil {
@@ -114,5 +120,42 @@ func (h *Handlers) collapsePersonAliases(ctx context.Context, videoID int64, res
 			rf.Values[k] = it.Value
 		}
 	}
+	return nil
+}
+
+// collapseRemovedPeople shows a removed person once in a person-typed row's Removed
+// list (F30.3g). Removing a person suppresses every spelling of them
+// (curationSpellings), so the resolver lists one removal per spelling. Spellings
+// naming one person fold into a single entry under their canonical name, which is
+// still not sent only when no spelling is sent. Restore clears every spelling again
+// through curationSpellings.
+func (h *Handlers) collapseRemovedPeople(ctx context.Context, rf *resolver.ResolvedField) error {
+	if len(rf.Removed) == 0 {
+		return nil
+	}
+	at := map[int64]int{} // person id → index of its kept removal
+	out := make([]resolver.RemovedValue, 0, len(rf.Removed))
+	for _, rv := range rf.Removed {
+		id, ok, err := h.repo.LookupEntityIDByName(ctx, model.EnrichEntityPerson, rv.Value)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			out = append(out, rv)
+			continue
+		}
+		if j, seen := at[id]; seen {
+			out[j].NotSent = out[j].NotSent && rv.NotSent
+			continue
+		}
+		p, err := h.repo.GetPerson(ctx, id)
+		if err != nil {
+			return err
+		}
+		rv.Value = p.Name
+		at[id] = len(out)
+		out = append(out, rv)
+	}
+	rf.Removed = out
 	return nil
 }

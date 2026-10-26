@@ -6,12 +6,14 @@ import {
 	isPendingSelection,
 	isReplaceField,
 	isWritable,
+	matchesFile,
 	needsWriteback,
 	outOfSync,
 	outOfSyncCount,
 	providerCandidates,
 	providerOf,
 	selectedChipKey,
+	foldKey,
 	sourceChips,
 	startsOnCustom
 } from './f36';
@@ -439,6 +441,36 @@ describe('baselineKey default (media page unchanged)', () => {
 	});
 });
 
+describe('matchesFile', () => {
+	const agreeing = (over: Partial<ResolvedField> = {}) =>
+		field({
+			winning_source: 'file:Title',
+			candidates: [
+				{ source: 'file', value: 'Blade Runner' },
+				{ source: 'provider:tmdb', provider: 'tmdb', value: 'Blade Runner ' }
+			],
+			...over
+		});
+	it('is true for an undecided file value every source agrees with', () => {
+		expect(matchesFile(agreeing())).toBe(true);
+		expect(matchesFile(agreeing({ decision: { source: 'file', standing: false } }))).toBe(true);
+	});
+	it('ignores a provider candidate with no value', () => {
+		expect(
+			matchesFile(agreeing({ candidates: [{ source: 'provider:tmdb', provider: 'tmdb', value: '' }] }))
+		).toBe(true);
+	});
+	it('is false when a provider offers a different value', () => {
+		expect(matchesFile(field({ winning_source: 'file:Title' }))).toBe(false);
+	});
+	it('is false for a standing decision, a provider winner, an empty value or a merge field', () => {
+		expect(matchesFile(agreeing({ decision: { source: 'file', standing: true } }))).toBe(false);
+		expect(matchesFile(agreeing({ winning_source: 'tmdb:title' }))).toBe(false);
+		expect(matchesFile(agreeing({ values: [' '] }))).toBe(false);
+		expect(matchesFile(agreeing({ multi: true }))).toBe(false);
+	});
+});
+
 describe('outOfSync / outOfSyncCount', () => {
 	it('an undecided field is in sync (no warn signal)', () => {
 		expect(outOfSync(field())).toBe(false);
@@ -538,5 +570,64 @@ describe('isWritable', () => {
 	});
 	it('is false for an empty write_target', () => {
 		expect(isWritable(field({ write_target: '' }))).toBe(false);
+	});
+});
+
+// F36 P1-6 (testing-strategy §34.3): same-ish candidates fold into one choice.
+describe('sourceChips folding (P1-6)', () => {
+	const cands = (file: string, ...providers: [string, string][]) =>
+		field({
+			candidates: [
+				{ source: 'file', value: file },
+				...providers.map(([p, v]) => ({ source: `provider:${p}` as const, provider: p, value: v }))
+			]
+		});
+	const shape = (f: ResolvedField) =>
+		sourceChips(f)
+			.filter((c) => c.key !== 'custom')
+			.map((c) => ({ value: c.value, labels: c.labels, decisionSource: c.decisionSource }));
+
+	it('folds a case-only difference into the baseline chip', () => {
+		expect(shape(cands('The Long Night', ['provider-1', 'the long night']))).toEqual([
+			{ value: 'The Long Night', labels: ['file', 'provider-1'], decisionSource: 'file' }
+		]);
+	});
+	it('folds doubled, leading and trailing whitespace', () => {
+		expect(shape(cands('A quiet  drama', ['provider-1', ' A quiet drama ']))).toHaveLength(1);
+	});
+	it.each([
+		['a trailing full stop', 'The Long Night', 'The Long Night.'],
+		['a curly apostrophe', "The Long Night's End", 'The Long Night’s End'],
+		['an en dash', 'The Long-Night', 'The Long–Night']
+	])('folds %s', (_, file, provider) => {
+		expect(shape(cands(file, ['provider-1', provider]))).toHaveLength(1);
+	});
+	it('folds "&", "+" and a hyphen against nothing or a space', () => {
+		expect(foldKey('Rock & Roll')).toBe(foldKey('Rock Roll'));
+		expect(foldKey('Rock + Roll')).toBe(foldKey('Rock Roll'));
+		expect(foldKey('Part-1')).toBe(foldKey('Part 1'));
+	});
+	it('folds providers that match each other under the first one, not the baseline', () => {
+		expect(shape(cands('Ana Kessler', ['provider-1', "Mara O'Voss"], ['provider-2', 'Mara O’Voss']))).toEqual([
+			{ value: 'Ana Kessler', labels: ['file'], decisionSource: 'file' },
+			{ value: "Mara O'Voss", labels: ['provider-1', 'provider-2'], decisionSource: 'provider:provider-1' }
+		]);
+	});
+	it('keeps a one-word or one-digit difference as its own choice', () => {
+		expect(shape(cands('A quiet drama of loss', ['provider-1', 'A quiet drama of love']))).toHaveLength(2);
+		expect(shape(cands('Part 1', ['provider-1', 'Part 2']))).toHaveLength(2);
+	});
+	it('never folds a provider into an empty baseline', () => {
+		expect(shape(cands('', ['provider-1', 'The Long Night']))).toHaveLength(2);
+		expect(shape(cands('—', ['provider-1', '...']))).toHaveLength(2);
+	});
+	it('still folds an all-punctuation value with its exact twin', () => {
+		expect(shape(cands('—', ['provider-1', '—']))).toHaveLength(1);
+	});
+	it('still selects the decided chip when its provider folded into the baseline', () => {
+		const f = cands('The Long Night', ['provider-1', 'the long night.']);
+		f.decision = { source: 'provider:provider-1', standing: true };
+		expect(selectedChipKey(f, sourceChips(f))).toBe('file');
+		expect(sourceChips(f).at(-1)?.key).toBe('custom');
 	});
 });

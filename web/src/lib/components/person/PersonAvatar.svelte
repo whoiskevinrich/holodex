@@ -13,12 +13,13 @@
 		personId: number;
 		name: string;
 		version?: number;
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'xs' | 'sm' | 'md' | 'lg';
 		eager?: boolean;
 	} = $props();
 
 	// Each size's width class and the same width in px for the image's `sizes` (HOLODEX-332).
 	const widths: Record<typeof size, { cls: string; px: string }> = {
+		xs: { cls: 'w-8', px: '32px' }, // the People Table view's name cell (F82)
 		sm: { cls: 'w-12', px: '48px' },
 		md: { cls: 'w-20', px: '80px' },
 		lg: { cls: 'w-32', px: '128px' }

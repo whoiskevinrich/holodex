@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="820" viewBox="0 0 1040 820" font-family="Archivo, 'Archivo Variable', system-ui, sans-serif" role="img">
+  <title>F82 Tags Posters view and tag poster upload, Cinémathèque</title>
+  <desc>The Tags page in Posters view (All tab, owner): 16:9 cards like media thumbnails, a tag-glyph placeholder for tags without an image, categories as accent-glyph placeholder cards. Below, the poster control on a tag's own page, empty and filled.</desc>
+  <defs>
+    <g id="glyph"><path d="M0 2a2 2 0 0 1 2-2h13l13 13-15 15L0 15z" fill="none" stroke-width="2.4" stroke-linejoin="round"/><circle cx="7" cy="7" r="2.4" fill="none" stroke-width="2"/></g>
+    <g id="ph">
+      <rect width="236" height="133" rx="2" fill="#181310"/>
+      <use href="#glyph" x="104" y="52" stroke="#9b9082" opacity=".55"/>
+      <rect y="130" width="236" height="3" fill="#e8a33d" opacity=".6"/>
+      <rect x=".5" y=".5" width="235" height="132" rx="2" fill="none" stroke="#2a2622" opacity=".5"/>
+    </g>
+    <g id="phCat">
+      <rect width="236" height="133" rx="2" fill="#181310"/>
+      <use href="#glyph" x="104" y="52" stroke="#e8a33d" opacity=".8"/>
+      <rect y="130" width="236" height="3" fill="#e8a33d" opacity=".6"/>
+      <rect x=".5" y=".5" width="235" height="132" rx="2" fill="none" stroke="#2a2622" opacity=".5"/>
+    </g>
+    <g id="img"><rect width="236" height="133" rx="2" fill="#2a2622"/><path d="M0 104l60-38 50 26 64-46 62 40v47H0z" fill="#3a332c"/><circle cx="186" cy="34" r="12" fill="#4a4036"/></g>
+  </defs>
+  <rect width="1040" height="820" fill="#0c0a09"/>
+  <text x="24" y="22" font-size="12" fill="#6f665b" letter-spacing=".04em">TAGS · ALL TAB · OWNER · POSTERS VIEW · DENSITY 4</text>
+
+  <text x="24" y="64" font-size="24" fill="#f3ece1" font-weight="600">Tags</text>
+  <g font-size="14"><text x="24" y="98" fill="#e8a33d">All</text><text x="60" y="98" fill="#9b9082">Tags</text><text x="106" y="98" fill="#9b9082">Categories</text></g>
+  <line x1="24" y1="105" x2="45" y2="105" stroke="#e8a33d" stroke-width="2"/>
+
+  <rect x="24.5" y="120.5" width="120" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="36" y="141" font-size="14" fill="#f3ece1">Videos</text><path d="M126 134l4 4 4-4" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+  <rect x="580.5" y="120.5" width="248" height="32" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <rect x="592" y="130" width="16" height="12" rx="6" fill="none" stroke="#9b9082" stroke-width="1.3"/><text x="614" y="141" font-size="14" fill="#9b9082">Chips</text>
+  <rect x="659" y="121" width="92" height="31" fill="#e8a33d"/>
+  <g fill="none" stroke="#1a1206" stroke-width="1.3"><rect x="670" y="130" width="14" height="8"/><path d="M670 142h14"/></g>
+  <text x="690" y="141" font-size="14" fill="#1a1206" font-weight="500">Posters</text>
+  <g fill="none" stroke="#9b9082" stroke-width="1.3"><rect x="762" y="130" width="13" height="13"/><path d="M762 134.5h13M762 138.5h13M767 130v13"/></g>
+  <text x="782" y="141" font-size="14" fill="#9b9082">Table</text>
+  <g fill="#9b9082"><rect x="840" y="129" width="6" height="6" rx="1"/><rect x="848" y="129" width="6" height="6" rx="1"/><rect x="840" y="137" width="6" height="6" rx="1"/><rect x="848" y="137" width="6" height="6" rx="1"/></g>
+  <rect x="862" y="134.5" width="100" height="3" rx="1.5" fill="#2a2622"/><rect x="862" y="134.5" width="20" height="3" rx="1.5" fill="#e8a33d"/><circle cx="882" cy="136" r="7" fill="#e8a33d"/>
+  <rect x="970" y="128" width="16" height="16" rx="2" fill="#9b9082"/>
+  <rect x="988.5" y="120.5" width="28" height="32" rx="2" fill="#15110e" stroke="#2a2622"/><text x="996" y="141" font-size="14" fill="#9b9082">⋯</text>
+
+  <text x="24" y="182" font-size="14" fill="#9b9082">286 tags · 14 categories</text>
+
+  <g font-size="14" font-weight="500" fill="#f3ece1">
+    <use href="#img" x="24" y="200"/><text x="24" y="353">noir</text>
+    <use href="#ph" x="276" y="200"/><text x="276" y="353">rooftops</text>
+    <use href="#img" x="528" y="200"/><text x="528" y="353">rain</text>
+    <use href="#ph" x="780" y="200"/><text x="780" y="353">piers</text>
+    <use href="#ph" x="24" y="390"/><text x="24" y="543">long exposure and night pho…</text>
+    <use href="#img" x="276" y="390"/><text x="276" y="543">harbor</text>
+    <use href="#phCat" x="528" y="390"/><text x="528" y="543">city</text>
+    <use href="#phCat" x="780" y="390"/><text x="780" y="543">weather</text>
+  </g>
+  <g font-size="12" fill="#9b9082">
+    <text x="24" y="371">142 videos</text><text x="276" y="371">38 videos</text><text x="528" y="371">21 videos</text><text x="780" y="371">4 videos</text>
+    <text x="24" y="561">3 videos</text><text x="276" y="561">17 videos</text><text x="528" y="561">12 tags</text><text x="780" y="561">5 tags</text>
+  </g>
+  <g transform="translate(486 206)"><rect width="26" height="22" rx="2" fill="#0c0a09" fill-opacity=".8"/><text x="7" y="16" font-size="14" fill="#f3ece1">⋯</text></g>
+  <text x="24" y="590" font-size="12" fill="#6f665b">16:9 frame, the media thumbnail shape · tag rows first, then categories (accent glyph) · ⋯ shows on hover or focus while Manage tags is on</text>
+
+  <!-- tag page control -->
+  <text x="24" y="640" font-size="12" fill="#6f665b" letter-spacing=".04em">TAG PAGE · OWNER · THE POSTER CONTROL, EMPTY AND FILLED</text>
+  <g transform="translate(24 656)">
+    <rect x=".5" y=".5" width="380" height="114" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="12.5" y="12.5" width="160" height="90" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="4 3"/>
+    <text x="92.5" y="66" font-size="24" fill="#9b9082" text-anchor="middle">+</text>
+    <text x="188" y="40" font-size="14" font-weight="500" fill="#f3ece1">Poster</text>
+    <rect x="188.5" y="54.5" width="58" height="22" rx="2" fill="#15110e" stroke="#2a2622"/><text x="198" y="70" font-size="12" fill="#f3ece1">Upload</text>
+  </g>
+  <g transform="translate(428 656)">
+    <rect x=".5" y=".5" width="380" height="114" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <g transform="translate(12 12) scale(.678)"><use href="#img"/></g>
+    <text x="188" y="40" font-size="14" font-weight="500" fill="#f3ece1">Poster</text>
+    <rect x="188.5" y="54.5" width="62" height="22" rx="2" fill="#15110e" stroke="#2a2622"/><text x="198" y="70" font-size="12" fill="#f3ece1">Replace</text>
+    <rect x="258.5" y="54.5" width="62" height="22" rx="2" fill="#15110e" stroke="#2a2622"/><text x="268" y="70" font-size="12" fill="#9b9082">Remove</text>
+  </g>
+  <text x="24" y="800" font-size="12" fill="#6f665b">the existing image slot control at 16:9 · Remove asks “Remove?” first, as on studios · visitors see the image with no controls, and no slot when there is none</text>
+</svg>

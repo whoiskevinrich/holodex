@@ -28,7 +28,7 @@ import { METRICS } from './evaluate.mjs';
  * @property {string[]} [prepare]    Named page preparations to run before measuring.
  * @property {string} selector       CSS selector, or `:document` for the page itself.
  * @property {'each'|'count'} [applies]  Default `each`.
- * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'|'mainTop'} [measure]
+ * @property {'width'|'height'|'overflowX'|'overflowY'|'fontSize'|'gutterRight'|'mainTop'|'aspect'} [measure]
  *   Required for `each`; ignored for `count`.
  * @property {{min?: number, max?: number}} expect
  * @property {string[]} [widths]    Width keys to run at (browser.mjs WIDTHS). Default: every
@@ -49,6 +49,9 @@ import { METRICS } from './evaluate.mjs';
 const isProseRung = (e) =>
 	(e.entity === 'video' && e.dimension === 'text') ||
 	(e.entity === 'film' && e.dimension === 'filmtext');
+
+/** The pages with a Table view (F82), the Tags tab that lists categories included. */
+const TABLE_PAGES = ['/', '/people', '/tags', '/tags?type=categories'];
 
 /** The five list pages at rest (F73), and their worst toolbar states. */
 const LIST_PAGES = ['/', '/people', '/studios', '/films', '/tags?type=categories'];
@@ -218,18 +221,15 @@ export const ASSERTIONS = [
 		when: (e) => (e.axes.video?.tags ?? 0) >= 5,
 		// The inner <a>, not the chip around it, and deliberately so: a target-size
 		// bound is a claim about the *actionable* region. TagLinkChip's owner branch
-		// (the one the harness runs in, since it pins admin mode) moved the padding
-		// onto a wrapping <span> to make room for the remove ×, leaving the link an
-		// unpadded 20px text box — clicking the chip's padding activates nothing. The
-		// visitor branch keeps the padding on the <a> and would measure 30px. Measuring
-		// the wrapper here would report the chip as compliant while the thing you can
-		// actually tap is not, so HOLODEX-357 is only fixed when *this* node clears 24.
+		// (the one the harness runs in, since it pins admin mode) wraps the link in a
+		// <span> that also holds the remove ×. Before HOLODEX-357 the padding sat on that
+		// span and the link was an unpadded 20px text box; the fix moved it onto the link
+		// (28px). Measuring the wrapper would report the chip as compliant even if the
+		// padding drifted back off the link, so keep measuring *this* node.
 		selector: '#field-genres a[href^="/tags/"]',
 		measure: 'height',
-		// 24px is WCAG 2.2 AA (SC 2.5.8 Target Size, Minimum). The project has not
-		// explicitly adopted it, so the bound is a proposal and HOLODEX-357 is the ruling.
-		expect: { min: 24 },
-		blockedBy: 'HOLODEX-357'
+		// 24px is WCAG 2.2 AA (SC 2.5.8 Target Size, Minimum), adopted by HOLODEX-357.
+		expect: { min: 24 }
 	},
 
 	{
@@ -243,8 +243,7 @@ export const ASSERTIONS = [
 		prepare: ['metadata-fold', 'source-badge:tagline'],
 		selector: '[data-source-badge="tagline"] [data-seg]',
 		measure: 'height',
-		expect: { min: 24 },
-		blockedBy: 'HOLODEX-357'
+		expect: { min: 24 }
 	},
 
 	// --- The Enrich picker's "Searched" caption, stressed (ADR-095 D6, HOLODEX-369/372) ---
@@ -529,7 +528,7 @@ export const ASSERTIONS = [
 			'data) stays out of it.',
 		urls: ['/?sort=title_asc', '/people', '/studios'],
 		widths: ['phone'],
-		selector: ':is(.video-grid > :first-child, main ul > li.scroll-mt-16:first-child)',
+		selector: ':is(.video-grid > :first-child, main ul > li:first-child)',
 		measure: 'mainTop',
 		expect: { max: 200 }
 	},
@@ -553,9 +552,87 @@ export const ASSERTIONS = [
 			'right edge and is ~21px wide, so every row must keep 26px clear (`pr-5` below `sm`).',
 		urls: ['/people', '/studios'],
 		widths: ['phone'],
-		selector: 'main ul > li.scroll-mt-16',
+		selector: 'main ul > li',
 		measure: 'gutterRight',
 		expect: { min: 26 }
+	},
+
+	// --- F82 list views: the shared Table view and Tags Posters (testing-strategy §33.3) ---
+	// The view is a remembered choice, not a URL state, so each of these reaches it
+	// through the `view` preparation.
+
+	{
+		key: 'list-table-no-horizontal-overflow',
+		finds:
+			'A Table view scrolling sideways: a column that should have dropped at this width, ' +
+			'or a long title widening a table that is not fixed-layout.',
+		urls: TABLE_PAGES,
+		prepare: ['view:table'],
+		selector: ':document',
+		measure: 'overflowX',
+		expect: { max: 0 }
+	},
+	{
+		key: 'list-table-row-height',
+		finds: 'A Table row off its 44px: a cell wrapping instead of truncating, or a stray padding.',
+		urls: TABLE_PAGES,
+		prepare: ['view:table'],
+		selector: 'main tbody tr',
+		measure: 'height',
+		expect: { min: 43, max: 45 }
+	},
+	{
+		key: 'list-table-drops-columns-at-phone',
+		finds:
+			'A low-priority column still taking width at 375px (Media: res, added, size, done; ' +
+			'Tags: parent), the priority rule having regressed.',
+		urls: ['/', '/tags'],
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main thead th.hidden',
+		measure: 'width',
+		expect: { max: 0 }
+	},
+	{
+		key: 'list-table-keeps-columns-at-phone',
+		finds: 'A Table at 375px showing the name alone: every row needs at least one more column.',
+		urls: TABLE_PAGES,
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main thead th:not(.hidden)',
+		applies: 'count',
+		expect: { min: 2 }
+	},
+	{
+		key: 'list-table-visitor-no-owner-columns',
+		finds: 'An owner-only column (size, done) reaching a visitor: Media shows four columns to them.',
+		urls: ['/'],
+		widths: ['wide'],
+		prepare: ['view:table', 'visitor-view'],
+		selector: 'main thead th',
+		applies: 'count',
+		expect: { min: 4, max: 4 }
+	},
+	{
+		key: 'az-rail-clear-of-table',
+		finds:
+			'The A–Z rail covering the People Table’s last column (the Done ring): the table ' +
+			'keeps `pr-6` below `sm`, so its cells end at least 26px from the edge.',
+		urls: ['/people'],
+		widths: ['phone'],
+		prepare: ['view:table'],
+		selector: 'main tbody td:last-child',
+		measure: 'gutterRight',
+		expect: { min: 26 }
+	},
+	{
+		key: 'tag-poster-aspect',
+		finds: 'A Tags Posters frame drifting off 16:9 — the media thumbnail shape, not People’s 2:3.',
+		urls: ['/tags', '/tags?type=categories'],
+		prepare: ['view:posters'],
+		selector: 'main .poster-card-frame',
+		measure: 'aspect',
+		expect: { min: 1.76, max: 1.79 }
 	}
 ];
 
