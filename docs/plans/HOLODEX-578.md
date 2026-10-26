@@ -48,7 +48,7 @@ across the video; montages are built in the background after stills. Supersedes 
 - [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [/] testing `testing-strategy`
 - [ ] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,9 +66,9 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Add the F83 section — `docs/testing-strategy.md`
-2. [ ] [backend] Montage package, table, queue, routes, mode/worker config — `internal/montage/`
-3. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
+1. [ ] [backend] Montage package, table, queue, routes, mode/worker config — `internal/montage/`
+2. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
+3. [ ] [testing] Write the §35 tests alongside each slice; tick when they're green — `docs/testing-strategy.md`
 4. [ ] [security] Review new public montage route + owner request route + ffmpeg concat job — `/security-review`
 5. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
@@ -83,8 +83,8 @@ across the video; montages are built in the background after stills. Supersedes 
 -->
 
 ### 2026-10-25 · session
-- skills: write-spec, handoff, architecture, design-handoff, implement
-- handoff: Crossed into build — design signed off at 3787a33d; main merged in and the Draft PR is open on this branch. Start at the F83 section of docs/testing-strategy.md.
+- skills: write-spec, handoff, architecture, design-handoff, implement, testing-strategy
+- handoff: Crossed into build (design signed off at 3787a33d, Draft PR #557); test plan §35 written; next is the backend slice in internal/montage/.
 
 ## Dropped — newest first (the reason is the point)
 

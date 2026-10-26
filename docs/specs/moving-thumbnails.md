@@ -14,7 +14,7 @@ poster, and nothing about stills depends on it (RD5).
 derived media is made, stored and served.
 
 **Design handoff**: [`moving-thumbnails-handoff.md`](../design/moving-thumbnails-handoff.md), with a
-committed SVG mockup. **Test plan**: pending (`/testing-strategy`).
+committed SVG mockup. **Test plan**: [testing-strategy §35](../testing-strategy.md#35-moving-thumbnails--the-hover-montage-f83-holodex-578).
 
 ---
 
