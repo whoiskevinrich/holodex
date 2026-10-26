@@ -41,6 +41,29 @@ is edited in place when that changes, and leaves the history to git.
 - **Process docs are not architecture.** CI, Jira, branching and agent tooling belong in
   `docs/reference/`.
 
+## Examples
+
+Specs, architecture docs, design handoffs, mockups, worklogs and QA lists all illustrate with
+fields. Every example field must be one **every library has**, because a reader takes the example
+for the product.
+
+- **Use** fields backed by a file tag: title, actors, director, studio. Also usable are Tags, which
+  a provider's genres often feed, and a person's or studio's name and alternate names. Person
+  fields like bio and birthdate usually come from a provider, so check them like any other.
+- **Don't use** a field that only a provider supplies, even when it looks standard: tagline,
+  genres as a field, status, homepage, original language, collection, runtime. Some libraries never
+  configure them. The owner's live config has no tagline.
+- **Don't take field names from** `internal/registry` (`KnownFields`) or
+  `metadata-mappings.yaml.example`. The registry lists every field the code can label. The example
+  mapping is a TMDB-flavoured sample. Neither one is the field set: that's the owner's
+  `metadata-mappings.yaml`, which is gitignored and in no worktree. Check a field's sources in the
+  example mapping: if none of them is a file tag, it's provider-specific. Ask when unsure.
+- **Name providers generically:** `provider-1`, `provider-2`, and a monogram for the icon. The
+  sidecar repos own provider names.
+- **Never invent a field name** to fill a row.
+- **Stress-fixture fields are test scaffolding**, not product examples. For instance, the geometry
+  harness measures a tagline badge on video 902.
+
 ## Enforcement
 
 - **`.claude/rules/doc-types.md`** carries the boundaries above. It loads whenever a file under

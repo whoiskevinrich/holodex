@@ -90,6 +90,15 @@ A new source is a namespace, never a new subsystem, and an adoption must visibly
 list carrying its `ProvenanceBadge`. The model deliberately does **not** cover tags, merge/multi
 fields, entity-link fields, or identity fields.
 
+**Examples use fields every library has.** Which fields exist is set by the owner's
+`metadata-mappings.yaml`, and no worktree has that file. `internal/registry`'s `KnownFields` and
+`metadata-mappings.yaml.example` are provider-flavoured catalogues: tagline, genres, status,
+homepage and original_language map from a provider alone there, and the live config has no
+tagline at all. In a mockup, handoff, spec, plan or QA list, illustrate with fields backed by a
+file tag (title, actors, director, studio), Tags, or a person's or studio's name; name
+providers generically (`provider-1`); and never invent a field. Full rule:
+[doc-types.md, "Examples"](../docs/reference/doc-types.md#examples).
+
 ## Change-routing rules
 
 While making a change, route it through the right skill based on what it touches:

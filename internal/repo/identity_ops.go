@@ -85,7 +85,11 @@ var entityIdentityByType = map[string]entityIdentity{
 			SELECT video_id, ?, source FROM video_tags WHERE tag_id = ?
 			ON CONFLICT (video_id, tag_id) DO UPDATE SET source = excluded.source
 			WHERE video_tags.source = '` + fieldsource.File + `'`,
-		idMoves: []idMove{{"tags", "parent_tag_id", true}},
+		// The loser's poster image follows the survivor only when the survivor has none
+		// (F82 P0-10): tag_images.tag_id is UNIQUE, so OR IGNORE keeps the survivor's own
+		// and the loser's row goes with the loser (ON DELETE CASCADE). The api layer moves
+		// or removes the file to match.
+		idMoves: []idMove{{"tags", "parent_tag_id", true}, {"tag_images", "tag_id", false}},
 	},
 	model.EnrichEntityFilm: {
 		table: "films", assoc: "film_videos", assocFK: "film_id",

@@ -52,7 +52,11 @@ func (h *Handlers) mountStudioTagIdentity(r chi.Router) {
 	})
 	h.mountEntityIdentity(r, identityRoutes{
 		entityType: model.EntityTag, noun: "tag", respKey: "tag", base: "tags",
-		get: func(ctx context.Context, id int64) (any, error) { return h.repo.GetTag(ctx, id) },
+		get: func(ctx context.Context, id int64) (any, error) {
+			t, err := h.repo.GetTag(ctx, id)
+			setTagImageURL(t) // a merge may have just carried an image over (F82)
+			return t, err
+		},
 	})
 }
 
@@ -166,6 +170,12 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 	// associations between the read and the merge. Tag merges compute this
 	// too (cfg.writebackField == "" for tags) but simply never use it below —
 	// one shared merge call for every entity type this handler serves.
+	// A tag's poster image may follow the survivor (F82 P0-10): note the loser's image
+	// before the merge so its file can be moved or removed once the rows have settled.
+	var lostTagImage repo.TagImage
+	if cfg.entityType == model.EntityTag {
+		lostTagImage, _ = h.repo.GetTagImage(r.Context(), body.FromID)
+	}
 	videoIDs, err := h.repo.MergeEntitiesWithAffectedVideos(r.Context(), cfg.entityType, id, body.FromID)
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
@@ -174,6 +184,9 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 	case err != nil:
 		h.fail(w, "merge "+cfg.noun, err)
 		return
+	}
+	if cfg.entityType == model.EntityTag {
+		h.settleMergedTagImage(r.Context(), id, body.FromID, lostTagImage.ID)
 	}
 	entity, err := cfg.get(r.Context(), id)
 	if err != nil {

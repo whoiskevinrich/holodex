@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="980" viewBox="0 0 1200 980" font-family="Archivo, 'Archivo Variable', system-ui, sans-serif">
+  <title>F83 moving thumbnails: hover montage states, poster crop and owner request</title>
+  <defs>
+    <linearGradient id="still" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5a3b22"/><stop offset="1" stop-color="#1f1510"/>
+    </linearGradient>
+    <linearGradient id="motion" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1d2b33"/><stop offset="1" stop-color="#4b5a4a"/>
+    </linearGradient>
+    <g id="play"><path d="M0 0v22l17-11z" fill="#f3ece1"/></g>
+  </defs>
+  <rect width="1200" height="980" fill="#0c0a09"/>
+
+  <text x="24" y="36" font-family="Fraunces, 'Fraunces Variable', serif" font-size="22" fill="#f3ece1">F83 · Moving thumbnails: hover montage</text>
+  <text x="24" y="58" font-size="12" fill="#9b9082">Cinémathèque tokens · cards at real size (240 px wide grid card, 160 px poster card) · annotations in muted text are not UI</text>
+
+  <!-- ===== Section 1: handover ===== -->
+  <text x="24" y="96" font-size="13" font-weight="600" fill="#e8a33d">1 · Still → motion handover (wide layout)</text>
+
+  <!-- card a: rest -->
+  <g transform="translate(24,110)">
+    <rect width="240" height="135" rx="2" fill="url(#still)" stroke="#2a2622"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect x="6" y="6" width="38" height="16" rx="2" fill="#e8a33d"/><text x="25" y="18" font-size="10" font-weight="600" text-anchor="middle" fill="#1a1206">1080p</text>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">a · At rest: the still</text>
+  </g>
+  <!-- card b: hover <400ms -->
+  <g transform="translate(304,110)">
+    <rect width="240" height="135" rx="2" fill="url(#still)" stroke="#e8a33d"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect width="240" height="135" fill="#000" fill-opacity="0.25"/>
+    <use href="#play" transform="translate(112,56)"/>
+    <rect x="6" y="6" width="38" height="16" rx="2" fill="#e8a33d"/><text x="25" y="18" font-size="10" font-weight="600" text-anchor="middle" fill="#1a1206">1080p</text>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">b · Hover, first 400 ms: today's</text>
+    <text x="0" y="199" font-size="12" fill="#9b9082">tint + play glyph, accent border</text>
+  </g>
+  <!-- card c: playing -->
+  <g transform="translate(584,110)">
+    <rect width="240" height="135" rx="2" fill="url(#motion)" stroke="#e8a33d"/>
+    <circle cx="160" cy="58" r="22" fill="#c9b78f" fill-opacity="0.35"/><rect x="30" y="80" width="120" height="30" fill="#0e1418" fill-opacity="0.6"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect x="6" y="6" width="38" height="16" rx="2" fill="#e8a33d"/><text x="25" y="18" font-size="10" font-weight="600" text-anchor="middle" fill="#1a1206">1080p</text>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">c · First frame ready: motion fades in</text>
+    <text x="0" y="199" font-size="12" fill="#9b9082">(150 ms); tint + glyph fade out; badges stay</text>
+  </g>
+  <!-- card d: leave -->
+  <g transform="translate(864,110)">
+    <rect width="240" height="135" rx="2" fill="url(#still)" stroke="#2a2622"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect x="6" y="6" width="38" height="16" rx="2" fill="#e8a33d"/><text x="25" y="18" font-size="10" font-weight="600" text-anchor="middle" fill="#1a1206">1080p</text>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">d · Pointer leaves: motion fades out,</text>
+    <text x="0" y="199" font-size="12" fill="#9b9082">still shows; next play restarts at clip 1</text>
+  </g>
+  <path d="M268 177h30M548 177h30M828 177h30" stroke="#9b9082" stroke-dasharray="3 3"/>
+
+  <!-- ===== Section 2: focus / reduced motion / none ===== -->
+  <text x="24" y="352" font-size="13" font-weight="600" fill="#e8a33d">2 · Keyboard focus, reduced motion and touch, no montage</text>
+  <g transform="translate(24,366)">
+    <rect x="-3" y="-3" width="246" height="141" rx="3" fill="none" stroke="#e8a33d" stroke-width="2"/>
+    <rect width="240" height="135" rx="2" fill="url(#motion)" stroke="#e8a33d"/>
+    <circle cx="160" cy="58" r="22" fill="#c9b78f" fill-opacity="0.35"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">e · Tab to the card: focus ring as today,</text>
+    <text x="0" y="199" font-size="12" fill="#9b9082">motion starts at once (no 400 ms wait)</text>
+  </g>
+  <g transform="translate(304,366)">
+    <rect width="240" height="135" rx="2" fill="url(#still)" stroke="#e8a33d"/>
+    <rect width="240" height="9" fill="#000"/><rect y="126" width="240" height="9" fill="#000"/>
+    <rect width="240" height="135" fill="#000" fill-opacity="0.25"/>
+    <use href="#play" transform="translate(112,56)"/>
+    <rect x="190" y="111" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="212" y="124" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="12" y="157" font-size="14" font-weight="500" fill="#f3ece1">Harbour at Dusk</text>
+    <text x="0" y="184" font-size="12" fill="#9b9082">f · Reduced motion, touch, no montage yet,</text>
+    <text x="0" y="199" font-size="12" fill="#9b9082">or load failed: exactly today's hover (b), forever</text>
+  </g>
+
+  <!-- ===== Section 3: poster crop ===== -->
+  <text x="24" y="610" font-size="13" font-weight="600" fill="#e8a33d">3 · Poster layout (2:3): how motion sits in the frame</text>
+  <g transform="translate(80,640)">
+    <rect x="-56" y="0" width="272" height="240" fill="none" stroke="#9b9082" stroke-dasharray="4 4" stroke-opacity="0.6"/>
+    <rect width="160" height="240" rx="2" fill="url(#motion)" stroke="#e8a33d"/>
+    <circle cx="100" cy="100" r="40" fill="#c9b78f" fill-opacity="0.35"/>
+    <rect x="110" y="216" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="132" y="229" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="0" y="262" font-size="13" font-weight="600" fill="#f3ece1">A · Crop to fill <tspan fill="#e8a33d">· chosen</tspan></text>
+    <text x="0" y="280" font-size="12" fill="#9b9082">centre of each frame fills the card,</text>
+    <text x="0" y="295" font-size="12" fill="#9b9082">like a frame-grab still is cropped today</text>
+    <text x="-50" y="-6" font-size="11" fill="#9b9082">dashed: the 16:9 frame, cut off</text>
+  </g>
+  <g transform="translate(330,640)">
+    <rect width="160" height="240" rx="2" fill="#000" stroke="#e8a33d"/>
+    <rect y="75" width="160" height="90" fill="url(#motion)"/>
+    <circle cx="105" cy="115" r="16" fill="#c9b78f" fill-opacity="0.35"/>
+    <rect x="110" y="216" width="44" height="18" rx="2" fill="#000" fill-opacity="0.7"/><text x="132" y="229" font-size="12" text-anchor="middle" fill="#f3ece1">12:34</text>
+    <text x="0" y="262" font-size="13" font-weight="600" fill="#9b9082">B · Letterbox · rejected</text>
+    <text x="0" y="280" font-size="12" fill="#9b9082">whole frame, small, on black;</text>
+    <text x="0" y="295" font-size="12" fill="#9b9082">poster art jumps to a thin band</text>
+  </g>
+
+  <!-- ===== Section 4: owner rows in Maintenance (revised 2026-10-25) ===== -->
+  <text x="520" y="610" font-size="13" font-weight="600" fill="#e8a33d">4 · Owner rows in the media page's Maintenance section (owner only)</text>
+  <g transform="translate(520,640)">
+    <line x1="0" y1="0" x2="656" y2="0" stroke="#2a2622"/>
+    <text x="0" y="24" font-size="12" letter-spacing="0.6" fill="#9b9082">MAINTENANCE</text>
+    <g font-size="14">
+      <text x="0" y="62" fill="#9b9082">Thumbnail</text>
+      <rect x="124" y="44" width="168" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="208" y="64" text-anchor="middle" fill="#f3ece1">Regenerate thumbnail</text>
+
+      <text x="0" y="108" fill="#9b9082">Hover montage</text>
+      <text x="124" y="108" fill="#f3ece1" font-weight="600">Ready <tspan fill="#9b9082" font-weight="400">· 105.9 KB</tspan></text>
+      <rect x="250" y="90" width="76" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="288" y="110" text-anchor="middle" fill="#f3ece1">Preview</text>
+      <rect x="334" y="90" width="80" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="374" y="110" text-anchor="middle" fill="#f3ece1">Remake</text>
+      <rect x="124" y="130" width="240" height="135" rx="2" fill="url(#motion)" stroke="#2a2622"/>
+      <text x="374" y="200" font-size="11" fill="#9b9082">Preview open</text>
+
+      <text x="0" y="296" fill="#9b9082">Picture</text>
+      <rect x="124" y="278" width="150" height="30" rx="2" fill="none" stroke="#2a2622"/><text x="199" y="298" text-anchor="middle" fill="#f3ece1">Flip horizontally…</text>
+    </g>
+    <g font-size="11" fill="#9b9082">
+      <text x="440" y="50">Hover montage value by status:</text>
+      <text x="440" y="68">None yet · Make montage</text>
+      <text x="440" y="84">Waiting in queue… (no button)</text>
+      <text x="440" y="100">Making… (no button)</text>
+      <text x="440" y="116">Ready · size · Preview · Remake</text>
+      <text x="440" y="132">Failed · reason · Retry</text>
+      <text x="440" y="160">Row hidden when generation is off.</text>
+      <text x="440" y="188">Replaces the status line under the</text>
+      <text x="440" y="204">player, and moves Regenerate</text>
+      <text x="440" y="220">thumbnail out of Metadata › More.</text>
+    </g>
+  </g>
+</svg>

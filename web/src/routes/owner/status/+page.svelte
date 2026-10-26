@@ -330,6 +330,19 @@
 				{/if}
 			</StatusCard>
 
+			{#if a.montages}
+				<!-- Hover montages (F83 P0-14): their own queue, never folded into Thumbnails. -->
+				<StatusCard title="Montages">
+					{#if a.montages.depth > 0 || a.montages.in_flight > 0}
+						<p class="text-2xl font-semibold tabular-nums text-ink">{a.montages.depth}</p>
+						<p class="text-sm text-muted">waiting · {a.montages.in_flight} in progress</p>
+					{:else}
+						<p class="text-2xl font-semibold text-ink">Queue empty</p>
+					{/if}
+					<p class="text-sm text-muted">{a.montages.mode} · {a.montages.workers} {a.montages.workers === 1 ? 'worker' : 'workers'}</p>
+				</StatusCard>
+			{/if}
+
 			<StatusCard title="Library">
 				<p class="text-2xl font-semibold tabular-nums text-ink">{a.library.videos_active}</p>
 				<p class="text-sm text-muted">videos{#if a.library.videos_inactive > 0} · {a.library.videos_inactive} inactive{/if}</p>

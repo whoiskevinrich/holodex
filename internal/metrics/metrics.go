@@ -24,6 +24,9 @@ type Registry struct {
 	// (SetQueueDepthSource) before serving and read only on the cold /metrics
 	// path. The write happens-before any scrape, so it needs no lock. nil → 0.
 	queueDepth func() int
+	// montageDepth is the hover-montage queue's gauge source (F83), kept apart
+	// from the thumbnail gauge. nil → 0.
+	montageDepth func() int
 }
 
 // New builds the registry with histogram buckets tuned to each metric: scans run
@@ -38,6 +41,10 @@ func New() *Registry {
 // SetQueueDepthSource wires the live thumbnail-queue depth read at scrape time
 // (F11.8). Call once at startup before serving.
 func (r *Registry) SetQueueDepthSource(fn func() int) { r.queueDepth = fn }
+
+// SetMontageQueueDepthSource wires the hover-montage queue depth (F83). Call once
+// at startup before serving.
+func (r *Registry) SetMontageQueueDepthSource(fn func() int) { r.montageDepth = fn }
 
 // ObserveScan records a completed scan pass: its duration and how many files were
 // (re)indexed (added + updated).
@@ -64,6 +71,13 @@ func (r *Registry) Handler() http.HandlerFunc {
 		}
 		writeGauge(&sb, "holodex_thumbnail_queue_depth",
 			"Pending thumbnail generation jobs (F11.8).", float64(depth))
+
+		montageDepth := 0
+		if r.montageDepth != nil {
+			montageDepth = r.montageDepth()
+		}
+		writeGauge(&sb, "holodex_montage_queue_depth",
+			"Pending hover-montage generation jobs (F83).", float64(montageDepth))
 
 		r.scanDur.write(&sb, "holodex_scan_duration_seconds",
 			"Duration of a full library scan pass, in seconds.")

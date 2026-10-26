@@ -23,7 +23,7 @@ records the transport decision and supersedes **[ADR-073](../architecture/archiv
   which this spec relies on and does not touch) — without it the page could not re-resolve to a
   correct baseline when a job lands
 - the per-field decision model ([ADR-051](../architecture/archive/ADR-051-per-field-source-of-truth-decisions.md)/[ADR-052](../architecture/archive/ADR-052-baseline-source-contract.md)) —
-  `in_sync` and the existing per-field `file out of sync` pill. `in_sync` is tri-state
+  `in_sync` and the existing per-field `file differs` pill. `in_sync` is tri-state
   ([ADR-093](../architecture/archive/ADR-093-writeback-readback-and-tristate-in-sync.md)); the badge keys off
   `in_sync === false`, so an absent (unknown) value correctly renders nothing
 - the owner gate ([ADR-030](../architecture/archive/ADR-030-access-control-gating-seam.md), `requireOwner`)
@@ -46,7 +46,7 @@ durable and that they cannot affect. If they leave anyway, the poll is cancelled
 and a failure becomes visible only on the Activity page.
 
 ADR-073 D4 introduced that wait for a real reason — refetching on the `202` reads the pre-write
-baseline and renders just-written fields as "file out of sync" — so removing the wait without
+baseline and renders just-written fields as "file differs" — so removing the wait without
 replacing the signal would reintroduce that bug. The owner has confirmed D4's premises no longer
 hold.
 
@@ -69,7 +69,7 @@ hold.
   Alternatives).
 - **No change to which value is written.** That is settled before the job is enqueued. This spec
   covers only how the result of writing it is reported.
-- **No change to the per-field `file out of sync` pill** on individual rows.
+- **No change to the per-field `file differs` pill** on individual rows.
 
 ## Requirements
 

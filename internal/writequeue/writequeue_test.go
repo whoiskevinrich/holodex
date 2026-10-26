@@ -206,6 +206,53 @@ func TestQueue_RecordsSharedMergeBatchID(t *testing.T) {
 	}
 }
 
+// A failed pre-write snapshot read must not detach the run from its batch. The
+// tag-sync dialog counts done/failed from job_runs by batch_id, so a run filed
+// under "" left it at "0 of N" for the whole sync.
+func TestQueue_SnapshotReadFailureKeepsBatchID(t *testing.T) {
+	r := newRepo(t)
+	a := seedVideo(t, r, "MP4")
+	b := seedVideo(t, r, "MP4")
+	const syncBatch = "tag-writeback-sync-1"
+
+	var calls atomic.Int32
+	write := func(context.Context, string, []writeback.FieldWrite) error {
+		if calls.Add(1) == 2 {
+			return errors.New("boom")
+		}
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	q := writequeue.New(r, write, testLogger(), 1, "")
+	writequeue.SetFileReaders(q,
+		func(context.Context, string, string) (map[string][]string, error) { return nil, nil },
+		func(context.Context, string, []writeback.Mapped) (map[string]string, error) {
+			return nil, errors.New("exiftool: exit status 1")
+		})
+	q.Start(ctx)
+
+	if _, err := q.EnqueueMany(ctx, []writequeue.BatchJob{
+		{VideoID: a, Fields: []writequeue.JobField{{Field: "title", Values: []string{"A"}}}},
+		{VideoID: b, Fields: []writequeue.JobField{{Field: "title", Values: []string{"B"}}}},
+	}, syncBatch); err != nil {
+		t.Fatalf("enqueue many: %v", err)
+	}
+	waitFor(t, func() bool {
+		n, _ := r.PendingWritebackCount(ctx)
+		return n == 0
+	})
+
+	pending, running, done, failed, err := r.GetWritebackBatchStatus(ctx, syncBatch)
+	if err != nil {
+		t.Fatalf("batch status: %v", err)
+	}
+	if pending != 0 || running != 0 || done != 1 || failed != 1 {
+		t.Errorf("batch status = pending %d running %d done %d failed %d, want 0/0/1/1",
+			pending, running, done, failed)
+	}
+}
+
 // TestQueue_EnqueueMany_OneCallEnqueuesEveryJob is F48.8's bulk enqueue path:
 // several videos' jobs, submitted in one EnqueueMany call, all end up
 // queued and all drain — the single-transaction insert (EnqueueWritebackBatch)

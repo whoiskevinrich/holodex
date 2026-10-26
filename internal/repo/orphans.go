@@ -49,6 +49,7 @@ var orphanAuthoredSQL = map[string]string{
 		OR EXISTS(SELECT 1 FROM metadata_curation WHERE entity_type = 'tag' AND entity_id = e.id)
 		OR EXISTS(SELECT 1 FROM category_tags WHERE tag_id = e.id)
 		OR EXISTS(SELECT 1 FROM tags WHERE parent_tag_id = e.id)
+		OR EXISTS(SELECT 1 FROM tag_images WHERE tag_id = e.id) -- an owner upload (F82)
 		OR e.parent_tag_id IS NOT NULL OR e.writeback_enabled = 0`,
 }
 

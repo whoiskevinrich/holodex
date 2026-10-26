@@ -101,14 +101,19 @@ export interface BatchStatus {
 // pending+running reaching zero, not the absence of any failure. On timeout, or
 // if cancelled before any successful fetch, it resolves with the last-known
 // counts (or all-zero) rather than hanging or throwing — a 50+-video batch can
-// legitimately outrun the poll cap.
+// legitimately outrun the poll cap. `onProgress` sees every fetched count,
+// settled or not, so a progress bar can move while the batch runs.
 export async function waitForWritebackBatch(
 	batchId: string,
 	batchStatus: (batchId: string) => Promise<BatchStatus>,
-	opts: WaitOptions = {}
+	opts: WaitOptions & { onProgress?: (state: BatchStatus) => void } = {}
 ): Promise<BatchStatus> {
 	const state = await pollUntilSettled(
-		() => batchStatus(batchId),
+		async () => {
+			const s = await batchStatus(batchId);
+			opts.onProgress?.(s);
+			return s;
+		},
 		(s) => s.pending === 0 && s.running === 0,
 		opts
 	);
