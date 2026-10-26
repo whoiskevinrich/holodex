@@ -56,8 +56,7 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
      The CHECKBOX settles an item and nothing else does: [x] done, [~] dropped (ADR-008).
      This queue holds LIVE work only (ADR-010). -->
 
-1. [ ] [testing] `[human]` QA §36.3 item 7 in a visible window: measured frame step and exact-frame capture on an MPEG-TS and a VFR file
-2. [ ] [—] Sweep HOLODEX-35 to In Review if CI's ready event doesn't move it, and to Done on merge
+1. [ ] [testing] `[human]` Owner runs the production test plan (Claude Doc https://claude.ai/artifact/4PWNvGRWb3eY2pRNjmHQbV), incl. §36.3 item 7 frame accuracy on 60 fps, MPEG-TS and VFR files; each fail → a bug linked to HOLODEX-35
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -68,8 +67,8 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
 -->
 
 ### 2026-10-26 · session
-- skills: code-review, handoff, implement
-- handoff: Crossed into build — design signed off at a079d8f4; built and agent-QA'd (saved poster matched frame 225 exactly), Draft PR open. Start at the `[human]` frame-accuracy check in a visible window (§36.3 item 7).
+- skills: code-review, handoff, implement, docs
+- handoff: Built, agent-QA'd (saved poster matched frame 225 exactly) and merged via #560 at the owner's request so it can be tested on the production library. Start at the owner's results from the production test plan doc (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 
