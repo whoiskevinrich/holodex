@@ -273,7 +273,7 @@ would have to account for montages (F83 RD5).
 **Rejected:** a `montage_state` column on `videos`. A table of its own leaves the hot `videos` row
 untouched, and the whole tier can be dropped or rebuilt without touching still state.
 
-Decided in: pending squash (HOLODEX-578).
+Decided in [`6c9efccd`](https://github.com/whoiskevinrich/holodex/commit/6c9efccd) (HOLODEX-578).
 
 ## Video bytes streamed by id through `http.ServeContent`
 
