@@ -41,6 +41,12 @@ func (s *stubThumbs) ExtractEmbedded(_ context.Context, id int64, _ string) (boo
 
 func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo, string) {
 	t.Helper()
+	return thumbServerTok(t, thumbs, "")
+}
+
+// thumbServerTok is thumbServer with the owner gate closed by token ("" = open).
+func thumbServerTok(t *testing.T, thumbs *stubThumbs, token string) (*httptest.Server, *repo.Repo, string) {
+	t.Helper()
 	dir := t.TempDir()
 	database, err := db.Open(filepath.Join(dir, "test.db"))
 	if err != nil {
@@ -53,7 +59,9 @@ func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(api.Router(log, api.NewHealth(), api.NewHandlers(r, log, thumbs, thumbDir, nil, nil), nil))
+	h := api.NewHandlers(r, log, thumbs, thumbDir, nil, nil)
+	h.SetAuth(api.NewAuth(token), false)
+	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 	return srv, r, thumbDir
 }
@@ -124,6 +132,42 @@ func TestRegenerateThumbnail(t *testing.T) {
 	got, _, _ := r.GetVideo(context.Background(), id)
 	if got.ThumbnailState != "" {
 		t.Errorf("state after regenerate = %q, want empty", got.ThumbnailState)
+	}
+}
+
+// Regenerate resets state and queues ffmpeg work, so it sits under requireOwner:
+// a visitor gets 401 and nothing moves; the owner's token still gets 202. The
+// GET stays public.
+func TestRegenerateThumbnailOwnerGated(t *testing.T) {
+	thumbs := &stubThumbs{enabled: true}
+	srv, r, thumbDir := thumbServerTok(t, thumbs, "secret")
+	id := seedThumbVideo(t, r, "/m/a.mkv")
+	if err := r.SetThumbnailState(context.Background(), id, "generated"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(thumbDir, itoa(id)+".jpg"), []byte("JPEGDATA"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	url := srv.URL + "/api/v1/media/" + itoa(id) + "/thumbnail"
+
+	if code, _ := postTok(t, url, "", nil); code != http.StatusUnauthorized {
+		t.Fatalf("visitor regenerate code = %d, want 401", code)
+	}
+	if len(thumbs.enqueued) != 0 || len(thumbs.extractIDs) != 0 {
+		t.Errorf("visitor regenerate reached the pipeline: enqueued=%v extract=%v", thumbs.enqueued, thumbs.extractIDs)
+	}
+	if got, _, _ := r.GetVideo(context.Background(), id); got.ThumbnailState != "generated" {
+		t.Errorf("visitor regenerate changed state to %q", got.ThumbnailState)
+	}
+	if code, _ := getJSON(t, url); code != http.StatusOK {
+		t.Errorf("visitor thumbnail GET code = %d, want 200 (reads stay public)", code)
+	}
+
+	if code, _ := postTok(t, url, "secret", nil); code != http.StatusAccepted {
+		t.Fatalf("owner regenerate code = %d, want 202", code)
+	}
+	if len(thumbs.enqueued) != 1 || thumbs.enqueued[0] != id {
+		t.Errorf("owner enqueued = %v, want [%d]", thumbs.enqueued, id)
 	}
 }
 
