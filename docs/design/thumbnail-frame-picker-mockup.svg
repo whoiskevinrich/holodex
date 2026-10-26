@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" width="1100" height="700" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Thumbnail frame picker modal (F84, HOLODEX-35)</title>
+  <desc>Cinémathèque tokens: bg #0c0a09, surface #15110e, ink #f3ece1, muted #9b9082, rule #2a2622, accent #e8a33d, accent-ink #1a1206. Modal size media (64rem), align center.</desc>
+  <rect width="1100" height="700" fill="#0c0a09"/>
+  <rect width="1100" height="700" fill="#0c0a09" opacity="0.7"/>
+  <!-- panel -->
+  <rect x="38" y="40" width="1024" height="620" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="62" y="80" font-size="18" fill="#f3ece1">Choose a thumbnail frame</text>
+  <!-- selected frame column -->
+  <text x="62" y="112" font-size="11" letter-spacing="0.8" fill="#9b9082">SELECTED FRAME</text>
+  <rect x="62" y="122" width="736" height="414" fill="#000" stroke="#2a2622"/>
+  <text x="430" y="335" font-size="13" fill="#9b9082" text-anchor="middle">video frame at the scrub position (muted, never plays)</text>
+  <!-- scrub bar -->
+  <rect x="62" y="554" width="736" height="6" rx="3" fill="#2a2622"/>
+  <rect x="62" y="554" width="228" height="6" rx="3" fill="#e8a33d"/>
+  <circle cx="290" cy="557" r="7" fill="#e8a33d" stroke="#f3ece1" stroke-width="2"/>
+  <text x="62" y="584" font-size="12" fill="#9b9082">13:04 · frame 12</text>
+  <text x="798" y="584" font-size="12" fill="#9b9082" text-anchor="end">42:10</text>
+  <text x="62" y="606" font-size="12" fill="#9b9082">Drag to scrub · ← → or the mouse wheel step one frame</text>
+  <!-- current rail -->
+  <text x="822" y="112" font-size="11" letter-spacing="0.8" fill="#9b9082">CURRENT</text>
+  <rect x="822" y="122" width="216" height="122" fill="#000" stroke="#2a2622"/>
+  <text x="930" y="188" font-size="12" fill="#9b9082" text-anchor="middle">current thumbnail</text>
+  <!-- footer -->
+  <text x="62" y="640" font-size="13" fill="#9b9082" text-decoration="underline">Reset to automatic</text>
+  <rect x="842" y="620" width="74" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="879" y="640" font-size="13" fill="#f3ece1" text-anchor="middle">Cancel</text>
+  <rect x="926" y="620" width="112" height="30" rx="2" fill="#e8a33d"/>
+  <text x="982" y="640" font-size="13" font-weight="500" fill="#1a1206" text-anchor="middle">Use this frame</text>
+</svg>

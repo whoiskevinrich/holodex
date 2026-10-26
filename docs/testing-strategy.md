@@ -5473,3 +5473,58 @@ Add the `montage` package to `make test-image`, so ffmpeg 7.1 in the image is th
 
 - Disk use across a full library is measured once on the stress fixture (spec Q3), not asserted.
 - Real decoder behaviour (Safari Range handling, iOS) is checked by hand, not in CI.
+
+## 36. Thumbnail frame picker (F84, HOLODEX-35)
+
+Regenerate thumbnail opens a picker where the owner scrubs a muted video and keeps the frame on
+screen. The frame is captured in the browser and saved through the existing poster upload
+([spec](specs/thumbnail-frame-picker.md),
+[handoff](design/thumbnail-frame-picker-handoff.md)). No backend code changes, so the upload's Go
+tests (F52) still cover storage. Risks, ranked by how quietly they would fail:
+
+1. **The saved image is not the frame on screen.** A capture taken mid-seek, or a step that
+   skips or repeats a frame, saves a neighbour. That is the bug this feature exists to remove.
+2. **Sound plays.** A `play()`, native controls or an unmuted element makes noise from the
+   owner's speakers (P0-7).
+3. **Steps are the wrong size.** A trackpad flings dozens of frames, or one notch moves two.
+4. **The modal closes on failure** and the owner loses the selected frame.
+
+### 36.1 Frontend unit (`video/framePicker.test.ts`)
+
+| # | Case | Guards risk |
+|---|---|---|
+| F1 | `stepTarget`: from a frame at `t` with interval `d`, forward seeks to `t + 1.5d` and back to `t − 0.5d`, which is the middle of the neighbouring frame, so float error can't land on the wrong one. The result is clamped to `[0, duration]`. | 1 |
+| F2 | `frameInterval`: two presented media times give their difference. Zero, negative or implausible values (over 0.5 s) fall back to 1/30. | 1, 3 |
+| F3 | `WheelStepper`: a 100px pixel notch gives one step, 3 × 20px trackpad deltas give one step after the third, a line-mode delta of 3 counts as one notch, and a direction change resets the remainder. | 3 |
+| F4 | `timecode`: 784.4 s at 1/25 gives `13:04 · frame 10`, an hour-long time gains an hour field, and the frame number never reaches the frame rate. | — |
+
+### 36.2 Frontend component (`ThumbnailFramePicker.svelte.test.ts`)
+
+| # | Case | Guards risk |
+|---|---|---|
+| C1 | The `<video>` is `muted`, has no `controls` and no `autoplay`, and `play` is never called across a drag, keys, the wheel and a save (spy on `HTMLMediaElement.prototype.play`). | 2 |
+| C2 | ArrowRight and ArrowLeft each set `currentTime` once, to the middle of the neighbouring frame. | 1 |
+| C3 | Use this frame waits for a pending seek, then calls `onuse` with a JPEG `File`. A rejected `onuse` keeps the dialog open and shows the message. | 1, 4 |
+| C4 | Cancel calls `onclose`, and Reset to automatic calls `onreset`. Neither calls `onuse`. | — |
+
+### 36.3 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+1. `[agent]` Owner on a video page: Regenerate thumbnail opens the picker at the player's position,
+   and the page player is paused.
+2. `[agent]` Drag along the bar, including past its ends: the frame follows, and the time and frame
+   readout update.
+3. `[agent]` ← and → step exactly one frame (the frame number changes by one), and wheel notches
+   step one each without scrolling the page.
+4. `[agent]` Use this frame: the dialog closes, and the page poster and the grid card show the
+   chosen frame. The thumbnail state is `uploaded`.
+5. `[agent]` Cancel, Escape and the backdrop change nothing. Reset to automatic regenerates as the
+   old button did.
+6. `[agent]` Nothing in the picker raises the element's volume or starts playback (checked by
+   reading `paused`, `muted` and `volume` after each step above).
+7. `[human]` Compare the saved image with the frame shown, on a file with a non-zero start time
+   (MPEG-TS) and on a variable-frame-rate file: they must be identical frames.
+
+### 36.4 Standing gaps
+
+- Real decoding and seeking can't run in jsdom. Frame accuracy across containers is checked by hand
+  (QA 7), not in CI.
