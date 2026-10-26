@@ -20,6 +20,10 @@ release_note:                # the ONE user-facing sentence; authored once by /h
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-25
+    at: 3787a33d
 ---
 
 # HOLODEX-578 · Moving thumbnails (F83)
@@ -62,12 +66,11 @@ across the video; montages are built in the background after stills. Supersedes 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] /implement: owner signs off the handoff + mockup, then the Draft PR opens — `docs/design/moving-thumbnails-handoff.md`
-2. [ ] [testing] Add the F83 section — `docs/testing-strategy.md`
-3. [ ] [backend] Montage package, table, queue, routes, mode/worker config — `internal/montage/`
-4. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
-5. [ ] [security] Review new public montage route + owner request route + ffmpeg concat job — `/security-review`
-6. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
+1. [ ] [testing] Add the F83 section — `docs/testing-strategy.md`
+2. [ ] [backend] Montage package, table, queue, routes, mode/worker config — `internal/montage/`
+3. [ ] [frontend] VideoCard montage layer + media-page status line — `web/src/lib/components/video/`
+4. [ ] [security] Review new public montage route + owner request route + ffmpeg concat job — `/security-review`
+5. [ ] [—] On spec merge: close HOLODEX-27 as superseded (spec RD4)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -80,8 +83,8 @@ across the video; montages are built in the background after stills. Supersedes 
 -->
 
 ### 2026-10-25 · session
-- skills: write-spec, handoff, architecture, design-handoff
-- handoff: Design phase complete: spec F83, the media-ingest.md montage section and the design handoff (crop to fill, owner status line under the player) are all pushed; run /implement next for the owner's sign-off and the Draft PR.
+- skills: write-spec, handoff, architecture, design-handoff, implement
+- handoff: Crossed into build — design signed off at 3787a33d; main merged in and the Draft PR is open on this branch. Start at the F83 section of docs/testing-strategy.md.
 
 ## Dropped — newest first (the reason is the point)
 
