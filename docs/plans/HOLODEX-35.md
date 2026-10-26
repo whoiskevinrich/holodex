@@ -57,6 +57,7 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
      This queue holds LIVE work only (ADR-010). -->
 
 1. [ ] [testing] `[human]` Owner runs the production test plan (Claude Doc https://claude.ai/artifact/4PWNvGRWb3eY2pRNjmHQbV), incl. §36.3 item 7 frame accuracy on 60 fps, MPEG-TS and VFR files; each fail → a bug linked to HOLODEX-35
+2. [ ] [backend] Writeback embeds the owner-uploaded poster (incl. a picked frame) as the file's cover art; today it only embeds the provider `poster_url` → HOLODEX-597 — `internal/writeback/tags.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -68,7 +69,7 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
 
 ### 2026-10-26 · session
 - skills: code-review, handoff, implement, docs
-- handoff: Built, agent-QA'd (saved poster matched frame 225 exactly) and merged via #560 at the owner's request so it can be tested on the production library. Start at the owner's results from the production test plan doc (Up next 1).
+- handoff: Built, agent-QA'd (saved poster matched frame 225 exactly) and merged via #560 at the owner's request so it can be tested on the production library. Production QA found the picked frame never reaches the file on writeback — spun out as HOLODEX-597 (Relates). Start at the owner's results from the production test plan doc (Up next 1).
 
 ## Dropped — newest first (the reason is the point)
 
