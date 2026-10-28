@@ -13,7 +13,8 @@ profile: full                # frontend feature with a technology fork (virtuali
                              # epic HAS — a judgment, so no hook sets it. SessionStart prompts every
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
-release_note:                # the ONE user-facing sentence; authored once by /handoff, flows to the
+release_note: "People and Studios now scroll as one list across the whole library in any sort or search, so you can drag straight to any point; a position readout shows where you are, and the A–Z index works in every People view."
+                             # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
@@ -33,7 +34,7 @@ Films, the Media grid, Playlists, the Tags page and the owner queues keep Load m
 
 **Design package:** spec F80 `docs/specs/entity-list-paging.md` (EL6, EL7, EL9, EL11–EL13; RD1, RD2,
 RD6–RD8) · architecture `docs/architecture/stack.md` ("Long lists: TanStack Virtual's core over a sparse page cache") · design handoff `docs/design/entity-list-virtual-scroll-handoff.md` + mockup SVG ·
-testing strategy §32 (to come)
+testing strategy §32.1
 
 ## Gates — definition of done
 
@@ -68,9 +69,11 @@ testing strategy §32 (to come)
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Add the whole-list scroll to §32 — `docs/testing-strategy.md`
+1. [ ] [design] Owner signs off the handoff and mockup, then `/implement` opens the Draft PR — `docs/design/entity-list-virtual-scroll-handoff.md`
 2. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
-3. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
+3. [ ] [frontend] People (List, Table, Poster) and Studios on the virtualizer: placeholders, retry row, position chip, A–Z tracking, roving tabindex, Back by index — `web/src/routes/{people,studios}/+page.svelte`
+4. [ ] [testing] Land the §32.1 tests (unit cache, browser-mode row-height contract, nav Back scenario) and run its live QA — `docs/testing-strategy.md`
+5. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,9 +85,9 @@ testing strategy §32 (to come)
 - handoff: the sentence the next session should wake up to
 -->
 
-### 2026-10-27 · design phase: spec amended for the whole-list scroll
+### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
 - skills: code-review, handoff
-- handoff: Spec F80 amended (whole-list scroll on People's three views and Studios, every sort and search) and the fork settled on `@tanstack/virtual-core` over a hand-rolled page cache (owner's pick), and the design handed off (position chip, still placeholders, one retry row per failed page); next is §32 of `docs/testing-strategy.md`.
+- handoff: Design phase settled and waiting on the owner. F80 is amended for the whole-list scroll (every sort and search, People's three views, Studios), `stack.md` picks `@tanstack/virtual-core` over a hand-rolled page cache, the handoff and SVG are committed (position chip, still placeholders, one retry row), and testing-strategy §32.1 plans the tests. Next: `/implement` to sign off the handoff and open the Draft PR.
 
 ## Dropped — newest first (the reason is the point)
 
