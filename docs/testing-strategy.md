@@ -3010,6 +3010,45 @@ the placeholder path):
   surface that *does* — the gallery editor — would show a stale set if it adopted the module.
   Logged and accepted during `/code-review high` rather than solved speculatively.
 
+### 16.2 Lanes, the studio panel and Show as — backend (HOLODEX-598)
+
+The 598 revision of the [spec](specs/duplicates-pair-evidence.md) (P0-8, P0-10, P0-11, OQ5–OQ7)
+needs Go code, unlike the person panel above. Four pieces, each pinned by a Go test. The SPA half
+is a later session and adds its own rows here.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Planner statistics at boot** (OQ5) | `internal/db/optimize_test.go` `TestOpenAnalyzesTables` | `db.Open` leaves `sqlite_stat1` rows for a table that has rows but was never analyzed. The fixture deletes the statistics the first `Open` wrote, then adds 500 videos, which is how every pre-598 library looks. Without statistics the review queue's per-side video count is driven from the near-total `videos.active` index. On a synthetic 20k-video, 1.8k-pair copy the whole-page read took 23–43 s without statistics and 0.11–0.18 s with them. |
+| **One lane, paged in SQL** (P0-8) | `internal/repo/review_lanes_test.go` `TestReviewPairsLane` | Two pages of one type, read in SQL, concatenate to exactly that type's slice of the whole list, in the same order. Video counts are taken for the page alone. Ties sort by id, so pages never overlap. The lane count agrees with the list once a pair goes stale (rename, then delete the old spelling), because the count and the page share one `FROM … WHERE`. Every named type has a count, including 0. |
+| **Lane counts on both lists** (P0-8) | `internal/api/owner_queue_paging_test.go` `TestDuplicatesPagingByType` | `counts` carries all five lanes (`person`, `studio`, `tag`, `film`, `video`) with 0s, on `?type=` reads and on `/owner/duplicates/videos`. A verdict in any lane therefore refreshes every tab from that lane's own re-read. |
+| **Studio name sources** (P0-10, OQ6, OQ7) | `internal/api/duplicates_studio_test.go` `TestStudioEvidence` | Five videos split across the file tags and `provider-1`, with one video where the file tags win against the provider's other spelling. A source counts only when its own value names *this* studio. One video counts toward both sources. Sources sort by most videos first. The posters are one per source, then the newest, each captioned by the source that **won** that video. Owner aliases carry no `source`. `external_links` is `[]`, not null. The read is owner-gated (401) and a missing studio gets 404. |
+| **Show as** (P0-11, RD14) | `internal/api/studio_show_as_test.go` `TestStudioMergeShowAs` | `show_as: "merged"` keeps the survivor's id, gives it the merged spelling, keeps its former name and the merged studio's alias as aliases, and moves every video. It rewrites the Studio tag on all linked videos, the moved ones included, as a rename does. A bad `show_as`, and `show_as` on a tag, are 400 and merge nothing. The fixture's videos are Matroska, because writeback skips a container it cannot write. Without that, the writeback assertions pass on zero jobs. |
+
+**Measured, not asserted.** The scaled copy is synthetic (generated names only). It also put a
+5,000-video studio's evidence at about 0.18 s and a lane read over HTTP at 0.11–0.15 s. The live
+library's baseline is the owner's to take (spec OQ5) with the anonymized script in the epic's
+notes. No CI test bounds a timing, because a timing test on a shared runner only measures the
+runner.
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `Open` without the `optimize` call broke `TestOpenAnalyzesTables`.
+- `ReviewPairCounts` counting the raw queue instead of `reviewPairsFrom` broke `TestReviewPairsLane`, at the stale-pair count.
+- `studioPosterPicks` skipping its one-per-source pass broke `TestStudioEvidence`.
+
+#### 16.2.1 Standing gaps
+
+- **No test proves that a failed Show-as rename rolls the merge back.** For a studio the rename
+  cannot fail once the merge has run, because the merged name's only holder is gone. Injecting a
+  failure would need a test-only hook. The guarantee rests on the single transaction in
+  `mergeEntities`, and the API refuses `show_as` for films, whose composite key could collide.
+- **A studio inherited from a film is not seen by the evidence read.** The read loads only the
+  studio field's own file keys and provider keys. A scene whose studio comes from its film shows
+  another winner, or none, on its poster caption. This is rare enough to leave until the panel
+  shows it.
+- **Statistics refresh only at boot.** A fresh install whose first scan adds thousands of videos
+  runs without statistics until its next restart. An established library is analyzed at every
+  boot.
+
 ## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
 
 Two entities of one kind carrying the same provider external id is the strongest positive
