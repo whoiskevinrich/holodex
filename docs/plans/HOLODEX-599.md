@@ -18,6 +18,10 @@ release_note: Choose a video's poster in the writeback dialog from the file's co
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-27
+    at: d8d11ea5
 ---
 
 # HOLODEX-599 · Choose the video poster in the writeback dialog
@@ -62,12 +66,11 @@ Follow-up: HOLODEX-600 (several posters per provider).
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Run /implement: owner signs off the design handoff, then the Draft PR opens — `docs/design/writeback-poster-chooser-handoff.md`
-2. [ ] [testing] /testing-strategy for F85; first a failing test for writeback overwriting an upload — `docs/testing-strategy.md`
-3. [ ] [backend] Frame and upload as poster sources; writeback embeds local images — `internal/writeback/writeback.go`
-4. [ ] [frontend] Grouped poster tiles; relabel the page button "Pick a frame" — `web/src/lib/components/curation/SourceImageTiles.svelte`
-5. [ ] [security] /security-review of the local-image write path — `docs/architecture/security-perimeter.md`
-6. [ ] [—] Sweep child HOLODEX-597 with the epic: In Review when the PR is ready, Done on merge — HOLODEX-597
+1. [ ] [testing] /testing-strategy for F85; first a failing test for writeback overwriting an upload — `docs/testing-strategy.md`
+2. [ ] [backend] Frame and upload as poster sources; writeback embeds local images — `internal/writeback/writeback.go`
+3. [ ] [frontend] Grouped poster tiles; relabel the page button "Pick a frame" — `web/src/lib/components/curation/SourceImageTiles.svelte`
+4. [ ] [security] /security-review of the local-image write path — `docs/architecture/security-perimeter.md`
+5. [ ] [—] Sweep child HOLODEX-597 with the epic: In Review when the PR is ready, Done on merge — HOLODEX-597
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -80,8 +83,8 @@ Follow-up: HOLODEX-600 (several posters per provider).
 -->
 
 ### 2026-10-27 · session
-- skills: product-brainstorming, write-spec, code-review, architecture, design-handoff, handoff
-- handoff: The design phase is settled: spec F85 (7de95d79, 4f4d7f87), architecture a29ef32b and design handoff b4e4cd9b are all pushed. The owner approved the mockup in the design child session, but /implement still has to record that sign-off. Next, run /implement to open the Draft PR.
+- skills: product-brainstorming, write-spec, code-review, architecture, design-handoff, handoff, implement
+- handoff: Crossed into build: design was signed off at d8d11ea5 and the Draft PR is open. Start with /testing-strategy for F85, beginning with a failing test for writeback overwriting an upload.
 
 ## Dropped — newest first (the reason is the point)
 
