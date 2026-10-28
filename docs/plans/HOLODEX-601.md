@@ -32,7 +32,7 @@ under every sort and search, in all three People views. It reverses F80's RD1 (H
 Films, the Media grid, Playlists, the Tags page and the owner queues keep Load more.
 
 **Design package:** spec F80 `docs/specs/entity-list-paging.md` (EL6, EL7, EL9, EL11–EL13; RD1, RD2,
-RD6–RD8) · architecture `docs/architecture/stack.md` (to come) · design handoff (to come) ·
+RD6–RD8) · architecture `docs/architecture/stack.md` ("Long lists: TanStack Virtual's core over a sparse page cache") · design handoff (to come) ·
 testing strategy §32 (to come)
 
 ## Gates — definition of done
@@ -46,9 +46,9 @@ testing strategy §32 (to come)
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [ ] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
+- [~] backend → `{cmd,internal,providers}/**` — no server change: list endpoints already page by offset under every sort and seeded Random, and return `letters`. until: the build finds a missing parameter
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
 - [~] security `security-review` — no auth, access or infrastructure change; reads the same public list endpoints. until: a new endpoint or parameter is added
@@ -68,10 +68,10 @@ testing strategy §32 (to come)
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Settle library vs hand-rolled virtualizer on `PagedList` — `docs/architecture/stack.md`
-2. [ ] [design] Handoff for the whole-list scroll (placeholders, retry, A–Z tracking, three People views); rewrite the F80 handoff's A–Z restart — `docs/design/`
-3. [ ] [testing] Add the whole-list scroll to §32 — `docs/testing-strategy.md`
-4. [ ] [backend] Decide whether the server needs anything (likely `[~]`: offset paging and `letters` already exist) — `internal/api`
+1. [ ] [design] Handoff for the whole-list scroll (placeholders, retry, A–Z tracking, three People views); rewrite the F80 handoff's A–Z restart — `docs/design/`
+2. [ ] [testing] Add the whole-list scroll to §32 — `docs/testing-strategy.md`
+3. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
+4. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +85,7 @@ testing strategy §32 (to come)
 
 ### 2026-10-27 · design phase: spec amended for the whole-list scroll
 - skills: code-review, handoff
-- handoff: Spec F80 amended (whole-list scroll on People in all three views and Studios, every sort and search, A–Z scrolls and tracks position); next is the virtualizer fork in `docs/architecture/stack.md`.
+- handoff: Spec F80 amended (whole-list scroll on People's three views and Studios, every sort and search) and the fork settled on `@tanstack/virtual-core` over a hand-rolled page cache (owner's pick); next is the design handoff in `docs/design/`.
 
 ## Dropped — newest first (the reason is the point)
 
