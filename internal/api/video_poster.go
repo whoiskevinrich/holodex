@@ -1,15 +1,20 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"math"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/personimage"
 	"holodex/internal/repo"
+	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
 )
 
@@ -30,6 +35,89 @@ import (
 func (h *Handlers) mountVideoPoster(r chi.Router) {
 	r.Post("/media/{id}/poster", h.uploadVideoPoster)
 	r.Delete("/media/{id}/poster", h.deleteVideoPoster)
+	r.Post("/media/{id}/poster/frame", h.pickVideoFrame)
+	// The chooser's tile images (F85): each source slot, owner-only like the
+	// chooser itself — a visitor sees only the presented poster.
+	r.Get("/media/{id}/poster/sources/{kind}", h.servePosterSource)
+}
+
+// pickVideoFrame stores the owner's newest picked frame (P0-3): the frame picker
+// captures it in the browser and posts it as the multipart `image`, with the picked
+// time in seconds as the `at` query parameter (optional; shown on the tile, P1-1).
+// See ingestOwnerPoster.
+func (h *Handlers) pickVideoFrame(w http.ResponseWriter, r *http.Request) {
+	var at *float64
+	if raw := r.URL.Query().Get("at"); raw != "" {
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+			writeError(w, http.StatusBadRequest, "at must be a non-negative number of seconds")
+			return
+		}
+		at = &v
+	}
+	h.ingestOwnerPoster(w, r, fieldsource.LocalFrame, at)
+}
+
+// servePosterSource serves one poster source slot's image for the chooser's tile:
+// kind is `file` or a local kind, mapped through the closed slot set so no request
+// value ever names a file. 404 when the slot is empty or the kind is unknown.
+func (h *Handlers) servePosterSource(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	slot, ok := thumbnail.SlotForKind(chi.URLParam(r, "kind"))
+	if !ok || h.thumbDir == "" {
+		writeError(w, http.StatusNotFound, "poster source not found")
+		return
+	}
+	h.serveImageFile(w, r, id, "poster source", thumbnail.SlotPath(h.thumbDir, id, slot))
+}
+
+// posterSlotHeld reports whether a video's slot file is on disk.
+func (h *Handlers) posterSlotHeld(id int64, slot string) bool {
+	return h.thumbDir != "" && fileExists(thumbnail.SlotPath(h.thumbDir, id, slot))
+}
+
+// localPosters loads the video's held local slots for resolver.Options (F85). A
+// row whose image is missing from storage (a partial restore, say) is left out, so
+// its tile disappears and a decision naming it falls back exactly as Present does.
+// A load failure degrades to no local tiles.
+func (h *Handlers) localPosters(ctx context.Context, id int64) map[string]resolver.LocalPoster {
+	rows, err := h.repo.PosterSources(ctx, id)
+	if err != nil {
+		h.log.Warn("poster sources for detail", "id", id, "err", err)
+		return nil
+	}
+	out := make(map[string]resolver.LocalPoster, len(rows))
+	for kind, ps := range rows {
+		if slot, ok := thumbnail.SlotForKind(kind); ok && h.posterSlotHeld(id, slot) {
+			out[kind] = resolver.LocalPoster{Hash: ps.Hash, FrameAt: ps.FrameAt}
+		}
+	}
+	return out
+}
+
+// stampPosterTileImages sets image_url on the poster_url candidates whose value is
+// not an image URL: the file's cover art (when its slot is held) and each local
+// slot. The ?v= is the slot's content (hash, or the file slot's mtime), so a new
+// image busts the tile's cache. Owner read only.
+func (h *Handlers) stampPosterTileImages(fields []resolver.ResolvedField, id int64, locals map[string]resolver.LocalPoster) {
+	for i := range fields {
+		if resolver.NormKey(fields[i].Canonical) != fieldsource.LocalField {
+			continue
+		}
+		for j := range fields[i].Candidates {
+			c := &fields[i].Candidates[j]
+			base := fmt.Sprintf("/api/v1/media/%d/poster/sources/", id)
+			switch kind := fieldsource.Local(c.Source); {
+			case kind != "":
+				c.ImageURL = base + kind + "?v=" + locals[kind].Hash
+			case c.Source == fieldsource.File && h.posterSlotHeld(id, thumbnail.SlotFile):
+				c.ImageURL = fmt.Sprintf("%sfile?v=%d", base, imageVersion(thumbnail.SlotPath(h.thumbDir, id, thumbnail.SlotFile), 0))
+			}
+		}
+	}
 }
 
 // servePoster serves the larger detail-page poster tier for a video (P0-6,

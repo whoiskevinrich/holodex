@@ -24,7 +24,7 @@ const (
 	// not a pipeline state. Kept only so the boot slot backfill can recognise and
 	// convert a pre-F85 row (media-ingest.md "Upgrade").
 	ThumbnailUploaded = "uploaded"
-	ThumbnailFailed = "failed" // last attempt errored; retried by startup sweep
+	ThumbnailFailed   = "failed" // last attempt errored; retried by startup sweep
 )
 
 // HasThumbnailImage reports whether a thumbnail state implies an image exists on

@@ -360,6 +360,8 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	// refuses every image-field download until this is wired, so it must be set
 	// before either writeback path below can write an image field.
 	writeback.SetImageFetcher(enrichSvc.FetchAllowedImage)
+	// A local poster (F85) is embedded from its slot here, never fetched.
+	writeback.SetLocalPosterDir(cfg.ThumbnailPath)
 	handlers.SetWriteback(writeback.WriteBatch)
 	// Durable batch-writeback queue (F30, ADR-048): owner "write to file" actions are
 	// enqueued and drained by a bounded worker pool (WRITEBACK_CONCURRENCY, default 1)

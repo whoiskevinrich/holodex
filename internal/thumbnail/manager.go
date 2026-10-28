@@ -73,6 +73,9 @@ type Manager struct {
 	// presentMu serializes Present, so two writers of one slot can't interleave the
 	// served pair's two files.
 	presentMu sync.Mutex
+	// ownerMu serializes an owner slot's write with its hash row (SetOwnerImage,
+	// RemoveOwnerImage); Present takes presentMu inside it, never the reverse.
+	ownerMu sync.Mutex
 
 	// Binary-invoking seams, overridable in tests so the pipeline can be
 	// exercised without real ffmpeg/exiftool. Defaulted in New. Both can produce the

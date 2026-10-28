@@ -20,6 +20,7 @@ import (
 	"holodex/internal/cache"
 	"holodex/internal/enrich"
 	"holodex/internal/extract"
+	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -924,8 +925,19 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			if authorized {
 				opts.Offer = registry.OffersWhenEmpty
 				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
+				// F85: the owner's chooser offers every poster Holodex holds, so the
+				// Poster row is kept whenever the video has any poster image at all.
+				opts.LocalPosters = h.localPosters(r.Context(), id)
+				if len(opts.LocalPosters) > 0 || h.posterSlotHeld(id, thumbnail.SlotFile) {
+					opts.Offer = func(canonical string) bool {
+						return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
+					}
+				}
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
+			if authorized {
+				h.stampPosterTileImages(resolved, id, opts.LocalPosters)
+			}
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
 			// P0-10 (F50, ADR-075 RD9): show the actual genre-writeback union (tags +
@@ -1200,6 +1212,19 @@ func (h *Handlers) regenerateThumbnail(w http.ResponseWriter, r *http.Request) {
 	if err := h.repo.ResetThumbnailState(r.Context(), id); err != nil {
 		h.fail(w, "reset thumbnail state", err)
 		return
+	}
+	// "Reset to automatic" (F85): a standing owner frame or upload choice goes, so the
+	// page falls back to the file's art or the automatic frame. The slots stay, and
+	// the media file is untouched.
+	if dec, err := h.repo.PosterDecision(r.Context(), id); err != nil {
+		h.fail(w, "load poster decision", err)
+		return
+	} else if fieldsource.Local(dec) != "" {
+		if _, err := h.repo.ClearDecision(r.Context(), model.EnrichEntityVideo, id, fieldsource.LocalField); err != nil {
+			h.fail(w, "clear poster decision", err)
+			return
+		}
+		h.presentIfPoster(r.Context(), id, fieldsource.LocalField)
 	}
 	if extracted, err := h.thumbs.ExtractEmbedded(r.Context(), id, path); err != nil {
 		h.fail(w, "extract embedded cover art", err)

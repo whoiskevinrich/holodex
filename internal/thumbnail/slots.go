@@ -3,8 +3,6 @@ package thumbnail
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"image"
@@ -17,6 +15,7 @@ import (
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/model"
+	"holodex/internal/personimage"
 )
 
 // Poster source slots (F85, media-ingest.md "Poster source slots"). Each image a
@@ -58,10 +57,7 @@ func SlotForKind(kind string) (string, bool) {
 
 // ContentHash is a slot's content identity: the hex sha256 of its bytes, the
 // <hash> half of a local:<kind>#<hash> decision token.
-func ContentHash(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
+func ContentHash(data []byte) string { return personimage.Hash(data) }
 
 func (m *Manager) slotPath(id int64, slot string) string { return SlotPath(m.cfg.Dir, id, slot) }
 
@@ -77,6 +73,10 @@ func (m *Manager) SetOwnerImage(ctx context.Context, id int64, kind string, data
 		frameAt = nil
 	}
 	slot, _ := SlotForKind(kind)
+	// The slot's bytes and its row's hash change together, so the decision token
+	// always names the bytes a writeback will copy.
+	m.ownerMu.Lock()
+	defer m.ownerMu.Unlock()
 	if err := os.MkdirAll(m.cfg.Dir, 0o755); err != nil {
 		return fmt.Errorf("owner image: %w", err)
 	}
@@ -97,6 +97,8 @@ func (m *Manager) RemoveOwnerImage(ctx context.Context, id int64, kind string) (
 	if !ok || (kind != fieldsource.LocalFrame && kind != fieldsource.LocalUpload) {
 		return false, fmt.Errorf("owner image: unknown kind %q", kind)
 	}
+	m.ownerMu.Lock()
+	defer m.ownerMu.Unlock()
 	if err := os.Remove(m.slotPath(id, slot)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return false, fmt.Errorf("remove owner image: %w", err)
 	}
@@ -131,8 +133,11 @@ func (m *Manager) Present(ctx context.Context, id int64) error {
 	}
 	var data []byte
 	for _, slot := range order {
-		if data, err = os.ReadFile(m.slotPath(id, slot)); err == nil {
+		if data, err = os.ReadFile(m.slotPath(id, slot)); err == nil && len(data) > 0 {
 			break
+		}
+		if err == nil {
+			err = os.ErrNotExist // an empty slot holds no image
 		}
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("present poster: %w", err)

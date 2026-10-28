@@ -455,6 +455,21 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	for i, m := range mapped {
 		batchFields[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage}
 	}
+	// A local poster (F85) is copied from this video's own slot; the ledger records
+	// the token of the bytes copied (writeback.md), as the queued worker does.
+	staged, cleanupLocal, err := writeback.StageLocalPosters(id, batchFields)
+	if err != nil {
+		if errors.Is(err, writeback.ErrLocalPosterNotHeld) {
+			writeError(w, http.StatusUnprocessableEntity, "the chosen poster image is not held")
+			return
+		}
+		h.fail(w, "stage local poster", err)
+		return
+	}
+	defer cleanupLocal()
+	for i, tok := range staged {
+		mapped[i].Values = []string{tok}
+	}
 	if err := h.writeback(r.Context(), v.FilePath, batchFields); err != nil {
 		h.log.Warn("writeback batch failed", "id", id, "fields", len(mapped), "err", err)
 		if errors.Is(err, writeback.ErrFragmentedMP4) {

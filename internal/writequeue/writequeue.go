@@ -303,6 +303,17 @@ func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
 	for i, m := range mapped {
 		batch[i] = writeback.FieldWrite{TagName: m.TagName, Values: m.Values, IsImage: m.IsImage, Delete: m.Delete}
 	}
+	// A local poster (F85) is copied from this job's own slot, and the ledger row
+	// records the token of the bytes copied, not the one enqueued (writeback.md).
+	written, cleanupLocal, err := writeback.StageLocalPosters(job.VideoID, batch)
+	if err != nil {
+		finish(false, err.Error(), 0, detailLine(v.FilePath, 0, unmapped, ""))
+		return
+	}
+	defer cleanupLocal()
+	for i, tok := range written {
+		mapped[i].Values = []string{tok}
+	}
 
 	// F48.9a (ADR-067): snapshot each field's current on-disk value before it
 	// is overwritten, so a bad batch can be reverted. snapBatch is "" when
