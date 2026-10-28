@@ -73,11 +73,10 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] `/implement`: merge fresh main, open the Draft PR (design signed off 2026-10-27) — `docs/plans/HOLODEX-601.md`
-2. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
-3. [ ] [frontend] People (List, Table, Poster) and Studios on the virtualizer: placeholders, retry row, position chip, A–Z tracking, roving tabindex, Back by index — `web/src/routes/{people,studios}/+page.svelte`
-4. [ ] [testing] Land the §32.1 tests (unit cache, browser-mode row-height contract, nav Back scenario) and run its live QA — `docs/testing-strategy.md`
-5. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
+1. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
+2. [ ] [frontend] People (List, Table, Poster) and Studios on the virtualizer: placeholders, retry row, position chip, A–Z tracking, roving tabindex, Back by index — `web/src/routes/{people,studios}/+page.svelte`
+3. [ ] [testing] Land the §32.1 tests (unit cache, browser-mode row-height contract, nav Back scenario) and run its live QA — `docs/testing-strategy.md`
+4. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -90,8 +89,8 @@ testing strategy §32.1
 -->
 
 ### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
-- skills: code-review, handoff
-- handoff: Design phase settled, and the owner approved the design (at 30d3b16e). F80 is amended for the whole-list scroll (every sort and search, People's three views, Studios), `stack.md` picks `@tanstack/virtual-core` over a hand-rolled page cache, the handoff and SVG are committed (position chip, still placeholders, one retry row), and testing-strategy §32.1 plans the tests. Next: `/implement` to merge main and open the Draft PR, then build from `web/src/lib/`.
+- skills: code-review, handoff, implement
+- handoff: Crossed into build: design signed off at 30d3b16e, and Draft PR #567 is open (main was already in). Start by pinning `@tanstack/virtual-core` and building the runes wrapper and sparse page cache beside `PagedList` in `web/src/lib/`.
 
 ## Dropped — newest first (the reason is the point)
 
