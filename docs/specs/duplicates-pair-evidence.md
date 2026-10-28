@@ -214,15 +214,21 @@ Studios, Tags and Films. Only the open lane's pairs are shown.
 - [ ] Opening a new tab never changes the queue page: the open lane, the open panel and the scroll position stay where they were
 
 **P0-10 · Studio compare panel.** *(598, RD10)* Expanding a studio pair shows both sides in the
-same layout: the name, **where the name came from**, a few sample video posters, and the names it
-is also known as.
+same layout: the name, **which sources carry that name**, the providers that know the studio, a few
+sample video posters, and the names it is also known as, each with where it came from.
 
-- [ ] Given a studio pair, when expanded, then each side lists its name sources: file tags or each provider, with the number of videos for each
-- [ ] Given a studio whose name came from file tags on 3 videos and from provider-1 on 38, then that side shows both sources with those counts
+The sources are what the studio's videos say **now**: the file tags, and each provider. A studio
+does not remember where it was first created, so the panel never claims to know which spelling came
+first. A source counts when it carries the name on a video, whether or not it is the source that
+won for that video's studio field. Which source won is shown only on the sample posters (OQ6).
+
+- [ ] Given a studio pair, when expanded, then each side lists the sources that carry its name: the file tags or each provider, with the number of videos for each
+- [ ] Given a studio named by the file tags on 3 videos and by provider-1 on 38, then that side shows both sources with those counts, and one video can count toward both
 - [ ] Given a side with only one source, then it shows that one source and no empty slots
-- [ ] Given a side, then up to 3 of its videos' posters render: one per name source first, in the order the sources are listed, then the most recently added (OQ7). A studio with no videos shows none
+- [ ] Given a side, then each provider that knows that studio is shown and opens the provider's own page in a new tab where there is one (P0-9)
+- [ ] Given a side, then up to 3 of its videos' posters render: one per name source first, in the order the sources are listed, then the most recently added (OQ7). Each poster says which source its studio name came from. A studio with no videos shows none
 - [ ] Given the same pair expanded twice, then the same posters render both times
-- [ ] Given a side with aliases, then they are listed; a side with none says so in words rather than leaving a gap
+- [ ] Given a side with aliases, then each is listed with where it came from: a provider, or the owner. A spelling kept by an earlier merge or rename counts as the owner's, as a typed alias does. A side with none says so in words rather than leaving a gap
 - [ ] The panel describes where names came from and never says which spelling is wrong (Goal 3)
 - [ ] Evidence loads on expand and follows P0-5: a collapsed studio row issues no request
 
@@ -332,7 +338,8 @@ Full layout, states, tokens and accessibility in
 - **Leading**: no pair is resolved by navigating away to a profile and back — the panel is
   sufficient on its own. Measured by the owner's own report during QA, not instrumentation.
 - **Leading** *(598)*: opening a lane is measurably faster than today's whole-page load on the
-  live library. The baseline is taken before the build (OQ5), and the target is set from it.
+  live library. The baseline is taken before the build (OQ5), and the target is at most one second
+  from opening the page to the first usable lane.
 - **Leading** *(598)*: the open studio queue is worked to zero at least once within two weeks of
   ship, with no studio pair resolved by leaving the page to look up where a name came from.
 - **Lagging**: `entity_keep_separate` keeps growing while merges stay rare, confirming the
@@ -346,8 +353,8 @@ Full layout, states, tokens and accessibility in
 | ~~OQ1~~ | ~~Can co-appearance be derived without a new read?~~ **Resolved 2026-09-22:** yes, via two `api.videos({ personId })` calls intersected client-side — but that is two paged list fetches per expand for a marker that fires on 3 of 31 pairs. Demoted to **P1-0** rather than either adding an endpoint or paying that cost. `architecture` stays `[~]` n/a. | — | Closed |
 | ~~OQ2~~ | ~~Does the `+N` affordance open `PersonGalleryModal` in place, or navigate?~~ **Resolved 2026-09-22 (Kevin): neither — there is no `+N`.** Five frames are the whole strip: it is a sample, not an index, and if five faces don't settle it the panel has failed anyway. Also removes a second dismissable layer competing with Escape inside an expanded row. The profile stays reachable via the link row's `Videos` / `Films`. | — | Closed |
 | ~~OQ3~~ | ~~Keep the `via alias` / `alias match only — weak signal` labels once the panel exists?~~ **Resolved 2026-09-23 (Kevin), superseding the 2026-09-22 answer: keep both, but a person pair carries them in the panel, not the row.** The row keeps `· {variation}` only and stays one 40 px line; every non-person pair keeps its label in the row, since the panel is person-only (RD10). The first answer put them in the row against a mockup that drew them fitting — measured at real type sizes they need ~836 px and wrapped every row onto a second line, and the probe found 100 % of the queue carries one. They still explain why the *detector* flagged the pair, so they now open the panel that holds the evidence. [HOLODEX-453](https://whoiskevinrich.atlassian.net/browse/HOLODEX-453) may change what gets flagged; if the queue ever becomes mixed, revisit whether the scan line needs the signal back. | — | Closed |
-| OQ5 | *(598)* What does the page take to load on the live library today, from opening it to the first usable lane? This is the baseline for the load-time metric. Probe it before the build, with output anonymized. | Data | Yes, for the target |
-| OQ6 | *(598)* Can a studio's name sources (file tags against each provider, with video counts) be read cheaply enough to load on expand? The video's studio field already knows which source won. The question is the cost per studio. | Engineering | Yes, for P0-10 |
+| ~~OQ5~~ | *(598)* ~~What does the page take to load on the live library today, from opening it to the first usable lane?~~ **Resolved 2026-10-27 (probe on a scaled copy; the live number is still to record).** Today every load reads every flagged pair of every type, and counts the videos behind each name of every pair, before it pages. Opening one type saves nothing. On a copy of about 20,000 videos and 1,800 pairs that took 5–14 s while the database had no statistics, which is how the app runs today, and about 0.4 s once it had them. **Before the build, record the live library's time to the first usable lane** with anonymized output. That is the baseline for the load-time metric. **The target is at most one second to the first usable lane**, tightened from the baseline if it allows. | — | Closed (live baseline still to record before the build) |
+| ~~OQ6~~ | *(598)* ~~Can a studio's name sources be read cheaply enough to load on expand?~~ **Resolved 2026-10-27 (probe): yes.** Per side: its aliases with their origins, the providers that know it, how many videos carry the name from the file tags and from each provider, and a few sample posters. That typically takes tens of milliseconds, and about 90 ms for a 5,000-video studio. Two limits are reflected in P0-10. The counts show which sources carry the name, not which source won, and the winner is known only for the videos the panel samples. A studio doesn't record where it was first created. And a spelling kept by a merge or rename carries no source, the same as one the owner typed. | — | Closed |
 | ~~OQ7~~ | *(598)* ~~How many sample posters should a studio side show, and which videos should they be: the most recent, a random sample, or one per source?~~ **Resolved 2026-10-27 (Kevin), in the design handoff: up to 3, one per name source first, then the most recently added.** Each spelling then shows a video it actually came from. A random sample would change on every expand, and the newest alone could all come from one source. | — | Closed |
 | ~~OQ4~~ | ~~Is 5 the right strip cap?~~ **Resolved 2026-09-22 (Kevin): 5 frames at 44 px (`w-11`), `gap-1`** — now measured, not guessed: `5 × 44 + 4 × 4 = 236 px` inside a 296 px column (`field-grid`'s 320 px minimum less `p-3` both sides). 4 × 52 px wastes 43 px of column; 6 × 40 px drops each face below the 44–48 px the F68 card already proved recognisable. | — | Closed |
 
@@ -365,6 +372,6 @@ decision, and OQ1 closed without forcing one. The **backend gate is `[~]` n/a fo
 P0 is frontend-only. Both rulings are void if a later slice grows a read.
 
 **598 revision.** Spec (this edit) → `/design-handoff`, which revises the handoff and its SVG for
-the lanes, the People rework and the Studios panel, and answers OQ7 → OQ5 and OQ6 probed →
-`/implement` → build → `/testing-strategy` → `/security-review` → `/code-review high --fix`.
+the lanes, the People rework and the Studios panel, and answers OQ7 (done 2026-10-27) → OQ5 and
+OQ6 probed (done 2026-10-27; the live OQ5 baseline is still recorded before the build) → `/implement` → build → `/testing-strategy` → `/security-review` → `/code-review high --fix`.
 598 grows reads, so its **backend gate is in scope**. `architecture` stays `[~]` (see API).

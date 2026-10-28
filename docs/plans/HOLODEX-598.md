@@ -30,10 +30,11 @@ a studio merge can pick which spelling the survivor shows.
 ## Up next — ordered (position = priority)
 
 1. [ ] [design] `/implement`: put the handoff and both SVGs in front of the owner and record the sign-off — `docs/design/duplicates-pair-evidence-handoff.md`
-2. [ ] [spec] Probe OQ5 (load baseline) and OQ6 (studio name-source cost), anonymized — the dup-probes session may hold these
+2. [ ] [backend] Record the live OQ5 baseline (time to first usable lane, anonymized) before any build change — host `./data/holodex.db`
 3. [ ] [testing] `/testing-strategy` for lanes, the studio panel and Show as — `docs/testing-strategy.md`
-4. [ ] [backend] Per-lane read with counts, studio name sources and posters, merge that renames the survivor — `internal/api`, `internal/repo`  ⛔ blocked on #1, and on #2 for the studio read
-5. [ ] [frontend] Build to the handoff's checklist — `web/src/routes/owner/duplicates/`, `web/src/lib/components/duplicates/`  ⛔ blocked on #1
+4. [ ] [backend] Run ANALYZE / PRAGMA optimize at boot, or count videos from the junction table: the correlated per-side count (review_queue.go:272) degrades without sqlite_stat1 — `internal/repo/review_queue.go`  ⛔ blocked on #1
+5. [ ] [backend] Per-lane read with counts: `listDuplicates` (duplicates.go:65) always loads all four types, so ?type= saves nothing today. Then studio name sources and posters, and a merge that renames the survivor — `internal/api`, `internal/repo`  ⛔ blocked on #1
+6. [ ] [frontend] Build to the handoff's checklist — `web/src/routes/owner/duplicates/`, `web/src/lib/components/duplicates/`  ⛔ blocked on #1
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -41,6 +42,7 @@ a studio merge can pick which spelling the survivor shows.
 - skills: design-handoff (worked by hand, not via the Skill tool), handoff
 - did: revised the F70 handoff and its SVG, and added a Studios SVG, for lanes, the People rework, the Studios panel and Show as. The owner chose: tab row, Videos accent grammar, 3 posters one per source then newest, Show as as a radio, and "Merge into this one" replacing "Keep this one". OQ7 answered in the spec. Cleared `needs-design` on Jira, and fired In Progress by hand.
 - did (later): applied the handoff's spec deltas to F70 ("Merge into this one", P0-4's accent scoped to tag and film rows, P0-10's posters) and ticked spec.
-- handoff: Spec, architecture ([~]) and design are settled; the design is waiting on the owner's sign-off. Run /implement next, which shows the handoff and both SVGs and records the yes.
+- did (later): folded the OQ5/OQ6 probe answers into F70. OQ5 is closed with a ≤1 s target, and the live baseline is still to record. OQ6 is closed. P0-10 is reworded to current sources only, with provider identities, alias origins and a winner caption per poster. The Studios SVG and handoff are updated to match.
+- handoff: Spec, architecture ([~]) and design are settled; the design (incl. the OQ6 Studios update) waits on the owner's sign-off. Run /implement next, which shows the handoff and both SVGs and records the yes.
 
 ## Dropped — newest first (the reason is the point)
