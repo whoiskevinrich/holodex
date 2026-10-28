@@ -1,7 +1,8 @@
 # Stack
 
 This doc owns the base technology choices every other part of Holodex sits on: the backend
-language, the SPA framework, its component-composition pattern and its component-test harness, the database engine and its migrations, the HTTP API style, the MCP
+language, the SPA framework, its component-composition pattern and its component-test harness, its
+long-list virtualizer, the database engine and its migrations, the HTTP API style, the MCP
 transport, and the CSS design-token mechanism. How the pieces are packaged and shipped belongs to
 [deployment.md](deployment.md); configuration keys and their precedence belong to
 [config-and-settings.md](config-and-settings.md).
@@ -84,6 +85,80 @@ inventory doc or a showcase route. The per-folder tables already describe each f
 file itself, and a second copy would drift from them.
 
 Decided in [`5e1da30c`](https://github.com/whoiskevinrich/holodex/commit/5e1da30c) (HOLODEX-287).
+
+## Long lists: TanStack Virtual's core over a sparse page cache
+
+The whole-list scroll on People and Studios (F80 EL11–EL13) has two halves, and only one of them
+comes from a library.
+
+**The range comes from `@tanstack/virtual-core`.** The core works out which entries are on screen,
+places them, and scrolls to an index. A thin runes wrapper in `web/src/lib/` drives it in window
+mode (`observeWindowRect`, `observeWindowOffset`, `windowScroll`), so the page keeps its own
+scrollbar and the sticky toolbar and A–Z index keep working. `scrollMargin` is the list's offset from the top of the page. Columns are the core's
+`lanes`: 1/2/3 for the People and Studios rows at the `sm`/`lg` breakpoints, `posterColumns()` for
+Poster view and 1 for Table view. Pin an exact version and add nothing else from TanStack.
+`@tanstack/svelte-virtual` is not used. It wraps the core in a Svelte store, and its releases lag
+the core's.
+
+**Fixed row heights are a contract, not a measurement.** Each view's row has one height, which the
+design handoff fixes (one-line truncation, a fixed avatar or logo box). The wrapper gives the core
+that height as `estimateSize` and never turns on `measureElement`. A poster card has a fixed aspect,
+so its row height is a function of the list's width and the column count. A `ResizeObserver` on the
+list recomputes it and calls `measure()`. A row that grows past its height (wrapping text, say) is a
+bug in that row's markup. Measuring would hide it, and would also move the scrollbar while you drag.
+
+**The data comes from a sparse page cache, hand-rolled beside `PagedList`.** No virtualizer fetches,
+so this half is Holodex's own, and it reuses `PagedList`'s fetch contract unchanged. The `PageFetcher`
+is `(offset, limit, fresh)`, with offsets aligned to 50-entry pages and `fresh` for the first read
+that asks for `letters`. The server already pages by offset under every sort and seeded Random,
+so the backend needs no change.
+
+- **What is cached.** Each page is in one of three states: arriving, loaded, or failed. Each reply
+  carries `total`, and a changed total resizes the core's `count`. The cache keeps at most 20
+  pages. Past that, it evicts the page farthest from the visible range. Memory was never the
+  constraint, since 1,500 entries are a few hundred KB. The cap keeps a long session from slowly
+  becoming a whole-library copy that a mutation refresh would then have to re-read.
+- **When it fetches.** Placeholders render at once for every visible index. Fetching waits until the
+  core reports `isScrolling` false (its reset delay is 150ms), with a 300ms ceiling during a
+  continuous slow scroll, so a fling across 1,500 entries fetches only where it lands. Missing
+  pages in the visible range, plus one page of overscan each way, are fetched in parallel. A reply
+  for a page that scrolled away is still cached, because it is valid data.
+- **Staleness.** A sort, search or reshuffle bumps a generation number and empties the cache, the
+  same guard as `PagedList`'s `#seq`. A reply from an older generation is dropped. A mutation
+  refresh keeps the scroll offset, re-reads the visible pages, and drops the rest.
+- **Back (EL7).** `listScroll` saves the first visible index and its offset within the row, not raw
+  `scrollY`, because the row height depends on the width, which Back may not restore. The restore
+  fetches that index's page first (which also brings `total`), sizes the list, then scrolls.
+
+`PagedList` stays as it is for the lists that keep Load more: Tags, Films and the owner queues.
+
+**Accessibility comes from the markup, not the library.** List, Poster and Studios rows are list
+items carrying `aria-setsize` (the total) and `aria-posinset` (index + 1). Table view stays a real
+`<table>`, so its rows can't be absolutely placed without breaking the fixed column widths. Instead,
+two spacer rows above and below the rendered rows take the core's `start` and remaining height.
+Its rows carry `aria-rowindex` (index + 2, since the header is row 1), and the table carries
+`aria-rowcount` (total + 1), because `aria-setsize` doesn't apply to table rows. A placeholder is the same element with `aria-busy="true"`. The list is one tab stop
+with roving tabindex, consistent with the other keyboard lists. The focus index is its own state,
+and the core's `rangeExtractor` always includes it, so the focused row stays rendered when it
+scrolls out of view. Each rendered row is keyed by absolute index, not entity id, so the element
+that holds focus survives its placeholder being replaced by the loaded entry. The roving target is
+the row element itself, and Enter follows the row's link.
+
+**One ceiling, for later lists.** Browsers cap an element's height at about 17.9M px in Firefox and
+33.5M px in Chrome. People and Studios at 60px rows are about 100,000px. A future whole-list Media
+grid with hundreds of thousands of entries would cross it, and would need scaled offsets that the
+core doesn't provide.
+
+**Rejected:** hand-rolling the range calculation too. With fixed heights it is a few lines of
+arithmetic, and the owner weighed that. The library still brings `scrollToIndex` alignment, lanes,
+`rangeExtractor` and the scroll-state flag already tested, and it is where Films, Media and Playlists
+would land later, when fixed heights may not hold. **Rejected:** `@tanstack/svelte-virtual`, for
+its store-based adapter (above). **Rejected:** rendering every row as a placeholder and filling them
+as they scroll in, even with `content-visibility: auto`. The DOM would still grow with the library,
+which is the cost F80 removed. **Rejected:** infinite scroll that appends at the bottom. It can't
+jump, and jumping is the point.
+
+Decided in: pending squash (HOLODEX-601).
 
 ## SQLite (modernc) with WAL and FTS5
 
