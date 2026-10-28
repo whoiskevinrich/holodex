@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -238,6 +239,15 @@ func (h *Handlers) writebackJobStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// writebackField is one entry of a writebackMedia request.
+type writebackField struct {
+	Field  string   `json:"field"`
+	Values []string `json:"values"`
+	Source string   `json:"source"`
+	// Clear writes an owner-cleared field as a tag delete (ADR-120 D4).
+	Clear bool `json:"clear"`
+}
+
 // writebackMedia writes a batch of enriched field values into the media file's
 // tags in a single tool pass (exiftool for MP4/mp3/flac; mkvpropedit for
 // MKV/WebM — F28, ADR-041). The operator has confirmed the values in the UI.
@@ -262,13 +272,7 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Fields []struct {
-			Field  string   `json:"field"`
-			Values []string `json:"values"`
-			Source string   `json:"source"`
-			// Clear writes an owner-cleared field as a tag delete (ADR-120 D4).
-			Clear bool `json:"clear"`
-		} `json:"fields"`
+		Fields []writebackField `json:"fields"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
@@ -322,6 +326,13 @@ func (h *Handlers) writebackMedia(w http.ResponseWriter, r *http.Request) {
 		h.videoLookupError(w, err)
 		return
 	}
+
+	// The file's own cover art (a FileCoverToken, F85) is already in the file:
+	// writing it is a no-op, so it never reaches the image download path.
+	body.Fields = slices.DeleteFunc(body.Fields, func(f writebackField) bool {
+		return resolver.NormKey(f.Field) == fieldsource.LocalField && len(f.Values) == 1 &&
+			strings.HasPrefix(f.Values[0], fieldsource.File+"#")
+	})
 
 	// P0-10 (F50, ADR-075 RD9): a "genres" field write is sourced from the union of
 	// the video's attached tags (ancestor-expanded) and the deny-list-filtered raw

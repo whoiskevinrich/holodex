@@ -79,6 +79,19 @@ func (h *Handlers) posterSlotHeld(id int64, slot string) bool {
 	return h.thumbDir != "" && fileExists(thumbnail.SlotPath(h.thumbDir, id, slot))
 }
 
+// fileCoverHash is the content hash of the video's file slot — its embedded cover
+// art — for resolver.Options.FileCover, "" when the file has none (F85).
+func (h *Handlers) fileCoverHash(id int64) string {
+	if h.thumbDir == "" {
+		return ""
+	}
+	data, err := os.ReadFile(thumbnail.SlotPath(h.thumbDir, id, thumbnail.SlotFile))
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	return thumbnail.ContentHash(data)
+}
+
 // localPosters loads the video's held local slots for resolver.Options (F85). A
 // row whose image is missing from storage (a partial restore, say) is left out, so
 // its tile disappears and a decision naming it falls back exactly as Present does.

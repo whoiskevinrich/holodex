@@ -70,6 +70,11 @@ func ForLocal(kind string) string { return local + kind }
 // content hash of the slot's bytes, so the value moves whenever the image does.
 func LocalToken(kind, hash string) string { return local + kind + "#" + hash }
 
+// FileCoverToken is poster_url's file value when the file carries cover art: the
+// file source plus the art's content hash (F85). It names the file's own image, so
+// it is never a write — the file already holds it.
+func FileCoverToken(hash string) string { return File + "#" + hash }
+
 // ParseLocalToken splits a "local:<kind>#<sha256>" token. ok is false for any
 // other string, an unknown kind, or a hash that is not 64 lower-case hex digits.
 func ParseLocalToken(v string) (kind, hash string, ok bool) {

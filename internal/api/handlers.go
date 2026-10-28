@@ -928,7 +928,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 				// F85: the owner's chooser offers every poster Holodex holds, so the
 				// Poster row is kept whenever the video has any poster image at all.
 				opts.LocalPosters = h.localPosters(r.Context(), id)
-				if len(opts.LocalPosters) > 0 || h.posterSlotHeld(id, thumbnail.SlotFile) {
+				opts.FileCover = h.fileCoverHash(id)
+				if len(opts.LocalPosters) > 0 || opts.FileCover != "" {
 					opts.Offer = func(canonical string) bool {
 						return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
 					}

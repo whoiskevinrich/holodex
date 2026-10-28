@@ -243,6 +243,31 @@ func TestPosterChooser_RemoveUpload(t *testing.T) {
 	}
 }
 
+// A file with cover art and no decision: the owner's Poster row reads `·file`, in
+// sync — the file candidate carries the art's token, never "" (F85, design state C
+// applies only to a file with no cover art).
+func TestPosterChooser_FileCoverIsUndecidedWinner(t *testing.T) {
+	c := chooserServer(t)
+	art := []byte("FILE ART")
+	if err := os.WriteFile(thumbnail.SlotPath(c.thumbDir, c.id, thumbnail.SlotFile), art, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	row := c.posterField(t, chooserToken)
+	if row == nil {
+		t.Fatal("no Poster row")
+	}
+	token := "file#" + thumbnail.ContentHash(art)
+	if file := candidates(row)["file"]; file["value"] != token || file["image_url"] == nil {
+		t.Fatalf("file candidate = %v", file)
+	}
+	if dec, _ := row["decision"].(map[string]any); dec["source"] != "file" || dec["standing"] == true {
+		t.Fatalf("decision = %v", row["decision"])
+	}
+	if row["in_sync"] != true {
+		t.Fatalf("in_sync = %v", row["in_sync"])
+	}
+}
+
 // A local decision is set only on poster_url and only for a held slot, and every
 // poster_url decision change re-presents the page's poster.
 func TestPosterChooser_LocalDecisions(t *testing.T) {

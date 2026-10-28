@@ -125,3 +125,48 @@ func TestLocalDecisionOnlyForPoster(t *testing.T) {
 		t.Fatalf("title = %+v", got)
 	}
 }
+
+// A file with cover art: its art is poster_url's baseline. Undecided it wins
+// file-first and reads in sync, so the row selects ·file rather than a pending
+// provider; a file pin and a decision whose slot is empty resolve to it too, and a
+// provider pin still wins. With no cover art the provider default is unchanged.
+func TestFileCoverIsPosterBaseline(t *testing.T) {
+	cover := "file#" + hashA
+	for _, tc := range []struct {
+		name, decided, want string
+		standing            bool
+	}{
+		{"undecided", "", cover, false},
+		{"file pin", "file", cover, true},
+		{"empty local slot", "local:frame", cover, true},
+		{"provider pin", "provider:provider-1", providerPoster, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := resolver.Options{FileCover: hashA}
+			if tc.decided != "" {
+				opts.Decisions = resolver.Decisions{"poster_url": {Source: tc.decided}}
+			}
+			rf := resolvePoster(t, opts)
+			if rf.Values[0] != tc.want {
+				t.Fatalf("value = %q, want %q", rf.Values[0], tc.want)
+			}
+			if rf.Candidates[0].Source != "file" || rf.Candidates[0].Value != cover {
+				t.Fatalf("file candidate = %+v", rf.Candidates[0])
+			}
+			if tc.want == cover {
+				if rf.Decision.Source != "file" && rf.Decision.Source != tc.decided {
+					t.Fatalf("marker = %+v", rf.Decision)
+				}
+				if rf.Decision.Standing != tc.standing {
+					t.Fatalf("standing = %v", rf.Decision.Standing)
+				}
+				if rf.InSync == nil || !*rf.InSync {
+					t.Fatalf("the file's own art must read in sync, got %v", rf.InSync)
+				}
+			}
+		})
+	}
+	if rf := resolvePoster(t, resolver.Options{}); rf.Values[0] != providerPoster || rf.Candidates[0].Value != "" {
+		t.Fatalf("no cover art: %q, file candidate %+v", rf.Values[0], rf.Candidates[0])
+	}
+}

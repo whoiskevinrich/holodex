@@ -253,6 +253,13 @@ type Options struct {
 	// undecided. nil (every visitor read) holds nothing, so a local decision falls
 	// through to the undecided default and no local candidate is listed.
 	LocalPosters map[string]LocalPoster
+
+	// FileCover is the sha256 of the file's embedded cover art (its file source
+	// slot), "" when the file has none or it was not loaded. It is poster_url's
+	// baseline: the file candidate's value, the undecided file-first winner and a
+	// file pin's value, as fieldsource.FileCoverToken — so an undecided Poster row
+	// on a file with cover art reads `·file`, in sync, not a pending provider (F85).
+	FileCover string
 }
 
 // LocalPoster is one held poster source slot, as the resolver needs it.
@@ -465,6 +472,16 @@ func ResolveFields(
 			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items, filmNS, witness)
 			if normKey(f.Canonical) == fieldsource.LocalField {
 				rf.Candidates = append(rf.Candidates, localCandidates(opts.LocalPosters)...)
+				if cover := fileCoverItem(opts, f); cover != nil {
+					// The file candidate is the file's cover art (replaceMarkers reads only
+					// tag baselines, which hold none). When it is the resolved value, the
+					// file already holds it: in sync, nothing to write.
+					rf.Candidates[0].Value = cover[0].Value
+					if len(items) > 0 && items[0].Value == cover[0].Value {
+						inSync := true
+						rf.InSync = &inSync
+					}
+				}
 			}
 		}
 		out = append(out, rf)
@@ -612,6 +629,15 @@ func resolveField(
 	}
 	// Replace field: a standing decision short-circuits mapping order (F36); else
 	// the configured default-source order decides the undecided winner.
+	// The file's own cover art is poster_url's baseline (F85): it wins file-first
+	// when undecided, as the file's value does for any field, and backs a file pin.
+	if item := fileCoverItem(opts, f); item != nil {
+		dec, decided := opts.lookup(f.Canonical)
+		emptyLocal := decided && fieldsource.Local(dec.Source) != "" && !localHeld(opts, dec.Source)
+		if (!decided && opts.fileFirst()) || (decided && dec.Source == fieldsource.File) || emptyLocal {
+			return item, fieldsource.File + ":" + f.Canonical
+		}
+	}
 	if dec, ok := opts.lookup(f.Canonical); ok {
 		kind := fieldsource.Local(dec.Source)
 		if kind == "" {
@@ -951,6 +977,21 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		}
 	}
 	return marker, candidates, &inSync
+}
+
+// fileCoverItem is the file's cover art as poster_url's resolved value, nil when the
+// field is not poster_url or the caller loaded no cover art (FileCover "").
+func fileCoverItem(opts Options, f mapping.Field) []ResolvedValue {
+	if opts.FileCover == "" || normKey(f.Canonical) != fieldsource.LocalField {
+		return nil
+	}
+	return []ResolvedValue{{Value: fieldsource.FileCoverToken(opts.FileCover), Sources: []string{fieldsource.File}}}
+}
+
+// localHeld reports whether a local:<kind> source names a held slot.
+func localHeld(opts Options, source string) bool {
+	_, ok := opts.LocalPosters[fieldsource.Local(source)]
+	return ok
 }
 
 // localCandidates lists each held poster slot as a poster_url candidate, in the
