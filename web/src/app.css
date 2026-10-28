@@ -95,7 +95,7 @@
  * these only through semantic Tailwind classes (bg-bg, text-ink, text-accent,
  * font-display, rounded-theme, …) or the decorative hook classes below — never a
  * hardcoded color/font/radius — so a look change stays an edit to this one block.
- * internal/personimage/placeholder.go mirrors surface-2/muted/accent/rule for the
+ * internal/personimage/placeholder.go mirrors surface-2/muted/rule for the
  * standalone placeholder SVG; change them there too.
  */
 :root {

@@ -1228,8 +1228,8 @@
 {/snippet}
 
 <!-- A tag with no image, or a category (F82 handoff, "Tags Posters view"): a muted tag glyph
-     on surface-2 over a 3px accent baseline, the person silhouette's family. A category's glyph
-     is accent, as its pill's border is. Behind the image, so a failed load falls back to it. -->
+     on surface-2, the person silhouette's family. A category's glyph is accent, as its pill's
+     border is. Behind the image, so a failed load falls back to it. -->
 {#snippet tagPlaceholder(category: boolean)}
 	<span class="absolute inset-0 flex items-center justify-center" aria-hidden="true">
 		<svg
@@ -1243,7 +1243,6 @@
 			<path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6z" />
 		</svg>
 	</span>
-	<span class="absolute inset-x-0 bottom-0 h-[3px] bg-accent opacity-60" aria-hidden="true"></span>
 {/snippet}
 
 <!-- One Posters card (F82 P0-9): a 16:9 frame with the tag's image contained in it (never

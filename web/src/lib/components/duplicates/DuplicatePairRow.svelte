@@ -199,7 +199,7 @@
 			aria-label={`Open ${refLabel(ref)} in a new tab`}
 			class="truncate text-ink hover:text-accent">{refLabel(ref)}</a
 		>
-		<span aria-hidden="true" class="-ml-1.5 shrink-0 text-xs text-muted">↗</span>
+		<span aria-hidden="true" class="-ml-0.5 shrink-0 text-xs text-muted">↗</span>
 	{:else}
 		<span class="truncate text-ink">{refLabel(ref)}</span>
 	{/if}
@@ -333,7 +333,7 @@
 		{#snippet body()}
 			{#if isStudio}
 				<p>
-					<span class="font-semibold">{other}</span>'s {videoCount(confirm!.other.video_count ?? 0)} and links
+					<span class="font-semibold">{other}</span>’s {videoCount(confirm!.other.video_count ?? 0)} and links
 					move to {keep}.
 				</p>
 				<fieldset class="space-y-1">
@@ -357,19 +357,19 @@
 					</p>
 				{:else}
 					<p>
-						This renames the studio, as renaming it on its own page would. "{keep}" stays as an alias.
+						This renames the studio, as renaming it on its own page would. “{keep}” stays as an alias.
 						Writeback will offer <span class="font-semibold">{other}</span> for these files.
 					</p>
 				{/if}
 			{:else}
 				<p>
-					<span class="font-semibold">{other}</span>'s {videoCount(confirm!.other.video_count ?? 0)}{confirm!
+					<span class="font-semibold">{other}</span>’s {videoCount(confirm!.other.video_count ?? 0)}{confirm!
 						.otherFilms > 0
 						? ', films'
-						: ''} and links move to {keep}. "{other}" stays as an alias, so it still finds this person.
+						: ''} and links move to {keep}. “{other}” stays as an alias, so it still finds this person.
 				</p>
 			{/if}
-			<p class="text-muted">This can't be undone.</p>
+			<p class="text-muted">This can’t be undone.</p>
 		{/snippet}
 	</ConfirmDialog>
 {/if}

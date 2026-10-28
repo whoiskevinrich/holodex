@@ -39,6 +39,11 @@ a studio merge can pick which spelling the survivor shows.
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
+### 2026-10-28 · session
+- skills: code-review
+- did: sign-off review in the stress-598 preview, each lane beside its approved SVG. The owner had five differences fixed: the "Possible duplicate people/studios." intro lead, no intro on a loading or empty lane, curly quotes in both confirms, a 6 px gap before the row's ↗, and no accent baseline on the person and tag placeholders (list-views handoff updated to match).
+- handoff: Sign-off fixes pushed; waiting on the owner's yes to the re-shown build, then frontend is ticked. The PR stays draft for the OQ5 live baseline.
+
 ### 2026-10-27 · session
 - skills: design-handoff (worked by hand, not via the Skill tool), handoff, implement, code-review, testing-strategy
 - did: revised the F70 handoff and its SVG, and added a Studios SVG, for lanes, the People rework, the Studios panel and Show as. The owner chose: tab row, Videos accent grammar, 3 posters one per source then newest, Show as as a radio, and "Merge into this one" replacing "Keep this one". OQ7 answered in the spec. Cleared `needs-design` on Jira, and fired In Progress by hand.

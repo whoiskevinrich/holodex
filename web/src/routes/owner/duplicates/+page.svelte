@@ -59,8 +59,8 @@
 		'Possible duplicate names within an entity — case and spacing are already merged automatically; these are the judgement calls. Merge folds one into the other (the merged name stays as a searchable alias); Keep separate remembers your choice.';
 	const LANE_INTRO: Record<DuplicateLane, string> = {
 		video: 'Files matched to the same provider item. Keep one, keep both, or label them as editions or parts.',
-		person: COMPARE_INTRO,
-		studio: COMPARE_INTRO,
+		person: `Possible duplicate people. ${COMPARE_INTRO}`,
+		studio: `Possible duplicate studios. ${COMPARE_INTRO}`,
 		tag: INLINE_INTRO,
 		film: INLINE_INTRO
 	};
@@ -257,7 +257,11 @@
 	{#if lane}
 		<!-- The focus ladder's lane rung (`lanePanelId`), hence `tabindex="-1"`. -->
 		<div id={lanePanelId(lane)} role="tabpanel" aria-labelledby={laneTabId(lane)} tabindex="-1" class="space-y-3">
-			<p class="text-sm text-muted">{LANE_INTRO[lane]}</p>
+			<!-- The intro explains the pairs, so a loading, failed or empty lane shows none
+			     (as the signed-off mockup draws them). -->
+			{#if !loading && !error && shownCount > 0}
+				<p class="text-sm text-muted">{LANE_INTRO[lane]}</p>
+			{/if}
 			{#if loading}
 				<p class="py-16 text-center text-sm text-muted">Loading…</p>
 			{:else if error}
