@@ -38,6 +38,9 @@ func (s *stubThumbs) ExtractEmbedded(_ context.Context, id int64, _ string) (boo
 	s.extractIDs = append(s.extractIDs, id)
 	return s.extractOK, nil
 }
+func (s *stubThumbs) SetOwnerImage(context.Context, int64, string, []byte, *float64) error { return nil }
+func (s *stubThumbs) RemoveOwnerImage(context.Context, int64, string) (bool, error)        { return false, nil }
+func (s *stubThumbs) Present(context.Context, int64) error                                 { return nil }
 
 func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo, string) {
 	t.Helper()

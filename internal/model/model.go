@@ -20,9 +20,10 @@ const (
 	ThumbnailNone      = ""
 	ThumbnailEmbedded  = "embedded"  // Tier 1: extracted from container cover art
 	ThumbnailGenerated = "generated" // Tier 2: extracted frame via ffmpeg
-	ThumbnailUploaded  = "uploaded"  // Tier 0: owner-uploaded poster (F52) — highest
-	// precedence; excluded from the startup sweep (repo.go's NULL/failed-only
-	// query) same as embedded/generated, so it is never auto-replaced.
+	// ThumbnailUploaded is retired (F85): an owner image is a poster source slot,
+	// not a pipeline state. Kept only so the boot slot backfill can recognise and
+	// convert a pre-F85 row (media-ingest.md "Upgrade").
+	ThumbnailUploaded = "uploaded"
 	ThumbnailFailed = "failed" // last attempt errored; retried by startup sweep
 )
 
@@ -67,8 +68,8 @@ type Video struct {
 	// resolves to a valid image once ThumbnailURL does — the route falls back to
 	// the thumbnail-tier bytes until a poster-tier derivative has been generated.
 	PosterURL string `json:"poster_url,omitempty"`
-	// PosterUploaded reports whether the current poster is an owner upload (F52) —
-	// the one bit of ThumbnailState the SPA needs, to show a "Remove" action.
+	// PosterUploaded reports whether the owner's upload slot holds an image (F52,
+	// F85) — set on the detail read only, to show a "Remove" action.
 	PosterUploaded bool `json:"poster_uploaded,omitempty"`
 	// MontageURL is the hover montage's serving URL (F83, HOLODEX-578), set by the
 	// API layer only when the file exists, so a card never requests a missing one.

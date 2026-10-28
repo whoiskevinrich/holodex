@@ -308,6 +308,16 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		log.Info("person image content-hash backfill", "hashed", hashed, "removed_duplicates", removed)
 	}
 
+	// One-time poster source slot backfill (F85, media-ingest.md "Upgrade"): seed each
+	// video's slot from its pre-F85 served pair, so existing images aren't regenerated
+	// and an existing upload becomes the decided poster. A seeded slot is skipped, so it
+	// runs every boot — before the scanner or any request can call Present.
+	if seeded, err := thumbs.BackfillSlots(ctx); err != nil {
+		log.Warn("poster source slot backfill failed", "err", err)
+	} else if seeded > 0 {
+		log.Info("poster source slot backfill", "seeded", seeded)
+	}
+
 	// One-time identity near-miss backfill (F43/RD10, ADR-061): migration 0022 already
 	// folded the pure-case hard pairs before the nameKey unique indexes; this seeds the
 	// review queue with the residual fuzzy near-misses (punctuation / internal-whitespace

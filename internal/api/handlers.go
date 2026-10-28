@@ -41,6 +41,11 @@ type thumbnailer interface {
 	QueueDepth() int
 	QueueStats() thumbnail.QueueStats // pipeline snapshot for the activity surface (F21.1)
 	Enabled() bool
+	// F85 poster source slots: the owner's frame/upload, and re-presenting the
+	// served pair after a poster_url decision changes.
+	SetOwnerImage(ctx context.Context, id int64, kind string, data []byte, frameAt *float64) error
+	RemoveOwnerImage(ctx context.Context, id int64, kind string) (bool, error)
+	Present(ctx context.Context, id int64) error
 }
 
 // rescanner triggers an out-of-band full library re-index (F13.3). Nil in tests
@@ -745,8 +750,10 @@ func redactWritebackStatusForVisitor(status *repo.VideoWritebackStatus, isOwner 
 }
 
 func (h *Handlers) setThumbnailURL(v *model.Video) {
-	v.PosterUploaded = v.ThumbnailState == model.ThumbnailUploaded
-	if !model.HasThumbnailImage(v.ThumbnailState) {
+	// thumbnail_state describes the automatic pipeline only (F85): an owner's frame
+	// or upload can be presented on a video it never ran for, so with no image state
+	// the served poster's own presence decides.
+	if !model.HasThumbnailImage(v.ThumbnailState) && !fileExists(thumbnail.PosterPath(h.thumbDir, v.ID)) {
 		return
 	}
 	// The ?v= token is the served image file's own mtime (nanoseconds), so the URL
@@ -767,6 +774,11 @@ func (h *Handlers) setThumbnailURL(v *model.Video) {
 	posterVer := imageVersion(thumbnail.PosterPath(h.thumbDir, v.ID), thumbVer)
 	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, thumbVer)
 	v.PosterURL = fmt.Sprintf("/api/v1/media/%d/poster?v=%d", v.ID, posterVer)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // imageVersion is the file's mtime in nanoseconds, or fallback when it can't be stat'd.
@@ -810,6 +822,9 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	h.setThumbnailURL(v)
 	h.setMontageURL(v)
+	// The page's Remove action: the owner's upload slot exists (F85), whether or
+	// not it is the decided poster.
+	v.PosterUploaded = h.thumbDir != "" && fileExists(thumbnail.SlotPath(h.thumbDir, v.ID, thumbnail.SlotUpload))
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —

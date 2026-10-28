@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 	"holodex/internal/repo"
 )
@@ -19,10 +20,14 @@ type fakeRepo struct {
 	mu     sync.Mutex
 	cands  map[int64]repo.ThumbnailCandidate
 	states map[int64]string // "" == NULL
+
+	decisions map[int64]string // poster_url decision source
+	sources   map[int64]map[string]repo.PosterSource
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{cands: map[int64]repo.ThumbnailCandidate{}, states: map[int64]string{}}
+	return &fakeRepo{cands: map[int64]repo.ThumbnailCandidate{}, states: map[int64]string{},
+		decisions: map[int64]string{}, sources: map[int64]map[string]repo.PosterSource{}}
 }
 
 func (f *fakeRepo) add(c repo.ThumbnailCandidate) {
@@ -70,6 +75,79 @@ func (f *fakeRepo) ThumbnailCandidateByID(_ context.Context, id int64) (repo.Thu
 	return c, ok, nil
 }
 
+func (f *fakeRepo) PosterDecision(_ context.Context, id int64) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.decisions[id], nil
+}
+
+func (f *fakeRepo) SetPosterSource(_ context.Context, id int64, kind, hash string, frameAt *float64, decide bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.sources[id] == nil {
+		f.sources[id] = map[string]repo.PosterSource{}
+	}
+	f.sources[id][kind] = repo.PosterSource{Kind: kind, Hash: hash, FrameAt: frameAt}
+	if decide {
+		f.decisions[id] = fieldsource.ForLocal(kind)
+	}
+	return nil
+}
+
+func (f *fakeRepo) DeletePosterSource(_ context.Context, id int64, kind string) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.sources[id], kind)
+	if f.decisions[id] == fieldsource.ForLocal(kind) {
+		delete(f.decisions, id)
+		return true, nil
+	}
+	return false, nil
+}
+
+func (f *fakeRepo) VideosWithThumbnailImage(_ context.Context) ([]repo.ThumbnailStateRow, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []repo.ThumbnailStateRow
+	for id, s := range f.states {
+		if model.HasThumbnailImage(s) {
+			out = append(out, repo.ThumbnailStateRow{ID: id, State: s})
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) source(id int64, kind string) (repo.PosterSource, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ps, ok := f.sources[id][kind]
+	return ps, ok
+}
+
+func (f *fakeRepo) decide(id int64, source string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.decisions[id] = source
+}
+
+// writeIf writes a stub tier, skipping the thumbnail tier the pipeline no longer
+// asks for (F85: a source slot is one file, and only Present derives the pair).
+func writeIf(path, data string) error {
+	if path == "" {
+		return nil
+	}
+	return os.WriteFile(path, []byte(data), 0o644)
+}
+
+func readString(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(b)
+}
+
 func testManager(t *testing.T, fr *fakeRepo) *Manager {
 	t.Helper()
 	m := New(Config{Enabled: true, Workers: 2, Width: 400, Dir: t.TempDir()},
@@ -84,7 +162,7 @@ func TestProcessGeneratesAndMarks(t *testing.T) {
 	fr.add(repo.ThumbnailCandidate{ID: 1, FilePath: "/m/a.mkv", DurationSec: 100})
 	m := testManager(t, fr)
 	m.gen = func(_ context.Context, _ repo.ThumbnailCandidate, thumb, poster string) error {
-		if err := os.WriteFile(thumb, []byte("JPEG"), 0o644); err != nil {
+		if err := writeIf(thumb, "JPEG"); err != nil {
 			return err
 		}
 		return os.WriteFile(poster, []byte("JPEGPOSTER"), 0o644)
@@ -95,11 +173,21 @@ func TestProcessGeneratesAndMarks(t *testing.T) {
 	if got := fr.state(1); got != model.ThumbnailGenerated {
 		t.Fatalf("state = %q, want %q", got, model.ThumbnailGenerated)
 	}
+	if got := readString(t, m.slotPath(1, SlotAuto)); got != "JPEGPOSTER" {
+		t.Fatalf("auto slot = %q", got)
+	}
+	if got := readString(t, m.posterPath(1)); got != "JPEGPOSTER" {
+		t.Fatalf("served poster = %q", got)
+	}
 	if _, err := os.Stat(m.thumbPath(1)); err != nil {
 		t.Fatalf("thumbnail file missing: %v", err)
 	}
-	if _, err := os.Stat(m.posterPath(1)); err != nil {
-		t.Fatalf("poster file missing: %v", err)
+	// G7: the automatic source exists once a frame was generated, never decided.
+	if ps, ok := fr.source(1, fieldsource.LocalAutomatic); !ok || ps.Hash != ContentHash([]byte("JPEGPOSTER")) {
+		t.Fatalf("automatic source = %+v, %v", ps, ok)
+	}
+	if d, _ := fr.PosterDecision(context.Background(), 1); d != "" {
+		t.Fatalf("generation decided the poster: %q", d)
 	}
 }
 
@@ -128,7 +216,7 @@ func TestRunDrainsBackfill(t *testing.T) {
 	var generated sync.Map
 	m.gen = func(_ context.Context, c repo.ThumbnailCandidate, thumb, poster string) error {
 		generated.Store(c.ID, true)
-		if err := os.WriteFile(thumb, []byte("JPEG"), 0o644); err != nil {
+		if err := writeIf(thumb, "JPEG"); err != nil {
 			return err
 		}
 		return os.WriteFile(poster, []byte("JPEGPOSTER"), 0o644)
@@ -161,7 +249,7 @@ func TestExtractEmbedded(t *testing.T) {
 	fr.add(repo.ThumbnailCandidate{ID: 9, FilePath: "/m/art.mkv"})
 	m := testManager(t, fr)
 	m.art = func(_ context.Context, _, thumbDst, posterDst string) (bool, error) {
-		if err := os.WriteFile(thumbDst, []byte("COVER"), 0o644); err != nil {
+		if err := writeIf(thumbDst, "COVER"); err != nil {
 			return false, err
 		}
 		return true, os.WriteFile(posterDst, []byte("COVERPOSTER"), 0o644)
@@ -173,6 +261,13 @@ func TestExtractEmbedded(t *testing.T) {
 	}
 	if got := fr.state(9); got != model.ThumbnailEmbedded {
 		t.Fatalf("state = %q, want %q", got, model.ThumbnailEmbedded)
+	}
+	// The art lands in the file slot; Present projects it onto the served pair.
+	if got := readString(t, m.slotPath(9, SlotFile)); got != "COVERPOSTER" {
+		t.Fatalf("file slot = %q", got)
+	}
+	if got := readString(t, m.posterPath(9)); got != "COVERPOSTER" {
+		t.Fatalf("served poster = %q", got)
 	}
 	if !strings.HasSuffix(m.thumbPath(9), "9.jpg") {
 		t.Fatalf("unexpected thumb path %q", m.thumbPath(9))
@@ -190,18 +285,16 @@ func TestUploadedPosterSurvivesPostWriteExtract(t *testing.T) {
 	fr.add(repo.ThumbnailCandidate{ID: 9, FilePath: "/m/art.mkv"})
 	m := testManager(t, fr)
 	m.art = func(_ context.Context, _, thumbDst, posterDst string) (bool, error) {
-		if err := os.WriteFile(thumbDst, []byte("COVER"), 0o644); err != nil {
+		if err := writeIf(thumbDst, "COVER"); err != nil {
 			return false, err
 		}
 		return true, os.WriteFile(posterDst, []byte("COVERPOSTER"), 0o644)
 	}
-	// The owner's upload, stored the way the upload route stores it.
-	for _, p := range []string{m.thumbPath(9), m.posterPath(9)} {
-		if err := os.WriteFile(p, []byte("UPLOAD"), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	// The file's cover art is extracted at index time; then the owner uploads.
+	if _, err := m.ExtractEmbedded(context.Background(), 9, "/m/art.mkv"); err != nil {
+		t.Fatal(err)
 	}
-	if err := fr.SetThumbnailState(context.Background(), 9, model.ThumbnailUploaded); err != nil {
+	if err := m.SetOwnerImage(context.Background(), 9, fieldsource.LocalUpload, []byte("UPLOAD"), nil); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.Stat(m.posterPath(9))

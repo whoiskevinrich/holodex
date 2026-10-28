@@ -21,14 +21,76 @@ const (
 )
 
 // Valid reports whether s is a well-formed decision source: "file", "manual", or
-// "provider:<non-empty>". Contextual checks (the provider is actually matched, the
-// field is a replace field) live at the API layer where the data is.
+// "provider:<non-empty>", or "local:<kind>". Contextual checks (the provider is
+// actually matched, the field is a replace field, a local source names poster_url
+// and a held slot) live at the API layer where the data is.
 func Valid(s string) bool {
 	switch s {
 	case File, Manual:
 		return true
 	}
-	return Provider(s) != ""
+	return Provider(s) != "" || Local(s) != ""
+}
+
+// The local poster kinds (F85, field-resolution.md "A poster Holodex holds"): an
+// image Holodex stores itself, one source slot per kind per video. The set is
+// closed — a kind is also a filename component, so nothing outside it may pass.
+const (
+	LocalFrame     = "frame"
+	LocalUpload    = "upload"
+	LocalAutomatic = "automatic"
+	local          = "local:"
+)
+
+// LocalKinds lists the closed local kind set, in the chooser's tile order.
+var LocalKinds = []string{LocalFrame, LocalUpload, LocalAutomatic}
+
+// LocalField is the one field a local decision may name.
+const LocalField = "poster_url"
+
+// ValidLocalKind reports whether k is one of LocalKinds.
+func ValidLocalKind(k string) bool {
+	return k == LocalFrame || k == LocalUpload || k == LocalAutomatic
+}
+
+// Local returns the kind of a "local:<kind>" source, or "" when s is not one or
+// names a kind outside the closed set.
+func Local(s string) string {
+	k, ok := strings.CutPrefix(s, local)
+	if !ok || !ValidLocalKind(k) {
+		return ""
+	}
+	return k
+}
+
+// ForLocal formats a local kind as a decision source ("local:<kind>").
+func ForLocal(kind string) string { return local + kind }
+
+// LocalToken is the resolved value of a local decision: the source plus the
+// content hash of the slot's bytes, so the value moves whenever the image does.
+func LocalToken(kind, hash string) string { return local + kind + "#" + hash }
+
+// ParseLocalToken splits a "local:<kind>#<sha256>" token. ok is false for any
+// other string, an unknown kind, or a hash that is not 64 lower-case hex digits.
+func ParseLocalToken(v string) (kind, hash string, ok bool) {
+	src, hash, found := strings.Cut(v, "#")
+	kind = Local(src)
+	if !found || kind == "" || !isSHA256Hex(hash) {
+		return "", "", false
+	}
+	return kind, hash, true
+}
+
+func isSHA256Hex(s string) bool {
+	if len(s) != 64 {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // Provider returns the provider name of a "provider:<name>" source, or "" when s is
@@ -47,8 +109,8 @@ func ForProvider(name string) string { return provider + name }
 // provider name like "tmdb") to its decision source — the inverse of resolution,
 // used to report an undecided field's implicit selection.
 func ForNamespace(ns string) string {
-	switch ns {
-	case File, Manual:
+	switch {
+	case ns == File, ns == Manual, Local(ns) != "":
 		return ns
 	default:
 		return ForProvider(ns)

@@ -20,6 +20,7 @@ import (
 	"holodex/internal/api"
 	"holodex/internal/db"
 	"holodex/internal/repo"
+	"holodex/internal/thumbnail"
 )
 
 // videoPosterServer wires the poster upload/delete surface (owner gate open,
@@ -40,7 +41,10 @@ func videoPosterServer(t *testing.T) (*httptest.Server, *repo.Repo, string) {
 	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	h := api.NewHandlers(r, log, &stubThumbs{enabled: false}, thumbDir, nil, nil)
+	// A real (generation-disabled) pipeline: uploads go through its source slots and
+	// Present (F85), so the served pair here is what production would serve.
+	thumbs := thumbnail.New(thumbnail.Config{Dir: thumbDir}, log, r)
+	h := api.NewHandlers(r, log, thumbs, thumbDir, nil, nil)
 	h.SetPersonImages(filepath.Join(dir, "person-images"), 10<<20, 2000)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
