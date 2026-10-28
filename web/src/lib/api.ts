@@ -518,6 +518,14 @@ export const api = {
 		return uploadAuthed<Record<string, never>>(`/media/${id}/poster`, form);
 	},
 
+	// A frame picked in the frame picker (F84) — its own slot, decided as `local:frame` (F85).
+	// `at` is the frame's time in seconds, for the tile's "frame at" title (P1-1).
+	saveVideoPosterFrame: (id: number, file: File, at: number) => {
+		const form = new FormData();
+		form.append('image', file);
+		return uploadAuthed<Record<string, never>>(`/media/${id}/poster/frame?at=${Math.max(0, at).toFixed(3)}`, form);
+	},
+
 	deleteVideoPoster: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/media/${id}/poster`),
 
 	// Person images (F25, ADR-038). Reads are public; a filled role serves the real

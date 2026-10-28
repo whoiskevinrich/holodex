@@ -454,7 +454,8 @@ export interface ReadbackGap extends ReadbackGapHint {
 // DecisionSource names the pinned source: the entity's baseline — `file` for videos,
 // `record` for persons (F37, RD4: the baseline label is per-entity) — a specific matched
 // provider (`provider:<name>`), or a frozen manual literal.
-export type DecisionSource = 'file' | 'record' | `provider:${string}` | 'manual';
+// `local:<kind>` (F85) picks a poster image Holodex holds — `poster_url` only.
+export type DecisionSource = 'file' | 'record' | `provider:${string}` | `local:${string}` | 'manual';
 
 // FieldDecision is the per-field decision marker on a ResolvedField. `standing` is true for
 // an explicit stored decision and false for the implicit file default (undecided).
@@ -470,9 +471,15 @@ export interface FieldDecision {
 // line. A provider candidate with an empty `value` yields no `Adopt` segment (you cannot
 // adopt an empty value).
 export interface FieldCandidate {
-	source: DecisionSource; // 'file' | 'provider:<name>'
+	source: DecisionSource; // 'file' | 'provider:<name>' | 'local:<kind>'
 	provider?: string; // provider name when source is 'provider:<name>'
+	// A `local:<kind>` value is a content token (`local:frame#<sha256>`), never a URL; so is
+	// the poster's `file` value (`file#<sha256>`), present only when the file has cover art.
 	value: string;
+	// F85, owner-only on `poster_url`: the tile image for `file` and `local:<kind>` — the
+	// owner-gated poster source route. Absent when the file has no cover art.
+	image_url?: string;
+	frame_at?: number; // seconds, `local:frame` only (P1-1)
 }
 
 // DecisionRequest is the body of PUT …/decision (F36, ADR-051 §7). `manual_value` is

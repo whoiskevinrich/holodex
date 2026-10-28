@@ -38,6 +38,13 @@ func (s *stubThumbs) ExtractEmbedded(_ context.Context, id int64, _ string) (boo
 	s.extractIDs = append(s.extractIDs, id)
 	return s.extractOK, nil
 }
+func (s *stubThumbs) SetOwnerImage(context.Context, int64, string, []byte, *float64) error {
+	return nil
+}
+func (s *stubThumbs) RemoveOwnerImage(context.Context, int64, string) (bool, error) {
+	return false, nil
+}
+func (s *stubThumbs) Present(context.Context, int64) error { return nil }
 
 func thumbServer(t *testing.T, thumbs *stubThumbs) (*httptest.Server, *repo.Repo, string) {
 	t.Helper()
@@ -132,6 +139,30 @@ func TestRegenerateThumbnail(t *testing.T) {
 	got, _, _ := r.GetVideo(context.Background(), id)
 	if got.ThumbnailState != "" {
 		t.Errorf("state after regenerate = %q, want empty", got.ThumbnailState)
+	}
+}
+
+// "Reset to automatic" (F85) drops an owner frame/upload choice so the page falls
+// back, and leaves any other poster decision alone.
+func TestRegenerateThumbnailClearsLocalPosterChoice(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct{ decided, want string }{
+		{"local:frame", ""},
+		{"file", "file"},
+	} {
+		srv, r, _ := thumbServer(t, &stubThumbs{enabled: true})
+		id := seedThumbVideo(t, r, "/m/a.mkv")
+		if err := r.SetDecision(ctx, "video", id, "poster_url", tc.decided, ""); err != nil {
+			t.Fatal(err)
+		}
+		resp, err := http.Post(srv.URL+"/api/v1/media/"+itoa(id)+"/thumbnail", "", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if got, _ := r.PosterDecision(ctx, id); got != tc.want {
+			t.Errorf("decided %s: after reset = %q, want %q", tc.decided, got, tc.want)
+		}
 	}
 }
 

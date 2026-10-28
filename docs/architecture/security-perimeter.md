@@ -115,6 +115,25 @@ no-scheduler posture, the second moves egress to a public viewer-triggered GET.
 
 Decided in [`f6c58805`](https://github.com/whoiskevinrich/holodex/commit/f6c58805).
 
+## A local poster image crosses no network perimeter
+
+Embedding a `local:<kind>` poster ([writeback.md](writeback.md)) makes no outbound request. The
+provider SSRF perimeter and the asset-host allowlist therefore do not apply: the guarded image
+fetcher is never called and `metadata-sources.yaml` has no say. Three other guards apply instead.
+
+- **Owner gate.** Only owner-gated routes write a frame or upload slot, choose a poster decision, or
+  enqueue a writeback. The `file` and `auto` slots come from Holodex's own exiftool and ffmpeg runs
+  over the media file.
+- **Normalization at ingest.** Owner bytes pass the image normalizer ([images.md](images.md)) before
+  they are stored, so the media file receives a Holodex-encoded JPEG, never bytes a browser sent.
+- **Path confinement.** The writer builds the slot path from config, the job's video id and the closed
+  kind set; no request or payload value names a file.
+
+**Rejected:** fetching local images through the asset client with Holodex's own host allowlisted —
+any provider-named URL on that host could then reach internal routes.
+
+Decided in: pending squash (HOLODEX-599).
+
 ## Read gates: owner-ness is a request property, applied at read time
 
 Reads of mixed public/private content are not router-gated; the handler computes

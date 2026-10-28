@@ -2,8 +2,10 @@ package thumbnail
 
 import (
 	"context"
+	"os"
 	"time"
 
+	"holodex/internal/fieldsource"
 	"holodex/internal/model"
 )
 
@@ -56,7 +58,8 @@ func (m *Manager) process(ctx context.Context, id int64) {
 	jobCtx, cancel := context.WithTimeout(ctx, jobTimeout)
 	defer cancel()
 
-	if err := m.gen(jobCtx, cand, m.thumbPath(id), m.posterPath(id)); err != nil {
+	autoSlot := m.slotPath(id, SlotAuto)
+	if err := m.gen(jobCtx, cand, "", autoSlot); err != nil {
 		if ctx.Err() != nil {
 			return // shutting down; leave state NULL for next run
 		}
@@ -64,6 +67,20 @@ func (m *Manager) process(ctx context.Context, id int64) {
 		if serr := m.repo.SetThumbnailState(ctx, id, model.ThumbnailFailed); serr != nil {
 			m.log.Warn("thumbnail: mark failed", "id", id, "err", serr)
 		}
+		return
+	}
+	// The automatic source exists only once a frame was generated (P0-7); it is
+	// never made the decision here.
+	data, err := os.ReadFile(autoSlot)
+	if err == nil {
+		err = m.repo.SetPosterSource(ctx, id, fieldsource.LocalAutomatic, ContentHash(data), nil, false)
+	}
+	if err != nil {
+		m.log.Warn("thumbnail: record automatic source", "id", id, "err", err)
+		return
+	}
+	if err := m.Present(ctx, id); err != nil {
+		m.log.Warn("thumbnail: present", "id", id, "err", err)
 		return
 	}
 	if err := m.repo.SetThumbnailState(ctx, id, model.ThumbnailGenerated); err != nil {
