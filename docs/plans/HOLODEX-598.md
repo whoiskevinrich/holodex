@@ -20,7 +20,7 @@ a studio merge can pick which spelling the survivor shows.
 
 ## Gates — definition of done
 
-- [/] spec `write-spec` → `docs/specs/**` — the 598 revision and OQ7 are in, but the handoff's spec deltas (Up next 1) aren't applied yet
+- [x] spec `write-spec` → `docs/specs/**` — the 598 revision, OQ7 and the handoff's spec deltas are in. OQ5/OQ6 are probes the build waits on, tracked in Up next
 - [~] architecture — no technology fork: lanes and studio evidence reuse the queue and identity model, and Show as reuses merge + rename (spec "API")
 - [x] design `design-handoff` → `docs/design/**` — handoff + `duplicates-pair-evidence-mockup.svg` + `duplicates-studios-compare-mockup.svg` (1547d0a1)
 - [ ] backend → `{cmd,internal,providers}/**`
@@ -29,18 +29,18 @@ a studio merge can pick which spelling the survivor shows.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [spec] Apply the handoff's spec deltas: "Merge into this one", P0-4's accent scope, P0-10's posters — `docs/specs/duplicates-pair-evidence.md`
+1. [ ] [design] `/implement`: put the handoff and both SVGs in front of the owner and record the sign-off — `docs/design/duplicates-pair-evidence-handoff.md`
 2. [ ] [spec] Probe OQ5 (load baseline) and OQ6 (studio name-source cost), anonymized — the dup-probes session may hold these
-3. [ ] [design] `/implement`: put the handoff and both SVGs in front of the owner and record the sign-off — `docs/design/duplicates-pair-evidence-handoff.md`
-4. [ ] [testing] `/testing-strategy` for lanes, the studio panel and Show as — `docs/testing-strategy.md`
-5. [ ] [backend] Per-lane read with counts, studio name sources and posters, merge that renames the survivor — `internal/api`, `internal/repo`  ⛔ blocked on #3
-6. [ ] [frontend] Build to the handoff's checklist — `web/src/routes/owner/duplicates/`, `web/src/lib/components/duplicates/`  ⛔ blocked on #3
+3. [ ] [testing] `/testing-strategy` for lanes, the studio panel and Show as — `docs/testing-strategy.md`
+4. [ ] [backend] Per-lane read with counts, studio name sources and posters, merge that renames the survivor — `internal/api`, `internal/repo`  ⛔ blocked on #1, and on #2 for the studio read
+5. [ ] [frontend] Build to the handoff's checklist — `web/src/routes/owner/duplicates/`, `web/src/lib/components/duplicates/`  ⛔ blocked on #1
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-27 · session
 - skills: design-handoff (worked by hand, not via the Skill tool), handoff
 - did: revised the F70 handoff and its SVG, and added a Studios SVG, for lanes, the People rework, the Studios panel and Show as. The owner chose: tab row, Videos accent grammar, 3 posters one per source then newest, Show as as a radio, and "Merge into this one" replacing "Keep this one". OQ7 answered in the spec. Cleared `needs-design` on Jira, and fired In Progress by hand.
-- handoff: Design is committed (1547d0a1) but the spec still says "Keep this one", and P0-4 still says Keep separate is the accent on every pair: apply the handoff's "Spec deltas" table first, then /implement.
+- did (later): applied the handoff's spec deltas to F70 ("Merge into this one", P0-4's accent scoped to tag and film rows, P0-10's posters) and ticked spec.
+- handoff: Spec, architecture ([~]) and design are settled; the design is waiting on the owner's sign-off. Run /implement next, which shows the handoff and both SVGs and records the yes.
 
 ## Dropped — newest first (the reason is the point)

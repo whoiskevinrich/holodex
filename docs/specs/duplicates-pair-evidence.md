@@ -13,8 +13,8 @@ are tagged *(598)*.
 **Feature block**: **F70** — the owner's Duplicates page shows **one lane per entity type**
 (Videos, People, Studios, Tags, Films), and a lane reads only its own pairs. A person or studio pair
 expands in place into a **two-column compare panel** that works like the Videos lane: the evidence
-for each side sits in its own column, and the owner picks the survivor with **Keep this one** under
-that column. Keep separate stays one click from the collapsed row.
+for each side sits in its own column, and the owner picks the survivor with **Merge into this one**
+under that column. Keep separate stays one click from the collapsed row.
 
 ## Problem Statement
 
@@ -46,7 +46,9 @@ The Videos lane drew none of these complaints, and the owner is happy with it. I
 1. **Decide a pair without leaving the page.** Face, counts, aliases and provider links for both
    sides visible simultaneously, never from memory.
 2. **Make the common answer the cheap one.** Keep separate is the dominant verdict; it should be
-   the primary action and reachable in one click from the collapsed row.
+   reachable in one click from the collapsed row. On tag and film rows it is the primary action. On
+   a pair with a panel it is the collapsed row's only verdict, and the accent goes to the survivor
+   choice (Goal 7). *(598)*
 3. **Report evidence, never adjudicate it.** The panel says who asserted what. It never renders
    a computed "same person" / "different people" verdict.
 4. **Cost nothing when collapsed.** The queue stays a dense list; evidence is fetched per pair,
@@ -57,7 +59,9 @@ The Videos lane drew none of these complaints, and the owner is happy with it. I
 6. **Say where a studio name came from.** *(598)* For each side of a studio pair, the panel shows
    whether the name came from file tags or from a provider, and on how many videos each.
 7. **One verdict grammar across lanes.** *(598)* Wherever a pair has a panel, the survivor is
-   picked under its own column, as in Videos.
+   picked under its own column, as in Videos, and the survivor action carries the accent. A person
+   or studio survivor is picked with **Merge into this one**, not Videos' "Keep this one", because
+   the other side merges in and its name survives as an alias. Nothing is dropped.
 
 ## Non-Goals
 
@@ -90,7 +94,7 @@ Locked during the 2026-09-22 brainstorm and confirmed against the live probe.
 | RD10 | **Person and studio get panels; tag and film do not.** *(Revised 2026-10-27, 598 — was person only.)* Tag and film rows keep today's behaviour: no disclosure, the match-kind label in the row, and the inline Merge step. A studio pair moves its label into the panel, as a person pair does. | Person has images, aliases and provider facts. The 2026-09-22 call was that a studio has "no evidence worth two columns". The owner's review showed that the evidence was there all along, just never shown: **where each name came from**. Two similar studio names are usually a file-tag spelling against a provider's. Tags dominate the queue by count but still have a single field. |
 | RD13 | **One lane per entity type, and a lane reads only its own pairs.** *(598)* Each lane shows its count whether or not it is open. The existing per-type link (the entity lists' Duplicates banner) opens that lane. | The owner found all types on one page visually overloading. Today's page reads every entity type's pairs on every load, and again after every verdict. Splitting the view without splitting the read would leave the wait in place behind a tab bar. |
 | RD14 | **Show as is a rename, not a display-name layer.** *(598)* A studio has one name, plus aliases (F43 RD6). Merging always keeps the losing name as an alias. Show as then renames the survivor to the chosen spelling, so both spellings stay on the studio: one as its name, the other as an alias. It has every consequence a rename already has, including the name offered for writeback. | A second "display name" would give a studio two places that decide its name. The per-field source decisions already own which source wins for a field, and an adoption or identity surface must not compete with them. Identity (which record survives, with its links and history) and spelling (which name shows) are separate choices. The owner named both. |
-| RD15 | **The survivor is chosen under its own column; Merge leaves the collapsed row.** *(598)* On a pair with a panel, the collapsed row carries only Keep separate. Merging needs the panel open. Tag and film rows keep the inline Merge, which leads to the survivor picker. | This is the Videos grammar ("Keep this one" under each file), which the owner calls intuitive. The old Merge, then "Keep: A / B", put an irreversible choice away from the evidence that informs it. |
+| RD15 | **The survivor is chosen under its own column; Merge leaves the collapsed row.** *(598)* On a pair with a panel, the collapsed row carries only Keep separate. Merging needs the panel open. Tag and film rows keep the inline Merge, which leads to the survivor picker. | This is the Videos grammar ("Keep this one" under each file), which the owner calls intuitive. Here the column action reads **Merge into this one** (owner, 2026-10-27): "Keep this one" suggests the other side is dropped. The old Merge, then "Keep: A / B", put an irreversible choice away from the evidence that informs it. |
 | RD16 | **The whole row toggles its panel.** *(598)* A click anywhere on a row with a panel opens or closes it. Its buttons and links do their own thing and never toggle. | Only a 28 px chevron opened the row. |
 | RD17 | **Names and profile links open in a new tab, and look like they do.** *(598)* An entity's name in a pair row or panel links to its detail page in a new tab, and so do the panel's Videos and Films links. Each carries the new-tab mark used in the Videos lane (Open ↗). | The owner checks a profile and comes back. Leaving the page loses their place in the queue. The mark keeps a link from reading as part of the row's toggle. Revises P2-1, which kept names as plain text so that they would not compete with the row. |
 | RD11 | **The link row leans on provider link templates and `website`, not `_source_url`.** | `_source_url` exists for 86 of 1591 people; `website` for 688. A row keyed on `_source_url` would be empty on most pairs. |
@@ -171,10 +175,13 @@ it that side's lead, and the other side does not change. Sizes are set by the de
 
 **P0-4 · Verdict emphasis swap.** In the collapsed row and the panel footer, **Keep separate**
 carries the accent pill and **Merge** the bordered-neutral `.btn-ghost` styling (RD7 — not
-`.btn-quiet`). Merge still opens the survivor picker.
+`.btn-quiet`). Merge still opens the survivor picker. *(598: this styling now holds for tag and film
+rows only. On a pair with a panel, Keep separate is the bordered neutral and Merge into this one
+carries the accent, as Keep this one does in Videos. See Goal 7 and the criteria below.)*
 
-- [ ] Given any pair row of any entity type, when it renders, then Keep separate is the accent action
-- [ ] Given any pair row, when it renders, then Merge is bordered — never borderless
+- [ ] Given a tag or film pair row, when it renders, then Keep separate is the accent action
+- [ ] Given a tag or film pair row, when it renders, then Merge is bordered — never borderless
+- [ ] *(598)* Given a person or studio pair, then Keep separate is bordered neutral in the row and the panel footer, and Merge into this one is the accent action (Goal 7)
 - [ ] Given Merge is pressed, when the survivor buttons appear, then both names are shown in full and Cancel returns to the verdicts
 - [ ] Given Merge is pressed while the panel is open, when the survivor buttons appear, then the panel stays open — the survivor choice is exactly when the evidence is wanted on screen
 - [ ] Merge remains two-step; no single click can merge
@@ -184,8 +191,8 @@ carries the accent pill and **Merge** the bordered-neutral `.btn-ghost` styling 
 are replaced by RD15:
 
 - [ ] Given a collapsed person or studio row, then its only verdict is Keep separate
-- [ ] Given an expanded person or studio pair, then each column ends with a Keep this one action, and Keep separate is still offered for the pair
-- [ ] Given Keep this one under a column, then the owner confirms before anything merges, and the confirmation names the survivor and the name that becomes an alias
+- [ ] Given an expanded person or studio pair, then each column ends with a Merge into this one action, and Keep separate is still offered for the pair
+- [ ] Given Merge into this one under a column, then the owner confirms before anything merges, and the confirmation names the survivor and the name that becomes an alias
 - [ ] Given a tag or film pair, then the row's verdicts and two-step Merge are unchanged
 
 **P0-8 · One lane per entity type.** *(598, RD13)* The page shows lanes for Videos, People,
@@ -213,16 +220,17 @@ is also known as.
 - [ ] Given a studio pair, when expanded, then each side lists its name sources: file tags or each provider, with the number of videos for each
 - [ ] Given a studio whose name came from file tags on 3 videos and from provider-1 on 38, then that side shows both sources with those counts
 - [ ] Given a side with only one source, then it shows that one source and no empty slots
-- [ ] Given a side, then up to a small fixed number of its videos' posters render, and a studio with no videos shows none
+- [ ] Given a side, then up to 3 of its videos' posters render: one per name source first, in the order the sources are listed, then the most recently added (OQ7). A studio with no videos shows none
+- [ ] Given the same pair expanded twice, then the same posters render both times
 - [ ] Given a side with aliases, then they are listed; a side with none says so in words rather than leaving a gap
 - [ ] The panel describes where names came from and never says which spelling is wrong (Goal 3)
 - [ ] Evidence loads on expand and follows P0-5: a collapsed studio row issues no request
 
-**P0-11 · Show as.** *(598, RD14)* After Keep this one on a studio, the owner chooses which of
+**P0-11 · Show as.** *(598, RD14)* After Merge into this one on a studio, the owner chooses which of
 the two spellings the surviving studio shows. The default is the survivor's own name.
 
-- [ ] Given Keep this one on studio A, when the owner confirms with Show as A, then B's videos and links move to A, and B's name is an alias of A
-- [ ] Given Keep this one on studio A, when the owner confirms with Show as B, then the merge happens as above, A is renamed to B's spelling, and A's former name is an alias, so both spellings still route to the studio
+- [ ] Given Merge into this one on studio A, when the owner confirms with Show as A, then B's videos and links move to A, and B's name is an alias of A
+- [ ] Given Merge into this one on studio A, when the owner confirms with Show as B, then the merge happens as above, A is renamed to B's spelling, and A's former name is an alias, so both spellings still route to the studio
 - [ ] Given either outcome, then no name or alias either studio had before is lost
 - [ ] Given Show as B, then the rename has the same consequences as renaming the studio from its own page, and the confirmation says so
 - [ ] Cancel at any point merges nothing

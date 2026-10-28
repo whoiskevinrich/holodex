@@ -317,14 +317,11 @@ Greps that must stay empty:
 - [ ] `/testing-strategy`, `/security-review` (the new lane, studio-evidence and merge-rename
       reads are owner-gated), `/code-review high --fix`.
 
-## Spec deltas this handoff introduces — **not yet applied**
-
-This handoff's session was scoped to answering OQ7 in the spec. The other rows need a spec edit
-before `/implement`.
+## Spec deltas this handoff introduced — **applied 2026-10-27**
 
 | Spec | Was | Now |
 |---|---|---|
-| OQ7 | open | **answered** (C3): up to 3 posters, one per name source first, then the most recently added. *Applied.* |
-| RD15, P0-4 (598 criteria), P0-11, user stories 10–11, intro | "Keep this one" | **"Merge into this one"** (C5). The Videos lane (F76) keeps "Keep this one". |
-| P0-4, first two criteria | "Given any pair row of any entity type … Keep separate is the accent action" | applies to **tag and film** pairs. On person and studio pairs Keep separate is the bordered neutral and Merge into this one the accent (C2, Goal 7). |
+| OQ7 | open | **answered** (C3): up to 3 posters, one per name source first, then the most recently added |
+| intro, Goal 7, RD15, P0-4 (598 criteria), P0-11 | "Keep this one" | **"Merge into this one"** (C5). The Videos lane (F76) keeps "Keep this one". |
+| Goal 2, P0-4 intro and first two criteria | Keep separate is the accent on any pair row | applies to **tag and film** pairs. On person and studio pairs Keep separate is the bordered neutral and Merge into this one the accent (C2, Goal 7). |
 | P0-10, criterion 4 | "up to a small fixed number" of posters | "up to 3, one per name source first, then the most recently added" |
