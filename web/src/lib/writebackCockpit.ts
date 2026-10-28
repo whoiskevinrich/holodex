@@ -7,6 +7,7 @@
 import {
 	fileCandidateValue,
 	isCleared,
+	isLocalSource,
 	isReplaceField,
 	isTagSetRow,
 	isWritable,
@@ -156,6 +157,9 @@ export function needsDecision(field: ResolvedField, chips: SourceChip[], staged:
 	if (!field.decision?.standing) return true;
 	const current = resolveSelection(field, chips).key;
 	if (staged.key !== current) return true;
+	// A local poster decision whose image is gone reads as ·file (F85); picking ·file then
+	// replaces that stale choice rather than leaving it standing.
+	if (isLocalSource(field.decision.source) && !chips.some((c) => c.key === field.decision?.source)) return true;
 	if (staged.key === 'custom') {
 		return staged.custom.trim() !== (field.decision.manual_value ?? '').trim();
 	}
