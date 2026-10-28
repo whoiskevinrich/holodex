@@ -473,7 +473,9 @@ export interface FieldDecision {
 export interface FieldCandidate {
 	source: DecisionSource; // 'file' | 'provider:<name>' | 'local:<kind>'
 	provider?: string; // provider name when source is 'provider:<name>'
-	value: string; // a `local:<kind>` value is a content token (`local:frame#<sha256>`), never a URL
+	// A `local:<kind>` value is a content token (`local:frame#<sha256>`), never a URL; so is
+	// the poster's `file` value (`file#<sha256>`), present only when the file has cover art.
+	value: string;
 	// F85, owner-only on `poster_url`: the tile image for `file` and `local:<kind>` — the
 	// owner-gated poster source route. Absent when the file has no cover art.
 	image_url?: string;

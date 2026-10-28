@@ -79,6 +79,32 @@ describe('WritebackFormDialog Poster row', () => {
 		expect(document.querySelector('[data-seg=file]')?.textContent).toContain('no cover');
 	});
 
+	it('opens an undecided poster on a file with cover art as ·file, in sync (backend 8eb96dba)', async () => {
+		const { writeback } = await mount(
+			poster({
+				values: ['file#ff'],
+				winning_source: 'file:poster_url',
+				decision: { source: 'file', standing: false },
+				in_sync: true,
+				candidates: [
+					{ source: 'file', value: 'file#ff', image_url: IMG },
+					{ source: 'provider:provider-1', provider: 'provider-1', value: IMG }
+				]
+			})
+		);
+		const file = document.querySelector('[data-seg=file]')!;
+		expect(file.getAttribute('aria-checked')).toBe('true');
+		expect(file.getAttribute('aria-label')).toBe('Poster from file');
+		expect(document.body.textContent).toContain('file poster');
+		expect(document.body.textContent).toContain('— matches the file');
+		expect(document.body.textContent).not.toContain('pending');
+		expect([...document.querySelectorAll('img')].every((i) => !i.getAttribute('src')?.startsWith('file#'))).toBe(true);
+		const write = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('Write 0 fields'))!;
+		expect(write).toBeTruthy();
+		expect(write.disabled).toBe(true);
+		expect(writeback).not.toHaveBeenCalled();
+	});
+
 	it('collapses a written local poster to = with its tile image, never the token', async () => {
 		await mount(poster({ in_sync: true }));
 		const text = document.body.textContent ?? '';

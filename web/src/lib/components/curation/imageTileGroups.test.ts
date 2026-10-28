@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolveSelection, sourceChips } from '#lib/f36.ts';
 import type { FieldCandidate, ResolvedField } from '#lib/types.ts';
-import { needsDecision } from '#lib/writebackCockpit.ts';
+import { needsDecision, rowClass, savesDecisionOnly, stagedValue, willWrite } from '#lib/writebackCockpit.ts';
 import { imageTileGroups, tileImage, tileTitle } from './imageTileGroups.ts';
 
 // F85 testing-strategy §37.4 W1 (design QA 10.1): the Poster row's groups.
@@ -13,7 +13,7 @@ const AUTO: FieldCandidate = { source: 'local:automatic', value: 'local:automati
 const P1: FieldCandidate = { source: 'provider:provider-1', provider: 'provider-1', value: 'https://img.example/p1.jpg' };
 
 function poster(candidates: FieldCandidate[], decision?: ResolvedField['decision'], values: string[] = []): ResolvedField {
-	return { canonical: 'poster_url', label: 'Poster', display: 'image_url', values, candidates, decision };
+	return { canonical: 'poster_url', label: 'Poster', display: 'image_url', values, candidates, decision, write_target: 'cover.jpg' };
 }
 const tiles = (f: ResolvedField) => sourceChips(f).filter((c) => !c.manual || c.value);
 const shape = (f: ResolvedField, providers: string[] = []) =>
@@ -72,6 +72,43 @@ describe('tile images and titles', () => {
 	it('titles the frame tile with its picked time (P1-1)', () => {
 		expect(tileTitle(f, chip('local:frame'))).toBe('frame at 12:40');
 		expect(tileTitle(f, chip('provider:provider-1'))).toBeUndefined();
+	});
+});
+
+describe('the file cover art as the undecided poster (backend 8eb96dba)', () => {
+	const COVER: FieldCandidate = { ...FILE, value: 'file#ff' };
+	// Undecided on a file with cover art: the resolver reports the file as the implicit winner.
+	const undecided = poster([COVER, P1, FRAME], { source: 'file', standing: false }, ['file#ff']);
+	const chips = sourceChips(undecided);
+	const file = chips.find((c) => c.key === 'file')!;
+
+	it('checks ·file, not a pending provider', () => {
+		expect(resolveSelection(undecided, chips)).toEqual({ key: 'file', pending: false });
+	});
+
+	it('reads in sync and never writes the ·file token, picked or not', () => {
+		const value = stagedValue(chips, { key: 'file', custom: '' });
+		expect(value).toBe('file#ff');
+		expect(rowClass(undecided, value)).toBe('matches');
+		expect(willWrite(undecided, value, { staged: { key: 'file', custom: '' }, touched: true })).toBe(false);
+	});
+
+	it('re-pointing a decided frame at ·file saves the decision only', () => {
+		const decided = poster([COVER, FRAME], { source: 'local:frame', standing: true }, ['local:frame#aa']);
+		const c = sourceChips(decided);
+		const staged = { staged: { key: 'file', custom: '' }, touched: true };
+		expect(willWrite(decided, 'file#ff', staged)).toBe(false);
+		expect(savesDecisionOnly(decided, c, 'file#ff', staged)).toBe(true);
+	});
+
+	it('shows the file slot image, never the token', () => {
+		expect(tileImage(undecided, file)).toBe(FILE.image_url);
+		expect(tileImage(poster([{ source: 'file', value: 'file#ff' }]), file)).toBe('');
+	});
+
+	it('keeps the provider pending on a file with no cover art (state C)', () => {
+		const f = poster([{ source: 'file', value: '' }, P1, AUTO], { source: 'provider:provider-1', standing: false }, [P1.value]);
+		expect(resolveSelection(f, sourceChips(f))).toEqual({ key: 'provider:provider-1', pending: true });
 	});
 });
 

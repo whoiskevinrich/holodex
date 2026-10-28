@@ -109,8 +109,9 @@ export function rowClass(field: ResolvedField, value: string): RowClass {
 		return 'matches';
 	}
 	// The backend's own sync verdict stands in for the file value when the staged pick is
-	// still the resolved winner: for an image row the file candidate never carries the
-	// embedded cover art's URL, so only the write ledger can say the file has it (ADR-101) —
+	// still the resolved winner: for an image row the file candidate carries at most a token for
+	// the file's own cover art (`file#<sha256>`, F85, matched above), never the URL of an image
+	// Holodex wrote, so only the write ledger can say the file has that one (ADR-101) —
 	// and that verdict must hold even when the allowlist degraded the row's display to text,
 	// so it is keyed on `in_sync`, not on isImageRow. Only a STANDING decision is witnessed:
 	// the resolver reports `in_sync: true` for every undecided field by construction (nothing
