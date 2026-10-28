@@ -21,6 +21,7 @@ import (
 func (h *Handlers) mountDuplicates(r chi.Router) {
 	r.Get("/owner/duplicates", h.listDuplicates)
 	r.Post("/owner/duplicates/dismiss", h.dismissDuplicate)
+	r.Get("/owner/duplicates/studios/{id}", h.getStudioEvidence)
 	r.Get("/studios/{id}/near-miss", h.entityNearMiss(model.EnrichEntityStudio))
 	r.Get("/tags/{id}/near-miss", h.entityNearMiss(model.EntityTag))
 	h.mountVideoDuplicates(r)
