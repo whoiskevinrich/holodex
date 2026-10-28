@@ -71,7 +71,9 @@ cover art.
     says so.
   - **Holodex**: `·frame`, the owner's newest picked frame, and `·upload`, the owner's newest
     upload. Each appears only when it exists.
-  - **Automatic**: `·automatic`, the frame Holodex generates.
+  - **Automatic**: `·automatic`, the frame Holodex generates. Holodex generates it only for a file
+    with no cover art, so the group appears only when that frame exists. For any other frame the
+    owner uses Pick a frame.
   - **One group per provider**: that provider's poster. A provider with no poster shows its
     caption with "no poster" and no tile.
 - **P0-2 Same row contract.** The tiles keep today's behaviour for the row: picking a tile stages
@@ -121,10 +123,6 @@ cover art.
 - **Engineering.** If the owner's chosen image is missing from storage, for example after a data
   restore, does the tile disappear, and does the choice fall back as in P0-9? This doesn't block
   the work; decide it during the build.
-- **Engineering / design.** Holodex generates the automatic frame only when the file has no cover
-  art. For a file that has cover art, should the `·automatic` tile generate a frame when the dialog
-  opens, or offer to generate one? This blocks P0-1's Automatic group.
-
 ## Timeline considerations
 
 - HOLODEX-600 changes the provider groups from one tile to several. Build P0-1's groups so that
