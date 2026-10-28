@@ -3014,7 +3014,7 @@ the placeholder path):
 
 The 598 revision of the [spec](specs/duplicates-pair-evidence.md) (P0-8, P0-10, P0-11, OQ5–OQ7)
 needs Go code, unlike the person panel above. Four pieces, each pinned by a Go test. The SPA half
-is a later session and adds its own rows here.
+is §16.3.
 
 | Piece | Test | What it holds |
 |---|---|---|
@@ -3048,6 +3048,41 @@ runner.
 - **Statistics refresh only at boot.** A fresh install whose first scan adds thousands of videos
   runs without statistics until its next restart. An established library is analyzed at every
   boot.
+
+### 16.3 Lanes, the studio panel and Show as — frontend (HOLODEX-598)
+
+There is still no component harness (§5), so the rules the page, row and panels share live in
+`queue.ts` and are unit-tested there, and the structural guarantees are pinned statically in
+`verdictOwnership.test.ts`, as for the person panel.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Lanes** (P0-8) | `duplicates/queue.test.ts` `lanes` | The tab order is fixed (Videos, People, Studios, Tags, Films). With no `?type=` the page opens on the first lane with pairs, and on Videos when all are 0. `?type=` accepts exactly the five lanes. Tab and tabpanel ids derive from the lane. |
+| **Comparable kinds** (RD10, P0-9) | `queue.test.ts` `showsComparePanel`, `labelPlacement`, `focusLandingIds` | Person **and** studio pairs get the panel, the label in the panel, a profile link and a next-row disclosure rung. Tag and film rows keep the label in the row and land focus on the lane's tabpanel, which replaced the group heading. |
+| **Studio sources in words** (P0-10) | `queue.test.ts` `sourceLabel` | `file` reads "File tags", `manual` reads "you", and a provider uses its own link label, else its namespace. |
+| **Verdict ownership, both panels** (P0-4, P0-5) | `verdictOwnership.test.ts`, `describe.each` over `DuplicateComparePanel` and `DuplicateStudioPanel` | Each renders the row's `verdicts` in the footer and the row's `mergeInto(ref, other)` once per column, and has no verdict or resolving call of its own. |
+| **Verdict grammar** (C2, C5, RD7) | `verdictOwnership.test.ts` `DuplicatePairRow` | Tag and film rows keep the accent Keep separate and the ghost two-step Merge. A comparable row offers only the ghost Keep separate. Merge into this one is the accent pill, named "Merge {other} into {keep}", and only opens the confirm. |
+| **Show as** (P0-11) | `verdictOwnership.test.ts` `sends the Show as pick on a studio merge only` | The confirm's radio group is a native `fieldset`, and its pick reaches the merge call for a studio only. |
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `showsComparePanel` back to person-only.
+- `defaultLane` falling back to People instead of Videos.
+- The studio merge dropping the Show as pick.
+- `DuplicateStudioPanel` swapping `mergeInto`'s arguments, which would merge the wrong way.
+
+**QA, not asserted** (stress fixture plus seeded pairs, 2026-10-27). One request makes the first
+lane usable (the Videos read, which carries every count). A collapsed lane issues no card, image
+or evidence request. Expanding issues the side reads, and strip images load lazily. A person merge
+and a studio Merge and rename both resolved, dropped the tab count, and moved focus to the next
+disclosure. The survivor took the other spelling and kept its own as an alias. At 375 px nothing
+scrolls the page sideways.
+
+#### 16.3.1 Standing gaps
+
+- **No test drives the page's lane switching, `replaceState` or the re-read after a verdict.**
+  Those need a component harness. They are covered by the QA pass above only.
+- **The person confirm's "films" clause reads the cached card.** If the card is not cached it
+  arrives a moment after the dialog opens, and until then the clause is absent.
 
 ## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
 

@@ -65,6 +65,8 @@ import type {
 	TrashEntry,
 	QueuePage,
 	QueuePageOpts,
+	DuplicateLaneCounts,
+	StudioDuplicateEvidence,
 	Video,
 	VideoCollisionRef,
 	WritebackRequest,
@@ -1064,10 +1066,12 @@ export const api = {
 	// Merge `fromId` into `canonicalId` for any identity entity. For studios the loser's
 	// name is registered as an alias so RelinkVideoStudios re-derivation won't resurrect it
 	// (RD6). The response wraps the survivor under a per-entity key; callers reload, so the
-	// decoded body is returned as-is.
-	mergeEntities: (kind: EntityKind, canonicalId: number, fromId: number) =>
+	// decoded body is returned as-is. `showAs` is studio-only (F70 P0-11): 'merged' also
+	// renames the survivor to the merged-away spelling, keeping its own as an alias.
+	mergeEntities: (kind: EntityKind, canonicalId: number, fromId: number, showAs?: 'survivor' | 'merged') =>
 		sendAuthed<Record<string, unknown>>('POST', `/${ENTITY_BASE[kind]}/${canonicalId}/merge`, {
-			from_id: fromId
+			from_id: fromId,
+			...(showAs ? { show_as: showAs } : {})
 		}),
 
 	// Rename an entity, keeping the old name as an alias (one transaction). 204 on success;
@@ -1114,12 +1118,15 @@ export const api = {
 
 	// Near-miss review queue (F43 S5). Owner-gated. duplicates() lists every flagged
 	// possible-duplicate pair (grouped tags-first); dismissDuplicate records the pair
-	// keep-separate and removes it — it never re-surfaces. Paged (HOLODEX-587); `type`
-	// narrows to one entity, and `counts` is every type's unfiltered pair count.
-	duplicates: (opts: QueuePageOpts & { type?: EntityKind } = {}) =>
-		getAuthed<QueuePage<DuplicatePair> & { counts: Partial<Record<EntityKind, number>> }>(
-			`/owner/duplicates${queueQuery(opts)}`
-		),
+	// keep-separate and removes it — it never re-surfaces. Paged (HOLODEX-587). One lane per
+	// read (F70 P0-8): `type` is required so a lane never pays for the others, and `counts`
+	// carries every lane's pair count, Videos included.
+	duplicates: (opts: QueuePageOpts & { type: EntityKind }) =>
+		getAuthed<QueuePage<DuplicatePair> & { counts: DuplicateLaneCounts }>(`/owner/duplicates${queueQuery(opts)}`),
+
+	// One side of a studio pair's compare panel (F70 P0-10): where its name came from,
+	// sample posters, aliases with their origin, and provider links.
+	studioDuplicateEvidence: (id: number) => getAuthed<StudioDuplicateEvidence>(`/owner/duplicates/studios/${id}`),
 
 	dismissDuplicate: (kind: EntityKind, idA: number, idB: number) =>
 		sendAuthed<Record<string, never>>('POST', `/owner/duplicates/dismiss`, {
@@ -1131,7 +1138,9 @@ export const api = {
 	// Duplicate videos (F76). Owner-gated. Pairs are computed on demand: two live files
 	// matched to the same provider item.
 	videoDuplicates: (opts: QueuePageOpts = {}) =>
-		getAuthed<QueuePage<VideoDuplicatePair>>(`/owner/duplicates/videos${queueQuery(opts)}`),
+		getAuthed<QueuePage<VideoDuplicatePair> & { counts: DuplicateLaneCounts }>(
+			`/owner/duplicates/videos${queueQuery(opts)}`
+		),
 
 	videoDuplicateCompare: (a: number, b: number) =>
 		getAuthed<VideoCompare>(`/owner/duplicates/videos/${a}/${b}`),

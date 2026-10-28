@@ -4,15 +4,15 @@
 	// can tell one person from two without leaving the queue.
 	//
 	// **Each column IS the F68 hover card laid flat** — same fields, same order, same
-	// absent-is-absent rule (no "—", no "unknown"), with a strip of five 44 px frames
-	// where the card's single 48 px headshot was. The hover card was never the wrong
-	// content, only the wrong container (spec RD2).
+	// absent-is-absent rule (no "—", no "unknown"), under a 240 px lead image (598, RD18)
+	// with a strip of five 44 px frames that swap what the lead shows. The hover card was
+	// never the wrong content, only the wrong container (spec RD2).
 	//
 	// The panel NEVER adjudicates (RD3/RD4): it reports who said what and stops. No
 	// conflict chip, no summary line, no co-appearance marker — those were all tried and
-	// are exactly the cross-side comparison the epic forbids. The footer carries verdicts
-	// and nothing else, rendered from the row's own snippet so the two verdict pairs can
-	// never drift apart or disagree about `busy`.
+	// are exactly the cross-side comparison the epic forbids. Every verdict comes from the
+	// row's own snippets — Keep separate in the footer, Merge into this one at the foot of
+	// each column — so the row and panel can never drift apart or disagree about `busy`.
 	import type { DuplicatePair, EntityRef, PersonCard, PersonImage } from '#lib/types.ts';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import { videoCount, refLabel, sortExternalLinks } from '#lib/format.ts';
@@ -25,13 +25,15 @@
 	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
 	import NationalityFlags from '#lib/components/person/NationalityFlags.svelte';
 	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
+	import { profileHref } from './queue';
 
 	let {
 		pair,
 		panelId,
 		matchLabel,
 		matchWeak,
-		verdicts
+		verdicts,
+		mergeInto
 	}: {
 		pair: DuplicatePair;
 		panelId: string;
@@ -41,7 +43,15 @@
 		matchWeak: boolean;
 		/** The row's verdict block, repeated in the footer: same handlers, same `busy`. */
 		verdicts: Snippet;
+		/** The row's Merge into this one, rendered at the foot of each column. */
+		mergeInto: Snippet<[EntityRef, EntityRef]>;
 	} = $props();
+
+	// What each side's lead shows: the headshot, or a strip image by id. Per side and
+	// panel-local, so choosing a frame on A never touches B, and a reopened panel (a fresh
+	// mount) starts on the headshots again.
+	type LeadKey = 'headshot' | number;
+	let lead = $state<Record<'a' | 'b', LeadKey>>({ a: 'headshot', b: 'headshot' });
 
 	// The strip is a SAMPLE, not an index (OQ2): five frames, no `+N`. Slot 1 is always
 	// the headshot role — the backend serves a themed placeholder when there is none, so
@@ -114,54 +124,72 @@
 	}
 </script>
 
-{#snippet column(key: 'a' | 'b', ref: EntityRef)}
+{#snippet newTab(href: string, label: string)}
+	<a {href} target="_blank" rel="noopener" class="text-accent hover:text-ink"
+		>{label}<span aria-hidden="true" class="ml-0.5 text-muted">↗</span></a
+	>
+{/snippet}
+
+{#snippet column(key: 'a' | 'b', ref: EntityRef, other: EntityRef)}
 	{@const side = sides[key]}
 	{@const card = side.card}
 	{@const name = shownName(key, ref)}
 	{@const segments = meta(card)}
 	{@const aliases = card?.aliases?.slice(0, 3) ?? []}
+	{@const leadImage = side.gallery.find((img) => img.id === lead[key])}
 	<section
 		aria-label={name}
 		class="min-w-0 rounded-theme border border-rule bg-surface p-3"
 	>
-		<div class="flex gap-1">
-			{#if card}
+		{#if card}
+			<!-- Keyed, so a swap is a fresh frame: an error on one image never hides the next. -->
+			{#key lead[key]}
 				<PersonImageFrame
 					personId={ref.id}
-					role="headshot"
-					name={name}
-					version={card.headshot_version}
-					frameClass="portrait-frame--1x1 w-11 shrink-0"
-					sizes="44px"
+					role={leadImage?.role ?? 'headshot'}
+					imageId={leadImage?.id}
+					{name}
+					version={leadImage ? leadImage.version : card.headshot_version}
+					frameClass="portrait-frame--1x1 w-60"
+					sizes="240px"
 					eager
 				/>
-				{#each side.gallery as img (img.id)}
-					<!-- Same person, five times: announcing the name five times is noise. -->
-					<PersonImageFrame
-						personId={ref.id}
-						role={img.role}
-						imageId={img.id}
-						name={name}
-						alt=""
-						version={img.version}
-						frameClass="portrait-frame--1x1 w-11 shrink-0"
-						sizes="44px"
-					/>
-				{/each}
-			{:else}
-				<!-- Loading holds all five slots so nothing shifts when the images land
-				     (asking for the headshot before its version is known would fetch it
-				     twice). A FAILED side holds one: nothing is ever going to land there,
-				     and five empty wells claim five images this person may not have —
-				     the same overstatement P0-3 rules out for a person with no images. -->
-				{#each side.failed ? [0] : LOADING_SLOTS as slot (slot)}
-					<span class="portrait-frame portrait-frame--1x1 w-11 shrink-0" aria-hidden="true"></span>
-				{/each}
+			{/key}
+			<!-- No strip for a person with one image: the lead already shows it (P0-3).
+			     5 × 44 + 4 × 4 = 236 px, so the strip spans the 240 px lead. -->
+			{#if side.gallery.length}
+				<div class="mt-1 flex gap-1">
+					{@render frame(key, ref, name, 'headshot', 0)}
+					{#each side.gallery as img, i (img.id)}
+						{@render frame(key, ref, name, img.id, i + 1, img)}
+					{/each}
+				</div>
 			{/if}
-		</div>
+		{:else}
+			<!-- Loading holds the lead and all five strip slots, so nothing shifts when the
+			     images land (asking for the headshot before its version is known would fetch
+			     it twice). A FAILED side holds the lead only: nothing is ever going to land
+			     there, and five empty wells claim five images this person may not have —
+			     the same overstatement P0-3 rules out for a person with no images. -->
+			<span class="portrait-frame portrait-frame--1x1 block w-60" aria-hidden="true"></span>
+			{#if !side.failed}
+				<div class="mt-1 flex gap-1">
+					{#each LOADING_SLOTS as slot (slot)}
+						<span class="portrait-frame portrait-frame--1x1 w-11 shrink-0" aria-hidden="true"></span>
+					{/each}
+				</div>
+			{/if}
+		{/if}
 
 		<span class="mt-2 flex items-center gap-1.5">
-			<span class="skin-title truncate font-display text-sm font-semibold">{name}</span>
+			<a
+				href={profileHref('person', ref.id)}
+				target="_blank"
+				rel="noopener"
+				aria-label={`Open ${name} in a new tab`}
+				class="skin-title truncate font-display text-sm font-semibold text-ink hover:text-accent">{name}</a
+			>
+			<span aria-hidden="true" class="shrink-0 text-xs text-muted">↗</span>
 			{#if card?.nationality?.length}
 				<NationalityFlags values={card.nationality} />
 			{/if}
@@ -171,6 +199,9 @@
 		{/if}
 		{#if aliases.length}
 			<span class="block truncate text-xs italic text-muted">also credited as {aliases.join(', ')}</span>
+		{:else if card}
+			<!-- Says so in words (P0-10's rule, applied to both panels), so the columns line up. -->
+			<span class="block text-xs text-muted">No other names</span>
 		{/if}
 
 		{#if side.failed}
@@ -179,19 +210,55 @@
 				Retry
 			</button>
 		{:else if card}
-			<!-- The panel's only in-app path to a profile: the pair-row names are still
-			     `<span>`s (P2-1) and there is no `+N`, so without these it's a dead end. -->
+			<!-- Every link here opens a new tab (P0-9), so the queue page never moves. -->
 			<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule pt-2 text-xs">
-				<a href={`/people/${ref.id}#videos`} class="text-accent hover:text-ink">Videos</a>
+				{@render newTab(`/people/${ref.id}#videos`, 'Videos')}
 				{#if card.film_count > 0}
-					<a href={`/people/${ref.id}#films`} class="text-accent hover:text-ink">Films</a>
+					{@render newTab(`/people/${ref.id}#films`, 'Films')}
 				{/if}
 				{#each sortExternalLinks(card.external_links ?? []) as link (link.provider)}
-					<ProviderLinkBadge {link} entityName={name} />
+					<span class="inline-flex items-center gap-0.5">
+						<ProviderLinkBadge {link} entityName={name} />
+						{#if link.url}<span aria-hidden="true" class="text-muted">↗</span>{/if}
+					</span>
 				{/each}
 			</div>
 		{/if}
+		<div class="mt-2 border-t border-rule pt-2">
+			{@render mergeInto(ref, other)}
+		</div>
 	</section>
+{/snippet}
+
+<!-- One strip frame: a button that puts its image in the lead. The ring is an overlay,
+     because an inset ring on the button itself would sit under the image. -->
+{#snippet frame(key: 'a' | 'b', ref: EntityRef, name: string, id: LeadKey, n: number, img?: PersonImage)}
+	{@const chosen = lead[key] === id}
+	<button
+		type="button"
+		onclick={() => (lead[key] = id)}
+		aria-pressed={chosen}
+		aria-label={`Show image ${n + 1} of ${name}`}
+		class="group relative w-11 shrink-0 rounded-theme"
+	>
+		<!-- Same person, five times: the button carries the label, so the image is decorative. -->
+		<PersonImageFrame
+			personId={ref.id}
+			role={img?.role ?? 'headshot'}
+			imageId={img?.id}
+			{name}
+			alt=""
+			version={img ? img.version : sides[key].card?.headshot_version}
+			frameClass="portrait-frame--1x1 w-11"
+			sizes="44px"
+		/>
+		<span
+			aria-hidden="true"
+			class="pointer-events-none absolute inset-0 rounded-theme {chosen
+				? 'ring-2 ring-inset ring-accent'
+				: 'group-hover:ring-1 group-hover:ring-inset group-hover:ring-rule group-focus-visible:ring-1 group-focus-visible:ring-inset group-focus-visible:ring-rule'}"
+		></span>
+	</button>
 {/snippet}
 
 <div
@@ -208,8 +275,8 @@
 		</p>
 	{/if}
 	<div class="field-grid gap-4">
-		{@render column('a', pair.a)}
-		{@render column('b', pair.b)}
+		{@render column('a', pair.a, pair.b)}
+		{@render column('b', pair.b, pair.a)}
 	</div>
 	<div class="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-rule pt-3">
 		{@render verdicts()}

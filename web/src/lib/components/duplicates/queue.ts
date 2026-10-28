@@ -8,7 +8,7 @@
 // label renders, and where focus lands when a row is removed — are the ones the
 // 2026-09-23 QA pass found by hand. They live here so `queue.test.ts` can pin them
 // without a component harness (there is none; see docs/testing-strategy.md §5).
-import type { DuplicatePair, EntityKind } from '#lib/types.ts';
+import type { DuplicateLane, DuplicateLaneCounts, DuplicatePair, EntityKind } from '#lib/types.ts';
 
 /** One stable key per pair. The `{#each}` key, the panel's id and the disclosure's id
  *  all derive from it, so focus can be moved by id without threading refs up the tree. */
@@ -18,15 +18,56 @@ export function pairKey(p: DuplicatePair): string {
 
 export const disclosureId = (p: DuplicatePair): string => `dup-disclosure-${pairKey(p)}`;
 export const panelId = (p: DuplicatePair): string => `dup-panel-${pairKey(p)}`;
-export const groupId = (type: EntityKind | 'video'): string => `dup-group-${type}`;
-/** The queue container — the one landing spot that outlives every group (P0-6). */
+export const laneTabId = (lane: DuplicateLane): string => `dup-tab-${lane}`;
+/** The lane's tabpanel: the focus ladder's middle rung, now the group heading is gone. */
+export const lanePanelId = (lane: DuplicateLane): string => `dup-lane-${lane}`;
+/** The queue container — the one landing spot that outlives every lane (P0-6). */
 export const QUEUE_ID = 'dup-queue';
 
-/** The compare panel is person-only (RD10): a studio/tag/film pair has no evidence
+/** The lanes in their fixed tab order (P0-8, RD13). The order never changes and a lane
+ *  with no pairs keeps its place, so the tabs never shift. */
+export const LANES: readonly DuplicateLane[] = ['video', 'person', 'studio', 'tag', 'film'];
+
+export const LANE_LABEL: Record<DuplicateLane, string> = {
+	video: 'Videos',
+	person: 'People',
+	studio: 'Studios',
+	tag: 'Tags',
+	film: 'Films'
+};
+
+/** `?type=` → a lane, or null when absent or not a lane. */
+export function parseLane(value: string | null): DuplicateLane | null {
+	return (LANES as readonly string[]).includes(value ?? '') ? (value as DuplicateLane) : null;
+}
+
+/** The lane the page opens on when the URL names none: the first, in tab order, with pairs;
+ *  Videos when every lane is empty. A lane the URL does name opens even at 0 — the
+ *  Duplicates banner's link must land where it says. */
+export function defaultLane(counts: DuplicateLaneCounts): DuplicateLane {
+	return LANES.find((l) => counts[l] > 0) ?? 'video';
+}
+
+/** The compare panel is person and studio (RD10, 598): a tag or film pair has no evidence
  *  worth two columns, and a control that cannot change what you see is one the reader
  *  learns to distrust. */
 export function showsComparePanel(entityType: EntityKind): boolean {
-	return entityType === 'person';
+	return entityType === 'person' || entityType === 'studio';
+}
+
+/** The entity's own page, which a pair row and its panel open in a new tab (P0-9). Only
+ *  the comparable kinds link; tag and film rows keep plain names. */
+export function profileHref(entityType: EntityKind, id: number): string {
+	return entityType === 'person' ? `/people/${id}` : `/studios/${id}`;
+}
+
+/** A studio evidence namespace as the panel names it. 'file' is the file tags; 'manual' is
+ *  a value the owner set; anything else is a provider, named by its own label where the
+ *  side's links carry one. '' (nothing resolved) is absent, never a placeholder. */
+export function sourceLabel(source: string, labels: Record<string, string> = {}): string {
+	if (source === 'file') return 'File tags';
+	if (source === 'manual') return 'you';
+	return labels[source] ?? source;
 }
 
 // Why the DETECTOR fired. The two canonical names can look nothing alike when the
@@ -75,11 +116,11 @@ export function sharedIdChip(pair: DuplicatePair): { text: string } | null {
 	return { text: asserter ? `${asserter} says one ${noun}` : `a provider says one ${noun}` };
 }
 
-/** Where the match-kind label renders (OQ3, resolved 2026-09-23). A PERSON pair
- *  carries it in the panel — measured at real type sizes it needs ~836 px in the row,
- *  and 100 % of the live queue carries one, so leaving it there made the two-line row
- *  the default on a surface built for scanning. Every other kind keeps it in the row:
- *  it has no panel to move it to, and without it two unalike names are paired with
+/** Where the match-kind label renders (OQ3, resolved 2026-09-23). A PERSON or STUDIO
+ *  pair carries it in the panel — measured at real type sizes it needs ~836 px in the
+ *  row, and 100 % of the live queue carries one, so leaving it there made the two-line
+ *  row the default on a surface built for scanning. Tag and film keep it in the row:
+ *  they have no panel to move it to, and without it two unalike names are paired with
  *  nothing explaining why. Gate on entity type, never on "the panel exists". */
 export function labelPlacement(pair: DuplicatePair): 'row' | 'panel' | 'none' {
 	if (!matchKindLabel(pair.match_kind).text) return 'none';
@@ -90,15 +131,15 @@ export function labelPlacement(pair: DuplicatePair): 'row' | 'panel' | 'none' {
  *  entity group, in render order). The removal is instant and unanimated, so without
  *  this focus falls to `<body>` (P0-6).
  *
- *  Three spots, and the third is not belt-and-braces: a group with no rows left stops
- *  rendering and takes its own heading with it, so the last pair in a group has no
- *  heading to land on. The queue container always survives — it is what holds
- *  "No possible duplicates." A next row is only offered when it HAS a disclosure, so a
- *  non-person group always lands on its heading rather than on an id nothing rendered.
+ *  Three spots: the next row's disclosure, the lane's tabpanel (which outlives its last
+ *  row — it then holds "No possible duplicate …"), and the queue container, for a lane
+ *  that was switched away mid-resolve. A next row is only offered when it HAS a
+ *  disclosure, so a tag or film lane always lands on its tabpanel rather than on an id
+ *  nothing rendered.
  *
  *  The caller focuses the first of these that is actually in the DOM. */
 export function focusLandingIds(pair: DuplicatePair, siblings: DuplicatePair[]): string[] {
 	const next = siblings[siblings.indexOf(pair) + 1];
 	const ladder = next && showsComparePanel(next.entity_type) ? [disclosureId(next)] : [];
-	return [...ladder, groupId(pair.entity_type), QUEUE_ID];
+	return [...ladder, lanePanelId(pair.entity_type), QUEUE_ID];
 }
