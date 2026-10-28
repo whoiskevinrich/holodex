@@ -1,13 +1,13 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"holodex/internal/model"
-	"holodex/internal/repo"
 )
 
 // Near-miss review queue API (F43 S5, ADR-061 D4) — the owner's Duplicates tab. Reads
@@ -49,12 +49,14 @@ func (h *Handlers) entityNearMiss(entityType string) http.HandlerFunc {
 	}
 }
 
-// listDuplicates returns the flagged possible-duplicate pairs, grouped tags-first,
-// each with both entities' names + active-video counts + the variation kind. Paged by
-// ?limit/offset a pair at a time (HOLODEX-587); ?type= narrows to one entity type, so a
-// deep-linked filter pages its own pairs. `counts` is every type's pair count, unpaged
-// and unfiltered, for the group headings and the list-page banners.
+// listDuplicates returns the flagged possible-duplicate pairs, each with both entities'
+// names + active-video counts + the variation kind, paged by ?limit/offset a pair at a
+// time (HOLODEX-587). ?type= is a lane (F70 P0-8): only that type's pairs are read, paged
+// in SQL, and video counts are taken for the page alone. Without ?type= every type is
+// read, grouped tags-first. `counts` is every lane's pair count — the four name types and
+// "video" — always present, 0 included, for the lane tabs and the list-page banners.
 func (h *Handlers) listDuplicates(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	q := r.URL.Query()
 	p := pageFromQuery(q)
 	entityType := q.Get("type")
@@ -62,21 +64,47 @@ func (h *Handlers) listDuplicates(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type must be person, studio, tag, or film")
 		return
 	}
-	all, err := h.repo.ListReviewPairs(r.Context())
+	counts, err := h.duplicateCounts(ctx)
 	if err != nil {
 		h.fail(w, "list duplicates", err)
 		return
 	}
-	counts := map[string]int{}
-	pairs := make([]repo.ReviewPair, 0, len(all))
-	for _, pr := range all {
-		counts[pr.EntityType]++
-		if entityType == "" || pr.EntityType == entityType {
-			pairs = append(pairs, pr)
+	if entityType == "" {
+		all, err := h.repo.ListReviewPairs(ctx)
+		if err != nil {
+			h.fail(w, "list duplicates", err)
+			return
 		}
+		writeJSON(w, http.StatusOK, p.envelope(pageOf(all, p), len(all), map[string]any{"counts": counts}))
+		return
 	}
-	writeJSON(w, http.StatusOK, p.envelope(pageOf(pairs, p), len(pairs), map[string]any{"counts": counts}))
+	pairs, err := h.repo.ListReviewPairsPage(ctx, entityType, p.Limit, p.Offset)
+	if err != nil {
+		h.fail(w, "list duplicates", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p.envelope(pairs, counts[entityType], map[string]any{"counts": counts}))
 }
+
+// duplicateCounts is every Duplicates lane's pair count: the four name types from the
+// review queue, and "video" from the video pairs. Shared by both lists, so any lane's
+// read refreshes every tab.
+func (h *Handlers) duplicateCounts(ctx context.Context) (map[string]int, error) {
+	counts, err := h.repo.ReviewPairCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	videos, err := h.repo.ListVideoPairs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	counts[videoLane] = len(videos)
+	return counts, nil
+}
+
+// videoLane is the Videos lane's key in duplicateCounts — not an entity type, since a
+// video pair is not an identity_review_queue row.
+const videoLane = "video"
 
 // dismissDuplicate records that a pair is deliberately distinct (keep-separate, RD5)
 // and removes it from the queue — the owner's "these are not the same" verdict.

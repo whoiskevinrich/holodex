@@ -188,64 +188,114 @@ var fuzzyVariations = []string{"internal-whitespace", "punctuation"}
 // it is the skip record SkippedAliasesForEntity reads for the Aliases panel, and the row
 // queueSharedExternalIDPair upgrades in place, at which point it surfaces here again.
 func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
-	fuzzyList := "'" + strings.Join(fuzzyVariations, "','") + "'"
 	var out []ReviewPair
 	for _, et := range reviewEntityOrder {
-		table := canonicalTable(et)
-		jn := reviewJunction[et]
-		names := entityNamesUnion(table, et)
-		q := fmt.Sprintf(`
-			SELECT q.id_lo, la.name, %[3]s, q.id_hi, lb.name, %[4]s, q.variation,
-			       CASE WHEN q.variation NOT IN (%[8]s) THEN '' ELSE coalesce(m.match_kind, '') END,
-			       CASE WHEN q.variation = 'shared-external-id' THEN q.detail ELSE '' END,
-			       %[9]s, %[10]s
-			FROM identity_review_queue q
-			JOIN %[1]s la ON la.id = q.id_lo
-			JOIN %[1]s lb ON lb.id = q.id_hi
-			LEFT JOIN (
-				SELECT iq.id_lo, iq.id_hi,
-					CASE min(CASE WHEN x.kind = 'canonical' AND y.kind = 'canonical' THEN 0
-					              WHEN x.kind = 'alias'     AND y.kind = 'alias'     THEN 2
-					              ELSE 1 END)
-						WHEN 0 THEN 'canonical' WHEN 2 THEN 'alias' ELSE 'mixed' END AS match_kind
-				FROM identity_review_queue iq
-				JOIN %[5]s x ON x.eid = iq.id_lo
-				JOIN %[5]s y ON y.eid = iq.id_hi AND %[6]s = %[7]s
-				WHERE iq.entity_type = ? AND iq.variation IN (%[8]s)
-				GROUP BY iq.id_lo, iq.id_hi
-			) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
-			WHERE q.entity_type = ?
-			  AND q.variation <> 'provider-alias'
-			  AND (q.variation NOT IN (%[8]s) OR m.match_kind IS NOT NULL)%[11]s
-			ORDER BY CASE WHEN q.variation = 'shared-external-id' THEN -2
-			              WHEN q.variation NOT IN (%[8]s) THEN -1
-			              WHEN m.match_kind = 'canonical' THEN 0
-			              WHEN m.match_kind = 'mixed' THEN 1
-			              ELSE 2 END,
-			         la.name COLLATE NOCASE, lb.name COLLATE NOCASE`,
-			table, jn[0], reviewCountExpr(jn, "q.id_lo"), reviewCountExpr(jn, "q.id_hi"),
-			names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList,
-			refYearExpr(et, "la"), refYearExpr(et, "lb"), liveFilmExpr(et, "la")+liveFilmExpr(et, "lb"))
-		rows, err := r.db.QueryContext(ctx, q, et, et)
+		pairs, err := r.ListReviewPairsPage(ctx, et, -1, 0)
 		if err != nil {
-			return nil, fmt.Errorf("list review pairs (%s): %w", et, err)
-		}
-		for rows.Next() {
-			p := ReviewPair{EntityType: et}
-			var yearA, yearB sql.NullInt64
-			if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind, &p.Detail, &yearA, &yearB); err != nil {
-				rows.Close()
-				return nil, err
-			}
-			p.A.Year, p.B.Year = int(yearA.Int64), int(yearB.Int64)
-			out = append(out, p)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
 			return nil, err
 		}
+		out = append(out, pairs...)
 	}
 	return out, nil
+}
+
+// ListReviewPairsPage is one entity type's slice of ListReviewPairs — a Duplicates lane
+// (F70 P0-8) — paged in SQL by limit/offset (a negative limit is no limit). The
+// active-video counts are taken only for the page's pairs, in the outer query, so a lane
+// never pays for the pairs it does not show. Ties sort by id so pages never overlap.
+func (r *Repo) ListReviewPairsPage(ctx context.Context, entityType string, limit, offset int) ([]ReviewPair, error) {
+	table := canonicalTable(entityType)
+	if table == "" {
+		return nil, fmt.Errorf("list review pairs: unknown entity type %q", entityType)
+	}
+	jn := reviewJunction[entityType]
+	fuzzyList := fuzzyVariationList()
+	q := fmt.Sprintf(`
+		SELECT p.id_lo, p.na, %[1]s, p.id_hi, p.nb, %[2]s, p.variation, p.match_kind, p.detail, p.ya, p.yb
+		FROM (
+			SELECT q.id_lo, la.name AS na, q.id_hi, lb.name AS nb, q.variation,
+			       CASE WHEN q.variation NOT IN (%[3]s) THEN '' ELSE coalesce(m.match_kind, '') END AS match_kind,
+			       CASE WHEN q.variation = 'shared-external-id' THEN q.detail ELSE '' END AS detail,
+			       %[4]s AS ya, %[5]s AS yb,
+			       CASE WHEN q.variation = 'shared-external-id' THEN -2
+			            WHEN q.variation NOT IN (%[3]s) THEN -1
+			            WHEN m.match_kind = 'canonical' THEN 0
+			            WHEN m.match_kind = 'mixed' THEN 1
+			            ELSE 2 END AS ord
+			%[6]s
+			ORDER BY ord, na COLLATE NOCASE, nb COLLATE NOCASE, q.id_lo, q.id_hi
+			LIMIT ? OFFSET ?
+		) p
+		ORDER BY p.ord, p.na COLLATE NOCASE, p.nb COLLATE NOCASE, p.id_lo, p.id_hi`,
+		reviewCountExpr(jn, "p.id_lo"), reviewCountExpr(jn, "p.id_hi"), fuzzyList,
+		refYearExpr(entityType, "la"), refYearExpr(entityType, "lb"), reviewPairsFrom(entityType))
+	rows, err := r.db.QueryContext(ctx, q, entityType, entityType, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list review pairs (%s): %w", entityType, err)
+	}
+	defer rows.Close()
+	out := []ReviewPair{}
+	for rows.Next() {
+		p := ReviewPair{EntityType: entityType}
+		var yearA, yearB sql.NullInt64
+		if err := rows.Scan(&p.A.ID, &p.A.Name, &p.A.VideoCount, &p.B.ID, &p.B.Name, &p.B.VideoCount, &p.Variation, &p.MatchKind, &p.Detail, &yearA, &yearB); err != nil {
+			return nil, err
+		}
+		p.A.Year, p.B.Year = int(yearA.Int64), int(yearB.Int64)
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ReviewPairCounts returns every named entity type's live pair count — exactly the rows
+// ListReviewPairsPage would list — keyed by entity type, with 0 for a type with none (the
+// lane tabs show every count, F70 P0-8). No video counts, so it costs only the match.
+func (r *Repo) ReviewPairCounts(ctx context.Context) (map[string]int, error) {
+	out := make(map[string]int, len(reviewEntityOrder))
+	for _, et := range reviewEntityOrder {
+		var n int
+		if err := r.db.QueryRowContext(ctx, `SELECT count(*) `+reviewPairsFrom(et), et, et).Scan(&n); err != nil {
+			return nil, fmt.Errorf("count review pairs (%s): %w", et, err)
+		}
+		out[et] = n
+	}
+	return out, nil
+}
+
+// fuzzyVariationList renders fuzzyVariations as a SQL IN-list body ('a','b').
+func fuzzyVariationList() string {
+	return "'" + strings.Join(fuzzyVariations, "','") + "'"
+}
+
+// reviewPairsFrom is the FROM … WHERE that decides which of one type's queue rows are
+// live (see ListReviewPairs), shared by the page and the count so they never disagree.
+// It exposes q (the queue row), la / lb (the two entities) and m (the live match kind),
+// and takes two args, both the entity type. entityType is a trusted internal literal.
+func reviewPairsFrom(entityType string) string {
+	table := canonicalTable(entityType)
+	names := entityNamesUnion(table, entityType)
+	fuzzyList := fuzzyVariationList()
+	return fmt.Sprintf(`
+		FROM identity_review_queue q
+		JOIN %[1]s la ON la.id = q.id_lo
+		JOIN %[1]s lb ON lb.id = q.id_hi
+		LEFT JOIN (
+			SELECT iq.id_lo, iq.id_hi,
+				CASE min(CASE WHEN x.kind = 'canonical' AND y.kind = 'canonical' THEN 0
+				              WHEN x.kind = 'alias'     AND y.kind = 'alias'     THEN 2
+				              ELSE 1 END)
+					WHEN 0 THEN 'canonical' WHEN 2 THEN 'alias' ELSE 'mixed' END AS match_kind
+			FROM identity_review_queue iq
+			JOIN %[2]s x ON x.eid = iq.id_lo
+			JOIN %[2]s y ON y.eid = iq.id_hi AND %[3]s = %[4]s
+			WHERE iq.entity_type = ? AND iq.variation IN (%[5]s)
+			GROUP BY iq.id_lo, iq.id_hi
+		) m ON m.id_lo = q.id_lo AND m.id_hi = q.id_hi
+		WHERE q.entity_type = ?
+		  AND q.variation <> 'provider-alias'
+		  AND (q.variation NOT IN (%[5]s) OR m.match_kind IS NOT NULL)%[6]s`,
+		table, names, looseKeyExpr("x.nm"), looseKeyExpr("y.nm"), fuzzyList,
+		liveFilmExpr(entityType, "la")+liveFilmExpr(entityType, "lb"))
 }
 
 // refYearExpr is the EntityRef.Year column for one side of a pair — the film's year
