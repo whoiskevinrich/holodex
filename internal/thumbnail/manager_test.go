@@ -182,6 +182,47 @@ func TestExtractEmbedded(t *testing.T) {
 	}
 }
 
+// TestUploadedPosterSurvivesPostWriteExtract is F85's regression R1 (P0-6): the
+// post-write hook re-extracts embedded cover art after every writeback, and that
+// must never displace the owner's uploaded poster on the page.
+func TestUploadedPosterSurvivesPostWriteExtract(t *testing.T) {
+	fr := newFakeRepo()
+	fr.add(repo.ThumbnailCandidate{ID: 9, FilePath: "/m/art.mkv"})
+	m := testManager(t, fr)
+	m.art = func(_ context.Context, _, thumbDst, posterDst string) (bool, error) {
+		if err := os.WriteFile(thumbDst, []byte("COVER"), 0o644); err != nil {
+			return false, err
+		}
+		return true, os.WriteFile(posterDst, []byte("COVERPOSTER"), 0o644)
+	}
+	// The owner's upload, stored the way the upload route stores it.
+	for _, p := range []string{m.thumbPath(9), m.posterPath(9)} {
+		if err := os.WriteFile(p, []byte("UPLOAD"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := fr.SetThumbnailState(context.Background(), 9, model.ThumbnailUploaded); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(m.posterPath(9))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := m.ExtractEmbedded(context.Background(), 9, "/m/art.mkv"); err != nil {
+		t.Fatalf("ExtractEmbedded: %v", err)
+	}
+
+	for _, p := range []string{m.thumbPath(9), m.posterPath(9)} {
+		if got, _ := os.ReadFile(p); string(got) != "UPLOAD" {
+			t.Fatalf("%s = %q after the post-write extract, want the upload", p, got)
+		}
+	}
+	if after, _ := os.Stat(m.posterPath(9)); !after.ModTime().Equal(before.ModTime()) {
+		t.Fatal("served poster was rewritten, so its ?v= token moved")
+	}
+}
+
 func TestDisabledManagerNoops(t *testing.T) {
 	fr := newFakeRepo()
 	m := New(Config{Enabled: false, Dir: t.TempDir()},
