@@ -144,6 +144,7 @@ func (h *Handlers) deleteEntityAlias(w http.ResponseWriter, r *http.Request, cfg
 // RelinkVideoStudios re-derivation (RD6). A studio merge also propagates to every
 // affected video's embedded Studio tag (F48.8b, ADR-067), mirroring mergePerson; tag
 // merges have no file field to propagate to (F48.8 scope is Person/Studio only).
+// show_as "merged" also renames the survivor to the merged name, atomically (F70 Show as).
 func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg identityRoutes) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -151,12 +152,26 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 	}
 	var body struct {
 		FromID int64 `json:"from_id"`
+		// ShowAs picks the survivor's spelling (F70 P0-11): "" or "survivor" keeps its
+		// own name; "merged" renames it to the merged entity's name in the same step.
+		ShowAs string `json:"show_as"`
 	}
 	if !decodeJSON(w, r, &body) {
 		return
 	}
 	if body.FromID <= 0 {
 		writeError(w, http.StatusBadRequest, "from_id required")
+		return
+	}
+	showMerged := body.ShowAs == "merged"
+	if !showMerged && body.ShowAs != "" && body.ShowAs != "survivor" {
+		writeError(w, http.StatusBadRequest, "show_as must be survivor or merged")
+		return
+	}
+	// Show as is a studio choice (RD14). A film's key is title + year, so its merged title
+	// could collide under the survivor's year; tags have no use for it.
+	if showMerged && cfg.entityType != model.EnrichEntityStudio {
+		writeError(w, http.StatusBadRequest, "show_as is only for studios")
 		return
 	}
 	if body.FromID == id {
@@ -176,7 +191,11 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 	if cfg.entityType == model.EntityTag {
 		lostTagImage, _ = h.repo.GetTagImage(r.Context(), body.FromID)
 	}
-	videoIDs, err := h.repo.MergeEntitiesWithAffectedVideos(r.Context(), cfg.entityType, id, body.FromID)
+	merge := h.repo.MergeEntitiesWithAffectedVideos
+	if showMerged {
+		merge = h.repo.MergeEntitiesShowingMerged
+	}
+	videoIDs, err := merge(r.Context(), cfg.entityType, id, body.FromID)
 	switch {
 	case errors.Is(err, repo.ErrNotFound):
 		writeError(w, http.StatusNotFound, cfg.noun+" not found")
@@ -194,7 +213,11 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 		return
 	}
 
-	if cfg.writebackField != "" && len(videoIDs) > 0 {
+	// Show as renamed the survivor, which rewrites every linked video's tag (the moved
+	// ones included), exactly as a rename from the studio's own page does (RD14).
+	if cfg.writebackField != "" && showMerged {
+		h.propagateStudioRename(r.Context(), cfg.writebackField, id)
+	} else if cfg.writebackField != "" && len(videoIDs) > 0 {
 		if names, err := h.repo.StudiosForVideos(r.Context(), videoIDs); err != nil {
 			h.log.Warn("merge writeback: load studios for videos", "err", err)
 		} else {
