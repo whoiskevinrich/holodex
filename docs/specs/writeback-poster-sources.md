@@ -18,7 +18,8 @@ the one poster it has today.
 poster ([media-ingest.md](../architecture/media-ingest.md)), embedding it at writeback
 ([writeback.md](../architecture/writeback.md)), and its perimeter
 ([security-perimeter.md](../architecture/security-perimeter.md)). **Design handoff**:
-[writeback-poster-chooser-handoff.md](../design/writeback-poster-chooser-handoff.md).
+[writeback-poster-chooser-handoff.md](../design/writeback-poster-chooser-handoff.md). **Test plan**:
+[testing-strategy §37](../testing-strategy.md#37-choose-the-video-poster-in-the-writeback-dialog-f85-holodex-599).
 
 ---
 

@@ -5528,3 +5528,97 @@ tests (F52) still cover storage. Risks, ranked by how quietly they would fail:
 
 - Real decoding and seeking can't run in jsdom. Frame accuracy across containers is checked by hand
   (QA 7), not in CI.
+
+## 37. Choose the video poster in the writeback dialog (F85, HOLODEX-599)
+
+The writeback dialog's Poster row becomes the one poster chooser. A picked frame and an upload each
+get their own source slot and become a `local:<kind>` poster decision, the served poster is
+presented from the decision, and Write embeds a held image without a download
+([spec](specs/writeback-poster-sources.md),
+[handoff](design/writeback-poster-chooser-handoff.md); slots and the presenter in
+[media-ingest.md](architecture/media-ingest.md), the decision in
+[field-resolution.md](architecture/field-resolution.md), the embed in
+[writeback.md](architecture/writeback.md), the perimeter in
+[security-perimeter.md](architecture/security-perimeter.md)). Risks, ranked by how quietly they
+would fail:
+
+1. **A writeback swaps the owner's poster for the file's cover art.** This happens today: the
+   post-write re-extract (`ExtractEmbedded`, from `internal/api/writeback.go` and the queued
+   `postWrite` in `cmd/holodex/main.go`) overwrites the served pair, upload included. Nothing
+   errors; the page just shows the wrong image (P0-6).
+2. **The wrong image reaches the file.** The automatic frame is embedded without being chosen, an
+   older frame is written after a newer one replaced its slot, or a path from the payload is
+   trusted (P0-5, P0-7, P0-8).
+3. **Write reports in sync when it isn't.** The ledger records the token from enqueue time, not
+   the bytes copied, so a slot replaced in between reads `=` (P0-5).
+4. **A held image is fetched over the network,** which would put Holodex's own host on the asset
+   allowlist (P0-5).
+5. **Removing the upload leaves a dangling choice,** or touches the file (P0-9).
+6. **The chooser's keyboard order breaks across groups,** or a no-poster provider takes focus
+   (P0-1, P0-2).
+
+### 37.1 Regression first (Go, write before the fix)
+
+| # | Case | Proves |
+|---|---|---|
+| R1 | `internal/thumbnail/manager_test.go`: a video with embedded cover art has an uploaded poster as its served pair. Run `ExtractEmbedded` on the file, as the post-write hook does. The served pair's bytes are still the upload and its `?v=` token is unchanged. **This fails on `main`**: commit it red, then make it pass. | P0-6 |
+| R2 | `internal/api/writeback_test.go`, the synchronous branch: with `local:upload` decided, a writeback of an unrelated field (title) completes and `GET` of the video's poster still returns the upload. Same case through the queued `postWrite` path. | P0-6 |
+
+### 37.2 Go unit (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| G1 | `internal/fieldsource`: `local:frame`, `local:upload` and `local:automatic` parse for `poster_url` only. Any other kind, a `local:` source on another field, and a path-shaped kind (`local:../x`) are refused. | P0-5 (risk 2) |
+| G2 | `internal/resolver`: a `local:<kind>` decision resolves to `local:<kind>#<sha256>` from the pre-loaded hashes. A new hash moves the token with no decision change. | P0-8 |
+| G3 | `internal/resolver`: undecided, a held slot is listed in the `poster_url` candidates but never wins, so the value is the file's art or the provider default as today. A decision whose slot is empty resolves through the undecided default. | P0-1, P0-7 |
+| G4 | `internal/resolver`: `LastWritten` holding the same token gives `in_sync`; a different hash for the same kind gives will-write. | P0-2, P0-5 |
+| G5 | `internal/thumbnail`, `Present`: with no decision it serves `file`, else `auto`. A `local:<kind>` decision serves that slot. A `file` or `provider:<name>` decision serves `file`. A chosen slot that is missing falls through the same order. Present on unchanged winning bytes doesn't rewrite the pair. | P0-6, P0-7 |
+| G6 | `internal/thumbnail`: a second picked frame replaces `{id}-frame.jpg` and leaves `{id}-upload.jpg` untouched, and the reverse. Each keeps one `video_poster_sources` row whose hash and frame time are the newest. | P0-8 |
+| G7 | `internal/thumbnail`: an `automatic` source row exists only after the generation queue produces a frame. A file whose cover art was extracted has no `automatic` row, so no Automatic candidate. | P0-1 |
+| G8 | `internal/api/video_poster_test.go`: the frame route and the upload route each store the slot and upsert `local:frame` / `local:upload` in one request, then present it, so the next poster `GET` returns it. Both refuse a visitor. | P0-3, P0-4 |
+| G9 | `internal/api/video_poster_test.go`: removing the upload while `local:upload` is decided deletes the decision and presents the fallback. Removing it while another source is decided leaves that decision. Neither enqueues a writeback. | P0-9 |
+| G10 | `internal/writeback`: a `local:<kind>#<hash>` image write copies the slot to a temp file and takes the existing cover path; the image fetcher is a stub that fails the test if called. A token with an unknown kind is refused. A missing slot fails the job and substitutes nothing. | P0-5 (risks 2, 4) |
+| G11 | `internal/writeback`: the slot is replaced between enqueue and write. The ledger row carries the hash of the bytes copied, not the enqueued token, so the next resolve reads will-write rather than `in_sync`. | P0-5 (risk 3) |
+| G12 | Boot backfill: an `embedded` row seeds the `file` slot, `generated` the `auto` slot, and `uploaded` the `upload` slot plus a `local:upload` decision, with its state reset to empty. Running it twice changes nothing. | P0-6 |
+| G13 | The `poster_url` candidates for the frame slot carry its frame time, for the tile's title. | P1-1 |
+
+### 37.3 Go integration (`make test-integration`)
+
+Real `mkvpropedit`, `ffmpeg` and `exiftool`, as in `internal/writeback/cover_integration_test.go`.
+
+| # | Case | Proves |
+|---|---|---|
+| I1 | MKV: `local:frame` decided over a fixture whose file already has cover art. Write. The file's cover attachment is byte-for-byte the frame slot's JPEG. The image fetcher is never called. | P0-5 |
+| I2 | MP4: the same with `local:upload`, read back through `QuickTime:CoverArt`. | P0-5 |
+| I3 | After each of I1's and I2's writes, the read-back re-extracts the new cover into the `file` slot, the served pair still shows the chosen image, and the next resolve reads the row `in_sync` from the `file_writebacks` ledger. | P0-5, P0-6 |
+| I4 | A file with no cover art and no decision: run a writeback of another field. The file still has no cover art, though the `auto` slot is served. Then decide `local:automatic` and write: the file's cover is the automatic frame. | P0-7 |
+
+### 37.4 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | group builder (`curation/*.test.ts`, next to `SourceImageTiles.svelte`) | Groups come out file → Holodex → Automatic → providers. Holodex is omitted with neither image, and Automatic with no generated frame. A provider with no candidate gives a group with an empty list. Every group's tiles are a list. This is design QA 10.1. | P0-1 |
+| W2 | `SourceImageTiles.svelte.test.ts` | A provider group with an empty list renders its caption and `no poster`, and no `[role=radio]`. `·file` with no cover art renders the `no cover` / `art` placeholder. | P0-1 |
+| W3 | `SourceImageTiles.svelte.test.ts` | One `radiogroup`; only the staged tile has `tabindex="0"`. ArrowRight from the last Holodex tile stages the first tile of the next group, ArrowRight from the last tile wraps to `·file`, ArrowLeft reverses, and a no-poster provider is never focused. | P0-1, P0-2 |
+| W4 | `SourceImageTiles.svelte.test.ts` | Each tile has `aria-checked` and the dot, so selection isn't colour alone. The `·frame` tile's `title` is `frame at {time}`. | P0-2, P1-1 |
+| W5 | `WritebackFormDialog` test | The Poster row is a cockpit row: a staged `·upload` shows `↧` and counts in the footer. The text "Your uploaded poster stays on the page" and the `cover art` / `in file` placeholder appear nowhere. | P0-2, P0-11 |
+| W6 | media page test | Maintenance → Thumbnail reads `Pick a frame`, and `Saving frame…` while the frame posts. `Regenerate thumbnail` is gone. | P0-10 |
+
+### 37.5 QA checklist
+
+Run the design handoff's checklist,
+[§10 Verification checklist](design/writeback-poster-chooser-handoff.md#10-verification-checklist)
+(10.0 to 10.12). It isn't restated here. Its P0 coverage: 10.2 is P0-3, 10.3 is P0-5 and P0-6,
+10.4 is P0-4, P0-8 and P0-11, 10.5 is P0-1 and P0-7, 10.6 and 10.7 are P0-1 and P0-2, and 10.10 is
+P0-10. Add one step it lacks: with `·upload` chosen, remove the upload on the page. The page falls
+back, the row next opens undecided, and the file's cover art is unchanged (P0-9).
+
+### 37.6 Standing gaps
+
+- **A chosen image missing from storage** (spec open question) is covered only as far as G5's
+  fall-through and G10's failed job. Whether the tile disappears is settled in the build; add a case
+  then.
+- **Several posters per provider** (HOLODEX-600) adds tiles to a provider group. W1's
+  list-per-group shape and W3's flattened order are what keep that change keyboard-safe.
+- §36's QA 4 expects the `uploaded` thumbnail state after Use this frame. F85 retires that state
+  (G12), so the check becomes "`·frame` is the decided poster" (design QA 10.2).
