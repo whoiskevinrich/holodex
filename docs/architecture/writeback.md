@@ -73,6 +73,28 @@ writing and reading back generated clips on every container, and must read back 
 
 Decided in [`99f61954`](https://github.com/whoiskevinrich/holodex/commit/99f61954).
 
+## A local poster source is embedded from its slot, never downloaded
+
+An image `FieldWrite` carries either a provider URL or a `local:<kind>#<sha256>` token
+([field-resolution.md](field-resolution.md)). The writer branches before `downloadImageToTemp`: for
+a token it copies the slot file ([media-ingest.md](media-ingest.md)) to a temp file and hands it to
+the same cover path a downloaded image takes (mkvpropedit attachment, ffmpeg remux, exiftool).
+
+- **The path never comes from the payload.** The kind is checked against the closed set in
+  `internal/fieldsource`, the directory is config, and the id is the job's own video. Any other
+  token is refused.
+- **The ledger records what was written.** The copy is hashed and the `file_writebacks` row carries
+  `local:<kind>#<hash of the copy>`, so a slot replaced between enqueue and write reads out of sync
+  instead of falsely in sync.
+- **A missing slot fails the job.** No other image is substituted.
+- Which perimeter applies is [security-perimeter.md](security-perimeter.md).
+
+**Rejected:** passing Holodex's own serve route as a URL through `downloadImageToTemp` — a
+self-request, and Holodex's host would have to join the asset allowlist. **Rejected:** a filesystem
+path in the payload — the worker would trust a path from a row it treats as data.
+
+Decided in: pending squash (HOLODEX-599).
+
 ## A durable `writeback_queue`, one job per file, enqueued only by explicit owner actions
 
 Every production write goes through `internal/writequeue`. An enqueue inserts a `writeback_queue` row
@@ -124,8 +146,9 @@ Decided in [`4dc2e51d`](https://github.com/whoiskevinrich/holodex/commit/4dc2e51
 ## Every successful write is read back through the scan path
 
 The queue's `PostWriteFunc` (wired in `cmd/holodex/main.go`) runs after every successful write, with
-no field or source gate: it re-extracts embedded cover art, then calls `refresh.Service.ReExtract`
-([media-ingest.md](media-ingest.md)). The stored file layer is therefore post-write state and
+no field or source gate: it re-extracts embedded cover art into the `file` source slot and
+re-presents the served poster, then calls `refresh.Service.ReExtract` ([media-ingest.md](media-ingest.md)).
+The synchronous branch in `internal/api/writeback.go` does the same. The stored file layer is therefore post-write state and
 `in_sync` is correct without a rescan. The file is re-read rather than patched from the values sent,
 because the tools normalize (multi-value joining, tag aliasing). The read-back is also how a written
 Person or Studio becomes an entity: `UpsertVideo` creates and links it through the scan path, and only
@@ -210,7 +233,9 @@ pre-loaded inputs.
 - **The write ledger** witnesses what the file cannot answer: image fields (`Display: image_url`) and
   text fields in the read-back-gap set. `true` iff the newest successful `file_writebacks` row holds
   the decided value, `false` if another, unknown if none (`repo.LastWrittenValues` →
-  `resolver.Options.LastWritten`). It cannot see edits made outside Holodex.
+  `resolver.Options.LastWritten`). It cannot see edits made outside Holodex. For a `local:<kind>`
+  poster the compared value is the token with its content hash, so a newer image in the slot reads
+  `false` until written.
 - **One gap definition.** `writeback.ReadbackGaps` (a field with no `file:` source matching its write
   tag, minus `UnreadableWriteTargets`) is computed by the API and passed in `Options`, so the resolver
   never knows containers. `LogReadbackGaps` warns at start and on `POST /admin/reload-config`;

@@ -13,10 +13,11 @@
 **Follow-up**: HOLODEX-600 lets a provider offer several posters. Until then each provider offers
 the one poster it has today.
 
-**Architecture**: to come. This feature lets an image the owner made in Holodex be the decided
-poster, so the poster tier rules ([media-ingest.md](../architecture/media-ingest.md)) and
-[writeback.md](../architecture/writeback.md) are edited in place. They replace the archived rule that an owner
-upload never reaches the file. **Design handoff**: to come.
+**Architecture**: an image Holodex holds as a poster decision
+([field-resolution.md](../architecture/field-resolution.md)), the poster source slots and the served
+poster ([media-ingest.md](../architecture/media-ingest.md)), embedding it at writeback
+([writeback.md](../architecture/writeback.md)), and its perimeter
+([security-perimeter.md](../architecture/security-perimeter.md)). **Design handoff**: to come.
 
 ---
 
