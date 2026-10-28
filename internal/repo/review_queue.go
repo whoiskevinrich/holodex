@@ -203,10 +203,18 @@ func (r *Repo) ListReviewPairs(ctx context.Context) ([]ReviewPair, error) {
 // (F70 P0-8) — paged in SQL by limit/offset (a negative limit is no limit). The
 // active-video counts are taken only for the page's pairs, in the outer query, so a lane
 // never pays for the pairs it does not show. Ties sort by id so pages never overlap.
-func (r *Repo) ListReviewPairsPage(ctx context.Context, entityType string, limit, offset int) ([]ReviewPair, error) {
-	table := canonicalTable(entityType)
-	if table == "" {
-		return nil, fmt.Errorf("list review pairs: unknown entity type %q", entityType)
+func (r *Repo) ListReviewPairsPage(ctx context.Context, requested string, limit, offset int) ([]ReviewPair, error) {
+	// The type arrives from ?type= and picks SQL fragments below, so swap it for the
+	// matching constant from reviewEntityOrder: the query text never carries caller input.
+	entityType := ""
+	for _, et := range reviewEntityOrder {
+		if et == requested {
+			entityType = et
+			break
+		}
+	}
+	if entityType == "" {
+		return nil, fmt.Errorf("list review pairs: unknown entity type %q", requested)
 	}
 	jn := reviewJunction[entityType]
 	fuzzyList := fuzzyVariationList()
