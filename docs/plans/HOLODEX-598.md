@@ -7,8 +7,8 @@ profile: feature             # the gate posture (see flightplan.yaml `postures:`
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 approved:
   design:
-    on: 2026-10-27
-    at: 5464438f
+    on: 2026-10-28
+    at: b82427d9
 release_note: The Duplicates page opens one entity type at a time, and people and studio pairs now compare side by side, with large headshots and where each studio name came from.
 ---
 
@@ -28,21 +28,21 @@ a studio merge can pick which spelling the survivor shows.
 - [~] architecture — no technology fork: lanes and studio evidence reuse the queue and identity model, and Show as reuses merge + rename (spec "API")
 - [x] design `design-handoff` → `docs/design/**` — handoff + `duplicates-pair-evidence-mockup.svg` + `duplicates-studios-compare-mockup.svg` (1547d0a1)
 - [x] backend → `{cmd,internal,providers}/**` — planner stats at boot (ed193bd5), per-lane read + lane counts (1248e559), studio evidence (17e88124), Show as (6dea91e1); green `go test`
-- [/] frontend → `web/src/**` — built to the handoff checklist and QA'd in the stress preview (d050158b); held for the owner's build-vs-mockup comparison
+- [x] frontend → `web/src/**` — built to the handoff checklist (d050158b); the owner compared each lane with the approved SVGs and signed off on 2026-10-28 after the D1–D5 fixes (b82427d9)
 - [x] testing `testing-strategy` — backend §16.2 (b956c058), frontend §16.3 (d050158b); `npm run test` 809/809, 4 mutations killed
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Owner compares the built lanes/People/Studios panels with the two approved SVGs, then tick frontend and mark ready — `docs/design/duplicates-*.svg`
-2. [ ] [backend] Record the owner's live OQ5 baseline in spec OQ5 ⛔ waiting on the owner running `oq5-live-baseline.sh` (read-only, counts and timings only) — `docs/specs/duplicates-pair-evidence.md`
-3. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
+1. [ ] [backend] Record the owner's live OQ5 baseline in spec OQ5, then mark the PR ready ⛔ waiting on the owner running `oq5-live-baseline.sh` (read-only, counts and timings only) — `docs/specs/duplicates-pair-evidence.md`
+2. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-28 · session
-- skills: code-review
+- skills: code-review, handoff
 - did: sign-off review in the stress-598 preview, each lane beside its approved SVG. The owner had five differences fixed: the "Possible duplicate people/studios." intro lead, no intro on a loading or empty lane, curly quotes in both confirms, a 6 px gap before the row's ↗, and no accent baseline on the person and tag placeholders (list-views handoff updated to match).
-- handoff: Sign-off fixes pushed; waiting on the owner's yes to the re-shown build, then frontend is ticked. The PR stays draft for the OQ5 live baseline.
+- did (later): the owner signed off the re-shown build against the approved mockups; frontend ticked, and the design sign-off re-pinned to b82427d9 (its only `docs/design` change is the placeholder line the owner chose).
+- handoff: Every gate is settled and the owner signed off the build; the draft PR is held only for the OQ5 live baseline (Up next 1). Once it's recorded in the spec, mark #565 ready.
 
 ### 2026-10-27 · session
 - skills: design-handoff (worked by hand, not via the Skill tool), handoff, implement, code-review, testing-strategy
