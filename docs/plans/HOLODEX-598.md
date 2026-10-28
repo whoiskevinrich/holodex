@@ -20,7 +20,7 @@ a studio merge can pick which spelling the survivor shows.
 
 **Design package:** [spec F70](../specs/duplicates-pair-evidence.md) (598 revision) ·
 [design handoff](../design/duplicates-pair-evidence-handoff.md) + its two SVGs · Videos lane:
-[F76](../specs/duplicate-videos.md) P0-2 · testing-strategy § — not yet written
+[F76](../specs/duplicate-videos.md) P0-2 · [testing-strategy §16.2–16.3](../testing-strategy.md)
 
 ## Gates — definition of done
 
@@ -28,15 +28,14 @@ a studio merge can pick which spelling the survivor shows.
 - [~] architecture — no technology fork: lanes and studio evidence reuse the queue and identity model, and Show as reuses merge + rename (spec "API")
 - [x] design `design-handoff` → `docs/design/**` — handoff + `duplicates-pair-evidence-mockup.svg` + `duplicates-studios-compare-mockup.svg` (1547d0a1)
 - [x] backend → `{cmd,internal,providers}/**` — planner stats at boot (ed193bd5), per-lane read + lane counts (1248e559), studio evidence (17e88124), Show as (6dea91e1); green `go test`
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy` — backend half in §16.2 (b956c058); the frontend build adds its rows
+- [/] frontend → `web/src/**` — built to the handoff checklist and QA'd in the stress preview (d050158b); held for the owner's build-vs-mockup comparison
+- [x] testing `testing-strategy` — backend §16.2 (b956c058), frontend §16.3 (d050158b); `npm run test` 809/809, 4 mutations killed
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [frontend] Build to the handoff's checklist against the backend shapes (side-session note `598-backend-api-shapes.md`) — `web/src/routes/owner/duplicates/`, `web/src/lib/components/duplicates/`
-2. [ ] [testing] Add the frontend rows to §16.2 (lanes, studio panel, Show as radio) — `docs/testing-strategy.md`
-3. [ ] [backend] Record the owner's live OQ5 baseline in spec OQ5 ⛔ waiting on the owner running `oq5-live-baseline.sh` (read-only, counts and timings only) — `docs/specs/duplicates-pair-evidence.md`
-4. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
+1. [ ] [frontend] Owner compares the built lanes/People/Studios panels with the two approved SVGs, then tick frontend and mark ready — `docs/design/duplicates-*.svg`
+2. [ ] [backend] Record the owner's live OQ5 baseline in spec OQ5 ⛔ waiting on the owner running `oq5-live-baseline.sh` (read-only, counts and timings only) — `docs/specs/duplicates-pair-evidence.md`
+3. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -46,6 +45,7 @@ a studio merge can pick which spelling the survivor shows.
 - did (later): applied the handoff's spec deltas to F70 ("Merge into this one", P0-4's accent scoped to tag and film rows, P0-10's posters) and ticked spec.
 - did (later): folded the OQ5/OQ6 probe answers into F70. OQ5 is closed with a ≤1 s target, and the live baseline is still to record. OQ6 is closed. P0-10 is reworded to current sources only, with provider identities, alias origins and a winner caption per poster. The Studios SVG and handoff are updated to match.
 - did (backend session): planner statistics at boot (`PRAGMA optimize`), so the scaled 20k-video copy reads in 0.1 s, not 23 s; `?type=` reads one lane, paged in SQL, with `counts` for all five lanes on both lists; `GET /owner/duplicates/studios/{id}` (name sources, OQ7 posters with winner, aliases, provider links); `show_as` on the studio merge (merge + rename, one transaction). Tests + §16.2, mutation-checked. The OQ5 baseline script went to the owner; `/code-review high --fix` ran before each commit.
-- handoff: Backend gate done and pushed; draft PR stays draft. Next: the frontend build against `598-backend-api-shapes.md` (Up next 1). The live OQ5 numbers are still owed by the owner.
+- did (frontend session): the page is a lane tab row with counts on every tab and one read per lane (`?type=` via `replaceState`; no type → Videos first, whose counts pick the lane). Person and studio rows take the Videos grammar (whole-row toggle, new-tab names, ghost Keep separate, "Merge into this one" per column behind a confirm). People get the 240 px lead + swappable strip; new `DuplicateStudioPanel` shows name sources, posters and alias origins; the studio confirm carries the Show as radio. First usable lane: 194 ms with 2 reads and 51 rows before, 131–148 ms with 1 read after (stress fixture, warm). Tests in §16.3; `/code-review high --fix` fixed a stuck-Loading race and stale evidence after a merge. No `/security-review`: the frontend adds no auth surface, and the reads it calls are owner-gated in the backend commits.
+- handoff: Frontend built, QA'd and pushed; the draft PR stays draft. Next: the owner compares the build with the two approved SVGs (Up next 1), then frontend is ticked and the PR marked ready. The live OQ5 numbers are still owed.
 
 ## Dropped — newest first (the reason is the point)
