@@ -46,10 +46,10 @@ Follow-up: HOLODEX-600 (several posters per provider).
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
-- [ ] security `security-review`
+- [x] backend → `{cmd,internal,providers}/**`
+- [x] frontend → `web/src/**`
+- [x] testing `testing-strategy`
+- [x] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -66,11 +66,7 @@ Follow-up: HOLODEX-600 (several posters per provider).
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] /testing-strategy for F85; first a failing test for writeback overwriting an upload — `docs/testing-strategy.md`
-2. [ ] [backend] Frame and upload as poster sources; writeback embeds local images — `internal/writeback/writeback.go`
-3. [ ] [frontend] Grouped poster tiles; relabel the page button "Pick a frame" — `web/src/lib/components/curation/SourceImageTiles.svelte`
-4. [ ] [security] /security-review of the local-image write path — `docs/architecture/security-perimeter.md`
-5. [ ] [—] Sweep child HOLODEX-597 with the epic: In Review when the PR is ready, Done on merge — HOLODEX-597
+1. [ ] [—] Sweep child HOLODEX-597 with the epic: In Review when the PR is ready, Done on merge — HOLODEX-597
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,8 +78,12 @@ Follow-up: HOLODEX-600 (several posters per provider).
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-10-28 · session
+- skills: handoff
+- handoff: All seven gates are settled, and the owner confirmed the build at c345853e matches the approved mockup. PR #566 is marked ready for review. MKV writes through mkvpropedit weren't tested because the tool isn't installed. Next, review and squash-merge, then move HOLODEX-597 to Done with the epic.
+
 ### 2026-10-27 · session
-- skills: product-brainstorming, write-spec, code-review, architecture, design-handoff, handoff, implement
+- skills: product-brainstorming, write-spec, code-review, architecture, design-handoff, handoff, implement, security-review
 - handoff: Crossed into build: design was signed off at d8d11ea5 and the Draft PR is open. Start with /testing-strategy for F85, beginning with a failing test for writeback overwriting an upload.
 
 ## Dropped — newest first (the reason is the point)

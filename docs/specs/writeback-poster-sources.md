@@ -111,6 +111,12 @@ cover art.
   again. Removing an upload that isn't the choice just removes its tile.
 - **P0-10 Button label.** The page's "Regenerate thumbnail" button is relabelled **Pick a frame**.
   "Reset to automatic" stays inside the picker.
+- **P0-10a Reset to automatic clears the choice.** When the poster choice is `·frame` or
+  `·upload`, Reset to automatic clears it: the page falls back as in P0-7, and both images keep
+  their tiles. The file is left alone.
+- **P0-10b A missing image hides its tile.** If the chosen frame or upload is missing from
+  storage, for example after a data restore, its tile disappears and the page falls back as in
+  P0-7. The choice itself stands and comes back if the image does.
 - **P0-11 Retire the old note.** The dialog's "Your uploaded poster stays on the page" note goes
   away. With P0-6 the page always shows the choice, and an upload is a tile like any other.
 
@@ -121,9 +127,8 @@ cover art.
 
 ## Open questions
 
-- **Engineering.** If the owner's chosen image is missing from storage, for example after a data
-  restore, does the tile disappear, and does the choice fall back as in P0-9? This doesn't block
-  the work; decide it during the build.
+None. The missing-image question was settled during the build (P0-10b).
+
 ## Timeline considerations
 
 - HOLODEX-600 changes the provider groups from one tile to several. Build P0-1's groups so that
