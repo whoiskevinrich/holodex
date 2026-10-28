@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="900" viewBox="0 0 1040 900" role="img" aria-labelledby="t d" font-family="'Archivo Variable', Archivo, sans-serif">
+  <title id="t">Whole-list scroll on People and Studios: approved states (HOLODEX-601)</title>
+  <desc id="d">People List view mid-scroll at 1024px with loaded rows, still placeholders, a failed page's retry row, the A–Z index tracking M, and the position chip. Below, the same placeholder in Poster and Table views.</desc>
+  <rect width="1040" height="900" fill="#0c0a09"/>
+
+  <!-- 1 · List view -->
+  <text x="20" y="28" font-size="13" fill="#9b9082">1 · People, List view, name sort, mid-scroll (1024px, three columns, 70px rows, 8px gap). Studios rows are the same frame.</text>
+  <rect x="20" y="40" width="1000" height="440" rx="12" fill="none" stroke="#2a2622"/>
+  <text x="36" y="72" font-size="14" fill="#9b9082">1,512 people</text>
+  <g font-size="12" font-weight="500" fill="#f3ece1">
+    <text x="36" y="102">#</text><text x="56" y="102">A</text><text x="76" y="102">B</text><text x="96" y="102">C</text><text x="116" y="102">D</text><text x="136" y="102">E</text><text x="156" y="102">F</text><text x="176" y="102">G</text><text x="196" y="102">H</text><text x="216" y="102">I</text><text x="232" y="102">J</text><text x="250" y="102">K</text><text x="270" y="102">L</text>
+    <text x="290" y="102" fill="#e8a33d">M</text>
+    <text x="312" y="102">N</text><text x="332" y="102">O</text><text x="352" y="102">P</text>
+    <text x="372" y="102" fill="#9b9082" opacity="0.3">Q</text>
+    <text x="392" y="102">R</text><text x="412" y="102">S</text><text x="432" y="102">T</text><text x="452" y="102">U</text><text x="472" y="102">V</text><text x="492" y="102">W</text>
+    <text x="514" y="102" fill="#9b9082" opacity="0.3">X</text>
+    <text x="534" y="102">Y</text><text x="554" y="102">Z</text>
+  </g>
+  <rect x="288" y="107" width="13" height="2" fill="#e8a33d"/>
+  <text x="590" y="102" font-size="12" fill="#9b9082">← active letter follows the first row in view</text>
+
+  <!-- row 0: loaded -->
+  <g>
+    <rect x="36.5" y="126.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="53" y="137" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <text x="113" y="167" font-size="16" fill="#f3ece1">Mara Lindqvist</text><text x="330" y="166" font-size="12" fill="#9b9082" text-anchor="end">14</text>
+    <rect x="358.5" y="126.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="375" y="137" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <text x="435" y="167" font-size="16" fill="#f3ece1">Marcus Oyelaran</text><text x="652" y="166" font-size="12" fill="#9b9082" text-anchor="end">3</text>
+    <rect x="680.5" y="126.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="697" y="137" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <text x="757" y="167" font-size="16" fill="#f3ece1">Mariana Costa</text><text x="974" y="166" font-size="12" fill="#9b9082" text-anchor="end">27</text>
+  </g>
+  <!-- row 1: loaded, then arriving placeholders -->
+  <g>
+    <rect x="36.5" y="204.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="53" y="215" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <text x="113" y="245" font-size="16" fill="#f3ece1">Mark Abernathy</text><text x="330" y="244" font-size="12" fill="#9b9082" text-anchor="end">8</text>
+    <rect x="358.5" y="204.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="375" y="215" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <rect x="435" y="234" width="150" height="10" rx="2" fill="#2a2622"/><rect x="638" y="234" width="14" height="10" rx="2" fill="#2a2622"/>
+    <rect x="680.5" y="204.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="697" y="215" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <rect x="757" y="234" width="150" height="10" rx="2" fill="#2a2622"/><rect x="960" y="234" width="14" height="10" rx="2" fill="#2a2622"/>
+  </g>
+  <!-- row 2: the failed page's retry row, on its first whole grid row -->
+  <g>
+    <rect x="36.5" y="282.5" width="958" height="69" rx="2" fill="#15110e" stroke="#e2603f"/>
+    <text x="53" y="322" font-size="14" fill="#e2603f">Couldn’t load these people.</text>
+    <rect x="909.5" y="301.5" width="68" height="32" rx="2" fill="none" stroke="#2a2622"/>
+    <text x="943" y="322" font-size="14" fill="#f3ece1" text-anchor="middle">Retry</text>
+  </g>
+  <!-- row 3: the rest of the failed page, still and dimmed -->
+  <g opacity="0.55">
+    <rect x="36.5" y="360.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="53" y="371" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <rect x="113" y="390" width="150" height="10" rx="2" fill="#2a2622"/>
+    <rect x="358.5" y="360.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="375" y="371" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <rect x="435" y="390" width="150" height="10" rx="2" fill="#2a2622"/>
+    <rect x="680.5" y="360.5" width="314" height="69" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <rect x="697" y="371" width="48" height="48" fill="#181310" stroke="#2a2622"/>
+    <rect x="757" y="390" width="150" height="10" rx="2" fill="#2a2622"/>
+  </g>
+  <!-- position chip, beside the page scrollbar while scrolling -->
+  <rect x="1000" y="190" width="8" height="40" rx="4" fill="#2a2622"/>
+  <rect x="902.5" y="198.5" width="88" height="24" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="946" y="215" font-size="12" fill="#f3ece1" text-anchor="middle">412 of 1,512</text>
+  <g font-size="12" fill="#9b9082">
+    <text x="36" y="456">Loaded · arriving (still, same 70px frame) · failed page: one retry row, its rows dimmed · chip: every sort, fades 1s after a stop</text>
+  </g>
+
+  <!-- 2 · Poster and Table -->
+  <text x="20" y="518" font-size="13" fill="#9b9082">2 · The same placeholder in Poster view (147px card at 6 columns, 1024px) and Table view (44px rows under a 28px header)</text>
+  <rect x="20" y="530" width="1000" height="350" rx="12" fill="none" stroke="#2a2622"/>
+  <g>
+    <rect x="36.5" y="556.5" width="147" height="220" rx="2" fill="#15110e" stroke="#2a2622"/>
+    <text x="36" y="796" font-size="14" font-weight="500" fill="#f3ece1">Mara Lindqvist</text>
+    <text x="36" y="814" font-size="12" fill="#9b9082">14</text>
+    <rect x="199.5" y="556.5" width="147" height="220" rx="2" fill="#181310" stroke="#2a2622"/>
+    <rect x="199" y="786" width="100" height="10" rx="2" fill="#2a2622"/><rect x="199" y="804" width="16" height="10" rx="2" fill="#2a2622"/>
+    <rect x="362.5" y="556.5" width="147" height="220" rx="2" fill="#181310" stroke="#2a2622"/>
+    <rect x="362" y="786" width="100" height="10" rx="2" fill="#2a2622"/><rect x="362" y="804" width="16" height="10" rx="2" fill="#2a2622"/>
+  </g>
+  <g font-size="14">
+    <text x="560" y="575" font-size="12" fill="#9b9082">Name ↑</text><text x="900" y="575" font-size="12" fill="#9b9082">Videos</text><text x="964" y="575" font-size="12" fill="#9b9082">Done</text>
+    <line x1="560" y1="584.5" x2="1000" y2="584.5" stroke="#2a2622"/>
+    <rect x="560" y="591" width="32" height="32" fill="#181310" stroke="#2a2622"/>
+    <text x="604" y="612" fill="#f3ece1">Mara Lindqvist</text><text x="900" y="612" fill="#9b9082">14</text>
+    <line x1="560" y1="628.5" x2="1000" y2="628.5" stroke="#2a2622"/>
+    <rect x="560" y="635" width="32" height="32" fill="#181310" stroke="#2a2622"/>
+    <rect x="604" y="646" width="140" height="10" rx="2" fill="#2a2622"/><rect x="900" y="646" width="14" height="10" rx="2" fill="#2a2622"/>
+    <line x1="560" y1="672.5" x2="1000" y2="672.5" stroke="#2a2622"/>
+    <rect x="560" y="679" width="32" height="32" fill="#181310" stroke="#2a2622"/>
+    <rect x="604" y="690" width="140" height="10" rx="2" fill="#2a2622"/><rect x="900" y="690" width="14" height="10" rx="2" fill="#2a2622"/>
+    <line x1="560" y1="716.5" x2="1000" y2="716.5" stroke="#2a2622"/>
+  </g>
+  <text x="36" y="860" font-size="12" fill="#9b9082">Poster: the 2:3 frame with caption bars. Table: the avatar box and a bar per cell. The A–Z index shows in every view.</text>
+</svg>

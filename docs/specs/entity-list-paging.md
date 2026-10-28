@@ -14,7 +14,9 @@ on People, Studios and Tags queries the server), and [`people-poster-view.md`](p
 
 **Design handoff**: [`entity-list-paging-handoff.md`](../design/entity-list-paging-handoff.md), with the
 [mockup](../design/entity-list-paging-mockup.svg). It covers the Load more control and the Tags stream.
-The whole-list scroll on People and Studios (EL11–EL13) has its own handoff, written with HOLODEX-601.
+The whole-list scroll on People and Studios (EL6, EL11–EL13) is in
+[`entity-list-virtual-scroll-handoff.md`](../design/entity-list-virtual-scroll-handoff.md), with its
+[mockup](../design/entity-list-virtual-scroll-mockup.svg).
 
 ---
 
@@ -158,7 +160,9 @@ count, completeness, Random) and with or without a search. It is not an A–Z fe
 scrollbar, scrolling, paging with the keyboard, or Back lands anywhere in any order. Only the entries
 at and near the current position are fetched; nothing loads the whole library. There is no Load more
 on these pages. A sort or search change returns to the top. A change of view keeps the first entry
-in view in view.
+in view in view. While the list scrolls, a readout beside the scrollbar gives the position of the
+first entry in view out of the total ("412 of 1,512"), in every sort and in search results, and it
+fades shortly after scrolling stops.
 
 **EL12. Entries not yet loaded hold their place.** Where entries haven't arrived yet, placeholders
 the exact size of a real entry stand in, so nothing shifts when they arrive. Dragging fast past
@@ -226,8 +230,9 @@ Measured on the stress fixture at `-big` (2,000 of each kind), against the HOLOD
 - ~~[engineering] Whether a technology fork exists (offset vs. keyset paging; reuse of the Media grid's
   seeded ordering for entities).~~ None for F80's paging. HOLODEX-601's whole-list scroll is one: how
   it is built goes in the architecture topic doc.
-- [design] How the placeholders, the inline retry and the scroll-tracking A–Z look in each view
-  (HOLODEX-601 handoff).
+- ~~[design] How the placeholders, the inline retry and the scroll-tracking A–Z look in each view.~~ →
+  [whole-list scroll handoff](../design/entity-list-virtual-scroll-handoff.md): still placeholders in
+  the row's own frame, one retry row per failed page, and a position chip (owner, 2026-10-27).
 
 ## Resolved Decisions
 
@@ -250,6 +255,8 @@ Measured on the stress fixture at `-big` (2,000 of each kind), against the HOLOD
   and with or without a search, not an A–Z feature (owner, 2026-10-27).
 - **RD8. A–Z everywhere it can be:** the index shows in every People view, Poster included, and its
   active letter follows the scroll (owner, 2026-10-27).
+- **RD9. Position readout:** a "412 of 1,512" readout beside the scrollbar while scrolling, in every
+  sort. "The scrollbar alone" was rejected (owner, 2026-10-27).
 
 ## Timeline Considerations
 
