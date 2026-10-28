@@ -22,6 +22,10 @@ release_note: "People and Studios now scroll as one list across the whole librar
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-27
+    at: 30d3b16e
 ---
 
 # HOLODEX-601 · People and Studios scroll the whole list
@@ -69,7 +73,7 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner signs off the handoff and mockup, then `/implement` opens the Draft PR — `docs/design/entity-list-virtual-scroll-handoff.md`
+1. [ ] [—] `/implement`: merge fresh main, open the Draft PR (design signed off 2026-10-27) — `docs/plans/HOLODEX-601.md`
 2. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
 3. [ ] [frontend] People (List, Table, Poster) and Studios on the virtualizer: placeholders, retry row, position chip, A–Z tracking, roving tabindex, Back by index — `web/src/routes/{people,studios}/+page.svelte`
 4. [ ] [testing] Land the §32.1 tests (unit cache, browser-mode row-height contract, nav Back scenario) and run its live QA — `docs/testing-strategy.md`
@@ -87,7 +91,7 @@ testing strategy §32.1
 
 ### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
 - skills: code-review, handoff
-- handoff: Design phase settled and waiting on the owner. F80 is amended for the whole-list scroll (every sort and search, People's three views, Studios), `stack.md` picks `@tanstack/virtual-core` over a hand-rolled page cache, the handoff and SVG are committed (position chip, still placeholders, one retry row), and testing-strategy §32.1 plans the tests. Next: `/implement` to sign off the handoff and open the Draft PR.
+- handoff: Design phase settled, and the owner approved the design (at 30d3b16e). F80 is amended for the whole-list scroll (every sort and search, People's three views, Studios), `stack.md` picks `@tanstack/virtual-core` over a hand-rolled page cache, the handoff and SVG are committed (position chip, still placeholders, one retry row), and testing-strategy §32.1 plans the tests. Next: `/implement` to merge main and open the Draft PR, then build from `web/src/lib/`.
 
 ## Dropped — newest first (the reason is the point)
 
