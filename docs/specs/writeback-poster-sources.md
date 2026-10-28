@@ -120,8 +120,6 @@ cover art.
 
 ## Open questions
 
-- **Design.** At phone width, should the groups wrap or keep one line each? Settle this in the
-  handoff.
 - **Engineering.** If the owner's chosen image is missing from storage, for example after a data
   restore, does the tile disappear, and does the choice fall back as in P0-9? This doesn't block
   the work; decide it during the build.
