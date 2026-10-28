@@ -17,7 +17,8 @@ the one poster it has today.
 ([field-resolution.md](../architecture/field-resolution.md)), the poster source slots and the served
 poster ([media-ingest.md](../architecture/media-ingest.md)), embedding it at writeback
 ([writeback.md](../architecture/writeback.md)), and its perimeter
-([security-perimeter.md](../architecture/security-perimeter.md)). **Design handoff**: to come.
+([security-perimeter.md](../architecture/security-perimeter.md)). **Design handoff**:
+[writeback-poster-chooser-handoff.md](../design/writeback-poster-chooser-handoff.md).
 
 ---
 
