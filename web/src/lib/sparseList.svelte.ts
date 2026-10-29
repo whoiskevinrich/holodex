@@ -12,6 +12,11 @@ export type PageState<T> =
 	| { status: 'loaded'; items: T[] }
 	| { status: 'failed'; error: string };
 
+export interface SparseSnapshot<T> {
+	pages: Map<number, PageState<T>>;
+	total: number;
+}
+
 /** The cache keeps at most this many pages, evicting the one farthest from view. */
 const MAX_PAGES = 20;
 /** During a continuous scroll, fetch at least this often if the view has barely moved. */
@@ -64,11 +69,20 @@ export class SparseList<T> {
 	/**
 	 * Start over at a saved position (EL7): its page first, which also brings the total.
 	 * Asks from the view are held until `land()`: until the page has scrolled to the anchor,
-	 * the view still shows the top, and fetching that would waste two reads.
+	 * the view still shows the top, and fetching that would waste two reads. `from` is pages
+	 * the list held when the page was left (the Media grid, HOLODEX-604): they show at once
+	 * and stay on screen while the anchor's page is re-read.
 	 */
-	restore(anchor: number) {
+	restore(anchor: number, from?: SparseSnapshot<T>) {
 		this.#held = true;
-		return this.#start(Math.max(anchor, 0));
+		return this.#start(Math.max(anchor, 0), from);
+	}
+
+	/** The loaded pages and total, for `restore(anchor, from)` after a Back. */
+	snapshot(): SparseSnapshot<T> {
+		const pages = new Map<number, PageState<T>>();
+		for (const [p, s] of this.pages) if (s.status === 'loaded') pages.set(p, s);
+		return { pages, total: this.total };
 	}
 
 	/** The restore has landed: fetch what the view now shows. */
@@ -82,6 +96,7 @@ export class SparseList<T> {
 	 * visible entries on screen until the replies replace them, and drop every other page.
 	 */
 	refresh() {
+		this.#held = false; // a re-read of the view ends a restore's hold, as land() does
 		const gen = ++this.#gen;
 		const [from, to] = this.#span(...this.#want);
 		const kept = new Map<number, PageState<T>>();
@@ -121,11 +136,12 @@ export class SparseList<T> {
 		return this.#read(page, this.#gen, false);
 	}
 
-	async #start(anchor: number) {
+	async #start(anchor: number, from?: SparseSnapshot<T>) {
 		const gen = ++this.#gen;
 		clearTimeout(this.#ceiling);
 		this.#ceiling = undefined;
-		this.pages = new Map();
+		this.pages = new Map(from?.pages);
+		if (from) this.total = from.total;
 		this.loading = true;
 		this.error = '';
 		this.#want = [anchor, anchor];

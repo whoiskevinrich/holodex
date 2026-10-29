@@ -1,6 +1,5 @@
 <script lang="ts">
-	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
-	import { tick } from 'svelte';
+	import { untrack } from 'svelte';
 	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { api } from '#lib/api.ts';
 	import { forgetPlaylist } from '#lib/playlistContext.ts';
@@ -15,7 +14,10 @@
 	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
 	import { formatBytes, formatDuration, resolutionBucket, toMessage, videoCount } from '#lib/format.ts';
 	import type { Facet, MediaFilters, Resolution, Video } from '#lib/types.ts';
-	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
+	import VirtualVideoGrid from '#lib/components/video/VirtualVideoGrid.svelte';
+	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
+	import { SparseList } from '#lib/sparseList.svelte.ts';
+	import { RovingList, WindowVirtualizer, holdAnchorOnViewChange, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
@@ -35,7 +37,6 @@
 	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
 
 	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
-	const PAGE_SIZE = 50;
 
 	// Sort + filters follow the F73 list contract (ADR-114), held by ListController: the
 	// sort is sticky (localStorage) and in the URL; filters and entity scope live in the URL
@@ -73,13 +74,6 @@
 		if (next !== list.state.query.q) setQuery({ q: next });
 	});
 
-	let videos = $state<Video[]>([]);
-	let total = $state(0);
-	let offset = $state(0);
-	let loading = $state(true);
-	let loadingMore = $state(false);
-	let error = $state('');
-
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	$effect(() => list.setOwner(isOwner));
 
@@ -108,10 +102,9 @@
 			...query,
 			q: q || undefined,
 			sort: sortBy,
-			// Seed rides the API request (not the shareable URL) so paged "Load more"
-			// tiles under one shuffle (ADR-045). Only sent for the random sort.
-			seed: sortBy === 'random' ? shuffleSeed.value : undefined,
-			limit: PAGE_SIZE
+			// Seed rides the API request (not the shareable URL) so every page tiles under
+			// one shuffle (ADR-045). Only sent for the random sort.
+			seed: sortBy === 'random' ? shuffleSeed.value : undefined
 		};
 	}
 
@@ -213,134 +206,73 @@
 	});
 	const cancelEdit = () => exitAfterRemoval(editFromPlaylist, `/playlists/${editId}`);
 
-	let debounce: ReturnType<typeof setTimeout>;
-	// loadPage(true) replaces the grid (filter change); loadPage(false) appends the
-	// next page (F3.1 pagination). offset is intentionally not a tracked dep of the
-	// re-fetch effect, so paging doesn't re-trigger a full reload.
-	let resets = 0; // counts loadPage(true) calls, so revalidate can tell it was overtaken
-	async function loadPage(reset: boolean) {
-		if (reset) {
-			resets++;
-			offset = 0;
-			loading = true;
-		} else {
-			loadingMore = true;
-		}
-		error = '';
-		try {
-			const res = await api.listMedia({ ...currentFilters(), offset });
-			const items = res.items ?? [];
-			videos = reset ? items : [...videos, ...items];
-			total = res.total;
-		} catch (e) {
-			error = toMessage(e);
-		} finally {
-			loading = false;
-			loadingMore = false;
-		}
-	}
+	// The whole-list scroll (F80 EL11/EL14, HOLODEX-604): the grid is one list as tall as
+	// every match, read a page at a time from GET /media where it's viewed. The list reads
+	// with `loadFilters`, which follows the filters at once, or 200ms after typing in the
+	// search (F4.1), so a page never reads under a query the list hasn't restarted for.
+	let loadFilters = $state(untrack(currentFilters));
+	const loadQs = $derived(filtersToParams(loadFilters, false).toString());
+	$effect(() => {
+		const next = currentFilters();
+		if (filtersToParams(next, false).toString() === untrack(() => loadQs) && next.seed === untrack(() => loadFilters.seed)) return;
+		const t = setTimeout(() => (loadFilters = next), q ? 200 : 0);
+		return () => clearTimeout(t);
+	});
+	const videos = new SparseList<Video>((offset, limit) => api.listMedia({ ...loadFilters, limit, offset }));
+	const total = $derived(videos.total);
+	const loading = $derived(videos.loading && videos.total === 0);
+	let listEl = $state<HTMLElement>();
+	const virt = new WindowVirtualizer(240);
+	const roving = new RovingList(virt, () => videos.total);
 
-	// Re-fetch every loaded page in one request, replacing a stale restored grid in place
-	// so the scroll stays put. The server caps the limit, so paging resumes from however
-	// many came back: the next "Load more" starts at videos.length, which also stays
-	// right when the write shrank or grew the list. Load more stays disabled meanwhile, or
-	// its page would land on top of the swapped list.
-	async function revalidate(qs: string, count: number) {
-		const at = resets;
-		loadingMore = true;
-		try {
-			const res = await api.listMedia({ ...currentFilters(), limit: Math.max(count, PAGE_SIZE), offset: 0 });
-			// A filter change, reroll or post-scan reload moved on while this was in flight.
-			if (qs !== lastQs || at !== resets) return;
-			videos = res.items ?? [];
-			total = res.total;
-			offset = videos.length - PAGE_SIZE;
-		} catch (e) {
-			error = toMessage(e);
-		} finally {
-			loadingMore = false;
+	// The Recently Added shelf's videos: the unfiltered grid's first page, held apart so the
+	// shelf above the grid stays put when that page leaves the cache deep in the list. The
+	// pages are loadFilters', so their own signature says whether they're unfiltered.
+	let recent = $state<Video[]>([]);
+	$effect(() => {
+		const first = videos.pages.get(0);
+		if (first?.status === 'loaded' && loadQs === '') recent = first.items.slice(0, 20);
+	});
+	// Grid ↔ Table keeps the first video in view (handoff, "The scroll").
+	holdAnchorOnViewChange(() => activeView, virt, roving);
+
+	wholeListPage({
+		id: 'media',
+		list: videos,
+		virt,
+		roving,
+		key: () => loadQs,
+		// The seed isn't part of the filter signature, so a reroll restarts through it here.
+		restartOn: () => {
+			void loadQs;
+			void loadFilters.seed;
+		},
+		root: () => listEl,
+		// Back (QW5): the pages that were in view show at once; a write since re-reads them.
+		cache: (key) => {
+			const held = browseCache.take(key);
+			if (held) recent = held.recent;
+			return held;
 		}
-	}
+	});
 
-	function loadMore() {
-		offset += PAGE_SIZE;
-		loadPage(false);
-	}
+	beforeNavigate(() => browseCache.save({ key: loadQs, recent, ...videos.snapshot() }));
 
-	// Reroll the random shuffle: draw a new seed and refetch from page 0. The seed
-	// isn't part of the URL/filter signature, so the filter effect won't react —
-	// this explicit refetch is the single reload (no double fetch).
-	function rerollMedia() {
-		shuffleSeed.reroll();
-		window.scrollTo(0, 0);
-		loadPage(true);
-	}
+	// Reroll the random shuffle: a new seed restarts the list at its top.
+	const rerollMedia = () => shuffleSeed.reroll();
 
 	// Refresh the unfiltered grid when a background scan finishes (running -> idle) so
 	// the count + list reflect newly indexed files without a manual reload — fixes the
-	// stale count seen during the initial scan. The activity feed is owner-gated, so
-	// non-owners pick up changes on their next reload (acceptable).
+	// stale count seen during the initial scan. It re-reads in place, keeping the scroll
+	// (EL9). The activity feed is owner-gated, so non-owners pick up changes on their next
+	// reload (acceptable).
 	let prevScanState: string | undefined;
 	$effect(() => {
 		const s = activity.data?.scan.state;
-		if (prevScanState === 'running' && s === 'idle' && !hasFilters && !loading) {
-			loadPage(true);
+		if (prevScanState === 'running' && s === 'idle' && !hasFilters && !untrack(() => videos.loading)) {
+			void videos.refresh();
 		}
 		prevScanState = s;
-	});
-
-	// Restore the grid from the browse cache exactly once, on mount, when returning
-	// from a detail page with the same filters (QW4 / ADR-032). Seeds synchronously so
-	// the content height is correct and scroll can be restored without a re-fetch flash.
-	let firstLoad = true;
-	// The last filter signature we actually loaded, so an effect re-run with no real
-	// change (e.g. an equivalent query object) never clobbers a restored page.
-	let lastQs: string | null = null;
-
-	// Reading activeQs tracks every filter, so this re-runs on any real change and reloads
-	// from page 0 (debounced for the text query, F4.1). The URL is already synced by the
-	// list controller.
-	$effect(() => {
-		const qs = activeQs;
-
-		if (firstLoad) {
-			firstLoad = false;
-			const cached = browseCache.take(qs);
-			if (cached) {
-				videos = cached.videos;
-				total = cached.total;
-				offset = cached.offset;
-				loading = false;
-				lastQs = qs;
-				// Restore scroll once the seeded grid paints (correct height by then).
-				tick().then(() => window.scrollTo(0, cached.scrollY));
-				// A write landed since the snapshot (a delete, restore, edit…): keep the
-				// restored scroll but swap in the server's current copy (HOLODEX-190).
-				if (cached.stale) revalidate(qs, cached.videos.length);
-				return;
-			}
-		} else if (qs !== lastQs) {
-			window.scrollTo(0, 0);
-		}
-
-		if (qs === lastQs) return; // no actual filter change — don't reload
-		lastQs = qs;
-		clearTimeout(debounce);
-		debounce = setTimeout(() => loadPage(true), q ? 200 : 0);
-		return () => clearTimeout(debounce);
-	});
-
-	// Snapshot the grid (loaded set + paging + scroll) when navigating away, so Back
-	// restores it. Filters round-trip through the URL already; this adds only the
-	// in-memory grid/scroll cache. A filter change invalidates it via the key.
-	beforeNavigate(() => {
-		browseCache.save({
-			key: activeQs,
-			videos,
-			total,
-			offset,
-			scrollY: window.scrollY
-		});
 	});
 
 	// Clear every filter, scope and the search text. The sort is a preference and stays.
@@ -349,15 +281,9 @@
 		list.setQuery(mediaSchema.parseQuery(new URLSearchParams()));
 	}
 
-	// Keyboard navigation (F12.5): `/` focuses search, arrow keys move between grid
-	// cards (the cards are <a> links, so Enter follows natively), Escape clears
-	// filters. Bound on the window for the lifetime of the page.
-	function gridCards(): { grid: Element | null; cards: HTMLElement[] } {
-		const grid = document.querySelector('.video-grid');
-		const cards = grid ? Array.from(grid.querySelectorAll<HTMLElement>('a[href^="/media/"]')) : [];
-		return { grid, cards };
-	}
-
+	// Keyboard navigation (F12.5): `/` focuses search and Escape clears filters, bound on
+	// the window for the lifetime of the page. The arrow keys between cards are the
+	// whole-list scroll's roving list now (EL13), which also reaches cards not yet drawn.
 	function onKeydown(e: KeyboardEvent) {
 		// Respect a handler closer to the event target that already claimed this key
 		// (e.g. the nav search panel's own roving-tabindex rows, HOLODEX-249, or the
@@ -376,28 +302,14 @@
 			if (hasFilters) clearAll();
 			return;
 		}
-		if (!e.key.startsWith('Arrow')) return;
-
-		const { grid, cards } = gridCards();
-		if (!grid || cards.length === 0) return;
-		const idx = cards.indexOf(document.activeElement as HTMLElement);
-		if (idx === -1) {
-			if (typing) return; // don't steal arrows from a text field
-			e.preventDefault();
-			cards[0].focus();
-			return;
+		// An arrow from outside the grid enters it at its roving stop (F12.5).
+		if (e.key.startsWith('Arrow') && !typing && listEl && !listEl.contains(document.activeElement)) {
+			const stop = listEl.querySelector<HTMLElement>('[data-index][tabindex="0"]');
+			if (stop) {
+				e.preventDefault();
+				stop.focus();
+			}
 		}
-		e.preventDefault();
-		// Column count only matters for vertical movement.
-		const cols =
-			e.key === 'ArrowDown' || e.key === 'ArrowUp'
-				? getComputedStyle(grid).gridTemplateColumns.split(' ').length
-				: 1;
-		const delta =
-			({ ArrowRight: 1, ArrowLeft: -1, ArrowDown: cols, ArrowUp: -cols } as Record<string, number>)[
-				e.key
-			] ?? 0;
-		cards[Math.max(0, Math.min(idx + delta, cards.length - 1))].focus();
 	}
 
 	$effect(() => {
@@ -510,11 +422,11 @@
 	     newest-first page, so it costs no extra request. Below the toolbar (F73), so the
 	     toolbar sits in the same place on every list page. -->
 	{#if !hasFilters && showRecent}
-		<RecentlyAddedShelf {videos} />
+		<RecentlyAddedShelf videos={recent} />
 	{/if}
 
-	{#if error}
-		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{error}</p>
+	{#if videos.error}
+		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{videos.error}</p>
 	{:else}
 		<!-- Count line (F75 handoff §1): replaces the toolbar's count, so there is one. The
 		     total is the query's, never the loaded page length. -->
@@ -534,26 +446,31 @@
 				onclose={() => (saveOpen = false)}
 			/>
 		{/if}
-		{#if activeView === 'table' && videos.length > 0}
-			<ListTable
-				columns={tableColumns}
-				items={videos}
-				key={(v) => v.id}
-				href={(v) => `/media/${v.id}`}
-				sort={sortBy}
-				sorts={MEDIA_SORTS}
-				owner={isOwner}
-				onsort={(s) => list.setSort(s)}
-			/>
-		{:else}
-			<VideoGrid {videos} empty={hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'} />
+		{#if total === 0 && !loading}
+			<p class="py-16 text-center text-sm text-muted">{hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'}</p>
+			{#if hasFilters}
+				<div class="flex justify-center">
+					<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
+				</div>
+			{/if}
+		{:else if total > 0}
+			<ScrollPositionChip {virt} total={videos.total} />
+			{#if activeView === 'table'}
+				<ListTable
+					columns={tableColumns}
+					key={(v) => v.id}
+					href={(v) => `/media/${v.id}`}
+					sort={sortBy}
+					sorts={MEDIA_SORTS}
+					owner={isOwner}
+					onsort={(s) => list.setSort(s)}
+					window={{ list: videos, virt, roving, label: 'Videos', noun: 'videos' }}
+					bind:root={listEl}
+				/>
+			{:else}
+				<VirtualVideoGrid list={videos} {virt} {roving} bind:root={listEl} />
+			{/if}
 		{/if}
-		{#if hasFilters && !loading && videos.length === 0}
-			<div class="flex justify-center">
-				<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
-			</div>
-		{/if}
-		<LoadMoreButton left={total - videos.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
 	{/if}
 </section>
 

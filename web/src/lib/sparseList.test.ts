@@ -169,6 +169,26 @@ describe('SparseList', () => {
 		expect(offsets(fetch)).toEqual([1150, 1200, 1250, 1300]); // pages 24–25 in view, one either side
 	});
 
+	it('restores from held pages: they show at once and stay while the anchor page is re-read (HOLODEX-604)', async () => {
+		const first = new SparseList(server());
+		await first.restore(1234);
+		first.want(1230, 1260, false);
+		await first.land();
+		const held = first.snapshot();
+		expect([...held.pages.keys()].sort((a, b) => a - b)).toEqual([23, 24, 25, 26]);
+
+		const fetch = server();
+		const list = new SparseList(fetch);
+		const reading = list.restore(1234, held);
+		expect(list.total).toBe(TOTAL); // sized before any read
+		expect(list.at(1240)).toBe('e1240'); // and shown
+		await reading;
+		expect(fetch.mock.calls).toEqual([[1200, 50, true]]);
+		list.want(1230, 1260, false);
+		await list.land();
+		expect(fetch).toHaveBeenCalledTimes(1); // the held neighbours aren't read again
+	});
+
 	it('drops a restore hold when a restart overtakes it', async () => {
 		const fetch = server();
 		const list = new SparseList(fetch);

@@ -28,6 +28,11 @@
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import VirtualRows from '#lib/components/shared/VirtualRows.svelte';
+	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
+	import { SparseList } from '#lib/sparseList.svelte.ts';
+	import { RovingList, WindowVirtualizer, holdAnchorOnViewChange, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
+	import { tagStream, type TagRow } from '#lib/tagStream.ts';
 	import { TAG_COLUMNS } from '#lib/listColumns.ts';
 	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
@@ -81,9 +86,6 @@
 	// Manage tags works in every view: each tag's ⋯ menu rides its pill, card or row (P0-8);
 	// selecting several for a bulk action stays in Chips.
 	let activeView = $state(readView('tags'));
-	let viewEl = $state<HTMLElement>(); // the Posters grid or the Table's wrapper
-	// One Posters card / Table row per tag, then per category (the All tab's stream, EL8).
-	type TagRow = { kind: 'tag'; tag: Tag } | { kind: 'category'; cat: Category };
 	const baseColumns = TAG_COLUMNS.map((c) => ({
 		...c,
 		cell: { name: nameCell, videos: countCell, parent: parentCell }[c.id]!
@@ -189,12 +191,51 @@
 	const scrollKey = $derived(`${list.key}:${query}`);
 	let firstLoad = true;
 
+	// Posters and Table scroll the whole list (F80 EL14, HOLODEX-604): one stream of rows,
+	// tags then categories on the All tab, read a page at a time where it's viewed. The
+	// Chips view keeps the pill pages above and Load more (EL1).
+	const stream = tagStream({
+		tags: (offset, limit) => api.listTags({ sort: sortBy, q: query, seed: shuffleSeed.value, limit, offset }),
+		categories: (offset, limit) => api.pageCategories({ q: query, limit, offset }),
+		show: () => ({ tags: showTags, categories: showCategories })
+	});
+	const wholeList = $derived(activeView !== 'chips');
+	// The Chips view shows none of it, so there it reads nothing.
+	const rows = new SparseList<TagRow>((offset, limit, fresh) =>
+		wholeList ? stream.fetch(offset, limit, fresh) : Promise.resolve({ items: [], total: 0 })
+	);
+	let rowsEl = $state<HTMLElement>();
+	const virt = new WindowVirtualizer(140);
+	const roving = new RovingList(virt, () => rows.total);
+	wholeListPage({
+		id: 'tag-rows',
+		list: rows,
+		virt,
+		roving,
+		key: () => `${scrollKey}:${wholeList}`,
+		restartOn: () => {
+			void sortBy;
+			void query;
+			void typeFilter;
+			void wholeList;
+			if (sortBy === 'random') void shuffleSeed.value;
+			stream.reset();
+		},
+		root: () => rowsEl
+	});
+	// Posters ↔ Table is one list, so the switch keeps the first entry in view.
+	holdAnchorOnViewChange(() => activeView, virt, roving);
+	function refreshRows() {
+		stream.reset();
+		return rows.refresh();
+	}
+
 	// A merge or delete can use up the tags, so counted categories may need their page.
 	function reload() {
-		return tags.refresh().then(fillCategories);
+		return Promise.all([tags.refresh().then(fillCategories), refreshRows()]);
 	}
 	function reloadCategories() {
-		return categories.refresh();
+		return Promise.all([categories.refresh(), refreshRows()]);
 	}
 
 	$effect(() => {
@@ -249,10 +290,6 @@
 			(showCategories ? categories.total - visibleCategories.length : 0)
 	);
 	const pillError = $derived(tags.error || categories.error);
-	const tableRows = $derived<TagRow[]>([
-		...visibleTags.map((tag) => ({ kind: 'tag' as const, tag })),
-		...visibleCategories.map((cat) => ({ kind: 'category' as const, cat }))
-	]);
 	let pillsEl = $state<HTMLElement>();
 
 	// Once the tags run out, a categories list that was only counted reads its first page.
@@ -274,12 +311,8 @@
 		if (pillsLeft === 0) {
 			await tick();
 			// The first new pill's focus target: its link, or in Manage mode a tag's select
-			// button (HOLODEX-589). In Table view, the first new row's link.
-			const targets =
-				activeView === 'chips'
-					? pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')
-					: viewEl?.querySelectorAll<HTMLElement>('a[href]');
-			targets?.[before]?.focus();
+			// button (HOLODEX-589). Only the Chips view has Load more.
+			pillsEl?.querySelectorAll<HTMLElement>('[data-pill]')?.[before]?.focus();
 		}
 	}
 	const emptyMessage = $derived(
@@ -931,37 +964,56 @@
 			{/each}
 			{/if}
 		</div>
-		{#if activeView === 'posters' && tableRows.length > 0}
-			<!-- Posters (F82 P0-9): the media grid's column rule and the shared density value. -->
-			<div
-				bind:this={viewEl}
-				class="grid gap-4 {isOwner ? 'pt-3' : ''}"
-				style="grid-template-columns: repeat({posterCols}, minmax(0, 1fr))"
-			>
-				{#each tableRows as r (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
-					{@render posterCard(r)}
-				{/each}
-			</div>
-		{:else if activeView === 'table'}
-			<div bind:this={viewEl} class={isOwner ? 'pt-3' : ''}>
-				<ListTable
-					columns={tableColumns}
-					items={tableRows}
-					key={(r) => (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
-					href={(r) => (r.kind === 'tag' ? `/tags/${r.tag.id}` : `/categories/${r.cat.id}`)}
-					sort={sortBy}
-					sorts={TAG_SORTS}
-					owner={isOwner}
-					onsort={(s) => list.setSort(s)}
-				/>
+		{#if wholeList && rows.error}
+			<p class="py-2 text-sm text-warn">Couldn’t load tags: {rows.error}</p>
+		{:else if wholeList && rows.total > 0}
+			<ScrollPositionChip {virt} total={rows.total} />
+			<div class={isOwner ? 'pt-3' : ''}>
+				{#if activeView === 'posters'}
+					<!-- Posters (F82 P0-9): the media grid's column rule and the shared density value. -->
+					<VirtualRows
+						list={rows}
+						{virt}
+						{roving}
+						lanes={posterCols}
+						label="Tags"
+						noun="tags"
+						rowClass="grid gap-4 pb-4"
+						bind:root={rowsEl}
+					>
+						{#snippet entry(r)}{@render posterCard(r)}{/snippet}
+						{#snippet placeholder()}
+							<!-- The card's own frame, still (handoff, "Placeholders, continued"). -->
+							<div>
+								<span class="block aspect-video rounded-theme border border-rule/50 bg-surface-2"></span>
+								<span class="flex h-[26px] items-end pb-1"><span class="h-2.5 w-3/5 rounded-theme bg-rule"></span></span>
+								<span class="flex h-4 items-center"><span class="h-2 w-2/5 rounded-theme bg-rule"></span></span>
+							</div>
+						{/snippet}
+					</VirtualRows>
+				{:else}
+					<ListTable
+						columns={tableColumns}
+						key={(r) => (r.kind === 'tag' ? `t${r.tag.id}` : `c${r.cat.id}`)}
+						href={(r) => (r.kind === 'tag' ? `/tags/${r.tag.id}` : `/categories/${r.cat.id}`)}
+						sort={sortBy}
+						sorts={TAG_SORTS}
+						owner={isOwner}
+						onsort={(s) => list.setSort(s)}
+						window={{ list: rows, virt, roving, label: 'Tags', noun: 'tags' }}
+						bind:root={rowsEl}
+					/>
+				{/if}
 			</div>
 		{/if}
-		<LoadMoreButton
-			left={pillsLeft}
-			loading={tags.loadingMore || categories.loadingMore}
-			announce={pillAnnounce}
-			onclick={loadMorePills}
-		/>
+		{#if !wholeList}
+			<LoadMoreButton
+				left={pillsLeft}
+				loading={tags.loadingMore || categories.loadingMore}
+				announce={pillAnnounce}
+				onclick={loadMorePills}
+			/>
+		{/if}
 		{#if visibleTags.length === 0 && visibleCategories.length === 0 && !query && !pillError}
 			<p class="py-2 text-sm text-muted">
 				{isOwner ? 'Nothing here yet — create your first one above.' : emptyMessage}

@@ -1,14 +1,15 @@
 <script lang="ts">
-	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { tick, untrack, type Snippet } from 'svelte';
-	import { beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { lastNavigation } from '#lib/lastNavigation.ts';
 	import type { MediaFilters, Video } from '#lib/types.ts';
-	import VideoGrid from '../video/VideoGrid.svelte';
+	import VirtualVideoGrid from '../video/VirtualVideoGrid.svelte';
+	import ScrollPositionChip from '../shared/ScrollPositionChip.svelte';
 	import { api } from '#lib/api.ts';
-	import { listScroll } from '#lib/listScroll.svelte.ts';
-	import { toMessage, videoCount } from '#lib/format.ts';
+	import { videoCount } from '#lib/format.ts';
+	import { settledQuery } from '#lib/pagedList.svelte.ts';
+	import { SparseList } from '#lib/sparseList.svelte.ts';
+	import { RovingList, WindowVirtualizer, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
 	import { DEFAULT_SORT, filtersToParams } from '#lib/filters.ts';
 	import { beginRun, queryLabel } from '#lib/runContext.ts';
 	import type { RunMode } from '#lib/run.ts';
@@ -74,15 +75,11 @@
 		footer?: Snippet;
 	} = $props();
 
-	const PAGE_SIZE = 50;
-	// The server caps a page at 1000 (repo maxListLimit).
-	const MAX_LIMIT = 1000;
-
 	// HOLODEX-459: the F68 hover card links to `#videos` and `#films`, but the page is too
-	// short to reach either until the first grid page lands, so the router's own fragment
-	// scroll finds nothing. Jump once per mount, after that first load. Back restores the
-	// snapshot instead. A reload also gets one from `take` (HOLODEX-573), and there the
-	// anchor in the URL wins over it. Read before the list controller below, whose URL
+	// short to reach either until the first grid page lands and the list is sized, so the
+	// router's own fragment scroll finds nothing. Jump once per mount, after that first load.
+	// Back restores the position instead. A reload also gets one (HOLODEX-573), and there
+	// the anchor in the URL wins over it. Read before the list controller below, whose URL
 	// sync rewrites the address without the fragment.
 	const anchor = untrack(() => page.url.hash).slice(1);
 	let anchorPending =
@@ -98,27 +95,14 @@
 	$effect(() => list.setOwner(isOwner));
 	const sortBy = $derived(list.state.sort);
 
-	// The snapshot is keyed by the sort, so Back restores scroll only under the order it
-	// was saved in. NS6's in-place filter doesn't join the key: the query resets on
-	// navigation (navSearch is a page-scoped singleton, not persisted), so by the time
-	// ← Back lands here the grid is unfiltered again.
-	// Taken once per mount, deliberately: the restore is one-shot. Still taken when the
-	// anchor wins, so the snapshot is spent rather than left for a later arrival.
-	const snapshot = untrack(() => listScroll.take(scrollKey, list.key));
-	const restore = anchorPending ? null : snapshot;
-
-	let videos = $state<Video[]>([]);
-	let loading = $state(true);
-	let loadingMore = $state(false);
-	let error = $state('');
-
 	// NS6 (HOLODEX-249): the nav search box drives this entity's own video list in
 	// place once `pageScopeFor` (navSearch.svelte.ts) has scoped the current detail
 	// route to Videos. Since HOLODEX-501 it is the query's `q` (title prefix match, as
-	// on browse), so the server filters and `matched` counts the filtered set (F75 RD7).
-	const videoQuery = $derived((navSearch.inPlace ? navSearch.query : '').trim());
-	// The seed rides the request, never the URL (SP2), so Load more tiles under one
-	// shuffle; a reroll changes it, and that alone refetches the grid.
+	// on browse), so the server filters and the count line counts the filtered set (F75 RD7).
+	const search = settledQuery(() => (navSearch.inPlace ? navSearch.query : ''), 200);
+	const videoQuery = $derived(search.value);
+	// The seed rides the request, never the URL (SP2), so every page tiles under one
+	// shuffle; a reroll changes it, and that alone restarts the list.
 	const filters = $derived<MediaFilters>({
 		...facet,
 		q: videoQuery || undefined,
@@ -126,19 +110,52 @@
 		seed: sortBy === 'random' ? shuffleSeed.value : undefined
 	});
 	const emptyMessage = $derived(videoQuery ? `No videos match “${videoQuery}”.` : empty);
-	// The current query's match count; equals `total` when no title filter is set.
-	let matched = $state(0);
 
-	function applyCount(f: MediaFilters, n: number) {
-		matched = n;
-		if (!f.q) total = n;
-	}
+	// The whole-list scroll (F80 EL11/EL14, HOLODEX-604): every video in one list, read a
+	// page at a time from GET /media where it's viewed. The list starts below the page's
+	// details, which `margin` (measured by the virtualizer) accounts for.
+	const filtersKey = $derived(JSON.stringify(filters));
+	const videos = new SparseList<Video>((offset, limit) => api.listMedia({ ...filters, limit, offset }));
+	const matched = $derived(videos.total);
+	// The caller's hero count is the unfiltered total.
+	$effect(() => {
+		if (!videos.loading && !videos.error && !videoQuery) total = videos.total;
+	});
+	let listEl = $state<HTMLElement>();
+	const virt = new WindowVirtualizer(240);
+	const roving = new RovingList(virt, () => videos.total);
+	wholeListPage({
+		// The component mounts once per entity, so its slot is fixed for this instance.
+		id: untrack(() => scrollKey),
+		list: videos,
+		virt,
+		roving,
+		// Keyed by the sort, so Back restores only under the order it was saved in. NS6's
+		// in-place filter doesn't join the key: the query resets on navigation.
+		key: () => list.key,
+		// A string, so an equal facet object from a caller's reload doesn't restart the list.
+		restartOn: () => void filtersKey,
+		root: () => listEl
+	});
 
-	// seq drops a response that a newer request has superseded (typing in the title box).
-	let seq = 0;
-	let started = false;
-	let restorePending = restore != null;
-	let lastQuery = '';
+	// A mutation that can change the set (a merge-in) re-reads in place, keeping the scroll.
+	let lastRefresh = untrack(() => refreshKey);
+	$effect(() => {
+		if (refreshKey !== lastRefresh) {
+			lastRefresh = refreshKey;
+			untrack(() => videos.refresh());
+		}
+	});
+
+	// The anchor jump waits for the first read and for the list to be sized, so `#films`
+	// below every video sits where it will stay.
+	$effect(() => {
+		if (!anchorPending || videos.loading) return;
+		anchorPending = false;
+		tick()
+			.then(() => new Promise(requestAnimationFrame))
+			.then(() => jumpToAnchor(anchor));
+	});
 
 	let section: HTMLElement;
 	const stopWaiting = new AbortController();
@@ -163,72 +180,6 @@
 		}
 	}
 
-	async function load(f: MediaFilters, limit: number) {
-		const mine = ++seq;
-		error = '';
-		try {
-			const res = await api.listMedia({ ...f, limit, offset: 0 });
-			if (mine !== seq) return;
-			videos = res.items ?? [];
-			applyCount(f, res.total);
-		} catch (e) {
-			if (mine === seq) error = toMessage(e);
-		} finally {
-			if (mine === seq) loading = false;
-		}
-		if (restorePending && mine === seq && restore) {
-			restorePending = false;
-			await tick();
-			window.scrollTo(0, restore.scrollY);
-		}
-		if (anchorPending && mine === seq) {
-			anchorPending = false;
-			await tick();
-			jumpToAnchor(anchor);
-		}
-	}
-
-	let debounce: ReturnType<typeof setTimeout>;
-	$effect(() => {
-		const f = filters;
-		void refreshKey;
-		const query = JSON.stringify(f);
-		clearTimeout(debounce);
-		if (!started) {
-			started = true;
-			lastQuery = query;
-			load(f, Math.min(Math.max(restore?.loaded ?? 0, PAGE_SIZE), MAX_LIMIT));
-		} else if (query === lastQuery) {
-			// A refresh of the same set keeps every page already loaded. untrack: the
-			// loaded count must not become a dependency, or each load would re-fire this.
-			load(f, Math.min(Math.max(untrack(() => videos.length), PAGE_SIZE), MAX_LIMIT));
-		} else {
-			lastQuery = query;
-			debounce = setTimeout(() => load(f, PAGE_SIZE), f.q ? 200 : 0);
-		}
-		return () => clearTimeout(debounce);
-	});
-
-	async function loadMore() {
-		// A title-box change still inside its debounce means `videos` belongs to the old
-		// query; paging it with the new one would append the wrong set.
-		const f = filters;
-		if (JSON.stringify(f) !== lastQuery) return;
-		const mine = seq;
-		loadingMore = true;
-		error = '';
-		try {
-			const res = await api.listMedia({ ...f, limit: PAGE_SIZE, offset: videos.length });
-			if (mine !== seq) return;
-			videos = [...videos, ...(res.items ?? [])];
-			applyCount(f, res.total);
-		} catch (e) {
-			if (mine === seq) error = toMessage(e);
-		} finally {
-			loadingMore = false;
-		}
-	}
-
 	// Play all / Shuffle (F75 P0-2/P0-3/P0-11): a run over exactly the query on screen —
 	// the facet plus the title box's `q` (spec RD7) — in the grid's own order. As on
 	// browse, the run's source is the filter alone (ADR-121 D2: sort apart), and a random
@@ -247,10 +198,8 @@
 		);
 	}
 
-	function reroll() {
-		shuffleSeed.reroll();
-		window.scrollTo(0, 0);
-	}
+	// A new seed restarts the list at its top (wholeListPage).
+	const reroll = () => shuffleSeed.reroll();
 
 	// Save as playlist… (F75 P0-4), owner only: the query with its sort, prefilled with the
 	// source's name — a person's name alone, "Tag · noir" for the rest (handoff "Save form").
@@ -259,16 +208,6 @@
 	const saveName = $derived.by(() => {
 		const kind = queryLabel(gridQuery, name).kind;
 		return kind === 'Person' || kind === 'Browse' ? name : `${kind} · ${name}`;
-	});
-
-	// Stash the scroll offset on the way out (e.g. opening a video) so ← Back restores
-	// where this entity's video list was.
-	beforeNavigate(() => {
-		listScroll.save(scrollKey, {
-			key: list.key,
-			scrollY: window.scrollY,
-			loaded: videos.length
-		});
 	});
 </script>
 
@@ -289,13 +228,11 @@
 				{/snippet}
 			</ListToolbar>
 		</div>
-		{#if loading}
+		{#if videos.loading && videos.total === 0}
 			<p class="text-sm text-muted">Loading videos…</p>
-		{:else if error && videos.length === 0}
-			<p class="text-sm text-warn">{error}</p>
+		{:else if videos.error}
+			<p class="text-sm text-warn">{videos.error}</p>
 		{:else}
-			<!-- A failed refresh or Load more keeps the loaded grid and says so above it. -->
-			{#if error}<p class="pb-2 text-sm text-warn">{error}</p>{/if}
 			<!-- Count line (F75 handoff §1): the query's match count and Play all ▾. -->
 			<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pb-3">
 				<p class="text-sm text-muted">{videoCount(matched)}</p>
@@ -311,8 +248,12 @@
 					<SavePlaylistForm query={saveQuery} seed={filters.seed} defaultName={saveName} onclose={() => (saveOpen = false)} />
 				</div>
 			{/if}
-			<VideoGrid {videos} empty={emptyMessage} />
-			<LoadMoreButton left={matched - videos.length} loading={loadingMore} onclick={loadMore} />
+			{#if matched === 0}
+				<p class="py-16 text-center text-sm text-muted">{emptyMessage}</p>
+			{:else}
+				<ScrollPositionChip {virt} total={matched} />
+				<VirtualVideoGrid list={videos} {virt} {roving} bind:root={listEl} />
+			{/if}
 		{/if}
 	</div>
 	{#if footer}{@render footer()}{/if}
