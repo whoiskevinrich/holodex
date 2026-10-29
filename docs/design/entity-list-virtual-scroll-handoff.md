@@ -15,8 +15,8 @@ Cinémathèque ([theming.md](theming.md)).
 
 ## The scroll
 
-- The page's own scrollbar spans the whole list. There is no inner scroll box, so the toolbar and
-  the A–Z bar stay sticky as they are today.
+- The page's own scrollbar spans the whole list. There is no inner scroll box, so the A–Z bar
+  stays sticky as it is today (the toolbar scrolls away with the page, as today).
 - On a sort, search or Random re-roll, the list returns to the top.
 - On a view change (List, Table, Poster), the first entry in view stays in view.
 
