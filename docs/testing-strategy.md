@@ -4995,8 +4995,8 @@ nav harness gains a queue scenario.
 ## 32. Entity lists load a page at a time (F80, HOLODEX-354)
 
 Tags and Films page through the server with Load more ([spec](specs/entity-list-paging.md),
-[handoff](design/entity-list-paging-handoff.md)). People and Studios do too, with an A–Z restart,
-until HOLODEX-601's build makes them one whole-list scroll (§32.1). The record below is HOLODEX-354's, and its
+[handoff](design/entity-list-paging-handoff.md)). People and Studios did too, with an A–Z restart,
+until HOLODEX-601 made them one whole-list scroll (§32.1). The record below is HOLODEX-354's, and its
 endpoint and repo tests still guard the paging both designs read. Risks, ranked:
 1. A page boundary that repeats or drops an entry, under any sort including Random. The owner
    would never notice a missing person.
@@ -5083,7 +5083,7 @@ pages in view are fetched, under every sort and search ([spec](specs/entity-list
 EL7, EL9, EL11–EL13; [handoff](design/entity-list-virtual-scroll-handoff.md);
 [architecture](architecture/stack.md#long-lists-tanstack-virtuals-core-over-a-sparse-page-cache)).
 The server is unchanged, so §32's endpoint and repo tests still prove the offsets tile. New risk lives
-in the client. **Planned. The build lands these tests.** Risks, ranked:
+in the client. Risks, ranked:
 1. A page painted into the wrong slots, or a stale page from an older sort, search or seed painted
    into the new list. Pages now arrive out of order, after jumps, not one after another.
 2. A row taller than its view's fixed height. Every row below it shifts, so the scrollbar, the
@@ -5094,7 +5094,7 @@ in the client. **Planned. The build lands these tests.** Risks, ranked:
 5. Back landing on a different entry, especially after the width changed.
 6. A retry row covering a neighbouring page's loaded entries.
 
-**Unit, web (beside `web/src/lib/pagedList.test.ts`, mocked fetcher, fake timers).** The sparse page
+**Unit, web (`web/src/lib/sparseList.test.ts`, mocked fetcher, fake timers).** The sparse page
 cache:
 - requests only the missing pages of the visible range plus one page of overscan each way, at
   offsets aligned to 50;
@@ -5111,33 +5111,58 @@ cache:
 - on restore, fetches the anchor's page first, then sizes the list.
 
 Pure helpers, table-driven: the retry row is the first whole grid row inside a failed page (1, 2, 3
-and 12 lanes; the page starting at lane 0 and mid-row). The active letter for an index is the largest
-letter offset at or before it, with `#` first. The chip reads "412 of 1,512".
+and 12 lanes; the page starting at lane 0 and mid-row), and the active letter for an index is the
+largest letter offset at or before it, with `#` first (`sparseList.test.ts`). The key map moves ↑/↓
+a row of lanes, ←/→ an entry (not in a one-lane list), PageUp/PageDown a screen and Home/End the
+ends, never past them (`windowVirtualizer.test.ts`).
 
-**Component, browser mode (`*.svelte.test.ts`, per [stack.md](architecture/stack.md); `#lib/api.ts` mocked
-with 1,512 people).** On `/people` in each view, and on `/studios`:
-- the rendered rows stay within three screens at the top, the middle and the end of the list;
-- **row-height contract:** every rendered row, placeholder and loaded, measures the view's height at
-  375, 768, 1024 and 1440px and at each poster density. A long name wraps nowhere. This is the
-  regression net for risk 2;
-- List, Poster and Studios rows carry `aria-setsize` and `aria-posinset`. Table carries
-  `aria-rowcount` (total + 1) and rows `aria-rowindex` (index + 2). Placeholders are
-  `aria-busy="true"`;
-- focus a placeholder, resolve its page, and `document.activeElement` is the same element, now
-  showing the entry. ArrowDown past the drawn range scrolls and keeps focus, End reaches the
-  1,512th entry, and the list is one Tab stop;
-- an A–Z click scrolls the letter's first entry under the sticky bars and focuses it, in Poster view
-  too, and scrolling moves `aria-current` to the first row's letter;
-- a failed page shows one retry row, and the entries before and after it stay visible. Retry fills
-  it;
-- a merge selection made at entry 20 survives a scroll to entry 1,400, and "N selected" counts it.
+**Component, browser mode (`web/src/lib/components/shared/VirtualRows.svelte.test.ts`).** A
+People-List-shaped fixture (`__fixtures__/VirtualPeople.svelte`: the page's row and placeholder
+markup with `app.css` loaded, every 7th name long enough to wrap) over 1,512 entries from a fetcher
+the test holds, releases or fails page by page:
+- the drawn entries stay within three screens at the top, the middle and the end, each with
+  `aria-setsize`/`aria-posinset`;
+- **row-height contract:** placeholder rows and loaded rows (long names included) measure one
+  height. **Mutation-tested**: a placeholder avatar box of `h-8` fails it. This is the regression
+  net for risk 2;
+- the list is one Tab stop (the entry and its ring, no links); ↓, → and End move past what's drawn
+  to entry 1,512, and Home comes back;
+- focus a placeholder, release its page, and `document.activeElement` is the same element, now
+  showing the entry;
+- a failed page gets one retry row on its first whole row at three lanes, page 0's entries in the
+  shared row stay, the failed entries are dimmed and not `aria-busy`, and Retry fills them.
 
-**Harness (§12.4, §20.6).** `people-list-does-not-render-everything` must keep passing, and a
-`studios-` twin joins it. A new §20.6 nav scenario scrolls People to its middle in the videos sort,
-opens a person, goes Back, and asserts the same first entry is in view. This closes §32's standing
-Back gap for these two pages.
+A row that breaks the contract degrades to misplaced rows, never a frozen page: the pitch is read
+once per layout (lanes × width). The first version re-read it every render, and in the test
+environment (no `app.css` yet) a placeholder shorter than its entry flipped the pitch and the
+keep-in-view scroll back and forth until the browser hung.
 
-**Live QA (`-big` fixture, Cinémathèque, an `-open-` stress pair).**
+**Not yet automated (gaps).** The contract is checked on the List row only, not at 375/768/1440px or
+at each poster density. Table view's `aria-rowcount`/`aria-rowindex` and the A–Z scroll were checked
+live, not in a test. Merge selection across a far scroll has no test. The §12.4 harness
+`people-list-does-not-render-everything` still needs a run on `-big`, plus a `studios-` twin. The
+§20.6 nav scenario that scrolls People to its middle, opens a person, goes Back and checks the
+first entry in view is not written yet. That would close §32's standing Back gap.
+
+**Live QA, 2026-10-28, small fixture** (`backend-stress-open-9700` + `web-9700`: 164 people, 119
+studios, Cinémathèque). The browser pane has to be in front: a hidden pane runs no rendering
+steps, so it fires no scroll events, and the list never moves.
+- First load draws 10 rows (30 entries) of 55, at 78px pitch (70px row + 8px gap). The count line
+  reads "164 people" and there's no Load more.
+- End jumps to the bottom, and the only new fetch is the landing page (`offset=150`).
+- The chip reads "31 of 164", the same as the first readable entry under the sticky bar, and the
+  active letter tracks the scroll.
+- A–Z S focuses the first S name with its row just under the sticky bar.
+- Keys: PageDown 0 → 18 (scrolls it wholly into view), → 19, ↓ 22, End 163 ("164 of 164"),
+  and Enter opens the person. Back restores the exact `scrollY` (223.2).
+- Poster: 6 lanes, a 264px card at 280px pitch, the A–Z index showing, and placeholders at 264px.
+  A failed `offset=100` page gives its retry row on row 17 (102–107), 100–101 dimmed in row 16, and
+  Retry fills it.
+- Table: `aria-rowcount` 165, the first row `aria-rowindex` 2, 44px rows, column widths kept. A
+  switch from List at entry 17 lands Table on entry 17 and Poster on entry 12 (the start of its row).
+- Studios: 78px rows, the chip, the A–Z and no Load more.
+
+**Live QA still to run (`-big` fixture, Cinémathèque, an `-open-` stress pair).**
 1. [agent] First load: elements, page height and fetch size against the §32 table. The page height
    is now the whole list's, and that is expected.
 2. [agent] Drag the scrollbar to 10%, 50% and 90% in each sort and in a search: real entries within

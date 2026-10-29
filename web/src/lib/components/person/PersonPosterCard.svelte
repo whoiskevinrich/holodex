@@ -9,7 +9,7 @@
 	import PersonImageFrame from './PersonImageFrame.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 
-	// `sizes` is the grid column's width, which only the grid knows (PersonPosterGrid).
+	// `sizes` is the grid column's width, which only the page knows (the People Poster view).
 	let { person, eager = false, sizes }: { person: Person; eager?: boolean; sizes: string } = $props();
 
 	// poster_version, NOT headshot_version (P0-6) — the two image roles are independently

@@ -1,10 +1,14 @@
 <script lang="ts">
+	import { MediaQuery } from 'svelte/reactivity';
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { navSearch } from '#lib/navSearch.svelte.ts';
 	import type { Studio } from '#lib/types.ts';
-	import { PagedList, pagedListPage, settledQuery } from '#lib/pagedList.svelte.ts';
-	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
+	import { settledQuery } from '#lib/pagedList.svelte.ts';
+	import { SparseList, letterAt } from '#lib/sparseList.svelte.ts';
+	import { RovingList, WindowVirtualizer, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
+	import VirtualRows from '#lib/components/shared/VirtualRows.svelte';
+	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import StudioListRow from '#lib/components/entity/StudioListRow.svelte';
@@ -31,9 +35,10 @@
 	const search = settledQuery(() => (navSearch.inPlace ? navSearch.query : ''));
 	const query = $derived(search.value);
 
-	// One page at a time (F80), the People list's paging: Random with the session seed
-	// (SP2), the A–Z index on the name sort with no search, letters on each fresh load.
-	const studios = new PagedList<Studio>((offset, limit, fresh) =>
+	// The People list's whole-list scroll (F80 EL11, HOLODEX-601): one list as tall as the
+	// library, fetched a page at a time where it's viewed, Random with the session seed
+	// (SP2), the A–Z index on the name sort with no search.
+	const studios = new SparseList<Studio>((offset, limit, fresh) =>
 		api.listStudios({
 			sort: sortBy,
 			q: query,
@@ -45,10 +50,20 @@
 	);
 	const showIndex = $derived(sortBy === 'name' && !query);
 	let listEl = $state<HTMLElement>();
+	const virt = new WindowVirtualizer(78);
+	const roving = new RovingList(virt, () => studios.total);
+	const sm = new MediaQuery('min-width: 640px');
+	const lg = new MediaQuery('min-width: 1024px');
+	const lanes = $derived(lg.current ? 3 : sm.current ? 2 : 1);
+	const activeLetter = $derived(showIndex ? letterAt(virt.firstVisible * virt.lanes, studios.letters) : '');
+	let barHeight = $state(0);
+	$effect(() => virt.setStickyTop(barHeight));
 
-	const { jumpTo, loadMore } = pagedListPage({
+	const { jumpTo } = wholeListPage({
 		id: 'studios',
 		list: studios,
+		virt,
+		roving,
 		key: () => `${list.key}:${query}`,
 		restartOn: () => {
 			void sortBy;
@@ -67,11 +82,8 @@
 			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
 		{/snippet}
 		{#snippet count()}
-			{#if !studios.loading && !(studios.error && studios.items.length === 0)}{studios.total.toLocaleString()}
-				{studios.total === 1 ? 'studio' : 'studios'}{#if studios.letter}
-					{' '}· <span class="text-ink">from {studios.letter}</span> ·
-					<button type="button" class="text-accent underline" onclick={() => jumpTo('')}>Back to start</button>
-				{/if}{/if}<DuplicatesBanner
+			{#if !studios.loading && !studios.error}{studios.total.toLocaleString()}
+				{studios.total === 1 ? 'studio' : 'studios'}{/if}<DuplicatesBanner
 				entityType="studio"
 				inline
 			/>
@@ -82,30 +94,38 @@
 	     Shown only while a sweep runs or just finished, so it isn't a standing row. -->
 	<SweepStatusLine kind="studio" onfinished={() => studios.refresh()} />
 
-	{#if studios.loading && studios.items.length === 0}
+	{#if studios.loading && studios.total === 0}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
-	{:else if studios.error && studios.items.length === 0}
+	{:else if studios.error}
 		<p class="py-16 text-center text-sm text-warn">Couldn’t load studios: {studios.error}</p>
-	{:else if studios.items.length === 0 && !query}
+	{:else if studios.total === 0 && !query}
 		<p class="py-16 text-center text-sm text-muted">No studios indexed yet.</p>
-	{:else if studios.items.length === 0}
+	{:else if studios.total === 0}
 		<p class="py-16 text-center text-sm text-muted">No studios match “{query}”.</p>
 	{:else}
-		<!-- A failed Load more keeps the loaded list and says so above it. -->
-		{#if studios.error}<p class="text-sm text-warn">{studios.error}</p>{/if}
 		{#if showIndex}
-			<AlphaIndex anchors={studios.letters} active={studios.letter} onjump={jumpTo} />
+			<AlphaIndex anchors={studios.letters} active={activeLetter} onjump={jumpTo} bind:barHeight />
 		{/if}
-		<ul
-			bind:this={listEl}
-			class="grid scroll-mt-16 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 {showIndex ? 'pr-5 sm:pr-0' : ''}"
+		<ScrollPositionChip {virt} total={studios.total} />
+		<VirtualRows
+			list={studios}
+			{virt}
+			{roving}
+			{lanes}
+			label="Studios"
+			noun="studios"
+			rowClass="grid gap-2 pb-2 {showIndex ? 'pr-5 sm:pr-0' : ''}"
+			bind:root={listEl}
 		>
-			{#each studios.items as s, i (s.id)}
-				<li>
-					<StudioListRow studio={s} eager={i < 6} />
-				</li>
-			{/each}
-		</ul>
-		<LoadMoreButton left={studios.left} loading={studios.loadingMore} announce={studios.announce} onclick={loadMore} />
+			{#snippet entry(s, i)}<StudioListRow studio={s} eager={i < 6} />{/snippet}
+			{#snippet placeholder()}
+				<!-- The row's own frame, still (handoff, "Placeholders"): StudioLogoBox is h-12. -->
+				<div class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5">
+					<span class="block h-12 w-12 shrink-0 border border-rule bg-surface-2"></span>
+					<span class="h-2.5 w-2/5 rounded-theme bg-rule"></span>
+					<span class="ml-auto h-2.5 w-3.5 rounded-theme bg-rule"></span>
+				</div>
+			{/snippet}
+		</VirtualRows>
 	{/if}
 </section>
