@@ -5377,7 +5377,7 @@ Found and fixed during this run:
 
 Known gaps, not fixed: keyboard focus no longer starts a card's hover montage (F83), because the
 roving stop is the cell, not the link. On an entity page the chip also shows while the details
-above the list scroll. Both are in the worklog's Up next.
+above the list scroll. They are HOLODEX-605 and HOLODEX-606.
 
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 

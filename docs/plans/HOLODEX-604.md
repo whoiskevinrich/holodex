@@ -54,7 +54,7 @@ architecture row).
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-29 · session
-- skills: testing-strategy, handoff, implement
+- skills: testing-strategy, handoff, implement, code-review
 - handoff: Crossed into build — design signed off at f1b8b221; Draft PR open on base HOLODEX-601-virtual-entity-lists. Start at the snapshot-paging backend.
 
 ### 2026-10-28 · session
