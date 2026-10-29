@@ -24,8 +24,8 @@ release_note: "People and Studios now scroll as one list across the whole librar
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 approved:
   design:
-    on: 2026-10-27
-    at: 30d3b16e
+    on: 2026-10-28
+    at: fa3e9992
 ---
 
 # HOLODEX-601 · People and Studios scroll the whole list
@@ -54,8 +54,8 @@ testing strategy §32.1
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — no server change: list endpoints already page by offset under every sort and seeded Random, and return `letters`. until: the build finds a missing parameter
-- [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [x] frontend → `web/src/**`
+- [/] testing `testing-strategy` — unit + browser-mode tests landed; §20.6 nav Back scenario and `-big` live QA still to run
 - [~] security `security-review` — no auth, access or infrastructure change; reads the same public list endpoints. until: a new endpoint or parameter is added
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -73,9 +73,9 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Pin `@tanstack/virtual-core` (exact version ≥ 2 weeks old), runes wrapper + sparse page cache beside `PagedList` — `web/src/lib/`
-2. [ ] [frontend] People (List, Table, Poster) and Studios on the virtualizer: placeholders, retry row, position chip, A–Z tracking, roving tabindex, Back by index — `web/src/routes/{people,studios}/+page.svelte`
-3. [ ] [testing] Land the §32.1 tests (unit cache, browser-mode row-height contract, nav Back scenario) and run its live QA — `docs/testing-strategy.md`
+1. [ ] [testing] Run §32.1's live QA on the `-big` fixture (`DATA_PATH ./data/stress-354`; add a `-open-` launch profile for it) and the §12.4 harness — `docs/testing-strategy.md`
+2. [ ] [testing] Write the §20.6 nav Back scenario for People and a `studios-` twin of `people-list-does-not-render-everything` — `web/scripts/`
+3. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
 4. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -87,6 +87,10 @@ testing strategy §32.1
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-28 · build: whole-list scroll on People and Studios
+- skills: implement, code-review, handoff
+- handoff: Built in ae77c3fd (virtual-core 3.19.4 + sparse page cache; People's three views and Studios), 42 unit + 5 browser tests green, live QA done on the 164-person fixture, and design sign-off re-pinned at fa3e9992 after a one-line handoff fix. Next: run §32.1's `-big` live QA, which needs a stress-354 launch profile.
 
 ### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
 - skills: code-review, handoff, implement
