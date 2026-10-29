@@ -3010,6 +3010,80 @@ the placeholder path):
   surface that *does* — the gallery editor — would show a stale set if it adopted the module.
   Logged and accepted during `/code-review high` rather than solved speculatively.
 
+### 16.2 Lanes, the studio panel and Show as — backend (HOLODEX-598)
+
+The 598 revision of the [spec](specs/duplicates-pair-evidence.md) (P0-8, P0-10, P0-11, OQ5–OQ7)
+needs Go code, unlike the person panel above. Four pieces, each pinned by a Go test. The SPA half
+is §16.3.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Planner statistics at boot** (OQ5) | `internal/db/optimize_test.go` `TestOpenAnalyzesTables` | `db.Open` leaves `sqlite_stat1` rows for a table that has rows but was never analyzed. The fixture deletes the statistics the first `Open` wrote, then adds 500 videos, which is how every pre-598 library looks. Without statistics the review queue's per-side video count is driven from the near-total `videos.active` index. On a synthetic 20k-video, 1.8k-pair copy the whole-page read took 23–43 s without statistics and 0.11–0.18 s with them. |
+| **One lane, paged in SQL** (P0-8) | `internal/repo/review_lanes_test.go` `TestReviewPairsLane` | Two pages of one type, read in SQL, concatenate to exactly that type's slice of the whole list, in the same order. Video counts are taken for the page alone. Ties sort by id, so pages never overlap. The lane count agrees with the list once a pair goes stale (rename, then delete the old spelling), because the count and the page share one `FROM … WHERE`. Every named type has a count, including 0. |
+| **Lane counts on both lists** (P0-8) | `internal/api/owner_queue_paging_test.go` `TestDuplicatesPagingByType` | `counts` carries all five lanes (`person`, `studio`, `tag`, `film`, `video`) with 0s, on `?type=` reads and on `/owner/duplicates/videos`. A verdict in any lane therefore refreshes every tab from that lane's own re-read. |
+| **Studio name sources** (P0-10, OQ6, OQ7) | `internal/api/duplicates_studio_test.go` `TestStudioEvidence` | Five videos split across the file tags and `provider-1`, with one video where the file tags win against the provider's other spelling. A source counts only when its own value names *this* studio. One video counts toward both sources. Sources sort by most videos first. The posters are one per source, then the newest, each captioned by the source that **won** that video. Owner aliases carry no `source`. `external_links` is `[]`, not null. The read is owner-gated (401) and a missing studio gets 404. |
+| **Show as** (P0-11, RD14) | `internal/api/studio_show_as_test.go` `TestStudioMergeShowAs` | `show_as: "merged"` keeps the survivor's id, gives it the merged spelling, keeps its former name and the merged studio's alias as aliases, and moves every video. It rewrites the Studio tag on all linked videos, the moved ones included, as a rename does. A bad `show_as`, and `show_as` on a tag, are 400 and merge nothing. The fixture's videos are Matroska, because writeback skips a container it cannot write. Without that, the writeback assertions pass on zero jobs. |
+
+**Measured, not asserted.** The scaled copy is synthetic (generated names only). It also put a
+5,000-video studio's evidence at about 0.18 s and a lane read over HTTP at 0.11–0.15 s. The live
+library's baseline is the owner's to take (spec OQ5) with the anonymized script in the epic's
+notes. No CI test bounds a timing, because a timing test on a shared runner only measures the
+runner.
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `Open` without the `optimize` call broke `TestOpenAnalyzesTables`.
+- `ReviewPairCounts` counting the raw queue instead of `reviewPairsFrom` broke `TestReviewPairsLane`, at the stale-pair count.
+- `studioPosterPicks` skipping its one-per-source pass broke `TestStudioEvidence`.
+
+#### 16.2.1 Standing gaps
+
+- **No test proves that a failed Show-as rename rolls the merge back.** For a studio the rename
+  cannot fail once the merge has run, because the merged name's only holder is gone. Injecting a
+  failure would need a test-only hook. The guarantee rests on the single transaction in
+  `mergeEntities`, and the API refuses `show_as` for films, whose composite key could collide.
+- **A studio inherited from a film is not seen by the evidence read.** The read loads only the
+  studio field's own file keys and provider keys. A scene whose studio comes from its film shows
+  another winner, or none, on its poster caption. This is rare enough to leave until the panel
+  shows it.
+- **Statistics refresh only at boot.** A fresh install whose first scan adds thousands of videos
+  runs without statistics until its next restart. An established library is analyzed at every
+  boot.
+
+### 16.3 Lanes, the studio panel and Show as — frontend (HOLODEX-598)
+
+There is still no component harness (§5), so the rules the page, row and panels share live in
+`queue.ts` and are unit-tested there, and the structural guarantees are pinned statically in
+`verdictOwnership.test.ts`, as for the person panel.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Lanes** (P0-8) | `duplicates/queue.test.ts` `lanes` | The tab order is fixed (Videos, People, Studios, Tags, Films). With no `?type=` the page opens on the first lane with pairs, and on Videos when all are 0. `?type=` accepts exactly the five lanes. Tab and tabpanel ids derive from the lane. |
+| **Comparable kinds** (RD10, P0-9) | `queue.test.ts` `showsComparePanel`, `labelPlacement`, `focusLandingIds` | Person **and** studio pairs get the panel, the label in the panel, a profile link and a next-row disclosure rung. Tag and film rows keep the label in the row and land focus on the lane's tabpanel, which replaced the group heading. |
+| **Studio sources in words** (P0-10) | `queue.test.ts` `sourceLabel` | `file` reads "File tags", `manual` reads "you", and a provider uses its own link label, else its namespace. |
+| **Verdict ownership, both panels** (P0-4, P0-5) | `verdictOwnership.test.ts`, `describe.each` over `DuplicateComparePanel` and `DuplicateStudioPanel` | Each renders the row's `verdicts` in the footer and the row's `mergeInto(ref, other)` once per column, and has no verdict or resolving call of its own. |
+| **Verdict grammar** (C2, C5, RD7) | `verdictOwnership.test.ts` `DuplicatePairRow` | Tag and film rows keep the accent Keep separate and the ghost two-step Merge. A comparable row offers only the ghost Keep separate. Merge into this one is the accent pill, named "Merge {other} into {keep}", and only opens the confirm. |
+| **Show as** (P0-11) | `verdictOwnership.test.ts` `sends the Show as pick on a studio merge only` | The confirm's radio group is a native `fieldset`, and its pick reaches the merge call for a studio only. |
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `showsComparePanel` back to person-only.
+- `defaultLane` falling back to People instead of Videos.
+- The studio merge dropping the Show as pick.
+- `DuplicateStudioPanel` swapping `mergeInto`'s arguments, which would merge the wrong way.
+
+**QA, not asserted** (stress fixture plus seeded pairs, 2026-10-27). One request makes the first
+lane usable (the Videos read, which carries every count). A collapsed lane issues no card, image
+or evidence request. Expanding issues the side reads, and strip images load lazily. A person merge
+and a studio Merge and rename both resolved, dropped the tab count, and moved focus to the next
+disclosure. The survivor took the other spelling and kept its own as an alias. At 375 px nothing
+scrolls the page sideways.
+
+#### 16.3.1 Standing gaps
+
+- **No test drives the page's lane switching, `replaceState` or the re-read after a verdict.**
+  Those need a component harness. They are covered by the QA pass above only.
+- **The person confirm's "films" clause reads the cached card.** If the card is not cached it
+  arrives a moment after the dialog opens, and until then the clause is absent.
+
 ## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
 
 Two entities of one kind carrying the same provider external id is the strongest positive
@@ -5660,3 +5734,97 @@ tests (F52) still cover storage. Risks, ranked by how quietly they would fail:
 
 - Real decoding and seeking can't run in jsdom. Frame accuracy across containers is checked by hand
   (QA 7), not in CI.
+
+## 37. Choose the video poster in the writeback dialog (F85, HOLODEX-599)
+
+The writeback dialog's Poster row becomes the one poster chooser. A picked frame and an upload each
+get their own source slot and become a `local:<kind>` poster decision, the served poster is
+presented from the decision, and Write embeds a held image without a download
+([spec](specs/writeback-poster-sources.md),
+[handoff](design/writeback-poster-chooser-handoff.md); slots and the presenter in
+[media-ingest.md](architecture/media-ingest.md), the decision in
+[field-resolution.md](architecture/field-resolution.md), the embed in
+[writeback.md](architecture/writeback.md), the perimeter in
+[security-perimeter.md](architecture/security-perimeter.md)). Risks, ranked by how quietly they
+would fail:
+
+1. **A writeback swaps the owner's poster for the file's cover art.** This happens today: the
+   post-write re-extract (`ExtractEmbedded`, from `internal/api/writeback.go` and the queued
+   `postWrite` in `cmd/holodex/main.go`) overwrites the served pair, upload included. Nothing
+   errors; the page just shows the wrong image (P0-6).
+2. **The wrong image reaches the file.** The automatic frame is embedded without being chosen, an
+   older frame is written after a newer one replaced its slot, or a path from the payload is
+   trusted (P0-5, P0-7, P0-8).
+3. **Write reports in sync when it isn't.** The ledger records the token from enqueue time, not
+   the bytes copied, so a slot replaced in between reads `=` (P0-5).
+4. **A held image is fetched over the network,** which would put Holodex's own host on the asset
+   allowlist (P0-5).
+5. **Removing the upload leaves a dangling choice,** or touches the file (P0-9).
+6. **The chooser's keyboard order breaks across groups,** or a no-poster provider takes focus
+   (P0-1, P0-2).
+
+### 37.1 Regression first (Go, write before the fix)
+
+| # | Case | Proves |
+|---|---|---|
+| R1 | `internal/thumbnail/manager_test.go`: a video with embedded cover art has an uploaded poster as its served pair. Run `ExtractEmbedded` on the file, as the post-write hook does. The served pair's bytes are still the upload and its `?v=` token is unchanged. **This fails on `main`**: commit it red, then make it pass. | P0-6 |
+| R2 | `internal/api/writeback_test.go`, the synchronous branch: with `local:upload` decided, a writeback of an unrelated field (title) completes and `GET` of the video's poster still returns the upload. Same case through the queued `postWrite` path. | P0-6 |
+
+### 37.2 Go unit (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| G1 | `internal/fieldsource`: `local:frame`, `local:upload` and `local:automatic` parse for `poster_url` only. Any other kind, a `local:` source on another field, and a path-shaped kind (`local:../x`) are refused. | P0-5 (risk 2) |
+| G2 | `internal/resolver`: a `local:<kind>` decision resolves to `local:<kind>#<sha256>` from the pre-loaded hashes. A new hash moves the token with no decision change. | P0-8 |
+| G3 | `internal/resolver`: undecided, a held slot is listed in the `poster_url` candidates but never wins, so the value is the file's art or the provider default as today. A decision whose slot is empty resolves through the undecided default. | P0-1, P0-7 |
+| G4 | `internal/resolver`: `LastWritten` holding the same token gives `in_sync`; a different hash for the same kind gives will-write. | P0-2, P0-5 |
+| G5 | `internal/thumbnail`, `Present`: with no decision it serves `file`, else `auto`. A `local:<kind>` decision serves that slot. A `file` or `provider:<name>` decision serves `file`. A chosen slot that is missing falls through the same order. Present on unchanged winning bytes doesn't rewrite the pair. | P0-6, P0-7 |
+| G6 | `internal/thumbnail`: a second picked frame replaces `{id}-frame.jpg` and leaves `{id}-upload.jpg` untouched, and the reverse. Each keeps one `video_poster_sources` row whose hash and frame time are the newest. | P0-8 |
+| G7 | `internal/thumbnail`: an `automatic` source row exists only after the generation queue produces a frame. A file whose cover art was extracted has no `automatic` row, so no Automatic candidate. | P0-1 |
+| G8 | `internal/api/video_poster_test.go`: the frame route and the upload route each store the slot and upsert `local:frame` / `local:upload` in one request, then present it, so the next poster `GET` returns it. Both refuse a visitor. | P0-3, P0-4 |
+| G9 | `internal/api/video_poster_test.go`: removing the upload while `local:upload` is decided deletes the decision and presents the fallback. Removing it while another source is decided leaves that decision. Neither enqueues a writeback. | P0-9 |
+| G10 | `internal/writeback`: a `local:<kind>#<hash>` image write copies the slot to a temp file and takes the existing cover path; the image fetcher is a stub that fails the test if called. A token with an unknown kind is refused. A missing slot fails the job and substitutes nothing. | P0-5 (risks 2, 4) |
+| G11 | `internal/writeback`: the slot is replaced between enqueue and write. The ledger row carries the hash of the bytes copied, not the enqueued token, so the next resolve reads will-write rather than `in_sync`. | P0-5 (risk 3) |
+| G12 | Boot backfill: an `embedded` row seeds the `file` slot, `generated` the `auto` slot, and `uploaded` the `upload` slot plus a `local:upload` decision, with its state reset to empty. Running it twice changes nothing. | P0-6 |
+| G13 | The `poster_url` candidates for the frame slot carry its frame time, for the tile's title. | P1-1 |
+
+### 37.3 Go integration (`make test-integration`)
+
+Real `mkvpropedit`, `ffmpeg` and `exiftool`, as in `internal/writeback/cover_integration_test.go`.
+
+| # | Case | Proves |
+|---|---|---|
+| I1 | MKV: `local:frame` decided over a fixture whose file already has cover art. Write. The file's cover attachment is byte-for-byte the frame slot's JPEG. The image fetcher is never called. | P0-5 |
+| I2 | MP4: the same with `local:upload`, read back through `QuickTime:CoverArt`. | P0-5 |
+| I3 | After each of I1's and I2's writes, the read-back re-extracts the new cover into the `file` slot, the served pair still shows the chosen image, and the next resolve reads the row `in_sync` from the `file_writebacks` ledger. | P0-5, P0-6 |
+| I4 | A file with no cover art and no decision: run a writeback of another field. The file still has no cover art, though the `auto` slot is served. Then decide `local:automatic` and write: the file's cover is the automatic frame. | P0-7 |
+
+### 37.4 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | group builder (`curation/*.test.ts`, next to `SourceImageTiles.svelte`) | Groups come out file → Holodex → Automatic → providers. Holodex is omitted with neither image, and Automatic with no generated frame. A provider with no candidate gives a group with an empty list. Every group's tiles are a list. This is design QA 10.1. | P0-1 |
+| W2 | `SourceImageTiles.svelte.test.ts` | A provider group with an empty list renders its caption and `no poster`, and no `[role=radio]`. `·file` with no cover art renders the `no cover` / `art` placeholder. | P0-1 |
+| W3 | `SourceImageTiles.svelte.test.ts` | One `radiogroup`; only the staged tile has `tabindex="0"`. ArrowRight from the last Holodex tile stages the first tile of the next group, ArrowRight from the last tile wraps to `·file`, ArrowLeft reverses, and a no-poster provider is never focused. | P0-1, P0-2 |
+| W4 | `SourceImageTiles.svelte.test.ts` | Each tile has `aria-checked` and the dot, so selection isn't colour alone. The `·frame` tile's `title` is `frame at {time}`. | P0-2, P1-1 |
+| W5 | `WritebackFormDialog` test | The Poster row is a cockpit row: a staged `·upload` shows `↧` and counts in the footer. The text "Your uploaded poster stays on the page" and the `cover art` / `in file` placeholder appear nowhere. | P0-2, P0-11 |
+| W6 | media page test | Maintenance → Thumbnail reads `Pick a frame`, and `Saving frame…` while the frame posts. `Regenerate thumbnail` is gone. | P0-10 |
+
+### 37.5 QA checklist
+
+Run the design handoff's checklist,
+[§10 Verification checklist](design/writeback-poster-chooser-handoff.md#10-verification-checklist)
+(10.0 to 10.12). It isn't restated here. Its P0 coverage: 10.2 is P0-3, 10.3 is P0-5 and P0-6,
+10.4 is P0-4, P0-8 and P0-11, 10.5 is P0-1 and P0-7, 10.6 and 10.7 are P0-1 and P0-2, and 10.10 is
+P0-10. Add one step it lacks: with `·upload` chosen, remove the upload on the page. The page falls
+back, the row next opens undecided, and the file's cover art is unchanged (P0-9).
+
+### 37.6 Standing gaps
+
+- **A chosen image missing from storage** (spec open question) is covered only as far as G5's
+  fall-through and G10's failed job. Whether the tile disappears is settled in the build; add a case
+  then.
+- **Several posters per provider** (HOLODEX-600) adds tiles to a provider group. W1's
+  list-per-group shape and W3's flattened order are what keep that change keyboard-safe.
+- §36's QA 4 expects the `uploaded` thumbnail state after Use this frame. F85 retires that state
+  (G12), so the check becomes "`·frame` is the decided poster" (design QA 10.2).

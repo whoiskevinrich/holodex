@@ -95,7 +95,7 @@
  * these only through semantic Tailwind classes (bg-bg, text-ink, text-accent,
  * font-display, rounded-theme, …) or the decorative hook classes below — never a
  * hardcoded color/font/radius — so a look change stays an edit to this one block.
- * internal/personimage/placeholder.go mirrors surface-2/muted/accent/rule for the
+ * internal/personimage/placeholder.go mirrors surface-2/muted/rule for the
  * standalone placeholder SVG; change them there too.
  */
 :root {
@@ -212,8 +212,9 @@
 	   site's own utilities). Utilities still win over these rules because
 	   Tailwind orders the utilities layer after components. */
 
-	/* Bordered neutral — an immediate, row-clearing resolve (Dismiss, Revert), and the
-	   consequential-but-not-affirmative one (the Duplicates queue's Merge, F70 P0-4:
+	/* Bordered neutral — an immediate, row-clearing resolve (Dismiss, Revert; on a
+	   Duplicates person or studio pair, Keep separate, as Keep both is in the Videos lane),
+	   and the consequential-but-not-affirmative one (a tag or film pair's Merge, F70 P0-4:
 	   still bordered and still two-step, because it is irreversible — which is exactly
 	   why it is NOT `.btn-quiet` below). Disabled drops the border rather than the label. */
 	.btn-ghost {
@@ -244,9 +245,10 @@
 	}
 
 	/* Outlined accent — the affirmative action in a row (Stage, Review), i.e. the one
-	   the surface's own evidence usually points at. On the Duplicates queue that is
-	   Keep separate, not Merge (F70 P0-4): keep-separate outnumbers merge 185:31 there,
-	   so accenting Merge optimized the page backwards.
+	   the surface's own evidence usually points at. On a Duplicates tag or film pair that
+	   is Keep separate, not Merge (F70 P0-4): keep-separate outnumbers merge 185:31 there,
+	   so accenting Merge optimized the page backwards. A person or studio pair follows the
+	   Videos lane instead: the accent is the panel's "Merge into this one" (598, C2).
 	   Disabled demotes to the neutral border + muted label. `in oklab` matches how
 	   Tailwind v4 itself mixes `bg-accent/10` (used on the same accent token
 	   elsewhere, e.g. ExtractionQueueRow's staged chips) — `in srgb` would compute

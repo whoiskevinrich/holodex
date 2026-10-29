@@ -59,6 +59,9 @@ func (m *Manager) writeCoverArtTiers(ctx context.Context, data []byte, thumbDst,
 		return fmt.Errorf("scale cover art poster: %w", err)
 	}
 
+	if thumbDst == "" {
+		return nil // a source slot: only Present derives the thumbnail tier (F85)
+	}
 	if known && width <= m.cfg.Width {
 		if err := writeAtomic(thumbDst, data); err != nil {
 			return fmt.Errorf("write cover art thumb: %w", err)

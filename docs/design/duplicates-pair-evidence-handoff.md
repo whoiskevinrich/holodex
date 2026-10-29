@@ -1,354 +1,327 @@
-# Duplicates pair evidence — expand a person pair into a symmetric compare panel — design handoff
+# Duplicates lanes and pair evidence — one lane per entity type; person and studio pairs expand into a compare panel — design handoff
 
-**Ticket:** [HOLODEX-451](https://whoiskevinrich.atlassian.net/browse/HOLODEX-451) · F70 ·
-**Status:** Drafted 2026-09-22, amended 2026-09-23 (OQ3 reversed — see "The label moved"),
-awaiting the owner's sign-off at `/implement` ·
-**Date:** 2026-09-23 ·
-**Spec:** [`duplicates-pair-evidence.md`](../specs/duplicates-pair-evidence.md) P0-1…P0-7, RD1–RD12 ·
-**ADR:** none — the epic's `architecture` gate is `[~]` n/a (no endpoint, no migration, no
-cross-cutting decision). Rides ADR-061 (the queue), F26 (person images), F68 (`/card`), ADR-102
-(skin = instance identity).
+**Tickets:** [HOLODEX-451](https://whoiskevinrich.atlassian.net/browse/HOLODEX-451) (the person
+panel, shipped) · [HOLODEX-598](https://whoiskevinrich.atlassian.net/browse/HOLODEX-598) (lanes,
+the People rework, the Studios panel) · F70 ·
+**Status:** Revised 2026-10-27 for 598, approved by the owner in chat the same day ·
+**Spec:** [`duplicates-pair-evidence.md`](../specs/duplicates-pair-evidence.md) P0-1…P0-11,
+RD1–RD18, OQ7 · Videos lane: [`duplicate-videos-handoff.md`](duplicate-videos-handoff.md) ·
+**Architecture:** none. The epic's `architecture` gate is `[~]` because there's no technology fork.
 
 ## Decision
 
-**The column *is* the F68 hover card, laid flat.** Same fields, same order, same
-segment-dropping rule, same `ProviderLinkBadge` link row — with a strip of five 44 px image
-frames where the card's single 48 px headshot was. That is the concrete answer to the spec's
-RD2: the hover card was never the wrong *content*, only the wrong *container* — one at a time,
-hover-gated, hidden on touch. F70 keeps the content and changes the container to two of them,
-side by side, in the row you are deciding.
+**The page becomes five lanes, and person and studio pairs use the Videos verdict grammar.** A
+tab row picks one lane: Videos, People, Studios, Tags or Films. Each tab shows its count, and an
+empty lane stays in place with a 0. Clicking anywhere on a person or studio row opens its panel.
+The names open in a new tab, marked ↗. The collapsed row now offers only **Keep separate**. The
+survivor is chosen inside the panel, with **Merge into this one** at the foot of each column,
+behind a `ConfirmDialog`. Videos already works this way, and the owner calls it intuitive.
 
-![Duplicates pair evidence: the collapsed queue as single-line 40px rows with the verdict emphasis swapped and the weak-signal label moved out, the expanded two-column compare panel opening with that label and carrying an image strip per side, its loading, sparse and error states, the narrow stacked layout, and the same panel in the Brutalist skin](duplicates-pair-evidence-mockup.svg)
+The **People** panel keeps the F68 hover card's anatomy laid flat (the 451 decision, still true).
+It adds a **240 px lead headshot** above the strip, and choosing a strip frame swaps the lead. The
+**Studios** panel is new. For each side it shows where the name came from, with a video count per
+source, three sample posters and the aliases. Its confirmation chooses which spelling the
+surviving studio shows, and says which name writeback will offer.
 
-| Panel | Surface | Idiom reused |
+![Lanes and the People panel: the lane tab row with counts above the collapsed People lane, one row hovered to show the whole row is the toggle; an expanded person pair with a 240px lead headshot per side, a five-frame strip, new-tab links and Merge into this one under each column; the loading and failed-side states; the empty Films lane and the loading Studios lane](duplicates-pair-evidence-mockup.svg)
+
+![Studios panel and confirmations: an expanded studio pair listing each side's name sources with video counts, three sample posters, aliases and Merge into this one; the person merge dialog; the studio merge dialog with its Show the studio as choice, at its default and with the other spelling picked](duplicates-studios-compare-mockup.svg)
+
+| Mockup | Panel | Surface |
 |---|---|---|
-| 1 | collapsed queue rows | today's `DuplicatePairRow` + the `CompletenessPanel` disclosure recipe |
-| 2 | the expanded panel | two `PersonHoverCard`-shaped cards on a `bg-surface-2` well; `field-grid` |
-| 3 | loading / sparse / error | F68's "the card should feel like it *was* there"; absent-is-absent |
-| 4 | narrow / stacked | `field-grid`'s own auto-fit — no breakpoint written by hand |
-| 5 | Brutalist | `--radius: 0` — the mockup's only non-Cinémathèque panel; that skin is retired, ignore it |
+| lanes + People | 1 | lane tabs and collapsed People rows, one of them hovered |
+| | 2 | People panel, expanded |
+| | 3 | People states: loading, and a side that failed to load |
+| | 4 | an empty lane and a loading lane |
+| Studios | 1 | Studios panel, expanded |
+| | 2 | the person and studio merge confirmations, including Show as |
 
-### Open questions closed by this handoff
+### Choices the owner made (2026-10-27)
+
+The mockups were rendered with the options side by side, and the owner picked these.
 
 | # | Question | Answer | Why |
 |---|---|---|---|
-| OQ2 | `+N` opens a modal in place, or navigates? | **Neither — there is no `+N`.** Five frames are the whole strip. | Kevin, 2026-09-22. The strip is a *sample*, not an index: if five faces don't settle it, the panel has failed and the profile is the next move anyway. Removing `+N` also removes a second dismissable layer competing with Escape inside an expanded row. |
-| OQ3 | Keep `via alias` / `alias match only — weak signal`? | **Keep both — but on a person pair they live in the panel, not the row.** The row keeps `· {variation}` only. A non-person pair keeps its label in the row, unchanged. | Kevin, 2026-09-23, reversing the 2026-09-22 answer. See "The label moved" below — at real type sizes the label cost every person row a second line, and 100 % of the queue carries it. They still explain why the *detector* flagged the pair, so they belong with the evidence rather than in a scan line. |
-| OQ4 | Is 5 the right strip cap? | **5 frames at 44 px (`w-11`), `gap-1`.** | Measured, not guessed: `5 × 44 + 4 × 4 = 236 px` inside a 296 px column (the `field-grid` 320 px minimum less `p-3` both sides). 4 × 52 px wastes 43 px of column; 6 × 40 px leaves 6 px of slack and drops each face below the 44–48 px the F68 card already proved recognisable. |
+| C1 | How are lanes picked? | **A tab row**, using `SearchResultsPanel`'s tablist idiom (`px-2 py-1 text-xs`, active `bg-surface-2 text-ink`) | It sits one level and one size below the Owner tabs (`text-sm`), so it reads as a sub-nav. A row of stacked headings would put every lane's chrome back on screen, which is what overloaded the page. |
+| C2 | Which verdict carries the accent on People and Studios? | **Match Videos.** Merge into this one is `.btn-row .btn-pill .btn-accent`, and Keep separate is `.btn-row .btn-ghost px-2`, in the row and in the footer. | In the Videos lane, Keep this one is the pill and Keep both the ghost. One grammar across lanes is Goal 7. Tag and film rows keep RD7 unchanged (see "Spec deltas"). |
+| C3 | Sample posters (OQ7) | **Up to 3: one per name source first, in the order the sources are listed, then the most recently added** | Each spelling then shows a video it actually came from, which makes the source list checkable at a glance. A random sample would reshuffle on every expand, and posters from the newest videos alone could all come from one source. |
+| C4 | How is Show as picked? | **A radio choice inside the confirm dialog**, defaulting to the survivor's own name | The writeback line and the confirm label update with the pick. Two buttons would hide the consequence until after the click. |
+| C5 | The column action's label | **"Merge into this one"**, not "Keep this one" | Owner's note: "Keep this one" suggests the other side is dropped, when it's actually merged in, and its name survives as an alias. The Videos lane keeps "Keep this one", because there the other copy really does go to Trash. |
 
-### Design calls made here (not in the spec)
-
-1. **The verdict swap is a literal class swap, not a demotion to `btn-quiet`.** RD7 says Merge
-   "becomes the quiet action", but `.btn-quiet` is documented in `app.css:300–306` as *"Borderless
-   neutral — a UI-only toggle with no side effect (Cancel, Undo)"*, and Merge is the most
-   consequential, least reversible action on the page. Merge takes `.btn-ghost` — the class
-   Keep separate vacates — so both verdicts stay bordered and equally hit-targetable.
-   - **Build note:** `app.css:281–292` and `:313–324` name these two buttons *by name* in their
-     doc comments (`btn-ghost` → "Keep separate", `btn-accent` → "Merge"). Those comments become
-     wrong in this change and must be updated in the same commit, or the role vocabulary drifts
-     for `ExtractionQueueRow` and `EnrichQueueRow`, which share the classes.
-2. **The link row keeps F68's `Videos` and `Films` anchors.** They are free (the `#videos` /
-   `#films` ids already exist on the profile from F68) and they close what would otherwise be a
-   dead end: with `+N` gone and the pair-row names still `<span>`s (P2-1), the panel would have
-   had no in-app path to a profile at all. This delivers P2-1's benefit now without making the
-   names links.
-3. **Each column is its own bordered card; there is no divider between the columns.**
-   `--surface-2` differs from `--surface` by roughly 2 % in Cinémathèque (`#181310` vs `#15110e`),
-   so a fill change cannot carry the separation — the border does. A per-column border also means
-   the stacked layout (panel 4) needs no `border-left` → `border-top` flip, which `field-grid`'s
-   auto-fit could not tell us to do anyway.
-4. **No summary line, no co-appearance marker, no conflict chip in the footer.** An earlier
-   draft put a one-line précis under the columns ("different ages, different countries…"); that
-   is exactly the cross-side adjudication RD3/RD4 forbid. The divider carries verdicts and
-   nothing else.
-5. **The label moved — the row stays one 40px line.** *(2026-09-23, reversing OQ3.)*
-   Measured, not eyeballed: at the component's real type sizes (`text-sm` names, `text-xs`
-   meta) a person row carrying `· alias match only — weak signal` needs **~836 px** to stay on
-   one line. The queue renders far narrower, so `DuplicatePairRow.svelte:77`'s `flex-wrap`
-   wrapped it — and since the probe found **100 % of the queue is `alias`**, that second line
-   was the *default* row, not an edge case, on a surface whose whole job is scanning 31 of them.
-   The first mockup had drawn the label straddling the `Keep separate` pill instead of wrapping,
-   which is why this went unnoticed until now.
-   - **Where it went:** the panel well's first line, above both columns —
-     `<p class="mb-3 text-xs text-warn">` — because it describes *the pair* (why the detector
-     fired), not either side, so it cannot sit in a column, and RD3/RD4 keep it out of the
-     footer. It frames the evidence rather than trailing it.
-   - **Drop the leading `· `.** In the row the middot was a list separator; as a standalone
-     line it is a typo. The string itself is unchanged — reuse `matchKindLabel`, don't fork a
-     second copy.
-   - **Non-person rows keep the label exactly where it is.** The panel is person-only (RD10),
-     so a studio/tag/film pair has nowhere to move it to, and `matchKindLabel` at
-     `DuplicatePairRow.svelte:84–92` is **not** gated on entity type today — both `alias` and
-     `mixed` (`via alias`, `text-muted`) render for every kind. Gate the row's label on
-     `pair.entity_type !== 'person'` rather than deleting it, or non-person pairs silently lose
-     the only thing explaining why two unalike names are paired.
-   - **`flex-wrap` on the inner block must go, or the 40 px is a wish.** With `flex-wrap` the
-     browser wraps before it shrinks, so a long name pair re-wraps even with the label gone.
-     Drop `flex-wrap` from the inner text block (`:77`) and let `min-w-0` + the existing
-     `truncate` on the two name spans absorb the overflow; the `shrink-0` siblings already
-     ensure only the names compress. **Keep `flex-wrap` on the row root (`:73`)** — that is the
-     genuinely narrow-viewport escape hatch, where the verdict block drops below the text.
-
-## Layout
+## Lanes (P0-8, RD13)
 
 ```
-DuplicatePairRow  (div, role="group")                     ← unchanged shell
-├── button.disclosure          h-7 w-7   person pairs only
-├── div.flex-1                 names · counts · variation   ← NO flex-wrap; names truncate
-│                              · match-kind  ONLY when entity_type !== 'person'
-└── div.verdicts               [Keep separate] [Merge]
-
-DuplicateComparePanel  (div, id=`dup-panel-{type}-{aId}-{bId}`)   ← sibling, when expanded
-├── div  border-t border-rule bg-surface-2 px-3 py-3
-│   ├── p  mb-3 text-xs {text-warn|text-muted}   ← match-kind label, when there is one
-│   │                                     warn for `alias`, muted for `mixed` — same
-│   │                                     conditional the row uses today (:87–88)
-│   └── div.field-grid  gap-4
-│       ├── section  rounded-theme border border-rule bg-surface p-3    ← side A
-│       └── section  rounded-theme border border-rule bg-surface p-3    ← side B
-└── div  mt-3 border-t border-rule pt-3  flex justify-end gap-2         ← verdicts, repeated
+OwnerLayout nav            Status · Duplicates · …        ← unchanged, text-sm
+div role="tablist" aria-label="Duplicate type"            ← new, on the Duplicates page
+├── button role="tab"  Videos  2                         one per lane, in this fixed order:
+├── button role="tab"  People  31                        Videos, People, Studios, Tags, Films
+├── …                                                    label text-xs; count text-xs text-muted tabular-nums
+div role="tabpanel"  aria-labelledby={tab id}
+├── p  text-sm text-muted        the lane's own intro line (below)
+└── section rounded-theme border border-rule bg-surface   ← the existing group shell, one lane's pairs
+    └── rows · LoadMoreButton
 ```
 
-**Why the verdicts repeat.** They stay in the collapsed row *and* appear in the panel footer.
-The row's pair are the one-click path for the common answer (spec Goal 2); the footer's are where
-your eye lands after reading the evidence. Both call the same handlers; `busy` is shared, so
-pressing either disables all four.
+- **Reuse the tablist from `entity/SearchResultsPanel.svelte`.** Copy its markup, roving
+  `tabindex`, and its ←/→/Home/End handler. Lift a shared one only if a third caller appears.
+- **The open lane is in the URL** as `?type=`, the existing deep link from the entity lists'
+  Duplicates banner. Switching tabs calls `replaceState`, so the banner link, reload and a new tab
+  all land on the same lane. No `?type=` → the first lane in tab order that has pairs. If every
+  lane is 0 → Videos.
+- **Counts render on every tab, always.** A 0 is a 0 (`text-muted`, still clickable), never
+  hidden, so tabs never shift (F76 P0-2). On first load the tabs render **without numbers**
+  until the page's first read returns them. Don't draw a spinner per tab.
+- **The group heading goes.** Inside a lane, the old `h2` heading ("People · 31") just repeats
+  the tab. The focus ladder's group rung (`groupId`) moves to the tabpanel, which keeps
+  `tabindex="-1"`.
+- **Intro copy is per lane.** The page's single intro paragraph describes name pairs only. Each
+  lane gets its own line. People and Studios: *"Keep separate remembers your choice; merging
+  keeps the other name as an alias."* Videos: its current line. Tags and Films: the current
+  paragraph's wording.
+- **After a verdict, re-read only that lane and the counts.** The tab's number drops with the
+  row, using the same optimistic decrement as today.
 
-### The column, top to bottom — F68's order exactly
+| Lane state | Renders |
+|---|---|
+| loading (first open, or switching) | the tabpanel shows `py-16 text-center text-sm text-muted` "Loading…", and every count stays put |
+| empty | "No possible duplicate {lane}." in the same `py-16` slot, inside the bordered shell |
+| error | the existing `text-warn role="alert"` line, inside the tabpanel only. The tabs stay usable. |
+
+## Rows (P0-1, P0-4, P0-9, RD15–RD17)
+
+**The whole row toggles its panel (RD16).** On a person or studio row the root `div` gets
+`onclick` → `onexpand(!open)`, plus `cursor-pointer` and `hover:bg-surface-2`. Ignore the click
+when `e.target.closest('a, button')` is anything other than the disclosure itself, so names and
+verdicts never toggle. **The chevron `<button>` stays** as the keyboard and screen-reader
+control, with `aria-expanded`/`aria-controls` as today. The row's click is a pointer convenience
+on top of it. Don't give the row root a role or a tabindex, and nothing gets nested in a control
+(P0-1).
+
+**Names are links (RD17, P0-9).** Each name `<span>` becomes
+`<a href={profile} target="_blank" rel="noopener" class="truncate text-ink hover:text-accent">`
+followed by `<span aria-hidden="true" class="text-xs text-muted">↗</span>`. The link's
+`aria-label` is `` `Open ${name} in a new tab` ``. The mark is the Videos lane's `Open ↗`
+treatment. Profile paths are `/people/{id}` and `/studios/{id}`. Tag and film rows keep plain
+names.
+
+**The verdicts (C2, C5).** On a person or studio row:
+
+| Where | Control | Class |
+|---|---|---|
+| collapsed row | Keep separate (the only verdict) | `btn-row btn-ghost px-2` |
+| panel footer | Keep separate | `btn-row btn-ghost px-2` |
+| foot of each column | **Merge into this one** | `btn-row btn-pill btn-accent` |
+
+On a tag or film row nothing changes: Keep separate is accent, Merge is ghost, and Merge opens the
+inline `Keep: A / B / Cancel` step (RD7). The row's `verdicts` snippet branches on
+`showsComparePanel(pair.entity_type)`. The row owns every verdict and `busy`, as before. It hands
+the panel a `mergeInto(keep, other)` snippet, the way `VideoPairRow` hands over `keepThis`.
+
+The `aria-label` for Merge into this one is `` `Merge ${other} into ${keep}` ``. Without the
+name, "this one" is ambiguous to a screen reader.
+
+## People panel (P0-2, P0-3, RD18)
+
+The column, top to bottom. Rows 3–6 are the 451 column unchanged:
 
 | # | Element | Markup | Rule |
 |---|---|---|---|
-| 1 | Image strip | `<div class="flex gap-1">` of `PersonImageFrame` | 5 frames, `frameClass="portrait-frame--1x1 w-11"`. Slot 1 = `role="headshot"` with `version={card.headshot_version}`; slots 2–5 = `gallery` filtered to `img.role !== 'headshot'`, in `sort_order`. No `+N`. |
-| 2 | Name + flags | `<span class="flex items-center gap-1.5">` → `<span class="skin-title truncate font-display text-sm font-semibold">` + `NationalityFlags values={card.nationality}` | `display_name ?? name ?? pair.X.name`. Flags render nothing at all when none resolve. |
-| 3 | Meta line | `<span class="block text-xs text-muted">{meta.join(' · ')}</span>`, only `{#if meta.length}` | Copy `PersonHoverCard.svelte:34–42` verbatim: `age` xor `†age_at_death`; `videoCount(video_count)` unconditional; `N film(s)` only when `film_count > 0`. **Absent segments are never pushed**, so the ` · ` separator can never orphan. |
-| 4 | Aliases | `<span class="block truncate text-xs italic text-muted">also credited as {aliases.join(', ')}</span>` | `card.aliases?.slice(0, 3)`; omitted entirely when empty. |
-| 5 | Link row | `<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule pt-2 text-xs">` | `Videos` → `/people/{id}#videos` (always) · `Films` → `/people/{id}#films` (only when `film_count > 0`) · one `ProviderLinkBadge` per `sortExternalLinks(card.external_links)`. |
+| 1 | **Lead** | `PersonImageFrame` with `frameClass="portrait-frame--1x1 w-60"`, `sizes="240px"`, `eager` | Starts as the headshot. **One per side, both always visible.** No hover zoom, no lightbox (P2-4). |
+| 2 | Strip | `<div class="mt-1 flex gap-1">` of up to 5 `PersonImageFrame`s in `<button type="button">`, each `w-11` | Slot order as before: headshot, then up to 4 non-headshot gallery images in `sort_order`. **Clicking a frame makes it that side's lead.** The other side doesn't change. The frame in the lead carries `aria-pressed="true"` and a 2 px `ring-accent` inset. `5 × 44 + 4 × 4 = 236 px`, so the strip spans the 240 px lead. **No strip at all** when the side has one image or none. The lead is enough. |
+| 3 | Name + flags | as 451, with the name now an `<a>` + ↗ (see Rows) | |
+| 4 | Meta line | as 451 | absent segments never pushed |
+| 5 | Aliases | as 451. A side with none says **"No other names"** (`text-xs text-muted`, not italic). | The spec's "says so in words" (P0-10) applies to both panels, so the columns line up. |
+| 6 | Link row | `Videos ↗` · `Films ↗` (only when `film_count > 0`) · `ProviderLinkBadge`s | **All of them open in a new tab** with the ↗ mark (P0-9). The badges already open externally, so add only the mark. |
+| 7 | Verdict | `mt-2 border-t border-rule pt-2` holding Merge into this one | |
 
-**Not rendered in P0:** `CompletenessRing`. `card.completeness` *will* be in the payload (this is
-an owner surface), and "I can't decide — go fetch more" is a genuinely apt action here. It is held
-to **P1** because it adds a second interactive control per column competing with the verdicts, and
-F65.8's sweep-with-redraw has never run inside a list row. Just don't render it.
+The lead state is per side: `lead: { a: imageKey, b: imageKey }`. It lives in the panel, never on
+the row. It resets when the panel closes, so a reopened panel always starts on the headshots.
 
-### The disclosure
+**Column width.** `field-grid` is still the grid, `repeat(auto-fit, minmax(min(320px,100%),1fr))`.
+The lead needs 240 + 2 × 12 padding = 264 px, inside the 320 px minimum, so neither the lead nor
+the strip ever reflows. Below two columns' width the sides stack, A above B, as before.
 
-Copy `CompletenessPanel.svelte:79–99` exactly — it and `ExpandableText.svelte` are the house
-pattern, confirmed a third time at `media/[id]/+page.svelte:2041`.
+## Studios panel (P0-10, RD10)
 
-```svelte
-<button
-  type="button"
-  onclick={() => (expanded = !expanded)}
-  aria-expanded={expanded}
-  aria-controls={panelId}
-  aria-label={expanded ? `Hide evidence for ${a} and ${b}` : `Compare ${a} and ${b}`}
-  title={expanded ? 'Hide evidence' : 'Compare'}
-  class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
+`showsComparePanel` returns true for `'studio'` too. A studio pair gets the disclosure, the
+whole-row toggle and the panel. Its match-kind label moves into the panel as a person pair's
+does (`labelPlacement` → `'panel'` for both). This needs a new sibling,
+**`DuplicateStudioPanel.svelte`**, because the data and the column differ from the person card.
+It reuses the panel well, the `field-grid`, the column shell and the footer markup.
+
+| # | Element | Markup | Rule |
+|---|---|---|---|
+| 1 | Name | `<a>` + ↗ (`skin-title font-display text-sm font-semibold`) | links `/studios/{id}` in a new tab |
+| 2 | Count | `text-xs text-muted` "40 videos" | |
+| 3 | **Name came from** | `<p class="mt-3 text-xs text-muted">Name came from</p>` + `<dl class="mt-1 space-y-0.5 text-xs">`, each row a `<div class="flex justify-between gap-3">` of `<dt class="text-ink">` source and `<dd class="text-muted tabular-nums">N videos</dd>` | One row per source that carries this name on some video **now**: **"File tags"** or the provider's own label (`provider-1`). One video can count toward two sources, so the counts may sum past the total. Order: most videos first. One source → one row, with no empty slots. It never says which source won or which came first (OQ6). **Never a verdict word** ("wrong", "typo", "likely"): Goal 3. |
+| 4 | Posters | `<div class="mt-3 grid grid-cols-3 gap-1">` of `<figure>`: a `.video-frame` + `<figcaption class="mt-0.5 truncate text-xs text-muted">` | **Up to 3, per C3.** Each caption names the source that **won** that video's studio name (the only place the panel shows a winner). Plain images with `alt=""`, not links: the column's `Videos ↗` is the path. No videos → no grid, and no reserved space. A broken image keeps the themed empty frame, as `VideoComparePanel`'s poster does. |
+| 5 | Aliases | `<p class="mt-3 text-xs text-muted">Also known as</p>` + rows as in 3: the alias `text-ink`, its origin `text-muted` (`provider-1`, or **"you"**) | "you" covers a typed alias and a spelling kept by an earlier merge or rename. They carry no source, so they're indistinguishable. A side with none: **"No other names"** in place of the list. |
+| 6 | Link row | `Videos ↗` → `/studios/{id}#videos`, then one `ProviderLinkBadge` per provider that knows this studio | everything opens in a new tab with ↗. A provider with no URL degrades to its non-link `Known to …` span, as on People. |
+| 7 | Verdict | Merge into this one | as People |
+
+Use **"Name came from"** exactly. It describes provenance and judges nothing. It also avoids
+"source", which owners read as the per-field source decision (the `SourceBadge` chip row),
+and this panel is not that layer. There's no precedence control here, no provider-value
+comparison, and no adoption row.
+
+**Loading.** Same as the person panel. Each column shows its name and count from the pair row
+right away. The sources list and posters are absent until data lands, and the poster grid is
+held as three empty `.video-frame`s so nothing shifts. **Failure** is per side, with the same
+"Couldn't load this side." + Retry as the person panel. It's never cached and never disables a
+verdict.
+
+## Confirmations (P0-4 RD15, P0-11 RD14)
+
+Both use `shared/ConfirmDialog.svelte`, `variant` left at its default, `destructive` (`bg-warn`).
+A merge can't be undone, and the Videos lane already gives Move to Trash the same weight. The row
+owns the dialog, as `VideoPairRow` does.
+
+**Person.** Title: `Merge into {keep}?` Body:
+
+> **{other}**'s {N videos}, films and links move to {keep}. "{other}" stays as an alias, so it
+> still finds this person.
 >
-  <svg class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
-       class:rotate-180={expanded} viewBox="0 0 24 24" fill="none"
-       stroke="currentColor" stroke-width="2" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
-  </svg>
-</button>
-```
+> This can't be undone. *(`text-muted`)*
 
-`panelId` must be unique per row. Use the `{#each}` key's own source:
-`` `dup-panel-${pair.entity_type}-${pair.a.id}-${pair.b.id}` ``.
+Confirm `Merge` · Cancel. This drops the "films" clause when the other side has no films, and the
+video count comes from the pair row.
 
-**Rendered only when `pair.entity_type === 'person'`** (RD10) — and this is also the
-`ExpandableText` rule (`:5–7`) applied: *"a control that cannot change what you see is one the
-reader learns to distrust."* A studio, tag or film row has no panel, so it gets no chevron and
-keeps today's left edge.
+**Studio.** Title: `Merge into {keep}?` Body:
 
-## Design tokens used
+> **{other}**'s {N videos} and links move to {keep}.
+>
+> Show the studio as *(`text-muted`)*
+> ◉ {keep} *its name now* · ○ {other}
+>
+> *(Default pick)* The other spelling stays as an alias. Writeback will offer **{keep}** for these
+> files.
+> *(Other spelling picked)* This renames the studio, as renaming it on its own page would.
+> "{keep}" stays as an alias. Writeback will offer **{other}** for these files.
+>
+> This can't be undone.
 
-| Token / utility | Where | Note |
-|---|---|---|
-| `bg-surface` | section shell, both column cards | |
-| `bg-surface-2` | the panel well, disclosure `hover:` | ~2 % from `--surface` in Cinémathèque — decorative only, never load-bearing |
-| `border-rule` | every hairline: row `border-t`, card borders, in-card dividers | |
-| `rounded-theme` | card corners, disclosure square | `2px` Cinémathèque |
-| `text-ink` / `font-display` / `skin-title` | names | |
-| `text-muted` | counts, meta, aliases, provider badge text, chevron | |
-| `text-accent` / `border-accent` | `Videos` / `Films` links; the Keep separate pill | |
-| `text-warn` | the `alias match only — weak signal` label — **the panel well's first line** on a person pair, still the row on any other kind; per-side fetch error | |
-| `.btn-row .btn-pill .btn-accent` | **Keep separate** (was Merge) | outlined accent, `rounded-full` |
-| `.btn-row .btn-ghost px-2` | **Merge** (was Keep separate) | bordered neutral |
-| `.btn-row .btn-pill .btn-accent` | the two survivor buttons, step 2 | unchanged — in that step Keep separate isn't on screen, so accent is unambiguous |
-| `.btn-row .btn-quiet` | `Cancel` in step 2; the disclosure | unchanged |
-| `.portrait-frame .portrait-frame--1x1 w-11` | every strip frame | `object-position: center 28%` face-bias comes free |
-| `field-grid` | the two-column grid | `repeat(auto-fit, minmax(min(320px,100%),1fr))` — **use the utility, not a hand-written `grid-cols-[…]`**; the theming rule forbids the latter |
-| `gap-1` / `gap-4` / `p-3` / `mt-2 pt-2` | strip gap / column gap / card padding / in-card divider | matches `PersonHoverCard`'s own spacing |
-
-Nothing hardcoded. The mockup's literal hexes are the Cinémathèque tokens at `app.css:107–123`
-and the Brutalist tokens at `:145–161`, so it renders faithfully on GitHub without the webfonts.
-
-## Data
-
-Zero new endpoints (RD8). Per side, on first expand:
-
-| Call | Supplies | Note |
-|---|---|---|
-| `loadPersonCard(id)` — `person/personCard.svelte.ts` | name, `headshot_version`, counts, age, nationality, aliases, `external_links` | **Use the lease wrapper, not `api.personCard` directly** — it shares the F68 hover card's session cache, so a person you already hovered costs nothing. One request per person; failures are not cached. |
-| `api.getPersonImages(id)` | `{ roles, gallery }` for the strip | `PersonImage` carries `role`, so the headshot is excluded from the tail by `img.role !== 'headshot'` — the ids are not otherwise comparable. |
-
-Image URLs: `api.personImageURL(id, 'headshot', { version, skin })` for slot 1,
-`api.personGalleryImageURL(id, imageId, { version, skin })` for slots 2–5 — both already inside
-`PersonImageFrame`, which `$derived`s on `theme.current` so the strip re-themes live on a skin flip.
-
-**Hard rule from `components/person/CLAUDE.md`, repeated here because it is easy to get wrong:**
-*"Card facts come from `GET /people/{id}/card` only — never assemble age/nationality client-side,
-and never feed the card the detail read."* `api.getPerson` ships up to 500 videos; it is not an
-option.
-
-> **Build question to settle in code, not here.** `loadPersonCard` returns a `CardLease`
-> (`{ promise, release }`). P0-5 requires that reopening a panel issues no second request. Check
-> whether `release()` evicts the entry or merely decrements a refcount — if it evicts, hold the
-> lease for the page's lifetime rather than releasing on collapse, and say so in the component's
-> header comment.
+- **The radio group** is `<fieldset>` + `<legend class="text-muted">Show the studio as</legend>` +
+  two native `<input type="radio" class="accent-accent">` with their labels. The default is the
+  survivor's own name. "its name now" is a `text-xs text-muted` hint on that option only.
+- **The confirm label follows the pick:** `Merge` by default, and `Merge and rename` with the other
+  spelling. `busy` shows the dialog's own `Working…`.
+- **The writeback line always names the spelling that will be written** (P0-11). It's the
+  sentence that makes Show as consequential, so it changes with the radio rather than staying
+  generic.
+- Cancel, Escape or a backdrop click merges nothing (P0-11).
 
 ## States and interactions
 
 | Element | State | Behaviour |
 |---|---|---|
-| Disclosure | default | chevron down, `text-muted` |
-| Disclosure | hover / focus | `bg-surface-2`; `.btn-quiet` adds `text-ink` + underline on the (absent) label — the square is icon-only, so this reads as the background change alone |
-| Disclosure | expanded | chevron `rotate-180`, 200 ms, `motion-reduce:transition-none` |
-| Panel | opening | **no height animation.** `{#if expanded}` toggles it in, matching `CompletenessPanel`. The chevron rotation is the only motion. |
-| Column | loading (`card === null`) | five **empty** `<span class="portrait-frame portrait-frame--1x1 w-11" aria-hidden="true">` frames + the name from `pair.a.name` / `pair.b.name`, which the row already has. No spinner, no skeleton bars. Meta, aliases and link row are simply absent until data lands. |
-| Column | sparse | absent facts leave no trace — no age segment, no flag, no alias line, no `Films` link, no badges. Never `—`, never "unknown". |
-| Column | fetch failed | `<p class="text-xs text-warn" role="alert">Couldn't load this side.</p>` + a `btn-row btn-quiet` **Retry** inside that column only. The other column still renders; **both verdicts stay enabled**; the failure is not cached, so Retry re-requests. |
-| Verdicts | `busy` | all four buttons disabled via the existing `busy` state. `.btn-accent` drops to `border-rule`/`text-muted` and `.btn-ghost` drops its border — **do not add `disabled:opacity-60`**, which lands at 2.4–2.9:1 on `text-muted` (theming rule). |
-| Verdicts | Merge pressed | unchanged two-step: `Keep:` + both full names as `btn-pill btn-accent` + `Cancel`. If the panel is open it **stays** open — the survivor choice is exactly when you want the evidence on screen. |
-| Row | resolved | the page's `resolve()` removes it from `pairs`. |
+| Lane tab | default / active / focus | `text-muted hover:text-ink` / `bg-surface-2 text-ink` / the global focus ring. `aria-selected` follows the active state. |
+| Row (person, studio) | hover | `bg-surface-2` and `cursor-pointer` across the whole row. Links and buttons keep their own hover. |
+| Row | expanded | chevron `rotate-180`, and the panel mounts below it (no height animation, as 451) |
+| Strip frame | chosen | `aria-pressed="true"` + `ring-2 ring-inset ring-accent`. The lead swaps instantly, with no crossfade. |
+| Strip frame | hover / focus | the frame gets `ring-1 ring-rule`. **No enlargement** (P0-3). |
+| Merge into this one | pressed | opens the confirm. The panel stays open behind it. |
+| Confirm | busy / error | `ConfirmDialog`'s own `Working…` and its inline `text-warn` error. The dialog stays open on error. |
+| Row | resolved | removed instantly (no fade). Focus follows the existing ladder: next row's disclosure → the tabpanel → `QUEUE_ID`. |
 
 ### Keyboard and focus
 
 | Key | Result |
 |---|---|
-| `Enter` / `Space` on the disclosure | toggles — native `<button>` behaviour, nothing to write |
-| `Escape` while a panel is open | collapses it; focus returns to **its** disclosure |
-| `Tab` from the disclosure | into the panel in DOM order: side A's `Videos` → `Films` → badges → side B's → footer Keep separate → footer Merge → next row's disclosure |
-| another disclosure pressed | the open panel collapses first (RD12) — a module-level `openId`, same shape as `PersonHoverCard`'s single-open state |
+| ←/→, Home/End on the tablist | moves between lanes (roving `tabindex`) and opens the lane |
+| `Enter`/`Space` on the disclosure | toggles (the row's click is pointer-only) |
+| `Escape` with a panel open | collapses it, and focus returns to its disclosure. **An open confirm owns Escape first** (as `VideoPairRow`). |
+| Tab through a person column | name link → strip frames → Videos → Films → badges → Merge into this one, then the other column, then the footer's Keep separate |
 
-**Do not use `use:dismissable` here.** It closes on outside click, which on this page would
-collapse your panel the moment you reach for another row's verdict. The panel is in-flow, not
-floating: bind a plain `onkeydown` for `Escape` on the panel container and nothing else.
+Opening a second panel still collapses the first (RD12). The page's single `openKey` already
+spans every lane, and switching lanes closes any open panel.
 
-**Two things the page does not have today and this change introduces.** Both are new work in
-`routes/owner/duplicates/+page.svelte`, not just in the components:
+## Design tokens used
 
-1. **The first keyboard handling on the page.** There is currently none — no `onkeydown`, no
-   focus management, buttons are the only tab stops.
-2. **Focus after a resolve.** `resolve()` is `pairs = pairs.filter(p => p !== pair)`, an instant
-   array removal — focus would fall to `<body>`. Before removing, move focus to the next row's
-   disclosure, or to the group heading when it was the last row in the group.
+All the 451 tokens still apply. New uses:
 
-> **Spec correction.** Spec P0-6 says *"when the row fades out"* and `DuplicatePairRow.svelte:7`
-> says *"the row fades out"* — **there is no fade.** `+page.svelte:47–49` is an unanimated filter
-> and always has been. This handoff keeps the instant removal (a transition is scope this epic
-> didn't ask for) and the stale comment at `DuplicatePairRow.svelte:7` should be corrected in the
-> same commit.
-
-## Responsive behaviour
-
-| Width | Layout |
+| Token / utility | Where |
 |---|---|
-| Column ≥ 320 px each (the common desktop case) | two columns, `field-grid` auto-fit |
-| Below that | one column: side A above side B, each keeping its own border. No breakpoint is written by hand and no divider orientation flips — this falls out of `field-grid`. |
-| Row text | **one 40 px line, always** — the label is gone and the inner block no longer wraps, so a long pair truncates its names instead of growing the row. Measured at real type sizes: the widest sample row ends at `x=489` against a verdict pill starting at `x=540`. Only at genuinely narrow viewports does the row root's `flex-wrap` drop the verdict block below the text |
+| `bg-surface-2` | active lane tab; row hover |
+| `text-xs text-muted tabular-nums` | lane counts; the source counts |
+| `portrait-frame--1x1 w-60` | the People lead |
+| `ring-accent` / `ring-rule` | chosen / hovered strip frame |
+| `.video-frame` | studio posters (`VideoComparePanel`'s poster shell, without its badges) |
+| `.btn-row .btn-pill .btn-accent` | Merge into this one |
+| `.btn-row .btn-ghost px-2` | Keep separate on person and studio pairs |
+| `bg-warn text-warn-ink` | the confirm button (ConfirmDialog's destructive variant) |
+| `accent-accent` | the Show as radios |
 
-The strip does **not** reflow — five 44 px frames fit the 320 px minimum with 60 px to spare.
+Nothing is hardcoded. The mockups' literal hexes are the Cinémathèque tokens at `app.css:101–123`.
+The image placeholders' `#221c18` is a stand-in for real images, not a token.
 
 ## Edge cases
 
-- **No images at all on a side** — render exactly **one** frame (the backend always serves a real
-  or themed placeholder for `role="headshot"`, so `PersonImageFrame` never shows a broken glyph),
-  not five empty wells. The column keeps its shape without pretending to evidence it doesn't have.
-- **Fewer than 5 images** — render what exists. Three frames is three frames; no filler.
-- **A side with no `external_links`** — the link row still renders (`Videos` is unconditional),
-  just without badges.
-- **A provider with no URL** — `ProviderLinkBadge` already degrades to a non-interactive `<span>`
-  labelled `Known to {label}` (ADR-083 D2). Nothing extra to do.
-- **Long names** — `truncate` on the name line inside a `min-w-0` column, as F68 does. The full
-  name is in the row above and in the Merge survivor buttons, which never truncate.
-- **Both sides are the same person id** — impossible; the detector pairs distinct ids.
-- **A pair resolved in another tab** — out of scope; the queue is a single-owner surface and the
-  read is on page load.
+- **A lane whose count is 0 but is named in `?type=`.** It opens and shows the empty message.
+  It never redirects to another lane, because the banner link must land where it says.
+- **A pair whose two names differ only in what the row truncates.** The full names are in the
+  confirm dialog's title and body, which never truncate.
+- **A studio with one name source on each side, from the same source** (both file tags). The
+  counts are still the evidence, so show both columns as normal.
+- **A studio with no videos.** It shows a count of "0 videos", no sources list, no posters, and
+  its aliases or "No other names".
+- **Show as when the survivor's name and the other spelling differ only in case.** Out of scope:
+  case is already auto-merged before a pair is ever proposed.
+- **A person with a single image.** It gets the lead and no strip (rule 2), not a strip of one.
 
 ## Accessibility
 
-- Disclosure: `<button type="button">` with `aria-expanded`, `aria-controls={panelId}`, a
-  state-dependent `aria-label` and a plain `title`. **Never nest it in another control** — the row
-  root is a `<div role="group">`, so there is nothing to nest inside (P0-1's third criterion).
-- Panel: `<div id={panelId} role="group" aria-label={`Compare ${a} and ${b}`}>`. **Not**
-  `role="dialog"`, **not** `aria-modal` — it is in-flow supplementary content, and the rest of the
-  queue stays reachable behind it.
-- Each column: `<section aria-label={shownName}>` so a screen reader can tell the two apart
-  without counting.
-- Strip images: the first frame carries the person's name as `alt` (via `PersonImageFrame`'s
-  default); frames 2–5 pass `alt=""` — they are the same person, and five identical announcements
-  is noise. This is the documented use of that prop.
-- Per-side error: `role="alert"`, so the failure is announced without moving focus.
-- The chevron is `aria-hidden`; the button's `aria-label` carries the meaning.
-- Contrast: every pairing here is an existing token pairing already QA'd in Cinémathèque. The
-  one new one is `text-accent` on `bg-surface` for the Keep-separate pill, which is the existing
-  `.btn-accent` treatment moved to a different button — same colours, same surface.
+- The tablist follows the ARIA tabs pattern, copied from `SearchResultsPanel`: `role="tablist"`
+  with an `aria-label`, then `role="tab"`, `aria-selected`, `aria-controls`, and `role="tabpanel"`
+  with `aria-labelledby`. Each tab's accessible name includes its count ("People, 31").
+- New-tab links carry `aria-label="Open {name} in a new tab"`. The ↗ is `aria-hidden`.
+- Strip frames are buttons labelled `Show image {n} of {name}`, with `aria-pressed`. The lead's
+  `alt` is the person's name. Strip images are `alt=""`, since the button carries the label.
+- Merge into this one carries `aria-label="Merge {other} into {keep}"`.
+- The Show as radios are a native `fieldset`/`legend` group. The writeback sentence sits in the
+  dialog body beside them, so it is read with the choice, and its text changes with the pick.
+- The row's whole-row click is pointer-only and duplicates the disclosure button, so no
+  keyboard path depends on it.
 
 ## Cinémathèque QA
 
 Per `.claude/rules/frontend-theming.md`, QA Cinémathèque, the only look.
 
-What actually differs, and what to look for:
+1. The active lane tab: `bg-surface-2` against the page `bg-bg`. Check it reads, since the two are
+   close.
+2. Row hover `bg-surface-2` against `bg-surface`. It's about 2 % apart, so the hover is a
+   convenience, not a signal. The cursor carries it.
+3. The chosen-frame `ring-accent` on a dark headshot and on the themed placeholder.
+4. The ↗ mark at `text-xs text-muted` beside a `text-ink` name: legible, and subordinate to it.
 
-1. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
-2. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
-3. *(Retired with the Broadcast/Brutalist skins: Cinémathèque is the only look.)*
-4. **`text-warn`** on the weak-signal label — now against `--surface-2` (the panel well) on a
-   person pair, and still against `--surface` (the row) on any other kind. **Check both**: it is
-   a token pairing the row never had, and `--surface-2` differs from `--surface` only slightly.
-
-Greps that must stay empty for this change:
+Greps that must stay empty:
 `rg 'zinc-|sky-|emerald-|amber-|rounded-(lg|md|sm|xl)' web/src --glob '*.svelte'` ·
 `rg 'text-muted[^"]*disabled:opacity' web/src --glob '*.svelte'`
 
 ## Build checklist
 
-- [ ] `web/src/lib/components/duplicates/DuplicateComparePanel.svelte` — new
-- [ ] `web/src/lib/components/duplicates/CLAUDE.md` — **add the row for it in the same commit**
-      (the parent `components/CLAUDE.md` mandates this)
-- [ ] `DuplicatePairRow.svelte` — disclosure (person only), verdict class swap, panel mount,
-      fix the stale "fades out" comment at line 7, **drop `flex-wrap` from the inner text block
-      (`:77`) but keep it on the row root (`:73`)**, and **gate the match-kind label (`:84–92`)
-      on `pair.entity_type !== 'person'`** — a person pair's label is rendered by the panel
-      instead. Export `matchKindLabel` (or lift it) so the panel reuses the same strings.
-- [ ] `routes/owner/duplicates/+page.svelte` — single-open state, Escape, focus-after-resolve
-- [ ] `app.css:281–292` / `:313–324` — update the `.btn-ghost` / `.btn-accent` doc comments that
-      name Keep separate and Merge
-- [ ] `/testing-strategy`, `/security-review` (owner-gated surface — re-confirm the existing gate
-      covers `/people/{id}/card` and `/people/{id}/images` reached from this page),
-      `/code-review high --fix`
+- [ ] `routes/owner/duplicates/+page.svelte`: the lane tablist and tabpanel, `?type=` via
+      `replaceState`, the default lane, a per-lane intro line, per-lane read and re-read, and
+      counts on every tab. Remove the group `h2`s.
+- [ ] `queue.ts`: `showsComparePanel` → person **and** studio. `labelPlacement` follows it. The
+      focus ladder's group rung becomes the tabpanel id. Update `queue.test.ts`.
+- [ ] `DuplicatePairRow.svelte`: whole-row toggle, name links + ↗, and verdicts branched by
+      `showsComparePanel` (ghost Keep separate only; the `mergeInto` snippet; the merge
+      `ConfirmDialog` with Show as for studios). Tag and film rows unchanged.
+- [ ] `DuplicateComparePanel.svelte`: the lead, the strip buttons, per-side lead state, new-tab
+      links, "No other names", and Merge into this one per column. Drop the footer's Merge.
+- [ ] `DuplicateStudioPanel.svelte`: new. **Add its row to `duplicates/CLAUDE.md`** in the same
+      commit, and update the `DuplicateComparePanel`/`DuplicatePairRow`/`queue.ts` rows.
+- [ ] `verdictOwnership.test.ts`: extend it to the studio panel and the `mergeInto` snippet.
+- [ ] `app.css` `.btn-ghost`/`.btn-accent` doc comments: on person and studio pairs, Keep separate
+      is now the ghost.
+- [ ] `/testing-strategy`, `/security-review` (the new lane, studio-evidence and merge-rename
+      reads are owner-gated), `/code-review high --fix`.
 
-## Spec deltas this handoff introduced — **applied 2026-09-22 (approved by the owner)**
-
-| Spec | Was | Now |
-|---|---|---|
-| P0-3 | "capped at 5 visible with a `+N` affordance that links to the person's gallery" | 5 visible, **no `+N`** (OQ2). Its two `+N` acceptance criteria are replaced by: *given a person with more than 5 images, 5 render and nothing indicates there are more*; *given a person with no images, exactly one placeholder frame renders*. |
-| P0-4 / RD7 | Merge "becomes the quiet action" | Merge takes `.btn-ghost`, not `.btn-quiet` — `btn-quiet` is reserved for no-side-effect controls |
-| P0-6 | "when the row fades out" | "when the row is removed" — there is no fade and never was |
-| UI | reuses `PersonImageFrame`, `NationalityFlags`, `ProviderLinkBadge` | …and the `Videos` / `Films` profile anchors from F68 |
-
-All four are now in `docs/specs/duplicates-pair-evidence.md`, along with OQ2/OQ3/OQ4 struck
-through as closed and RD7/RD12 reworded. The spec and this handoff no longer disagree.
-
-### Second amendment — 2026-09-23 (approved by the owner)
+## Spec deltas this handoff introduced — **applied 2026-10-27**
 
 | Spec | Was | Now |
 |---|---|---|
-| OQ3 / RD10 | the match-kind label sits in the collapsed row for every pair kind | on a **person** pair it moves to the compare panel's first line; every other kind keeps it in the row. The row is one 40 px line at every desktop width |
-| P0-1 | (silent on row height) | new acceptance criterion: *given the widest person pair in the queue, the collapsed row renders on a single line with the verdicts on that same line* |
-
-**Why this is not a return to design.** The 2026-09-22 answer to OQ3 was given against a mockup
-that drew the label fitting on one line. It does not fit — the mockup had drawn it overlapping
-the `Keep separate` pill rather than wrapping, so the cost of keeping it was invisible when the
-question was asked. This amendment prices it correctly and the owner re-answered.
+| OQ7 | open | **answered** (C3): up to 3 posters, one per name source first, then the most recently added |
+| intro, Goal 7, RD15, P0-4 (598 criteria), P0-11 | "Keep this one" | **"Merge into this one"** (C5). The Videos lane (F76) keeps "Keep this one". |
+| Goal 2, P0-4 intro and first two criteria | Keep separate is the accent on any pair row | applies to **tag and film** pairs. On person and studio pairs Keep separate is the bordered neutral and Merge into this one the accent (C2, Goal 7). |
+| P0-10, criterion 4 | "up to a small fixed number" of posters | "up to 3, one per name source first, then the most recently added" |
