@@ -370,6 +370,52 @@ const SCENARIOS = [
 		}
 	},
 	{
+		// HOLODEX-601 EL7: People is one whole-list scroll that fetches only the pages in view,
+		// so Back has to re-fetch where you were and land on the same entry, not just restore a
+		// scrollY over a list that is still empty there. Deep in a non-name sort, where A–Z can't
+		// help: the case the whole-list scroll exists for.
+		key: 'whole-list-back-lands-on-same-entry',
+		qa: '§32.1 · HOLODEX-601 EL7',
+		run: async ({ page }) => {
+			const entry = 'main [role="list"] [data-index]';
+			/** The first entry at least half below the top of the viewport, once real (not a placeholder). */
+			const firstInView = () =>
+				page.evaluate((sel) => {
+					const cells = [...document.querySelectorAll(sel)].filter((c) => !c.closest('.sr-only'));
+					const top = cells.find((c) => {
+						const r = c.getBoundingClientRect();
+						return r.top + r.height / 2 > 0;
+					});
+					return top && top.getAttribute('aria-busy') !== 'true' ? Number(top.dataset.index) : null;
+				}, entry);
+			const waitForReal = async () => {
+				await page.waitForFunction((sel) => {
+					const cells = [...document.querySelectorAll(sel)].filter((c) => {
+						const r = c.getBoundingClientRect();
+						return !c.closest('.sr-only') && r.bottom > 0 && r.top < innerHeight;
+					});
+					return cells.length > 0 && cells.every((c) => c.getAttribute('aria-busy') !== 'true');
+				}, entry, { timeout: 5000 }).catch(() => {});
+				return firstInView();
+			};
+
+			await goto(page, `${base}/people?sort=count`);
+			await page.locator(entry).first().waitFor({ timeout: 5000 });
+			const total = await page.$$eval(entry, (els) => Number(els[0].getAttribute('aria-setsize')));
+			expect(total >= 500, `People has ${total} entries — reseed with -big; a short list can't show a whole-list Back`);
+			const height = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+			await scrollTo(page, Math.round(height / 2));
+			const before = await waitForReal();
+			expect(before != null && before > total / 4, `the middle of the list showed entry ${before}, not real entries near ${total / 2}`);
+			const y = await page.evaluate(() => window.scrollY);
+
+			await openVisible(page, PERSON_ROW, /^\/people\/\d+$/);
+			await backTo(page, '/people?sort=count', y);
+			const after = await waitForReal();
+			expect(after === before, `Back showed entry ${after} first, expected ${before}`);
+		}
+	},
+	{
 		key: 'hash-anchor-lands',
 		qa: 'HOLODEX-459',
 		run: async ({ page }) => {

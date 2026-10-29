@@ -1,15 +1,20 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { navSearch } from '#lib/navSearch.svelte.ts';
 	import type { Person } from '#lib/types.ts';
-	import { PagedList, pagedListPage, settledQuery } from '#lib/pagedList.svelte.ts';
-	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
+	import { settledQuery } from '#lib/pagedList.svelte.ts';
+	import { SparseList, letterAt } from '#lib/sparseList.svelte.ts';
+	import { RovingList, WindowVirtualizer, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
+	import { posterColumns } from '#lib/density.svelte.ts';
+	import VirtualRows from '#lib/components/shared/VirtualRows.svelte';
+	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
 	import ListToolbar from '#lib/components/sort/ListToolbar.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import PersonAvatar from '#lib/components/person/PersonAvatar.svelte';
-	import PersonPosterGrid from '#lib/components/person/PersonPosterGrid.svelte';
+	import PersonPosterCard from '#lib/components/person/PersonPosterCard.svelte';
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import ListTable from '#lib/components/sort/ListTable.svelte';
 	import { PEOPLE_COLUMNS } from '#lib/listColumns.ts';
@@ -47,10 +52,11 @@
 	const search = settledQuery(() => (navSearch.inPlace ? navSearch.query : ''));
 	const query = $derived(search.value);
 
-	// One page at a time from the server (F80): name, count, completeness, or Random with
-	// the session seed so pages tile (SP2, ADR-045). The A–Z index needs the name sort, no
-	// search and List view, as before; its letters come with each fresh load.
-	const people = new PagedList<Person>((offset, limit, fresh) =>
+	// One list as tall as the whole library, fetched a page at a time where it's viewed
+	// (F80 EL11, HOLODEX-601): name, count, completeness, or Random with the session seed so
+	// pages tile (SP2, ADR-045). The A–Z index needs the name sort and no search, in every
+	// view; its letters come with the first read of each list.
+	const people = new SparseList<Person>((offset, limit, fresh) =>
 		api.listPeople({
 			sort: sortBy,
 			q: query,
@@ -60,23 +66,51 @@
 			letters: fresh && sortBy === 'name' && !query
 		})
 	);
-	const showIndex = $derived(sortBy === 'name' && !query && activeView !== 'poster');
+	const showIndex = $derived(sortBy === 'name' && !query);
 	let listEl = $state<HTMLElement>();
+	const virt = new WindowVirtualizer(78);
+	const roving = new RovingList(virt, () => people.total);
+	// The List view's columns follow its breakpoints (1 / 2 / 3 at base / sm / lg).
+	const sm = new MediaQuery('min-width: 640px');
+	const lg = new MediaQuery('min-width: 1024px');
+	const listLanes = $derived(lg.current ? 3 : sm.current ? 2 : 1);
+	const cols = $derived(posterColumns());
+	// One poster column's width for the posters' `sizes` (HOLODEX-332): the viewport less the
+	// layout's `<main class="px-6">` gutters (48px) and the grid's `gap-4` gaps, split N ways.
+	const posterSizes = $derived(`calc((100vw - ${48 + 16 * (cols - 1)}px) / ${cols})`);
+	// The A–Z letter that follows the scroll (EL6): the first entry in view's.
+	const activeLetter = $derived(showIndex ? letterAt(roving.anchorEntry, people.letters) : '');
+	let barHeight = $state(0);
+	$effect(() => virt.setStickyTop(barHeight));
+
+	// A view switch keeps the first entry in view (handoff, "The scroll"). Read it before
+	// the old view unmounts (the page collapses and the browser clamps the scroll); the
+	// virtualizer lands on it when the new view's layout arrives.
+	let shownView = untrack(() => activeView);
+	$effect.pre(() => {
+		if (activeView === shownView) return;
+		shownView = activeView;
+		const anchor = untrack(() => roving.anchorEntry);
+		if (anchor > 0) virt.holdAnchor(anchor);
+	});
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into (the choose-survivor step lives in MergeCanonicalDialog).
 	// See [[ADR-036]]. Entered from the toolbar's ⋯ page-actions menu. The picked people
-	// are kept whole, so a selection survives Load more and a letter restart (EL9).
+	// are kept whole, so a selection survives scrolling them far out of view (EL9).
 	let selecting = $state(false);
 	let selectedPeople = $state<Person[]>([]);
 	let choosing = $state(false); // the "Keep which name?" dialog is open
 	const selectedIds = $derived(selectedPeople.map((p) => p.id));
 
-	// A sort, search or reshuffle starts the list over; Back restores the run (EL7). The
-	// scroll key is the canonical view plus the search (ADR-114 D5).
-	const { jumpTo, loadMore } = pagedListPage({
+	// A sort, search or reshuffle starts the list over at the top; Back restores the entry
+	// that was first in view (EL7). The scroll key is the canonical view plus the search
+	// (ADR-114 D5).
+	const { jumpTo } = wholeListPage({
 		id: 'people',
 		list: people,
+		virt,
+		roving,
 		key: () => `${list.key}:${query}`,
 		restartOn: () => {
 			void sortBy;
@@ -84,12 +118,6 @@
 			if (sortBy === 'random') void shuffleSeed.value;
 		},
 		root: () => listEl
-	});
-
-	// Poster view has no A–Z index, so switching to it drops a letter restart (handoff, A–Z).
-	// Table keeps the index as List does (F82 P0-7).
-	$effect(() => {
-		if (activeView === 'poster' && untrack(() => people.letter)) people.jump('');
 	});
 
 	function toggle(p: Person) {
@@ -134,11 +162,8 @@
 	</ListToolbar>
 
 	{#snippet countLine()}
-		{#if !people.loading && !(people.error && people.items.length === 0)}{people.total.toLocaleString()}
-			{people.total === 1 ? 'person' : 'people'}{#if people.letter}
-				{' '}· <span class="text-ink">from {people.letter}</span> ·
-				<button type="button" class="text-accent underline" onclick={() => jumpTo('')}>Back to start</button>
-			{/if}{/if}<DuplicatesBanner
+		{#if !people.loading && !people.error}{people.total.toLocaleString()}
+			{people.total === 1 ? 'person' : 'people'}{/if}<DuplicatesBanner
 			entityType="person"
 			inline
 		/>
@@ -163,69 +188,94 @@
 	     Shown only while a sweep runs or just finished, so it isn't a standing row. -->
 	<SweepStatusLine kind="person" onfinished={() => people.refresh()} />
 
-	{#if people.loading && people.items.length === 0}
+	{#if people.loading && people.total === 0}
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
-	{:else if people.error && people.items.length === 0}
+	{:else if people.error}
 		<p class="py-16 text-center text-sm text-warn">Couldn’t load people: {people.error}</p>
-	{:else if people.items.length === 0 && !query}
+	{:else if people.total === 0 && !query}
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
-	{:else if people.items.length === 0}
+	{:else if people.total === 0}
 		<p class="py-16 text-center text-sm text-muted">No people match “{query}”.</p>
 	{:else}
-		<!-- A failed Load more keeps the loaded list and says so above it. -->
-		{#if people.error}<p class="text-sm text-warn">{people.error}</p>{/if}
 		{#if showIndex}
-			<AlphaIndex anchors={people.letters} active={people.letter} onjump={jumpTo} />
+			<AlphaIndex anchors={people.letters} active={activeLetter} onjump={jumpTo} bind:barHeight />
 		{/if}
-		<div bind:this={listEl} class="scroll-mt-16">
+		<ScrollPositionChip {virt} total={people.total} />
 		{#if activeView === 'poster'}
-			<PersonPosterGrid people={people.items} />
+			<VirtualRows
+				list={people}
+				{virt}
+				{roving}
+				lanes={cols}
+				label="People"
+				noun="people"
+				rowClass="people-poster-grid grid gap-4 pb-4 {showIndex ? 'pr-5 sm:pr-0' : ''}"
+				bind:root={listEl}
+			>
+				{#snippet entry(p, i)}<PersonPosterCard person={p} eager={i < cols} sizes={posterSizes} />{/snippet}
+				{#snippet placeholder()}
+					<div>
+						<span class="portrait-frame--2x3 poster-card-frame block w-full border border-rule bg-surface-2"></span>
+						<span class="block pt-1.5"><span class="block h-5 py-1.5"><span class="block h-full w-2/3 rounded-theme bg-rule"></span></span></span>
+						<span class="block pt-0.5"><span class="block h-4 py-1"><span class="block h-full w-4 rounded-theme bg-rule"></span></span></span>
+					</div>
+				{/snippet}
+			</VirtualRows>
 		{:else if activeView === 'table' && !selecting}
 			<!-- pr-6 keeps the phone A–Z rail clear of the Done ring (handoff, "At 375px"). -->
 			<div class={showIndex ? 'pr-6 sm:pr-0' : ''}>
 				<ListTable
 					columns={tableColumns}
-					items={people.items}
 					key={(p) => p.id}
 					href={(p) => `/people/${p.id}`}
 					sort={sortBy}
 					sorts={ENTITY_SORTS}
 					owner={isOwner}
 					onsort={(s) => list.setSort(s)}
+					window={{ list: people, virt, roving, label: 'People', noun: 'people' }}
+					bind:root={listEl}
 				/>
 			</div>
 		{:else}
-		<!-- Shared row body for both modes — the only difference between select mode and
-		     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
-		     once. The trailing ring + count sit OUTSIDE the wrapper (rowTrail): since F65.8
-		     the ring is a <button>, which may neither nest in the link nor toggle the
-		     checkbox, so the wrapper is a stretched link/label (its ::after covers the
-		     row) and the ring rides above the stretch as a sibling. -->
-		{#snippet personRow(p: Person, i: number)}
-			<PersonAvatar personId={p.id} name={p.display_name ?? p.name} version={p.headshot_version} size="sm" eager={i < 6} />
-			<span class="flex-1 truncate">{p.display_name ?? p.name}</span>
-		{/snippet}
-		{#snippet rowTrail(p: Person)}
-			{#if p.completeness}
-				<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count, so names
-				     don't move between visitor and owner mode. -->
-				<span class="relative z-[1] inline-flex">
-					<CompletenessRing
-						required={p.completeness.required}
-						extras={p.completeness.extras}
-						size="row"
-						entity={{ kind: 'person', id: p.id }}
-					/>
-				</span>
-			{/if}
-			<span class="text-xs text-muted">{p.video_count}</span>
-		{/snippet}
-		<ul class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 {showIndex ? 'pr-5 sm:pr-0' : ''}">
-			{#each people.items as p, i (p.id)}
-				<li>
+			<!-- Shared row body for both modes — the only difference between select mode and
+			     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
+			     once. The trailing ring + count sit OUTSIDE the wrapper (rowTrail): since F65.8
+			     the ring is a <button>, which may neither nest in the link nor toggle the
+			     checkbox, so the wrapper is a stretched link/label (its ::after covers the
+			     row) and the ring rides above the stretch as a sibling. -->
+			{#snippet personRow(p: Person, i: number)}
+				<PersonAvatar personId={p.id} name={p.display_name ?? p.name} version={p.headshot_version} size="sm" eager={i < 6} />
+				<span class="flex-1 truncate">{p.display_name ?? p.name}</span>
+			{/snippet}
+			{#snippet rowTrail(p: Person)}
+				{#if p.completeness}
+					<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count, so names
+					     don't move between visitor and owner mode. -->
+					<span class="relative z-[1] inline-flex">
+						<CompletenessRing
+							required={p.completeness.required}
+							extras={p.completeness.extras}
+							size="row"
+							entity={{ kind: 'person', id: p.id }}
+						/>
+					</span>
+				{/if}
+				<span class="text-xs text-muted">{p.video_count}</span>
+			{/snippet}
+			<VirtualRows
+				list={people}
+				{virt}
+				{roving}
+				lanes={listLanes}
+				label="People"
+				noun="people"
+				rowClass="grid gap-2 pb-2 {showIndex ? 'pr-5 sm:pr-0' : ''}"
+				bind:root={listEl}
+			>
+				{#snippet entry(p, i)}
 					{#if selecting}
 						<div
-							class="relative flex items-center gap-3 rounded-theme border bg-surface px-4 py-2.5 text-ink {selectedIds.includes(
+							class="relative flex items-center gap-3 rounded-theme border bg-surface px-4 py-2.5 text-ink group-focus-visible:border-accent {selectedIds.includes(
 								p.id
 							)
 								? 'border-accent'
@@ -244,7 +294,7 @@
 						</div>
 					{:else}
 						<div
-							class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent"
+							class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent group-focus-visible:border-accent"
 						>
 							<a
 								href={`/people/${p.id}`}
@@ -255,12 +305,17 @@
 							{@render rowTrail(p)}
 						</div>
 					{/if}
-				</li>
-			{/each}
-		</ul>
+				{/snippet}
+				{#snippet placeholder()}
+					<!-- The row's own frame, still (handoff, "Placeholders"). -->
+					<div class="flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5">
+						<span class="portrait-frame--1x1 block w-12 shrink-0 border border-rule bg-surface-2"></span>
+						<span class="h-2.5 w-2/5 rounded-theme bg-rule"></span>
+						<span class="ml-auto h-2.5 w-3.5 rounded-theme bg-rule"></span>
+					</div>
+				{/snippet}
+			</VirtualRows>
 		{/if}
-		</div>
-		<LoadMoreButton left={people.left} loading={people.loadingMore} announce={people.announce} onclick={loadMore} />
 	{/if}
 </section>
 

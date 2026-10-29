@@ -13,8 +13,8 @@ function server() {
 	}));
 }
 
-// F80: one page, then Load more appends; a letter restart and a Back restore rebuild
-// the run from the server's offsets.
+// F80: one page, then Load more appends; a Back restore rebuilds the run from the
+// server.
 describe('PagedList', () => {
 	it('pages through every entry once and announces each page', async () => {
 		const fetch = server();
@@ -47,27 +47,11 @@ describe('PagedList', () => {
 		expect(list.left).toBe(4);
 	});
 
-	it('restarts at a letter, and Load more continues from there', async () => {
+	it('restores a saved run', async () => {
 		const list = new PagedList(server(), 2);
-		await list.load();
-		await list.jump('E');
-		expect(list.letter).toBe('E');
-		expect(list.start).toBe(4);
-		expect(list.items).toEqual(['e', 'f']);
-		expect(list.left).toBe(1);
-		await list.loadMore();
-		expect(list.items).toEqual(['e', 'f', 'g']);
-		await list.jump('');
-		expect(list.letter).toBe('');
-		expect(list.items).toEqual(['a', 'b']);
-	});
-
-	it('restores a saved run, letter included', async () => {
-		const list = new PagedList(server(), 2);
-		await list.restore({ start: 1, loaded: 4 });
-		expect(list.items).toEqual(['b', 'c', 'd', 'e']);
-		expect(list.letter).toBe('B');
-		expect(list.snapshot()).toEqual({ start: 1, loaded: 4 });
+		await list.restore({ loaded: 4 });
+		expect(list.items).toEqual(['a', 'b', 'c', 'd']);
+		expect(list.snapshot()).toEqual({ loaded: 4 });
 	});
 
 	it('keeps the loaded entries when a Load more fails', async () => {
@@ -84,14 +68,14 @@ describe('PagedList', () => {
 	it('drops an older load that answers after a newer one', async () => {
 		let release: () => void = () => {};
 		const fetch = vi.fn(async (offset: number, limit: number) => {
-			if (offset === 0) await new Promise<void>((r) => (release = r));
+			if (limit === 2) await new Promise<void>((r) => (release = r));
 			return { items: ALL.slice(offset, offset + limit), total: ALL.length };
 		});
 		const list = new PagedList(fetch, 2);
 		const slow = list.load();
-		await list.load({ start: 4 });
+		await list.load({ count: 4 });
 		release();
 		await slow;
-		expect(list.items).toEqual(['e', 'f']);
+		expect(list.items).toEqual(['a', 'b', 'c', 'd']);
 	});
 });

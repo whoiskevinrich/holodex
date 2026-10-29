@@ -5068,9 +5068,10 @@ nav harness gains a queue scenario.
 
 ## 32. Entity lists load a page at a time (F80, HOLODEX-354)
 
-People, Studios, Tags and Films page through the server with Load more, and the A–Z index
-restarts the list at a letter ([spec](specs/entity-list-paging.md),
-[handoff](design/entity-list-paging-handoff.md)). Risks, ranked:
+Tags and Films page through the server with Load more ([spec](specs/entity-list-paging.md),
+[handoff](design/entity-list-paging-handoff.md)). People and Studios did too, with an A–Z restart,
+until HOLODEX-601 made them one whole-list scroll (§32.1). The record below is HOLODEX-354's, and its
+endpoint and repo tests still guard the paging both designs read. Risks, ranked:
 1. A page boundary that repeats or drops an entry, under any sort including Random. The owner
    would never notice a missing person.
 2. An A–Z offset that lands on the wrong row.
@@ -5147,7 +5148,138 @@ What was exercised:
 
 **Standing gaps.**
 - Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
-  would need a paged-list scenario.
+  would need a paged-list scenario. For People and Studios, §32.1 adds one.
+
+### 32.1 Whole-list scroll on People and Studios (HOLODEX-601)
+
+People (List, Table and Poster) and Studios are one list as tall as the whole library. Only the
+pages in view are fetched, under every sort and search ([spec](specs/entity-list-paging.md) EL6,
+EL7, EL9, EL11–EL13; [handoff](design/entity-list-virtual-scroll-handoff.md);
+[architecture](architecture/stack.md#long-lists-tanstack-virtuals-core-over-a-sparse-page-cache)).
+The server is unchanged, so §32's endpoint and repo tests still prove the offsets tile. New risk lives
+in the client. Risks, ranked:
+1. A page painted into the wrong slots, or a stale page from an older sort, search or seed painted
+   into the new list. Pages now arrive out of order, after jumps, not one after another.
+2. A row taller than its view's fixed height. Every row below it shifts, so the scrollbar, the
+   position chip and A–Z land on the wrong entry.
+3. Focus lost when a placeholder turns into its entry, or when the focused row scrolls out of
+   range.
+4. A fetch storm on a fast drag, or no fetch at all during a slow continuous scroll.
+5. Back landing on a different entry, especially after the width changed.
+6. A retry row covering a neighbouring page's loaded entries.
+
+**Unit, web (`web/src/lib/sparseList.test.ts`, mocked fetcher, fake timers).** The sparse page
+cache:
+- requests only the missing pages of the visible range plus one page of overscan each way, at
+  offsets aligned to 50;
+- slots out-of-order replies into the right indexes: with a fake fetcher serving a fixed order,
+  reading every page in shuffled order equals reading them in sequence. The server's own tiling
+  per sort stays §32's endpoint tests;
+- drops a reply from an older generation (a sort, search or reshuffle in between);
+- fetches only the landing range after 100 scroll events across 1,500 entries, and does fetch at
+  the 300ms ceiling during a continuous slow scroll;
+- evicts the page farthest from view past 20 pages, and re-fetches it on return;
+- marks a failed page, re-fetches only that page on retry, and leaves its neighbours alone;
+- on a refresh, keeps the anchor, re-reads the visible pages, drops the rest, and adopts a changed
+  total;
+- on restore, fetches the anchor's page first, then sizes the list.
+
+Pure helpers, table-driven: the retry row is the first whole grid row inside a failed page (1, 2, 3
+and 12 lanes; the page starting at lane 0 and mid-row), and the active letter for an index is the
+largest letter offset at or before it, with `#` first (`sparseList.test.ts`). The key map moves ↑/↓
+a row of lanes, ←/→ an entry (not in a one-lane list), PageUp/PageDown a screen and Home/End the
+ends, never past them (`windowVirtualizer.test.ts`).
+
+**Component, browser mode (`web/src/lib/components/shared/VirtualRows.svelte.test.ts`).** A
+People-List-shaped fixture (`__fixtures__/VirtualPeople.svelte`: the page's row and placeholder
+markup with `app.css` loaded, every 7th name long enough to wrap) over 1,512 entries from a fetcher
+the test holds, releases or fails page by page:
+- the drawn entries stay within three screens at the top, the middle and the end, each with
+  `aria-setsize`/`aria-posinset`;
+- **row-height contract:** placeholder rows and loaded rows (long names included) measure one
+  height. **Mutation-tested**: a placeholder avatar box of `h-8` fails it. This is the regression
+  net for risk 2;
+- the list is one Tab stop (the entry and its ring, no links); ↓, → and End move past what's drawn
+  to entry 1,512, and Home comes back;
+- focus a placeholder, release its page, and `document.activeElement` is the same element, now
+  showing the entry;
+- a failed page gets one retry row on its first whole row at three lanes, page 0's entries in the
+  shared row stay, the failed entries are dimmed and not `aria-busy`, and Retry fills them.
+
+A row that breaks the contract degrades to misplaced rows, never a frozen page: the pitch is read
+once per layout (lanes × width). The first version re-read it every render, and in the test
+environment (no `app.css` yet) a placeholder shorter than its entry flipped the pitch and the
+keep-in-view scroll back and forth until the browser hung.
+
+**Not yet automated (gaps).** The contract is checked on the List row only, not at 375/768/1440px or
+at each poster density. Table view's `aria-rowcount`/`aria-rowindex`, the A–Z scroll, view switches
+and merge selection across a far scroll were checked live, not in a test.
+
+**Nav harness (§20.6), 2026-10-28, `-big`.** `whole-list-back-lands-on-same-entry` opens People in
+the videos sort, scrolls to the middle of 2,064 entries, waits for real entries, opens a person in
+view and goes Back. It checks the same `scrollY` and the same first entry in view, now real again,
+and refuses to run on a list under 500. **Mutation-tested**: with the restore's landing scroll
+removed it fails ("Back restored scrollY 0, expected 26499"). This closes §32's standing Back gap for
+People. All 13 nav scenarios pass against the new list, including the older People ones.
+
+**Harness (§12.4), 2026-10-28, `-big`.** `people-list-does-not-render-everything` now counts the
+list's `[data-index]` entries (the old `main ul > li` selector matched nothing once the list
+stopped being a `<ul>`), and `studios-list-does-not-render-everything` is its twin. Both pass at the
+four widths: 8 checks, 1–200 entries drawn of 2,000.
+
+**Live QA, 2026-10-28, small fixture** (`backend-stress-open-9700` + `web-9700`: 164 people, 119
+studios, Cinémathèque). The browser pane has to be in front: a hidden pane runs no rendering
+steps, so it fires no scroll events, and the list never moves.
+- First load draws 10 rows (30 entries) of 55, at 78px pitch (70px row + 8px gap). The count line
+  reads "164 people" and there's no Load more.
+- End jumps to the bottom, and the only new fetch is the landing page (`offset=150`).
+- The chip reads "31 of 164", the same as the first readable entry under the sticky bar, and the
+  active letter tracks the scroll.
+- A–Z S focuses the first S name with its row just under the sticky bar.
+- Keys: PageDown 0 → 18 (scrolls it wholly into view), → 19, ↓ 22, End 163 ("164 of 164"),
+  and Enter opens the person. Back restores the exact `scrollY` (223.2).
+- Poster: 6 lanes, a 264px card at 280px pitch, the A–Z index showing, and placeholders at 264px.
+  A failed `offset=100` page gives its retry row on row 17 (102–107), 100–101 dimmed in row 16, and
+  Retry fills it.
+- Table: `aria-rowcount` 165, the first row `aria-rowindex` 2, 44px rows, column widths kept.
+- Studios: 78px rows, the chip, the A–Z and no Load more.
+
+**Live QA, 2026-10-28, `-big` fixture** (`./data/stress` reseeded with `-big`: 2,064 people, 2,019
+studios; `backend-stress-open-9600` + `web-9600`, Cinémathèque, the pane in front). Timing numbers
+only count with the pane displayed: hidden, it throttles timers, which read as 0.5–1.3s settles and
+fetches in the middle of a drag.
+1. First load: "2,064 people", 30 entries drawn, 501 elements on the page, no Load more. Two reads,
+   about 6KB each, served in 9–14ms.
+2. A 60-frame drag to 10%, 50% and 90%, under each of name, videos, Random and completeness: real
+   entries 170–335ms after the drag stops, 35–37 entries drawn at any depth, 3–4 page reads, all at
+   the landing. A search for "person 1" (1,000 matches) scrolls the same way, 321–323ms.
+3. No read fires during a drag; the core's scrolling flag flips once, about 170–185ms after it stops.
+4. The chip reads the first readable entry ("1,021 of 2,064" at 50%) in every sort.
+5. A–Z in List, Table and Poster: each click focuses the letter's first name just under the bar, and
+   that letter lights. X and Z are the last two names, so they land as low as the list allows.
+6. A failed page's retry row was checked on the small fixture (above); its placement is tested.
+7. Back from entry 1,286 (videos sort) restores entry 1,286 at the same `scrollY` (50,327), reading
+   the anchor's page first (`offset=1250`), then its neighbours, and nothing at the top. Back after
+   narrowing the window from 3 lanes to 2 still lands on entry 1,286. View switches at 55% and 95%
+   depth (List ↔ Poster ↔ Table, six each) land on the first entry's row every time. The density
+   slider hides at the pane's width, so a density step went unchecked.
+8. Two people picked 1,800 entries apart stay selected across the scroll ("2 selected"). Merging them
+   from entry 1,838 keeps the list there, re-reads only the 4 pages in view, and the count drops to
+   2,063.
+9. [human] Screen-reader pass: owner-accepted 2026-10-28 ("it's good enough"). Positions announced, one Tab stop and arrow keys were not separately recorded.
+
+Found and fixed during this run:
+- A sort or search change from deep in the list read 3–4 pages at the old depth under the new sort
+  (the cache was cleared before the jump to the top landed). The view's range is now read from the
+  window when asking, and a sort change reads only pages 0 and 50.
+- Back read the top two pages before landing. A restore now holds the view's asks until it lands.
+- A–Z to a far letter lost focus: a smooth glide across ~80,000px took 1.25s, and focus landed on the
+  entry's hidden pinned copy. A far jump is now instant, and focus waits for the drawn row.
+- A–Z lit the letter before the clicked one when the letter's first name sat mid-row. The active
+  letter is now the focused entry's, while it's in the first row in view.
+- A view switch drifted 3–6 rows, or jumped ~800 entries: the new view measured an empty row past
+  the list's end (16px), and the jump ran before the spacers grew. It now measures a row that holds
+  an entry, and lands after the layout updates.
 
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 

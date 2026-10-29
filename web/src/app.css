@@ -603,12 +603,16 @@
 	   with no Tailwind precedent (no motion-safe:/motion-reduce: variant is used anywhere
 	   in this app; every existing transition/animation lives in app.css gated by the raw
 	   prefers-reduced-motion query, e.g. reel-rise/portrait-fade/thumb-shimmer below). */
+	/* `:focus-visible > .poster-card` is the whole-list scroll's roving entry (HOLODEX-601):
+	   there the focus sits on the entry's cell, not on the card's link. */
 	.poster-card:hover .poster-card-frame,
-	.poster-card:has(a:focus-visible) .poster-card-frame {
+	.poster-card:has(a:focus-visible) .poster-card-frame,
+	:focus-visible > .poster-card .poster-card-frame {
 		box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.35);
 	}
 	.poster-card:hover,
-	.poster-card:has(a:focus-visible) {
+	.poster-card:has(a:focus-visible),
+	:focus-visible > .poster-card {
 		z-index: 1; /* the lifted card overlaps neighbors, not the reverse */
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -616,8 +620,24 @@
 			transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
 		}
 		.poster-card:hover .poster-card-frame,
-		.poster-card:has(a:focus-visible) .poster-card-frame {
+		.poster-card:has(a:focus-visible) .poster-card-frame,
+		:focus-visible > .poster-card .poster-card-frame {
 			transform: scale(1.045);
+		}
+	}
+
+	/* ---- Whole-list scroll position chip (HOLODEX-601) ----
+	   Shown while scrolling, faded a second after it stops (the timer is the component's);
+	   under reduced motion it just appears and disappears. */
+	.scroll-position-chip {
+		opacity: 0;
+	}
+	.scroll-position-chip[data-shown='true'] {
+		opacity: 1;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.scroll-position-chip {
+			transition: opacity 0.2s ease-out;
 		}
 	}
 
