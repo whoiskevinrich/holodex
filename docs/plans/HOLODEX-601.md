@@ -55,7 +55,7 @@ testing strategy §32.1
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — no server change: list endpoints already page by offset under every sort and seeded Random, and return `letters`. until: the build finds a missing parameter
 - [x] frontend → `web/src/**`
-- [/] testing `testing-strategy` — unit, browser-mode and §12.4 harness checks pass; `-big` live QA done; the §20.6 nav Back scenario and a screen-reader pass remain
+- [/] testing `testing-strategy` — unit, browser-mode, §12.4 harness and §20.6 nav Back checks pass; `-big` live QA done; a human screen-reader pass remains
 - [~] security `security-review` — no auth, access or infrastructure change; reads the same public list endpoints. until: a new endpoint or parameter is added
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -73,10 +73,9 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Write the §20.6 nav Back scenario: People in the videos sort, scroll to the middle, open a person, Back, same first entry — `web/geometry/nav.mjs`
-2. [ ] [testing] [human] Screen-reader pass on People: positions announced, one Tab stop, arrow keys — `docs/testing-strategy.md` §32.1 item 9
-3. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
-4. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
+1. [ ] [testing] [human] Screen-reader pass on People: positions announced, one Tab stop, arrow keys — `docs/testing-strategy.md` §32.1 item 9
+2. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
+3. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -90,7 +89,7 @@ testing strategy §32.1
 
 ### 2026-10-28 · build: whole-list scroll on People and Studios
 - skills: implement, code-review, handoff
-- handoff: Built in ae77c3fd, then QA'd on the -big fixture (./data/stress reseeded with -big; 9600 pair): 5 faults fixed in 6fa3e8a9, both §12.4 harness checks green, and design sign-off re-pinned at 0dd0071e after two A–Z wording changes. Next: the §20.6 nav Back scenario and a human screen-reader pass close the testing gate.
+- handoff: Built in ae77c3fd and QA'd on the -big fixture (5 faults fixed in 6fa3e8a9); the §20.6 nav Back scenario passes, mutation-tested, and all 13 nav scenarios pass. Design sign-off re-pinned at 0dd0071e. Only a human screen-reader pass (§32.1 item 9) stands between the testing gate and ready.
 
 ### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
 - skills: code-review, handoff, implement
