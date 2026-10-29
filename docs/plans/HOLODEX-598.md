@@ -8,7 +8,7 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 approved:
   design:
     on: 2026-10-28
-    at: b82427d9
+    at: fa356a23
 release_note: The Duplicates page opens one entity type at a time, and people and studio pairs now compare side by side, with large headshots and where each studio name came from.
 ---
 
@@ -24,7 +24,7 @@ a studio merge can pick which spelling the survivor shows.
 
 ## Gates — definition of done
 
-- [x] spec `write-spec` → `docs/specs/**` — the 598 revision, OQ7 and the handoff's spec deltas are in. OQ5/OQ6 are probes the build waits on, tracked in Up next
+- [x] spec `write-spec` → `docs/specs/**` — the 598 revision, OQ7 and the handoff's spec deltas are in. OQ5 (with the live baseline) and OQ6 are resolved
 - [~] architecture — no technology fork: lanes and studio evidence reuse the queue and identity model, and Show as reuses merge + rename (spec "API")
 - [x] design `design-handoff` → `docs/design/**` — handoff + `duplicates-pair-evidence-mockup.svg` + `duplicates-studios-compare-mockup.svg` (1547d0a1)
 - [x] backend → `{cmd,internal,providers}/**` — planner stats at boot (ed193bd5), per-lane read + lane counts (1248e559), studio evidence (17e88124), Show as (6dea91e1); green `go test`
@@ -33,8 +33,7 @@ a studio merge can pick which spelling the survivor shows.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [backend] Record the owner's live OQ5 baseline in spec OQ5, then mark the PR ready ⛔ waiting on the owner running `oq5-live-baseline.sh` (read-only, counts and timings only) — `docs/specs/duplicates-pair-evidence.md`
-2. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
+1. [ ] [backend] Refresh planner statistics after a large scan, not only at boot → HOLODEX-603 — `internal/db/db.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -42,7 +41,8 @@ a studio merge can pick which spelling the survivor shows.
 - skills: code-review, handoff
 - did: sign-off review in the stress-598 preview, each lane beside its approved SVG. The owner had five differences fixed: the "Possible duplicate people/studios." intro lead, no intro on a loading or empty lane, curly quotes in both confirms, a 6 px gap before the row's ↗, and no accent baseline on the person and tag placeholders (list-views handoff updated to match).
 - did (later): the owner signed off the re-shown build against the approved mockups; frontend ticked, and the design sign-off re-pinned to b82427d9 (its only `docs/design` change is the placeholder line the owner chose).
-- handoff: Every gate is settled and the owner signed off the build; the draft PR is held only for the OQ5 live baseline (Up next 1). Once it's recorded in the spec, mark #565 ready.
+- did (later): live OQ5 baseline recorded in the spec (main library, ~4,000 videos, 17 pairs: name pairs ~0.07 s, video pairs 0.57 s cold / 0.05 s warm); origin/main merged clean (go build, api/repo tests, web check green); the owner re-pinned the design sign-off to fa356a23 (the merge's only `docs/design` change is #566's poster-chooser files).
+- handoff: Every gate is settled, OQ5 is recorded and #565 is marked ready for review; what's left is review and merge, then sweep HOLODEX-598 to Done. HOLODEX-603 (stats after a large scan) is the follow-up.
 
 ### 2026-10-27 · session
 - skills: design-handoff (worked by hand, not via the Skill tool), handoff, implement, code-review, testing-strategy
