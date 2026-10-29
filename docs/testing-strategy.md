@@ -5281,6 +5281,54 @@ Found and fixed during this run:
   the list's end (16px), and the jump ran before the spacers grew. It now measures a row that holds
   an entry, and lands after the layout updates.
 
+### 32.2 Whole-list scroll on the other library lists (HOLODEX-604)
+
+The Media grid, Films, playlists, the Tags Posters and Table views, and the videos on person, studio
+and tag pages take §32.1's list ([spec](specs/entity-list-paging.md) EL11, EL14, EL15;
+[handoff](design/entity-list-virtual-scroll-handoff.md#the-other-library-lists-holodex-604)). §32.1's
+cache, key-map and component tests cover the shared machinery, so this section tests what each list
+adds. Risks, ranked:
+1. A video card taller than its pitch. One long title shifts every row below it, and the Media grid
+   is the longest list, so the drift is largest there.
+2. A snapshot playlist page that repeats or drops a video, or a total that disagrees with the old
+   whole-playlist read. Snapshot paging is the one server change.
+3. The Tags All tab painting a category into a tag's slot, or the reverse, at the boundary page that
+   holds both.
+4. A list that doesn't start at the top of the page (entity videos) fetching or landing at the wrong
+   depth, and the Films row or `#films` landing in the wrong place.
+5. Media Back regressing QW5: a flash of the top, or the wrong video in view.
+6. A refresh after a scan, a playlist removal or a Freeze jumping the scroll.
+
+**Endpoint, Go (`internal/api/playlists_test.go`).** A snapshot playlist read with `limit`/`offset`
+tiles every member once under each sort (manual, title, random with a seed) with `walkPages`, and
+its `total` equals the member count. A read with no `limit` still returns every member, so existing
+callers keep working. A smart playlist's paging is unchanged.
+
+**Unit, web.** The Tags All-tab fetcher, table-driven over tag totals 0, 49, 50 and 237 with 1 and 60
+categories: every offset maps to the right kind, the boundary page joins the last tags to the first
+categories, and reading every page in shuffled order equals reading them in sequence. A failed
+category read fails only its page.
+
+**Component, browser mode.** The row-height contract on the video card: a `VideoCard` fixture with
+titles of 1, 40 and 1,500 characters measures one height, loaded and placeholder, at 1, 5 and 12
+columns and in both card layouts. **Mutation-test** it by removing the title's two-line height. The
+same check for the Films and Tags poster cards and placeholders.
+
+**Harness (§12.4).** `*-does-not-render-everything` twins for `/` (Grid and Table), `/films`, a
+playlist and a person's page on `-big`, at the four widths.
+
+**Nav harness (§20.6).** `whole-list-back-lands-on-same-entry` extended to the Media grid (the same
+video in view, no read at the top) and a person's videos (the list starts below the details).
+
+**Live QA on `-big`, the pane in front.** Per list: first load bounded, a drag to 50% under two
+sorts shows real entries within 0.5s and draws about three screens, End lands on the last entry, the
+chip reads the first entry in view. Then: Media Back after a width change; a scan finishing deep in
+the grid; Tags All across the tag-to-category boundary in Posters and Table, and a Manage ⋯ menu
+deep in the list; a snapshot removal deep in a 500-video playlist, a Freeze, a sort change; a
+person's `#films` jump and Back; a card-layout switch keeping the first entry in view.
+
+**[human].** A screen-reader pass on the Media grid (positions, one Tab stop).
+
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 
 Media, People and Tags gain a Table view drawn by one shared table, and Tags gains a Posters view
