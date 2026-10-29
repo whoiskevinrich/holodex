@@ -1,4 +1,4 @@
-# Design handoff: whole-list scroll on People and Studios (F80, HOLODEX-601)
+# Design handoff: whole-list scroll (F80, HOLODEX-601 · HOLODEX-604)
 
 **Choices settled by the owner 2026-10-27** (mockup below): the position chip, still placeholders, one
 retry row per failed page, A–Z in every People view, and an active letter that follows the scroll.
@@ -128,3 +128,91 @@ entry in view and the total, with thousands separators.
 | A refresh sweep finishing | as a mutation: rows in view redraw, scroll kept |
 | A–Z letter whose first entry is near the end | scrolls as far as the list allows; that entry is in view and focused, though not at the top |
 | Resize across a breakpoint, or a density change in Poster | lanes and row height recompute; the first entry in view stays in view |
+
+## The other library lists (HOLODEX-604)
+
+**Owner choices 2026-10-28:** a two-line title box on every video card, the Films row kept below the
+videos on entity pages, and tag pages included. Rules: spec EL11, EL14 and EL15.
+
+![The other library lists](whole-list-scroll-everywhere-mockup.svg)
+
+Everything above holds for these lists too: the page's own scrollbar, fixed row heights, still
+placeholders, one retry row per failed page, the position chip, one Tab stop with roving tabindex,
+and Back to the same entry. Only what differs is listed here. None of them shows A–Z.
+
+### Fixed row heights, continued
+
+| List | Row | Lanes |
+|---|---|---|
+| Media grid, playlist, entity videos (Grid) | `VideoCard`: the `.video-frame` (16:9, or 2:3 under `card_layout: poster`) plus a `p-3` caption whose title box is **always two lines** (`h-10` on the `text-sm` title, `line-clamp-2`). 181 × 166px at five columns, 16px gap | `effectiveDensity()`, capped by width as today (`VideoGrid`) |
+| Media grid (Table) | the shared 44px `ListTable` row, as People Table | 1 |
+| Films | the 2:3 frame plus `p-2` holding a `truncate` name and the year · scenes line. 151 × 281px at six columns, 12px gap | 2 / 3 / 4 / 6 at base / `sm` / `md` / `lg` |
+| Tags Posters | the `aspect-video` frame, a `line-clamp-1` name and the count line | `effectiveDensity()` |
+| Tags Table | the shared 44px `ListTable` row | 1 |
+
+**The two-line title box is the one visible change to the video card.** A one-line title leaves the
+second line empty, and a title longer than two lines ends in an ellipsis with the full title in its
+`title` tooltip, as today. It applies to every `VideoGrid`, the film's Scenes grid included, so a
+card is the same size everywhere. `RelatedShelf` cards take the same box, since they share the card.
+
+### Placeholders, continued
+
+- **Video card:** the `.video-frame` in `bg-surface-2` with its `border-rule` border, then two
+  10px `bg-rule` bars in the title box (about 80% and 50% of the caption's width). No badges, no
+  ring, no thumbnail request.
+- **Films:** the 2:3 frame in `bg-surface-2`, then a 10px bar for the name and an 8px bar for the
+  year line.
+- **Tags Posters:** the 16:9 frame in `bg-surface-2`, then a name bar and a count bar.
+- **Tables:** the 601 table placeholder.
+
+### Retry row copy
+
+"Couldn’t load these videos." (Media grid, playlist, entity videos) · "these films." · "these tags."
+(on the All tab, "these tags." for categories too). Same markup as People.
+
+### Media grid
+
+- The **Recently added** shelf stays above the toolbar, unchanged.
+- The grid's arrow-key navigation becomes the roving list's key map (↑/↓ a row of lanes, ←/→ an
+  entry, Home/End, PageUp/PageDown, Enter). `/` still focuses search.
+- **Back** shows the videos seen just before leaving at once, then fills the rest in place. It never
+  shows the top of the grid first.
+- A finished scan redraws the cards in view in place; the count line and scrollbar adjust.
+- The smart-playlist edit mode (`#edit_playlist`) keeps its own controls above the grid, unchanged.
+
+### Playlist
+
+- Smart and snapshot alike. The owner's **×** on a snapshot card stays where it is (top-right,
+  sibling of the card's link). Removing a card closes the gap at once; the cards after it move up
+  one place, and the scroll doesn't move.
+- The stale-references notice replaces the list, as today.
+
+### Tags Posters and Table
+
+- All, Tags and Categories tabs each scroll as one list; on All, categories follow the last tag with
+  no break or heading, as in today's stream.
+- **Manage mode:** the per-entry ⋯ menu opens over neighbouring rows, never clipped by its row, and
+  closes when its entry scrolls out of the drawn range. The focused entry stays drawn while its menu
+  is open.
+- Bulk select stays in Chips.
+
+### Videos on a person's, studio's or tag's page
+
+- The list sits in the page below the details and the section toolbar, so it starts lower than on
+  People. The page scrolls as one; there is no inner scroll box.
+- The **position chip** shows only while the videos list is in view and scrolling, and reads
+  "412 of 1,204", the section's own total.
+- The **Films row** follows the last video. Its `#films` link (and the hover card's Films link) lands
+  on its heading at once, 64px below the top, with placeholders above it and no videos fetched on
+  the way. `#videos` lands on the section's count line.
+- Back restores the same video in view, as on People.
+
+### Edge cases, continued
+
+| Case | Shows |
+|---|---|
+| A playlist or entity with fewer videos than one screen | the list ends after its last card; the Films row follows directly; no chip |
+| A card layout switch (`card_layout`) or density change | row height recomputes from the new frame; the first entry in view stays in view |
+| A video title of one character, or 1,500 | the same 166px card at five columns: one line and an empty line, or two lines and an ellipsis |
+| Snapshot playlist removal of the last card in view | the next card moves up; if the playlist empties, today's empty state |
+| Jump to `#films` on a person with 10,000 videos | Films heading at once; the videos above stay placeholders until scrolled to |

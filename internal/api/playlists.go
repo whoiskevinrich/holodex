@@ -138,6 +138,14 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 			ids[i] = v.ID
 		}
 		p.ItemCount = len(items)
+		// A snapshot pages too when asked (F80 EL14, HOLODEX-604), so the whole-list
+		// scroll reads only what's in view; with no ?limit= it stays the whole list.
+		if q := r.URL.Query(); q.Get("limit") != "" {
+			limit := atoiDefault(q.Get("limit"), 50)
+			offset := min(max(atoiDefault(q.Get("offset"), 0), 0), len(items))
+			items = items[offset:min(offset+max(limit, 0), len(items))]
+			out["limit"], out["offset"] = limit, offset
+		}
 	}
 	if err := h.hydrateTiles(r.Context(), items, isOwner); err != nil {
 		h.fail(w, "playlist videos", err)

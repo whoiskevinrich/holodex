@@ -5281,6 +5281,105 @@ Found and fixed during this run:
   the list's end (16px), and the jump ran before the spacers grew. It now measures a row that holds
   an entry, and lands after the layout updates.
 
+### 32.2 Whole-list scroll on the other library lists (HOLODEX-604)
+
+The Media grid, Films, playlists, the Tags Posters and Table views, and the videos on person, studio
+and tag pages take §32.1's list ([spec](specs/entity-list-paging.md) EL11, EL14, EL15;
+[handoff](design/entity-list-virtual-scroll-handoff.md#the-other-library-lists-holodex-604)). §32.1's
+cache, key-map and component tests cover the shared machinery, so this section tests what each list
+adds. Risks, ranked:
+1. A video card taller than its pitch. One long title shifts every row below it, and the Media grid
+   is the longest list, so the drift is largest there.
+2. A snapshot playlist page that repeats or drops a video, or a total that disagrees with the old
+   whole-playlist read. Snapshot paging is the one server change.
+3. The Tags All tab painting a category into a tag's slot, or the reverse, at the boundary page that
+   holds both.
+4. A list that doesn't start at the top of the page (entity videos) fetching or landing at the wrong
+   depth, and the Films row or `#films` landing in the wrong place.
+5. Media Back regressing QW5: a flash of the top, or the wrong video in view.
+6. A refresh after a scan, a playlist removal or a Freeze jumping the scroll.
+
+**Endpoint, Go (`internal/api/playlists_test.go`).** A snapshot playlist read with `limit`/`offset`
+tiles every member once under each sort (manual, title, random with a seed) with `walkPages`, and
+its `total` equals the member count. A read with no `limit` still returns every member, so existing
+callers keep working. A smart playlist's paging is unchanged.
+
+**Unit, web.** The Tags All-tab fetcher, table-driven over tag totals 0, 49, 50 and 237 with 1 and 60
+categories: every offset maps to the right kind, the boundary page joins the last tags to the first
+categories, and reading every page in shuffled order equals reading them in sequence. A failed
+category read fails only its page.
+
+**Component, browser mode.** The row-height contract on the video card: a `VideoCard` fixture with
+titles of 1, 40 and 1,500 characters measures one height, loaded and placeholder, at 1, 5 and 12
+columns and in both card layouts. **Mutation-test** it by removing the title's two-line height. The
+same check for the Films and Tags poster cards and placeholders.
+
+**Harness (§12.4).** `*-does-not-render-everything` twins for `/` (Grid and Table), `/films`, a
+playlist and a person's page on `-big`, at the four widths.
+
+**Nav harness (§20.6).** `whole-list-back-lands-on-same-entry` extended to the Media grid (the same
+video in view, no read at the top) and a person's videos (the list starts below the details).
+
+**Live QA on `-big`, the pane in front.** Per list: first load bounded, a drag to 50% under two
+sorts shows real entries within 0.5s and draws about three screens, End lands on the last entry, the
+chip reads the first entry in view. Then: Media Back after a width change; a scan finishing deep in
+the grid; Tags All across the tag-to-category boundary in Posters and Table, and a Manage ⋯ menu
+deep in the list; a snapshot removal deep in a 500-video playlist, a Freeze, a sort change; a
+person's `#films` jump and Back; a card-layout switch keeping the first entry in view.
+
+**[human].** A screen-reader pass on the Media grid (positions, one Tab stop). Owner: pass,
+2026-10-29, along with the build-vs-mockup check (handoff §3d).
+
+**Automated so far (2026-10-29).** `TestSnapshotPlaylistPages` tiles a 7-video snapshot under
+manual, added, title and random sorts at page size 3. `tagStream.test.ts` covers tag totals 0, 49,
+50 and 237 against 1 and 60 categories, in order and in reverse. A failed category read fails the
+page that holds categories. On the All tab that includes page 0, which needs the categories' count,
+so the list shows its error. `sparseList.test.ts` covers a restore from held pages: they show
+before any read, and their neighbours aren't read again. `VirtualVideoGrid.svelte.test.ts` checks
+the card contract with 1-, 40- and 1,500-character titles and the placeholders, at the default
+density. **Mutation-tested**: without the title's `h-10`, the loaded cards measure 277 and 297px.
+The harness gained `media-grid-` and `films-list-does-not-render-everything` (§12.4). Not yet
+automated: the contract at other densities and in the poster card layout, the Films and Tags
+poster placeholders, and the nav-harness Back scenario for the Media grid and a person's videos.
+
+**Live QA, 2026-10-29, `-big`** (`backend-stress-open-9700` + `web-9700`: 2,083 videos, 2,026
+films, 4,045 tag rows; Cinémathèque). The session window was off screen, so the pane ran as a
+background page. Programmatic scrolls fired no scroll events until one was dispatched, and
+animation frames never ran. A Back restore waits on frames, so restores were checked only while
+frames still ran. No timing number from this run counts.
+1. Media first load: "2083 videos", 15 cards drawn, 740 elements, every card 238px, no Load more.
+2. A 60-step drag to 50%: real cards 239ms after it stopped, 31 drawn, the chip at "1,042 of
+   2,083". The only reads were the landing pages (950, 1000, 1050).
+3. Media Back from video 1,038 lands on 1,038. The cards show at once, the only read is the
+   anchor's page (1000) and nothing at the top is read. The landing scroll is 8px lower than
+   before: same entry, not the exact pixel.
+4. Grid → Table → Grid from 1,041: Table lands on 1,042 at 44px rows, Grid back on 1,041.
+5. Films: "2,026 films", 30 drawn at the top and 60 at 70% depth, every card 276px, the chip at
+   "1,417 of 2,026".
+6. Tags Posters, All tab: 4,045 rows (2,037 tags then 2,008 categories), every card 224px. At the
+   boundary, 2034–2036 are tags and 2037–2040 categories. Posters → Table from 1,935 lands on
+   1,936, `aria-rowcount` 4,046, 44px rows.
+7. Person 9000 (47 videos, the fixture's largest entity): "47 videos", 12 drawn, the list starts
+   below the details (1,142px), Films follows the last video, and `#films` lands as far down as the
+   page allows. The fixture has no entity with hundreds of videos, so deep scroll on an entity
+   page went unchecked.
+8. A 2,083-video snapshot playlist: 18 drawn, `aria-setsize` 2,083. Removing the first card in
+   view at 60% depth keeps `scrollY` (105,930), the next card moves up, and the count reads 2,082
+   then 2,081.
+
+Found and fixed during this run:
+- Removing a playlist card jumped the list to the top. The page replaces its playlist object, and
+  the list's restart read the props through it. The restart now keys on a derived string, which is
+  also how the entity videos guard against a reloaded facet.
+- From code review: a stale cached Back never ended the restore's fetch hold (a refresh now ends
+  it). Grid ↔ Table and Posters ↔ Table didn't hold the first entry. The Recently added shelf could
+  take a filtered first page. An arrow key no longer entered the Media grid from outside. The Chips
+  view read the Posters stream it never showed.
+
+Known gaps, not fixed: keyboard focus no longer starts a card's hover montage (F83), because the
+roving stop is the cell, not the link. On an entity page the chip also shows while the details
+above the list scroll. They are HOLODEX-605 and HOLODEX-606.
+
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 
 Media, People and Tags gain a Table view drawn by one shared table, and Tags gains a Posters view

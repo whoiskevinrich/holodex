@@ -88,8 +88,9 @@ Decided in [`5e1da30c`](https://github.com/whoiskevinrich/holodex/commit/5e1da30
 
 ## Long lists: TanStack Virtual's core over a sparse page cache
 
-The whole-list scroll on People and Studios (F80 EL11–EL13) has two halves, and only one of them
-comes from a library.
+The whole-list scroll (F80 EL11–EL15) has two halves, and only one of them comes from a library. It
+began on People and Studios (HOLODEX-601) and now carries every library list except the Tags Chips
+view (HOLODEX-604), on the same two halves: no list needed a third.
 
 **The range comes from `@tanstack/virtual-core`.** The core works out which rows are on screen and
 scrolls to an index. A thin runes wrapper (`web/src/lib/windowVirtualizer.svelte.ts`) drives it in
@@ -143,8 +144,8 @@ so the backend needs no change.
   fetches that index's page first (which also brings `total`), sizes the list, then scrolls. Until
   it lands, the cache holds the view's asks, because the view still shows the top.
 
-`PagedList` stays for the lists that keep Load more: Tags, Films and the owner queues. It lost the
-F80 letter restart, which only People and Studios used.
+`PagedList` stays for the lists that keep Load more: the Tags Chips view and the owner queues. It
+lost the F80 letter restart, which only People and Studios used.
 
 **Accessibility comes from the markup, not the library.** List, Poster and Studios rows are list
 items carrying `aria-setsize` (the total) and `aria-posinset` (index + 1). Table view stays a real
@@ -160,15 +161,18 @@ are out of the Tab order, and an entry's other controls (the completeness ring) 
 the focused entry.
 
 **One ceiling, for later lists.** Browsers cap an element's height at about 17.9M px in Firefox and
-33.5M px in Chrome. People and Studios at 60px rows are about 100,000px. A future whole-list Media
-grid with hundreds of thousands of entries would cross it, and would need scaled offsets that the
-core doesn't provide.
+33.5M px in Chrome. People and Studios at 78px rows are about 150,000px. The Media grid is the
+longest: one lane of ~300px video cards at phone width reaches Firefox's cap near 60,000 videos.
+Crossing it would need scaled offsets that the core doesn't provide, which the spec leaves as a
+non-goal.
 
 **Rejected:** hand-rolling the range calculation too. With fixed heights it is a few lines of
 arithmetic, and the owner weighed that. The library still brings window observation, `scrollToIndex`
 alignment under a sticky bar and the scroll-state flag already tested, and it is where Films, Media and Playlists
 would land later, when fixed heights may not hold. **Rejected:** `@tanstack/svelte-virtual`, for
-its store-based adapter (above). **Rejected:** rendering every row as a placeholder and filling them
+its store-based adapter (above). **Rejected for video cards (HOLODEX-604):** measuring each row so
+a title could take one line or two. The owner chose a two-line title box on every card instead
+(spec RD10), which keeps the fixed-height contract, and so the core's `measureElement` stays off. **Rejected:** rendering every row as a placeholder and filling them
 as they scroll in, even with `content-visibility: auto`. The DOM would still grow with the library,
 which is the cost F80 removed. **Rejected:** infinite scroll that appends at the bottom. It can't
 jump, and jumping is the point.

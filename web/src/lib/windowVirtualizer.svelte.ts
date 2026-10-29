@@ -7,7 +7,7 @@
 import { tick, untrack } from 'svelte';
 import { beforeNavigate } from '$app/navigation';
 import { listScroll } from '#lib/listScroll.svelte.ts';
-import { retryRow, type SparseList } from '#lib/sparseList.svelte.ts';
+import { retryRow, type SparseList, type SparseSnapshot } from '#lib/sparseList.svelte.ts';
 import {
 	Virtualizer,
 	observeWindowOffset,
@@ -353,6 +353,11 @@ export function wholeListPage<T>(o: {
 	key: () => string;
 	restartOn: () => void;
 	root: () => HTMLElement | undefined;
+	/**
+	 * The pages held when the page was left, for a Back that shows them at once (the Media
+	 * grid, HOLODEX-604). `stale`: a write landed since, so what's in view is re-read.
+	 */
+	cache?: (key: string) => (SparseSnapshot<T> & { stale: boolean }) | null;
 }) {
 	const { list, virt, roving } = o;
 	let firstLoad = true;
@@ -360,6 +365,7 @@ export function wholeListPage<T>(o: {
 		o.restartOn();
 		untrack(async () => {
 			const snap = firstLoad ? listScroll.take(o.id, o.key()) : null;
+			const held = firstLoad ? (o.cache?.(o.key()) ?? null) : null;
 			const fresh = firstLoad;
 			firstLoad = false;
 			roving.focus = 0;
@@ -368,11 +374,15 @@ export function wholeListPage<T>(o: {
 				if (!fresh && window.scrollY > virt.margin) window.scrollTo(0, virt.margin - virt.stickyTop);
 				return list.load();
 			}
-			await list.restore(snap.anchor);
+			// With the pages in hand the list is sized at once, so it lands before the read.
+			const reading = list.restore(snap.anchor, held ?? undefined);
+			if (!held) await reading;
 			await virt.landOn(snap.anchor, snap.within ?? 0);
 			// The scroll event from landing reaches the view a frame later; ask after it.
 			await new Promise(requestAnimationFrame);
-			list.land();
+			if (held) await reading;
+			if (held?.stale) void list.refresh();
+			else void list.land();
 		});
 	});
 
@@ -396,6 +406,22 @@ export function wholeListPage<T>(o: {
 			if (root && at !== undefined) roving.moveTo(root, at, 'top');
 		}
 	};
+}
+
+/**
+ * A view switch keeps the first entry in view (handoff, "The scroll"; call during component
+ * init). It reads the entry before the old view unmounts (the page collapses and the browser
+ * clamps the scroll); the virtualizer lands on it when the new view's layout arrives.
+ */
+export function holdAnchorOnViewChange(view: () => string, virt: WindowVirtualizer, roving: RovingList) {
+	let shown = untrack(view);
+	$effect.pre(() => {
+		const next = view();
+		if (next === shown) return;
+		shown = next;
+		const anchor = untrack(() => roving.anchorEntry);
+		if (anchor > 0) virt.holdAnchor(anchor);
+	});
 }
 
 /** Each failed page's retry row, keyed by grid row (handoff, "A page that fails"). */

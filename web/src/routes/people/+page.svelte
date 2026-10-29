@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
@@ -7,7 +6,7 @@
 	import type { Person } from '#lib/types.ts';
 	import { settledQuery } from '#lib/pagedList.svelte.ts';
 	import { SparseList, letterAt } from '#lib/sparseList.svelte.ts';
-	import { RovingList, WindowVirtualizer, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
+	import { RovingList, WindowVirtualizer, holdAnchorOnViewChange, wholeListPage } from '#lib/windowVirtualizer.svelte.ts';
 	import { posterColumns } from '#lib/density.svelte.ts';
 	import VirtualRows from '#lib/components/shared/VirtualRows.svelte';
 	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
@@ -83,16 +82,8 @@
 	let barHeight = $state(0);
 	$effect(() => virt.setStickyTop(barHeight));
 
-	// A view switch keeps the first entry in view (handoff, "The scroll"). Read it before
-	// the old view unmounts (the page collapses and the browser clamps the scroll); the
-	// virtualizer lands on it when the new view's layout arrives.
-	let shownView = untrack(() => activeView);
-	$effect.pre(() => {
-		if (activeView === shownView) return;
-		shownView = activeView;
-		const anchor = untrack(() => roving.anchorEntry);
-		if (anchor > 0) virt.holdAnchor(anchor);
-	});
+	// A view switch keeps the first entry in view (handoff, "The scroll").
+	holdAnchorOnViewChange(() => activeView, virt, roving);
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical
 	// one to fold the rest into (the choose-survivor step lives in MergeCanonicalDialog).

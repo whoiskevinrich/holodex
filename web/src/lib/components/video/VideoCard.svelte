@@ -143,8 +143,10 @@
 			{/if}
 		</div>
 
-		<div class="space-y-1.5 p-3">
-			<h3 class="skin-title line-clamp-2 text-sm font-medium text-ink" title={video.title}>
+		<!-- The title box is always two lines (h-10), so every card is one height: the
+		     whole-list scroll's row-height contract (F80 EL15, HOLODEX-604). -->
+		<div class="p-3">
+			<h3 class="skin-title line-clamp-2 h-10 text-sm font-medium text-ink" title={video.title}>
 				{video.title}
 			</h3>
 		</div>
