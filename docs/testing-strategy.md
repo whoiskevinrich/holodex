@@ -5329,6 +5329,56 @@ person's `#films` jump and Back; a card-layout switch keeping the first entry in
 
 **[human].** A screen-reader pass on the Media grid (positions, one Tab stop).
 
+**Automated so far (2026-10-29).** `TestSnapshotPlaylistPages` tiles a 7-video snapshot under
+manual, added, title and random sorts at page size 3. `tagStream.test.ts` covers tag totals 0, 49,
+50 and 237 against 1 and 60 categories, in order and in reverse. A failed category read fails the
+page that holds categories. On the All tab that includes page 0, which needs the categories' count,
+so the list shows its error. `sparseList.test.ts` covers a restore from held pages: they show
+before any read, and their neighbours aren't read again. `VirtualVideoGrid.svelte.test.ts` checks
+the card contract with 1-, 40- and 1,500-character titles and the placeholders, at the default
+density. **Mutation-tested**: without the title's `h-10`, the loaded cards measure 277 and 297px.
+The harness gained `media-grid-` and `films-list-does-not-render-everything` (§12.4). Not yet
+automated: the contract at other densities and in the poster card layout, the Films and Tags
+poster placeholders, and the nav-harness Back scenario for the Media grid and a person's videos.
+
+**Live QA, 2026-10-29, `-big`** (`backend-stress-open-9700` + `web-9700`: 2,083 videos, 2,026
+films, 4,045 tag rows; Cinémathèque). The session window was off screen, so the pane ran as a
+background page. Programmatic scrolls fired no scroll events until one was dispatched, and
+animation frames never ran. A Back restore waits on frames, so restores were checked only while
+frames still ran. No timing number from this run counts.
+1. Media first load: "2083 videos", 15 cards drawn, 740 elements, every card 238px, no Load more.
+2. A 60-step drag to 50%: real cards 239ms after it stopped, 31 drawn, the chip at "1,042 of
+   2,083". The only reads were the landing pages (950, 1000, 1050).
+3. Media Back from video 1,038 lands on 1,038. The cards show at once, the only read is the
+   anchor's page (1000) and nothing at the top is read. The landing scroll is 8px lower than
+   before: same entry, not the exact pixel.
+4. Grid → Table → Grid from 1,041: Table lands on 1,042 at 44px rows, Grid back on 1,041.
+5. Films: "2,026 films", 30 drawn at the top and 60 at 70% depth, every card 276px, the chip at
+   "1,417 of 2,026".
+6. Tags Posters, All tab: 4,045 rows (2,037 tags then 2,008 categories), every card 224px. At the
+   boundary, 2034–2036 are tags and 2037–2040 categories. Posters → Table from 1,935 lands on
+   1,936, `aria-rowcount` 4,046, 44px rows.
+7. Person 9000 (47 videos, the fixture's largest entity): "47 videos", 12 drawn, the list starts
+   below the details (1,142px), Films follows the last video, and `#films` lands as far down as the
+   page allows. The fixture has no entity with hundreds of videos, so deep scroll on an entity
+   page went unchecked.
+8. A 2,083-video snapshot playlist: 18 drawn, `aria-setsize` 2,083. Removing the first card in
+   view at 60% depth keeps `scrollY` (105,930), the next card moves up, and the count reads 2,082
+   then 2,081.
+
+Found and fixed during this run:
+- Removing a playlist card jumped the list to the top. The page replaces its playlist object, and
+  the list's restart read the props through it. The restart now keys on a derived string, which is
+  also how the entity videos guard against a reloaded facet.
+- From code review: a stale cached Back never ended the restore's fetch hold (a refresh now ends
+  it). Grid ↔ Table and Posters ↔ Table didn't hold the first entry. The Recently added shelf could
+  take a filtered first page. An arrow key no longer entered the Media grid from outside. The Chips
+  view read the Posters stream it never showed.
+
+Known gaps, not fixed: keyboard focus no longer starts a card's hover montage (F83), because the
+roving stop is the cell, not the link. On an entity page the chip also shows while the details
+above the list scroll. Both are in the worklog's Up next.
+
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 
 Media, People and Tags gain a Table view drawn by one shared table, and Tags gains a Posters view

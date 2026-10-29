@@ -26,6 +26,7 @@
 		onRemove?: (video: Video) => void;
 	} = $props();
 
+	const restartKey = $derived(`${playlistId}:${sort}:${seed}`);
 	const videos = new SparseList<Video>((offset, limit) => api.getPlaylist(playlistId, seed, { limit, offset }));
 	let listEl = $state<HTMLElement>();
 	const virt = new WindowVirtualizer(240);
@@ -36,11 +37,9 @@
 		virt,
 		roving,
 		key: () => `${playlistId}:${sort}`,
-		restartOn: () => {
-			void playlistId;
-			void sort;
-			void seed;
-		},
+		// A string, so the page replacing its playlist object (a rename, a remove) with the
+		// same sort and seed doesn't restart the list.
+		restartOn: () => void restartKey,
 		root: () => listEl
 	});
 

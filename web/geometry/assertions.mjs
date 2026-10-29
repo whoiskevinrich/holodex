@@ -430,6 +430,35 @@ export const ASSERTIONS = [
 		expect: { min: 1, max: 200 }
 	},
 
+	{
+		key: 'media-grid-does-not-render-everything',
+		finds:
+			'The Media grid drawing every video it has paged in instead of the cards near the ' +
+			'view — the People check’s twin for the longest list (HOLODEX-604). The Recently ' +
+			'added shelf is not a `[role="list"]`, so only the grid counts.',
+		urls: ['/'],
+		requires: {
+			why: 'needs a large fixture — reseed with `go run ./testdata/stressseed -big`',
+			met: (m) => (m.breadth?.tables?.videos?.n ?? 0) >= 500
+		},
+		selector: 'main [role="list"] [data-index]',
+		applies: 'count',
+		expect: { min: 1, max: 200 }
+	},
+
+	{
+		key: 'films-list-does-not-render-everything',
+		finds: 'The Films poster grid drawing every film instead of the posters near the view (HOLODEX-604).',
+		urls: ['/films'],
+		requires: {
+			why: 'needs a large fixture — reseed with `go run ./testdata/stressseed -big`',
+			met: (m) => (m.breadth?.tables?.films?.n ?? 0) >= 500
+		},
+		selector: 'main [role="list"] [data-index]',
+		applies: 'count',
+		expect: { min: 1, max: 200 }
+	},
+
 	// --- Media parts (HOLODEX-389). The part ladder seeds three files of one media
 	// whose only part source is the container tag — the source the list path never
 	// used to load — under one shared title, so the browse grid filtered to that
