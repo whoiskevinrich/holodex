@@ -24,6 +24,11 @@ type FieldWrite struct {
 	Values  []string // one or more values; for IsImage fields Values[0] is a URL
 	IsImage bool     // when true, Values[0] is an https:// URL to download+embed as cover art
 	Delete  bool     // when true, Values is empty and the tag is removed from the file (ADR-110)
+
+	// staged marks an image whose Values[0] is a temp copy of a local poster slot,
+	// set only by StageLocalPosters — unexported, so no caller or payload can make
+	// the writer trust a path (F85, writeback.md).
+	staged bool
 }
 
 // fileValue is the single string a text field is stored as on file. Container
@@ -126,7 +131,7 @@ func writeExiftoolBatch(ctx context.Context, path string, fields []FieldWrite) e
 	}
 	for _, f := range fields {
 		if f.IsImage {
-			imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+			imgPath, cleanup, err := imageFile(ctx, f)
 			if err != nil {
 				_ = os.Remove(tmp)
 				return fmt.Errorf("writeback: %w", err)
@@ -230,7 +235,7 @@ func writeMKVWithMkvpropedit(ctx context.Context, path string, fields []FieldWri
 	// Handle cover art attachments. Each image field downloads its URL to a temp
 	// file, then mkvpropedit replaces (or adds) the named attachment on the temp copy.
 	for _, f := range imgFields {
-		imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+		imgPath, cleanup, err := imageFile(ctx, f)
 		if err != nil {
 			_ = os.Remove(tmp)
 			return fmt.Errorf("writeback: %w", err)
@@ -470,7 +475,7 @@ func writeMKVWithFFmpeg(ctx context.Context, path string, fields []FieldWrite) e
 		if !f.IsImage {
 			continue
 		}
-		imgPath, cleanup, err := downloadImageToTemp(ctx, f.Values[0])
+		imgPath, cleanup, err := imageFile(ctx, f)
 		if err != nil {
 			return fmt.Errorf("writeback: %w", err)
 		}
@@ -764,22 +769,33 @@ func downloadImageToTemp(ctx context.Context, rawURL string) (path string, clean
 	if err != nil {
 		return "", nil, fmt.Errorf("cover image: %w", err)
 	}
+	tmp, err := writeTempImage(data)
+	if err != nil {
+		return "", nil, err
+	}
+	return tmp, func() { os.Remove(tmp) }, nil
+}
 
+// writeTempImage writes cover bytes to a temp file named by their sniffed type
+// (coverMIME reads the extension), shared by a downloaded and a local poster.
+func writeTempImage(data []byte) (string, error) {
 	ext := ".jpg"
 	if ct := http.DetectContentType(data); strings.Contains(ct, "png") {
 		ext = ".png"
 	}
 	tmp, err := os.CreateTemp("", "holodex-cover-*"+ext)
 	if err != nil {
-		return "", nil, fmt.Errorf("cover image: create temp: %w", err)
+		return "", fmt.Errorf("cover image: create temp: %w", err)
 	}
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+	_, werr := tmp.Write(data)
+	if cerr := tmp.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr != nil {
 		os.Remove(tmp.Name())
-		return "", nil, fmt.Errorf("cover image: write temp: %w", err)
+		return "", fmt.Errorf("cover image: write temp: %w", werr)
 	}
-	tmp.Close()
-	return tmp.Name(), func() { os.Remove(tmp.Name()) }, nil
+	return tmp.Name(), nil
 }
 
 // coverMIME returns the attachment mimetype for a temp cover written by

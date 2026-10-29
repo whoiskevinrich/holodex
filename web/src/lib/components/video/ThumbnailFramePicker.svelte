@@ -21,8 +21,8 @@
 		currentSrc?: string;
 		/** Seconds to open at — the page player's position. */
 		startAt?: number;
-		/** Saves the captured frame. Throws with a message on failure. */
-		onuse: (file: File) => Promise<void>;
+		/** Saves the captured frame, picked at `at` seconds. Throws with a message on failure. */
+		onuse: (file: File, at: number) => Promise<void>;
 		onreset: () => void;
 		onclose: () => void;
 	} = $props();
@@ -158,7 +158,7 @@
 		saving = true;
 		error = '';
 		try {
-			await onuse(await capture(videoEl));
+			await onuse(await capture(videoEl), aim);
 		} catch (e) {
 			error = toMessage(e);
 		} finally {

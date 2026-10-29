@@ -30,6 +30,9 @@ func (m *Manager) generateFrame(ctx context.Context, c repo.ThumbnailCandidate, 
 	if err := m.scaleToWidth(ctx, inputArgs, nil, posterDst, m.cfg.PosterWidth); err != nil {
 		return err
 	}
+	if thumbDst == "" {
+		return nil // a source slot: only Present derives the thumbnail tier (F85)
+	}
 	return m.scaleToWidth(ctx, []string{"-i", posterDst}, nil, thumbDst, m.cfg.Width)
 }
 

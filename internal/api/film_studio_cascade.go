@@ -66,7 +66,7 @@ func (h *Handlers) cascadeFilmStudioHandler(w http.ResponseWriter, r *http.Reque
 		h.filmLookupError(w, err)
 		return
 	}
-	body, manualValue, ok := decodeDecisionBody(w, r)
+	body, manualValue, ok := decodeDecisionBody(w, r, false)
 	if !ok {
 		return
 	}

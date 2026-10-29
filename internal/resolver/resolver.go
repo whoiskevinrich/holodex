@@ -159,9 +159,15 @@ type FieldDecision struct {
 // always present (its Value may be ""); a provider candidate is included only when
 // it has a non-empty value (you cannot adopt an empty value).
 type FieldCandidate struct {
-	Source   string `json:"source"`             // "file" | "provider:<name>"
+	Source   string `json:"source"`             // "file" | "provider:<name>" | "local:<kind>"
 	Provider string `json:"provider,omitempty"` // provider name when Source is "provider:<name>"
 	Value    string `json:"value"`
+	// FrameAt is the picked time in seconds of a local:frame candidate (F85 P1-1).
+	FrameAt *float64 `json:"frame_at,omitempty"`
+	// ImageURL is where the chooser loads a poster_url tile's image when Value is
+	// not itself a URL — the file's cover art or a held local slot (F85). Never
+	// resolver-set: the API stamps it on the owner's read.
+	ImageURL string `json:"image_url,omitempty"`
 }
 
 // Default-source modes (F36, ADR-051). A decision pins a replace field to one
@@ -238,6 +244,28 @@ type Options struct {
 	// ListRemoved fills each merge field's Removed list and keeps a merge field whose
 	// every value was removed (F30.3g). Callers set it only for the owner, like Offer.
 	ListRemoved bool
+
+	// LocalPosters is the video's held poster source slots (F85,
+	// field-resolution.md "A poster Holodex holds"), keyed by local kind, pre-loaded
+	// from repo.PosterSources in one query so the resolver never reads disk. A
+	// local:<kind> poster_url decision resolves to local:<kind>#<Hash>, and each held
+	// slot is listed as a poster_url candidate. Never a layer: a slot never wins
+	// undecided. nil (every visitor read) holds nothing, so a local decision falls
+	// through to the undecided default and no local candidate is listed.
+	LocalPosters map[string]LocalPoster
+
+	// FileCover is the sha256 of the file's embedded cover art (its file source
+	// slot), "" when the file has none or it was not loaded. It is poster_url's
+	// baseline: the file candidate's value, the undecided file-first winner and a
+	// file pin's value, as fieldsource.FileCoverToken — so an undecided Poster row
+	// on a file with cover art reads `·file`, in sync, not a pending provider (F85).
+	FileCover string
+}
+
+// LocalPoster is one held poster source slot, as the resolver needs it.
+type LocalPoster struct {
+	Hash    string
+	FrameAt *float64 // picked time in seconds, frame only
 }
 
 // fileFirst reports whether undecided fields resolve file-first (the default) vs.
@@ -442,6 +470,19 @@ func ResolveFields(
 				witness = &ledgerWitness{value: w, present: ok}
 			}
 			rf.Decision, rf.Candidates, rf.InSync = replaceMarkers(baseline, enrichment, optDecision(opts, f), f, items, filmNS, witness)
+			if normKey(f.Canonical) == fieldsource.LocalField {
+				rf.Candidates = append(rf.Candidates, localCandidates(opts.LocalPosters)...)
+				if cover := fileCoverItem(opts, f); cover != nil {
+					// The file candidate is the file's cover art (replaceMarkers reads only
+					// tag baselines, which hold none). When it is the resolved value, the
+					// file already holds it: in sync, nothing to write.
+					rf.Candidates[0].Value = cover[0].Value
+					if len(items) > 0 && items[0].Value == cover[0].Value {
+						inSync := true
+						rf.InSync = &inSync
+					}
+				}
+			}
 		}
 		out = append(out, rf)
 	}
@@ -501,8 +542,8 @@ func gateImageDisplay(display string, items []ResolvedValue, allowed func(provid
 // value's host (HOLODEX-212).
 func imageValueAllowed(it ResolvedValue, allowed func(provider, rawURL string) bool) bool {
 	for _, src := range it.Sources {
-		if src == "" || src == fieldsource.File || src == fieldsource.Manual {
-			return true
+		if src == "" || src == fieldsource.File || src == fieldsource.Manual || fieldsource.Local(src) != "" {
+			return true // a local poster is an image Holodex holds, never a provider URL
 		}
 	}
 	if allowed == nil {
@@ -588,8 +629,27 @@ func resolveField(
 	}
 	// Replace field: a standing decision short-circuits mapping order (F36); else
 	// the configured default-source order decides the undecided winner.
+	// The file's own cover art is poster_url's baseline (F85): it wins file-first
+	// when undecided, as the file's value does for any field, and backs a file pin.
+	if item := fileCoverItem(opts, f); item != nil {
+		dec, decided := opts.lookup(f.Canonical)
+		emptyLocal := decided && fieldsource.Local(dec.Source) != "" && !localHeld(opts, dec.Source)
+		if (!decided && opts.fileFirst()) || (decided && dec.Source == fieldsource.File) || emptyLocal {
+			return item, fieldsource.File + ":" + f.Canonical
+		}
+	}
 	if dec, ok := opts.lookup(f.Canonical); ok {
-		return resolveDecided(baseline, enrichment, fc, dec, f)
+		kind := fieldsource.Local(dec.Source)
+		if kind == "" {
+			return resolveDecided(baseline, enrichment, fc, dec, f)
+		}
+		// A local poster decision (F85) resolves to its slot's content token; a
+		// decision whose slot is empty — or a local source on any other field —
+		// resolves through the undecided default below.
+		if lp, held := opts.LocalPosters[kind]; held && normKey(f.Canonical) == fieldsource.LocalField {
+			return []ResolvedValue{{Value: fieldsource.LocalToken(kind, lp.Hash), Sources: []string{dec.Source}}},
+				dec.Source + ":" + f.Canonical
+		}
 	}
 	sources := orderedSources(baseline, f.ParsedSources, opts)
 	// The linked film decides by default (ADR-122, superseding ADR-085 §4's "never
@@ -917,6 +977,40 @@ func replaceMarkers(baseline BaselineSource, enrichment Enrichment, dec *Decisio
 		}
 	}
 	return marker, candidates, &inSync
+}
+
+// fileCoverItem is the file's cover art as poster_url's resolved value, nil when the
+// field is not poster_url or the caller loaded no cover art (FileCover "").
+func fileCoverItem(opts Options, f mapping.Field) []ResolvedValue {
+	if opts.FileCover == "" || normKey(f.Canonical) != fieldsource.LocalField {
+		return nil
+	}
+	return []ResolvedValue{{Value: fieldsource.FileCoverToken(opts.FileCover), Sources: []string{fieldsource.File}}}
+}
+
+// localHeld reports whether a local:<kind> source names a held slot.
+func localHeld(opts Options, source string) bool {
+	_, ok := opts.LocalPosters[fieldsource.Local(source)]
+	return ok
+}
+
+// localCandidates lists each held poster slot as a poster_url candidate, in the
+// closed kind order, valued with its content token — so the chooser can offer it
+// before any decision, and its value is the one a decision would resolve to (F85).
+func localCandidates(locals map[string]LocalPoster) []FieldCandidate {
+	var out []FieldCandidate
+	for _, kind := range fieldsource.LocalKinds {
+		lp, ok := locals[kind]
+		if !ok {
+			continue
+		}
+		out = append(out, FieldCandidate{
+			Source:  fieldsource.ForLocal(kind),
+			Value:   fieldsource.LocalToken(kind, lp.Hash),
+			FrameAt: lp.FrameAt,
+		})
+	}
+	return out
 }
 
 // winnerToDecisionSource maps the winning value's namespace to a decision source so
