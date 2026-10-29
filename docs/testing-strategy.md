@@ -5139,9 +5139,14 @@ keep-in-view scroll back and forth until the browser hung.
 
 **Not yet automated (gaps).** The contract is checked on the List row only, not at 375/768/1440px or
 at each poster density. Table view's `aria-rowcount`/`aria-rowindex`, the A–Z scroll, view switches
-and merge selection across a far scroll were checked live, not in a test. The §20.6 nav scenario
-that scrolls People to its middle, opens a person, goes Back and checks the first entry in view is
-not written yet. That would close §32's standing Back gap; Back was checked live (below).
+and merge selection across a far scroll were checked live, not in a test.
+
+**Nav harness (§20.6), 2026-10-28, `-big`.** `whole-list-back-lands-on-same-entry` opens People in
+the videos sort, scrolls to the middle of 2,064 entries, waits for real entries, opens a person in
+view and goes Back. It checks the same `scrollY` and the same first entry in view, now real again,
+and refuses to run on a list under 500. **Mutation-tested**: with the restore's landing scroll
+removed it fails ("Back restored scrollY 0, expected 26499"). This closes §32's standing Back gap for
+People. All 13 nav scenarios pass against the new list, including the older People ones.
 
 **Harness (§12.4), 2026-10-28, `-big`.** `people-list-does-not-render-everything` now counts the
 list's `[data-index]` entries (the old `main ul > li` selector matched nothing once the list
