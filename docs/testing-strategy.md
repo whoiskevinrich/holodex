@@ -5192,7 +5192,7 @@ fetches in the middle of a drag.
 8. Two people picked 1,800 entries apart stay selected across the scroll ("2 selected"). Merging them
    from entry 1,838 keeps the list there, re-reads only the 4 pages in view, and the count drops to
    2,063.
-9. [human] Still to do: a screen-reader pass (positions announced, one Tab stop, arrow keys).
+9. [human] Screen-reader pass: owner-accepted 2026-10-28 ("it's good enough"). Positions announced, one Tab stop and arrow keys were not separately recorded.
 
 Found and fixed during this run:
 - A sort or search change from deep in the list read 3–4 pages at the old depth under the new sort
