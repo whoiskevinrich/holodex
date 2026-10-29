@@ -24,8 +24,8 @@ release_note: "People and Studios now scroll as one list across the whole librar
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 approved:
   design:
-    on: 2026-10-28
-    at: 0dd0071e
+    on: 2026-10-29
+    at: 944f6b56
 ---
 
 # HOLODEX-601 · People and Studios scroll the whole list
@@ -54,7 +54,7 @@ testing strategy §32.1
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — no server change: list endpoints already page by offset under every sort and seeded Random, and return `letters`. until: the build finds a missing parameter
-- [/] frontend → `web/src/**` — built and QA'd; held on the owner comparing the built screen with the approved mockup (/handoff §3d)
+- [x] frontend → `web/src/**` — built and QA'd; owner confirmed 2026-10-29 the build matches the approved mockup (/handoff §3d)
 - [x] testing `testing-strategy` — unit, browser-mode, §12.4 harness and §20.6 nav Back checks pass; `-big` live QA done; screen-reader pass owner-accepted 2026-10-28
 - [~] security `security-review` — no auth, access or infrastructure change; reads the same public list endpoints. until: a new endpoint or parameter is added
 
@@ -73,9 +73,8 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Owner compares the built People page (List mid-scroll: placeholders, retry row, chip, A–Z) with the approved mockup, then mark PR #567 ready — `docs/design/entity-list-virtual-scroll-mockup.svg`
-2. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
-3. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
+1. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
+2. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,6 +85,10 @@ testing strategy §32.1
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-29 · owner sign-off on the built screen
+- skills: handoff
+- handoff: Every gate is settled: the owner confirmed the build matches the mockup and the design sign-off stands after the main merge (re-pinned at 944f6b56), so #567 is marked ready for review. After the squash merge, replace "Decided in: pending squash" in stack.md with the SHA.
 
 ### 2026-10-28 · build: whole-list scroll on People and Studios
 - skills: implement, code-review, handoff
