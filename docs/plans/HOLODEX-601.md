@@ -54,8 +54,8 @@ testing strategy §32.1
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [~] backend → `{cmd,internal,providers}/**` — no server change: list endpoints already page by offset under every sort and seeded Random, and return `letters`. until: the build finds a missing parameter
-- [x] frontend → `web/src/**`
-- [/] testing `testing-strategy` — unit, browser-mode, §12.4 harness and §20.6 nav Back checks pass; `-big` live QA done; a human screen-reader pass remains
+- [/] frontend → `web/src/**` — built and QA'd; held on the owner comparing the built screen with the approved mockup (/handoff §3d)
+- [x] testing `testing-strategy` — unit, browser-mode, §12.4 harness and §20.6 nav Back checks pass; `-big` live QA done; screen-reader pass owner-accepted 2026-10-28
 - [~] security `security-review` — no auth, access or infrastructure change; reads the same public list endpoints. until: a new endpoint or parameter is added
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -73,7 +73,7 @@ testing strategy §32.1
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] [human] Screen-reader pass on People: positions announced, one Tab stop, arrow keys — `docs/testing-strategy.md` §32.1 item 9
+1. [ ] [frontend] Owner compares the built People page (List mid-scroll: placeholders, retry row, chip, A–Z) with the approved mockup, then mark PR #567 ready — `docs/design/entity-list-virtual-scroll-mockup.svg`
 2. [ ] [testing] Close §32.1's gaps: contract at 375/768/1440px and each poster density, Table aria, merge selection across a far scroll — `web/src/lib/components/shared/VirtualRows.svelte.test.ts`
 3. [ ] [architecture] Replace "Decided in: pending squash" with the squash SHA after merge — `docs/architecture/stack.md`
 
@@ -89,7 +89,7 @@ testing strategy §32.1
 
 ### 2026-10-28 · build: whole-list scroll on People and Studios
 - skills: implement, code-review, handoff
-- handoff: Built in ae77c3fd and QA'd on the -big fixture (5 faults fixed in 6fa3e8a9); the §20.6 nav Back scenario passes, mutation-tested, and all 13 nav scenarios pass. Design sign-off re-pinned at 0dd0071e. Only a human screen-reader pass (§32.1 item 9) stands between the testing gate and ready.
+- handoff: main merged in (20b53201, clean; 878 web tests pass) and testing ticked on the owner's screen-reader acceptance. Marking #567 ready is held on two owner checks: compare the built People page mid-scroll with the approved mockup (/handoff §3d), and re-confirm the design sign-off, which reads stale only because the merge brought other epics' docs/design files.
 
 ### 2026-10-27 · design phase: spec, architecture, design and test plan for the whole-list scroll
 - skills: code-review, handoff, implement
