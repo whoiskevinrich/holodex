@@ -5327,7 +5327,8 @@ the grid; Tags All across the tag-to-category boundary in Posters and Table, and
 deep in the list; a snapshot removal deep in a 500-video playlist, a Freeze, a sort change; a
 person's `#films` jump and Back; a card-layout switch keeping the first entry in view.
 
-**[human].** A screen-reader pass on the Media grid (positions, one Tab stop).
+**[human].** A screen-reader pass on the Media grid (positions, one Tab stop). Owner: pass,
+2026-10-29, along with the build-vs-mockup check (handoff §3d).
 
 **Automated so far (2026-10-29).** `TestSnapshotPlaylistPages` tiles a 7-video snapshot under
 manual, added, title and random sorts at page size 3. `tagStream.test.ts` covers tag totals 0, 49,

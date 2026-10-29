@@ -36,7 +36,7 @@ architecture row).
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**`
 - [x] frontend → `web/src/**`
-- [/] testing `testing-strategy` — §32.2 automated and live-QA'd on `-big`; held on the [human] screen-reader pass on the Media grid
+- [x] testing `testing-strategy` — §32.2 automated, live-QA'd on `-big`; owner screen-reader pass and build-vs-mockup check passed 2026-10-29
 
 ## Up next — ordered (position = priority)
 
@@ -44,17 +44,16 @@ architecture row).
      ⛔ marks blocked. The CHECKBOX settles an item: [x] done, [~] dropped. Done items are deleted;
      dropped ones move to ## Dropped. -->
 
-1. [ ] [testing] [human] Screen-reader pass on the Media grid (positions, one Tab stop) — owner; then compare the build to the approved mockup (handoff §3d) — `docs/testing-strategy.md` §32.2
-2. [ ] [testing] Nav-harness Back scenario for the Media grid and a person's videos; card contract at other densities and the poster layout — `web/geometry/nav.mjs`
-3. [ ] [—] Keyboard focus no longer arms a card's hover montage → HOLODEX-605
-4. [ ] [—] Position chip shows above an entity page's list → HOLODEX-606
-5. [ ] [—] Sweep HOLODEX-604 with the PR: In Review when #568 is marked ready, Done on merge (CI moves only the branch's own key)
+1. [ ] [testing] Nav-harness Back scenario for the Media grid and a person's videos; card contract at other densities and the poster layout — `web/geometry/nav.mjs`
+2. [ ] [—] Keyboard focus no longer arms a card's hover montage → HOLODEX-605
+3. [ ] [—] Position chip shows above an entity page's list → HOLODEX-606
+4. [ ] [—] Sweep HOLODEX-604 with the PR: In Review when #568 is marked ready, Done on merge (CI moves only the branch's own key)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-29 · session
 - skills: testing-strategy, handoff, implement, code-review, handoff
-- handoff: Built, QA'd on `-big`, and moved onto main after #567 merged (Draft PR #568, base main); every gate settled but testing, which waits on the owner's screen-reader pass and build-vs-mockup check.
+- handoff: Every gate settled: the owner passed the screen-reader pass and the build-vs-mockup check; PR #568 marked ready on base main. Next: the owner merges, then sweep Jira.
 
 ### 2026-10-28 · session
 - skills: write-spec, design-handoff
