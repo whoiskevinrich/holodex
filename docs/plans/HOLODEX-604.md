@@ -44,8 +44,7 @@ architecture row).
      ⛔ marks blocked. The CHECKBOX settles an item: [x] done, [~] dropped. Done items are deleted;
      dropped ones move to ## Dropped. -->
 
-1. [ ] [—] `/implement`: record sign-off, merge, push, open the Draft PR (base `HOLODEX-601-virtual-entity-lists` unless #567 merged) — `docs/plans/HOLODEX-604.md`
-2. [ ] [backend] Snapshot playlist read pages with `limit`/`offset` + `total`; no `limit` still returns all — `internal/api/playlists.go`
+1. [ ] [backend] Snapshot playlist read pages with `limit`/`offset` + `total`; no `limit` still returns all — `internal/api/playlists.go`
 3. [ ] [frontend] Two-line title box on `VideoCard`; whole-list `VideoGrid` mode on VirtualRows — `web/src/lib/components/video/`
 4. [ ] [frontend] Media grid onto SparseList + wholeListPage (Back, scan refresh, Recently added) — `web/src/routes/+page.svelte`
 5. [ ] [frontend] Films, playlist detail, Tags Posters/Table (All-tab composite fetcher), EntityVideos — `web/src/routes/`
@@ -55,8 +54,8 @@ architecture row).
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-29 · session
-- skills: testing-strategy, handoff
-- handoff: design phase done and owner-approved (design at f1b8b221); next is `/implement`, then the snapshot-paging backend and the VideoCard two-line box.
+- skills: testing-strategy, handoff, implement
+- handoff: Crossed into build — design signed off at f1b8b221; Draft PR open on base HOLODEX-601-virtual-entity-lists. Start at the snapshot-paging backend.
 
 ### 2026-10-28 · session
 - skills: write-spec, design-handoff
