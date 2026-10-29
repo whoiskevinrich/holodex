@@ -131,7 +131,9 @@ sort, without a search, the A–Z index shows. Clicking a letter scrolls the lis
 name sits at the top, and moves focus to it. The list is not restarted: scrolling up from there
 reaches the earlier letters. "#" covers names that don't start with a letter, as today. Letters with
 no names in the whole library are dimmed and inert. **The active letter follows the scroll**: it is
-the letter of the first entry in view, so the index also says where you are. Clicking a letter never
+the letter of the first entry in view, so the index also says where you are. Right after a click it
+is the clicked letter, even when that letter's first name shares its row with the end of the
+letter before. Clicking a letter never
 reorders or filters the list; it only moves through it.
 
 **EL7. Back restores the spot.** Returning by Back (or reload) to any of the four pages restores the

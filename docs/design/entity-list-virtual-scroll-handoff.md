@@ -84,9 +84,12 @@ entry in view and the total, with thousands separators.
   Studios. Poster view gains it.
 - **Active letter follows the scroll.** It's the letter of the first entry in view, in the existing
   active style (`text-accent`, a 2px `border-accent` underline, `aria-current="true"`). It updates
-  as you scroll, without announcing.
-- **Clicking a letter** scrolls so that letter's first entry sits just under the sticky bars, with
-  smooth scrolling unless `prefers-reduced-motion` is set. Focus moves to that entry's row. Its
+  as you scroll, without announcing. After a click it's the clicked letter: in a multi-lane view a
+  letter's first name often sits mid-row, after the last names of the letter before, so the row's
+  first entry would otherwise light the wrong letter.
+- **Clicking a letter** scrolls so that letter's first entry sits just under the sticky bars. It
+  glides within two screens unless `prefers-reduced-motion` is set; a farther jump is instant,
+  because a glide across thousands of rows shows only placeholders and takes over a second. Focus moves to that entry's row. Its
   placeholder takes focus if it hasn't arrived yet.
 - Dimmed letters (no names in the library) stay inert and `aria-hidden`.
 - **Withdrawn:** the count line's "· from M · Back to start" suffix. Nothing restarts, so there's
