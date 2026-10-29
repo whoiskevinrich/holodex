@@ -108,8 +108,11 @@ from the core's range, so the grid and the `<table>` render the same way.
 
 **Fixed row heights are a contract, not an estimate the core corrects.** Each view's row has one
 height, which the design handoff fixes (one-line truncation, a fixed avatar or logo box). The wrapper
-reads one drawn row's height (its pitch, the gap below it included) and gives the core that as
-`estimateSize`. It never turns on `measureElement`. A poster card has a fixed aspect, so its row
+reads one drawn row's height (its pitch, the gap below it included), from a row that holds an
+entry, once per layout (lanes × width), and gives the core that as `estimateSize`. It never turns on
+`measureElement`. The rows in view are computed from `window.scrollY`, not the core's offset: a
+script's jump (a restart's return to the top) moves `scrollY` at once, but the core hears it a frame
+later, and asking in between would fetch the old depth. A poster card has a fixed aspect, so its row
 height follows the list's width and the column count. A `ResizeObserver` on the list re-reads it
 and calls `measure()`, keeping the first entry in view where it was. A row that grows past its
 height (wrapping text, say) is a bug in that row's markup. Measuring every row would hide it, and
@@ -137,7 +140,8 @@ so the backend needs no change.
   refresh keeps the scroll offset, re-reads the visible pages, and drops the rest.
 - **Back (EL7).** `listScroll` saves the first visible index and its offset within the row, not raw
   `scrollY`, because the row height depends on the width, which Back may not restore. The restore
-  fetches that index's page first (which also brings `total`), sizes the list, then scrolls.
+  fetches that index's page first (which also brings `total`), sizes the list, then scrolls. Until
+  it lands, the cache holds the view's asks, because the view still shows the top.
 
 `PagedList` stays for the lists that keep Load more: Tags, Films and the owner queues. It lost the
 F80 letter restart, which only People and Studios used.

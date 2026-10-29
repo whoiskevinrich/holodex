@@ -34,6 +34,8 @@ export class WindowVirtualizer {
 
 	#v: Virtualizer<Window, Element>;
 	#opts: Options;
+	/** An entry to keep in view across the next layout change (holdAnchor). */
+	#held: number | null = null;
 
 	constructor(estimate: number) {
 		this.pitch = estimate;
@@ -71,6 +73,14 @@ export class WindowVirtualizer {
 		this.#sync();
 	}
 
+	/**
+	 * Hold entry `index` in view across the layout change about to happen (a view switch):
+	 * the next configure() with new lanes or pitch lands it just under the sticky bar.
+	 */
+	holdAnchor(index: number) {
+		this.#held = index;
+	}
+
 	/** Update what the core lays out: entry total and lanes, the measured row pitch, the list's page offset. */
 	configure(c: { total: number; lanes: number; pitch?: number; margin?: number }) {
 		const lanes = Math.max(c.lanes, 1);
@@ -79,10 +89,14 @@ export class WindowVirtualizer {
 		const margin = c.margin ?? this.margin;
 		if (rowCount === this.rowCount && lanes === this.lanes && pitch === this.pitch && margin === this.margin) return;
 		const resize = pitch !== this.pitch || lanes !== this.lanes;
-		// A view switch, resize or density step keeps the first entry in view where it was.
-		const scrolledIn = resize && this.rowCount > 0 && window.scrollY > this.margin;
-		const anchor = this.firstVisible * this.lanes;
-		const within = window.scrollY - this.entryTop(anchor);
+		// A view switch, resize or density step keeps the first entry in view where it was: the
+		// entry the page held before switching views (read before the old view unmounted and the
+		// browser clamped the scroll), else the first entry in view now, at the same offset.
+		const held = this.#held;
+		const scrolledIn = resize && (held !== null || (this.rowCount > 0 && window.scrollY > this.margin));
+		const anchor = held ?? this.firstVisible * this.lanes;
+		const within = held !== null ? -this.stickyTop : window.scrollY - this.entryTop(anchor);
+		if (resize) this.#held = null;
 		this.rowCount = rowCount;
 		this.lanes = lanes;
 		this.pitch = pitch;
@@ -91,15 +105,26 @@ export class WindowVirtualizer {
 		this.#v.setOptions(this.#opts);
 		if (resize) this.#v.measure();
 		this.#v._willUpdate();
-		if (scrolledIn) window.scrollTo(0, this.entryTop(anchor) + Math.min(within, this.pitch - 1));
 		this.#sync();
+		// After the spacers take the new heights: scrolling before that, the page can still be
+		// the old view's height, and the browser clamps the jump.
+		if (scrolledIn)
+			tick().then(() => {
+				window.scrollTo(0, Math.max(this.entryTop(anchor) + Math.min(within, this.pitch - 1), 0));
+				this.#sync();
+			});
 	}
 
-	/** Scroll so the row holding entry `index` sits under the sticky bars. */
+	/**
+	 * Scroll so the row holding entry `index` sits under the sticky bars. `smooth` glides
+	 * only within two screens: across thousands of rows a glide shows nothing but
+	 * placeholders and takes over a second, so a far jump is instant.
+	 */
 	scrollToEntry(index: number, smooth = false) {
+		const near = Math.abs(this.entryTop(index) - window.scrollY) < 2 * window.innerHeight;
 		this.#v.scrollToIndex(Math.floor(index / this.lanes), {
 			align: 'start',
-			behavior: smooth ? 'smooth' : 'auto'
+			behavior: smooth && near ? 'smooth' : 'auto'
 		});
 	}
 
@@ -109,11 +134,10 @@ export class WindowVirtualizer {
 	}
 
 	/**
-	 * Scroll to entry `index`, `within` px past its row's top (by default, just below the
-	 * sticky bar), once the list now rendering has measured its rows (a few frames: Back, a
-	 * view switch).
+	 * Scroll to entry `index`, `within` px past its row's top, once the list now rendering
+	 * has measured its rows (a few frames). Back's restore uses it.
 	 */
-	async landOn(index: number, within = -this.stickyTop) {
+	async landOn(index: number, within: number) {
 		for (let k = 0; k < 3; k++) await new Promise(requestAnimationFrame);
 		window.scrollTo(0, this.entryTop(index) + within);
 	}
@@ -123,15 +147,26 @@ export class WindowVirtualizer {
 		return this.margin + Math.floor(index / this.lanes) * this.pitch;
 	}
 
+	/** The first and last row in view, read from the window now (not reactive). */
+	rowsInView(): [number, number] {
+		const lastRow = Math.max(this.rowCount - 1, 0);
+		const clamp = (row: number) => Math.min(Math.max(row, 0), lastRow);
+		return [
+			clamp(Math.round((window.scrollY + this.stickyTop - this.margin) / this.pitch)),
+			clamp(Math.floor((window.scrollY + window.innerHeight - this.margin) / this.pitch))
+		];
+	}
+
 	#sync() {
 		const items = this.#v.getVirtualItems();
 		this.start = items[0]?.index ?? 0;
 		this.end = items.length ? items[items.length - 1].index + 1 : 0;
-		// The first row at least half out from under the sticky bar: the chip and A–Z name what's
-		// readable, and a row a jump landed exactly under the bar counts.
-		const below = (this.#v.scrollOffset ?? 0) + this.stickyTop - this.margin;
-		this.firstVisible = Math.min(Math.max(Math.round(below / this.pitch), 0), Math.max(this.rowCount - 1, 0));
-		this.lastVisible = this.#v.range?.endIndex ?? 0;
+		// The rows in view, read from the window itself: its scrollY is current the moment a
+		// script scrolls, while the core's offset waits for the scroll event (a restart's jump
+		// to the top would otherwise still report the old depth). The first row is the first at
+		// least half out from under the sticky bar: the chip and A–Z name what's readable, and
+		// a row a jump landed exactly under the bar counts.
+		[this.firstVisible, this.lastVisible] = this.rowsInView();
 		this.scrolling = this.#v.isScrolling;
 	}
 }
@@ -151,6 +186,16 @@ export class RovingList {
 	constructor(virt: WindowVirtualizer, total: () => number) {
 		this.#virt = virt;
 		this.#total = total;
+	}
+
+	/**
+	 * The entry that names where the list is (the A–Z active letter, EL6): the focused entry
+	 * when it's in the first row in view (an A–Z jump lands a letter's first name there, often
+	 * mid-row), else the first entry in view.
+	 */
+	get anchorEntry(): number {
+		const v = this.#virt;
+		return Math.floor(this.focus / v.lanes) === v.firstVisible ? this.focus : v.firstVisible * v.lanes;
 	}
 
 	/** Track focus that arrives some other way (a click, a Tab back in). */
@@ -186,11 +231,14 @@ export class RovingList {
 		this.focus = index;
 		if (scroll === 'top') this.#virt.scrollToEntry(index, !reducedMotion());
 		else this.#virt.revealEntry(index);
+		// Wait (up to ~2s, a glide's length) for the entry's drawn row. Not its hidden pinned
+		// copy, which mounts at once for the new focus and unmounts when the row is drawn,
+		// taking focus with it.
 		let tries = 0;
 		const land = () => {
-			const el = root.querySelector<HTMLElement>(`[data-index="${index}"]`);
+			const el = [...root.querySelectorAll<HTMLElement>(`[data-index="${index}"]`)].find((e) => !e.closest('.sr-only'));
 			if (el) el.focus({ preventScroll: true });
-			else if (tries++ < 30) requestAnimationFrame(land);
+			else if (tries++ < 120) requestAnimationFrame(land);
 		};
 		requestAnimationFrame(land);
 	}
@@ -235,7 +283,12 @@ export function windowList<T>(o: {
 		// A table's rows start below its header.
 		const body = root instanceof HTMLTableElement ? (root.tBodies[0] ?? root) : root;
 		const layout = `${o.lanes()}:${root.clientWidth}`;
-		const row = layout === measuredFor ? null : root.querySelector<HTMLElement>('[data-row]');
+		// A row holding an entry: right after a lane change the drawn range can still reach
+		// past the new last row, and an empty row is only its gap tall.
+		const row =
+			layout === measuredFor
+				? null
+				: [...root.querySelectorAll<HTMLElement>('[data-row]')].find((r) => r.matches('[data-index]') || r.querySelector('[data-index]'));
 		if (row) measuredFor = layout;
 		virt.configure({
 			total: list.total,
@@ -269,10 +322,17 @@ export function windowList<T>(o: {
 		return () => ro.disconnect();
 	});
 
-	// Ask for what's in view; the list waits out a fling itself.
+	// Ask for what's in view; the list waits out a fling itself. The tracked reads say when
+	// to ask; the range itself is read from the window at the moment of asking. A restart
+	// jumps to the top and clears the cache in one go, and an effect run in between must
+	// not ask for the old depth under the new sort (it fetched four wasted pages).
 	$effect(() => {
-		const lanes = virt.lanes;
-		list.want(virt.firstVisible * lanes, (virt.lastVisible + 1) * lanes - 1, virt.scrolling);
+		void [virt.firstVisible, virt.lastVisible, virt.lanes];
+		const scrolling = virt.scrolling;
+		untrack(() => {
+			const [first, last] = virt.rowsInView();
+			list.want(first * virt.lanes, (last + 1) * virt.lanes - 1, scrolling);
+		});
 	});
 }
 
@@ -310,6 +370,9 @@ export function wholeListPage<T>(o: {
 			}
 			await list.restore(snap.anchor);
 			await virt.landOn(snap.anchor, snap.within ?? 0);
+			// The scroll event from landing reaches the view a frame later; ask after it.
+			await new Promise(requestAnimationFrame);
+			list.land();
 		});
 	});
 

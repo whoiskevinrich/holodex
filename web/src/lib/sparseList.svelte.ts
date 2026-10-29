@@ -27,6 +27,8 @@ export class SparseList<T> {
 	pages = $state.raw(new Map<number, PageState<T>>());
 
 	#gen = 0;
+	/** A restore hasn't landed yet: the view's asks are recorded, not fetched. */
+	#held = false;
 	/** The last range the view asked for, as [first, last] entry indexes. */
 	#want: [number, number] = [0, 0];
 	#ceiling: ReturnType<typeof setTimeout> | undefined;
@@ -55,12 +57,24 @@ export class SparseList<T> {
 
 	/** Start over: forget every page and read the first one, with letters. */
 	load() {
+		this.#held = false; // a restart overtakes a restore still landing
 		return this.#start(0);
 	}
 
-	/** Start over at a saved position (EL7): its page first, which also brings the total. */
+	/**
+	 * Start over at a saved position (EL7): its page first, which also brings the total.
+	 * Asks from the view are held until `land()`: until the page has scrolled to the anchor,
+	 * the view still shows the top, and fetching that would waste two reads.
+	 */
 	restore(anchor: number) {
+		this.#held = true;
 		return this.#start(Math.max(anchor, 0));
+	}
+
+	/** The restore has landed: fetch what the view now shows. */
+	land() {
+		this.#held = false;
+		return this.#ensure(...this.#want);
 	}
 
 	/**
@@ -85,6 +99,7 @@ export class SparseList<T> {
 	 */
 	want(first: number, last: number, scrolling: boolean) {
 		this.#want = [first, last];
+		if (this.#held) return;
 		if (!scrolling) {
 			clearTimeout(this.#ceiling);
 			this.#ceiling = undefined;

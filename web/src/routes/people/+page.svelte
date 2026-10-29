@@ -79,19 +79,19 @@
 	// layout's `<main class="px-6">` gutters (48px) and the grid's `gap-4` gaps, split N ways.
 	const posterSizes = $derived(`calc((100vw - ${48 + 16 * (cols - 1)}px) / ${cols})`);
 	// The A–Z letter that follows the scroll (EL6): the first entry in view's.
-	const activeLetter = $derived(showIndex ? letterAt(virt.firstVisible * virt.lanes, people.letters) : '');
+	const activeLetter = $derived(showIndex ? letterAt(roving.anchorEntry, people.letters) : '');
 	let barHeight = $state(0);
 	$effect(() => virt.setStickyTop(barHeight));
 
 	// A view switch keeps the first entry in view (handoff, "The scroll"). Read it before
-	// the old view unmounts (the page collapses and the browser clamps the scroll), and
-	// land on it once the new view has measured its rows.
+	// the old view unmounts (the page collapses and the browser clamps the scroll); the
+	// virtualizer lands on it when the new view's layout arrives.
 	let shownView = untrack(() => activeView);
 	$effect.pre(() => {
 		if (activeView === shownView) return;
 		shownView = activeView;
-		const anchor = untrack(() => virt.firstVisible * virt.lanes);
-		if (anchor > 0) virt.landOn(anchor);
+		const anchor = untrack(() => roving.anchorEntry);
+		if (anchor > 0) virt.holdAnchor(anchor);
 	});
 
 	// Merge selection (F23, owner-only): pick 2+ people, then choose the canonical

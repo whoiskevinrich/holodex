@@ -55,7 +55,7 @@
 	const sm = new MediaQuery('min-width: 640px');
 	const lg = new MediaQuery('min-width: 1024px');
 	const lanes = $derived(lg.current ? 3 : sm.current ? 2 : 1);
-	const activeLetter = $derived(showIndex ? letterAt(virt.firstVisible * virt.lanes, studios.letters) : '');
+	const activeLetter = $derived(showIndex ? letterAt(roving.anchorEntry, studios.letters) : '');
 	let barHeight = $state(0);
 	$effect(() => virt.setStickyTop(barHeight));
 

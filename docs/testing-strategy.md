@@ -5138,11 +5138,15 @@ environment (no `app.css` yet) a placeholder shorter than its entry flipped the 
 keep-in-view scroll back and forth until the browser hung.
 
 **Not yet automated (gaps).** The contract is checked on the List row only, not at 375/768/1440px or
-at each poster density. Table view's `aria-rowcount`/`aria-rowindex` and the A–Z scroll were checked
-live, not in a test. Merge selection across a far scroll has no test. The §12.4 harness
-`people-list-does-not-render-everything` still needs a run on `-big`, plus a `studios-` twin. The
-§20.6 nav scenario that scrolls People to its middle, opens a person, goes Back and checks the
-first entry in view is not written yet. That would close §32's standing Back gap.
+at each poster density. Table view's `aria-rowcount`/`aria-rowindex`, the A–Z scroll, view switches
+and merge selection across a far scroll were checked live, not in a test. The §20.6 nav scenario
+that scrolls People to its middle, opens a person, goes Back and checks the first entry in view is
+not written yet. That would close §32's standing Back gap; Back was checked live (below).
+
+**Harness (§12.4), 2026-10-28, `-big`.** `people-list-does-not-render-everything` now counts the
+list's `[data-index]` entries (the old `main ul > li` selector matched nothing once the list
+stopped being a `<ul>`), and `studios-list-does-not-render-everything` is its twin. Both pass at the
+four widths: 8 checks, 1–200 entries drawn of 2,000.
 
 **Live QA, 2026-10-28, small fixture** (`backend-stress-open-9700` + `web-9700`: 164 people, 119
 studios, Cinémathèque). The browser pane has to be in front: a hidden pane runs no rendering
@@ -5158,24 +5162,45 @@ steps, so it fires no scroll events, and the list never moves.
 - Poster: 6 lanes, a 264px card at 280px pitch, the A–Z index showing, and placeholders at 264px.
   A failed `offset=100` page gives its retry row on row 17 (102–107), 100–101 dimmed in row 16, and
   Retry fills it.
-- Table: `aria-rowcount` 165, the first row `aria-rowindex` 2, 44px rows, column widths kept. A
-  switch from List at entry 17 lands Table on entry 17 and Poster on entry 12 (the start of its row).
+- Table: `aria-rowcount` 165, the first row `aria-rowindex` 2, 44px rows, column widths kept.
 - Studios: 78px rows, the chip, the A–Z and no Load more.
 
-**Live QA still to run (`-big` fixture, Cinémathèque, an `-open-` stress pair).**
-1. [agent] First load: elements, page height and fetch size against the §32 table. The page height
-   is now the whole list's, and that is expected.
-2. [agent] Drag the scrollbar to 10%, 50% and 90% in each sort and in a search: real entries within
-   0.5s of stopping, and at most about three screens of entries in the DOM.
-3. [agent] One drag from top to bottom: the network panel shows only the landing pages.
-4. [agent] The chip reads the first entry's position in every sort and fades about 1s after a stop.
-5. [agent] A–Z in List, Table and Poster: clicking lands and focuses, and the active letter tracks
-   the scroll.
-6. [agent] Block one page's request: one retry row, neighbours intact, and Retry fills it.
-7. [agent] Back from deep in the list, including after a window resize and a density change.
-8. [agent] Merge two people picked far apart, then check the list keeps its place.
-9. [human] A screen-reader pass: positions announced, the list is one Tab stop, and arrow keys
-   work.
+**Live QA, 2026-10-28, `-big` fixture** (`./data/stress` reseeded with `-big`: 2,064 people, 2,019
+studios; `backend-stress-open-9600` + `web-9600`, Cinémathèque, the pane in front). Timing numbers
+only count with the pane displayed: hidden, it throttles timers, which read as 0.5–1.3s settles and
+fetches in the middle of a drag.
+1. First load: "2,064 people", 30 entries drawn, 501 elements on the page, no Load more. Two reads,
+   about 6KB each, served in 9–14ms.
+2. A 60-frame drag to 10%, 50% and 90%, under each of name, videos, Random and completeness: real
+   entries 170–335ms after the drag stops, 35–37 entries drawn at any depth, 3–4 page reads, all at
+   the landing. A search for "person 1" (1,000 matches) scrolls the same way, 321–323ms.
+3. No read fires during a drag; the core's scrolling flag flips once, about 170–185ms after it stops.
+4. The chip reads the first readable entry ("1,021 of 2,064" at 50%) in every sort.
+5. A–Z in List, Table and Poster: each click focuses the letter's first name just under the bar, and
+   that letter lights. X and Z are the last two names, so they land as low as the list allows.
+6. A failed page's retry row was checked on the small fixture (above); its placement is tested.
+7. Back from entry 1,286 (videos sort) restores entry 1,286 at the same `scrollY` (50,327), reading
+   the anchor's page first (`offset=1250`), then its neighbours, and nothing at the top. Back after
+   narrowing the window from 3 lanes to 2 still lands on entry 1,286. View switches at 55% and 95%
+   depth (List ↔ Poster ↔ Table, six each) land on the first entry's row every time. The density
+   slider hides at the pane's width, so a density step went unchecked.
+8. Two people picked 1,800 entries apart stay selected across the scroll ("2 selected"). Merging them
+   from entry 1,838 keeps the list there, re-reads only the 4 pages in view, and the count drops to
+   2,063.
+9. [human] Still to do: a screen-reader pass (positions announced, one Tab stop, arrow keys).
+
+Found and fixed during this run:
+- A sort or search change from deep in the list read 3–4 pages at the old depth under the new sort
+  (the cache was cleared before the jump to the top landed). The view's range is now read from the
+  window when asking, and a sort change reads only pages 0 and 50.
+- Back read the top two pages before landing. A restore now holds the view's asks until it lands.
+- A–Z to a far letter lost focus: a smooth glide across ~80,000px took 1.25s, and focus landed on the
+  entry's hidden pinned copy. A far jump is now instant, and focus waits for the drawn row.
+- A–Z lit the letter before the clicked one when the letter's first name sat mid-row. The active
+  letter is now the focused entry's, while it's in the first row in view.
+- A view switch drifted 3–6 rows, or jumped ~800 entries: the new view measured an empty row past
+  the list's end (16px), and the jump ran before the spacers grew. It now measures a row that holds
+  an entry, and lands after the layout updates.
 
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 

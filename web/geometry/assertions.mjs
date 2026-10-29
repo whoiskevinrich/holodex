@@ -399,17 +399,33 @@ export const ASSERTIONS = [
 	{
 		key: 'people-list-does-not-render-everything',
 		finds:
-			'The People list rendering every row it is given, unpaginated and unvirtualized — ' +
-			'HOLODEX-354, found by this fixture and fixed by F80 paging (50 a page + Load more). ' +
-			'Only meaningful on a large fixture: at the default size the whole table fits under ' +
-			'any sane page budget, so a small run cannot tell a paginated list from an ' +
-			'unpaginated one. The `min` keeps an empty match (a renamed row class) from passing.',
+			'The People list rendering every row it is given — HOLODEX-354, found by this fixture ' +
+			'and fixed by F80 paging, now the whole-list scroll (HOLODEX-601): the page is as tall ' +
+			'as the library but draws only the entries near the view. Only meaningful on a large ' +
+			'fixture: at the default size the whole table fits under any sane page budget, so a ' +
+			'small run cannot tell a virtualized list from one that draws everything. The `min` ' +
+			'keeps an empty match (a renamed list role or attribute) from passing.',
 		urls: ['/people'],
 		requires: {
 			why: 'needs a large fixture — reseed with `go run ./testdata/stressseed -big`',
 			met: (m) => (m.breadth?.tables?.people?.n ?? 0) >= 500
 		},
-		selector: 'main ul > li',
+		selector: 'main [role="list"] [data-index]',
+		applies: 'count',
+		expect: { min: 1, max: 200 }
+	},
+
+	{
+		key: 'studios-list-does-not-render-everything',
+		finds:
+			'The Studios list drawing every studio instead of the entries near the view — the ' +
+			'People check’s twin (HOLODEX-601), since Studios rides the same whole-list scroll.',
+		urls: ['/studios'],
+		requires: {
+			why: 'needs a large fixture — reseed with `go run ./testdata/stressseed -big`',
+			met: (m) => (m.breadth?.tables?.studios?.n ?? 0) >= 500
+		},
+		selector: 'main [role="list"] [data-index]',
 		applies: 'count',
 		expect: { min: 1, max: 200 }
 	},

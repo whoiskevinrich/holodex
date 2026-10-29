@@ -154,13 +154,30 @@ describe('SparseList', () => {
 		void done;
 	});
 
-	it('restores at an anchor: that page first, with the total and letters', async () => {
+	it('restores at an anchor: that page first, and holds the view until it lands', async () => {
 		const fetch = server();
 		const list = new SparseList(fetch);
 		await list.restore(1234);
 		expect(fetch.mock.calls[0]).toEqual([1200, 50, true]);
 		expect(list.total).toBe(TOTAL);
 		expect(list.at(1234)).toBe('e1234');
+		list.want(0, 30, false); // the view, still at the top before the page scrolls
+		await settle();
+		expect(fetch).toHaveBeenCalledTimes(1);
+		list.want(1230, 1260, false); // landed
+		await list.land();
+		expect(offsets(fetch)).toEqual([1150, 1200, 1250, 1300]); // pages 24–25 in view, one either side
+	});
+
+	it('drops a restore hold when a restart overtakes it', async () => {
+		const fetch = server();
+		const list = new SparseList(fetch);
+		await list.restore(1234);
+		await list.load();
+		fetch.mockClear();
+		list.want(100, 130, false);
+		await settle();
+		expect(offsets(fetch)).toEqual([50, 100, 150]);
 	});
 });
 
