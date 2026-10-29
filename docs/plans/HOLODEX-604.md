@@ -4,8 +4,8 @@
 key: HOLODEX-604                 # the tracker key; must match the branch key regex
 status: in-progress                 # DERIVED from the Gates below; only `done`/`released` are read from here
 profile: feature             # the gate posture (see flightplan.yaml `postures:`)
-depends-on: [HOLODEX-601]    # stacked on HOLODEX-601's branch until PR #567 merges
-release_note:                # the ONE user-facing sentence; authored once by /handoff
+depends-on: [HOLODEX-601]    # #567 merged to main as 8c235dac; this branch now targets main
+release_note: The Media grid, Films, playlists, the Tags Posters and Table views, and the videos on person, studio and tag pages now scroll the whole list, so you can drag anywhere and only what's in view loads.
 approved:
   design:
     on: 2026-10-29
@@ -34,9 +34,9 @@ architecture row).
 
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy`
+- [x] backend → `{cmd,internal,providers}/**`
+- [x] frontend → `web/src/**`
+- [/] testing `testing-strategy` — §32.2 automated and live-QA'd on `-big`; held on the [human] screen-reader pass on the Media grid
 
 ## Up next — ordered (position = priority)
 
@@ -44,18 +44,17 @@ architecture row).
      ⛔ marks blocked. The CHECKBOX settles an item: [x] done, [~] dropped. Done items are deleted;
      dropped ones move to ## Dropped. -->
 
-1. [ ] [backend] Snapshot playlist read pages with `limit`/`offset` + `total`; no `limit` still returns all — `internal/api/playlists.go`
-3. [ ] [frontend] Two-line title box on `VideoCard`; whole-list `VideoGrid` mode on VirtualRows — `web/src/lib/components/video/`
-4. [ ] [frontend] Media grid onto SparseList + wholeListPage (Back, scan refresh, Recently added) — `web/src/routes/+page.svelte`
-5. [ ] [frontend] Films, playlist detail, Tags Posters/Table (All-tab composite fetcher), EntityVideos — `web/src/routes/`
-6. [ ] [testing] §32.2 tests, harness twins, live QA on `-big` — `docs/testing-strategy.md`
-7. [ ] [—] Before each push: `git fetch`; merge `origin/HOLODEX-601-virtual-entity-lists` (or `origin/main` once #567 merges)
+1. [ ] [testing] [human] Screen-reader pass on the Media grid (positions, one Tab stop) — owner; then compare the build to the approved mockup (handoff §3d) — `docs/testing-strategy.md` §32.2
+2. [ ] [testing] Nav-harness Back scenario for the Media grid and a person's videos; card contract at other densities and the poster layout — `web/geometry/nav.mjs`
+3. [ ] [—] Keyboard focus no longer arms a card's hover montage → HOLODEX-605
+4. [ ] [—] Position chip shows above an entity page's list → HOLODEX-606
+5. [ ] [—] Sweep HOLODEX-604 with the PR: In Review when #568 is marked ready, Done on merge (CI moves only the branch's own key)
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
 ### 2026-10-29 · session
-- skills: testing-strategy, handoff, implement, code-review
-- handoff: Crossed into build — design signed off at f1b8b221; Draft PR open on base HOLODEX-601-virtual-entity-lists. Start at the snapshot-paging backend.
+- skills: testing-strategy, handoff, implement, code-review, handoff
+- handoff: Built, QA'd on `-big`, and moved onto main after #567 merged (Draft PR #568, base main); every gate settled but testing, which waits on the owner's screen-reader pass and build-vs-mockup check.
 
 ### 2026-10-28 · session
 - skills: write-spec, design-handoff
