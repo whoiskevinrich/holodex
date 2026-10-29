@@ -107,7 +107,7 @@ other type.
 
 - [ ] Given at least one video pair, when the owner opens Duplicates, then a Videos group shows the number of pairs
 - [ ] Given the owner filters to videos, then only video pairs are shown
-- [ ] Given no video pairs, then no Videos group is shown
+- [ ] Given no video pairs, then the Videos lane still appears, with a count of 0. Lanes never shift position ([F70](duplicates-pair-evidence.md) P0-8, which also owns how lanes open and load)
 - [ ] A visitor never sees video pairs, or any sign of them
 
 **P0-3 · Side-by-side compare.** Each pair shows both files in the same layout, so the facts line

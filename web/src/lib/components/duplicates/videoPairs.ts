@@ -4,7 +4,7 @@
 // carry-over list and the label validation are pure functions of the API payload.
 import { formatBitrate, formatBytes, formatDuration, resolutionBucket } from '#lib/format.ts';
 import type { CarryPreview, VideoCompareSide, VideoDuplicatePair, VideoPairSide, VideoWork } from '#lib/types.ts';
-import { groupId, QUEUE_ID } from './queue';
+import { lanePanelId, QUEUE_ID } from './queue';
 
 export function videoPairKey(p: VideoDuplicatePair): string {
 	return `video-${p.a.id}-${p.b.id}`;
@@ -16,7 +16,7 @@ export const videoPanelId = (p: VideoDuplicatePair): string => `dup-panel-${vide
  *  Videos heading, then the queue (which always renders). */
 export function videoFocusLandingIds(pair: VideoDuplicatePair, siblings: VideoDuplicatePair[]): string[] {
 	const next = siblings[siblings.indexOf(pair) + 1];
-	return [...(next ? [videoDisclosureId(next)] : []), groupId('video'), QUEUE_ID];
+	return [...(next ? [videoDisclosureId(next)] : []), lanePanelId('video'), QUEUE_ID];
 }
 
 /** The row's per-side summary: "4K · 34:14". */

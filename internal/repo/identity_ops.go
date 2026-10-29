@@ -361,7 +361,7 @@ func entityConflict(ctx context.Context, qr queryRower, entityType string, selfI
 // (both route the old name through the alias table). One transaction under the write
 // lock. ErrNotFound if either id is missing; an error on a self-merge.
 func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64) error {
-	_, err := r.mergeEntities(ctx, entityType, canonicalID, mergedID)
+	_, err := r.mergeEntities(ctx, entityType, canonicalID, mergedID, false)
 	return err
 }
 
@@ -374,10 +374,19 @@ func (r *Repo) MergeEntities(ctx context.Context, entityType string, canonicalID
 // (e.g. a scan) that changes the loser's associations between the read and
 // the merge.
 func (r *Repo) MergeEntitiesWithAffectedVideos(ctx context.Context, entityType string, canonicalID, mergedID int64) ([]int64, error) {
-	return r.mergeEntities(ctx, entityType, canonicalID, mergedID)
+	return r.mergeEntities(ctx, entityType, canonicalID, mergedID, false)
 }
 
-func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64) ([]int64, error) {
+// MergeEntitiesShowingMerged is MergeEntitiesWithAffectedVideos followed, in the same
+// transaction, by RenameEntity of the survivor to the merged entity's name — Show as
+// (F70 P0-11, RD14): the survivor keeps its identity and takes the other spelling, and
+// its former name stays as an alias, so no name either entity had is lost. All or
+// nothing: a failed rename leaves no merge behind.
+func (r *Repo) MergeEntitiesShowingMerged(ctx context.Context, entityType string, canonicalID, mergedID int64) ([]int64, error) {
+	return r.mergeEntities(ctx, entityType, canonicalID, mergedID, true)
+}
+
+func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID, mergedID int64, showMerged bool) ([]int64, error) {
 	if canonicalID == mergedID {
 		return nil, errors.New("cannot merge an entity into itself")
 	}
@@ -510,6 +519,15 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 	if err := rewriteSmartPlaylistRefs(ctx, tx, entityType, canonicalID, mergedID); err != nil {
 		return nil, err
 	}
+	// Show as (MergeEntitiesShowingMerged): the merged name is now one of the survivor's
+	// own aliases and its holder is gone, so for a single-column name key (studio) the
+	// rename cannot collide. A film's composite key could, which is why the API offers
+	// Show as for studios only; any collision here still rolls the merge back.
+	if showMerged {
+		if _, err := renameEntityTx(ctx, tx, entityType, cfg.table, canonicalID, mergedName); err != nil {
+			return nil, fmt.Errorf("merge (show as): %w", err)
+		}
+	}
 
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit merge: %w", err)
@@ -545,6 +563,19 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 	}
 	defer tx.Rollback() //nolint:errcheck // no-op after Commit
 
+	if cid, err := renameEntityTx(ctx, tx, entityType, table, id, newName); err != nil {
+		return cid, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit rename: %w", err)
+	}
+	return 0, nil
+}
+
+// renameEntityTx is RenameEntity's body inside the caller's transaction (already under
+// writeMu), so a merge can rename its survivor atomically (MergeEntitiesShowingMerged).
+// newName is already normalized for the entity type.
+func renameEntityTx(ctx context.Context, tx *sql.Tx, entityType, table string, id int64, newName string) (conflictID int64, err error) {
 	var oldName string
 	switch err := tx.QueryRowContext(ctx, `SELECT name FROM `+table+` WHERE id = ?`, id).Scan(&oldName); {
 	case errors.Is(err, sql.ErrNoRows):
@@ -613,10 +644,6 @@ func (r *Repo) RenameEntity(ctx context.Context, entityType string, id int64, ne
 		if err := queueFilmSameTitle(ctx, tx, id, newName); err != nil {
 			return 0, err
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit rename: %w", err)
 	}
 	return 0, nil
 }

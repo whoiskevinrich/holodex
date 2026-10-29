@@ -3010,6 +3010,80 @@ the placeholder path):
   surface that *does* — the gallery editor — would show a stale set if it adopted the module.
   Logged and accepted during `/code-review high` rather than solved speculatively.
 
+### 16.2 Lanes, the studio panel and Show as — backend (HOLODEX-598)
+
+The 598 revision of the [spec](specs/duplicates-pair-evidence.md) (P0-8, P0-10, P0-11, OQ5–OQ7)
+needs Go code, unlike the person panel above. Four pieces, each pinned by a Go test. The SPA half
+is §16.3.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Planner statistics at boot** (OQ5) | `internal/db/optimize_test.go` `TestOpenAnalyzesTables` | `db.Open` leaves `sqlite_stat1` rows for a table that has rows but was never analyzed. The fixture deletes the statistics the first `Open` wrote, then adds 500 videos, which is how every pre-598 library looks. Without statistics the review queue's per-side video count is driven from the near-total `videos.active` index. On a synthetic 20k-video, 1.8k-pair copy the whole-page read took 23–43 s without statistics and 0.11–0.18 s with them. |
+| **One lane, paged in SQL** (P0-8) | `internal/repo/review_lanes_test.go` `TestReviewPairsLane` | Two pages of one type, read in SQL, concatenate to exactly that type's slice of the whole list, in the same order. Video counts are taken for the page alone. Ties sort by id, so pages never overlap. The lane count agrees with the list once a pair goes stale (rename, then delete the old spelling), because the count and the page share one `FROM … WHERE`. Every named type has a count, including 0. |
+| **Lane counts on both lists** (P0-8) | `internal/api/owner_queue_paging_test.go` `TestDuplicatesPagingByType` | `counts` carries all five lanes (`person`, `studio`, `tag`, `film`, `video`) with 0s, on `?type=` reads and on `/owner/duplicates/videos`. A verdict in any lane therefore refreshes every tab from that lane's own re-read. |
+| **Studio name sources** (P0-10, OQ6, OQ7) | `internal/api/duplicates_studio_test.go` `TestStudioEvidence` | Five videos split across the file tags and `provider-1`, with one video where the file tags win against the provider's other spelling. A source counts only when its own value names *this* studio. One video counts toward both sources. Sources sort by most videos first. The posters are one per source, then the newest, each captioned by the source that **won** that video. Owner aliases carry no `source`. `external_links` is `[]`, not null. The read is owner-gated (401) and a missing studio gets 404. |
+| **Show as** (P0-11, RD14) | `internal/api/studio_show_as_test.go` `TestStudioMergeShowAs` | `show_as: "merged"` keeps the survivor's id, gives it the merged spelling, keeps its former name and the merged studio's alias as aliases, and moves every video. It rewrites the Studio tag on all linked videos, the moved ones included, as a rename does. A bad `show_as`, and `show_as` on a tag, are 400 and merge nothing. The fixture's videos are Matroska, because writeback skips a container it cannot write. Without that, the writeback assertions pass on zero jobs. |
+
+**Measured, not asserted.** The scaled copy is synthetic (generated names only). It also put a
+5,000-video studio's evidence at about 0.18 s and a lane read over HTTP at 0.11–0.15 s. The live
+library's baseline is the owner's to take (spec OQ5) with the anonymized script in the epic's
+notes. No CI test bounds a timing, because a timing test on a shared runner only measures the
+runner.
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `Open` without the `optimize` call broke `TestOpenAnalyzesTables`.
+- `ReviewPairCounts` counting the raw queue instead of `reviewPairsFrom` broke `TestReviewPairsLane`, at the stale-pair count.
+- `studioPosterPicks` skipping its one-per-source pass broke `TestStudioEvidence`.
+
+#### 16.2.1 Standing gaps
+
+- **No test proves that a failed Show-as rename rolls the merge back.** For a studio the rename
+  cannot fail once the merge has run, because the merged name's only holder is gone. Injecting a
+  failure would need a test-only hook. The guarantee rests on the single transaction in
+  `mergeEntities`, and the API refuses `show_as` for films, whose composite key could collide.
+- **A studio inherited from a film is not seen by the evidence read.** The read loads only the
+  studio field's own file keys and provider keys. A scene whose studio comes from its film shows
+  another winner, or none, on its poster caption. This is rare enough to leave until the panel
+  shows it.
+- **Statistics refresh only at boot.** A fresh install whose first scan adds thousands of videos
+  runs without statistics until its next restart. An established library is analyzed at every
+  boot.
+
+### 16.3 Lanes, the studio panel and Show as — frontend (HOLODEX-598)
+
+There is still no component harness (§5), so the rules the page, row and panels share live in
+`queue.ts` and are unit-tested there, and the structural guarantees are pinned statically in
+`verdictOwnership.test.ts`, as for the person panel.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Lanes** (P0-8) | `duplicates/queue.test.ts` `lanes` | The tab order is fixed (Videos, People, Studios, Tags, Films). With no `?type=` the page opens on the first lane with pairs, and on Videos when all are 0. `?type=` accepts exactly the five lanes. Tab and tabpanel ids derive from the lane. |
+| **Comparable kinds** (RD10, P0-9) | `queue.test.ts` `showsComparePanel`, `labelPlacement`, `focusLandingIds` | Person **and** studio pairs get the panel, the label in the panel, a profile link and a next-row disclosure rung. Tag and film rows keep the label in the row and land focus on the lane's tabpanel, which replaced the group heading. |
+| **Studio sources in words** (P0-10) | `queue.test.ts` `sourceLabel` | `file` reads "File tags", `manual` reads "you", and a provider uses its own link label, else its namespace. |
+| **Verdict ownership, both panels** (P0-4, P0-5) | `verdictOwnership.test.ts`, `describe.each` over `DuplicateComparePanel` and `DuplicateStudioPanel` | Each renders the row's `verdicts` in the footer and the row's `mergeInto(ref, other)` once per column, and has no verdict or resolving call of its own. |
+| **Verdict grammar** (C2, C5, RD7) | `verdictOwnership.test.ts` `DuplicatePairRow` | Tag and film rows keep the accent Keep separate and the ghost two-step Merge. A comparable row offers only the ghost Keep separate. Merge into this one is the accent pill, named "Merge {other} into {keep}", and only opens the confirm. |
+| **Show as** (P0-11) | `verdictOwnership.test.ts` `sends the Show as pick on a studio merge only` | The confirm's radio group is a native `fieldset`, and its pick reaches the merge call for a studio only. |
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `showsComparePanel` back to person-only.
+- `defaultLane` falling back to People instead of Videos.
+- The studio merge dropping the Show as pick.
+- `DuplicateStudioPanel` swapping `mergeInto`'s arguments, which would merge the wrong way.
+
+**QA, not asserted** (stress fixture plus seeded pairs, 2026-10-27). One request makes the first
+lane usable (the Videos read, which carries every count). A collapsed lane issues no card, image
+or evidence request. Expanding issues the side reads, and strip images load lazily. A person merge
+and a studio Merge and rename both resolved, dropped the tab count, and moved focus to the next
+disclosure. The survivor took the other spelling and kept its own as an alias. At 375 px nothing
+scrolls the page sideways.
+
+#### 16.3.1 Standing gaps
+
+- **No test drives the page's lane switching, `replaceState` or the re-read after a verdict.**
+  Those need a component harness. They are covered by the QA pass above only.
+- **The person confirm's "films" clause reads the cached card.** If the card is not cached it
+  arrives a moment after the dialog opens, and until then the clause is absent.
+
 ## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
 
 Two entities of one kind carrying the same provider external id is the strongest positive

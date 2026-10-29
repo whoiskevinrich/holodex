@@ -295,10 +295,14 @@ func TestPlaceholderResolution(t *testing.T) {
 	if strings.Contains(string(a), "var(--") {
 		t.Error("placeholder must not rely on CSS var() — it is served standalone via <img>")
 	}
-	for _, c := range []string{"#181310", "#9b9082", "#e8a33d", "#2a2622"} {
+	for _, c := range []string{"#181310", "#9b9082", "#2a2622"} {
 		if !strings.Contains(string(a), c) {
 			t.Errorf("placeholder should carry the Cinémathèque token %s", c)
 		}
+	}
+	// No accent baseline (HOLODEX-598 sign-off): the empty frame carries no gold rule.
+	if strings.Contains(string(a), "#e8a33d") {
+		t.Error("placeholder should not draw the accent baseline")
 	}
 
 	// Role-shaped viewBox: square headshot, wide banner, tall poster.

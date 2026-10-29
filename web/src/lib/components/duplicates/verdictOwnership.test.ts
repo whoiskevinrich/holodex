@@ -27,20 +27,30 @@ function template(src: string): string {
 	return (end === -1 ? src : src.slice(end + '</script>'.length)).replace(/<!--[\s\S]*?-->/g, '');
 }
 
-describe('DuplicateComparePanel verdict ownership', () => {
-	const panel = template(read('DuplicateComparePanel.svelte'));
+// Both entity panels (person, and studio since 598) render the row's footer `verdicts` and
+// its per-column `mergeInto`, and never a verdict of their own.
+describe.each(['DuplicateComparePanel.svelte', 'DuplicateStudioPanel.svelte'])('%s verdict ownership', (file) => {
+	const src = read(file);
+	const panel = template(src);
 
 	it('renders the verdicts through the snippet the row passed in', () => {
 		expect(panel).toMatch(/\{@render verdicts\(\)\}/);
 	});
 
+	it('renders Merge into this one through the row snippet, once per column', () => {
+		expect(panel).toMatch(/\{@render mergeInto\(ref, other\)\}/);
+		expect(panel).toMatch(/\{@render column\('a', pair\.a, pair\.b\)\}/);
+		expect(panel).toMatch(/\{@render column\('b', pair\.b, pair\.a\)\}/);
+	});
+
 	it('has no verdict control of its own — no second Keep separate or Merge', () => {
 		expect(panel).not.toMatch(/Keep separate/);
+		expect(panel).not.toMatch(/Merge into this one/);
 		expect(panel).not.toMatch(/>\s*Merge\s*</);
 	});
 
 	it('carries no merge or dismiss call, so a panel state cannot resolve a pair', () => {
-		expect(panel).not.toMatch(/mergeEntities|dismissDuplicate/);
+		expect(src).not.toMatch(/mergeEntities|dismissDuplicate/);
 	});
 });
 
@@ -82,12 +92,31 @@ describe('DuplicatePairRow verdict ownership', () => {
 	const src = read('DuplicatePairRow.svelte');
 	const markup = template(src);
 
-	it('defines the verdicts once, as a snippet', () => {
+	it('defines the verdicts and Merge into this one once each, as snippets', () => {
 		expect(src.match(/\{#snippet verdicts\(\)\}/g)).toHaveLength(1);
+		expect(src.match(/\{#snippet mergeInto\(/g)).toHaveLength(1);
 	});
 
-	it('passes that same snippet to the panel', () => {
-		expect(markup).toMatch(/<DuplicateComparePanel[\s\S]*?\{verdicts\}[\s\S]*?\/>/);
+	it('passes those same snippets to both panels', () => {
+		for (const panel of ['DuplicateComparePanel', 'DuplicateStudioPanel']) {
+			expect(markup).toMatch(new RegExp(`<${panel}[\\s\\S]*?\\{verdicts\\}[\\s\\S]*?\\{mergeInto\\}[\\s\\S]*?/>`));
+		}
+	});
+
+	// C2/C5: on a person or studio pair the merge is the accent, named for screen readers,
+	// and it only opens the row's confirm — it never merges on one click.
+	it('styles Merge into this one as the accent pill, opening the confirm', () => {
+		const snippet = src.slice(src.indexOf('{#snippet mergeInto('));
+		const button = snippet.slice(0, snippet.indexOf('</button>'));
+		expect(button).toContain('class={PILL_ACTION}');
+		expect(button).toContain('openConfirm(keep, other)');
+		expect(button).toMatch(/aria-label=\{`Merge \$\{refLabel\(other\)\} into \$\{refLabel\(keep\)\}`\}/);
+	});
+
+	// P0-11: Show as is a studio-only radio, and its pick reaches the merge call.
+	it('sends the Show as pick on a studio merge only', () => {
+		expect(src).toMatch(/merge\(confirm\.keep\.id, confirm\.other\.id, isStudio \? showAs : undefined\)/);
+		expect(markup).toMatch(/<fieldset[\s\S]*?Show the studio as[\s\S]*?bind:group=\{showAs\}[\s\S]*?<\/fieldset>/);
 	});
 
 	it('renders the panel only inside the open gate, so a collapsed row fetches nothing', () => {
@@ -106,21 +135,32 @@ describe('DuplicatePairRow verdict ownership', () => {
 	// owner can see, and a test that goes red on that gets weakened rather than fixed.
 	const buttons = markup.match(/<button[\s\S]*?<\/button>/g) ?? [];
 
-	/** The one button whose source contains `handler`. */
-	function buttonWith(handler: string): string {
-		const found = buttons.filter((b) => b.includes(handler));
-		expect(found, `expected exactly one <button> carrying ${handler}`).toHaveLength(1);
+	/** The one button whose source contains every one of `parts`. */
+	function buttonWith(...parts: string[]): string {
+		const found = buttons.filter((b) => parts.every((p) => b.includes(p)));
+		expect(found, `expected exactly one <button> carrying ${parts.join(' + ')}`).toHaveLength(1);
 		return found[0];
 	}
 
-	// RD7, and `app.css` names these two buttons by name in its `.btn-ghost` /
-	// `.btn-accent` doc comments. The swap is the whole point of P0-4: 185 dismissals
-	// against 31 open merges, so accenting Merge optimised the page backwards.
-	it('gives Keep separate the accent pill and Merge the bordered ghost', () => {
+	// RD7, and `app.css` names these buttons in its `.btn-ghost` / `.btn-accent` doc
+	// comments. On a tag or film pair the swap is the whole point of P0-4: 185 dismissals
+	// against 31 open merges, so accenting Merge optimised the page backwards. On a person
+	// or studio pair (C2) Keep separate is the ghost, as Keep both is in the Videos lane,
+	// because the accent has moved to Merge into this one in the panel.
+	it('styles Keep separate by grammar: accent on tag/film pairs, ghost on person/studio', () => {
 		expect(src).toMatch(/PILL_ACTION\s*=\s*'btn-row btn-pill btn-accent'/);
 		expect(src).toMatch(/GHOST\s*=\s*'btn-row btn-ghost px-2'/);
-		expect(buttonWith('doDismiss')).toContain('class={PILL_ACTION}');
+		expect(buttons.filter((b) => b.includes('doDismiss'))).toHaveLength(2);
+		buttonWith('doDismiss', 'class={PILL_ACTION}');
+		buttonWith('doDismiss', 'class={GHOST}');
 		expect(buttonWith('choosing = true')).toContain('class={GHOST}');
+	});
+
+	it('offers only Keep separate on a comparable row: Merge lives in the panel', () => {
+		const verdicts = markup.slice(markup.indexOf('{#snippet verdicts()}'), markup.indexOf('{/snippet}'));
+		const comparable = verdicts.slice(verdicts.indexOf('{#if comparable}'), verdicts.indexOf('{:else if choosing}'));
+		expect(comparable.match(/<button/g)).toHaveLength(1);
+		expect(comparable).toContain('Keep separate');
 	});
 
 	// Merge is irreversible (ADR-061), so it is NOT `.btn-quiet` — app.css documents

@@ -46,7 +46,8 @@ type videoPairRow struct {
 }
 
 // listVideoDuplicates pages the pairs by ?limit/offset (HOLODEX-587), in the repo's
-// stable (a, b) id order. Only the page's files are looked up.
+// stable (a, b) id order. Only the page's files are looked up. `counts` is every lane's
+// pair count, as on listDuplicates, so a verdict here refreshes every tab.
 func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	p := pageFromQuery(r.URL.Query())
@@ -55,10 +56,17 @@ func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "list video duplicates", err)
 		return
 	}
+	counts, err := h.repo.ReviewPairCounts(ctx)
+	if err != nil {
+		h.fail(w, "list video duplicates", err)
+		return
+	}
+	counts[videoLane] = len(all)
+	extra := map[string]any{"counts": counts}
 	pairs := pageOf(all, p)
 	out := []videoPairRow{}
 	if len(pairs) == 0 {
-		writeJSON(w, http.StatusOK, p.envelope(out, len(all), nil))
+		writeJSON(w, http.StatusOK, p.envelope(out, len(all), extra))
 		return
 	}
 	facts, titles, err := h.videoPairFacts(ctx, pairIDs(pairs))
@@ -77,7 +85,7 @@ func (h *Handlers) listVideoDuplicates(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, row)
 	}
-	writeJSON(w, http.StatusOK, p.envelope(out, len(all), nil))
+	writeJSON(w, http.StatusOK, p.envelope(out, len(all), extra))
 }
 
 func pairIDs(pairs []repo.VideoPair) []int64 {
