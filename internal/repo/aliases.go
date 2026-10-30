@@ -100,8 +100,9 @@ func (r *Repo) PersonConflict(ctx context.Context, selfID int64, alias string) (
 }
 
 // MergePersons folds the `merged` person into `canonical` (F23, ADR-036): moves its
-// videos, re-points its aliases, registers its name as an alias of canonical, drops its
-// shadow enrichment/decisions/curation, and deletes it. See MergeEntities. ErrNotFound
+// videos, re-points its aliases, registers its name as an alias of canonical, carries
+// over the enrichment and photos canonical lacks, drops the rest with its
+// decisions/curation, and deletes it. See MergeEntities. ErrNotFound
 // if either person is missing; an error if the two ids are equal.
 func (r *Repo) MergePersons(ctx context.Context, canonicalID, mergedID int64) error {
 	return r.MergeEntities(ctx, model.EnrichEntityPerson, canonicalID, mergedID)

@@ -142,6 +142,76 @@ func (r *Repo) InsertPersonImage(ctx context.Context, in PersonImageInsert) (int
 	return id, nil
 }
 
+// carryMergedPersonImages hands a merged-away person's photos to the survivor inside
+// the merge's transaction (HOLODEX-607). First each core photo whose slot the survivor
+// leaves empty: the partial unique index makes OR IGNORE keep a slot already filled.
+// Then the gallery extras in their order, appended after the survivor's, skipping a
+// photo whose bytes the survivor already holds under any role (the F34 dedup) and
+// stopping at the gallery cap. Whatever is not carried cascades away with the loser's
+// row. The files still sit under the loser's id, and the api layer moves them. The
+// loser's photo suppressions come along too: its provider match may now be the
+// survivor's, and a re-enrich must not bring back a photo the owner removed.
+func carryMergedPersonImages(ctx context.Context, tx *sql.Tx, survivorID, mergedID int64, galleryCap int) error {
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE OR IGNORE person_image_suppressions SET person_id = ? WHERE person_id = ?`,
+		survivorID, mergedID); err != nil {
+		return fmt.Errorf("merge (carry photo suppressions): %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE OR IGNORE person_images SET person_id = ? WHERE person_id = ? AND role <> ?`,
+		survivorID, mergedID, model.PersonImageExtra); err != nil {
+		return fmt.Errorf("merge (carry core photos): %w", err)
+	}
+	var (
+		count    int
+		maxOrder sql.NullInt64
+	)
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*), MAX(sort_order) FROM person_images WHERE person_id = ? AND role = ?`,
+		survivorID, model.PersonImageExtra).Scan(&count, &maxOrder); err != nil {
+		return fmt.Errorf("merge (count gallery): %w", err)
+	}
+	if count >= galleryCap {
+		return nil
+	}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id FROM person_images m
+		WHERE m.person_id = ? AND m.role = ?
+		  AND (m.content_hash = '' OR NOT EXISTS (
+		       SELECT 1 FROM person_images s WHERE s.person_id = ? AND s.content_hash = m.content_hash))
+		ORDER BY m.sort_order, m.id
+		LIMIT ?`, mergedID, model.PersonImageExtra, survivorID, galleryCap-count)
+	if err != nil {
+		return fmt.Errorf("merge (list gallery): %w", err)
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("merge (list gallery): %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("merge (list gallery): %w", err)
+	}
+	rows.Close()
+	next := int64(0)
+	if maxOrder.Valid {
+		next = maxOrder.Int64 + 1
+	}
+	for i, id := range ids {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE person_images SET person_id = ?, sort_order = ? WHERE id = ?`,
+			survivorID, next+int64(i), id); err != nil {
+			return fmt.Errorf("merge (carry gallery): %w", err)
+		}
+	}
+	return nil
+}
+
 // GetPersonImage returns one image row scoped to its person, or ErrNotFound. The
 // person scope means a mismatched (image, person) pair can't read another person's
 // image (mirrors DeletePersonAlias's scoping).

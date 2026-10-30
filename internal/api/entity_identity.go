@@ -206,6 +206,8 @@ func (h *Handlers) mergeEntity(w http.ResponseWriter, r *http.Request, cfg ident
 	}
 	if cfg.entityType == model.EntityTag {
 		h.settleMergedTagImage(r.Context(), id, body.FromID, lostTagImage.ID)
+	} else {
+		h.settleMergedImages(r.Context(), cfg.entityType, id, body.FromID)
 	}
 	entity, err := cfg.get(r.Context(), id)
 	if err != nil {

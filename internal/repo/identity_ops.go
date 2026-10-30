@@ -73,6 +73,10 @@ var entityIdentityByType = map[string]entityIdentity{
 	},
 	model.EnrichEntityStudio: {
 		table: "studios", assoc: "video_studios", assocFK: "studio_id",
+		// The loser's icon/logo/poster fill the survivor's empty slots (HOLODEX-607):
+		// UNIQUE(studio_id, role) makes OR IGNORE keep a slot the survivor already fills,
+		// and that loser row cascades away. The api layer moves the files to match.
+		idMoves: []idMove{{"studio_images", "studio_id", false}},
 	},
 	model.EntityTag: {
 		table: "tags", assoc: "video_tags", assocFK: "tag_id",
@@ -352,8 +356,9 @@ func entityConflict(ctx context.Context, qr queryRower, entityType string, selfI
 // P0-3/P0-4, ADR-061 D6): it moves the merged entity's associations (de-duped union)
 // and any extra id references (studio external ids) onto the survivor, re-points the
 // merged entity's aliases, registers the merged entity's name as an alias of the
-// survivor, drops the merged entity's shadow enrichment/decisions/curation (the
-// survivor keeps its own — matching MergePersons and the migration-0022 fold), and
+// survivor, carries over its enrichment from each provider the survivor has none from
+// and its images in slots the survivor leaves empty (HOLODEX-607), drops the rest of
+// its shadow enrichment and its decisions/curation (the survivor keeps its own), and
 // deletes it. For tags, it also repoints the merged tag's children onto the survivor
 // (F50 P0-11, ADR-075 D1 RD-M) so a merge doesn't orphan a subtree. Registering the
 // loser's name as an alias is load-bearing: for studios it makes the merge survive
@@ -484,7 +489,17 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		// 3. The merged entity's name becomes an alias of the survivor (load-bearing —
 		//    routes the old name to the survivor on re-derivation / re-scan).
 		{"name → alias", `INSERT OR IGNORE INTO entity_aliases (entity_type, entity_id, alias) VALUES (?, ?, ?)`, []any{entityType, canonicalID, mergedName}},
-		// 4. Drop the merged entity's shadow enrichment / decisions / curation (the
+		// 4. The merged entity's enrichment from each provider the survivor has none from
+		//    follows it (HOLODEX-607); where both hold one provider's data the survivor's
+		//    wins whole, so two provider records never mix field by field. A provider the
+		//    survivor dismissed (no candidate matched, F47) counts as the survivor's own
+		//    verdict for it. The IN lists are non-correlated subqueries, evaluated once
+		//    before any row moves.
+		{"carry enrichment", `UPDATE entity_enrichment SET entity_id = ? WHERE entity_type = ? AND entity_id = ?
+			AND provider NOT IN (SELECT provider FROM entity_enrichment WHERE entity_type = ? AND entity_id = ?)
+			AND provider NOT IN (SELECT provider FROM enrichment_dismissals WHERE entity_type = ? AND entity_id = ?)`,
+			[]any{canonicalID, entityType, mergedID, entityType, canonicalID, entityType, canonicalID}},
+		//    Then drop what is left of its enrichment, and its decisions / curation (the
 		//    survivor keeps its own — F37 RD5; no-op for tags, which have none).
 		{"drop enrichment", `DELETE FROM entity_enrichment WHERE entity_type = ? AND entity_id = ?`, []any{entityType, mergedID}},
 		{"drop decisions", `DELETE FROM field_source_decisions WHERE entity_type = ? AND entity_id = ?`, []any{entityType, mergedID}},
@@ -497,6 +512,14 @@ func (r *Repo) mergeEntities(ctx context.Context, entityType string, canonicalID
 		{"drop self-alias", `DELETE FROM entity_aliases WHERE entity_type = ? AND entity_id = ? AND alias = ?`, []any{entityType, canonicalID, canonicalName}},
 	}...)
 
+	// A person's photos fill the survivor's empty slots and gallery before the loser's
+	// delete cascades the rest away (HOLODEX-607). The gallery cap and photo dedup make
+	// this more than an idMove.
+	if entityType == model.EnrichEntityPerson {
+		if err := carryMergedPersonImages(ctx, tx, canonicalID, mergedID, r.GalleryCapValue()); err != nil {
+			return nil, err
+		}
+	}
 	for _, step := range steps {
 		if _, err := tx.ExecContext(ctx, step.sql, step.args...); err != nil {
 			return nil, fmt.Errorf("merge (%s): %w", step.desc, err)
@@ -646,6 +669,38 @@ func renameEntityTx(ctx context.Context, tx *sql.Tx, entityType, table string, i
 		}
 	}
 	return 0, nil
+}
+
+// entityImageTables names each entity type's image table and its entity column, for
+// EntityImageIDs. Tags are absent: a tag merge settles its one image itself.
+var entityImageTables = map[string]struct{ table, fk string }{
+	model.EnrichEntityPerson: {"person_images", "person_id"},
+	model.EnrichEntityStudio: {"studio_images", "studio_id"},
+	model.EnrichEntityFilm:   {"film_images", "film_id"},
+}
+
+// EntityImageIDs returns the ids of every image row an entity holds. After a merge the
+// api layer uses it to find the image files the merge carried over (HOLODEX-607): their
+// rows now name the survivor while their files still sit under the merged id.
+func (r *Repo) EntityImageIDs(ctx context.Context, entityType string, id int64) ([]int64, error) {
+	t, ok := entityImageTables[entityType]
+	if !ok {
+		return nil, fmt.Errorf("image ids: unknown entity type %q", entityType)
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM `+t.table+` WHERE `+t.fk+` = ?`, id)
+	if err != nil {
+		return nil, fmt.Errorf("image ids: %w", err)
+	}
+	defer rows.Close()
+	var ids []int64
+	for rows.Next() {
+		var imageID int64
+		if err := rows.Scan(&imageID); err != nil {
+			return nil, err
+		}
+		ids = append(ids, imageID)
+	}
+	return ids, rows.Err()
 }
 
 func mergeEntityLookupErr(entityType string, err error) error {
