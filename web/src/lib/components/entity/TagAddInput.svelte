@@ -157,7 +157,7 @@
 				>
 					{#if alias}
 						<span class="min-w-0 flex-1 truncate text-ink"
-							>{t.name} <span class="text-xs text-muted">via {alias}</span></span
+							>{t.name} <span class="text-xs text-muted">via <em>{alias}</em></span></span
 						>
 					{:else}
 						<span class="min-w-0 flex-1 truncate text-ink"

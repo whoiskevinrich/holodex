@@ -62,7 +62,7 @@ Done means typing an alias ("scifi") in the media page's add-tag input suggests 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Italicize the matched alias in the suggestion row (approved D5) — `web/src/lib/components/entity/TagAddInput.svelte`
+1. [ ] [—] Mark PR #574 ready once CI is green, then sweep HOLODEX-612 with the merge — `docs/plans/HOLODEX-612.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -76,7 +76,7 @@ Done means typing an alias ("scifi") in the media page's add-tag input suggests 
 
 ### 2026-10-31 · alias suggestions fixed end to end
 - skills: code-review, handoff, implement
-- handoff: Crossed into build — design signed off at 005dcd74 (alias in italics); draft PR open. Start at italicizing the alias in TagAddInput.
+- handoff: Crossed into build — design signed off at 005dcd74 (alias in italics), italic alias landed and live-checked; draft PR #574 is complete, so mark it ready once CI is green.
 
 ## Dropped — newest first (the reason is the point)
 
