@@ -13,6 +13,10 @@ profile: feature             # the gate posture (see flightplan.yaml `postures:`
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Typing a tag's alias in a video's add-tag box now suggests that tag, instead of offering to create a new one.
+approved:
+  design:
+    on: 2026-10-31
+    at: 005dcd74
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -58,7 +62,7 @@ Done means typing an alias ("scifi") in the media page's add-tag input suggests 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Owner signs off the "via *alias*" suggestion row (D5), then `/implement` opens the PR — `docs/design/media-tag-input-handoff.md`  ⛔ blocked on the owner's yes
+1. [ ] [frontend] Italicize the matched alias in the suggestion row (approved D5) — `web/src/lib/components/entity/TagAddInput.svelte`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -71,8 +75,8 @@ Done means typing an alias ("scifi") in the media page's add-tag input suggests 
 -->
 
 ### 2026-10-31 · alias suggestions fixed end to end
-- skills: code-review, handoff
-- handoff: Fix committed (ab0ad79e): /search stamps every tag hit with its aliases and the add-tag input matches and labels them; all gates are settled, and the PR waits only on the owner's design sign-off for the "via alias" row.
+- skills: code-review, handoff, implement
+- handoff: Crossed into build — design signed off at 005dcd74 (alias in italics); draft PR open. Start at italicizing the alias in TagAddInput.
 
 ## Dropped — newest first (the reason is the point)
 
