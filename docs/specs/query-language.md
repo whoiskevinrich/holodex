@@ -89,7 +89,10 @@ needs a well-defined query to translate into, and today there isn't one.
     *duration* take a comparison or a range.
   - **matched**: the video is matched to a provider (`matched:any`, or a specific provider by its
     name). Owner-only.
-  - Plain words: the free-text title search browse already has.
+  - **Bare words** (no `field:`): a video matches when its title contains the word **or** it has
+    the Tag whose name or alias is exactly that word (with that Tag's descendants). A bare word
+    never matches a person or a studio; those need `person:` and `studio:`. Quote a phrase to
+    treat it as one word: `"science-fiction"`.
 - **Combining**: conditions next to each other must all match (AND). `OR` between two parts means
   either may match. A leading `-` (or `NOT`) means the part must not match. Parentheses group.
 - **The query**: the whole expression. It is stored by identity (Tag, person and studio by their
@@ -145,6 +148,9 @@ everything browse can do today can be written as a query.
       Tags everywhere.
 - [ ] `duration` accepts `<`, `>`, `<=`, `>=` and a range `a..b`, with units s, m and h
       (`duration:<2m`, `duration:20m..1h`). `year` accepts the same comparisons on whole years.
+- [ ] A bare `comedy` returns videos with "comedy" in the title plus videos tagged *comedy*;
+      `tag:comedy` returns only the tagged ones. A bare word that's only part of a Tag's name
+      (`science` against *science-fiction*) matches titles only.
 
 **P0-2 Logic.** AND (adjacency), OR, NOT (`-` or `NOT`) and parentheses, nested to any depth up to the
 limits in P0-9.
@@ -178,8 +184,9 @@ names. Choosing a suggestion inserts it, quoted if it contains spaces.
 
 **P0-6 The query as chips on browse.** Browse shows the active query as chips, one per condition,
 with NOT shown on the chip and OR groups shown as one group. Removing a chip removes that condition.
-Adding a Tag, person or studio from browse adds a chip (an AND). The existing toolbar facets read and
-write the same query.
+Adding a Tag, person or studio from browse adds a chip (an AND). F73's toolbar facets (duration, year,
+resolution, category) stay as they are, and setting one adds or updates its chip. A bare word's chip
+says it matches title or Tag.
 - [ ] A query the chips can draw round-trips: chips → text → chips gives the same query.
 - [ ] A query the chips can't draw shows as a single *Advanced query* row with **Edit as text**,
       and never as a simplified or wrong chip set.
@@ -244,14 +251,20 @@ A personal library has no analytics, so success is checked, not measured:
 
 ## Open Questions
 
-1. **(design, blocking)** In query mode, does a bare word mean title text, or a Tag when one of
-   that name exists? This spec assumes **title text**, as today, so `comedy` and `tag:comedy` differ.
-2. **(design, blocking)** Where do F73's existing toolbar facets sit once chips exist: do they stay
-   as controls that write chips, or collapse into the chip row?
-3. **(engineering, non-blocking)** How do saved smart playlists move to the new stored form:
+1. **(engineering, non-blocking)** How do saved smart playlists move to the new stored form:
    converted once, or read in either form?
-4. **(security, blocking before build)** The values for the P0-9 limits, and whether visitor queries
+2. **(security, blocking before build)** The values for the P0-9 limits, and whether visitor queries
    need a rate limit.
+
+## Decisions
+
+- **RD1 Bare words match title or exact Tag** (2026-10-31). *Why*: forgiving for visitors; creating
+  a Tag later only widens a query, never flips its meaning. Exact name or alias only, and never
+  people or studios, so bare words stay predictable. *Rejected*: title only (strict but makes
+  everyone learn `tag:`); "Tag if one exists" (meaning flips when a Tag is created); title, Tag,
+  person or studio (least predictable).
+- **RD2 Toolbar facets stay and write chips** (2026-10-31). *Why*: smallest change to F73, and
+  visitors keep the controls they can see. *Rejected*: folding facets into the chip row.
 
 ## Timeline Considerations
 
