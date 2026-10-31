@@ -42,7 +42,7 @@
 	// sort is sticky (localStorage) and in the URL; filters and entity scope live in the URL
 	// only, so a plain nav click opens the whole library, and Back or a shared link
 	// reproduces exactly what was on screen. Every change below goes through `list`.
-	const list = listController(mediaSchema, '/');
+	const list = listController(mediaSchema, '/', () => activity.effectiveOwner);
 	const query = $derived(list.state.query);
 	const sortBy = $derived(list.state.sort);
 	function setQuery(patch: Partial<MediaQuery>) {
@@ -75,7 +75,6 @@
 	});
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
-	$effect(() => list.setOwner(isOwner));
 
 	// Grid or Table (F82), remembered per page; only the toggle writes it (F73 R7).
 	let activeView = $state(readView('media'));

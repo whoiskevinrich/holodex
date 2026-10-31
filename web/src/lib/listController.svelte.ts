@@ -8,6 +8,7 @@
 //
 // Pages call `listController()` during component init: afterNavigate and the popstate
 // listener both register against the component.
+import { untrack } from 'svelte';
 import { afterNavigate } from '$app/navigation';
 import {
 	chooseSort,
@@ -21,12 +22,14 @@ import {
 
 export class ListController<S extends string, Q> {
 	state: ListState<S, Q> = $state() as ListState<S, Q>;
-	#owner = false;
+	#owner: boolean;
 
 	constructor(
 		private schema: ListSchema<S, Q>,
-		private path: string
+		private path: string,
+		owner = false
 	) {
+		this.#owner = owner;
 		this.#arrive(new URLSearchParams(location.search));
 		afterNavigate(({ to }) => {
 			if (to?.url.pathname === path) this.#arrive(to.url.searchParams);
@@ -85,9 +88,19 @@ export class ListController<S extends string, Q> {
 	}
 }
 
-/** What a list page calls during init: the controller, with its popstate listener tied to the component. */
-export function listController<S extends string, Q>(schema: ListSchema<S, Q>, path: string): ListController<S, Q> {
-	const c = new ListController(schema, path);
+/**
+ * What a list page calls during init: the controller, with its popstate listener tied to the
+ * component. `owner` (a page with owner-only sorts) is read once before the first parse, so
+ * an owner-only ?sort= is in the state, and Back's snapshot key, from the start: a key that
+ * flips once mounted spends the snapshot and restarts the list at the top. Then it's followed.
+ */
+export function listController<S extends string, Q>(
+	schema: ListSchema<S, Q>,
+	path: string,
+	owner?: () => boolean
+): ListController<S, Q> {
+	const c = new ListController(schema, path, owner ? untrack(owner) : false);
 	$effect(() => c.listen());
+	if (owner) $effect(() => c.setOwner(owner()));
 	return c;
 }
