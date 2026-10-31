@@ -16,8 +16,8 @@
   its review routing.
 - [File maintenance](video-file-maintenance.md). Its held originals block a rename (P0-8).
 
-**Architecture**: not written yet. The rename record, how a rename is queued and the path perimeter
-are the architecture gate's to decide.
+**Architecture**: [file-rename.md](../architecture/file-rename.md); the name bound is in
+[security-perimeter.md](../architecture/security-perimeter.md).
 **Design**: not written yet. The plan, the drift review queue and the name lock are the design
 gate's.
 

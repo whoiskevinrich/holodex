@@ -74,11 +74,16 @@ evidence, where the match runs, and the fold.
     newer row is the more recent one. Part and edition carry too, since it is the same file;
   - enrichment rows move too, and for each provider the side with the newer `fetched_at` wins
     whole, so one provider's fields never mix two fetches;
-  - dismissals, writeback history and snapshots, extraction reviews and job attribution move to
-    the older id.
+  - dismissals, writeback history and snapshots, extraction reviews, the rename journal and job
+    attribution move to the older id, and the newer row's file-name state replaces the older
+    row's ([file-rename.md](file-rename.md)).
 
   The survivor keeps its own thumbnail. The newer id's thumbnail files are left on disk, the same
   as purge leaves them.
+- **Renames in flight.** A video with a pending rename-journal row counts as seen, and a file at
+  that row's new name belongs to it rather than being held. A repoint that lands on a pending row's
+  name finishes that row. This makes move recognition the crash net for an interrupted rename
+  ([file-rename.md](file-rename.md#the-scanner-reads-the-journal-a-rename-never-takes-the-scan-lock)).
 - **Reporting.** The pass's `job_runs` row carries the counts in its `detail` text (`moveDetail`),
   which the activity history already renders under a scan's numeric columns, so no new column
   or migration is needed ([observability-and-jobs.md](observability-and-jobs.md)). An

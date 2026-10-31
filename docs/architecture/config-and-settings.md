@@ -141,7 +141,9 @@ Decided in [`4fec2bab`](https://github.com/whoiskevinrich/holodex/commit/4fec2ba
 ## Promoting a config value to an owner-editable runtime setting
 
 > **Decided, not yet built.** No value has been promoted, and the allowlist and owner settings API
-> below don't exist yet. This is the pattern the first promotion must follow.
+> below don't exist yet. This is the pattern the first promotion must follow. The first keys
+> decided for it are the file-rename mode, settle window and template list
+> ([file-rename.md](file-rename.md)), which are new values with no config seed.
 
 When a library-owned config value (for example the gallery cap, `card_layout` or the delete grace
 period) gains an owner UI, it moves onto `settings` as a new **top** precedence layer, applied one

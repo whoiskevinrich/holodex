@@ -2,7 +2,7 @@
 
 This doc owns who may reach what: the owner gate on mutations and owner-only surfaces, the signed
 session cookie that carries owner identity in the browser, the network perimeter around metadata
-providers (the `base_url` and `asset_hosts` allowlists), and the read gates that keep non-public
+providers (the `base_url` and `asset_hosts` allowlists), the bound on metadata-built file names, and the read gates that keep non-public
 content from visitors. The provider contract itself lives in [metadata-providers.md](metadata-providers.md);
 how config is loaded and layered lives in [config-and-settings.md](config-and-settings.md).
 
@@ -114,6 +114,34 @@ a fully network-isolated core becomes a requirement; today it would tax every pr
 no-scheduler posture, the second moves egress to a public viewer-triggered GET.
 
 Decided in [`f6c58805`](https://github.com/whoiskevinrich/holodex/commit/f6c58805).
+
+## Rename names: metadata becomes a path component only through one builder
+
+A file rename ([file-rename.md](file-rename.md)) is the one place a value from metadata, which may
+come from a provider or a filename, reaches a filesystem path. Every name passes through one builder
+in Go, and the worker runs it again on every job. The checks in the enqueue request are never
+enough on their own.
+
+- **Inputs.** The request carries only video ids. The folder comes from `videos.file_path`, never
+  from a request or a payload. The name is built from the sanitised values the
+  [spec](../specs/file-rename.md) defines (P0-4) and must contain no separator. It must also satisfy
+  `filepath.IsLocal(name)` and `filepath.Base(name) == name`, and
+  `filepath.Dir(join(dir, name)) == dir`.
+- **Root bound.** The video's folder, resolved with `EvalSymlinks`, must sit inside the canonical
+  `MEDIA_PATH` (`filepath.Rel` then `filepath.IsLocal`). With symlinks followed, a file's canonical
+  path can resolve outside the library; such a video is refused, never renamed in place.
+- **No symlinked targets.** The current file, the target and the via name are each `Lstat`ed, and a
+  symlink is refused, as maintenance's `refuseSymlink` does for its sibling files.
+- **No overwrite.** The rename primitive itself refuses an existing target
+  ([file-rename.md](file-rename.md#no-overwrite-rename-rename_noreplace-where-the-mount-supports-it-every-name-compared-case-folded)).
+- **Templates widen nothing.** Templates are owner-written `settings`, but they only feed the
+  builder. No template can name a folder, an extension or a path outside the file's own folder.
+- Every rename, plan, lock and undo route sits behind `requireOwner`.
+
+**Rejected:** trusting the checks made when the plan or template is saved. Values change between
+the plan and the job, and a provider value is untrusted input every time it is read.
+
+Decided in: pending squash (HOLODEX-602).
 
 ## Read gates: owner-ness is a request property, applied at read time
 
