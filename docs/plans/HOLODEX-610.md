@@ -35,6 +35,6 @@ approved in chat on 2026-10-30 (Remove beside Edit, all three core slots, remova
 
 ### 2026-10-30 · clear/rematch cleanup + hero Remove
 - skills: code-review (high --fix), implement
-- handoff: Fixed and committed (Go + vitest green, Remove verified in the browser; clear itself covered by Go tests only, the stub sends no images); next: review the draft PR and mark it ready.
+- handoff: Crossed into build — no sign-off needed (design [~]); draft PR #571 open. Start at marking the PR ready once review is done.
 
 ## Dropped — newest first (the reason is the point)
