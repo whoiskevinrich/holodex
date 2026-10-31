@@ -20,6 +20,10 @@ release_note: The owner can have Holodex rename media files from an ordered list
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
 #     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
+approved:
+  design:
+    on: 2026-10-31
+    at: e4aeee37
 ---
 
 # HOLODEX-602 · Rename media files from a template (F86)
@@ -28,7 +32,7 @@ Done means the owner can rename library files in place from an ordered template 
 progressive plan → manual → writeback → job modes, without a video ever losing its identity or a
 file ever being overwritten.
 
-**Design package:** [spec F86](../specs/file-rename.md) · [architecture](../architecture/file-rename.md) · handoff (pending) · testing-strategy § (pending)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F86](../specs/file-rename.md) · [architecture](../architecture/file-rename.md) · [handoff](../design/file-rename-handoff.md) · testing-strategy § (pending)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -42,7 +46,7 @@ file ever being overwritten.
 
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
@@ -63,7 +67,7 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Handoff for the plan, drift queue, name lock, undo and the in-app template editor, with committed SVG mockup — `docs/design/`
+1. [ ] [—] Owner runs `/implement` to cross into build (design signed off at e4aeee37) — `docs/design/file-rename-handoff.md`
 2. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
 3. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
 4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
@@ -82,8 +86,8 @@ file ever being overwritten.
 -->
 
 ### 2026-10-31 · session
-- skills: architecture, code-review, handoff
-- handoff: Architecture landed (docs/architecture/file-rename.md + security-perimeter.md): file_renames journal, kind='rename' in the tag-write lane, journal-aware scanner, NOREPLACE with check-then-rename fallback, templates/mode/settle as settings keys — next is the design handoff (now incl. a template editor).
+- skills: architecture, code-review, handoff, design-handoff
+- handoff: Design landed and signed off (docs/design/file-rename-handoff.md + 3 SVGs, e4aeee37): File names owner tab with a folding template card and Preview, the plan where Out of date is a filter (not its own tab), an inline bulk confirm, and a File name row in video-page Maintenance for rename, lock and undo. All design gates are settled, so next is the owner's `/implement`, which opens the draft PR.
 
 ### 2026-10-27 · session
 - skills: write-spec, code-review, handoff
