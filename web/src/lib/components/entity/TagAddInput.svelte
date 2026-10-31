@@ -7,7 +7,7 @@
 	// the caller owns the add itself, its errors, the near-miss nudge and the Add/Done buttons.
 	import { onDestroy } from 'svelte';
 	import { api } from '#lib/api.ts';
-	import { suggestTags } from '#lib/tagInput.ts';
+	import { matchedAlias, namesTag, suggestTags } from '#lib/tagInput.ts';
 	import { ServerSearch } from '#lib/serverSearch.svelte.ts';
 	import { videoCount } from '#lib/format.ts';
 	import type { Tag } from '#lib/types.ts';
@@ -63,7 +63,8 @@
 	const matches = $derived(suggestTags(search.items, value, exclude));
 	const typed = $derived(value.trim());
 	const current = $derived(search.answered.toLowerCase() === typed.toLowerCase());
-	const exact = $derived(search.items.some((t) => t.name.toLowerCase() === typed.toLowerCase()));
+	// An exact alias counts too: attach-by-name resolves it to its tag (HOLODEX-612).
+	const exact = $derived(search.items.some((t) => namesTag(t, typed)));
 	// Rows: the matches, then "Add “x” as a new tag" once the server has said the text
 	// names no tag (the search ranks an exact name first, so it is never cut off).
 	const rowCount = $derived(matches.length + (typed && current && !exact ? 1 : 0));
@@ -140,12 +141,13 @@
 		>
 			{#each matches as t, i (t.id)}
 				{@const at = t.name.toLowerCase().indexOf(typed.toLowerCase())}
+				{@const alias = at < 0 ? matchedAlias(t, typed) : undefined}
 				<!-- svelte-ignore a11y_click_events_have_key_events (the keyboard lives on the combobox input, D3) -->
 				<li
 					id="{listId}-{i}"
 					role="option"
 					aria-selected={i === active}
-					aria-label="{t.name}, {videoCount(t.video_count ?? 0)}"
+					aria-label="{t.name}{alias ? `, via ${alias}` : ''},{videoCount(t.video_count ?? 0)}"
 					onmousedown={(e) => e.preventDefault()}
 					onmouseenter={() => (active = i)}
 					onclick={() => add(t.name)}
@@ -153,11 +155,17 @@
 						? 'border-accent bg-surface-2'
 						: 'border-transparent'}"
 				>
-					<span class="min-w-0 flex-1 truncate text-ink"
-						>{t.name.slice(0, at)}<span class="font-semibold {i === active ? 'text-accent' : ''}"
-							>{t.name.slice(at, at + typed.length)}</span
-						>{t.name.slice(at + typed.length)}</span
-					>
+					{#if alias}
+						<span class="min-w-0 flex-1 truncate text-ink"
+							>{t.name} <span class="text-xs text-muted">via {alias}</span></span
+						>
+					{:else}
+						<span class="min-w-0 flex-1 truncate text-ink"
+							>{t.name.slice(0, at)}<span class="font-semibold {i === active ? 'text-accent' : ''}"
+								>{t.name.slice(at, at + typed.length)}</span
+							>{t.name.slice(at + typed.length)}</span
+						>
+					{/if}
 					<span class="text-xs tabular-nums text-muted">{t.video_count ?? 0}</span>
 				</li>
 			{/each}

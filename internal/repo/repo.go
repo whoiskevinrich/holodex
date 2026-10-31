@@ -1987,6 +1987,20 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			res.Tags = append(res.Tags, t)
 		}
 	}
+	// Every tag hit carries its aliases (HOLODEX-612), so the add-tag input can match
+	// the typed text against them. A name hit needs them too: "science-fiction" FTS-
+	// matches the name's words but is only a substring of its dashed alias.
+	tagHitIDs := make([]int64, len(res.Tags))
+	for i, t := range res.Tags {
+		tagHitIDs[i] = t.ID
+	}
+	tagAliases, err := r.AliasesForEntities(ctx, model.EntityTag, tagHitIDs)
+	if err != nil {
+		return res, err
+	}
+	for i := range res.Tags {
+		res.Tags[i].Aliases = tagAliases[res.Tags[i].ID]
+	}
 
 	// Studios: FTS name matches, a new entity group (F38, ADR-053).
 	sr, err := r.db.QueryContext(ctx, `

@@ -33,7 +33,7 @@ rail. Three changes, all owner-only. The visitor branch is untouched.
 | D2 | The secondary button is renamed **Cancel → Done** | Keep "Cancel". After the first add there is nothing to cancel |
 | D3 | Autocomplete is a combobox using **`aria-activedescendant`** | Roving tabindex, the codebase's listbox default (`EnrichPicker`, `SearchResultsPanel`). That moves DOM focus out of the input, so typing would stop working mid-list. This is an approved exception, limited to text-input comboboxes |
 | D4 | Sort order **A: pending changes first**: pending add → pending removal → on the file → Holodex only | B: on-file first, reading like the file with changes trailing |
-| D5 | Alias matching is **out of scope** | Matching on `aliases` with a "via *alias*" hint, a possible follow-up |
+| D5 | **Aliases match** (HOLODEX-612, amending the original "out of scope"): a tag found by an alias shows its name plain, then a muted `text-xs` "via *alias*" hint, and no bold run, since the name may not hold the text | Name-only matching: typing an alias offered "Add as new" for a tag that already exists |
 | D6 | **Tab takes the suggestion** (owner, 2026-10-03): adds the highlighted row, or the first suggestion if none is highlighted. Enter takes the text | Tab only fills the input and the owner presses Enter after: two keys for the common case. Tab never touching the list: there'd be no one-key way to take the top match. If "fill, don't add" turns out to be wanted, it's a one-line change in `TagAddInput`'s key handler |
 
 ## Components
@@ -104,9 +104,9 @@ calling `closeTagAdd()` and resets only the nudge state.
 |---|---|
 | Source | `api.listTags()` (name order), fetched once when `TagAddInput` mounts and held for the form's lifetime. A tag created by an add is appended locally, so it is suggestable straight away |
 | When it shows | Input focused and the trimmed text is at least 1 character long |
-| Matching | Case-insensitive. Prefix matches first (name order), then substring matches (name order). Tags in `exclude` (already on this video) are left out |
+| Matching | Case-insensitive. Name prefix matches first (name order), then alias matches (name order, D5), then name substring matches (name order). Tags in `exclude` (already on this video) are left out |
 | Cap | First 8 matches |
-| "Add “x” as a new tag" row | Last row, shown only when no existing tag's name equals the typed text exactly. With no matches it is the only row |
+| "Add “x” as a new tag" row | Last row, shown only when no existing tag's name or alias equals the typed text exactly. With no matches it is the only row |
 | Initial highlight | **None.** Typing never pre-selects a row, so Enter on a new tag adds what was typed |
 | ↓ / ↑ | Move the highlight, wrapping. ↓ from none goes to the first row; ↑ from none goes to the last |
 | Pointer | Hovering a row highlights it. A click adds that row; `mousedown` + `preventDefault` keeps focus in the input |
