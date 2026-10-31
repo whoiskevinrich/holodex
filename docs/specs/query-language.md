@@ -24,8 +24,9 @@ playlists store.
 playlists (F75); the unified nav search box ([nav-search-live-filter.md](nav-search-live-filter.md));
 tag aliases and the tag hierarchy (a Tag condition includes its descendant Tags, as browse does today).
 
-**Architecture**: needed (the query's stored and exchanged form, and its text grammar, is a
-technology fork). Not yet written. **Design handoff**: not yet written. **Security review**: required
+**Architecture**: [browse-and-list-state.md, "Boolean queries"](../architecture/browse-and-list-state.md#boolean-queries-an-expr-key-parsed-once-in-go-compiled-through-the-builders-fragments)
+(the query is text, parsed once on the server) and [security-perimeter.md, "Query
+expressions"](../architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup). **Design handoff**: not yet written. **Security review**: required
 (visitors submit queries).
 
 ---
@@ -98,8 +99,7 @@ needs a well-defined query to translate into, and today there isn't one.
 - **The query**: the whole expression. It is stored by identity (Tag, person and studio by their
   identity, not their name), so renaming any of them never breaks a query.
 
-The three motivating queries, written out (exact syntax is fixed in the architecture doc; this is the
-behaviour the owner sees):
+The three motivating queries, as the owner types them:
 
 ```
 ((tag:science-fiction tag:fantasy) OR tag:action) -tag:comedy person:"Harrison Ford"
@@ -202,8 +202,8 @@ range.
 
 **P0-8 Visitors.** Visitors have the same syntax, suggestions and chips. The server enforces what
 they may ask.
-- [ ] A visitor query naming a Tag, person or studio hidden from visitors behaves as if the name
-      doesn't exist (P0-7), revealing nothing about it.
+- [ ] An unknown or ambiguous name reports the same way to a visitor as to the owner. (No Tag,
+      person or studio is hidden from visitors today; if one ever is, it must behave as unknown.)
 - [ ] A visitor query or shared link containing `matched` is refused with a message that part of
       the query is owner-only; nothing runs.
 - [ ] Results never include a video a visitor couldn't see by browsing.
@@ -251,10 +251,8 @@ A personal library has no analytics, so success is checked, not measured:
 
 ## Open Questions
 
-1. **(engineering, non-blocking)** How do saved smart playlists move to the new stored form:
-   converted once, or read in either form?
-2. **(security, blocking before build)** The values for the P0-9 limits, and whether visitor queries
-   need a rate limit.
+1. **(security, blocking before build)** Confirm the P0-9 limits proposed in the architecture, and
+   whether visitor queries need a rate limit.
 
 ## Decisions
 

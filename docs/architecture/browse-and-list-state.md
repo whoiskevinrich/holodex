@@ -52,6 +52,49 @@ user input can never inject FTS5 operators and results update as the user types.
 
 Decided in [`3561addf`](https://github.com/whoiskevinrich/holodex/commit/3561addf).
 
+## Boolean queries: an `expr` key, parsed once in Go, compiled through the builder's fragments
+
+F87 ([query-language.md](../specs/query-language.md)) adds AND / OR / NOT with grouping. The query is
+**text**: one new filter key, `expr`, holds the F87 grammar wherever a filter travels — the page URL,
+a smart playlist's stored `query`, and the MCP `search_videos` tool. `expr` is ANDed with the flat keys,
+which keep their meaning, so stored queries need no `query_version` bump and every existing smart
+playlist reads unchanged.
+
+- **One implementation of the grammar, in Go** (`internal/query`): a hand-written recursive-descent
+  parser to an in-memory tree (`Or`, `And`, `Not`, `Cond{field, op, value}`, `Word`). Precedence is
+  NOT, then AND (adjacency), then OR. Depth, node count and input length are capped in the parser,
+  before any name lookup or SQL; the values are in [security-perimeter.md](security-perimeter.md).
+- **Canonicalisation binds identity.** Tag, person and studio names resolve through the alias-aware
+  `ExactEntityMatch` ([entity-identity.md](entity-identity.md)); unknown or ambiguous names are
+  typed errors carrying the input offset. A canonical printer writes ids (`tag:12`), seconds for
+  durations and a fixed spacing, and that string is what goes into the URL and the stored query.
+  **Bare words stay text** and resolve at read time (title FTS or exact Tag name), so a Tag created
+  later widens a saved query without rewriting it.
+- **Compilation reuses the flat keys' clauses.** Each per-condition clause in `build()` becomes a
+  fragment function that both the flat key and the tree compiler call, so `tag:12` and `?tag=12`
+  cannot drift (descendant Tags included). The compiler recurses: `And` joins with `AND`, `Or` with
+  `OR`, `Not` wraps `NOT (…)`, all parenthesised, with positional args. A bare word compiles to the
+  title MATCH (through `ftsPrefixQuery`) `OR` an exact-Tag subtree `EXISTS`. `matched:` compiles to an
+  `EXISTS` on the enrichment store's video rows for that provider ([metadata-providers.md](metadata-providers.md)).
+- **The client never parses.** `GET /api/v1/query/parse?expr=` returns the canonical string, a
+  display tree with current names, and errors with offsets; chips and error marks render from it.
+  The client keeps only a lexer that tells autocomplete which field it is in. The display tree is an
+  output shape only, never accepted as input.
+- **Existing seams carry `expr`.** `mediaFilterFor` refuses an `expr` holding an owner-only condition
+  for a visitor, as it does `missing_facet`. Ids inside `expr` feed the stale-ref check, and
+  `rewriteSmartPlaylistRefs` rewrites them by parse → rewrite → canonical print. `search_videos`
+  gains an `expr` argument next to its existing name arguments; a tool sends names and gets back
+  the canonical string, under the same limits and owner gate.
+
+**Rejected:** a JSON rule tree as the stored or exchanged form — a second grammar to keep in step
+with the text (the smart-playlist section's rejection stands). **Rejected:** a TypeScript parser
+mirroring Go's — two implementations of one grammar. **Rejected:** grouped flat keys (`tag_any`,
+`tag_not`) — they cannot nest, and the spec's first query needs nesting. **Rejected:** giving `q` the
+new meaning — bare words would then match Tags inside existing stored queries, a silent broadening
+that needs a version bump and a rewrite.
+
+Decided in: pending squash (HOLODEX-611).
+
 ## Related media: one endpoint, seedless `ORDER BY RANDOM()` kept out of the builder
 
 `GET /media/{id}/related` (`Repo.Related`) returns a person block and a tag block in one response.
