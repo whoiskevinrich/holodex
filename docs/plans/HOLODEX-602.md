@@ -67,13 +67,12 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Owner runs `/implement` to cross into build (design signed off at e4aeee37) — `docs/design/file-rename-handoff.md`
-2. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
-3. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
-4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-5. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-6. [ ] [backend] Build Plan then Manual modes first (spec Timeline); the rename keys are the first on the settings allowlist — `internal/`
-7. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
+1. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
+2. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
+3. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+4. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+5. [ ] [backend] Build Plan then Manual modes first (spec Timeline); the rename keys are the first on the settings allowlist — `internal/`
+6. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,8 +85,8 @@ file ever being overwritten.
 -->
 
 ### 2026-10-31 · session
-- skills: architecture, code-review, handoff, design-handoff
-- handoff: Design landed and signed off (docs/design/file-rename-handoff.md + 3 SVGs, e4aeee37): File names owner tab with a folding template card and Preview, the plan where Out of date is a filter (not its own tab), an inline bulk confirm, and a File name row in video-page Maintenance for rename, lock and undo. All design gates are settled, so next is the owner's `/implement`, which opens the draft PR.
+- skills: architecture, code-review, handoff, design-handoff, implement
+- handoff: Crossed into build — design signed off at e4aeee37 (handoff + 3 SVGs: File names tab, plan with Out of date filter, video-page File name row); origin/main merged in (security-perimeter.md kept both the rename and HOLODEX-599 poster sections); draft PR open. Start at the testing strategy.
 
 ### 2026-10-27 · session
 - skills: write-spec, code-review, handoff
