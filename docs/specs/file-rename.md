@@ -18,8 +18,7 @@
 
 **Architecture**: [file-rename.md](../architecture/file-rename.md); the name bound is in
 [security-perimeter.md](../architecture/security-perimeter.md).
-**Design**: not written yet. The plan, the drift review queue and the name lock are the design
-gate's.
+**Design**: [file-rename-handoff.md](../design/file-rename-handoff.md).
 
 **Touches the filesystem with values that come from metadata. A `/security-review` sign-off is
 required before merge** (label `needs-security-review`).
