@@ -24,10 +24,9 @@
 	// StudioLinkCard logo box in front of the name). Controls are the F73 list toolbar; the
 	// sort is one value — completeness is an owner-only entry in it, never a second control
 	// (HOLODEX-473) — held by ListController per ADR-114.
-	const list = listController(studiosSchema, '/studios');
+	const list = listController(studiosSchema, '/studios', () => activity.effectiveOwner);
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
-	$effect(() => list.setOwner(isOwner));
 	const sortBy = $derived(list.state.sort);
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's

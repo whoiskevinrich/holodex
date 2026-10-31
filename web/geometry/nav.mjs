@@ -108,19 +108,23 @@ async function scrollTo(page, y) {
 
 /**
  * openVisible clicks the first row link fully inside the viewport, so the click never
- * scrolls the page and moves the position Back is supposed to restore.
+ * scrolls the page and moves the position Back is supposed to restore. Deep in a
+ * whole-list scroll the rows in view are placeholders until their page arrives, so it waits
+ * for one first.
  *
  * @param {import('playwright').Page} page
  * @param {string} selector
  * @param {RegExp} detail
  */
 async function openVisible(page, selector, detail) {
-	const i = await page.$$eval(selector, (els) =>
-		els.findIndex((el) => {
+	// The first such link's index + 1, so none (0) is falsy for waitForFunction.
+	const firstInView = (sel) =>
+		[...document.querySelectorAll(sel)].findIndex((el) => {
 			const r = el.getBoundingClientRect();
 			return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
-		})
-	);
+		}) + 1;
+	await page.waitForFunction(firstInView, selector, { timeout: 5000 }).catch(() => {});
+	const i = (await page.evaluate(firstInView, selector)) - 1;
 	expect(i >= 0, `no ${selector} fully in view to click`);
 	await page.locator(selector).nth(i).click();
 	await page.waitForURL((u) => detail.test(u.pathname), { timeout: 5000 });
@@ -232,6 +236,19 @@ const SCENARIOS = [
 			await backTo(page, list, 600);
 			expect((await page.locator(CHIP).count()) === 1, 'Back lost the filter chip');
 			expect((await page.locator(SORT).inputValue()) === 'title_asc', 'Back lost the sort');
+		}
+	},
+	{
+		// An owner-only sort resolves only once the page knows it's the owner. If that lands
+		// after mount, the list key flips, spends Back's snapshot and restarts at the top.
+		key: 'back-restores-owner-only-sort-scroll',
+		qa: 'R7/R8 · EL7',
+		run: async ({ page }) => {
+			const list = '/?sort=completeness_asc';
+			await goto(page, `${base}${list}`);
+			await scrollTo(page, 3000);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			await backTo(page, list, 3000);
 		}
 	},
 	{

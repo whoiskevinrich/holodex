@@ -31,10 +31,9 @@
 	// People index. Controls are the F73 list toolbar; the sort is one value held by
 	// ListController (ADR-114) — completeness is an owner-only entry in it, never a second
 	// control, which is what let two sorts show as active at once (HOLODEX-473).
-	const list = listController(peopleSchema, '/people');
+	const list = listController(peopleSchema, '/people', () => activity.effectiveOwner);
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
-	$effect(() => list.setOwner(isOwner));
 	const sortBy = $derived(list.state.sort);
 
 	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own

@@ -87,12 +87,10 @@
 
 	// Sort (HOLODEX-38, spec SP6): the media sorts, held in the URL's ?sort= and one
 	// preference shared by every entity grid, the way browse holds its own.
-	const list = listController(entityVideosSchema, untrack(() => page.url.pathname));
+	// The grid mounts after its entity loads, so the owner is usually known by now and an
+	// owner-only ?sort= resolves before the first fetch and the snapshot key read below.
+	const list = listController(entityVideosSchema, untrack(() => page.url.pathname), () => activity.effectiveOwner);
 	const isOwner = $derived(activity.effectiveOwner);
-	// The grid mounts after its entity loads, so the owner is usually known by now: resolve
-	// an owner-only ?sort= before the first fetch and the snapshot key read below, not after.
-	untrack(() => list.setOwner(isOwner));
-	$effect(() => list.setOwner(isOwner));
 	const sortBy = $derived(list.state.sort);
 
 	// NS6 (HOLODEX-249): the nav search box drives this entity's own video list in

@@ -5342,6 +5342,14 @@ The harness gained `media-grid-` and `films-list-does-not-render-everything` (§
 automated: the contract at other densities and in the poster card layout, the Films and Tags
 poster placeholders, and the nav-harness Back scenario for the Media grid and a person's videos.
 
+**Back under an owner-only sort (HOLODEX-608).** Back from a video on `/?sort=completeness_asc`
+landed at the top. The list controller learned the owner in an `$effect`, after the first render,
+so the list key flipped from the default sort to completeness after Back's one-shot snapshot was
+already spent. `listController(schema, path, owner)` now reads the owner before its first parse.
+The nav harness's `back-restores-owner-only-sort-scroll` scrolls to 3000, opens a video and goes
+Back. **Mutation-tested**: without the owner seed it reports "Back restored scrollY 0, expected
+3000". A reload under an owner-only sort still loses the position (HOLODEX-609).
+
 **Live QA, 2026-10-29, `-big`** (`backend-stress-open-9700` + `web-9700`: 2,083 videos, 2,026
 films, 4,045 tag rows; Cinémathèque). The session window was off screen, so the pane ran as a
 background page. Programmatic scrolls fired no scroll events until one was dispatched, and

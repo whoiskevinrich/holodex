@@ -320,6 +320,15 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   cover the SPA the Go backend serves (a production build), so drive playback only through the
   dev server (`web` / `web-9300`), never a backend port. Volume 0, not `muted`, keeps the
   autoplay policy honest.
+- **Show the Browser pane before any scroll or timing QA.** A hidden pane doesn't run
+  `requestAnimationFrame`, so whole-list scroll, Back's scroll restore and nav scenarios stall
+  or flake. Bring the preview pane to the front first.
+- **Nav harness: run one scenario with `--only <key>`, and get a baseline before blaming your
+  change.** Some scenarios fail on the small stress fixture; one needs the `-big` reseed.
+- **List pages pass the owner to `listController(schema, path, () => activity.effectiveOwner)`;
+  never set it in a later `$effect`.** An owner-only `?sort=` (completeness) has to resolve
+  before the first parse. Otherwise the list key changes after mount, Back's saved position
+  gets used up and the list goes back to the top. Repro Back bugs under an owner-only sort too.
 
 ## Conventions
 
