@@ -28,7 +28,7 @@ Done means the owner can rename library files in place from an ordered template 
 progressive plan → manual → writeback → job modes, without a video ever losing its identity or a
 file ever being overwritten.
 
-**Design package:** [spec F86](../specs/file-rename.md) · architecture (pending) · handoff (pending) · testing-strategy § (pending)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F86](../specs/file-rename.md) · [architecture](../architecture/file-rename.md) · handoff (pending) · testing-strategy § (pending)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -41,7 +41,7 @@ file ever being overwritten.
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
@@ -63,14 +63,13 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Rename record, rename as a queued write-job kind, path perimeter (P0-5/P0-9/P0-10) — `docs/architecture/`
-2. [ ] [design] Handoff for the plan, drift queue, name lock and undo, with committed SVG mockup — `docs/design/`
-3. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
-4. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/specs/file-rename.md`
-5. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-6. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-7. [ ] [backend] Build Plan then Manual modes first (spec Timeline) — `internal/`
-8. [ ] [frontend] Plan, drift queue, lock and undo surfaces per the handoff — `web/src/`
+1. [ ] [design] Handoff for the plan, drift queue, name lock, undo and the in-app template editor, with committed SVG mockup — `docs/design/`
+2. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
+3. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
+4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+5. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+6. [ ] [backend] Build Plan then Manual modes first (spec Timeline); the rename keys are the first on the settings allowlist — `internal/`
+7. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -81,6 +80,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-31 · session
+- skills: architecture, code-review, handoff
+- handoff: Architecture landed (docs/architecture/file-rename.md + security-perimeter.md): file_renames journal, kind='rename' in the tag-write lane, journal-aware scanner, NOREPLACE with check-then-rename fallback, templates/mode/settle as settings keys — next is the design handoff (now incl. a template editor).
 
 ### 2026-10-27 · session
 - skills: write-spec, code-review, handoff
