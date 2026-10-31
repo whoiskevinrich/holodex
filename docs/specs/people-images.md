@@ -281,6 +281,19 @@ explicit per-slot pin to also freeze a *provider* image (ADR-049 "Alternatives")
 
 ---
 
+## Addendum — clearing a provider takes its images with it; removing a hero image (HOLODEX-610)
+
+Clearing a provider from a person, or rematching the person to a different record of that
+provider, used to remove only the provider's field values. Its images, alternate names and
+external link stayed behind, still attributed to a match the owner had just rejected.
+
+| ID | Requirement | Acceptance criteria |
+|----|-------------|---------------------|
+| F25.36 | **Clearing or rematching a person's provider removes what that provider brought.** Clearing a provider removes every image it supplied: headshot, banner and poster (including a poster it seeded from its headshot) and its gallery extras. It also removes the alternate names it added and its external link. Rematching to a different record of the same provider clears the old match the same way first. Re-enriching the same record clears nothing. Images the owner uploaded or promoted, the owner's own alternate names and other providers' contributions all stay. Nothing removed this way is suppressed, so enriching from that provider again may bring it back. Studios and films are unchanged: clearing their provider still leaves the images. | Enrich a person from provider-1 (headshot, banner, a gallery image, two alternate names, a provider link), upload a poster, add an alternate name by hand, then clear provider-1 → the headshot, banner, gallery image, the two provider names and the link are gone; the uploaded poster and the owner's name remain. Repeat, rematching provider-1 to another record instead → the old record's items are gone and the new record's arrive. Re-enrich the same record → nothing is removed. |
+| F25.37 | **The owner can remove a hero image.** Beside Edit on a filled headshot, banner or poster, the owner gets a Remove control. It empties the slot: a removed banner returns the band to "+ Add banner", a removed poster returns the hero to headshot-led, and a removed headshot shows the placeholder. An empty slot shows no Remove. As with any core-slot delete (F25.25), the removal is not suppressed, so a later enrichment refresh may fill the slot again. Visitors see nothing. | As owner, a person with an uploaded banner and poster shows Remove beside both Edit controls and none on the empty headshot; Remove on the banner leaves "+ Add banner"; Remove on the poster leaves the headshot as the lead avatar. Signed out, no Remove appears. |
+
+---
+
 ## Addendum — owner/admin cap bypass, gallery grid modal, image viewer (HOLODEX-174, 2026-07-08)
 
 Three related changes to `PersonGallery.svelte`'s Gallery section. No new ADR — this

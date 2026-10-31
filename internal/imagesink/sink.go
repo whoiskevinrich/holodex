@@ -32,6 +32,7 @@ type personRepo interface {
 	CorePersonImage(ctx context.Context, personID int64, role string) (model.PersonImage, error)
 	LockedCoreRoles(ctx context.Context, personID int64) (map[string]struct{}, error)
 	ExistingPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error)
+	DeleteProviderPersonImages(ctx context.Context, personID int64, provider string) ([]int64, error)
 }
 
 // StudioRepo is the repo subset the studio side of the sink needs.
@@ -123,6 +124,25 @@ func (s *Sink) SuppressedAssetURLs(ctx context.Context, entityType string, entit
 	default:
 		return map[string]struct{}{}, nil
 	}
+}
+
+// RemoveProviderAssets deletes every image a provider's enrichment stored for an
+// entity, rows then files (HOLODEX-610). Person only; every other entity type is a
+// no-op. A file left behind is harmless — the index is the source of truth.
+func (s *Sink) RemoveProviderAssets(ctx context.Context, entityType string, entityID int64, provider string) error {
+	if entityType != model.EnrichEntityPerson {
+		return nil
+	}
+	ids, err := s.personRepo.DeleteProviderPersonImages(ctx, entityID, provider)
+	if err != nil {
+		return err
+	}
+	if s.personDir != "" {
+		for _, id := range ids {
+			_ = personimage.Remove(s.personDir, entityID, id)
+		}
+	}
+	return nil
 }
 
 // LockedCoreRoles returns the roles the owner set by hand, which enrichment must

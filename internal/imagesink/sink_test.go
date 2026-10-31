@@ -46,6 +46,10 @@ type fakePersonRepo struct {
 	existing   map[string]struct{}
 	insertErr  error
 	nextID     int64
+	// providerImageIDs is what DeleteProviderPersonImages reports deleted;
+	// clearedProviders records each provider it was called for.
+	providerImageIDs []int64
+	clearedProviders []string
 }
 
 func (f *fakePersonRepo) InsertPersonImage(_ context.Context, in repo.PersonImageInsert) (int64, error) {
@@ -74,6 +78,10 @@ func (f *fakePersonRepo) LockedCoreRoles(_ context.Context, _ int64) (map[string
 }
 func (f *fakePersonRepo) ExistingPersonImageURLs(_ context.Context, _ int64) (map[string]struct{}, error) {
 	return f.existing, nil
+}
+func (f *fakePersonRepo) DeleteProviderPersonImages(_ context.Context, _ int64, provider string) ([]int64, error) {
+	f.clearedProviders = append(f.clearedProviders, provider)
+	return f.providerImageIDs, nil
 }
 
 // fakeStudioRepo mirrors fakePersonRepo for the studio side.
@@ -178,6 +186,33 @@ func TestSinkStoreAsset_Person_Normalizes(t *testing.T) {
 	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(stored)); err != nil || format != "jpeg" {
 		t.Errorf("stored format = %q err=%v, want jpeg", format, err)
+	}
+}
+
+// RemoveProviderAssets deletes the provider's rows and then their files; a studio is
+// a no-op (HOLODEX-610).
+func TestSinkRemoveProviderAssets(t *testing.T) {
+	dir := t.TempDir()
+	fr := &fakePersonRepo{}
+	sink := New(fr, dir, 0, &fakeStudioRepo{}, t.TempDir(), 0, &fakeFilmRepo{}, t.TempDir(), 0)
+	ctx := context.Background()
+
+	if err := sink.StoreAsset(ctx, model.EnrichEntityPerson, 7, model.PersonImageBanner, "tmdb", "tt42", "https://cdn/x.jpg", jpegBytes(t, 80, 120), false); err != nil {
+		t.Fatalf("StoreAsset: %v", err)
+	}
+	fr.providerImageIDs = []int64{fr.nextID}
+
+	if err := sink.RemoveProviderAssets(ctx, model.EnrichEntityStudio, 7, "tmdb"); err != nil || len(fr.clearedProviders) != 0 {
+		t.Fatalf("studio remove: err=%v calls=%v, want a no-op", err, fr.clearedProviders)
+	}
+	if err := sink.RemoveProviderAssets(ctx, model.EnrichEntityPerson, 7, "tmdb"); err != nil {
+		t.Fatalf("RemoveProviderAssets: %v", err)
+	}
+	if len(fr.clearedProviders) != 1 || fr.clearedProviders[0] != "tmdb" {
+		t.Errorf("cleared providers = %v, want [tmdb]", fr.clearedProviders)
+	}
+	if _, err := personimage.Find(dir, 7, fr.nextID); err == nil {
+		t.Error("the provider's image file is still on disk")
 	}
 }
 

@@ -371,6 +371,34 @@ func (r *Repo) DeletePersonImage(ctx context.Context, personID, imageID int64) e
 	return nil
 }
 
+// DeleteProviderPersonImages removes every image a provider's enrichment stored for a
+// person — core slots, the headshot-seeded poster and gallery extras alike — and
+// returns their ids so the caller can remove the files (HOLODEX-610). Uploaded and
+// owner-promoted images stay. Nothing is suppressed: the owner cleared the source, not
+// the images, so a later re-enrich may bring them back.
+func (r *Repo) DeleteProviderPersonImages(ctx context.Context, personID int64, provider string) ([]int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+
+	rows, err := r.db.QueryContext(ctx,
+		`DELETE FROM person_images WHERE person_id = ? AND source = ? AND provider = ? RETURNING id`,
+		personID, model.PersonImageSourceEnrichment, provider)
+	if err != nil {
+		return nil, fmt.Errorf("delete provider person images: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // SuppressedPersonImageURLs returns the set of asset URLs the owner has deleted for
 // a person, so re-enrichment skips re-adding them (F25, ADR-043). Always non-nil.
 func (r *Repo) SuppressedPersonImageURLs(ctx context.Context, personID int64) (map[string]struct{}, error) {

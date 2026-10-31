@@ -3,6 +3,7 @@ package repo_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"holodex/internal/model"
@@ -166,6 +167,49 @@ func TestPersonImagesCRUD(t *testing.T) {
 	}
 	if list, _ := r.ListPersonImages(ctx, pid); len(list) != 0 {
 		t.Errorf("after delete len = %d, want 0", len(list))
+	}
+}
+
+// Clearing a provider removes only that provider's enrichment images; uploads,
+// promotions and another provider's images stay, and nothing is suppressed
+// (HOLODEX-610).
+func TestDeleteProviderPersonImages(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	pid := seedPerson(t, r, "Alice")
+
+	insert := func(role, source, provider, url string) int64 {
+		t.Helper()
+		id, err := r.InsertPersonImage(ctx, repo.PersonImageInsert{PersonID: pid, Role: role, Source: source, Provider: provider, SourceURL: url, Width: 10, Height: 10, ByteSize: 1})
+		if err != nil {
+			t.Fatalf("insert %s/%s: %v", role, source, err)
+		}
+		return id
+	}
+	banner := insert(model.PersonImageBanner, model.PersonImageSourceEnrichment, "p1", "https://a/b.jpg")
+	extra := insert(model.PersonImageExtra, model.PersonImageSourceEnrichment, "p1", "https://a/x.jpg")
+	upload := insert(model.PersonImageHeadshot, model.PersonImageSourceUpload, "", "")
+	promoted := insert(model.PersonImagePoster, model.PersonImageSourcePromoted, "p1", "")
+	other := insert(model.PersonImageExtra, model.PersonImageSourceEnrichment, "p2", "https://c/y.jpg")
+
+	ids, err := r.DeleteProviderPersonImages(ctx, pid, "p1")
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if len(ids) != 2 || !slices.Contains(ids, banner) || !slices.Contains(ids, extra) {
+		t.Errorf("deleted ids = %v, want [%d %d]", ids, banner, extra)
+	}
+	list, _ := r.ListPersonImages(ctx, pid)
+	var kept []int64
+	for _, img := range list {
+		kept = append(kept, img.ID)
+	}
+	slices.Sort(kept)
+	if want := []int64{upload, promoted, other}; !slices.Equal(kept, want) {
+		t.Errorf("kept = %v, want %v", kept, want)
+	}
+	if sup, _ := r.SuppressedPersonImageURLs(ctx, pid); len(sup) != 0 {
+		t.Errorf("suppressed = %v, want none", sup)
 	}
 }
 
