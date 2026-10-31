@@ -71,6 +71,10 @@ type EnrichRepo interface {
 	// (HOLODEX-306, ADR-088 D3/D5), returning the ones another entity already holds.
 	// Best effort — a name conflict must never fail the enrichment around it.
 	ApplyProviderAliases(ctx context.Context, entityType string, entityID int64, source string, names []string) ([]repo.SkippedAlias, error)
+	// DeleteProviderAliases and DetachExternalID undo ApplyProviderAliases and
+	// AttachExternalID when a person's provider is cleared or rematched (HOLODEX-610).
+	DeleteProviderAliases(ctx context.Context, entityType string, entityID int64, source string) error
+	DetachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error
 }
 
 // ImageSink stores a downloaded, normalized provider asset as an image for an
@@ -112,6 +116,10 @@ type ImageSink interface {
 	// guard for the same image under a different URL. Always empty for a studio (no
 	// gallery to dedup against).
 	ExistingAssetURLs(ctx context.Context, entityType string, entityID int64) (map[string]struct{}, error)
+	// RemoveProviderAssets deletes every image a provider's enrichment stored for an
+	// entity, rows and files, keeping the owner's uploads and promotions (HOLODEX-610).
+	// Person only; a no-op for every other entity type.
+	RemoveProviderAssets(ctx context.Context, entityType string, entityID int64, provider string) error
 }
 
 // Service orchestrates on-demand enrichment (ADR-033). It is the only thing that
@@ -683,6 +691,22 @@ func (s *Service) runEnrich(ctx context.Context, entityType string, entityID int
 	aliasNames := fields[model.ProviderAliasesField]
 	delete(fields, model.ProviderAliasesField)
 
+	// A person rematched to a different record of the same provider starts clean: the
+	// old match's fields, images, aliases and external id go first, so nothing the new
+	// record left out survives under the old id (HOLODEX-610). Only after the fetch
+	// above succeeded, so a failed rematch keeps the old match intact.
+	if entityType == model.EnrichEntityPerson {
+		prev, matched, err := s.repo.MatchExternalID(ctx, entityType, entityID, provider)
+		if err != nil {
+			return nil, nil, err
+		}
+		if matched && prev != externalID {
+			if err := s.clearPersonMatch(ctx, entityID, provider, prev); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
 	if err := s.repo.UpsertEnrichment(ctx, entityType, entityID, provider, externalID, fields); err != nil {
 		return nil, nil, err
 	}
@@ -1175,9 +1199,44 @@ func (s *Service) FetchAllowedImage(ctx context.Context, rawURL string) ([]byte,
 	return nil, fmt.Errorf("image host not allowlisted by any enabled provider")
 }
 
-// Clear removes a provider's contribution for an entity (F22.7b).
+// Clear removes a provider's contribution for an entity (F22.7b). For a person it
+// also removes what that provider wrote outside the shadow store — its images, its
+// alternate names and the external id it adopted — keeping the owner's uploads,
+// promotions and own aliases (HOLODEX-610). Studio and film keep their images.
 func (s *Service) Clear(ctx context.Context, entityType string, entityID int64, provider string) error {
+	if entityType == model.EnrichEntityPerson {
+		// Read the match before the rows that carry it are deleted.
+		externalID, matched, err := s.repo.MatchExternalID(ctx, entityType, entityID, provider)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			externalID = ""
+		}
+		return s.clearPersonMatch(ctx, entityID, provider, externalID)
+	}
 	_, err := s.repo.DeleteEnrichmentByProvider(ctx, entityType, entityID, provider)
+	return err
+}
+
+// clearPersonMatch is Clear for a person whose current match id (or "" for none) is
+// already known, so a rematch does not read it twice.
+func (s *Service) clearPersonMatch(ctx context.Context, personID int64, provider, externalID string) error {
+	const person = model.EnrichEntityPerson
+	if identityShaped(externalID) {
+		if err := s.repo.DetachExternalID(ctx, person, personID, externalID); err != nil {
+			return err
+		}
+	}
+	if err := s.repo.DeleteProviderAliases(ctx, person, personID, provider); err != nil {
+		return err
+	}
+	if s.images != nil {
+		if err := s.images.RemoveProviderAssets(ctx, person, personID, provider); err != nil {
+			return err
+		}
+	}
+	_, err := s.repo.DeleteEnrichmentByProvider(ctx, person, personID, provider)
 	return err
 }
 

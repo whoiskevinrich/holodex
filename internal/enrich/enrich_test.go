@@ -438,6 +438,8 @@ type recordingSink struct {
 	// refuse is the error StoreAsset returns for a role instead of recording it — the
 	// real sink's typed refusals (HOLODEX-386), keyed by role.
 	refuse map[string]error
+	// removed records each RemoveProviderAssets call as "<entityType>:<provider>".
+	removed []string
 }
 
 type storedAsset struct {
@@ -480,6 +482,11 @@ func (s *recordingSink) LockedCoreRoles(_ context.Context, _ string, _ int64) (m
 
 func (s *recordingSink) ExistingAssetURLs(_ context.Context, _ string, _ int64) (map[string]struct{}, error) {
 	return s.existing, nil
+}
+
+func (s *recordingSink) RemoveProviderAssets(_ context.Context, entityType string, _ int64, provider string) error {
+	s.removed = append(s.removed, entityType+":"+provider)
+	return nil
 }
 
 // A person enrich run with image assets fetches each through the (test-injected)
@@ -1583,6 +1590,109 @@ func TestEnrichWritesProviderAliasesToSpine(t *testing.T) {
 	}
 	if !got["宮崎駿"] || !got["Miyazaki Hayao"] {
 		t.Errorf("aliases = %+v, want both of the Fake's also-known-as values", aliases)
+	}
+}
+
+// Clearing a person's provider removes what that provider wrote outside the shadow
+// store: its images (via the sink), its aliases and its external id. The owner's own
+// alias stays (HOLODEX-610).
+func TestClearPersonRemovesProviderImagesAliasesAndLink(t *testing.T) {
+	svc, r := newSvc(t, NewFake("fake"))
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	ctx := context.Background()
+
+	ids, err := r.ResolveOrCreatePeopleByExternalID(ctx, []repo.PersonCredit{{Name: "Hayao Miyazaki", ExternalID: "other:1"}})
+	if err != nil {
+		t.Fatalf("seed person: %v", err)
+	}
+	personID := ids["other:1"]
+	if _, err := r.AddPersonAlias(ctx, personID, "Owner Alias"); err != nil {
+		t.Fatalf("owner alias: %v", err)
+	}
+	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, personID, "fake", "tmdb:608", false); err != nil {
+		t.Fatalf("enrich: %v", err)
+	}
+
+	if err := svc.Clear(ctx, model.EnrichEntityPerson, personID, "fake"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+
+	aliases, err := r.AliasesForEntity(ctx, model.EnrichEntityPerson, personID)
+	if err != nil {
+		t.Fatalf("aliases: %v", err)
+	}
+	if len(aliases) != 1 || aliases[0].Alias != "Owner Alias" {
+		t.Errorf("aliases after clear = %+v, want only the owner's", aliases)
+	}
+	ext, err := r.ExternalIDsForEntity(ctx, model.EnrichEntityPerson, personID)
+	if err != nil {
+		t.Fatalf("external ids: %v", err)
+	}
+	if len(ext) != 1 || ext[0] != "other:1" {
+		t.Errorf("external ids after clear = %v, want only the scan-credit id", ext)
+	}
+	if len(sink.removed) != 1 || sink.removed[0] != "person:fake" {
+		t.Errorf("RemoveProviderAssets calls = %v, want [person:fake]", sink.removed)
+	}
+}
+
+// A studio clear keeps its images, aliases and link: HOLODEX-610 is person only.
+func TestClearStudioLeavesImages(t *testing.T) {
+	svc, _ := newSvc(t, NewFake("fake"))
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	if err := svc.Clear(context.Background(), model.EnrichEntityStudio, 3, "fake"); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if len(sink.removed) != 0 {
+		t.Errorf("RemoveProviderAssets calls = %v, want none for a studio", sink.removed)
+	}
+}
+
+// Rematching a person to a different record of the same provider clears the old
+// match first; re-enriching the same record does not (HOLODEX-610).
+func TestRematchPersonClearsOldMatch(t *testing.T) {
+	fake := NewFake("fake")
+	fake.People["tmdb:999"] = FakePerson{Label: "Someone Else", Fields: map[string][]string{"bio": {"Another bio."}}}
+	svc, r := newSvc(t, fake)
+	sink := &recordingSink{}
+	svc.SetImageSink(sink)
+	ctx := context.Background()
+
+	ids, err := r.ResolveOrCreatePeopleByExternalID(ctx, []repo.PersonCredit{{Name: "Hayao Miyazaki", ExternalID: "other:1"}})
+	if err != nil {
+		t.Fatalf("seed person: %v", err)
+	}
+	personID := ids["other:1"]
+	for range 2 {
+		if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, personID, "fake", "tmdb:608", false); err != nil {
+			t.Fatalf("enrich: %v", err)
+		}
+	}
+	if len(sink.removed) != 0 {
+		t.Fatalf("re-enriching the same match cleared it: %v", sink.removed)
+	}
+
+	if _, err := svc.Enrich(ctx, model.EnrichEntityPerson, personID, "fake", "tmdb:999", false); err != nil {
+		t.Fatalf("rematch: %v", err)
+	}
+	if len(sink.removed) != 1 {
+		t.Errorf("RemoveProviderAssets calls = %v, want one on rematch", sink.removed)
+	}
+	aliases, _ := r.AliasesForEntity(ctx, model.EnrichEntityPerson, personID)
+	if len(aliases) != 0 {
+		t.Errorf("old match's aliases survived the rematch: %+v", aliases)
+	}
+	ext, _ := r.ExternalIDsForEntity(ctx, model.EnrichEntityPerson, personID)
+	if len(ext) != 2 || ext[0] != "other:1" || ext[1] != "tmdb:999" {
+		t.Errorf("external ids after rematch = %v, want [other:1 tmdb:999]", ext)
+	}
+	fields, _ := svc.Fields(ctx, model.EnrichEntityPerson, personID)
+	for _, f := range fields {
+		if f.Canonical == "birthdate" {
+			t.Errorf("old match's birthdate survived the rematch: %+v", f)
+		}
 	}
 }
 
