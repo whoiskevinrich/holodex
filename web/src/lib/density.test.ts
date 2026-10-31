@@ -39,7 +39,7 @@ describe('capForWidth tiers', () => {
 // The ladder's whole purpose: hold card size roughly constant at max density instead of letting
 // it balloon. Before the ultrawide rungs, 5120px rendered four 1252px cards.
 //
-// GAP mirrors `gap-4` in VideoGrid.svelte / PersonPosterGrid.svelte, and PAGE_PADDING mirrors
+// GAP mirrors `gap-4` in VideoGrid.svelte / the People Poster view, and PAGE_PADDING mirrors
 // `px-6` on <main> in routes/+layout.svelte. Nothing links them to those files, so treat this as
 // an approximate guard on the tuning rather than an exact geometry assertion — if the layout
 // changes, retune the bands rather than assuming the ladder broke.

@@ -334,6 +334,20 @@ func (r *Repo) AttachExternalID(ctx context.Context, entityType string, entityID
 	return err
 }
 
+// DetachExternalID removes one "<namespace>:<id>" identity row from an entity — the
+// inverse of AttachExternalID, run when the owner clears or rematches the provider
+// that adopted it (HOLODEX-610). A missing row is not an error.
+func (r *Repo) DetachExternalID(ctx context.Context, entityType string, entityID int64, externalID string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if _, err := r.db.ExecContext(ctx,
+		`DELETE FROM entity_external_ids WHERE entity_type = ? AND entity_id = ? AND external_id = ?`,
+		entityType, entityID, externalID); err != nil {
+		return fmt.Errorf("detach %s external id: %w", entityType, err)
+	}
+	return nil
+}
+
 // ExactEntityMatch reports whether name resolves to an existing Person/Studio
 // via F43's canonical nameKey or alias-key match (ADR-061) — the same
 // normalization resolveOrCreateByName uses (F48.3c: "same nameKey function,

@@ -101,9 +101,9 @@ must not foreclose People/Studio") stays unproven until a second entity actually
 - **RD4 — The person baseline provenance label is `·record`.** `·file` is factually wrong for
   persons. The baseline label becomes per-entity (video `·file`, person `·record`); chips,
   aria-labels, and the decision `source` value follow it (see API note below).
-- **RD5 — Merge drops the duplicate's decision + curation rows.** Same rule as enrichment
-  (F23.9 already drops the merged-away person's `entity_enrichment` rows): the canonical
-  person's own decisions/curation win; nothing is migrated. Closes the orphaned-rows gap in
+- **RD5 — Merge drops the duplicate's decision + curation rows.** The canonical person's own
+  decisions/curation win; nothing is migrated. (Provider data and photos follow a different
+  rule: what the canonical lacks carries over — [entity-identity.md RD6a](entity-identity.md).) Closes the orphaned-rows gap in
   `internal/api/aliases.go` `mergePersons`.
 - **RD6 — Record-first default is additive for persons.** Under the F36 file-first default
   (RD4 there), an undecided field resolves to the baseline *when the baseline has a value* —

@@ -141,6 +141,7 @@ func (h *Handlers) mergePerson(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "merge person", err)
 		return
 	}
+	h.settleMergedImages(r.Context(), model.EnrichEntityPerson, id, body.FromID)
 	p, err := h.repo.GetPerson(r.Context(), id)
 	if err != nil {
 		h.fail(w, "get merged person", err)

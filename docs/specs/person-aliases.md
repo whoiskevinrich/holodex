@@ -83,7 +83,7 @@ merge holds across re-scans.
 | F23.6 | Aliases display on the person page; add/delete controls are owner-only. | Non-owners see the alias chips (read-only); owners additionally see an add field and per-chip delete. |
 | F23.7 | Aliases cascade with their person at the DB level. | `person_aliases.person_id` has `ON DELETE CASCADE`; an alias never outlives its person row. |
 | F23.8 | **Scan-time resolution.** The scanner resolves each extracted person name via the alias table before creating a person. | After "J Law" is an alias of "Jennifer Lawrence", indexing a file tagged "J Law" links it to Jennifer Lawrence — no "J Law" person is (re)created — and a re-scan keeps it merged. |
-| F23.9 | **Person merge.** The owner folds a duplicate person into a canonical one. | `POST /people/{canonical}/merge {"from_id":N}` moves the duplicate's videos to canonical (de-duped union), registers the duplicate's name as an alias, drops the duplicate's shadow enrichment, deletes the duplicate. Searching either name returns the canonical person with the merged video list. |
+| F23.9 | **Person merge.** The owner folds a duplicate person into a canonical one. | `POST /people/{canonical}/merge {"from_id":N}` moves the duplicate's videos to canonical (de-duped union), registers the duplicate's name as an alias, carries over the duplicate's provider data and photos that canonical lacks ([entity-identity.md RD6a](entity-identity.md)), deletes the duplicate. Searching either name returns the canonical person with the merged video list. |
 | F23.10 | **Collision is surfaced, never auto-merged.** Adding an alias that already names a different person returns that person for confirmation. | `POST …/aliases` with a name belonging to another person → `409` carrying `{conflict:{id,name,video_count}}`; the UI offers "merge them in" or "keep separate". No silent merge, no silent routing of a homonym's files. |
 | F23.11 | Merge is **owner-confirmed and informed**. | Both merge entry points show each person's video count before executing; merge and self-merge guards (`from_id == id` → 400) apply; merge is owner-gated. |
 
@@ -164,7 +164,5 @@ All-tokens styling; QA in Cinémathèque. Full layout, states, and a11y in the d
 ## Open questions
 1. Should search results annotate the matched alias? (Deferred — see out-of-scope.) Low effort if the
    need shows up; would add `matched_alias` to the search-only person payload.
-2. Should merge **move** the duplicate's shadow enrichment to canonical instead of dropping it? v1
-   drops it (canonical keeps its own). Revisit if enrichment-before-merge becomes common.
-3. A dedicated **split/un-merge** to reverse a mistaken merge (today: delete the alias to stop future
+2. A dedicated **split/un-merge** to reverse a mistaken merge (today: delete the alias to stop future
    routing; already-moved associations stay).

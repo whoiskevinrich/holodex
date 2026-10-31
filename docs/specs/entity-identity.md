@@ -111,8 +111,18 @@ quietly fragments identity: two "fox" studios, 41 near-duplicate tags, and no ow
   marker, recorded whenever the owner chooses "keep separate" / "create anyway". The detector and the queue
   never re-propose a kept-separate pair. It is the negative of an alias.
 - **RD6 — Studio & Tag get full alias + merge + rename; studio merge registers an alias** (ADR-061 D6).
-  Merging B→A repoints associations, moves decisions/curation/enrichment, **registers B's name as an alias of
-  A**, deletes B. For studios the alias is load-bearing: without it, ADR-053's `RelinkVideoStudios` would
+  Merging B→A repoints associations, **registers B's name as an alias of A**, deletes B. A keeps its own
+  source decisions and curation, and B's are dropped.
+  - **RD6a — A merge keeps what only the merged-away entity had** *(HOLODEX-607; owner decision
+    2026-10-29)*. B's provider data comes over from each provider A has no data from. Where both have data
+    from the same provider, A's is kept whole and B's is dropped, so one entity never mixes fields from two
+    of a provider's records. A provider the owner marked as having no match for A counts as A's own answer,
+    so B's data from it is dropped too. B's removed-photo list comes along with its provider data, so a
+    later refresh does not bring back a photo the owner removed from B. B's images fill the slots A leaves empty: a person's headshot, banner and
+    poster, a studio's icon, logo and poster, a film's poster and banner. A person's gallery photos are
+    added after A's, up to the gallery limit, skipping any photo A already has. An image whose slot A already
+    fills is dropped. Before this rule a merge dropped all of B's provider data and images, so merging an
+    enriched duplicate into a bare record left it looking unmatched and without photos. For studios the alias is load-bearing: without it, ADR-053's `RelinkVideoStudios` would
   re-create B from the resolved field on the next reconcile. **Person too, under ADR-072**: once `video_people`
   is derived via `RelinkVideoEntity`, a person merge without the registered alias is undone the same way — so
   the alias is load-bearing for all three, not a studio-only quirk. (`MergePersons` already registers the alias.)

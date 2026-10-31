@@ -45,8 +45,9 @@ Decided in [`8e8884dc`](https://github.com/whoiskevinrich/holodex/commit/8e8884d
 ## Standing per-field source decisions in `field_source_decisions`, file-first by default
 
 A decision is `(entity_type, entity_id, field_key) → source`, `source ∈ {file, provider:<name>,
-manual}` (grammar in `internal/fieldsource`), one row per decided field, `manual_value` used only by
-`manual`. Set is an upsert; clear is a delete back to the default.
+manual}`, plus `local:<kind>` for `poster_url` (next section); the grammar is in
+`internal/fieldsource`. One row per decided field, `manual_value` used only by `manual`. Set is an upsert; clear is a delete
+back to the default.
 
 - **Pin the source, not the value.** `file` and `provider:<name>` follow the live layer, so a rescan
   or re-enrich flows through; only `manual` is a frozen literal.
@@ -61,6 +62,34 @@ manual}` (grammar in `internal/fieldsource`), one row per decided field, `manual
 **Rejected:** a value-less pin row in `metadata_curation` — that table is keyed by normalized value.
 
 Decided in [`12a984b6`](https://github.com/whoiskevinrich/holodex/commit/12a984b6).
+
+## A poster Holodex holds is a `local:<kind>` decision source over a fixed slot
+
+`poster_url` is the one field whose decision may name an image Holodex stores instead of a namespace:
+`local:frame`, `local:upload` or `local:automatic`, a closed kind set in `internal/fieldsource`. Each
+kind is one source slot per video ([media-ingest.md](media-ingest.md)). Like `file` and
+`provider:<name>`, the decision pins the source, not the bytes: a newer frame or upload replaces its
+slot and the standing decision follows it unchanged.
+
+- **Resolved value.** A `local:<kind>` decision resolves to the token `local:<kind>#<sha256>`, the
+  content hash of the slot's current bytes. The caller pre-loads the hashes into `resolver.Options`
+  (one query, as with `LastWritten`), so the resolver never reads disk, and the token moves whenever
+  the slot does. The write ledger compares that token ([writeback.md](writeback.md)).
+- **Not a layer.** A local slot never enters the enrichment shadow store and no baseline reads it,
+  so it never wins undecided. The `poster_url` candidates list each held slot from the same
+  pre-loaded rows, so the chooser can offer it before any decision. A decision whose slot is empty
+  resolves through the undecided default.
+- **Set where the image is made.** The owner-gated frame and upload routes write the slot and upsert
+  the decision in one request; removing the upload deletes a `local:upload` decision with it. An
+  owner image reaches the media file only through this decision and an explicit writeback.
+
+**Rejected:** a page-level poster slot with no decision (an `uploaded` thumbnail state) — writeback
+cannot see it, so the page and the file answer "which poster" from two places, and every writer of the
+shared slot can overwrite it. **Rejected:** a `manual` decision whose value is the image's path or
+route URL — `manual` is a frozen literal, so every new frame would rewrite the decision, and the
+writeback worker would be handed a path to trust.
+
+Decided in: pending squash (HOLODEX-599).
 
 ## A cleared field is a `manual` decision with an empty value
 

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import LoadMoreButton from '#lib/components/shared/LoadMoreButton.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { api } from '#lib/api.ts';
@@ -20,7 +19,7 @@
 	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import SortReroll from '#lib/components/sort/SortReroll.svelte';
-	import VideoGrid from '#lib/components/video/VideoGrid.svelte';
+	import PlaylistVideos from '#lib/components/video/PlaylistVideos.svelte';
 
 	// /playlists/[id] (F69 P0-6, design handoff §2). A container page, not an entity
 	// page: name, count + sort, the owner's controls, the browse tile grid in the
@@ -29,21 +28,19 @@
 	// (ADR-104 D5).
 	//
 	// A smart playlist (F75 handoff §4, ADR-121) is the same page plus a `smart` chip,
-	// Edit filter, Freeze, no Manual order and no per-tile remove; its tiles page like
-	// browse (Load more), and a stale query replaces the grid with a notice.
+	// Edit filter, Freeze, no Manual order and no per-tile remove, and a stale query replaces
+	// the grid with a notice. Both kinds scroll the whole list (F80 EL14, HOLODEX-604):
+	// PlaylistVideos reads the tiles a page at a time; this page's own read is the header's.
 	type PlaylistSort = string; // a browse sort key or 'manual'
 	const MANUAL = { value: 'manual', label: 'Manual order' };
-	const PAGE_SIZE = 50;
 
 	const id = $derived(Number(page.params.id));
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 
 	let playlist = $state<Playlist | null>(null);
-	let items = $state<Video[]>([]);
 	let total = $state(0);
 	let staleRefs = $state<PlaylistStaleRef[]>([]);
 	let loading = $state(true);
-	let loadingMore = $state(false);
 	let error = $state('');
 	// The sort the dropdown binds to; written back to the playlist with PATCH.
 	let sort = $state<PlaylistSort>('added_desc');
@@ -54,10 +51,10 @@
 	let seed = $state<number | undefined>(undefined);
 
 	const smart = $derived(playlist?.query != null);
-	const hasMore = $derived(smart && items.length < total);
-
-	// Snapshot playlists ignore the page and return every item; a smart one pages.
-	const firstPage = { limit: PAGE_SIZE, offset: 0 };
+	// The header needs the playlist, its total and the seed, not the tiles.
+	const firstPage = { limit: 1, offset: 0 };
+	// Bumped after a remove or a Freeze: the tiles re-read in place.
+	let gridRefresh = $state(0);
 
 	// Keyed on the id only: a sort change or a reroll re-reads through reload() below.
 	$effect(() => {
@@ -82,13 +79,8 @@
 		return () => (cancelled = true);
 	});
 
-	// Every read lands through here; `generation` drops a Load more page that a reload
-	// (a sort change, a reroll, Freeze) has since replaced the grid under.
-	let generation = 0;
 	function apply(res: PlaylistResponse) {
-		generation++;
 		playlist = res.playlist;
-		items = res.items;
 		total = res.total;
 		staleRefs = res.stale_refs ?? [];
 		seed = res.seed;
@@ -97,22 +89,6 @@
 	async function reload() {
 		if (!playlist) return;
 		apply(await api.getPlaylist(playlist.id, seed, firstPage));
-	}
-
-	async function loadMore() {
-		if (!playlist || loadingMore) return;
-		loadingMore = true;
-		const mine = generation;
-		try {
-			const res = await api.getPlaylist(playlist.id, seed, { limit: PAGE_SIZE, offset: items.length });
-			if (mine !== generation) return;
-			items = [...items, ...res.items];
-			total = res.total;
-		} catch (e) {
-			actionError = toMessage(e);
-		} finally {
-			loadingMore = false;
-		}
 	}
 
 	// Owner edits. Each one PATCHes and re-reads the items in place (a sort change
@@ -174,9 +150,9 @@
 		try {
 			await api.removePlaylistVideo(playlist.id, video.id);
 			forgetPlaylist(playlist.id);
-			items = items.filter((v) => v.id !== video.id);
-			total = items.length;
-			playlist = { ...playlist, item_count: items.length };
+			total -= 1;
+			playlist = { ...playlist, item_count: total };
+			gridRefresh++;
 		} catch (e) {
 			actionError = toMessage(e);
 		}
@@ -195,6 +171,7 @@
 			await api.freezePlaylist(playlist.id);
 			forgetPlaylist(playlist.id);
 			await reload();
+			gridRefresh++;
 			confirmFreeze = false;
 		} catch (e) {
 			freezeError = toMessage(e);
@@ -381,7 +358,7 @@
 						<p class="text-sm text-warn">This playlist can’t be shown right now.</p>
 					{/if}
 				</div>
-			{:else if items.length === 0}
+			{:else if total === 0}
 				<p class="py-16 text-center text-sm text-muted">
 					{#if smart}
 						Nothing matches this filter yet.
@@ -393,10 +370,13 @@
 					{/if}
 				</p>
 			{:else}
-				<VideoGrid videos={items} onRemove={isOwner && !smart ? remove : undefined} />
-				{#if hasMore}
-					<LoadMoreButton left={total - items.length} loading={loadingMore} onclick={loadMore} class="pt-2" />
-				{/if}
+				<PlaylistVideos
+					playlistId={playlist.id}
+					sort={playlist.sort}
+					{seed}
+					refreshKey={gridRefresh}
+					onRemove={isOwner && !smart ? remove : undefined}
+				/>
 			{/if}
 
 			{#if isOwner}

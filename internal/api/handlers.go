@@ -20,6 +20,7 @@ import (
 	"holodex/internal/cache"
 	"holodex/internal/enrich"
 	"holodex/internal/extract"
+	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -41,6 +42,11 @@ type thumbnailer interface {
 	QueueDepth() int
 	QueueStats() thumbnail.QueueStats // pipeline snapshot for the activity surface (F21.1)
 	Enabled() bool
+	// F85 poster source slots: the owner's frame/upload, and re-presenting the
+	// served pair after a poster_url decision changes.
+	SetOwnerImage(ctx context.Context, id int64, kind string, data []byte, frameAt *float64) error
+	RemoveOwnerImage(ctx context.Context, id int64, kind string) (bool, error)
+	Present(ctx context.Context, id int64) error
 }
 
 // rescanner triggers an out-of-band full library re-index (F13.3). Nil in tests
@@ -745,8 +751,10 @@ func redactWritebackStatusForVisitor(status *repo.VideoWritebackStatus, isOwner 
 }
 
 func (h *Handlers) setThumbnailURL(v *model.Video) {
-	v.PosterUploaded = v.ThumbnailState == model.ThumbnailUploaded
-	if !model.HasThumbnailImage(v.ThumbnailState) {
+	// thumbnail_state describes the automatic pipeline only (F85): an owner's frame
+	// or upload can be presented on a video it never ran for, so with no image state
+	// the served poster's own presence decides.
+	if !model.HasThumbnailImage(v.ThumbnailState) && !fileExists(thumbnail.PosterPath(h.thumbDir, v.ID)) {
 		return
 	}
 	// The ?v= token is the served image file's own mtime (nanoseconds), so the URL
@@ -767,6 +775,11 @@ func (h *Handlers) setThumbnailURL(v *model.Video) {
 	posterVer := imageVersion(thumbnail.PosterPath(h.thumbDir, v.ID), thumbVer)
 	v.ThumbnailURL = fmt.Sprintf("/api/v1/media/%d/thumbnail?v=%d", v.ID, thumbVer)
 	v.PosterURL = fmt.Sprintf("/api/v1/media/%d/poster?v=%d", v.ID, posterVer)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // imageVersion is the file's mtime in nanoseconds, or fallback when it can't be stat'd.
@@ -810,6 +823,9 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	h.setThumbnailURL(v)
 	h.setMontageURL(v)
+	// The page's Remove action: the owner's upload slot exists (F85), whether or
+	// not it is the decided poster.
+	v.PosterUploaded = h.thumbDir != "" && fileExists(thumbnail.SlotPath(h.thumbDir, v.ID, thumbnail.SlotUpload))
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
@@ -909,8 +925,20 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			if authorized {
 				opts.Offer = registry.OffersWhenEmpty
 				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
+				// F85: the owner's chooser offers every poster Holodex holds, so the
+				// Poster row is kept whenever the video has any poster image at all.
+				opts.LocalPosters = h.localPosters(r.Context(), id)
+				opts.FileCover = h.fileCoverHash(id)
+				if len(opts.LocalPosters) > 0 || opts.FileCover != "" {
+					opts.Offer = func(canonical string) bool {
+						return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
+					}
+				}
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
+			if authorized {
+				h.stampPosterTileImages(resolved, id, opts.LocalPosters)
+			}
 			h.markPromoted(resolved, promoted)
 			resolved = h.appendAutoRegistered(r.Context(), enrichRows, mfields, resolved)
 			// P0-10 (F50, ADR-075 RD9): show the actual genre-writeback union (tags +
@@ -1185,6 +1213,19 @@ func (h *Handlers) regenerateThumbnail(w http.ResponseWriter, r *http.Request) {
 	if err := h.repo.ResetThumbnailState(r.Context(), id); err != nil {
 		h.fail(w, "reset thumbnail state", err)
 		return
+	}
+	// "Reset to automatic" (F85): a standing owner frame or upload choice goes, so the
+	// page falls back to the file's art or the automatic frame. The slots stay, and
+	// the media file is untouched.
+	if dec, err := h.repo.PosterDecision(r.Context(), id); err != nil {
+		h.fail(w, "load poster decision", err)
+		return
+	} else if fieldsource.Local(dec) != "" {
+		if _, err := h.repo.ClearDecision(r.Context(), model.EnrichEntityVideo, id, fieldsource.LocalField); err != nil {
+			h.fail(w, "clear poster decision", err)
+			return
+		}
+		h.presentIfPoster(r.Context(), id, fieldsource.LocalField)
 	}
 	if extracted, err := h.thumbs.ExtractEmbedded(r.Context(), id, path); err != nil {
 		h.fail(w, "extract embedded cover art", err)

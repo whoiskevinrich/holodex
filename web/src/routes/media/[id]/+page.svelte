@@ -27,6 +27,7 @@
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
 	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
 	import ThumbnailFramePicker from '#lib/components/video/ThumbnailFramePicker.svelte';
+	import { thumbnailButtonLabel } from './thumbnailButton.ts';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
 	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
 	import { neighbours, newSeed, nextPass, parseRunParam, runHref, sameSource, setMode, type Run } from '#lib/run.ts';
@@ -116,6 +117,7 @@
 	let regenerating = $state(false);
 	// Thumbnail frame picker (F84): open, and the player position it opens at.
 	let framePickerAt = $state<number | null>(null);
+	let savingFrame = $state(false);
 	let thumbVersion = $state(0); // cache-bust the preview after a regenerate
 	// Poster upload (F52, HOLODEX-252): a new highest-precedence tier on the same
 	// thumbnail pipeline regenerate/thumbVersion already drive.
@@ -592,16 +594,22 @@
 		}
 	}
 
-	// Regenerate thumbnail opens the frame picker (F84) at the player's position, with the
-	// player paused so nothing on the page sounds while the owner scrubs. The picked frame is
-	// stored as an uploaded poster; "Reset to automatic" is the old one-click regenerate.
+	// Pick a frame opens the frame picker (F84) at the player's position, with the player
+	// paused so nothing on the page sounds while the owner scrubs. The picked frame is stored
+	// in its own slot and decided as the poster (`local:frame`, F85), so the page shows it at
+	// once; "Reset to automatic" is the old one-click regenerate.
 	function openFramePicker() {
 		videoEl?.pause();
 		framePickerAt = videoEl?.currentTime ?? 0;
 	}
-	async function useFrame(file: File) {
+	async function useFrame(file: File, at: number) {
 		if (!video) return;
-		await api.uploadVideoPoster(video.id, file);
+		savingFrame = true;
+		try {
+			await api.saveVideoPosterFrame(video.id, file, at);
+		} finally {
+			savingFrame = false;
+		}
 		framePickerAt = null;
 		thumbVersion += 1;
 		// The picker is gone by now, so a failed refetch reports where a poster upload's does.
@@ -2620,10 +2628,10 @@
 							<button
 								type="button"
 								onclick={openFramePicker}
-								disabled={regenerating}
+								disabled={regenerating || savingFrame}
 								class="btn-ghost rounded-theme px-3 py-1.5 text-sm"
 							>
-								{regenerating ? 'Regenerating…' : 'Regenerate thumbnail'}
+								{thumbnailButtonLabel({ savingFrame, regenerating })}
 							</button>
 						</div>
 						{#if video && framePickerAt !== null}
@@ -2873,8 +2881,7 @@
 			fields={resolved}
 			videoId={id}
 			filePath={video.file_path}
-			entityImage={video.poster_url ?? undefined}
-			entityImageUploaded={!!video.poster_uploaded}
+			providers={videoProviders.filter((p) => enrichedByProvider.has(p))}
 			writeback={api.writebackMedia}
 			decide={async (canonical, source, manualValue) => {
 				const res = await api.setFieldDecision(id, canonical, {

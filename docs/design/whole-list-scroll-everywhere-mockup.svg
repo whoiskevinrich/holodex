@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1040" height="1150" viewBox="0 0 1040 1150" role="img" aria-labelledby="t d" font-family="'Archivo Variable', Archivo, sans-serif">
+  <title id="t">Whole-list scroll on the remaining library lists (HOLODEX-604)</title>
+  <desc id="d">The Media grid mid-scroll at 1024px with loaded video cards of one height (one- and two-line titles), still placeholders, a failed page's retry row and the position chip. Below, the Films and Tags poster placeholders at real size, and a person page with the details above the videos and the Films row after the last video.</desc>
+  <rect width="1040" height="1150" fill="#0c0a09"/>
+
+  <!-- 1 · Media grid -->
+  <text x="20" y="28" font-size="13" fill="#9b9082">1 · Media grid, Grid view, mid-scroll (1024px, five columns, 181px cards, 16px gap). Playlists and entity videos use the same card.</text>
+  <rect x="20" y="40" width="1000" height="640" rx="12" fill="none" stroke="#2a2622"/>
+  <text x="36" y="72" font-size="14" fill="#9b9082">9,870 videos</text>
+
+  <!-- row 0: loaded, title box always two lines (p-3 + 2 × 20px) -->
+  <g font-size="14" font-weight="500" fill="#f3ece1">
+    <rect x="36.5" y="92.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="36.5" y="92.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="170" y="172" width="40" height="17" rx="3" fill="#000" opacity="0.7"/><text x="190" y="185" font-size="11" font-weight="400" text-anchor="middle">24:10</text>
+    <text x="48" y="222">Harbour Lights</text>
+
+    <rect x="232.5" y="92.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="232.5" y="92.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="360" y="172" width="48" height="17" rx="3" fill="#000" opacity="0.7"/><text x="384" y="185" font-size="11" font-weight="400" text-anchor="middle">1:42:05</text>
+    <text x="244" y="222">The Long Night at the</text><text x="244" y="242">Old Harbour Station</text>
+
+    <rect x="428.5" y="92.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="428.5" y="92.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="566" y="172" width="36" height="17" rx="3" fill="#000" opacity="0.7"/><text x="584" y="185" font-size="11" font-weight="400" text-anchor="middle">8:31</text>
+    <text x="440" y="222">Coastline</text>
+
+    <rect x="624.5" y="92.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="624.5" y="92.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="758" y="172" width="40" height="17" rx="3" fill="#000" opacity="0.7"/><text x="778" y="185" font-size="11" font-weight="400" text-anchor="middle">51:47</text>
+    <text x="636" y="222">A Quiet Week in the</text><text x="636" y="242">Northern Valley, and…</text>
+
+    <rect x="820.5" y="92.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="820.5" y="92.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="954" y="172" width="40" height="17" rx="3" fill="#000" opacity="0.7"/><text x="974" y="185" font-size="11" font-weight="400" text-anchor="middle">12:03</text>
+    <text x="832" y="222">Dockside</text>
+  </g>
+
+  <!-- row 1: still placeholders, the card's own frame, two title bars -->
+  <g>
+    <rect x="36.5" y="274.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/><rect x="36.5" y="274.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/><rect x="48" y="396" width="140" height="10" fill="#2a2622"/><rect x="48" y="416" width="84" height="10" fill="#2a2622"/>
+    <rect x="232.5" y="274.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/><rect x="232.5" y="274.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/><rect x="244" y="396" width="140" height="10" fill="#2a2622"/><rect x="244" y="416" width="84" height="10" fill="#2a2622"/>
+    <rect x="428.5" y="274.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/><rect x="428.5" y="274.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/><rect x="440" y="396" width="140" height="10" fill="#2a2622"/><rect x="440" y="416" width="84" height="10" fill="#2a2622"/>
+    <rect x="624.5" y="274.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/><rect x="624.5" y="274.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/><rect x="636" y="396" width="140" height="10" fill="#2a2622"/><rect x="636" y="416" width="84" height="10" fill="#2a2622"/>
+    <rect x="820.5" y="274.5" width="180" height="166" rx="4" fill="#15110e" stroke="#2a2622"/><rect x="820.5" y="274.5" width="180" height="102" rx="4" fill="#181310" stroke="#2a2622"/><rect x="832" y="396" width="140" height="10" fill="#2a2622"/><rect x="832" y="416" width="84" height="10" fill="#2a2622"/>
+  </g>
+  <text x="1012" y="364" font-size="11" fill="#9b9082" text-anchor="end" transform="rotate(-90 1012 364)">aria-busy</text>
+
+  <!-- row 2: retry row spanning every lane, at the card's height -->
+  <rect x="36.5" y="456.5" width="964" height="166" rx="4" fill="#15110e" stroke="#e2603f"/>
+  <text x="56" y="544" font-size="14" fill="#e2603f">Couldn’t load these videos.</text>
+  <rect x="916.5" y="525.5" width="68" height="30" rx="4" fill="none" stroke="#2a2622"/>
+  <text x="950" y="545" font-size="14" fill="#f3ece1" text-anchor="middle">Retry</text>
+
+  <!-- position chip by the scrollbar -->
+  <rect x="922.5" y="638.5" width="86" height="24" rx="4" fill="#15110e" stroke="#2a2622"/>
+  <text x="965" y="655" font-size="12" fill="#f3ece1" text-anchor="middle">412 of 9,870</text>
+  <text x="910" y="655" font-size="12" fill="#9b9082" text-anchor="end">position chip, as on People →</text>
+  <text x="36" y="655" font-size="12" fill="#9b9082">Every card is 166px: a one-line title leaves its second line empty. Table view is 601's shared 44px row.</text>
+
+  <!-- 2 · Films and Tags posters -->
+  <text x="20" y="710" font-size="13" fill="#9b9082">2 · Films (six columns at lg, 2:3 frame + two caption lines) and Tags Posters (16:9 frame, name, count): loaded and placeholder.</text>
+  <rect x="20" y="722" width="1000" height="320" rx="12" fill="none" stroke="#2a2622"/>
+  <g>
+    <rect x="36.5" y="738.5" width="151" height="281" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="37" y="739" width="150" height="227" fill="#181310"/>
+    <text x="112" y="862" font-size="30" font-family="'Fraunces Variable', Fraunces, serif" fill="#9b9082" text-anchor="middle">HL</text>
+    <text x="45" y="986" font-size="14" fill="#f3ece1">Harbour Lights</text>
+    <text x="45" y="1004" font-size="12" fill="#9b9082">2019 · 4 scenes</text>
+
+    <rect x="199.5" y="738.5" width="151" height="281" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="200" y="739" width="150" height="227" fill="#181310"/>
+    <rect x="208" y="978" width="110" height="10" fill="#2a2622"/><rect x="208" y="996" width="70" height="8" fill="#2a2622"/>
+
+    <rect x="362.5" y="738.5" width="151" height="281" rx="4" fill="#15110e" stroke="#2a2622"/>
+    <rect x="363" y="739" width="150" height="227" fill="#181310"/>
+    <rect x="371" y="978" width="110" height="10" fill="#2a2622"/><rect x="371" y="996" width="70" height="8" fill="#2a2622"/>
+  </g>
+  <g>
+    <rect x="600.5" y="738.5" width="180" height="101" rx="4" fill="#181310" stroke="#2a2622"/>
+    <text x="602" y="864" font-size="14" fill="#f3ece1">harbour</text>
+    <text x="602" y="882" font-size="12" fill="#9b9082">212 videos</text>
+    <rect x="796.5" y="738.5" width="180" height="101" rx="4" fill="#181310" stroke="#2a2622"/>
+    <rect x="798" y="852" width="96" height="10" fill="#2a2622"/><rect x="798" y="872" width="56" height="8" fill="#2a2622"/>
+    <text x="600" y="920" font-size="12" fill="#9b9082">The All tab is one list: tags, then categories.</text>
+    <text x="600" y="938" font-size="12" fill="#9b9082">Chips view keeps Load more (200 pills).</text>
+    <text x="600" y="956" font-size="12" fill="#9b9082">Retry rows read “these films.” / “these tags.”</text>
+  </g>
+
+  <!-- 3 · Entity page -->
+  <text x="20" y="1066" font-size="13" fill="#9b9082">3 · A person’s page (schematic, not to scale): details, then the videos as one whole list, then the Films row after the last video.</text>
+  <g font-size="12">
+    <rect x="20.5" y="1078.5" width="150" height="56" rx="4" fill="#15110e" stroke="#2a2622"/><text x="32" y="1102" fill="#f3ece1">Name · details</text><text x="32" y="1120" fill="#9b9082">scrolls away</text>
+    <text x="182" y="1110" fill="#9b9082">→</text>
+    <rect x="200.5" y="1078.5" width="300" height="56" rx="4" fill="#15110e" stroke="#2a2622"/><text x="212" y="1102" fill="#f3ece1">1,204 videos · Play all · Save as playlist</text><text x="212" y="1120" fill="#9b9082">every video, one list; chip “412 of 1,204”</text>
+    <text x="512" y="1110" fill="#9b9082">→</text>
+    <rect x="530.5" y="1078.5" width="230" height="56" rx="4" fill="#15110e" stroke="#2a2622"/><text x="542" y="1102" fill="#f3ece1">Films row</text><text x="542" y="1120" fill="#9b9082">after the last video</text>
+    <text x="776" y="1102" fill="#9b9082">The Films jump link lands on it at once,</text>
+    <text x="776" y="1120" fill="#9b9082">fetching no videos on the way.</text>
+  </g>
+</svg>

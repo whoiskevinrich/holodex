@@ -516,3 +516,33 @@ func TestWriteback_PersonDisplayNameNeverReachesFile(t *testing.T) {
 		t.Fatalf("written = %+v, want the canonical spelling Alice", *written)
 	}
 }
+
+// F85: the file's own cover art (a FileCoverToken) is already in the file, so a
+// write naming it is dropped before the image download path; the rest of the
+// batch still writes.
+func TestWritebackEndpoint_DropsFileCoverToken(t *testing.T) {
+	srv, vid, _, written := syncWritebackServer(t, "  - canonical: poster_url\n    label: Poster\n    sources: [tmdb:poster_url]\n")
+	body, _ := json.Marshal(map[string]any{
+		"fields": []map[string]any{
+			{"field": "title", "values": []string{"New Title"}, "source": "file:title"},
+			{"field": "poster_url", "values": []string{"file#" + strings.Repeat("a", 64)}, "source": "file"},
+		},
+	})
+	resp, err := http.Post(srv.URL+"/api/v1/media/"+strconv.FormatInt(vid, 10)+"/writeback",
+		"application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatalf("POST writeback: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("writeback status = %d, want 200", resp.StatusCode)
+	}
+	for _, f := range *written {
+		if f.IsImage {
+			t.Fatalf("the file cover token reached the writer: %+v", f)
+		}
+	}
+	if len(*written) != 1 {
+		t.Fatalf("written = %+v, want just the title", *written)
+	}
+}

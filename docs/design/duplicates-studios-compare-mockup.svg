@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1196.25" width="720" height="1196.25" role="img" aria-labelledby="t d">
+  <title id="t">Duplicates Studios compare panel and merge confirmations (F70, HOLODEX-598)</title>
+  <desc id="d">Two panels in Cinematheque tokens. 1: an expanded studio pair, Northlight Pictures with 40 videos against Northlite Pics with 3. Each bordered column has the name with a new-tab mark, its video count, a Name came from list of sources with video counts (provider-1 38 and file tags 2 on the left, file tags 3 on the right), three 16 by 9 sample posters each captioned with the source that won its studio name, an Also known as list giving each alias its origin (a provider or you) or No other names, a link row of Videos and the providers that know the studio, with new-tab marks, and a Merge into this one accent pill; a footer repeats Keep separate. 2: three confirmation dialogs with a warn-coloured confirm button. The person dialog names the survivor and the name that becomes an alias. The studio dialog adds a Show the studio as radio choice defaulting to the survivor&#x27;s name and says which name writeback will offer; with the other spelling picked it says the studio is renamed as from its own page and the button reads Merge and rename.</desc>
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .cap { font-size: 11px; fill: #5f5e5a; }
+    .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+    .serif { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
+    .ink { fill: #f3ece1; } .muted { fill: #9b9082; } .accent { fill: #e8a33d; } .warn { fill: #e2603f; } .wai { fill: #170e08; }
+    .s11 { font-size: 11px; } .s12 { font-size: 12px; } .s14 { font-size: 14px; } .s18 { font-size: 18px; }
+    .it { font-style: italic; } .b { font-weight: 600; } .num { font-variant-numeric: tabular-nums; }
+  </style>
+  <rect width="720" height="1196.25" fill="#f4f2ec"/>
+  <text x="8.0" y="16" class="ttl">1 · Studios, expanded — where each name came from, a few of its videos, the names it is also known as</text>
+  <rect x="8" y="26" width="704" height="432.25" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <line x1="8" y1="26" x2="712" y2="26" stroke="#2a2622" stroke-width="1"/>
+  <path d="M28 49l6 -6 6 6" fill="none" stroke="#9b9082" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="60.0" y="51" class="s14 ink">Northlight Pictures</text>
+  <text x="200.3" y="51" class="s11 muted">↗</text>
+  <text x="218.3" y="51" class="s12 muted">40 videos</text>
+  <text x="282.5" y="51" class="s14 muted">↔</text>
+  <text x="297.8" y="51" class="s14 ink">Northlite Pics</text>
+  <text x="401.7" y="51" class="s11 muted">↗</text>
+  <text x="419.7" y="51" class="s12 muted">3 videos</text>
+  <text x="477.6" y="51" class="s12 muted">· spelling</text>
+  <rect x="602.88" y="35" width="97.12" height="22" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="651.4" y="50" class="s12 muted" text-anchor="middle">Keep separate</text>
+  <rect x="9" y="66" width="702" height="392.25" fill="#181310"/>
+  <text x="32.0" y="102" class="s14 ink serif">Northlight Pictures</text>
+  <text x="202.6" y="102" class="s11 muted">↗</text>
+  <text x="32.0" y="120" class="s12 muted">40 videos</text>
+  <text x="32.0" y="144" class="s12 muted">Name came from</text>
+  <text x="32.0" y="162" class="s12 ink">provider-1</text>
+  <text x="340.0" y="162" class="s12 muted" text-anchor="end">38 videos</text>
+  <text x="32.0" y="180" class="s12 ink">File tags</text>
+  <text x="340.0" y="180" class="s12 muted" text-anchor="end">2 videos</text>
+  <rect x="32.0" y="192" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="32.0" y="262.25" class="s11 muted">provider-1</text>
+  <rect x="136.0" y="192" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="136.0" y="262.25" class="s11 muted">File tags</text>
+  <rect x="240.0" y="192" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="240.0" y="262.25" class="s11 muted">provider-1</text>
+  <text x="32.0" y="284.25" class="s12 muted">Also known as</text>
+  <text x="32.0" y="302.25" class="s12 ink">Northlight</text>
+  <text x="340.0" y="302.25" class="s12 muted" text-anchor="end">provider-1</text>
+  <text x="32.0" y="320.25" class="s12 ink">NLP</text>
+  <text x="340.0" y="320.25" class="s12 muted" text-anchor="end">you</text>
+  <line x1="32" y1="330.25" x2="340" y2="330.25" stroke="#2a2622" stroke-width="1"/>
+  <text x="32.0" y="348.25" class="s12 accent">Videos</text>
+  <text x="71.4" y="348.25" class="s11 muted">↗</text>
+  <text x="93.4" y="348.25" class="s12 muted">provider-1</text>
+  <text x="157.8" y="348.25" class="s11 muted">↗</text>
+  <line x1="32" y1="358.25" x2="340" y2="358.25" stroke="#2a2622" stroke-width="1"/>
+  <rect x="32" y="366.25" width="138.56" height="22" rx="11" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="101.3" y="381.25" class="s12 accent" text-anchor="middle">Merge into this one</text>
+  <rect x="20" y="78" width="332" height="322.25" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="380.0" y="102" class="s14 ink serif">Northlite Pics</text>
+  <text x="506.5" y="102" class="s11 muted">↗</text>
+  <text x="380.0" y="120" class="s12 muted">3 videos</text>
+  <text x="380.0" y="144" class="s12 muted">Name came from</text>
+  <text x="380.0" y="162" class="s12 ink">File tags</text>
+  <text x="688.0" y="162" class="s12 muted" text-anchor="end">3 videos</text>
+  <rect x="380.0" y="174" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="380.0" y="244.25" class="s11 muted">File tags</text>
+  <rect x="484.0" y="174" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="484.0" y="244.25" class="s11 muted">File tags</text>
+  <rect x="588.0" y="174" width="100.0" height="56.2" rx="2" fill="#221c18" stroke="#2a2622" stroke-width="1"/>
+  <text x="588.0" y="244.25" class="s11 muted">File tags</text>
+  <text x="380.0" y="266.25" class="s12 muted">No other names</text>
+  <line x1="380" y1="276.25" x2="688" y2="276.25" stroke="#2a2622" stroke-width="1"/>
+  <text x="380.0" y="294.25" class="s12 accent">Videos</text>
+  <text x="419.4" y="294.25" class="s11 muted">↗</text>
+  <line x1="380" y1="304.25" x2="688" y2="304.25" stroke="#2a2622" stroke-width="1"/>
+  <rect x="380" y="312.25" width="138.56" height="22" rx="11" fill="none" stroke="#e8a33d" stroke-width="1"/>
+  <text x="449.3" y="327.25" class="s12 accent" text-anchor="middle">Merge into this one</text>
+  <rect x="368" y="78" width="332" height="268.25" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <line x1="20" y1="412.25" x2="700" y2="412.25" stroke="#2a2622" stroke-width="1"/>
+  <rect x="602.88" y="424.25" width="97.12" height="22" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="651.4" y="439.25" class="s12 muted" text-anchor="middle">Keep separate</text>
+  <line x1="8" y1="66" x2="712" y2="66" stroke="#2a2622" stroke-width="1"/>
+  <text x="8.0" y="478.25" class="cap">“Name came from” lists each source that carries this name on some video now, with how many (one video can count for two). It says nothing</text>
+  <text x="8.0" y="492.25" class="cap">about which won or which came first. Posters (OQ7): up to 3, one per source first, then newest; each names the source that won its studio.</text>
+  <text x="8.0" y="506.25" class="cap">Aliases name their origin: a provider, or “you” (typed, or kept by a merge or rename). Provider badges open the provider’s page in a new tab.</text>
+  <text x="8.0" y="520.25" class="cap">No videos: no posters, no space. A match-kind label opens the well as on People (RD10); this pair matched on canonical names, so has none.</text>
+  <text x="8.0" y="550.25" class="ttl">2 · Confirmations — ConfirmDialog, the destructive (warn) variant: a merge cannot be undone</text>
+  <rect x="8" y="560.25" width="348" height="188.0" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="24.0" y="592.25" class="s18 ink serif">Merge into Dana Whitlock?</text>
+  <text x="24.0" y="612.25" class="s14 ink">Dana Whitlok’s 2 videos, films and links</text>
+  <text x="24.0" y="632.25" class="s14 ink">move to Dana Whitlock. “Dana Whitlok”</text>
+  <text x="24.0" y="652.25" class="s14 ink">stays as an alias, so it still finds this person.</text>
+  <text x="24.0" y="678.25" class="s14 muted">This can’t be undone.</text>
+  <rect x="279.6" y="702.25" width="60.4" height="30" rx="2" fill="#e2603f" stroke="#e2603f" stroke-width="1"/>
+  <text x="309.8" y="722.25" class="s14 wai b" text-anchor="middle">Merge</text>
+  <rect x="203.92000000000002" y="702.25" width="67.68" height="30" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="237.8" y="722.25" class="s14 ink" text-anchor="middle">Cancel</text>
+  <rect x="364" y="560.25" width="348" height="284.0" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="380.0" y="592.25" class="s18 ink serif">Merge into Northlight Pictures?</text>
+  <text x="380.0" y="612.25" class="s14 ink">Northlite Pics’s 3 videos and links move to</text>
+  <text x="380.0" y="632.25" class="s14 ink">Northlight Pictures.</text>
+  <text x="380.0" y="660.25" class="s14 muted">Show the studio as</text>
+  <circle cx="386" cy="676.25" r="6" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+  <circle cx="386" cy="676.25" r="3" fill="#e8a33d"/>
+  <text x="400.0" y="680.25" class="s14 ink">Northlight Pictures</text>
+  <text x="544.3" y="680.25" class="s12 muted">its name now</text>
+  <circle cx="386" cy="696.25" r="6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+  <text x="400.0" y="700.25" class="s14 ink">Northlite Pics</text>
+  <text x="380.0" y="728.25" class="s14 ink">The other spelling stays as an alias. Writeback</text>
+  <text x="380.0" y="748.25" class="s14 ink">will offer Northlight Pictures for these files.</text>
+  <text x="380.0" y="774.25" class="s14 muted">This can’t be undone.</text>
+  <rect x="635.6" y="798.25" width="60.4" height="30" rx="2" fill="#e2603f" stroke="#e2603f" stroke-width="1"/>
+  <text x="665.8" y="818.25" class="s14 wai b" text-anchor="middle">Merge</text>
+  <rect x="559.9200000000001" y="798.25" width="67.68" height="30" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="593.8" y="818.25" class="s14 ink" text-anchor="middle">Cancel</text>
+  <rect x="364" y="856.25" width="348" height="324.0" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+  <text x="380.0" y="888.25" class="s18 ink serif">Merge into Northlight Pictures?</text>
+  <text x="380.0" y="908.25" class="s14 ink">Northlite Pics’s 3 videos and links move to</text>
+  <text x="380.0" y="928.25" class="s14 ink">Northlight Pictures.</text>
+  <text x="380.0" y="956.25" class="s14 muted">Show the studio as</text>
+  <circle cx="386" cy="972.25" r="6" fill="none" stroke="#9b9082" stroke-width="1.5"/>
+  <text x="400.0" y="976.25" class="s14 ink">Northlight Pictures</text>
+  <text x="544.3" y="976.25" class="s12 muted">its name now</text>
+  <circle cx="386" cy="992.25" r="6" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+  <circle cx="386" cy="992.25" r="3" fill="#e8a33d"/>
+  <text x="400.0" y="996.25" class="s14 ink">Northlite Pics</text>
+  <text x="380.0" y="1024.25" class="s14 ink">This renames the studio, as renaming it on its</text>
+  <text x="380.0" y="1044.25" class="s14 ink">own page would. “Northlight Pictures” stays as</text>
+  <text x="380.0" y="1064.25" class="s14 ink">an alias. Writeback will offer Northlite Pics</text>
+  <text x="380.0" y="1084.25" class="s14 ink">for these files.</text>
+  <text x="380.0" y="1110.25" class="s14 muted">This can’t be undone.</text>
+  <rect x="555.52" y="1134.25" width="140.48000000000002" height="30" rx="2" fill="#e2603f" stroke="#e2603f" stroke-width="1"/>
+  <text x="625.8" y="1154.25" class="s14 wai b" text-anchor="middle">Merge and rename</text>
+  <rect x="479.84" y="1134.25" width="67.68" height="30" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+  <text x="513.7" y="1154.25" class="s14 ink" text-anchor="middle">Cancel</text>
+  <text x="16.0" y="876.25" class="cap">Below: the same studio dialog with the other</text>
+  <text x="16.0" y="890.25" class="cap">spelling picked. The writeback line follows the pick,</text>
+  <text x="16.0" y="904.25" class="cap">the rename consequence is spelled out, and the</text>
+  <text x="16.0" y="918.25" class="cap">button names both acts.</text>
+</svg>

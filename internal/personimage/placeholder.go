@@ -63,16 +63,15 @@ func shoulderWidth(bucket string) float64 {
 var palette = struct {
 	surface2 string // --surface-2: silhouette field
 	muted    string // --muted: the head/torso fill
-	accent   string // --accent: baseline flourish
 	rule     string // --rule: frame border
-}{surface2: "#181310", muted: "#9b9082", accent: "#e8a33d", rule: "#2a2622"}
+}{surface2: "#181310", muted: "#9b9082", rule: "#2a2622"}
 
 // Placeholder builds a deterministic, themed SVG silhouette for an empty role
 // (ADR-038 F25). It is pure (same inputs → identical bytes) and uses the concrete
 // Cinémathèque colors (see palette) so the empty state is correctly themed even
 // though the SVG is served standalone via <img>. The silhouette is role-shaped: a
-// centered head+torso scaled to the role's aspect box, with a subtle accent
-// baseline so it reads as "person, no photo yet".
+// centered head+torso scaled to the role's aspect box, so it reads as "person, no
+// photo yet".
 func Placeholder(role, genderBucket string) []byte {
 	pal := palette
 	w, h := placeholderDims(role)
@@ -91,8 +90,8 @@ func Placeholder(role, genderBucket string) []byte {
 
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img" aria-label="No %s image">`, w, h, role)
-	// Background fills with the surface token; a thin accent baseline rule reads under
-	// the silhouette so the empty state is recognizably themed, not blank.
+	// Background fills with the surface token. No accent baseline (HOLODEX-598 sign-off):
+	// a gold rule under an empty frame read as a selection or progress mark.
 	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="%s"/>`, w, h, pal.surface2)
 	// Torso: a rounded shoulder shape rising to the head.
 	fmt.Fprintf(&b,
@@ -105,8 +104,6 @@ func Placeholder(role, genderBucket string) []byte {
 	)
 	// Head circle.
 	fmt.Fprintf(&b, `<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" opacity="0.55"/>`, cx, headCy, headR, pal.muted)
-	// Accent baseline rule for a themed flourish.
-	fmt.Fprintf(&b, `<rect x="0" y="%d" width="%d" height="3" fill="%s" opacity="0.6"/>`, h-3, w, pal.accent)
 	// Subtle frame so it doesn't bleed into a same-colored container.
 	fmt.Fprintf(&b, `<rect x="0.5" y="0.5" width="%.1f" height="%.1f" fill="none" stroke="%s" stroke-width="1" opacity="0.5"/>`, float64(w)-1, float64(h)-1, pal.rule)
 	b.WriteString(`</svg>`)

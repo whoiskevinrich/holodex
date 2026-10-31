@@ -55,6 +55,47 @@ func sameOrder(a, b []int64) bool {
 	return true
 }
 
+// TestSnapshotPlaylistPages covers F80 EL14 (HOLODEX-604): a snapshot read with
+// ?limit= tiles the whole-list read once under every sort, with a constant total,
+// and a read with no ?limit= still returns every member.
+func TestSnapshotPlaylistPages(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	vids := seedPlaylistVideos(t, r, 7)
+	_, body := postTok(t, srv.URL+"/api/v1/playlists", "s3cret", map[string]any{"name": "paged"})
+	plURL := srv.URL + "/api/v1/playlists/" + itoa(int64(body["playlist"].(map[string]any)["id"].(float64)))
+	for _, v := range vids {
+		if code := sendTok(t, http.MethodPut, plURL+"/videos/"+itoa(v), "s3cret"); code != http.StatusOK {
+			t.Fatalf("add %d = %d", v, code)
+		}
+	}
+	for _, sort := range []string{"manual", "added_desc", "title_asc", "random"} {
+		if code, b := reqTokBody(t, http.MethodPatch, plURL, "s3cret", map[string]any{"sort": sort}); code != http.StatusOK {
+			t.Fatalf("patch sort %s = %d %v", sort, code, b)
+		}
+		_, whole := getJSONTok(t, plURL+"?seed=9", "s3cret")
+		want := itemIDs(whole["items"])
+		if len(want) != len(vids) {
+			t.Fatalf("%s: unpaged read = %d items, want %d", sort, len(want), len(vids))
+		}
+		var got []int64
+		for off := 0; off < len(vids)+3; off += 3 {
+			_, page := getJSONTok(t, plURL+"?seed=9&limit=3&offset="+itoa(int64(off)), "s3cret")
+			if num(page, "total") != len(vids) || num(page, "limit") != 3 || num(page, "offset") != min(off, len(vids)) {
+				t.Fatalf("%s offset %d envelope = total %v limit %v offset %v", sort, off, page["total"], page["limit"], page["offset"])
+			}
+			if len(page["ids"].([]any)) != len(vids) {
+				t.Errorf("%s: ids paged too (%d), want the whole run", sort, len(page["ids"].([]any)))
+			}
+			if items := page["items"].([]any); len(items) > 0 {
+				got = append(got, itemIDs(items)...)
+			}
+		}
+		if !sameOrder(got, want) {
+			t.Errorf("%s: pages %v, want whole read %v", sort, got, want)
+		}
+	}
+}
+
 // TestPlaylistEndpoints covers F69 S1 (ADR-104): gating, validation, the ref
 // handle, CRUD, idempotent membership, the visitor visibility gate (private =
 // 404, never 403), the trash seam, delete's cascade, and /capabilities'

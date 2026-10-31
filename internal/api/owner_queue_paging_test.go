@@ -91,6 +91,17 @@ func TestDuplicatesPagingByType(t *testing.T) {
 	if num(body, "total") != 0 || len(body["items"].([]any)) != 0 || counts["tag"] != float64(1) {
 		t.Errorf("type=person = %v, want no items, tag count still 1", body)
 	}
+	// Every lane has a count, 0 included, so the tabs never shift (F70 P0-8); the
+	// Videos list carries the same counts.
+	for _, lane := range []string{"person", "studio", "tag", "film", "video"} {
+		if _, ok := counts[lane]; !ok {
+			t.Errorf("counts = %v, missing lane %q", counts, lane)
+		}
+	}
+	_, body = getJSONTok(t, list+"/videos", "s3cret")
+	if counts, _ := body["counts"].(map[string]any); counts["tag"] != float64(1) || counts["video"] != float64(0) {
+		t.Errorf("videos list counts = %v, want tag 1 and video 0", body["counts"])
+	}
 	if code, _ := getJSONTok(t, list+"?type=bogus", "s3cret"); code != http.StatusBadRequest {
 		t.Errorf("type=bogus = %d, want 400", code)
 	}

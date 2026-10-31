@@ -543,8 +543,8 @@ func (h *Handlers) enrichStudioClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Clearing a provider's shadow fields does not touch already-stored studio_images
-	// rows (F51, ADR-079) — mirrors person enrich Clear, which likewise never deletes
-	// downloaded images. The owner removes an image explicitly via the image endpoints.
+	// rows (F51, ADR-079); only a person's Clear removes its provider's images
+	// (HOLODEX-610). The owner removes a studio image explicitly via the image endpoints.
 	w.WriteHeader(http.StatusNoContent)
 }
 

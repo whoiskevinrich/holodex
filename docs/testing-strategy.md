@@ -3010,6 +3010,80 @@ the placeholder path):
   surface that *does* — the gallery editor — would show a stale set if it adopted the module.
   Logged and accepted during `/code-review high` rather than solved speculatively.
 
+### 16.2 Lanes, the studio panel and Show as — backend (HOLODEX-598)
+
+The 598 revision of the [spec](specs/duplicates-pair-evidence.md) (P0-8, P0-10, P0-11, OQ5–OQ7)
+needs Go code, unlike the person panel above. Four pieces, each pinned by a Go test. The SPA half
+is §16.3.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Planner statistics at boot** (OQ5) | `internal/db/optimize_test.go` `TestOpenAnalyzesTables` | `db.Open` leaves `sqlite_stat1` rows for a table that has rows but was never analyzed. The fixture deletes the statistics the first `Open` wrote, then adds 500 videos, which is how every pre-598 library looks. Without statistics the review queue's per-side video count is driven from the near-total `videos.active` index. On a synthetic 20k-video, 1.8k-pair copy the whole-page read took 23–43 s without statistics and 0.11–0.18 s with them. |
+| **One lane, paged in SQL** (P0-8) | `internal/repo/review_lanes_test.go` `TestReviewPairsLane` | Two pages of one type, read in SQL, concatenate to exactly that type's slice of the whole list, in the same order. Video counts are taken for the page alone. Ties sort by id, so pages never overlap. The lane count agrees with the list once a pair goes stale (rename, then delete the old spelling), because the count and the page share one `FROM … WHERE`. Every named type has a count, including 0. |
+| **Lane counts on both lists** (P0-8) | `internal/api/owner_queue_paging_test.go` `TestDuplicatesPagingByType` | `counts` carries all five lanes (`person`, `studio`, `tag`, `film`, `video`) with 0s, on `?type=` reads and on `/owner/duplicates/videos`. A verdict in any lane therefore refreshes every tab from that lane's own re-read. |
+| **Studio name sources** (P0-10, OQ6, OQ7) | `internal/api/duplicates_studio_test.go` `TestStudioEvidence` | Five videos split across the file tags and `provider-1`, with one video where the file tags win against the provider's other spelling. A source counts only when its own value names *this* studio. One video counts toward both sources. Sources sort by most videos first. The posters are one per source, then the newest, each captioned by the source that **won** that video. Owner aliases carry no `source`. `external_links` is `[]`, not null. The read is owner-gated (401) and a missing studio gets 404. |
+| **Show as** (P0-11, RD14) | `internal/api/studio_show_as_test.go` `TestStudioMergeShowAs` | `show_as: "merged"` keeps the survivor's id, gives it the merged spelling, keeps its former name and the merged studio's alias as aliases, and moves every video. It rewrites the Studio tag on all linked videos, the moved ones included, as a rename does. A bad `show_as`, and `show_as` on a tag, are 400 and merge nothing. The fixture's videos are Matroska, because writeback skips a container it cannot write. Without that, the writeback assertions pass on zero jobs. |
+
+**Measured, not asserted.** The scaled copy is synthetic (generated names only). It also put a
+5,000-video studio's evidence at about 0.18 s and a lane read over HTTP at 0.11–0.15 s. The live
+library's baseline is the owner's to take (spec OQ5) with the anonymized script in the epic's
+notes. No CI test bounds a timing, because a timing test on a shared runner only measures the
+runner.
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `Open` without the `optimize` call broke `TestOpenAnalyzesTables`.
+- `ReviewPairCounts` counting the raw queue instead of `reviewPairsFrom` broke `TestReviewPairsLane`, at the stale-pair count.
+- `studioPosterPicks` skipping its one-per-source pass broke `TestStudioEvidence`.
+
+#### 16.2.1 Standing gaps
+
+- **No test proves that a failed Show-as rename rolls the merge back.** For a studio the rename
+  cannot fail once the merge has run, because the merged name's only holder is gone. Injecting a
+  failure would need a test-only hook. The guarantee rests on the single transaction in
+  `mergeEntities`, and the API refuses `show_as` for films, whose composite key could collide.
+- **A studio inherited from a film is not seen by the evidence read.** The read loads only the
+  studio field's own file keys and provider keys. A scene whose studio comes from its film shows
+  another winner, or none, on its poster caption. This is rare enough to leave until the panel
+  shows it.
+- **Statistics refresh only at boot.** A fresh install whose first scan adds thousands of videos
+  runs without statistics until its next restart. An established library is analyzed at every
+  boot.
+
+### 16.3 Lanes, the studio panel and Show as — frontend (HOLODEX-598)
+
+There is still no component harness (§5), so the rules the page, row and panels share live in
+`queue.ts` and are unit-tested there, and the structural guarantees are pinned statically in
+`verdictOwnership.test.ts`, as for the person panel.
+
+| Piece | Test | What it holds |
+|---|---|---|
+| **Lanes** (P0-8) | `duplicates/queue.test.ts` `lanes` | The tab order is fixed (Videos, People, Studios, Tags, Films). With no `?type=` the page opens on the first lane with pairs, and on Videos when all are 0. `?type=` accepts exactly the five lanes. Tab and tabpanel ids derive from the lane. |
+| **Comparable kinds** (RD10, P0-9) | `queue.test.ts` `showsComparePanel`, `labelPlacement`, `focusLandingIds` | Person **and** studio pairs get the panel, the label in the panel, a profile link and a next-row disclosure rung. Tag and film rows keep the label in the row and land focus on the lane's tabpanel, which replaced the group heading. |
+| **Studio sources in words** (P0-10) | `queue.test.ts` `sourceLabel` | `file` reads "File tags", `manual` reads "you", and a provider uses its own link label, else its namespace. |
+| **Verdict ownership, both panels** (P0-4, P0-5) | `verdictOwnership.test.ts`, `describe.each` over `DuplicateComparePanel` and `DuplicateStudioPanel` | Each renders the row's `verdicts` in the footer and the row's `mergeInto(ref, other)` once per column, and has no verdict or resolving call of its own. |
+| **Verdict grammar** (C2, C5, RD7) | `verdictOwnership.test.ts` `DuplicatePairRow` | Tag and film rows keep the accent Keep separate and the ghost two-step Merge. A comparable row offers only the ghost Keep separate. Merge into this one is the accent pill, named "Merge {other} into {keep}", and only opens the confirm. |
+| **Show as** (P0-11) | `verdictOwnership.test.ts` `sends the Show as pick on a studio merge only` | The confirm's radio group is a native `fieldset`, and its pick reaches the merge call for a studio only. |
+
+**Mutation checks** (2026-10-27): each broke its test.
+- `showsComparePanel` back to person-only.
+- `defaultLane` falling back to People instead of Videos.
+- The studio merge dropping the Show as pick.
+- `DuplicateStudioPanel` swapping `mergeInto`'s arguments, which would merge the wrong way.
+
+**QA, not asserted** (stress fixture plus seeded pairs, 2026-10-27). One request makes the first
+lane usable (the Videos read, which carries every count). A collapsed lane issues no card, image
+or evidence request. Expanding issues the side reads, and strip images load lazily. A person merge
+and a studio Merge and rename both resolved, dropped the tab count, and moved focus to the next
+disclosure. The survivor took the other spelling and kept its own as an alias. At 375 px nothing
+scrolls the page sideways.
+
+#### 16.3.1 Standing gaps
+
+- **No test drives the page's lane switching, `replaceState` or the re-read after a verdict.**
+  Those need a component harness. They are covered by the QA pass above only.
+- **The person confirm's "films" clause reads the cached card.** If the card is not cached it
+  arrives a moment after the dialog opens, and until then the clause is absent.
+
 ## 17. Duplicates by shared provider external id (F71, HOLODEX-452, ADR-107)
 
 Two entities of one kind carrying the same provider external id is the strongest positive
@@ -4994,9 +5068,10 @@ nav harness gains a queue scenario.
 
 ## 32. Entity lists load a page at a time (F80, HOLODEX-354)
 
-People, Studios, Tags and Films page through the server with Load more, and the A–Z index
-restarts the list at a letter ([spec](specs/entity-list-paging.md),
-[handoff](design/entity-list-paging-handoff.md)). Risks, ranked:
+Tags and Films page through the server with Load more ([spec](specs/entity-list-paging.md),
+[handoff](design/entity-list-paging-handoff.md)). People and Studios did too, with an A–Z restart,
+until HOLODEX-601 made them one whole-list scroll (§32.1). The record below is HOLODEX-354's, and its
+endpoint and repo tests still guard the paging both designs read. Risks, ranked:
 1. A page boundary that repeats or drops an entry, under any sort including Random. The owner
    would never notice a missing person.
 2. An A–Z offset that lands on the wrong row.
@@ -5073,7 +5148,245 @@ What was exercised:
 
 **Standing gaps.**
 - Nothing automated drives Back restore or the A–Z restart in a browser. The §20.6 nav harness
-  would need a paged-list scenario.
+  would need a paged-list scenario. For People and Studios, §32.1 adds one.
+
+### 32.1 Whole-list scroll on People and Studios (HOLODEX-601)
+
+People (List, Table and Poster) and Studios are one list as tall as the whole library. Only the
+pages in view are fetched, under every sort and search ([spec](specs/entity-list-paging.md) EL6,
+EL7, EL9, EL11–EL13; [handoff](design/entity-list-virtual-scroll-handoff.md);
+[architecture](architecture/stack.md#long-lists-tanstack-virtuals-core-over-a-sparse-page-cache)).
+The server is unchanged, so §32's endpoint and repo tests still prove the offsets tile. New risk lives
+in the client. Risks, ranked:
+1. A page painted into the wrong slots, or a stale page from an older sort, search or seed painted
+   into the new list. Pages now arrive out of order, after jumps, not one after another.
+2. A row taller than its view's fixed height. Every row below it shifts, so the scrollbar, the
+   position chip and A–Z land on the wrong entry.
+3. Focus lost when a placeholder turns into its entry, or when the focused row scrolls out of
+   range.
+4. A fetch storm on a fast drag, or no fetch at all during a slow continuous scroll.
+5. Back landing on a different entry, especially after the width changed.
+6. A retry row covering a neighbouring page's loaded entries.
+
+**Unit, web (`web/src/lib/sparseList.test.ts`, mocked fetcher, fake timers).** The sparse page
+cache:
+- requests only the missing pages of the visible range plus one page of overscan each way, at
+  offsets aligned to 50;
+- slots out-of-order replies into the right indexes: with a fake fetcher serving a fixed order,
+  reading every page in shuffled order equals reading them in sequence. The server's own tiling
+  per sort stays §32's endpoint tests;
+- drops a reply from an older generation (a sort, search or reshuffle in between);
+- fetches only the landing range after 100 scroll events across 1,500 entries, and does fetch at
+  the 300ms ceiling during a continuous slow scroll;
+- evicts the page farthest from view past 20 pages, and re-fetches it on return;
+- marks a failed page, re-fetches only that page on retry, and leaves its neighbours alone;
+- on a refresh, keeps the anchor, re-reads the visible pages, drops the rest, and adopts a changed
+  total;
+- on restore, fetches the anchor's page first, then sizes the list.
+
+Pure helpers, table-driven: the retry row is the first whole grid row inside a failed page (1, 2, 3
+and 12 lanes; the page starting at lane 0 and mid-row), and the active letter for an index is the
+largest letter offset at or before it, with `#` first (`sparseList.test.ts`). The key map moves ↑/↓
+a row of lanes, ←/→ an entry (not in a one-lane list), PageUp/PageDown a screen and Home/End the
+ends, never past them (`windowVirtualizer.test.ts`).
+
+**Component, browser mode (`web/src/lib/components/shared/VirtualRows.svelte.test.ts`).** A
+People-List-shaped fixture (`__fixtures__/VirtualPeople.svelte`: the page's row and placeholder
+markup with `app.css` loaded, every 7th name long enough to wrap) over 1,512 entries from a fetcher
+the test holds, releases or fails page by page:
+- the drawn entries stay within three screens at the top, the middle and the end, each with
+  `aria-setsize`/`aria-posinset`;
+- **row-height contract:** placeholder rows and loaded rows (long names included) measure one
+  height. **Mutation-tested**: a placeholder avatar box of `h-8` fails it. This is the regression
+  net for risk 2;
+- the list is one Tab stop (the entry and its ring, no links); ↓, → and End move past what's drawn
+  to entry 1,512, and Home comes back;
+- focus a placeholder, release its page, and `document.activeElement` is the same element, now
+  showing the entry;
+- a failed page gets one retry row on its first whole row at three lanes, page 0's entries in the
+  shared row stay, the failed entries are dimmed and not `aria-busy`, and Retry fills them.
+
+A row that breaks the contract degrades to misplaced rows, never a frozen page: the pitch is read
+once per layout (lanes × width). The first version re-read it every render, and in the test
+environment (no `app.css` yet) a placeholder shorter than its entry flipped the pitch and the
+keep-in-view scroll back and forth until the browser hung.
+
+**Not yet automated (gaps).** The contract is checked on the List row only, not at 375/768/1440px or
+at each poster density. Table view's `aria-rowcount`/`aria-rowindex`, the A–Z scroll, view switches
+and merge selection across a far scroll were checked live, not in a test.
+
+**Nav harness (§20.6), 2026-10-28, `-big`.** `whole-list-back-lands-on-same-entry` opens People in
+the videos sort, scrolls to the middle of 2,064 entries, waits for real entries, opens a person in
+view and goes Back. It checks the same `scrollY` and the same first entry in view, now real again,
+and refuses to run on a list under 500. **Mutation-tested**: with the restore's landing scroll
+removed it fails ("Back restored scrollY 0, expected 26499"). This closes §32's standing Back gap for
+People. All 13 nav scenarios pass against the new list, including the older People ones.
+
+**Harness (§12.4), 2026-10-28, `-big`.** `people-list-does-not-render-everything` now counts the
+list's `[data-index]` entries (the old `main ul > li` selector matched nothing once the list
+stopped being a `<ul>`), and `studios-list-does-not-render-everything` is its twin. Both pass at the
+four widths: 8 checks, 1–200 entries drawn of 2,000.
+
+**Live QA, 2026-10-28, small fixture** (`backend-stress-open-9700` + `web-9700`: 164 people, 119
+studios, Cinémathèque). The browser pane has to be in front: a hidden pane runs no rendering
+steps, so it fires no scroll events, and the list never moves.
+- First load draws 10 rows (30 entries) of 55, at 78px pitch (70px row + 8px gap). The count line
+  reads "164 people" and there's no Load more.
+- End jumps to the bottom, and the only new fetch is the landing page (`offset=150`).
+- The chip reads "31 of 164", the same as the first readable entry under the sticky bar, and the
+  active letter tracks the scroll.
+- A–Z S focuses the first S name with its row just under the sticky bar.
+- Keys: PageDown 0 → 18 (scrolls it wholly into view), → 19, ↓ 22, End 163 ("164 of 164"),
+  and Enter opens the person. Back restores the exact `scrollY` (223.2).
+- Poster: 6 lanes, a 264px card at 280px pitch, the A–Z index showing, and placeholders at 264px.
+  A failed `offset=100` page gives its retry row on row 17 (102–107), 100–101 dimmed in row 16, and
+  Retry fills it.
+- Table: `aria-rowcount` 165, the first row `aria-rowindex` 2, 44px rows, column widths kept.
+- Studios: 78px rows, the chip, the A–Z and no Load more.
+
+**Live QA, 2026-10-28, `-big` fixture** (`./data/stress` reseeded with `-big`: 2,064 people, 2,019
+studios; `backend-stress-open-9600` + `web-9600`, Cinémathèque, the pane in front). Timing numbers
+only count with the pane displayed: hidden, it throttles timers, which read as 0.5–1.3s settles and
+fetches in the middle of a drag.
+1. First load: "2,064 people", 30 entries drawn, 501 elements on the page, no Load more. Two reads,
+   about 6KB each, served in 9–14ms.
+2. A 60-frame drag to 10%, 50% and 90%, under each of name, videos, Random and completeness: real
+   entries 170–335ms after the drag stops, 35–37 entries drawn at any depth, 3–4 page reads, all at
+   the landing. A search for "person 1" (1,000 matches) scrolls the same way, 321–323ms.
+3. No read fires during a drag; the core's scrolling flag flips once, about 170–185ms after it stops.
+4. The chip reads the first readable entry ("1,021 of 2,064" at 50%) in every sort.
+5. A–Z in List, Table and Poster: each click focuses the letter's first name just under the bar, and
+   that letter lights. X and Z are the last two names, so they land as low as the list allows.
+6. A failed page's retry row was checked on the small fixture (above); its placement is tested.
+7. Back from entry 1,286 (videos sort) restores entry 1,286 at the same `scrollY` (50,327), reading
+   the anchor's page first (`offset=1250`), then its neighbours, and nothing at the top. Back after
+   narrowing the window from 3 lanes to 2 still lands on entry 1,286. View switches at 55% and 95%
+   depth (List ↔ Poster ↔ Table, six each) land on the first entry's row every time. The density
+   slider hides at the pane's width, so a density step went unchecked.
+8. Two people picked 1,800 entries apart stay selected across the scroll ("2 selected"). Merging them
+   from entry 1,838 keeps the list there, re-reads only the 4 pages in view, and the count drops to
+   2,063.
+9. [human] Screen-reader pass: owner-accepted 2026-10-28 ("it's good enough"). Positions announced, one Tab stop and arrow keys were not separately recorded.
+
+Found and fixed during this run:
+- A sort or search change from deep in the list read 3–4 pages at the old depth under the new sort
+  (the cache was cleared before the jump to the top landed). The view's range is now read from the
+  window when asking, and a sort change reads only pages 0 and 50.
+- Back read the top two pages before landing. A restore now holds the view's asks until it lands.
+- A–Z to a far letter lost focus: a smooth glide across ~80,000px took 1.25s, and focus landed on the
+  entry's hidden pinned copy. A far jump is now instant, and focus waits for the drawn row.
+- A–Z lit the letter before the clicked one when the letter's first name sat mid-row. The active
+  letter is now the focused entry's, while it's in the first row in view.
+- A view switch drifted 3–6 rows, or jumped ~800 entries: the new view measured an empty row past
+  the list's end (16px), and the jump ran before the spacers grew. It now measures a row that holds
+  an entry, and lands after the layout updates.
+
+### 32.2 Whole-list scroll on the other library lists (HOLODEX-604)
+
+The Media grid, Films, playlists, the Tags Posters and Table views, and the videos on person, studio
+and tag pages take §32.1's list ([spec](specs/entity-list-paging.md) EL11, EL14, EL15;
+[handoff](design/entity-list-virtual-scroll-handoff.md#the-other-library-lists-holodex-604)). §32.1's
+cache, key-map and component tests cover the shared machinery, so this section tests what each list
+adds. Risks, ranked:
+1. A video card taller than its pitch. One long title shifts every row below it, and the Media grid
+   is the longest list, so the drift is largest there.
+2. A snapshot playlist page that repeats or drops a video, or a total that disagrees with the old
+   whole-playlist read. Snapshot paging is the one server change.
+3. The Tags All tab painting a category into a tag's slot, or the reverse, at the boundary page that
+   holds both.
+4. A list that doesn't start at the top of the page (entity videos) fetching or landing at the wrong
+   depth, and the Films row or `#films` landing in the wrong place.
+5. Media Back regressing QW5: a flash of the top, or the wrong video in view.
+6. A refresh after a scan, a playlist removal or a Freeze jumping the scroll.
+
+**Endpoint, Go (`internal/api/playlists_test.go`).** A snapshot playlist read with `limit`/`offset`
+tiles every member once under each sort (manual, title, random with a seed) with `walkPages`, and
+its `total` equals the member count. A read with no `limit` still returns every member, so existing
+callers keep working. A smart playlist's paging is unchanged.
+
+**Unit, web.** The Tags All-tab fetcher, table-driven over tag totals 0, 49, 50 and 237 with 1 and 60
+categories: every offset maps to the right kind, the boundary page joins the last tags to the first
+categories, and reading every page in shuffled order equals reading them in sequence. A failed
+category read fails only its page.
+
+**Component, browser mode.** The row-height contract on the video card: a `VideoCard` fixture with
+titles of 1, 40 and 1,500 characters measures one height, loaded and placeholder, at 1, 5 and 12
+columns and in both card layouts. **Mutation-test** it by removing the title's two-line height. The
+same check for the Films and Tags poster cards and placeholders.
+
+**Harness (§12.4).** `*-does-not-render-everything` twins for `/` (Grid and Table), `/films`, a
+playlist and a person's page on `-big`, at the four widths.
+
+**Nav harness (§20.6).** `whole-list-back-lands-on-same-entry` extended to the Media grid (the same
+video in view, no read at the top) and a person's videos (the list starts below the details).
+
+**Live QA on `-big`, the pane in front.** Per list: first load bounded, a drag to 50% under two
+sorts shows real entries within 0.5s and draws about three screens, End lands on the last entry, the
+chip reads the first entry in view. Then: Media Back after a width change; a scan finishing deep in
+the grid; Tags All across the tag-to-category boundary in Posters and Table, and a Manage ⋯ menu
+deep in the list; a snapshot removal deep in a 500-video playlist, a Freeze, a sort change; a
+person's `#films` jump and Back; a card-layout switch keeping the first entry in view.
+
+**[human].** A screen-reader pass on the Media grid (positions, one Tab stop). Owner: pass,
+2026-10-29, along with the build-vs-mockup check (handoff §3d).
+
+**Automated so far (2026-10-29).** `TestSnapshotPlaylistPages` tiles a 7-video snapshot under
+manual, added, title and random sorts at page size 3. `tagStream.test.ts` covers tag totals 0, 49,
+50 and 237 against 1 and 60 categories, in order and in reverse. A failed category read fails the
+page that holds categories. On the All tab that includes page 0, which needs the categories' count,
+so the list shows its error. `sparseList.test.ts` covers a restore from held pages: they show
+before any read, and their neighbours aren't read again. `VirtualVideoGrid.svelte.test.ts` checks
+the card contract with 1-, 40- and 1,500-character titles and the placeholders, at the default
+density. **Mutation-tested**: without the title's `h-10`, the loaded cards measure 277 and 297px.
+The harness gained `media-grid-` and `films-list-does-not-render-everything` (§12.4). Not yet
+automated: the contract at other densities and in the poster card layout, the Films and Tags
+poster placeholders, and the nav-harness Back scenario for the Media grid and a person's videos.
+
+**Back under an owner-only sort (HOLODEX-608).** Back from a video on `/?sort=completeness_asc`
+landed at the top. The list controller learned the owner in an `$effect`, after the first render,
+so the list key flipped from the default sort to completeness after Back's one-shot snapshot was
+already spent. `listController(schema, path, owner)` now reads the owner before its first parse.
+The nav harness's `back-restores-owner-only-sort-scroll` scrolls to 3000, opens a video and goes
+Back. **Mutation-tested**: without the owner seed it reports "Back restored scrollY 0, expected
+3000". A reload under an owner-only sort still loses the position (HOLODEX-609).
+
+**Live QA, 2026-10-29, `-big`** (`backend-stress-open-9700` + `web-9700`: 2,083 videos, 2,026
+films, 4,045 tag rows; Cinémathèque). The session window was off screen, so the pane ran as a
+background page. Programmatic scrolls fired no scroll events until one was dispatched, and
+animation frames never ran. A Back restore waits on frames, so restores were checked only while
+frames still ran. No timing number from this run counts.
+1. Media first load: "2083 videos", 15 cards drawn, 740 elements, every card 238px, no Load more.
+2. A 60-step drag to 50%: real cards 239ms after it stopped, 31 drawn, the chip at "1,042 of
+   2,083". The only reads were the landing pages (950, 1000, 1050).
+3. Media Back from video 1,038 lands on 1,038. The cards show at once, the only read is the
+   anchor's page (1000) and nothing at the top is read. The landing scroll is 8px lower than
+   before: same entry, not the exact pixel.
+4. Grid → Table → Grid from 1,041: Table lands on 1,042 at 44px rows, Grid back on 1,041.
+5. Films: "2,026 films", 30 drawn at the top and 60 at 70% depth, every card 276px, the chip at
+   "1,417 of 2,026".
+6. Tags Posters, All tab: 4,045 rows (2,037 tags then 2,008 categories), every card 224px. At the
+   boundary, 2034–2036 are tags and 2037–2040 categories. Posters → Table from 1,935 lands on
+   1,936, `aria-rowcount` 4,046, 44px rows.
+7. Person 9000 (47 videos, the fixture's largest entity): "47 videos", 12 drawn, the list starts
+   below the details (1,142px), Films follows the last video, and `#films` lands as far down as the
+   page allows. The fixture has no entity with hundreds of videos, so deep scroll on an entity
+   page went unchecked.
+8. A 2,083-video snapshot playlist: 18 drawn, `aria-setsize` 2,083. Removing the first card in
+   view at 60% depth keeps `scrollY` (105,930), the next card moves up, and the count reads 2,082
+   then 2,081.
+
+Found and fixed during this run:
+- Removing a playlist card jumped the list to the top. The page replaces its playlist object, and
+  the list's restart read the props through it. The restart now keys on a derived string, which is
+  also how the entity videos guard against a reloaded facet.
+- From code review: a stale cached Back never ended the restore's fetch hold (a refresh now ends
+  it). Grid ↔ Table and Posters ↔ Table didn't hold the first entry. The Recently added shelf could
+  take a filtered first page. An arrow key no longer entered the Media grid from outside. The Chips
+  view read the Posters stream it never showed.
+
+Known gaps, not fixed: keyboard focus no longer starts a card's hover montage (F83), because the
+roving stop is the cell, not the link. On an entity page the chip also shows while the details
+above the list scroll. They are HOLODEX-605 and HOLODEX-606.
 
 ## 33. List views — the shared Table view and Tags Posters (F82, HOLODEX-32 / 42 / 46)
 
@@ -5528,3 +5841,97 @@ tests (F52) still cover storage. Risks, ranked by how quietly they would fail:
 
 - Real decoding and seeking can't run in jsdom. Frame accuracy across containers is checked by hand
   (QA 7), not in CI.
+
+## 37. Choose the video poster in the writeback dialog (F85, HOLODEX-599)
+
+The writeback dialog's Poster row becomes the one poster chooser. A picked frame and an upload each
+get their own source slot and become a `local:<kind>` poster decision, the served poster is
+presented from the decision, and Write embeds a held image without a download
+([spec](specs/writeback-poster-sources.md),
+[handoff](design/writeback-poster-chooser-handoff.md); slots and the presenter in
+[media-ingest.md](architecture/media-ingest.md), the decision in
+[field-resolution.md](architecture/field-resolution.md), the embed in
+[writeback.md](architecture/writeback.md), the perimeter in
+[security-perimeter.md](architecture/security-perimeter.md)). Risks, ranked by how quietly they
+would fail:
+
+1. **A writeback swaps the owner's poster for the file's cover art.** This happens today: the
+   post-write re-extract (`ExtractEmbedded`, from `internal/api/writeback.go` and the queued
+   `postWrite` in `cmd/holodex/main.go`) overwrites the served pair, upload included. Nothing
+   errors; the page just shows the wrong image (P0-6).
+2. **The wrong image reaches the file.** The automatic frame is embedded without being chosen, an
+   older frame is written after a newer one replaced its slot, or a path from the payload is
+   trusted (P0-5, P0-7, P0-8).
+3. **Write reports in sync when it isn't.** The ledger records the token from enqueue time, not
+   the bytes copied, so a slot replaced in between reads `=` (P0-5).
+4. **A held image is fetched over the network,** which would put Holodex's own host on the asset
+   allowlist (P0-5).
+5. **Removing the upload leaves a dangling choice,** or touches the file (P0-9).
+6. **The chooser's keyboard order breaks across groups,** or a no-poster provider takes focus
+   (P0-1, P0-2).
+
+### 37.1 Regression first (Go, write before the fix)
+
+| # | Case | Proves |
+|---|---|---|
+| R1 | `internal/thumbnail/manager_test.go`: a video with embedded cover art has an uploaded poster as its served pair. Run `ExtractEmbedded` on the file, as the post-write hook does. The served pair's bytes are still the upload and its `?v=` token is unchanged. **This fails on `main`**: commit it red, then make it pass. | P0-6 |
+| R2 | `internal/api/writeback_test.go`, the synchronous branch: with `local:upload` decided, a writeback of an unrelated field (title) completes and `GET` of the video's poster still returns the upload. Same case through the queued `postWrite` path. | P0-6 |
+
+### 37.2 Go unit (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| G1 | `internal/fieldsource`: `local:frame`, `local:upload` and `local:automatic` parse for `poster_url` only. Any other kind, a `local:` source on another field, and a path-shaped kind (`local:../x`) are refused. | P0-5 (risk 2) |
+| G2 | `internal/resolver`: a `local:<kind>` decision resolves to `local:<kind>#<sha256>` from the pre-loaded hashes. A new hash moves the token with no decision change. | P0-8 |
+| G3 | `internal/resolver`: undecided, a held slot is listed in the `poster_url` candidates but never wins, so the value is the file's art or the provider default as today. A decision whose slot is empty resolves through the undecided default. | P0-1, P0-7 |
+| G4 | `internal/resolver`: `LastWritten` holding the same token gives `in_sync`; a different hash for the same kind gives will-write. | P0-2, P0-5 |
+| G5 | `internal/thumbnail`, `Present`: with no decision it serves `file`, else `auto`. A `local:<kind>` decision serves that slot. A `file` or `provider:<name>` decision serves `file`. A chosen slot that is missing falls through the same order. Present on unchanged winning bytes doesn't rewrite the pair. | P0-6, P0-7 |
+| G6 | `internal/thumbnail`: a second picked frame replaces `{id}-frame.jpg` and leaves `{id}-upload.jpg` untouched, and the reverse. Each keeps one `video_poster_sources` row whose hash and frame time are the newest. | P0-8 |
+| G7 | `internal/thumbnail`: an `automatic` source row exists only after the generation queue produces a frame. A file whose cover art was extracted has no `automatic` row, so no Automatic candidate. | P0-1 |
+| G8 | `internal/api/video_poster_test.go`: the frame route and the upload route each store the slot and upsert `local:frame` / `local:upload` in one request, then present it, so the next poster `GET` returns it. Both refuse a visitor. | P0-3, P0-4 |
+| G9 | `internal/api/video_poster_test.go`: removing the upload while `local:upload` is decided deletes the decision and presents the fallback. Removing it while another source is decided leaves that decision. Neither enqueues a writeback. | P0-9 |
+| G10 | `internal/writeback`: a `local:<kind>#<hash>` image write copies the slot to a temp file and takes the existing cover path; the image fetcher is a stub that fails the test if called. A token with an unknown kind is refused. A missing slot fails the job and substitutes nothing. | P0-5 (risks 2, 4) |
+| G11 | `internal/writeback`: the slot is replaced between enqueue and write. The ledger row carries the hash of the bytes copied, not the enqueued token, so the next resolve reads will-write rather than `in_sync`. | P0-5 (risk 3) |
+| G12 | Boot backfill: an `embedded` row seeds the `file` slot, `generated` the `auto` slot, and `uploaded` the `upload` slot plus a `local:upload` decision, with its state reset to empty. Running it twice changes nothing. | P0-6 |
+| G13 | The `poster_url` candidates for the frame slot carry its frame time, for the tile's title. | P1-1 |
+
+### 37.3 Go integration (`make test-integration`)
+
+Real `mkvpropedit`, `ffmpeg` and `exiftool`, as in `internal/writeback/cover_integration_test.go`.
+
+| # | Case | Proves |
+|---|---|---|
+| I1 | MKV: `local:frame` decided over a fixture whose file already has cover art. Write. The file's cover attachment is byte-for-byte the frame slot's JPEG. The image fetcher is never called. | P0-5 |
+| I2 | MP4: the same with `local:upload`, read back through `QuickTime:CoverArt`. | P0-5 |
+| I3 | After each of I1's and I2's writes, the read-back re-extracts the new cover into the `file` slot, the served pair still shows the chosen image, and the next resolve reads the row `in_sync` from the `file_writebacks` ledger. | P0-5, P0-6 |
+| I4 | A file with no cover art and no decision: run a writeback of another field. The file still has no cover art, though the `auto` slot is served. Then decide `local:automatic` and write: the file's cover is the automatic frame. | P0-7 |
+
+### 37.4 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | group builder (`curation/*.test.ts`, next to `SourceImageTiles.svelte`) | Groups come out file → Holodex → Automatic → providers. Holodex is omitted with neither image, and Automatic with no generated frame. A provider with no candidate gives a group with an empty list. Every group's tiles are a list. This is design QA 10.1. | P0-1 |
+| W2 | `SourceImageTiles.svelte.test.ts` | A provider group with an empty list renders its caption and `no poster`, and no `[role=radio]`. `·file` with no cover art renders the `no cover` / `art` placeholder. | P0-1 |
+| W3 | `SourceImageTiles.svelte.test.ts` | One `radiogroup`; only the staged tile has `tabindex="0"`. ArrowRight from the last Holodex tile stages the first tile of the next group, ArrowRight from the last tile wraps to `·file`, ArrowLeft reverses, and a no-poster provider is never focused. | P0-1, P0-2 |
+| W4 | `SourceImageTiles.svelte.test.ts` | Each tile has `aria-checked` and the dot, so selection isn't colour alone. The `·frame` tile's `title` is `frame at {time}`. | P0-2, P1-1 |
+| W5 | `WritebackFormDialog` test | The Poster row is a cockpit row: a staged `·upload` shows `↧` and counts in the footer. The text "Your uploaded poster stays on the page" and the `cover art` / `in file` placeholder appear nowhere. | P0-2, P0-11 |
+| W6 | media page test | Maintenance → Thumbnail reads `Pick a frame`, and `Saving frame…` while the frame posts. `Regenerate thumbnail` is gone. | P0-10 |
+
+### 37.5 QA checklist
+
+Run the design handoff's checklist,
+[§10 Verification checklist](design/writeback-poster-chooser-handoff.md#10-verification-checklist)
+(10.0 to 10.12). It isn't restated here. Its P0 coverage: 10.2 is P0-3, 10.3 is P0-5 and P0-6,
+10.4 is P0-4, P0-8 and P0-11, 10.5 is P0-1 and P0-7, 10.6 and 10.7 are P0-1 and P0-2, and 10.10 is
+P0-10. Add one step it lacks: with `·upload` chosen, remove the upload on the page. The page falls
+back, the row next opens undecided, and the file's cover art is unchanged (P0-9).
+
+### 37.6 Standing gaps
+
+- **A chosen image missing from storage** (spec open question) is covered only as far as G5's
+  fall-through and G10's failed job. Whether the tile disappears is settled in the build; add a case
+  then.
+- **Several posters per provider** (HOLODEX-600) adds tiles to a provider group. W1's
+  list-per-group shape and W3's flattened order are what keep that change keyboard-safe.
+- §36's QA 4 expects the `uploaded` thumbnail state after Use this frame. F85 retires that state
+  (G12), so the check becomes "`·frame` is the decided poster" (design QA 10.2).

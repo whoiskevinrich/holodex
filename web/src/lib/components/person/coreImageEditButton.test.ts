@@ -20,6 +20,34 @@ describe('coreEditLabel', () => {
 	});
 });
 
+describe('CoreImageEditButton remove (HOLODEX-610)', () => {
+	const withRemove = (props: { isOwner: boolean; compact?: boolean }) =>
+		render(CoreImageEditButton, {
+			props: { role: 'banner', position: 'right-2 top-2', onclick: () => {}, onremove: () => {}, ...props }
+		}).body;
+
+	it('owner, filled slot: Remove beside Edit', () => {
+		const out = withRemove({ isOwner: true });
+		expect(out).toContain('data-remove');
+		expect(out).toContain('aria-label="Remove banner"');
+		expect(out).toContain('Remove');
+	});
+
+	it('compact: icon-only Remove', () => {
+		const out = withRemove({ isOwner: true, compact: true });
+		expect(out).toContain('data-remove');
+		expect(out).not.toContain('>Remove<');
+	});
+
+	it('no onremove (empty slot): no Remove control', () => {
+		expect(html({ isOwner: true })).not.toContain('data-remove');
+	});
+
+	it('visitor: nothing', () => {
+		expect(withRemove({ isOwner: false })).not.toContain('data-remove');
+	});
+});
+
 describe('CoreImageEditButton', () => {
 	it('owner, locked: lock icon before Edit, label names the lock', () => {
 		const out = html({ isOwner: true, locked: true });

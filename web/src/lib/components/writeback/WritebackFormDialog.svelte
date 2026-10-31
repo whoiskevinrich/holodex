@@ -54,14 +54,14 @@
 	import type { DecisionSource, ResolvedField, WritebackRequest } from '#lib/types.ts';
 	import SourceChipRow from '../curation/SourceChipRow.svelte';
 	import SourceImageTiles from '../curation/SourceImageTiles.svelte';
+	import { tileImage } from '../curation/imageTileGroups.ts';
 	import SourceRadioList from '../curation/SourceRadioList.svelte';
 
 	let {
 		fields,
 		videoId,
 		filePath,
-		entityImage,
-		entityImageUploaded = false,
+		providers = [],
 		onclose,
 		onenqueued,
 		writeback,
@@ -70,14 +70,9 @@
 		fields: ResolvedField[];
 		videoId: number;
 		filePath: string;
-		// The video's own served poster (F53 route) — what the image chooser's `·file` tile
-		// shows (HOLODEX-403). The file candidate's VALUE is usually '' (no `file:` source in
-		// the mapping); the tile still has an image to show, this one. Omitted → placeholder.
-		entityImage?: string;
-		// true when that served poster is an owner upload (F52): it then is NOT the file's
-		// cover art (the upload overwrote the extracted tier), so the tile is a placeholder and
-		// the row carries the ADR-049 note (ADR-101 D4).
-		entityImageUploaded?: boolean;
+		// The video's matched providers, so the Poster row shows a `no poster` group for one
+		// that has none (F85) — a provider with no poster sends no candidate.
+		providers?: string[];
 		onclose: () => void;
 		// Fires once the write is accepted (the 202 ack) — before anything has
 		// actually been written (ADR-091) — or, when only re-pointed-to-file decisions
@@ -217,8 +212,10 @@
 	// Provenance tag for a row's label: the namespace before the ':' in winning_source
 	// (e.g. "tmdb:title" -> "tmdb"). isProvider reuses providerFromWinningSource's baseline
 	// exclusions (file/record/manual/computed) so a computed field never reads as a provider.
+	// A poster Holodex holds is named by its kind ("local:frame:poster_url" -> "frame", F85).
 	function sourceTag(winningSource?: string): { name: string; isProvider: boolean } | null {
-		const name = (winningSource ?? '').split(':')[0];
+		const [ns, kind] = (winningSource ?? '').split(':');
+		const name = ns === 'local' ? kind : ns;
 		return name ? { name, isProvider: !!providerFromWinningSource(winningSource) } : null;
 	}
 
@@ -405,28 +402,20 @@
 	     not read — the chip keeps saying so rather than claiming the file is empty. -->
 	{@const notReadBack = isUnverifiable(row.field) || !!row.field.readback_gap}
 	{#if isImageRow(row.field)}
-		<!-- Image tiles (HOLODEX-403, ADR-101 D3): one per candidate, no Custom opener (a pasted
-		     URL cannot pass the asset-host allowlist) — though a manual literal that already
-		     stands (API-made) keeps its ·manual tile, or the group would have nothing checked.
-		     The ·file tile shows the video's own served poster — unless that is an owner
-		     upload, which is not the file's cover art (ADR-049): placeholder + note, and the
-		     upload is never a candidate. -->
+		<!-- Image tiles (HOLODEX-403, ADR-101 D3; grouped by source, F85): one per candidate,
+		     no Custom opener (a pasted URL cannot pass the asset-host allowlist) — though a
+		     manual literal that already stands (API-made) keeps its ·manual tile, or the group
+		     would have nothing checked. A picked frame and an upload are tiles like any other. -->
 		<div class="mt-1">
 			<SourceImageTiles
 				field={row.field}
 				chips={row.chips.filter((c) => c.key !== 'custom' || c.value)}
+				{providers}
 				selection={row.selection}
 				bind:stagedKey={row.stagedKey}
 				disabled={busy}
-				baselineImage={entityImageUploaded ? undefined : entityImage}
-				baselinePlaceholder={entityImageUploaded ? ['cover art', 'in file'] : ['no cover', 'art']}
 				onstage={() => onStaged(row)}
 			/>
-			{#if entityImageUploaded}
-				<p class="mt-1 text-xs text-muted">
-					Your uploaded poster stays on the page; this row is the cover art inside the file.
-				</p>
-			{/if}
 		</div>
 	{:else if stacksCandidates(row.field, row.chips, fitsChooser(row))}
 		<!-- Stacked rows for long_text AND for any row a chip would truncate (HOLODEX-434): the
@@ -641,13 +630,17 @@
 							{#if matchesFile}
 								<!-- The gutter's own "=" glyph already signals this row's tier — no
 								     second icon here, or the two would say the same thing twice. An image
-								     row shows a thumbnail + its source instead of the URL (HOLODEX-403). -->
+								     row shows a thumbnail + its source instead of the URL (HOLODEX-403).
+								     The thumbnail is the tile's own image — a held poster's value is a token. -->
+								{@const stagedChip = row.chips.find((c) => c.key === row.stagedKey)}
+								{@const image = isImageRow(row.field)}
+								{@const thumb = image && stagedChip ? tileImage(row.field, stagedChip) : ''}
 								<p class="flex items-center gap-2 text-xs text-muted">
-									{#if isImageRow(row.field) && rowValue(row)}
-										<img src={rowValue(row)} alt="" class="h-8 w-auto min-w-6 shrink-0 rounded-theme border border-rule object-contain" />
-										<span class="text-ink">{tag?.name ?? 'file'} {row.field.label.toLowerCase()}</span>
+									{#if thumb}
+										<img src={thumb} alt="" class="h-8 w-auto min-w-6 shrink-0 rounded-theme border border-rule object-contain" />
+										<span class="text-ink">{stagedChip?.labels.join(' + ')} {row.field.label.toLowerCase()}</span>
 									{:else}
-										<span class="text-ink">{rowValue(row) || '—'}</span>
+										<span class="text-ink">{(!image && rowValue(row)) || '—'}</span>
 									{/if}
 									<span>— matches the file</span>
 								</p>

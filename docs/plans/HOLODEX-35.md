@@ -56,8 +56,7 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
      The CHECKBOX settles an item and nothing else does: [x] done, [~] dropped (ADR-008).
      This queue holds LIVE work only (ADR-010). -->
 
-1. [ ] [testing] `[human]` Owner runs the production test plan (Claude Doc https://claude.ai/artifact/4PWNvGRWb3eY2pRNjmHQbV), incl. §36.3 item 7 frame accuracy on 60 fps, MPEG-TS and VFR files; each fail → a bug linked to HOLODEX-35
-2. [ ] [backend] Writeback embeds the owner-uploaded poster (incl. a picked frame) as the file's cover art; today it only embeds the provider `poster_url` → HOLODEX-597 — `internal/writeback/tags.go`
+1. [ ] [backend] Writeback embeds the owner-uploaded poster (incl. a picked frame) as the file's cover art; today it only embeds the provider `poster_url` → HOLODEX-597 — `internal/writeback/tags.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -66,6 +65,10 @@ current thumbnail, and keep the on-screen frame, captured in the browser and sav
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-27 · session
+- skills: docs
+- handoff: The owner signed off the production test plan (Claude Doc https://claude.ai/artifact/4PWNvGRWb3eY2pRNjmHQbV) on 2026-10-27: every section passed, including frame accuracy on 60 fps, MPEG-TS and VFR files, so there are no follow-up bugs. The frame picker is done; the only live item is the writeback gap, HOLODEX-597.
 
 ### 2026-10-26 · session
 - skills: code-review, handoff, implement, docs

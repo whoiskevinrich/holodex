@@ -11,6 +11,7 @@
 import type { DecisionSource, FieldCandidate, FieldDecision, ResolvedField, ResolvedValue } from './types';
 
 const PROVIDER_PREFIX = 'provider:';
+const LOCAL_PREFIX = 'local:';
 
 // providerOf extracts the provider name from a `provider:<name>` source key; '' for the
 // baseline (file/record) and manual.
@@ -21,6 +22,12 @@ export function providerOf(source: DecisionSource | string): string {
 // isProviderSource is the source-kind guard used to split baseline/manual from a provider pick.
 export function isProviderSource(source: DecisionSource | string): boolean {
 	return source.startsWith(PROVIDER_PREFIX);
+}
+
+// isLocalSource: a `local:<kind>` source — a poster image Holodex holds (F85: a picked frame,
+// an upload, the automatic frame). Only `poster_url` offers one.
+export function isLocalSource(source: DecisionSource | string): boolean {
+	return source.startsWith(LOCAL_PREFIX);
 }
 
 // A replace (scalar) field carries a source decision; merge (multi/set) fields do not — they
@@ -156,6 +163,14 @@ export function sourceChips(field: ResolvedField, baselineKey = 'file'): SourceC
 		}
 	}
 
+	// F85: each poster image Holodex holds is a chip of its own, labelled by its kind. Never
+	// folded: its value is a content token, not a URL another source could share.
+	for (const c of field.candidates ?? []) {
+		if (!isLocalSource(c.source) || c.value === '') continue;
+		const kind = c.source.slice(LOCAL_PREFIX.length);
+		chips.push({ key: c.source, value: c.value, sources: [c.source], labels: [kind], decisionSource: c.source });
+	}
+
 	const manual = field.decision?.source === 'manual';
 	chips.push({
 		key: 'custom',
@@ -213,6 +228,13 @@ export function resolveSelection(
 ): { key: string; pending: boolean } {
 	const src = decidedSource(field, baselineKey);
 	if (src === 'manual') return { key: 'custom', pending: false };
+	// F85: a local poster decision selects its own chip. One whose image is no longer stored
+	// has no chip, so the row reads as the file's, as the resolver falls back.
+	if (isLocalSource(src)) {
+		return chips.some((c) => c.key === src)
+			? { key: src, pending: !standing(field) }
+			: { key: baselineKey, pending: false };
+	}
 	if (src === baselineKey) {
 		// decidedSource only reports baselineKey here when nothing overrode it — either a real
 		// baseline pin (standing) or the resolver's own default when the baseline has a value.
@@ -222,10 +244,12 @@ export function resolveSelection(
 		// decidedSource's `??`, so this still needs to catch that shape too.
 		if (!standing(field) && baselineCandidateValue(field, baselineKey).trim() === '') {
 			const resolved = (field.values?.[0] ?? '').trim();
+			// Only a provider value can be the RD6 winner: an image Holodex holds is never
+			// chosen for the owner (F85 P0-7), so it never reads as pending.
 			const winner =
 				chips.find(
 					(c) => !c.manual && c.key !== baselineKey && resolved !== '' && c.value.trim() === resolved
-				) ?? chips.find((c) => !c.manual && c.key !== baselineKey);
+				) ?? chips.find((c) => !c.manual && c.key !== baselineKey && !isLocalSource(c.key));
 			if (winner) return { key: winner.key, pending: true };
 		}
 		return { key: baselineKey, pending: false };

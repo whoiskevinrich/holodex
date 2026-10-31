@@ -21,7 +21,7 @@
 </script>
 
 <div
-	class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent"
+	class="relative flex items-center gap-3 rounded-theme border border-rule bg-surface px-4 py-2.5 text-ink hover:border-accent has-[a:focus-visible]:border-accent group-focus-visible:border-accent"
 >
 	<a
 		href={`/studios/${studio.id}`}

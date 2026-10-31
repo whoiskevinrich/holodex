@@ -108,19 +108,23 @@ async function scrollTo(page, y) {
 
 /**
  * openVisible clicks the first row link fully inside the viewport, so the click never
- * scrolls the page and moves the position Back is supposed to restore.
+ * scrolls the page and moves the position Back is supposed to restore. Deep in a
+ * whole-list scroll the rows in view are placeholders until their page arrives, so it waits
+ * for one first.
  *
  * @param {import('playwright').Page} page
  * @param {string} selector
  * @param {RegExp} detail
  */
 async function openVisible(page, selector, detail) {
-	const i = await page.$$eval(selector, (els) =>
-		els.findIndex((el) => {
+	// The first such link's index + 1, so none (0) is falsy for waitForFunction.
+	const firstInView = (sel) =>
+		[...document.querySelectorAll(sel)].findIndex((el) => {
 			const r = el.getBoundingClientRect();
 			return r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight;
-		})
-	);
+		}) + 1;
+	await page.waitForFunction(firstInView, selector, { timeout: 5000 }).catch(() => {});
+	const i = (await page.evaluate(firstInView, selector)) - 1;
 	expect(i >= 0, `no ${selector} fully in view to click`);
 	await page.locator(selector).nth(i).click();
 	await page.waitForURL((u) => detail.test(u.pathname), { timeout: 5000 });
@@ -232,6 +236,19 @@ const SCENARIOS = [
 			await backTo(page, list, 600);
 			expect((await page.locator(CHIP).count()) === 1, 'Back lost the filter chip');
 			expect((await page.locator(SORT).inputValue()) === 'title_asc', 'Back lost the sort');
+		}
+	},
+	{
+		// An owner-only sort resolves only once the page knows it's the owner. If that lands
+		// after mount, the list key flips, spends Back's snapshot and restarts at the top.
+		key: 'back-restores-owner-only-sort-scroll',
+		qa: 'R7/R8 · EL7',
+		run: async ({ page }) => {
+			const list = '/?sort=completeness_asc';
+			await goto(page, `${base}${list}`);
+			await scrollTo(page, 3000);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			await backTo(page, list, 3000);
 		}
 	},
 	{
@@ -367,6 +384,52 @@ const SCENARIOS = [
 				const at = await page.evaluate(() => window.scrollY);
 				expect(at === 0, `a header link back to ${list} restored scrollY ${at}, expected 0`);
 			}
+		}
+	},
+	{
+		// HOLODEX-601 EL7: People is one whole-list scroll that fetches only the pages in view,
+		// so Back has to re-fetch where you were and land on the same entry, not just restore a
+		// scrollY over a list that is still empty there. Deep in a non-name sort, where A–Z can't
+		// help: the case the whole-list scroll exists for.
+		key: 'whole-list-back-lands-on-same-entry',
+		qa: '§32.1 · HOLODEX-601 EL7',
+		run: async ({ page }) => {
+			const entry = 'main [role="list"] [data-index]';
+			/** The first entry at least half below the top of the viewport, once real (not a placeholder). */
+			const firstInView = () =>
+				page.evaluate((sel) => {
+					const cells = [...document.querySelectorAll(sel)].filter((c) => !c.closest('.sr-only'));
+					const top = cells.find((c) => {
+						const r = c.getBoundingClientRect();
+						return r.top + r.height / 2 > 0;
+					});
+					return top && top.getAttribute('aria-busy') !== 'true' ? Number(top.dataset.index) : null;
+				}, entry);
+			const waitForReal = async () => {
+				await page.waitForFunction((sel) => {
+					const cells = [...document.querySelectorAll(sel)].filter((c) => {
+						const r = c.getBoundingClientRect();
+						return !c.closest('.sr-only') && r.bottom > 0 && r.top < innerHeight;
+					});
+					return cells.length > 0 && cells.every((c) => c.getAttribute('aria-busy') !== 'true');
+				}, entry, { timeout: 5000 }).catch(() => {});
+				return firstInView();
+			};
+
+			await goto(page, `${base}/people?sort=count`);
+			await page.locator(entry).first().waitFor({ timeout: 5000 });
+			const total = await page.$$eval(entry, (els) => Number(els[0].getAttribute('aria-setsize')));
+			expect(total >= 500, `People has ${total} entries — reseed with -big; a short list can't show a whole-list Back`);
+			const height = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
+			await scrollTo(page, Math.round(height / 2));
+			const before = await waitForReal();
+			expect(before != null && before > total / 4, `the middle of the list showed entry ${before}, not real entries near ${total / 2}`);
+			const y = await page.evaluate(() => window.scrollY);
+
+			await openVisible(page, PERSON_ROW, /^\/people\/\d+$/);
+			await backTo(page, '/people?sort=count', y);
+			const after = await waitForReal();
+			expect(after === before, `Back showed entry ${after} first, expected ${before}`);
 		}
 	},
 	{

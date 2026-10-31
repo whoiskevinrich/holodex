@@ -9,7 +9,7 @@ import {
 	videoFocusLandingIds,
 	workSummary
 } from './videoPairs';
-import { groupId, QUEUE_ID } from './queue';
+import { lanePanelId, QUEUE_ID } from './queue';
 
 // F76 (HOLODEX-521): the Videos group's pure rules — row summary, fact table presence,
 // carry-over lines, label validation and the focus ladder.
@@ -114,7 +114,7 @@ describe('videoFocusLandingIds', () => {
 	it('lands on the next row, then the Videos heading, then the queue', () => {
 		const a = pair(1, 2);
 		const b = pair(3, 4);
-		expect(videoFocusLandingIds(a, [a, b])).toEqual([videoDisclosureId(b), groupId('video'), QUEUE_ID]);
-		expect(videoFocusLandingIds(b, [a, b])).toEqual([groupId('video'), QUEUE_ID]);
+		expect(videoFocusLandingIds(a, [a, b])).toEqual([videoDisclosureId(b), lanePanelId('video'), QUEUE_ID]);
+		expect(videoFocusLandingIds(b, [a, b])).toEqual([lanePanelId('video'), QUEUE_ID]);
 	});
 });

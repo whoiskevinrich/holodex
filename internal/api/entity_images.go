@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 
 	"holodex/internal/entityimage"
+	"holodex/internal/model"
 	"holodex/internal/personimage"
 )
 
@@ -75,4 +77,40 @@ func serveEntityImageFile(w http.ResponseWriter, r *http.Request, path string, f
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", entityimage.ContentType(path))
 	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
+}
+
+// settleMergedImages brings the files in line with a person / studio / film merge that
+// just committed (HOLODEX-607). The merge hands some of the loser's image rows to the
+// survivor; each of those files moves out of the loser's directory, and then that
+// directory goes with whatever it still holds (the rows the merge dropped). Best-effort,
+// like settleMergedTagImage: the rows are the source of truth, so a failure only logs,
+// and leaves the loser's directory in place rather than lose a carried file.
+func (h *Handlers) settleMergedImages(ctx context.Context, entityType string, survivorID, mergedID int64) {
+	var dir string
+	switch entityType {
+	case model.EnrichEntityPerson:
+		dir = h.personImageDir
+	case model.EnrichEntityStudio:
+		dir = h.studioImageDir
+	case model.EnrichEntityFilm:
+		dir = h.filmImageDir
+	}
+	if dir == "" {
+		return
+	}
+	ids, err := h.repo.EntityImageIDs(ctx, entityType, survivorID)
+	if err != nil {
+		h.log.Warn("merge: list carried images", "type", entityType, "id", survivorID, "err", err)
+		return
+	}
+	for _, imageID := range ids {
+		if _, err := entityimage.Find(dir, mergedID, imageID); err != nil {
+			continue // the survivor's own image, already in its directory
+		}
+		if err := entityimage.Move(dir, mergedID, survivorID, imageID); err != nil {
+			h.log.Warn("merge: move image", "type", entityType, "id", survivorID, "from", mergedID, "image", imageID, "err", err)
+			return
+		}
+	}
+	_ = entityimage.RemoveAll(dir, mergedID)
 }

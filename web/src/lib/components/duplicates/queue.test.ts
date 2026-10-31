@@ -1,16 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { DuplicatePair, EntityKind } from '#lib/types.ts';
 import {
+	defaultLane,
 	disclosureId,
 	focusLandingIds,
-	groupId,
+	LANE_LABEL,
+	lanePanelId,
+	LANES,
+	laneTabId,
 	labelPlacement,
 	matchKindLabel,
 	pairKey,
 	panelId,
+	parseLane,
+	profileHref,
 	QUEUE_ID,
 	sharedIdChip,
-	showsComparePanel
+	showsComparePanel,
+	sourceLabel
 } from './queue';
 
 const pair = (
@@ -53,14 +60,64 @@ describe('pair ids', () => {
 	});
 });
 
-// RD10. The panel is person-only, and the label placement below is gated on THIS —
-// not on "a panel happens to be open".
+// RD10 (598). The panel is person and studio, and the label placement below is gated on
+// THIS — not on "a panel happens to be open".
 describe('showsComparePanel', () => {
-	it('is true for a person pair and false for every other kind', () => {
+	it('is true for person and studio pairs and false for tag and film', () => {
 		expect(showsComparePanel('person')).toBe(true);
-		for (const kind of ['studio', 'tag', 'film'] as EntityKind[]) {
+		expect(showsComparePanel('studio')).toBe(true);
+		for (const kind of ['tag', 'film'] as EntityKind[]) {
 			expect(showsComparePanel(kind)).toBe(false);
 		}
+	});
+
+	it('links a comparable name to its own page', () => {
+		expect(profileHref('person', 7)).toBe('/people/7');
+		expect(profileHref('studio', 7)).toBe('/studios/7');
+	});
+});
+
+// P0-8. The tabs are fixed in order, never hidden at 0, and the page opens on the first
+// lane with pairs unless the URL names one.
+describe('lanes', () => {
+	const zero = { video: 0, person: 0, studio: 0, tag: 0, film: 0 };
+
+	it('keeps Videos, People, Studios, Tags, Films as the fixed tab order', () => {
+		expect(LANES.map((l) => LANE_LABEL[l])).toEqual(['Videos', 'People', 'Studios', 'Tags', 'Films']);
+	});
+
+	it('opens the first lane in tab order that has pairs', () => {
+		expect(defaultLane({ ...zero, studio: 3, tag: 9 })).toBe('studio');
+		expect(defaultLane({ ...zero, video: 1, person: 31 })).toBe('video');
+	});
+
+	it('opens Videos when every lane is empty', () => {
+		expect(defaultLane(zero)).toBe('video');
+	});
+
+	it('reads a lane from ?type=, and nothing else', () => {
+		for (const l of LANES) expect(parseLane(l)).toBe(l);
+		expect(parseLane(null)).toBeNull();
+		expect(parseLane('')).toBeNull();
+		expect(parseLane('people')).toBeNull();
+	});
+
+	it('gives each lane its own tab and tabpanel id', () => {
+		expect(laneTabId('studio')).toBe('dup-tab-studio');
+		expect(lanePanelId('studio')).toBe('dup-lane-studio');
+	});
+});
+
+// P0-10. The studio panel names where a spelling came from; it never invents a provider.
+describe('sourceLabel', () => {
+	it('names the file tags and the owner in words', () => {
+		expect(sourceLabel('file')).toBe('File tags');
+		expect(sourceLabel('manual')).toBe('you');
+	});
+
+	it("uses a provider's own label where the side carries one, else its namespace", () => {
+		expect(sourceLabel('provider-1', { 'provider-1': 'Provider One' })).toBe('Provider One');
+		expect(sourceLabel('provider-2', { 'provider-1': 'Provider One' })).toBe('provider-2');
 	});
 });
 
@@ -89,13 +146,15 @@ describe('matchKindLabel', () => {
 // without gating on entity type deletes it from studio/tag/film rows, which have no
 // panel to move it to — and then two unalike names are paired with nothing saying why.
 describe('labelPlacement', () => {
-	it("puts a person pair's label in the panel, keeping the row one line", () => {
-		expect(labelPlacement(pair('person', 1, 2, 'alias'))).toBe('panel');
-		expect(labelPlacement(pair('person', 1, 2, 'mixed'))).toBe('panel');
+	it("puts a person or studio pair's label in the panel, keeping the row one line", () => {
+		for (const kind of ['person', 'studio'] as EntityKind[]) {
+			expect(labelPlacement(pair(kind, 1, 2, 'alias'))).toBe('panel');
+			expect(labelPlacement(pair(kind, 1, 2, 'mixed'))).toBe('panel');
+		}
 	});
 
-	it("keeps every non-person pair's label in the row", () => {
-		for (const kind of ['studio', 'tag', 'film'] as EntityKind[]) {
+	it("keeps a tag or film pair's label in the row", () => {
+		for (const kind of ['tag', 'film'] as EntityKind[]) {
 			expect(labelPlacement(pair(kind, 1, 2, 'alias'))).toBe('row');
 			expect(labelPlacement(pair(kind, 1, 2, 'mixed'))).toBe('row');
 		}
@@ -108,32 +167,32 @@ describe('labelPlacement', () => {
 });
 
 // P0-6. The row is removed instantly and unanimated (`pairs.filter()`), so focus
-// falls to <body> unless it is moved. The third rung is the one hand QA found: the
-// group heading dies with its own group, so the last pair in a group has no heading.
+// falls to <body> unless it is moved. The lane's tabpanel replaced the group heading as
+// the middle rung (598): it outlives its last row, which leaves it holding the empty line.
 describe('focusLandingIds', () => {
 	const a = pair('person', 1, 2);
 	const b = pair('person', 3, 4);
 	const c = pair('person', 5, 6);
 
 	it("offers the next row's disclosure first", () => {
-		expect(focusLandingIds(a, [a, b, c])).toEqual([disclosureId(b), groupId('person'), QUEUE_ID]);
+		expect(focusLandingIds(a, [a, b, c])).toEqual([disclosureId(b), lanePanelId('person'), QUEUE_ID]);
 	});
 
-	it('falls to the group heading for the last row in a group', () => {
-		expect(focusLandingIds(c, [a, b, c])).toEqual([groupId('person'), QUEUE_ID]);
+	it("falls to the lane's tabpanel for the last row in a lane", () => {
+		expect(focusLandingIds(c, [a, b, c])).toEqual([lanePanelId('person'), QUEUE_ID]);
+		expect(focusLandingIds(a, [a])).toEqual([lanePanelId('person'), QUEUE_ID]);
 	});
 
-	it('ends at the queue for the only row in a group — the heading dies with it', () => {
-		// The heading is still offered, but it will not be in the DOM once its group
-		// stops rendering; the queue container is what survives, and it is what holds
-		// "No possible duplicates."
-		expect(focusLandingIds(a, [a])).toEqual([groupId('person'), QUEUE_ID]);
+	it("offers a studio row's disclosure now that studios compare too", () => {
+		const s1 = pair('studio', 1, 2);
+		const s2 = pair('studio', 3, 4);
+		expect(focusLandingIds(s1, [s1, s2])).toEqual([disclosureId(s2), lanePanelId('studio'), QUEUE_ID]);
 	});
 
-	it('never offers a disclosure on a non-person group — those rows have none', () => {
+	it('never offers a disclosure in a tag lane — those rows have none', () => {
 		const t1 = pair('tag', 1, 2);
 		const t2 = pair('tag', 3, 4);
-		expect(focusLandingIds(t1, [t1, t2])).toEqual([groupId('tag'), QUEUE_ID]);
+		expect(focusLandingIds(t1, [t1, t2])).toEqual([lanePanelId('tag'), QUEUE_ID]);
 	});
 });
 

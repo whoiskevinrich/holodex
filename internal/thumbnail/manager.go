@@ -39,6 +39,12 @@ type Repository interface {
 	ResetThumbnailState(ctx context.Context, id int64) error
 	ThumbnailBackfillCandidates(ctx context.Context, limit int) ([]repo.ThumbnailCandidate, error)
 	ThumbnailCandidateByID(ctx context.Context, id int64) (repo.ThumbnailCandidate, bool, error)
+
+	// Poster source slots and the decision Present follows (F85).
+	PosterDecision(ctx context.Context, id int64) (string, error)
+	SetPosterSource(ctx context.Context, id int64, kind, hash string, frameAt *float64, decide bool) error
+	DeletePosterSource(ctx context.Context, id int64, kind string) (bool, error)
+	VideosWithThumbnailImage(ctx context.Context) ([]repo.ThumbnailStateRow, error)
 }
 
 // Config tunes the pipeline (ADR-009 env vars). Dir is DATA_PATH/thumbnails.
@@ -64,10 +70,18 @@ type Manager struct {
 	queue    *queue
 	inFlight atomic.Int64 // jobs currently being generated (F21.1)
 
+	// presentMu serializes Present, so two writers of one slot can't interleave the
+	// served pair's two files.
+	presentMu sync.Mutex
+	// ownerMu serializes an owner slot's write with its hash row (SetOwnerImage,
+	// RemoveOwnerImage); Present takes presentMu inside it, never the reverse.
+	ownerMu sync.Mutex
+
 	// Binary-invoking seams, overridable in tests so the pipeline can be
-	// exercised without real ffmpeg/exiftool. Defaulted in New. Both produce the
+	// exercised without real ffmpeg/exiftool. Defaulted in New. Both can produce the
 	// thumbnail- and poster-tier files in one pass (P0-3/P0-4, F53) — thumbDst
-	// first, posterDst second.
+	// first, posterDst second; the pipeline passes thumbDst "" and a source slot
+	// as posterDst (F85), since only Present writes the served pair.
 	gen func(ctx context.Context, c repo.ThumbnailCandidate, thumbDst, posterDst string) error
 	art func(ctx context.Context, path, thumbDst, posterDst string) (bool, error)
 }
@@ -187,22 +201,24 @@ func (m *Manager) QueueStats() QueueStats {
 	}
 }
 
-// ExtractEmbedded performs Tier 1: writes the container's embedded cover art for
-// an indexed file to disk and marks the video "embedded". Returns ok=false (no
+// ExtractEmbedded performs Tier 1: writes the container's embedded cover art into
+// the video's file slot, marks the video "embedded", and presents the served pair
+// from the poster decision — so a re-extract after a writeback refreshes the file
+// slot and can never displace a chosen image (F85, P0-6). Returns ok=false (no
 // error) when no art could be extracted, signalling the caller to fall back to
 // background generation.
 func (m *Manager) ExtractEmbedded(ctx context.Context, id int64, path string) (bool, error) {
 	if !m.cfg.Enabled {
 		return false, nil
 	}
-	ok, err := m.art(ctx, path, m.thumbPath(id), m.posterPath(id))
+	ok, err := m.art(ctx, path, "", m.slotPath(id, SlotFile))
 	if err != nil || !ok {
 		return false, err
 	}
 	if err := m.repo.SetThumbnailState(ctx, id, model.ThumbnailEmbedded); err != nil {
 		return false, err
 	}
-	return true, nil
+	return true, m.Present(ctx, id)
 }
 
 // ThumbPath is the on-disk location for a video's thumbnail (ADR-009/ADR-014).

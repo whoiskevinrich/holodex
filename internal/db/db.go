@@ -3,6 +3,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
@@ -55,7 +56,32 @@ func Open(path string) (*sql.DB, error) {
 		sqlDB.Close()
 		return nil, err
 	}
+	if err := optimize(sqlDB); err != nil {
+		sqlDB.Close()
+		return nil, err
+	}
 	return sqlDB, nil
+}
+
+// optimize refreshes the query planner's statistics (sqlite_stat1) for every table that
+// lacks them or has grown since they were taken. Without statistics the planner drives
+// the review queue's per-side video counts from the near-total videos.active index: on a
+// 20k-video library the Duplicates read took ~23 s without statistics and ~0.1 s with
+// them (F70 OQ5). analysis_limit samples each index instead of scanning it, so this stays
+// cheap at boot; both pragmas are per-connection, hence the pinned conn.
+func optimize(sqlDB *sql.DB) error {
+	ctx := context.Background()
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("optimize: %w", err)
+	}
+	defer conn.Close()
+	for _, pragma := range []string{"PRAGMA analysis_limit=1000", "PRAGMA optimize=0x10002"} {
+		if _, err := conn.ExecContext(ctx, pragma); err != nil {
+			return fmt.Errorf("optimize (%s): %w", pragma, err)
+		}
+	}
+	return nil
 }
 
 // Migrate applies all pending up-migrations. A failure aborts rather than

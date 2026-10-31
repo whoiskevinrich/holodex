@@ -10,7 +10,7 @@ Decided with the owner on 2026-10-24, from side-by-side mockups:
   pattern the app's existing tables use. Bordered 56px rows showed about 30% fewer rows per screen,
   and dense lists read better without a card per row.
 - **A tag with no image shows a tag glyph**, drawn like the person silhouette: a `surface-2` field,
-  a muted glyph and the accent baseline. Setting the tag's name large was rejected because it
+  and a muted glyph. Setting the tag's name large was rejected because it
   repeats the caption under the card.
 - **Tag posters use the 16:9 media thumbnail frame**, not People's 2:3 portrait. Tags are about
   what's in the videos, so their pictures are frames from video. The view keeps the name
@@ -151,9 +151,9 @@ The All tab shows tag rows, then category rows, in the same order the Chips view
   `line-clamp-1 pt-1.5 text-sm font-medium text-ink` for the name, then `text-xs text-muted` for
   "142 videos" or "12 tags".
 - **Hover and focus:** the poster card's existing ring and lift (`app.css` poster card).
-- **Placeholder, tag:** a `surface-2` field, the tag glyph at 28px in `muted` at 0.55 opacity, a 3px
-  accent baseline at 0.6 opacity, and a 1px `rule` frame at 0.5 opacity. It mirrors the person
-  silhouette.
+- **Placeholder, tag:** a `surface-2` field, the tag glyph at 28px in `muted` at 0.55 opacity, and a
+  1px `rule` frame at 0.5 opacity. It mirrors the person silhouette. Neither carries an accent
+  baseline any more (owner, HOLODEX-598 sign-off).
 - **Placeholder, category:** the same frame with the glyph in `accent` at 0.8 opacity. That makes
   categories distinguishable at a glance, as the accent-bordered category pills are.
 - **Owner ⋯:** while Manage tags is on, each card shows a 26×22 `bg-bg/80` ⋯ button in the

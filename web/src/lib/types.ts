@@ -75,6 +75,28 @@ export interface DuplicatePair {
 	match_kind: 'canonical' | 'mixed' | 'alias';
 }
 
+// A Duplicates lane (F70 P0-8): one per identity entity, plus Videos (F76). Every queue
+// read carries all five lanes' pair counts, 0 included, so the tabs never shift.
+export type DuplicateLane = EntityKind | 'video';
+export type DuplicateLaneCounts = Record<DuplicateLane, number>;
+
+// One side of a studio pair's compare panel (F70 P0-10), GET /owner/duplicates/studios/{id}.
+// `source` is a namespace: 'file' is the file tags, anything else a provider.
+export interface StudioDuplicateEvidence {
+	id: number;
+	name: string;
+	video_count: number;
+	/** Which sources carry this exact name on some video now, most videos first. One video
+	 *  can count toward two sources, so the counts may sum past `video_count`. */
+	sources: { source: string; video_count: number }[];
+	/** Up to 3, already in OQ7 order. `source` is the namespace that WON that video's studio
+	 *  field: 'file', a provider, 'manual' (the owner's), or '' when nothing resolved. */
+	posters: { video_id: number; source: string }[];
+	/** `source` omitted → the owner's (typed, or kept by a merge or rename). */
+	aliases: { id: number; alias: string; source?: string }[];
+	external_links: ExternalLink[];
+}
+
 // Duplicate videos (F76): two live files matched to the same provider item. Not an
 // entity pair — the verbs are keep one / keep both / label as editions or parts.
 export interface VideoPairSide {
@@ -454,7 +476,8 @@ export interface ReadbackGap extends ReadbackGapHint {
 // DecisionSource names the pinned source: the entity's baseline — `file` for videos,
 // `record` for persons (F37, RD4: the baseline label is per-entity) — a specific matched
 // provider (`provider:<name>`), or a frozen manual literal.
-export type DecisionSource = 'file' | 'record' | `provider:${string}` | 'manual';
+// `local:<kind>` (F85) picks a poster image Holodex holds — `poster_url` only.
+export type DecisionSource = 'file' | 'record' | `provider:${string}` | `local:${string}` | 'manual';
 
 // FieldDecision is the per-field decision marker on a ResolvedField. `standing` is true for
 // an explicit stored decision and false for the implicit file default (undecided).
@@ -470,9 +493,15 @@ export interface FieldDecision {
 // line. A provider candidate with an empty `value` yields no `Adopt` segment (you cannot
 // adopt an empty value).
 export interface FieldCandidate {
-	source: DecisionSource; // 'file' | 'provider:<name>'
+	source: DecisionSource; // 'file' | 'provider:<name>' | 'local:<kind>'
 	provider?: string; // provider name when source is 'provider:<name>'
+	// A `local:<kind>` value is a content token (`local:frame#<sha256>`), never a URL; so is
+	// the poster's `file` value (`file#<sha256>`), present only when the file has cover art.
 	value: string;
+	// F85, owner-only on `poster_url`: the tile image for `file` and `local:<kind>` — the
+	// owner-gated poster source route. Absent when the file has no cover art.
+	image_url?: string;
+	frame_at?: number; // seconds, `local:frame` only (P1-1)
 }
 
 // DecisionRequest is the body of PUT …/decision (F36, ADR-051 §7). `manual_value` is

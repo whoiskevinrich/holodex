@@ -303,7 +303,8 @@
 		enrichStatus.show(''); // an "Enriched from p" line would contradict the clear
 		try {
 			await api.enrichClear(id, p);
-			await reloadDetail();
+			// The clear also removes the provider's images (HOLODEX-610).
+			await Promise.all([reloadDetail(), reloadImages()]);
 		} catch (e) {
 			actionError = toMessage(e);
 		} finally {
@@ -340,7 +341,8 @@
 	// EnrichPicker confirm (or its RD1 auto-apply): the dialog closes, so the page says
 	// what landed once the reload shows it (HOLODEX-86).
 	async function onApplied(fields: EnrichedField[], provider: string) {
-		await reloadDetail();
+		// A rematch swaps the provider's images too (HOLODEX-610).
+		await Promise.all([reloadDetail(), reloadImages()]);
 		enrichStatus.show(enrichedLine(provider, fields.length));
 	}
 
@@ -422,6 +424,24 @@
 		}
 	}
 
+	// Owner: empty a core slot (HOLODEX-610). A slot's version is its image id, so the
+	// gallery's delete endpoint serves it. Core deletes don't suppress, so a later
+	// enrichment refresh may fill the slot again.
+	async function removeCore(role: PersonImageRole) {
+		const imageId = images.roles[role]?.version;
+		if (!imageId || uploadBusy) return;
+		uploadBusy = role;
+		imageError = '';
+		try {
+			await api.deletePersonImage(id, imageId);
+			await reloadImages();
+		} catch (err) {
+			imageError = toMessage(err);
+		} finally {
+			uploadBusy = '';
+		}
+	}
+
 	// Re-read the image set after a gallery change without refetching the whole person.
 	async function reloadImages() {
 		try {
@@ -454,6 +474,7 @@
 		locked={images.roles[role]?.locked ?? false}
 		busy={uploadBusy === role}
 		onclick={() => pickCore(role)}
+		onremove={images.roles[role]?.present ? () => removeCore(role) : undefined}
 	/>
 {/snippet}
 

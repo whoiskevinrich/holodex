@@ -56,12 +56,18 @@ var clearableFields = map[string]bool{
 // explicit clear. Shared by setFieldDecision and the film-studio cascade handler,
 // whose request/validation shapes are otherwise byte-for-byte duplicates. The
 // clear allowlist needs the canonical field, so callers check it (clearableFields).
-func decodeDecisionBody(w http.ResponseWriter, r *http.Request) (body decisionBody, manualValue string, ok bool) {
+// allowLocal admits a local:<kind> source, which only poster_url takes (F85); the
+// caller still checks the slot is held.
+func decodeDecisionBody(w http.ResponseWriter, r *http.Request, allowLocal bool) (body decisionBody, manualValue string, ok bool) {
 	if !decodeJSON(w, r, &body) {
 		return body, "", false
 	}
-	if !fieldsource.Valid(body.Source) {
-		writeError(w, http.StatusBadRequest, "source must be 'file', 'manual', or 'provider:<name>'")
+	if !fieldsource.Valid(body.Source) || (!allowLocal && fieldsource.Local(body.Source) != "") {
+		msg := "source must be 'file', 'manual', or 'provider:<name>'"
+		if allowLocal {
+			msg = "source must be 'file', 'manual', 'provider:<name>', or 'local:frame|upload|automatic'"
+		}
+		writeError(w, http.StatusBadRequest, msg)
 		return body, "", false
 	}
 	if body.Clear {
@@ -93,7 +99,7 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	canonical := chi.URLParam(r, "canonical")
 
-	body, manualValue, ok := decodeDecisionBody(w, r)
+	body, manualValue, ok := decodeDecisionBody(w, r, resolver.NormKey(canonical) == fieldsource.LocalField)
 	if !ok {
 		return
 	}
@@ -118,6 +124,12 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if p := fieldsource.Provider(body.Source); p != "" && !h.providerMatched(r.Context(), model.EnrichEntityVideo, id, p) {
 		writeError(w, http.StatusBadRequest, "provider is not matched to this item")
 		return
+	}
+	if kind := fieldsource.Local(body.Source); kind != "" {
+		if _, held := h.localPosters(r.Context(), id)[kind]; !held {
+			writeError(w, http.StatusBadRequest, "no "+kind+" poster is held for this item")
+			return
+		}
 	}
 
 	// Title composite-key collision gate (HOLODEX-270): a manual title edit that
@@ -171,7 +183,20 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.relinkIfEntity(r.Context(), id, field.Canonical)
+	h.presentIfPoster(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// presentIfPoster re-presents the served poster after a poster_url decision
+// changes (media-ingest.md: the pair is a projection of the decision). Best
+// effort: the decision is stored, and the next slot change presents again.
+func (h *Handlers) presentIfPoster(ctx context.Context, id int64, canonical string) {
+	if h.thumbs == nil || resolver.NormKey(canonical) != fieldsource.LocalField {
+		return
+	}
+	if err := h.thumbs.Present(ctx, id); err != nil {
+		h.log.Warn("present poster after decision", "id", id, "err", err)
+	}
 }
 
 // writeCollisionConflict writes the shared 409 envelope for a composite-key
@@ -274,6 +299,7 @@ func (h *Handlers) clearFieldDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.relinkIfEntity(r.Context(), id, field.Canonical)
+	h.presentIfPoster(r.Context(), id, field.Canonical)
 	w.WriteHeader(http.StatusNoContent)
 }
 

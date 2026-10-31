@@ -5,13 +5,21 @@
 	// displayed, so assistive tech sees one "Jump to letter" nav. The page renders it only
 	// while sorted by name, and gives its rows `pr-5` below `sm` so the rail never covers a
 	// tappable row. Absent letters stay as decorative, aria-hidden placeholders.
-	// `active` is the letter the paged list was restarted at (F80 EL6): gold, underlined,
-	// aria-current, and still clickable (it reloads from that letter).
+	// `active` is the letter of the first entry in view (F80 EL6, HOLODEX-601): gold,
+	// underlined, aria-current, and it follows the scroll; a click scrolls to the letter.
+	// `barHeight` binds out the sticky bar's height (0 below `sm`, where the rail is fixed
+	// at the side), so a jump can land below it.
 	let {
 		anchors,
 		active = '',
-		onjump
-	}: { anchors: Record<string, number>; active?: string; onjump: (letter: string) => void } = $props();
+		onjump,
+		barHeight = $bindable(0)
+	}: {
+		anchors: Record<string, number>;
+		active?: string;
+		onjump: (letter: string) => void;
+		barHeight?: number;
+	} = $props();
 
 	const ALPHABET = '#ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 	const label = (L: string) => `Jump to ${L === '#' ? 'non-alphabetic names' : L}`;
@@ -19,6 +27,7 @@
 
 <nav
 	aria-label="Jump to letter"
+	bind:clientHeight={barHeight}
 	class="sticky top-0 z-10 -mx-1 hidden flex-wrap gap-0.5 bg-bg/85 px-1 py-1.5 backdrop-blur sm:flex"
 >
 	{#each ALPHABET as L (L)}

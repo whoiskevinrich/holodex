@@ -63,7 +63,8 @@ func aliasFold(s string) string {
 // entity_keep_separate so a pair already dismissed is never re-proposed (F43 RD5).
 //
 // Purely additive (RD5): a name the provider has since dropped is left alone. Only the
-// owner and a merge ever remove an alias.
+// owner, a merge, and clearing or rematching a person's provider
+// (DeleteProviderAliases, HOLODEX-610) ever remove an alias.
 //
 // Returning an error here fails the caller's enrichment, so the enrich path treats this
 // as best-effort — a name conflict must never cost an entity its bio, birthdate, and
@@ -152,6 +153,20 @@ func (r *Repo) ApplyProviderAliases(ctx context.Context, entityType string, enti
 		return nil, fmt.Errorf("apply provider aliases: %w", err)
 	}
 	return skipped, nil
+}
+
+// DeleteProviderAliases removes the alternate names one provider wrote for an entity
+// (entity_aliases.source = provider), leaving the owner's own aliases alone. Nothing is
+// suppressed, so a later enrichment from that provider may add them back (HOLODEX-610).
+func (r *Repo) DeleteProviderAliases(ctx context.Context, entityType string, entityID int64, source string) error {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	if _, err := r.db.ExecContext(ctx,
+		`DELETE FROM entity_aliases WHERE entity_type = ? AND entity_id = ? AND source = ?`,
+		entityType, entityID, source); err != nil {
+		return fmt.Errorf("delete provider aliases (%s): %w", entityType, err)
+	}
+	return nil
 }
 
 // aliasSuppressed reports whether the owner has deleted this name from this entity

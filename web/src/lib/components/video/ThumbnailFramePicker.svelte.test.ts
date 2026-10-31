@@ -39,7 +39,7 @@ function fakeVideo(v: HTMLVideoElement) {
 }
 
 async function mount() {
-	const onuse = vi.fn(async (_f: File) => {});
+	const onuse = vi.fn(async (_f: File, _at: number) => {});
 	const onreset = vi.fn();
 	const onclose = vi.fn();
 	const screen = await render(ThumbnailFramePicker, { src: '/no-video.mp4', startAt: 10, onuse, onreset, onclose });
@@ -91,8 +91,9 @@ describe('ThumbnailFramePicker', () => {
 		onuse.mockRejectedValueOnce(new Error('upload failed: 400'));
 		await screen.getByRole('button', { name: 'Use this frame' }).click();
 		await expect.element(screen.getByRole('alert')).toHaveTextContent('upload failed: 400');
-		const file = onuse.mock.calls[0][0];
+		const [file, at] = onuse.mock.calls[0];
 		expect(file.type).toBe('image/jpeg');
+		expect(at).toBeCloseTo(10, 0); // the picked time, for the ·frame tile's title (F85 P1-1)
 		expect(screen.getByRole('dialog').element()).toBeTruthy();
 	});
 
