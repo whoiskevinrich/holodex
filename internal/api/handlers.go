@@ -24,6 +24,7 @@ import (
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
+	"holodex/internal/query"
 	"holodex/internal/refresh"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
@@ -414,6 +415,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	h.mountCategories(r)
 	h.mountPlaylists(r) // visibility-filtered reads (F69, ADR-104 D5)
 	r.Get("/search", h.search)
+	// F87 query parse: canonical form, display tree and errors for chips and query mode.
+	r.Get("/query/parse", h.parseQuery)
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
@@ -590,6 +593,15 @@ func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.
 	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
 		return f, false
 	}
+	if err := h.applyExpr(r.Context(), &f, q, h.auth.authorized(r)); err != nil {
+		var qe *query.Error
+		if errors.As(err, &qe) && qe.Code == query.CodeOwnerOnly {
+			h.requireOwnerInline(w, r) // the same 401 as the other owner-only inputs
+			return f, false
+		}
+		h.writeQueryError(w, "media filter", err)
+		return f, false
+	}
 	return f, true
 }
 
@@ -687,6 +699,10 @@ func (h *Handlers) completenessFacets(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if entityType == model.EnrichEntityVideo {
 		vf := h.videoFilterFromQuery(r.URL.Query())
+		if err := h.applyExpr(r.Context(), &vf, r.URL.Query(), true); err != nil {
+			h.writeQueryError(w, "completeness facets", err)
+			return
+		}
 		vf.HideFullFilmVideos = h.filmsEnabled
 		counts, err = h.repo.MissingFacetCountsForVideos(r.Context(), vf)
 	} else {

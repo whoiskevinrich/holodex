@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"holodex/internal/model"
+	"holodex/internal/query"
 )
 
 // Video playlists (F69, ADR-104): a container, not an entity. A playlist is
@@ -76,6 +77,19 @@ var mergeFacetKey = map[string]string{
 	model.EnrichEntityPerson: "person",
 	model.EnrichEntityStudio: "studio_id",
 	model.EntityTag:          "tag",
+}
+
+// ExprFacetKey maps each F87 entity field to the id facet naming the same table, so a
+// stored `expr`'s ids go through the same stale-ref lookup (MissingFacetIDs).
+var ExprFacetKey = map[string]string{
+	query.FieldTag: "tag", query.FieldPerson: "person", query.FieldStudio: "studio_id", query.FieldCategory: "category_id",
+}
+
+// mergeExprField is the F87 field naming each merged entity type inside an `expr`.
+var mergeExprField = map[string]string{
+	model.EnrichEntityPerson: query.FieldPerson,
+	model.EnrichEntityStudio: query.FieldStudio,
+	model.EntityTag:          query.FieldTag,
 }
 
 // EncodePlaylistQuery is the normalising half of the canonical stored query (ADR-121
@@ -483,15 +497,25 @@ func rewriteSmartPlaylistRefs(ctx context.Context, tx *sql.Tx, entityType string
 			return err
 		}
 		q, err := url.ParseQuery(stored)
-		if err != nil || !slices.Contains(q[key], from) {
+		if err != nil {
 			continue // a stored query is always canonical; an unparsable one is left for the stale check
 		}
+		changed := false
 		for i, v := range q[key] {
 			if v == from {
-				q[key][i] = to
+				q[key][i], changed = to, true
 			}
 		}
-		changes = append(changes, change{id, EncodePlaylistQuery(q)})
+		// An F87 expr names the same id inside its text: parse → rewrite → canonical print.
+		if src := q.Get("expr"); src != "" {
+			if expr, err := query.Parse(src); err == nil && query.RewriteID(expr.Root, mergeExprField[entityType], mergedID, canonicalID) {
+				q.Set("expr", expr.String())
+				changed = true
+			}
+		}
+		if changed {
+			changes = append(changes, change{id, EncodePlaylistQuery(q)})
+		}
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {

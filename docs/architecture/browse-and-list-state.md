@@ -64,10 +64,15 @@ playlist reads unchanged.
   parser to an in-memory tree (`Or`, `And`, `Not`, `Cond{field, op, value}`, `Word`). Precedence is
   NOT, then AND (adjacency), then OR. Depth, node count and input length are capped in the parser,
   before any name lookup or SQL; the values are in [security-perimeter.md](security-perimeter.md).
-- **Canonicalisation binds identity.** Tag, person and studio names resolve through the alias-aware
-  `ExactEntityMatch` ([entity-identity.md](entity-identity.md)); unknown or ambiguous names are
-  typed errors carrying the input offset. A canonical printer writes ids (`tag:12`), seconds for
-  durations and a fixed spacing, and that string is what goes into the URL and the stored query.
+- **Canonicalisation binds identity.** Tag, person and studio names resolve by the identity
+  lookup's own name and alias keys ([entity-identity.md](entity-identity.md)). `ExactEntityMatch`
+  stops at the canonical name, so the query resolver reads the name and every alias match to tell
+  ambiguity apart. Unknown or ambiguous names are typed errors carrying the input offset. A
+  canonical printer writes ids (`tag:12`), seconds for durations and a fixed spacing, and that
+  string is what goes into the URL and the stored query. An unquoted number is an id (falling back
+  to a name of those digits only when no such id exists); a name made of digits is quoted
+  (`tag:"2001"`). A stored query is only parsed, never re-canonicalised, so a deleted id there is a
+  stale ref rather than a digit name.
   **Bare words stay text** and resolve at read time (title FTS or exact Tag name), so a Tag created
   later widens a saved query without rewriting it.
 - **Compilation reuses the flat keys' clauses.** Each per-condition clause in `build()` becomes a

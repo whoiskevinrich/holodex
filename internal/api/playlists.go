@@ -185,13 +185,13 @@ type playlistBody struct {
 // canonicalBodyQuery canonicalises b.Query in place (ADR-121 D2), writing 400 and
 // returning false when it can't be stored. The query's own sort, if any, is returned
 // so a create can take the grid's sort from it, as from_query does.
-func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, b *playlistBody) (string, bool) {
+func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, r *http.Request, b *playlistBody) (string, bool) {
 	q, err := parseQueryString(*b.Query)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid query")
 		return "", false
 	}
-	canon, err := h.canonicalPlaylistQuery(q)
+	canon, err := h.canonicalPlaylistQuery(r.Context(), q)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid query: "+err.Error())
 		return "", false
@@ -278,7 +278,7 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 		visibility = *b.Visibility
 	}
 	if b.Query != nil {
-		querySort, ok := h.canonicalBodyQuery(w, &b)
+		querySort, ok := h.canonicalBodyQuery(w, r, &b)
 		if !ok {
 			return
 		}
@@ -294,6 +294,10 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f := h.browseFilter(q)
+		if err := h.applyExpr(r.Context(), &f, q, true); err != nil {
+			h.writeQueryError(w, "snapshot playlist", err)
+			return
+		}
 		f.Limit, f.Offset = 0, 0 // the set, not a page
 		if wantsCompleteness(f.Sort, f.MissingFacets) {
 			h.drainCompleteness(r.Context()) // score before ranking, as listMedia does
@@ -358,7 +362,7 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "not a smart playlist")
 			return
 		}
-		if _, ok := h.canonicalBodyQuery(w, &b); !ok {
+		if _, ok := h.canonicalBodyQuery(w, r, &b); !ok {
 			return
 		}
 		query = b.Query
