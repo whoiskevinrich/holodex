@@ -47,7 +47,7 @@ file ever being overwritten.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [/] backend → `{cmd,internal,providers}/**`. Plan (`acdf164d`) and Manual (`da951199`) are built and tested; R12/R24 gaps, On-writeback and Job remain (Up next).
+- [x] backend → `{cmd,internal,providers}/**`. Plan (`acdf164d`) and Manual (`da951199`, `991628a4`, `98a99eae`) are built and tested against §38. On-writeback and Job are a later slice, blocked on the owner's watch-state test (Up next 5–6).
 - [ ] frontend → `web/src/**`
 - [x] testing `testing-strategy`
 - [/] security `security-review`. The design review (2026-10-31, `c25e21e4`) found no hole in the designed perimeter's intent, but nine gaps in how it was written. Each is closed in the doc that owns it: the template text and the whole name now face the character checks; the Windows reserved set is complete and judged before the first dot; invisible and invalid characters are removed or refused; the Linux root check is bound to a folder descriptor; the fallback `Lstat`s the target; the via name is built from the id; identity read-back is bounded; name state and job errors stay owner-only; and the apply body is capped. The tests are F7, F8, A8, A9 and §38.11. Held at `[/]`, as HOLODEX-58 and HOLODEX-493 did: the gate settles only on the implementation review of the backend diff.
@@ -67,16 +67,15 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Close Manual gaps: R12 identity test (thumbnail, montage, playlist, film link after rename+rescan), R24 one per-batch row with renamed count, hand-edit lock via the fold path — `internal/rename/`
-2. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
-3. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
-4. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
-5. [ ] [testing] Pin undo-of-undo: the build allows undoing an undo (it is the latest rename), closing §38.10's open case — `internal/rename/worker_test.go`
-6. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-7. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 6 — `internal/writequeue/`
-8. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 6 — `internal/rename/`
-9. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-10. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
+1. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
+2. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
+3. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
+4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+5. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 4 — `internal/writequeue/`
+6. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 4 — `internal/rename/`
+7. [ ] [architecture] Owner call: a fold replaces older's `video_file_names` with newer's, so a plain move healed by a fold drops an owner name lock — keep, or keep the stronger lock? — `docs/architecture/file-rename.md`
+8. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+9. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -87,6 +86,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-01 · Manual gaps closed
+- skills: code-review, handoff
+- handoff: `backend` is `[x]` for Plan and Manual: apply now writes one batch summary that the last job completes with renamed/failed counts, a fold-healed hand edit locks (`991628a4`), and R12 identity plus undo-of-undo are pinned (`98a99eae`). On-writeback and Job wait on the owner's test (Up next 4). Next is the backend security review, then the frontend.
 
 ### 2026-11-01 · spec wording fixes
 - skills: code-review
