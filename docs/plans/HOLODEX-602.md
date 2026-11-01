@@ -73,9 +73,8 @@ file ever being overwritten.
 4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
 5. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 4 — `internal/writequeue/`
 6. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 4 — `internal/rename/`
-7. [ ] [architecture] Owner call: a fold replaces older's `video_file_names` with newer's, so a plain move healed by a fold drops an owner name lock — keep, or keep the stronger lock? — `docs/architecture/file-rename.md`
-8. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-9. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
+7. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+8. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -90,6 +89,10 @@ file ever being overwritten.
 ### 2026-11-01 · jargon doc
 - skills: code-review, handoff
 - handoff: Started `docs/reference/jargon.md` (first entry: the fold) and a CLAUDE.md rule to explain jargon on first use; the fold-vs-owner-lock call (Up next 7) is still waiting on the owner's answer. Next is the backend security review.
+
+### 2026-11-01 · fold keeps the name lock
+- skills: code-review
+- handoff: With the owner's yes, a fold now merges the name lock (locked if either side was; owner/undo outrank auto; a tie keeps newer's) while newer's settle state still wins, in file-rename.md and `FoldMovedVideo`. Next is the backend security review (Up next 1), then the frontend.
 
 ### 2026-11-01 · Manual gaps closed
 - skills: code-review, handoff

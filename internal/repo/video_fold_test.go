@@ -208,8 +208,8 @@ func TestFoldMovedVideoCarriesWorkAndKeepsOlderIdentity(t *testing.T) {
 	if got := scalar[int](t, database, `SELECT count(*) FROM file_renames WHERE video_id = ?`, o); got != 2 {
 		t.Errorf("survivor rename rows = %d, want both sides'", got)
 	}
-	if scalar[bool](t, database, `SELECT locked FROM video_file_names WHERE video_id = ?`, o) {
-		t.Error("older's name state survived; newer's should replace it")
+	if got := scalar[string](t, database, `SELECT locked || lock_source FROM video_file_names WHERE video_id = ?`, o); got != "1owner" {
+		t.Errorf("survivor lock = %s; the owner's lock must survive the fold", got)
 	}
 
 	// Edits.
@@ -280,6 +280,58 @@ func TestFoldMovedVideoCarriesWorkAndKeepsOlderIdentity(t *testing.T) {
 // assertNothingReferences checks every table with a video_id column, or an
 // (entity_type, entity_id) pair, for a row still pointing at id. Enumerating the
 // schema means a table added later can't be forgotten silently.
+// F86 R16: a fold merges the name lock rather than replacing it. The survivor is locked when either
+// side was, an owner or undo lock outranks an auto one, a tie keeps newer's, and newer's settle
+// observation (desired_name, desired_since) still wins, because newer describes the file on disk.
+func TestFoldMovedVideoMergesNameLock(t *testing.T) {
+	type side struct {
+		locked bool
+		source string
+	}
+	none := side{}
+	for _, tc := range []struct {
+		name         string
+		older, newer *side
+		want         string // locked || lock_source on the survivor
+	}{
+		// The stale-lock case: the owner locks video 42; a copy-then-delete makes it reappear as a
+		// new video, and the fold merges that video back into 42.
+		{"owner lock, newer has no state", &side{true, "owner"}, nil, "1owner"},
+		{"owner lock, newer unlocked", &side{true, "owner"}, &none, "1owner"},
+		{"undo lock, newer unlocked", &side{true, "undo"}, &none, "1undo"},
+		{"auto lock only on newer", nil, &side{true, "auto"}, "1auto"},
+		{"owner outranks auto (older owner)", &side{true, "owner"}, &side{true, "auto"}, "1owner"},
+		{"owner outranks auto (newer owner)", &side{true, "auto"}, &side{true, "owner"}, "1owner"},
+		{"tie keeps newer's", &side{true, "owner"}, &side{true, "undo"}, "1undo"},
+		{"neither locked", &none, &none, "0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, database := newRepoDB(t)
+			o, n := seedMovePair(t, r, database, "/m/old.mp4", "/m/new.mp4", "fp-lock")
+			set := func(id int64, s *side, desired string) {
+				if s != nil {
+					mustExec(t, database, `INSERT INTO video_file_names (video_id, locked, lock_source, locked_at, desired_name, desired_since)
+						VALUES (?, ?, ?, 'x', ?, 'x')`, id, s.locked, s.source, desired)
+				}
+			}
+			set(o, tc.older, "older-desired.mp4")
+			set(n, tc.newer, "newer-desired.mp4")
+			if err := r.FoldMovedVideo(context.Background(), o, n); err != nil {
+				t.Fatal(err)
+			}
+			got := scalar[string](t, database, `SELECT coalesce((SELECT locked || lock_source FROM video_file_names WHERE video_id = ?), '0')`, o)
+			if got != tc.want {
+				t.Errorf("survivor lock = %s, want %s", got, tc.want)
+			}
+			if tc.newer != nil {
+				if d := scalar[string](t, database, `SELECT desired_name FROM video_file_names WHERE video_id = ?`, o); d != "newer-desired.mp4" {
+					t.Errorf("desired_name = %s, want newer's", d)
+				}
+			}
+		})
+	}
+}
+
 func assertNothingReferences(t *testing.T, database *sql.DB, id int64) {
 	t.Helper()
 	tables, err := database.Query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'videos_fts%'`)

@@ -48,9 +48,12 @@ What each consumer reads:
 - **Settle window:** the job sweep compares each video's desired name with `desired_name` and resets
   `desired_since` when it changed. A name is settled when `desired_since` is older than the window.
 
-`FoldMovedVideo` re-keys `file_renames` to the older id with the other per-video history, and the
-newer row's `video_file_names` replaces the older one's, because the newer row describes the file
-that is on disk.
+`FoldMovedVideo` re-keys `file_renames` to the older id with the other per-video history. The newer
+row's settle observation (`desired_name`, `desired_since`) replaces the older one's, because the
+newer row describes the file that is on disk. The lock is merged instead: the survivor is locked when
+either row was, and keeps the stronger `lock_source`, where `owner` and `undo` (both the owner's own
+acts) outrank `auto`, and a tie keeps the newer row's. A move healed by a fold never drops a lock,
+which a later apply would otherwise treat as permission to rename.
 
 **Rejected:** columns on `videos` (`last_written_name`, `name_locked`). They hold one rename, so
 they can't give the history the spec requires, and per-token values don't fit columns. Lock and
