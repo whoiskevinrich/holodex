@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -24,10 +25,12 @@ import (
 )
 
 type renameFixture struct {
-	srv *httptest.Server
-	r   *repo.Repo
-	lib string
-	ids map[string]int64
+	srv   *httptest.Server
+	r     *repo.Repo
+	lib   string
+	ids   map[string]int64
+	kick  *kickCounter
+	sqldb *sql.DB
 }
 
 // renameServer seeds a real temp library: each file exists on disk and as a video row whose title
@@ -61,6 +64,8 @@ func renameServer(t *testing.T, token string) *renameFixture {
 		t.Fatal(err)
 	}
 	h.SetSettings(st)
+	kick := &kickCounter{}
+	h.SetRenamer(kick)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)
 
@@ -68,7 +73,7 @@ func renameServer(t *testing.T, token string) *renameFixture {
 	if err := os.MkdirAll(lib, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	f := &renameFixture{srv: srv, r: r, lib: lib, ids: map[string]int64{}}
+	f := &renameFixture{srv: srv, r: r, lib: lib, ids: map[string]int64{}, kick: kick, sqldb: database}
 	seed := func(file, title, studio string) {
 		path := filepath.Join(lib, file)
 		if err := os.WriteFile(path, []byte(file), 0o644); err != nil {
@@ -133,6 +138,11 @@ func TestRenameRoutesOwnerGated(t *testing.T) {
 		{http.MethodPost, "/rename/plan/preview"},
 		{http.MethodPut, "/media/" + id + "/name-lock"},
 		{http.MethodGet, "/media/" + id + "/renames"},
+		{http.MethodPost, "/rename/apply"},
+		{http.MethodGet, "/media/" + id + "/rename/status"},
+		{http.MethodPost, "/media/" + id + "/rename/undo"},
+		{http.MethodPost, "/media/" + id + "/rename/retry"},
+		{http.MethodPost, "/media/" + id + "/rename/dismiss"},
 	} {
 		if code, _ := doJSON(t, rt.method, f.srv.URL+"/api/v1"+rt.path, "", map[string]any{}); code != http.StatusUnauthorized {
 			t.Errorf("visitor %s %s = %d, want 401", rt.method, rt.path, code)

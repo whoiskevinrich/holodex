@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"time"
 
@@ -35,6 +36,7 @@ func (h *Handlers) mountRename(r chi.Router) {
 	r.Post("/rename/plan/preview", h.renamePlanPreview)
 	r.Put("/media/{id}/name-lock", h.setNameLock)
 	r.Get("/media/{id}/renames", h.renameHistory)
+	h.mountRenameApply(r)
 }
 
 // renameProviderRe bounds the provider names a template may name as an identity token: braces,
@@ -83,10 +85,14 @@ type renameState struct {
 
 // loadRenameState resolves every active video's token values (the completeness resolve, batch
 // loaded) and reads the journal, the name locks, the held originals and every video row's path.
-func (h *Handlers) loadRenameState(ctx context.Context) (*renameState, error) {
+// only, when non-nil, limits the resolve to those videos; every row's path is still read.
+func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*renameState, error) {
 	videos, err := h.repo.ListAllVideos(ctx, repo.VideoFilter{})
 	if err != nil {
 		return nil, fmt.Errorf("list videos: %w", err)
+	}
+	if only != nil {
+		videos = slices.DeleteFunc(videos, func(v model.Video) bool { return !only[v.ID] })
 	}
 	ids := make([]int64, len(videos))
 	for i, v := range videos {
@@ -196,6 +202,16 @@ func (h *Handlers) renameTemplates() ([]string, []*rename.Template) {
 	return texts, list
 }
 
+// RenameTemplateSet gives the read-back its current templates, delimiter and providers (F86
+// P0-11). With no settings wired the list is empty.
+func (h *Handlers) RenameTemplateSet() ([]*rename.Template, string, []string) {
+	if h.settings == nil {
+		return nil, h.renameDelimiter(), nil
+	}
+	_, list := h.renameTemplates()
+	return list, h.renameDelimiter(), h.RenameProviders()
+}
+
 // planRowView is one plan row on the wire. Owner-only: it carries file names.
 type planRowView struct {
 	VideoID  int64               `json:"video_id"`
@@ -291,7 +307,7 @@ func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []str
 		onlyID = n
 	}
 
-	st, err := h.loadRenameState(r.Context())
+	st, err := h.loadRenameState(r.Context(), nil)
 	if err != nil {
 		h.fail(w, "rename plan", err)
 		return

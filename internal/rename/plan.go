@@ -148,7 +148,7 @@ func Plan(list []*Template, delimiter string, inputs []Input, disk Disk, inRun f
 	}
 	sort.Strings(dirs)
 	for _, dir := range dirs {
-		out := PlanFolder(Folder{Listing: disk.ListDir(dir), Tracked: tracked[dir]}, wantsByDir[dir])
+		out := PlanFolder(FolderNames{Listing: disk.ListDir(dir), Tracked: tracked[dir]}, wantsByDir[dir])
 		for id, o := range out {
 			row := &rows[idx[id]]
 			switch {

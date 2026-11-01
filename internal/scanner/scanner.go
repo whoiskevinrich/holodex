@@ -51,6 +51,10 @@ type Repository interface {
 	RepointVideo(ctx context.Context, id int64, v *model.Video, extra []model.ExtraMetadata) error
 	FoldPairs(ctx context.Context) ([]repo.FoldPair, []int64, error)
 	FoldMovedVideo(ctx context.Context, older, newer int64) error
+	// The F86 rename journal: a pending rename's target belongs to its video, and a repoint
+	// finishes a pending rename or locks a hand-edited name.
+	PendingRenameTarget(ctx context.Context, path string) (int64, bool, error)
+	NoteRepointed(ctx context.Context, id int64, oldPath, newPath string) error
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
@@ -490,6 +494,18 @@ func (s *Scanner) index(ctx context.Context, path string, st *stats) {
 	if err != nil {
 		s.fileFailed(st, path, "stat lookup failed", err)
 		return
+	}
+	if !ok {
+		// A file a pending rename is writing belongs to that video: never held, never new
+		// (F86, file-rename.md "The scanner reads the journal").
+		if id, renaming, err := s.repo.PendingRenameTarget(ctx, path); err != nil {
+			s.fileFailed(st, path, "rename journal lookup failed", err)
+			return
+		} else if renaming {
+			st.recordSeen(id)
+			st.incSkipped()
+			return
+		}
 	}
 
 	// Owner soft-delete (F24, ADR-037) is orthogonal to disk presence: leave a

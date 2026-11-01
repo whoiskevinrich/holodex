@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-func folder(listing []string, tracked map[string]int64) Folder {
+func folder(listing []string, tracked map[string]int64) FolderNames {
 	t := map[string]int64{}
 	for n, id := range tracked {
 		t[FoldKey(n)] = id
 	}
-	return Folder{Listing: listing, Tracked: t}
+	return FolderNames{Listing: listing, Tracked: t}
 }
 
 // N14: an untracked holder refuses.

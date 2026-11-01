@@ -24,6 +24,7 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 	}
 	cands := make([][]int64, len(st.held))
 	claims := map[int64]int{}
+	oldPaths := map[int64]string{}
 	for i, h := range st.held {
 		rows, err := s.repo.MoveCandidates(ctx, h.v)
 		if err != nil {
@@ -41,6 +42,7 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 			}
 			cands[i] = append(cands[i], c.ID)
 			claims[c.ID]++
+			oldPaths[c.ID] = c.FilePath
 		}
 	}
 	for i, h := range st.held {
@@ -52,6 +54,9 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 			}
 			st.recordSeen(c[0])
 			st.incRepointed()
+			if err := s.repo.NoteRepointed(ctx, c[0], oldPaths[c[0]], h.path); err != nil {
+				s.log.Warn("rename journal after repoint failed", "id", c[0], "err", err)
+			}
 			s.log.Info("recognised moved file", "id", c[0], "path", h.path)
 			continue
 		case len(c) > 0:

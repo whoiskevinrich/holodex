@@ -244,14 +244,16 @@ func (r *Repo) DeactivateExcept(ctx context.Context, seenIDs []int64) (int64, er
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
+	// A video mid-rename counts as seen: its file may be between names (F86, file-rename.md).
+	const renaming = ` AND id NOT IN (SELECT video_id FROM file_renames WHERE state = 'pending')`
 	if len(seenIDs) == 0 {
-		res, err := r.db.ExecContext(ctx, `UPDATE videos SET active = 0 WHERE active = 1`)
+		res, err := r.db.ExecContext(ctx, `UPDATE videos SET active = 0 WHERE active = 1`+renaming)
 		if err != nil {
 			return 0, err
 		}
 		return res.RowsAffected()
 	}
-	q := `UPDATE videos SET active = 0 WHERE active = 1 AND id NOT IN (` +
+	q := `UPDATE videos SET active = 0 WHERE active = 1` + renaming + ` AND id NOT IN (` +
 		placeholders(len(seenIDs)) + `)`
 	res, err := r.db.ExecContext(ctx, q, toAnySlice(seenIDs)...)
 	if err != nil {

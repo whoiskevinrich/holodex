@@ -17,9 +17,9 @@ type Want struct {
 	Desired string
 }
 
-// Folder is what the collision plan knows about one folder: every entry on disk, and which of them
+// FolderNames is what the collision plan knows about one folder: every entry on disk, and which of them
 // belong to a video (by fold key).
-type Folder struct {
+type FolderNames struct {
 	Listing []string
 	Tracked map[string]int64
 }
@@ -42,7 +42,7 @@ func Disambiguate(name string, id int64) string {
 // that already has a name keeps it; a name another Want gives up counts as free; among Wants for a
 // free name the lowest id takes it plain; an untracked holder refuses. The result depends only on
 // the inputs, so planning twice gives the same plan.
-func PlanFolder(f Folder, wants []Want) map[int64]Outcome {
+func PlanFolder(f FolderNames, wants []Want) map[int64]Outcome {
 	untracked := map[string]bool{}
 	for _, n := range f.Listing {
 		if k := FoldKey(n); f.Tracked[k] == 0 {
