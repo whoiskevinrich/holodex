@@ -85,6 +85,7 @@ does not run (panel 2).
 | Nav input | Enter, valid | Records history, opens browse with the query, closes the panel |
 | Nav input | Enter, invalid | Nothing runs; the error stays shown |
 | Nav input | error | Border `border-warn`; panel top shows the mono echo with the bad part wavy-underlined in warn, then one sentence in `text-sm text-warn`, then `Did you mean` rows (Tab or click replaces the bad part). Ambiguous name: the rows list each match with a distinguishing sub |
+| Nav input | error echo markup | The echo is three text nodes (before, bad part, after) sliced at the parse response's offsets; never `{@html}` |
 | Nav input | parse pending | Previous suggestions stay; no spinner under 300ms, then the panel's existing pulse rows |
 | Chip `×` (plain or NOT) | click | Removes that condition; focus moves to the next chip, else `Edit as text` |
 | Member chip `×` in a group | click | Removes that member. A group left with one member becomes a plain chip; an AND set left with one chip loses its parentheses |

@@ -253,8 +253,8 @@ A personal library has no analytics, so success is checked, not measured:
 
 ## Open Questions
 
-1. **(security, blocking before build)** Confirm the P0-9 limits proposed in the architecture, and
-   whether visitor queries need a rate limit.
+None open. The P0-9 limits were confirmed and a rate limit rejected in the security review
+(2026-11-01, [security-perimeter.md](../architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup)).
 
 ## Decisions
 

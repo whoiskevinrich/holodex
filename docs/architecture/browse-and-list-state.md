@@ -80,8 +80,9 @@ playlist reads unchanged.
   display tree with current names, and errors with offsets; chips and error marks render from it.
   The client keeps only a lexer that tells autocomplete which field it is in. The display tree is an
   output shape only, never accepted as input.
-- **Existing seams carry `expr`.** `mediaFilterFor` refuses an `expr` holding an owner-only condition
-  for a visitor, as it does `missing_facet`. Ids inside `expr` feed the stale-ref check, and
+- **Existing seams carry `expr`.** Owner-only conditions are refused by one check every entry point
+  calls ([security-perimeter.md](security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup)).
+  `canonicalPlaylistQuery` accepts `expr` and stores its canonical form. Ids inside `expr` feed the stale-ref check, and
   `rewriteSmartPlaylistRefs` rewrites them by parse → rewrite → canonical print. `search_videos`
   gains an `expr` argument next to its existing name arguments; a tool sends names and gets back
   the canonical string, under the same limits and owner gate.
