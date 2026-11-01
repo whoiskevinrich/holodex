@@ -47,7 +47,7 @@ file ever being overwritten.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
+- [/] backend → `{cmd,internal,providers}/**`. Plan (`acdf164d`) and Manual (`da951199`) are built and tested; R12/R24 gaps, On-writeback and Job remain (Up next).
 - [ ] frontend → `web/src/**`
 - [x] testing `testing-strategy`
 - [/] security `security-review`. The design review (2026-10-31, `c25e21e4`) found no hole in the designed perimeter's intent, but nine gaps in how it was written. Each is closed in the doc that owns it: the template text and the whole name now face the character checks; the Windows reserved set is complete and judged before the first dot; invisible and invalid characters are removed or refused; the Linux root check is bound to a folder descriptor; the fallback `Lstat`s the target; the via name is built from the id; identity read-back is bounded; name state and job errors stay owner-only; and the apply body is capped. The tests are F7, F8, A8, A9 and §38.11. Held at `[/]`, as HOLODEX-58 and HOLODEX-493 did: the gate settles only on the implementation review of the backend diff.
@@ -67,11 +67,17 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-2. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-3. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
-4. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
-5. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
+1. [ ] [backend] Close Manual gaps: R12 identity test (thumbnail, montage, playlist, film link after rename+rescan), R24 one per-batch row with renamed count, hand-edit lock via the fold path — `internal/rename/`
+2. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
+3. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
+4. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
+5. [ ] [—] Owner yes on two spec wording fixes: P0-3's `]` example (only `] ` refuses under lazy capture) and P0-1's "as F48 refuses" (F48 accepts unknown tokens; rename refuses them) — `docs/specs/file-rename.md`
+6. [ ] [testing] Pin undo-of-undo: the build allows undoing an undo (it is the latest rename), closing §38.10's open case — `internal/rename/worker_test.go`
+7. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+8. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 7 — `internal/writequeue/`
+9. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 7 — `internal/rename/`
+10. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+11. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -82,6 +88,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-01 · backend Plan + Manual
+- skills: code-review, handoff
+- handoff: The backend for Plan (`acdf164d`) and Manual (`da951199`) is in: migration 0068, the settings allowlist with the rename keys, builder and read-back, collision plan, plan/preview/apply/undo/lock routes, the no-overwrite primitive, the journalled worker with boot recovery, scanner and echo integration. `backend` stays `[/]` on the R12/R24 gaps and the blocked On-writeback/Job modes. Next is Up next 1, then the backend security review.
 
 ### 2026-11-01 · session
 - skills: code-review, handoff
