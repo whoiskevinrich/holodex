@@ -87,6 +87,10 @@ file ever being overwritten.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-11-01 · jargon doc
+- skills: code-review, handoff
+- handoff: Started `docs/reference/jargon.md` (first entry: the fold) and a CLAUDE.md rule to explain jargon on first use; the fold-vs-owner-lock call (Up next 7) is still waiting on the owner's answer. Next is the backend security review.
+
 ### 2026-11-01 · Manual gaps closed
 - skills: code-review, handoff
 - handoff: `backend` is `[x]` for Plan and Manual: apply now writes one batch summary that the last job completes with renamed/failed counts, a fold-healed hand edit locks (`991628a4`), and R12 identity plus undo-of-undo are pinned (`98a99eae`). On-writeback and Job wait on the owner's test (Up next 4). Next is the backend security review, then the frontend.

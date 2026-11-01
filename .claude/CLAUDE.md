@@ -353,3 +353,7 @@ The GitHub-for-Jira app links branches, PRs, builds, and the `ghcr` deployment t
   **blocked** with the rival and the next free number named.
 - Specs live in `docs/specs/`; the testing strategy in `docs/testing-strategy.md`.
 - Keep the architecture index and spec cross-references up to date when adding either.
+- **Explain jargon.** When you use an internal term (fold, repoint, echo, held…) in anything the
+  owner reads, say what it means in plain words on first use. The glossary is
+  [`docs/reference/jargon.md`](../docs/reference/jargon.md); add an entry when a term proves
+  load-bearing.
