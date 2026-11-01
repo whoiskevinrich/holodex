@@ -71,13 +71,12 @@ file ever being overwritten.
 2. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
 3. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
 4. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
-5. [ ] [—] Owner yes on two spec wording fixes: P0-3's `]` example (only `] ` refuses under lazy capture) and P0-1's "as F48 refuses" (F48 accepts unknown tokens; rename refuses them) — `docs/specs/file-rename.md`
-6. [ ] [testing] Pin undo-of-undo: the build allows undoing an undo (it is the latest rename), closing §38.10's open case — `internal/rename/worker_test.go`
-7. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-8. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 7 — `internal/writequeue/`
-9. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 7 — `internal/rename/`
-10. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-11. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
+5. [ ] [testing] Pin undo-of-undo: the build allows undoing an undo (it is the latest rename), closing §38.10's open case — `internal/rename/worker_test.go`
+6. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+7. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 6 — `internal/writequeue/`
+8. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 6 — `internal/rename/`
+9. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+10. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -88,6 +87,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-01 · spec wording fixes
+- skills: code-review
+- handoff: With the owner's yes, the spec's P0-3 `]` example now says only `] ` refuses, and P0-1 says rename refuses unknown tokens though F48 accepts them; next is Up next 1, the Manual test gaps.
 
 ### 2026-11-01 · backend Plan + Manual
 - skills: code-review, handoff

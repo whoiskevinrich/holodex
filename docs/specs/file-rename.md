@@ -106,8 +106,8 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
 
 - A template with no `{title}` and no identity token is refused when saved, because it could name
   many unrelated videos the same.
-- A template that repeats a token, or names a token that doesn't exist, is refused when saved, as
-  F48 refuses such a pattern.
+- A template that repeats a token, or names a token that doesn't exist, is refused when saved. F48
+  accepts an unknown token in a filename pattern; a rename template does not.
 - A template's own text, outside its tokens, follows the character rules of P0-4: one that contains
   a character P0-4 removes from values, such as `:` or `/`, is refused when saved, never cleaned
   silently.
@@ -128,7 +128,8 @@ value contains the literal text that follows its token, because a token's value 
 occurrence of that text.
 - Given template `{title} - {studio}`, a video titled `Ada - Redux` at studio Acme is refused: the
   name would read back as title `Ada` and studio `Redux - Acme`.
-- Given template `[{studio}] {title}`, a studio whose name contains `]` is refused.
+- Given template `[{studio}] {title}`, a studio whose name contains `] ` (a bracket then a space),
+  such as `Acme] X`, is refused. A studio named `Acme]` reads back exactly and is used.
 - An earlier template that would read a later template's name differently also refuses the name.
 - A refused video does **not** fall through to the next template. The first fitting template is
   the video's template, so a quirk of spelling never silently changes which template names it.
