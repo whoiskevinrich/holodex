@@ -216,7 +216,8 @@ file. For an edition, the status is shown on the original's page until the editi
 
 - **Q1 (engineering, blocking build):** can a frame comparison reliably tell the right frame from
   one a frame or two off on near-static footage (fades, black frames, title cards)? Spike on real
-  files first. If it can't, R6 needs a different check for those frames.
+  files first: at least **one MKV and one MP4, each longer than ten minutes**, cut near both ends.
+  If it can't, R6 needs a different check for those frames.
 - ~~Q2~~ **Resolved 2026-10-31:** an edition's history starts fresh with a "trimmed from" link.
 - ~~Q3~~ **Resolved 2026-10-31:** a mismatch is corrected once by the measured offset, then fails.
 
@@ -224,7 +225,8 @@ file. For an edition, the status is shown on the original's page until the editi
 
 ## Timeline / phasing
 
-- **Phase 0:** the Q1 spike. It decides whether R6 stands as written.
+- **Phase 0:** the Q1 spike, on an MKV and an MP4 each longer than ten minutes. It decides whether R6
+  stands as written.
 - **Phase 1 (this spec, P0):** both save modes, frame verification, edition copy.
 - **Phase 2:** P1 items. Previewing the edges comes first, because it is the owner's last look
   before walking away.
