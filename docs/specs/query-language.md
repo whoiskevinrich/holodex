@@ -26,7 +26,9 @@ tag aliases and the tag hierarchy (a Tag condition includes its descendant Tags,
 
 **Architecture**: [browse-and-list-state.md, "Boolean queries"](../architecture/browse-and-list-state.md#boolean-queries-an-expr-key-parsed-once-in-go-compiled-through-the-builders-fragments)
 (the query is text, parsed once on the server) and [security-perimeter.md, "Query
-expressions"](../architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup). **Design handoff**: not yet written. **Security review**: required
+expressions"](../architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup). **Design handoff**: [query-language-handoff.md](../design/query-language-handoff.md) +
+[mockup](../design/query-language-mockup.svg), approved 2026-10-31: OR groups as one inset box with
+parentheses around AND sets, NOT as an outlined chip. **Security review**: required
 (visitors submit queries).
 
 ---
