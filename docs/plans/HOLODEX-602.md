@@ -32,7 +32,7 @@ Done means the owner can rename library files in place from an ordered template 
 progressive plan → manual → writeback → job modes, without a video ever losing its identity or a
 file ever being overwritten.
 
-**Design package:** [spec F86](../specs/file-rename.md) · [architecture](../architecture/file-rename.md) · [handoff](../design/file-rename-handoff.md) · testing-strategy § (pending)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F86](../specs/file-rename.md) · [architecture](../architecture/file-rename.md) · [handoff](../design/file-rename-handoff.md) · [testing-strategy §38](../testing-strategy.md#38-rename-media-files-from-a-template-f86-holodex-602)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -49,7 +49,7 @@ file ever being overwritten.
 - [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [x] testing `testing-strategy`
 - [ ] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,11 +67,11 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Strategy: read-back refusal, sanitisation, collisions, crash recovery, echo suppression — `docs/testing-strategy.md`
-2. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
+1. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
+2. [ ] [—] Owner: re-pin the design sign-off `at:` (only other features' design docs changed since e4aeee37) — `docs/plans/HOLODEX-602.md`
 3. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
 4. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-5. [ ] [backend] Build Plan then Manual modes first (spec Timeline); the rename keys are the first on the settings allowlist — `internal/`
+5. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
 6. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -83,6 +83,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-31 · testing strategy
+- skills: testing-strategy, code-review, handoff
+- handoff: Testing gate done — §38 of docs/testing-strategy.md lays out builder/read-back, no-overwrite, crash-recovery, identity, echo, drift, lock and undo tests by layer, with a 21-item QA list and the order they land per mode. Design sign-off is flagged stale only by main-merge changes to other features' design docs (no file-rename-* file changed since e4aeee37); re-pin `at:` needs the owner's yes before ready. Next is the security review.
 
 ### 2026-10-31 · session
 - skills: architecture, code-review, handoff, design-handoff, implement
