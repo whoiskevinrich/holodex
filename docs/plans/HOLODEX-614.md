@@ -71,7 +71,7 @@ under "will drop"), a re-enrich or rescan doesn't re-attach it, and adding it ba
 
 ### 2026-11-01 · removing a tag suppresses it in the video's genres
 - skills: code-review, handoff
-- handoff: Detach now suppresses the tag's spellings in the video's genres (write set, materialization, rescan) and attach lifts it; spec P0-8b + tests landed, so the PR just needs CI and a merge. Alias-added-later and whitespace-variant gaps are HOLODEX-615.
+- handoff: Detach now suppresses the tag's spellings in the video's genres (write set, materialization, rescan) and attach lifts it; spec P0-8b + tests landed, and the flaky "writeback queue did not drain" tests now share one helper with a 15s deadline, so the PR just needs CI and a merge. Alias-added-later and whitespace-variant gaps are HOLODEX-615.
 
 ## Dropped — newest first (the reason is the point)
 
