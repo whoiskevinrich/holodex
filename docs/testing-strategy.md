@@ -6035,7 +6035,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | R12 | Identity survives: curate a video (a title decision, a tag, a playlist place, a film link, provider enrichment), make its thumbnail and motion preview (montage), then rename and rescan. Same `id`; every row present; the thumbnail and montage files, keyed by id, still serve; Date added and Updated order unchanged. | P0-9, Goal 2 |
 | R13 | Hand edit: rename the file outside Holodex away from the latest `done` `new_name`, rescan. `locked = 1`, `lock_source = 'auto'`. Moving it to another folder with the same name doesn't lock. A file renamed by hand to exactly its desired name, never Holodex-written, isn't locked. | P0-13 |
 | R14 | Settle window: the sweep stores `desired_name`/`desired_since`, resets `desired_since` when the desired name changes, and renames only once it is older than the window. A template-list edit makes every affected name drift and none rename before the window. | P0-7, P0-12 |
-| R15 | Undo: undoes the latest rename only, while the file still has that name. It writes an `undo` row with `undo_of`, restores the old name and locks with `lock_source = 'undo'`. Undo with the old name taken by a tracked or untracked file is refused with no disambiguator. Undo after a hand edit is refused. | P0-14 |
+| R15 | Undo: undoes the latest rename only, while the file still has that name. It writes an `undo` row with `undo_of`, restores the old name and locks with `lock_source = 'undo'`. Undo with the old name taken by a tracked or untracked file is refused with no disambiguator. Undo after a hand edit is refused. Undoing the undo restores the plan's name with a second `undo` row (38.10). | P0-14 |
 | R16 | Fold: `FoldMovedVideo` re-keys `file_renames` to the older id, and the newer side's `video_file_names` replaces the older one's. `assertNothingReferences` covers both tables. | P0-9 |
 | R17 | Purge cascades both tables. | P0-10 |
 | R18 | Queue: a rename row never runs while the same video has a running write or re-encode; it is claimed by the tag-write lane, not the maintenance lane; it survives a restart as `pending`; Retry and Dismiss work; `job_runs` records `kind=rename`. | P0-9 |
@@ -6044,7 +6044,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | R21 | Held original: refused at enqueue, again at the job step, and inside a write job's on-writeback step; eligible once the hold ends. | P0-8 |
 | R22 | Trashed and locked videos are never renamed by any trigger. | P0-7, P0-13 |
 | R23 | On writeback: a drifted, unlocked file takes its desired name inside the write job, after `WriteBatch` and before `PostWriteFunc`; the read-back re-extracts at the new path. A never-renamed file keeps its name. A refused rename leaves the write successful. (`make test-integration` for a real MKV.) | P0-7 |
-| R24 | Run report: an apply and a sweep each write a System activity row with renamed, refused-by-reason and skipped-locked/held counts. | P0-15 |
+| R24 | Run report: an apply and a sweep each write a System activity row with renamed, refused-by-reason and skipped-locked/held counts. An apply writes its one batch summary at once (queued; refused by reason, locked and held among them), and the batch's last job fills in renamed and failed, counting each video's latest run so a retried failure counts once. | P0-15 |
 | R25 | A name already equal to the desired name records nothing. | Edge Cases |
 
 ### 38.5 API (`internal/api/rename_test.go`, new, `httptest` over the real repo)
@@ -6162,8 +6162,9 @@ Tests land with the mode they guard, so each slice is green on its own:
 - How another media server treats a renamed file is the owner's check (QA 21), not a test.
 - Spec P0-4's "never ends in a dot or a space" doesn't say whether it means the whole name or
   the stem. N9 pins the builder's reading; if the stem is meant, that is a spec edit first.
-- Whether an undo can itself be undone is not stated by the spec (P0-14), so R15 leaves it open.
-  Add a case once the build settles it.
+- The spec (P0-14) doesn't say whether an undo can itself be undone. The build allows it, because
+  an undo is the video's latest rename, and R15 pins that. If it should be refused, that is a spec
+  edit first.
 
 ### 38.11 Security review
 
