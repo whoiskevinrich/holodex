@@ -158,14 +158,14 @@ is refused. Only the owner can rename.
 **P0-6. Collisions get the video's id, never a number.** When a desired name is already in use in
 the folder:
 - **By a file Holodex doesn't track**, the rename is **refused**. That file is never overwritten.
-- **By another video in the library**, a disambiguator ` [hx-<video id>]` is added before the
+- **By another video in the library**, a disambiguator ` {hx-<video id>}` is added before the
   extension, but only to the video that needs it. The video that already has the name keeps it. When
   several videos want a name no one has yet, the oldest (lowest id) takes it plain and the others
   get the disambiguator.
 - A name that another video gives up in the same run counts as free.
 - The disambiguator is the same on every run, so applying the same plan twice changes nothing.
 - Given two parts of one film with the same title and no `{part}` token, one becomes
-  `Ada Lovelace.mkv` and the other `Ada Lovelace [hx-412].mkv`.
+  `Ada Lovelace.mkv` and the other `Ada Lovelace {hx-412}.mkv`.
 
 **P0-7. Progressive triggers.** The owner chooses how far renaming goes. Each mode includes the ones
 before it:
@@ -210,7 +210,7 @@ owner's filename patterns come first and the rename templates are tried only whe
 - **Identity tokens are always read**, echo or not, and are offered to providers as identity hints.
   Today Holodex reads one provider's id marker back from a path; this feature reads every identity
   token a template can write.
-- The disambiguator ` [hx-<id>]` is removed before a name is parsed and never becomes a value.
+- The disambiguator ` {hx-<id>}` is removed before a name is parsed and never becomes a value.
 - With no rename record (a new import, or a library rebuilt from scratch), parsing behaves exactly as
   it does today for every name an existing filename pattern fits. A name none of them fits is then
   tried against the rename templates, so a rebuilt library still reads its Holodex-written names.

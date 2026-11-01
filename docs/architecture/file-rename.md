@@ -190,7 +190,7 @@ markers are lifted from the stem in the same pass as the edition and part marker
 provider whose namespace they name as an identity hint
 ([metadata-providers.md](metadata-providers.md)), within the bound in
 [security-perimeter.md](security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder).
-The ` [hx-<id>]` disambiguator is stripped first.
+The ` {hx-<id>}` disambiguator is stripped first.
 
 **Rejected:** rendering with the provider search-pattern renderer
 ([metadata-providers.md](metadata-providers.md)). Its optional-token grammar has no inverse, and

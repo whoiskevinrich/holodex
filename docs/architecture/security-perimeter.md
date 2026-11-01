@@ -126,7 +126,9 @@ enough on their own.
   from a request or a payload. The name is built from the sanitised values the
   [spec](../specs/file-rename.md) defines (P0-4) and must contain no separator. The character and
   reserved-name rules are checked again on the **whole** built name, template text included, not
-  only on each value. The name must be valid UTF-8 and satisfy `filepath.IsLocal(name)`,
+  only on each value. Braces are the one exception: the builder's own identity, edition and part
+  markers and the ` {hx-<id>}` disambiguator carry them, and template text can't, so a brace in
+  the built name came from the builder. The name must be valid UTF-8 and satisfy `filepath.IsLocal(name)`,
   `filepath.Base(name) == name` and `filepath.Dir(join(dir, name)) == dir`.
 - **Root bound, held to the rename.** The video's folder, resolved with `EvalSymlinks`, must sit
   inside the canonical `MEDIA_PATH` (`filepath.Rel` then `filepath.IsLocal`). With symlinks followed,

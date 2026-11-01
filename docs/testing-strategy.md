@@ -5994,13 +5994,13 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N8 | Sanitising: `< > : " / \ | ? *`, control characters (C0, DEL, C1), zero-width and text-direction marks (U+200B, U+200E, U+202E, U+2066) and braces are removed; the whitespace run left behind is one space; the result is NFC. A value with invalid UTF-8 is refused. One subtest per character. | P0-4 |
 | N9 | A whole file name ending in a dot or a space is refused, never trimmed silently into a different read-back. The extension normally prevents it, so the case is a file with no extension. A stem ending in a dot before the extension (`Ada..mkv`) is valid on both OSes; the test pins whichever reading the builder takes (see 38.10). | P0-4 |
 | N10 | Reserved names refused with and without an extension and in any case: `CON`, `con`, `Con.mkv`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, `CONIN$`, `CONOUT$`, `COM¹`–`COM³`, `LPT¹`–`LPT³`. The part before the first dot decides: `NUL.tar.mkv` and `CON .mkv` are refused. `CONSOLE` and `COM10` are allowed. | P0-4 |
-| N11 | Length counts **bytes**, extension and disambiguator included: 255 bytes passes, 256 is refused, a multibyte title that is 120 characters but 256 bytes is refused, and a name that fits plain but not with ` [hx-12345]` is refused when it needs the disambiguator. Never cut short. | P0-4, P0-6 |
+| N11 | Length counts **bytes**, extension and disambiguator included: 255 bytes passes, 256 is refused, a multibyte title that is 120 characters but 256 bytes is refused, and a name that fits plain but not with ` {hx-12345}` is refused when it needs the disambiguator. Never cut short. | P0-4, P0-6 |
 | N12 | Folder bound: `../etc`, `.`, `..`, a value of only removed characters (empty name) and a value with a separator never produce a name; every produced name passes `filepath.IsLocal`, `Base(name) == name` and `Dir(Join(dir, name)) == dir`. A property test asserts the last three over N6's random inputs. | P0-5 |
 | N13 | Collisions are planned case-folded in NFC: `ada lovelace.mkv` on disk collides with `Ada Lovelace.mkv`, and an NFD spelling collides with its NFC twin. | P0-4, P0-6 |
-| N14 | Collision plan: an untracked holder refuses. A tracked holder keeps its name and the newcomer gets ` [hx-<id>]`. Several newcomers for a free name: the lowest id takes it plain. A name another video gives up in the same run counts as free, and a two-video swap needs no disambiguator. Planning the same inputs twice gives the same plan. | P0-6 |
+| N14 | Collision plan: an untracked holder refuses. A tracked holder keeps its name and the newcomer gets ` {hx-<id>}`. Several newcomers for a free name: the lowest id takes it plain. A name another video gives up in the same run counts as free, and a two-video swap needs no disambiguator. Planning the same inputs twice gives the same plan. | P0-6 |
 | N15 | Case-only change (`ada.mkv` → `Ada.mkv`) is planned as a rename, not "already named", and not as a self-collision. | P0-4 |
 | N16 | The extension never changes, including `.MKV` kept upper-case. | Concepts |
-| N17 | Parse-back order: with a rename record, the template that **wrote** the name parses first, ahead of the owner's patterns and the current list. With none, the owner's patterns parse exactly as today; a name none of them fits is tried against the templates. The ` [hx-<id>]` disambiguator is stripped first and never becomes a value. | P0-11 |
+| N17 | Parse-back order: with a rename record, the template that **wrote** the name parses first, ahead of the owner's patterns and the current list. With none, the owner's patterns parse exactly as today; a name none of them fits is tried against the templates. The ` {hx-<id>}` disambiguator is stripped first and never becomes a value. | P0-11 |
 | N18 | Echo suppression: a parsed value equal to the recorded `token_values` entry is not a filename value. A value that differs from the record is routed as F48 routes it, though it equals the **current** resolved value. A drifted name (resolved value changed, file not renamed) produces no filename value. | P0-11 |
 | N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
 
@@ -6094,7 +6094,7 @@ On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinéma
 6. `[agent]` Create an untracked file holding one video's desired name. That row is **Clash**, has
    no checkbox, and the untracked file is byte-identical after an apply of all.
 7. `[agent]` Two videos with the same title and studio: one is plain, the other carries
-   ` [hx-<id>]` and its row names the holder. Applying the plan a second time changes nothing.
+   ` {hx-<id>}` and its row names the holder. Applying the plan a second time changes nothing.
 8. `[agent]` Swap two videos' titles and apply both: both are renamed plainly in one run.
 9. `[agent]` Case only: change a title's case and apply. The file takes the new case.
 10. `[agent]` **Crash.** Stop the backend while a batch of 50 is renaming, restart, rescan. No new
