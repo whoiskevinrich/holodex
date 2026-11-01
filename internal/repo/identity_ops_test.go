@@ -136,6 +136,50 @@ func TestSearchMatchesTagAlias(t *testing.T) {
 	}
 }
 
+// TestSearchStampsTagAliasHits (HOLODEX-612): every tag hit carries its aliases, so
+// the add-tag input can tell why it matched — an alias-only hit its owner alias, a
+// name hit its auto dashed spelling (HOLODEX-557).
+func TestSearchStampsTagAliasHits(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "A", nil, []string{"science fiction", "scifi western"}), nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	sf := tagIDByName(t, r, "science fiction")
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, sf, "scifi"); err != nil {
+		t.Fatalf("add alias: %v", err)
+	}
+	res, err := r.Search(ctx, "scifi", 10, false)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	var aliasHit, nameHit *model.Tag
+	for i := range res.Tags {
+		switch res.Tags[i].Name {
+		case "science fiction":
+			aliasHit = &res.Tags[i]
+		case "scifi western":
+			nameHit = &res.Tags[i]
+		}
+	}
+	if aliasHit == nil || nameHit == nil {
+		t.Fatalf("tags = %+v, want both", res.Tags)
+	}
+	names := func(tag *model.Tag) []string {
+		var out []string
+		for _, a := range tag.Aliases {
+			out = append(out, a.Alias)
+		}
+		return out
+	}
+	if got := names(aliasHit); !slices.Contains(got, "scifi") {
+		t.Errorf("alias hit aliases = %v, want scifi among them", got)
+	}
+	if got := names(nameHit); !slices.Contains(got, "scifi-western") {
+		t.Errorf("name hit aliases = %v, want its dashed spelling", got)
+	}
+}
+
 // TestSearchMatchesStudioAlias (F43 P0-9, HOLODEX-508): a studio is found by an
 // alias and listed once, by its canonical name, even when its name matches too.
 func TestSearchMatchesStudioAlias(t *testing.T) {

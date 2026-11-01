@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tag } from '#lib/types.ts';
-import { SUGGESTION_CAP, sortTagsByStatus, suggestTags, tagStatusRank } from './tagInput';
+import { SUGGESTION_CAP, namesTag, sortTagsByStatus, suggestTags, tagStatusRank } from './tagInput';
 
 const tag = (id: number, name: string, extra: Partial<Tag> = {}): Tag => ({ id, ref: `tag:${id}`, name, ...extra });
 
@@ -65,8 +65,48 @@ describe('suggestTags', () => {
 		expect(suggestTags(all, '   ', new Set())).toEqual([]);
 	});
 
+	// HOLODEX-612: /search stamps an alias-only hit with its aliases.
+	const sf = tag(6, 'science fiction', { aliases: [{ id: 1, alias: 'scifi' }] });
+
+	it('suggests a tag by its alias', () => {
+		expect(suggestTags([sf], 'scifi', new Set()).map((t) => t.name)).toEqual(['science fiction']);
+		expect(suggestTags([sf], 'SCI', new Set()).map((t) => t.name)).toEqual(['science fiction']);
+	});
+
+	it('ranks alias hits after name prefixes and before name substrings', () => {
+		const rows = [tag(7, 'scifi western'), tag(8, 'retro scifi'), sf];
+		expect(suggestTags(rows, 'scifi', new Set()).map((t) => t.name)).toEqual([
+			'scifi western',
+			'science fiction',
+			'retro scifi'
+		]);
+	});
+
+	it('drops an alias hit that no longer matches the text', () => {
+		expect(suggestTags([sf], 'scifx', new Set())).toEqual([]);
+	});
+
+	it('keeps a name hit whose dashed alias holds the text', () => {
+		const dashed = tag(9, 'science fiction', { aliases: [{ id: 2, alias: 'science-fiction' }] });
+		expect(suggestTags([dashed], 'science-fic', new Set()).map((t) => t.name)).toEqual(['science fiction']);
+	});
+
 	it('caps the list', () => {
 		const many = Array.from({ length: 20 }, (_, i) => tag(i, `tag ${String(i).padStart(2, '0')}`));
 		expect(suggestTags(many, 'tag', new Set())).toHaveLength(SUGGESTION_CAP);
+	});
+});
+
+describe('namesTag (HOLODEX-612)', () => {
+	const sf = tag(1, 'science fiction', { aliases: [{ id: 1, alias: 'scifi' }] });
+
+	it('is true for the exact name or an exact alias, ignoring case and spaces', () => {
+		expect(namesTag(sf, ' Science Fiction ')).toBe(true);
+		expect(namesTag(sf, 'SCIFI')).toBe(true);
+	});
+
+	it('is false for a partial name or alias', () => {
+		expect(namesTag(sf, 'science')).toBe(false);
+		expect(namesTag(sf, 'sci')).toBe(false);
 	});
 });
