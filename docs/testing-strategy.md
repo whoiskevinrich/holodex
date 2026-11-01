@@ -1031,8 +1031,14 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   - *Genre writeback (P0-10)*: `TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag` — a raw genre that is an
     alias of an attached tag is **not** written beside it (`[sci-fi Drama]`, never `[sci-fi Science Fiction
     Drama]`). Mutation-checked: reverting the identity dedup fails it with exactly that triple.
-    `TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically` (HOLODEX-509) — the same alias after the
-    owner detached the tag is still written as `sci-fi`; it failed with `[Science Fiction Drama]` before the fix.
+    `TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically` (HOLODEX-509) — the same alias of a tag
+    only another video carries is still written as `sci-fi`; it failed with `[Science Fiction Drama]` before the
+    fix. (It used to detach the tag from this video, which HOLODEX-614 made a removal; see below.)
+  - *Removing a tag sticks (P0-8b, HOLODEX-614)*: `TestGenreWritebackValues_DetachedTagNotWritten` — a removed
+    tag stays out of the write set while the provider supplies it by name or alias, a re-enrich does not attach it
+    again, and adding it back by an alias returns it. It failed with `[sci-fi action Drama]` and both tags
+    re-attached before the fix. `TestDetachTagFromVideo_StaysOffOnRescan` — detach records one genres suppress, a
+    rescan of a file still carrying the tag leaves it off, and re-attaching clears the suppress.
   - *Frontend*: `AliasPanel` on `/tags/{id}` — live-QA'd on Cinémathèque against `backend-amv-9300`: add (stored
     lowercase), remove, visitor read-only chips with no controls, 375px with no horizontal overflow. No component
     harness exists for `web/` routes, so this is browser-driven only.

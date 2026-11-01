@@ -168,6 +168,46 @@ func TestDetachTagFromVideo(t *testing.T) {
 	}
 }
 
+// HOLODEX-614: a removed tag is suppressed in the video's genres, so a rescan of a
+// file that still carries it leaves it off the video; adding it back lifts that.
+func TestDetachTagFromVideo_StaysOffOnRescan(t *testing.T) {
+	r := newRepo(t)
+	ctx := context.Background()
+
+	vid, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", nil, []string{"Action", "Drama"}), nil)
+	if err != nil {
+		t.Fatalf("seed video: %v", err)
+	}
+	if err := r.DetachTagFromVideo(ctx, vid, tagIDByName(t, r, "Action")); err != nil {
+		t.Fatalf("detach: %v", err)
+	}
+	cur, err := r.CurationForEntity(ctx, model.EnrichEntityVideo, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cur) != 1 || cur[0].FieldKey != "genres" || cur[0].NormValue != "action" || cur[0].Action != repo.CurationSuppress {
+		t.Errorf("curation after detach = %+v, want one genres suppress of action", cur)
+	}
+
+	if _, err := r.UpsertVideo(ctx, sampleVideo("/m/a.mkv", "T", nil, []string{"Action", "Drama"}), nil); err != nil {
+		t.Fatalf("rescan: %v", err)
+	}
+	v, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Tags) != 1 || !strings.EqualFold(v.Tags[0].Name, "Drama") {
+		t.Errorf("video.Tags after rescan = %+v, want only Drama", v.Tags)
+	}
+
+	if _, err := r.AttachTagToVideo(ctx, vid, "Action"); err != nil {
+		t.Fatalf("re-attach: %v", err)
+	}
+	if cur, _ := r.CurationForEntity(ctx, model.EnrichEntityVideo, vid); len(cur) != 0 {
+		t.Errorf("curation after re-attach = %+v, want none", cur)
+	}
+}
+
 // TestAttachMaterializedTags covers P0-9 (F50, ADR-075 D4): batch attach in one
 // transaction, idempotency (re-running the same batch adds no rows), alias
 // canonicalization (an aliased value attaches the canonical tag, not a second tag

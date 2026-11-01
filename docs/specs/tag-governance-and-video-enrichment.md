@@ -229,6 +229,18 @@ This must be fixed as part of this spec (P0-1), not discovered after ship.
 
     Design:
     [media-tag-input-handoff.md](../design/media-tag-input-handoff.md).
+  - **P0-8b — Removing a tag sticks (amended 2026-11-01,
+    [HOLODEX-614](https://whoiskevinrich.atlassian.net/browse/HOLODEX-614)).** Removing a tag from a
+    video also removes it, by its name and every alias, from that video's genres. The next writeback
+    drops it from the file, so the writeback dialog lists it under "will drop". Neither a re-enrich nor
+    a rescan attaches it again, even while the file or a provider still carries it. Adding the tag back to the
+    video undoes the removal. The removed spellings appear in the genres row's removed values, where
+    the owner can restore them like any other removed genre.
+    - Given a video tagged "action" whose file Genre and provider both carry "Action", When the owner
+      removes the tag, Then the writeback dialog shows "action" as will drop and a re-enrich leaves the
+      tag off the video.
+    - Given the owner removed "sci-fi" (alias "science fiction"), When they add "science fiction" back,
+      Then "sci-fi" is attached and in the write set again.
 - **P0-9 — Enrichment materialization pass (RD4/RD5).** When a video is (re-)enriched, each value in the
   resolved `genres` field is attached via `resolveOrCreateByName(..., model.EntityTag, value, "")` with
   `source='provider:<name>'`, silently skipping denied terms (no error surfaced — enrichment is unattended).
@@ -237,7 +249,8 @@ This must be fixed as part of this spec (P0-1), not discovered after ship.
     runs, Then the video gains tags "Action" and "blue" (not "azure").
 - **P0-10 — Genre writeback field (RD9).** The writeback field list includes `genres`, sourced from the union
   of the video's attached tags (ancestor-expanded, canonical names) and the existing raw resolved `genres`
-  union, **with the raw-union side deny-list-filtered before merging** — deduplicated. Uses the existing
+  union, **with the raw-union side deny-list-filtered before merging** — deduplicated. A tag the owner
+  removed from the video is gone from the raw side too (P0-8b), so it is never written back. Uses the existing
   `TagForField`/`ResolveForContainer` mapping unmodified.
   - Given a video is tagged "German Shepherd" (child of "Dog", child of "Animal"), When genre writeback is
     triggered, Then the file's `Genre` tag receives "Animal", "Dog", "German Shepherd" (plus any raw-union

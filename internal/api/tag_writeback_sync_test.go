@@ -116,10 +116,13 @@ func seedGenreVideo(t *testing.T, r *repo.Repo, path, title string, tags ...stri
 	return vid
 }
 
+// waitQueueDrained polls until no write job is pending or running. The deadline is
+// well past the worker's 3s poll fallback (writequeue.New), so one slow claim under a
+// loaded full-suite run can't use up the whole wait; a drained queue returns at once.
 func waitQueueDrained(t *testing.T, r *repo.Repo) {
 	t.Helper()
 	ctx := context.Background()
-	deadline := time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	for {
 		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
 			return
