@@ -63,10 +63,11 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Spike spec Q1 on one MKV and one MP4, each >10 min: does frame comparison tell ±1 frame apart near both ends? — `docs/specs/video-trimming.md`
-2. [ ] [architecture] `/architecture`: full re-encode vs smart cut, frame verification, edition clone — `docs/architecture/file-maintenance.md`
-3. [ ] [design] `/design-handoff`: trim picker (in/out handles on F84) and edition confirm step — `docs/design/`
-4. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
+1. [ ] [architecture] Re-run the Q1 spike's MKV browser captures with the Browser pane visible (hidden pane gave mid-decode frames); results so far on HOLODEX-613 — `docs/specs/video-trimming.md`
+2. [ ] [spec] Rewrite R6 from the spike: verify against ffmpeg's own frame, cut half a frame early, browser check only on distinct frames — `docs/specs/video-trimming.md`
+3. [ ] [architecture] `/architecture`: full re-encode vs smart cut, frame verification, edition clone — `docs/architecture/file-maintenance.md`
+4. [ ] [design] `/design-handoff`: trim picker (in/out handles on F84) and edition confirm step — `docs/design/`
+5. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -80,7 +81,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 
 ### 2026-11-01 · session
 - skills: product-management:brainstorm, write-spec, handoff
-- handoff: Spec F88 is drafted (frame-accurate background trim, replace or save as edition, history starts fresh, drift corrected once then fails); design phase, so no PR yet. Start with the Q1 frame-comparison spike on one MKV and one MP4, each over ten minutes, then /architecture.
+- handoff: Q1 spike ran silently on an 84-min MP4 and a 92-min MKV (results on HOLODEX-613): cut half a frame early, verify against ffmpeg's own frame; MP4 shows no browser/ffmpeg drift, MKV browser side needs a re-run with the Browser pane visible. Next: that re-run, then the R6 rewrite.
 
 ## Dropped — newest first (the reason is the point)
 
