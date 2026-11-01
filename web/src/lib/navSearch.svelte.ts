@@ -1,7 +1,9 @@
 // Nav search box live-query state (NS1, HOLODEX-249): debounced fetch against the
 // existing GET /search aggregation endpoint, shared by the nav dropdown's
 // SearchResultsPanel instance. A singleton — there is exactly one nav search box.
+import { tick } from 'svelte';
 import { api } from './api';
+import { isQueryMode } from './query';
 import { toMessage } from './format';
 import type { SearchResponse } from './types';
 
@@ -69,7 +71,8 @@ class NavSearch {
 	setQuery(q: string) {
 		this.query = q;
 		const term = q.trim();
-		if (!term || this.inPlace) {
+		// An F87 query (query mode) is parsed and run by browse, not previewed by /search.
+		if (!term || this.inPlace || isQueryMode(q)) {
 			this.discardPending();
 			return;
 		}
@@ -88,7 +91,7 @@ class NavSearch {
 		this.inPlace = active;
 		if (active) {
 			this.discardPending();
-		} else if (this.query.trim()) {
+		} else if (this.query.trim() && !isQueryMode(this.query)) {
 			clearTimeout(this.timer);
 			this.run(this.query.trim());
 		}
@@ -119,6 +122,16 @@ class NavSearch {
 		} finally {
 			if (id === this.reqId) this.loading = false;
 		}
+	}
+
+	// Edit as text (F87): puts a query in the box, focused with the caret at the end, so
+	// the box opens in query mode on it.
+	async editQuery(text: string) {
+		this.setQuery(text);
+		await tick();
+		const el = document.getElementById('global-search-input') as HTMLInputElement | null;
+		el?.focus();
+		el?.setSelectionRange(text.length, text.length);
 	}
 
 	// Full reset — the × control and a submitted/picked search both return to a clean

@@ -22,6 +22,9 @@
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
 	import FilterChip from '#lib/components/sort/FilterChip.svelte';
+	import QueryChipGroup from '#lib/components/sort/QueryChipGroup.svelte';
+	import AdvancedQueryRow from '#lib/components/sort/AdvancedQueryRow.svelte';
+	import { exprWithout, isQueryMode, printNames, toChips, type QueryParseResult } from '#lib/query.ts';
 	import RecentlyAddedShelf from '#lib/components/video/RecentlyAddedShelf.svelte';
 	import MappedFacets from '#lib/components/curation/MappedFacets.svelte';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
@@ -64,7 +67,8 @@
 	// tab matches this page's own scope (+layout.svelte owns that match, keyed off
 	// the URL) — otherwise the box is previewing another type via the overlay panel
 	// and this grid stays unfiltered rather than fighting it.
-	const q = $derived(navSearch.inPlace ? navSearch.query : '');
+	// An F87 query in the box (query mode) is not a title search: it runs as ?expr= on Enter.
+	const q = $derived(navSearch.inPlace && !isQueryMode(navSearch.query) ? navSearch.query : '');
 	// The nav box owns the text; mirror it into the list query so the URL carries it. Only
 	// while the box is in place: otherwise `q` is '' by definition, and mirroring that would
 	// strip a deep link's ?q= before the layout marks the search in-place.
@@ -152,6 +156,40 @@
 			remove: () => setQuery(l.clear)
 		}))
 	);
+	// ---- F87 query chips (query-language-handoff.md): drawn from the server's parse of
+	// ?expr=, never from the text. The previous chips stay until the new parse returns.
+	const expr = $derived(query.expr);
+	let parsed = $state<QueryParseResult | null>(null);
+	let parseSeq = 0;
+	$effect(() => {
+		const e = expr;
+		const seq = ++parseSeq;
+		if (!e) {
+			parsed = null;
+			return;
+		}
+		api
+			.parseQuery(e)
+			.then((r) => {
+				if (seq === parseSeq) parsed = r;
+			})
+			.catch((err) => {
+				if (seq === parseSeq) parsed = { ok: false, error: { code: 'error', message: toMessage(err), start: 0, end: 0 } };
+			});
+	});
+	const queryChips = $derived(parsed?.ok ? toChips(parsed.tree) : null);
+	// A refused query (an owner-only part in a shared link, a stale name, past a cap) runs
+	// nothing: this notice replaces the grid, with no partial results.
+	const refused = $derived(expr && parsed && !parsed.ok ? parsed.error : null);
+	const queryChipCount = $derived(queryChips ? (queryChips.kind === 'advanced' ? 1 : queryChips.items.length) : 0);
+	function removeQueryPart(path: number[]) {
+		if (parsed?.ok) setQuery({ expr: exprWithout(parsed.tree, path) || undefined });
+	}
+	// Edit as text / Edit query: the query with current names, in the nav box in query mode.
+	function editQueryText() {
+		void navSearch.editQuery(parsed?.ok ? printNames(parsed.tree) : (expr ?? ''));
+	}
+
 	// The Filters button counts what its panel holds — not entity scope, which has no field.
 	const filterCount = $derived(activeChips.filter((c) => c.kind === 'filter').length);
 
@@ -352,7 +390,7 @@
 	<ListToolbar
 		reroll={sortBy === 'random' ? rerollMedia : undefined}
 		{actions}
-		chipCount={activeChips.length}
+		chipCount={activeChips.length + queryChipCount}
 		onclear={clearAll}
 	>
 		{#snippet sort()}
@@ -410,9 +448,37 @@
 			{/if}
 		{/snippet}
 		{#snippet chips()}
-			{#each activeChips as c (c.id)}
+			<!-- Scope chips, then the query's, then the toolbar facets' (handoff "Layout"). -->
+			{#each activeChips.filter((c) => c.kind === 'scope') as c (c.id)}
 				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
 			{/each}
+			{#if queryChips?.kind === 'advanced'}
+				<AdvancedQueryRow text={queryChips.text} onedit={editQueryText} />
+			{:else if queryChips}
+				{#each queryChips.items as item (item.kind === 'chip' ? item.chip.path.join('.') : `g${item.path.join('.')}`)}
+					{#if item.kind === 'chip'}
+						<FilterChip
+							label={item.chip.label}
+							negated={item.chip.negated}
+							onremove={() => removeQueryPart(item.chip.path)}
+						/>
+					{:else}
+						<QueryChipGroup
+							members={item.members}
+							onremove={() => removeQueryPart(item.path)}
+							onremovemember={removeQueryPart}
+						/>
+					{/if}
+				{/each}
+			{/if}
+			{#each activeChips.filter((c) => c.kind !== 'scope') as c (c.id)}
+				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
+			{/each}
+		{/snippet}
+		{#snippet chipsEnd()}
+			{#if queryChips?.kind === 'chips'}
+				<button type="button" onclick={editQueryText} class="btn-quiet shrink-0 text-xs underline">Edit as text</button>
+			{/if}
 		{/snippet}
 	</ListToolbar>
 
@@ -424,7 +490,15 @@
 		<RecentlyAddedShelf videos={recent} />
 	{/if}
 
-	{#if videos.error}
+	{#if refused}
+		<div
+			class="flex flex-wrap items-center gap-3 rounded-theme border border-warn bg-surface px-3 py-2 text-sm text-ink"
+			role="alert"
+		>
+			<span>{refused.message}</span>
+			<button type="button" onclick={editQueryText} class="btn-ghost px-3 py-1.5 text-sm">Edit query</button>
+		</div>
+	{:else if videos.error}
 		<p class="rounded-theme border border-accent bg-surface px-3 py-2 text-sm text-ink">{videos.error}</p>
 	{:else}
 		<!-- Count line (F75 handoff §1): replaces the toolbar's count, so there is one. The
@@ -446,8 +520,15 @@
 			/>
 		{/if}
 		{#if total === 0 && !loading}
-			<p class="py-16 text-center text-sm text-muted">{hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'}</p>
-			{#if hasFilters}
+			{#if expr}
+				<p class="py-16 text-center text-sm text-muted">No videos match this query.</p>
+				<div class="flex justify-center">
+					<button type="button" onclick={editQueryText} class="btn-ghost px-3 py-1.5 text-sm">Edit query</button>
+				</div>
+			{:else}
+				<p class="py-16 text-center text-sm text-muted">{hasFilters ? 'No videos match these filters.' : 'No videos indexed yet.'}</p>
+			{/if}
+			{#if hasFilters && !expr}
 				<div class="flex justify-center">
 					<button type="button" onclick={clearAll} class="btn-ghost px-3 py-1.5 text-sm">Clear filters</button>
 				</div>

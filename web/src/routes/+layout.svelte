@@ -9,6 +9,9 @@
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import ActivityIndicator from '#lib/components/activity/ActivityIndicator.svelte';
 	import SearchResultsPanel from '#lib/components/entity/SearchResultsPanel.svelte';
+	import QuerySuggestPanel from '#lib/components/entity/QuerySuggestPanel.svelte';
+	import { isQueryMode } from '#lib/query.ts';
+	import { queryAssist } from '#lib/queryAssist.svelte.ts';
 	import HotkeySheet from '#lib/components/shared/HotkeySheet.svelte';
 	import { guardKeydown, fire, hotkeys, SHEET_KEY } from '#lib/actions/hotkey.svelte.ts';
 	import { silenceMediaInDev } from '#lib/devSilence.ts';
@@ -32,6 +35,43 @@
 	const hasQuery = $derived(navSearch.query.trim() !== '');
 	const showHistory = $derived(boxOpen && !hasQuery && searchHistory.items.length > 0);
 	const showPanel = $derived(boxOpen && hasQuery);
+	// F87 query mode (query-language-handoff.md): a field condition, an operator or a
+	// parenthesis in the box makes it a video query — suggestions in place of the tabs,
+	// and Enter opens browse with it.
+	const queryMode = $derived(isQueryMode(navSearch.query));
+	const queryError = $derived(queryMode ? queryAssist.errorFor(navSearch.query) : null);
+	let queryAnnounce = $state('');
+	$effect(() => {
+		queryAnnounce = queryMode ? 'Query mode' : '';
+		if (!queryMode) queryAssist.reset();
+	});
+	function assistUpdate() {
+		if (queryMode && searchInput) {
+			queryAssist.update(navSearch.query, searchInput.selectionStart ?? navSearch.query.length, activity.effectiveOwner);
+		}
+	}
+	function applySuggestion(i: number) {
+		const next = queryAssist.accept(navSearch.query, i);
+		if (!next) return false;
+		navSearch.setQuery(next.text);
+		requestAnimationFrame(() => {
+			searchInput?.setSelectionRange(next.caret, next.caret);
+			assistUpdate();
+		});
+		return true;
+	}
+	// Enter in query mode: parse now; a valid query opens browse with its canonical form,
+	// an invalid one runs nothing and keeps its error showing.
+	async function runQuery(text: string) {
+		const r = await queryAssist.parseNow(text);
+		if (!r.ok) {
+			boxOpen = true;
+			return;
+		}
+		searchHistory.record(text.trim());
+		closeBox();
+		goto(`/?expr=${encodeURIComponent(r.canonical)}`);
+	}
 
 	// NS2: the current page's own scope (null on pages with no single-entity list,
 	// e.g. /search or a detail page). In-place is active when the box's selected tab
@@ -126,6 +166,10 @@
 	function runSearch(term: string) {
 		const q = term.trim();
 		if (!q) return;
+		if (isQueryMode(q)) {
+			void runQuery(q);
+			return;
+		}
 		searchHistory.record(q);
 		closeBox();
 		goto(`/search?q=${encodeURIComponent(q)}`);
@@ -141,11 +185,13 @@
 	function openBox() {
 		activeIdx = -1;
 		boxOpen = true;
+		assistUpdate(); // Edit as text lands focused in query mode with no keystroke
 	}
 
 	function onSearchInput(e: Event) {
 		navSearch.setQuery((e.currentTarget as HTMLInputElement).value);
 		activeIdx = -1;
+		assistUpdate();
 		// Typing always means "show me results" — reopens the box if a prior Escape
 		// left it closed while focus stayed in the input (NS5: Escape doesn't clear
 		// the query, so the very next keystroke should resume live filtering).
@@ -175,6 +221,19 @@
 	}
 
 	function onInputKeydown(e: KeyboardEvent) {
+		// Query mode keeps focus in the input (aria-activedescendant): ↑/↓ move the
+		// highlight, Tab inserts the highlighted (or first) suggestion.
+		if (queryMode && boxOpen && queryAssist.suggestions.length) {
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				queryAssist.move(e.key === 'ArrowDown' ? 1 : -1);
+				return;
+			}
+			if (e.key === 'Tab' && !e.shiftKey && applySuggestion(queryAssist.highlight)) {
+				e.preventDefault();
+				return;
+			}
+		}
 		if (showHistory && e.key === 'ArrowDown' && searchHistory.items.length) {
 			e.preventDefault();
 			activeIdx = 0;
@@ -242,10 +301,27 @@
 				onfocus={openBox}
 				onclick={openBox}
 				onkeydown={onInputKeydown}
+				onkeyup={(e) => (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End') && assistUpdate()}
 				aria-label="Search everything"
 				placeholder="Search everything…  (Ctrl-K)"
-				class="w-full rounded-theme border border-rule bg-surface px-3 py-1.5 pr-7 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+				role={queryMode ? 'combobox' : undefined}
+				aria-autocomplete={queryMode ? 'list' : undefined}
+				aria-expanded={queryMode ? showPanel : undefined}
+				aria-controls={queryMode ? 'query-suggestions' : undefined}
+				aria-activedescendant={queryMode && queryAssist.highlight >= 0 ? `query-suggestions-${queryAssist.highlight}` : undefined}
+				aria-describedby={queryError ? 'query-error' : undefined}
+				class="w-full rounded-theme border bg-surface px-3 py-1.5 text-ink outline-none placeholder:text-muted {queryMode
+					? 'pr-[4.5rem] font-mono text-[13px]'
+					: 'pr-7 text-sm'} {queryError ? 'border-warn' : 'border-rule focus:border-accent'}"
 			/>
+			{#if queryMode}
+				<span
+					aria-hidden="true"
+					class="pointer-events-none absolute right-7 top-1/2 -translate-y-1/2 rounded-theme border border-accent px-1 text-xs leading-4 text-accent"
+					>query</span
+				>
+			{/if}
+			<span class="sr-only" aria-live="polite">{queryAnnounce}</span>
 			{#if hasQuery}
 				<button
 					type="button"
@@ -314,6 +390,22 @@
 					</button>
 				</li>
 			</ul>
+		{:else if showPanel && queryMode}
+			<QuerySuggestPanel
+				text={navSearch.query}
+				error={queryError}
+				suggestions={queryAssist.suggestions}
+				highlight={queryAssist.highlight}
+				heading={queryAssist.heading}
+				listId="query-suggestions"
+				errorId="query-error"
+				isOwner={activity.effectiveOwner}
+				onpick={(i) => {
+					applySuggestion(i);
+					searchInput?.focus();
+				}}
+				onhover={(i) => (queryAssist.highlight = i)}
+			/>
 		{:else if showPanel}
 			<SearchResultsPanel
 				results={navSearch.results}

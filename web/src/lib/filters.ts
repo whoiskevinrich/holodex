@@ -35,6 +35,7 @@ export const SORT_ORDERS: readonly SortOrder[] = MEDIA_SORTS.map((s) => s.value)
 export function filtersToParams(f: MediaFilters, paging = true): URLSearchParams {
 	const p = new URLSearchParams();
 	if (f.q) p.set('q', f.q);
+	if (f.expr) p.set('expr', f.expr); // an F87 query, canonical (query.ts)
 	for (const id of f.person ?? []) p.append('person', String(id));
 	for (const id of f.tag ?? []) p.append('tag', String(id));
 	for (const id of f.studio_id ?? []) p.append('studio_id', String(id));
@@ -79,6 +80,7 @@ export function paramsToFilters(p: URLSearchParams): MediaFilters {
 	const num = (k: string) => (p.get(k) ? Number(p.get(k)) : undefined);
 	return {
 		q: p.get('q') || undefined,
+		expr: p.get('expr') || undefined,
 		resolution: (p.get('resolution') as Resolution) || 'All',
 		duration_min: num('duration_min'),
 		duration_max: num('duration_max'),

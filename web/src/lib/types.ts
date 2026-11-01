@@ -1426,6 +1426,9 @@ export interface CompletenessFacetGroup {
 
 export interface MediaFilters {
 	q?: string;
+	// An F87 query (docs/specs/query-language.md) in its canonical form, ANDed with
+	// the keys below; parsed only on the server (query.ts).
+	expr?: string;
 	person?: number[];
 	tag?: number[];
 	// Studio-entity filter (F38, HOLODEX-120): repeatable ?studio_id, filtering by the

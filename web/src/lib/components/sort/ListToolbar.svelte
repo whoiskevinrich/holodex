@@ -18,6 +18,7 @@
 		chips,
 		chipCount = 0,
 		onclear,
+		chipsEnd,
 		count,
 		mode
 	}: {
@@ -36,6 +37,8 @@
 		chipCount?: number;
 		/** Clears every filter and scope; offered once two or more chips are showing. */
 		onclear?: () => void;
+		/** After Clear in the chips row: the F87 query's `Edit as text`. */
+		chipsEnd?: Snippet;
 		/** The count line ("38 videos", plus owner status links); announced politely. */
 		count?: Snippet;
 		/**
@@ -78,6 +81,7 @@
 			{#if onclear && chipCount >= 2}
 				<button type="button" class="btn-quiet shrink-0 text-xs" onclick={onclear}>Clear</button>
 			{/if}
+			{@render chipsEnd?.()}
 		</div>
 	{/if}
 

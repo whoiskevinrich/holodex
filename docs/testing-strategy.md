@@ -5997,12 +5997,12 @@ Risks, ranked by how quietly they would fail:
 
 | # | File | Case | Proves |
 |---|---|---|---|
-| W1 | chip model (`queryChips.test.ts`, the pure tree → chips function) | A plain AND → plain chips; query 1 → one group of `[AND(science-fiction, fantasy), action]` + NOT `comedy` + `Harrison Ford`; a tree with a second OR level → the Advanced row only, never a partial chip set. | P0-6 (risk 6) |
+| W1 | chip model (`web/src/lib/query.test.ts`, the pure tree → chips function; markup in `sort/queryChips.test.ts`) | A plain AND → plain chips; query 1 → one group of `[AND(science-fiction, fantasy), action]` + NOT `comedy` + `Harrison Ford`; a tree with a second OR level → the Advanced row only, never a partial chip set. | P0-6 (risk 6) |
 | W2 | chip model | Removing `fantasy` leaves `science-fiction` with no parentheses; removing a second member turns the group into a plain chip; the group `×` removes the whole group; each removal yields the expected `expr`. | P0-6 |
-| W3 | error echo | Slices before / bad / after at the response's offsets into three text nodes, including a query with `é` and a quoted name before the bad part; the DOM has no HTML from the query (no `{@html}`). | P0-7, perimeter |
-| W4 | query-mode lexer | `harrison` stays plain search; `tag:`, `-x`, `OR`, `(` switch to query mode; the field under the caret is reported for `tag:sci`, `person:"Harrison F` and after a closing quote. | P0-4, P0-5 |
-| W5 | nav search component | Query mode: tabs hidden, `role="combobox"` with `aria-activedescendant`; ↑/↓ move the highlight without moving focus; Tab inserts a quoted value; Enter with an error does nothing; visitors are never offered `matched`. | P0-4, P0-5, P0-7 |
-| W6 | browse page | Empty result under an `expr` shows `No videos match this query.` and `Edit query`; a refused shared link shows the warn notice and no grid; `Edit as text` fills the nav box in query mode. | P0-6, P0-7, P0-8 |
+| W3 | error echo (`query.test.ts` slicing; `entity/QuerySuggestPanel.svelte.test.ts` DOM) | Slices before / bad / after at the response's offsets into three text nodes, including a query with `é` and a quoted name before the bad part; the DOM has no HTML from the query (no `{@html}`). | P0-7, perimeter |
+| W4 | query-mode lexer (`query.test.ts`) | `harrison` stays plain search; `tag:`, `-x`, `OR`, `(` switch to query mode; the field under the caret is reported for `tag:sci`, `person:"Harrison F` and after a closing quote. | P0-4, P0-5 |
+| W5 | nav search query mode | `QuerySuggestPanel.svelte.test.ts`: options are unfocusable with the highlight `aria-selected` (the combobox keeps focus); the owner-only example is the owner's only. `query.test.ts`: `fieldsFor(false)` never offers `matched`; a suggestion inserts with a trailing space. The live box (`role="combobox"`, ↑/↓, Tab, Enter with an error does nothing) is checked in QA items 1 to 3; the root layout has no component harness. | P0-4, P0-5, P0-7 |
+| W6 | browse page | Empty result under an `expr` shows `No videos match this query.` and `Edit query`; a refused shared link shows the warn notice and no grid; `Edit as text` fills the nav box in query mode. Live QA plus the `query-back` harness scenario; the browse route has no component harness (§16). | P0-6, P0-7, P0-8 |
 
 ### 38.4 Nav harness and QA
 

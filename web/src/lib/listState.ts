@@ -204,7 +204,7 @@ export const tagsSchema: ListSchema<PeopleTagSort, { type: TagType }> = {
 // strip a facet from the URL on the first sync. `missing_facet` is retired from list
 // pages (F73 R6): a stale one in a bookmark is dropped, not left filtering with no chip.
 const MEDIA_OWN_PARAMS = new Set([
-	'q', 'person', 'tag', 'studio_id', 'category_id', 'duration_min', 'duration_max',
+	'q', 'expr', 'person', 'tag', 'studio_id', 'category_id', 'duration_min', 'duration_max',
 	'resolution', 'year_min', 'year_max', 'sort', 'missing_facet', 'limit', 'offset', 'seed'
 ]);
 export type MediaQuery = Omit<MediaFilters, 'sort' | 'limit' | 'offset' | 'seed' | 'missing_facet'>;
