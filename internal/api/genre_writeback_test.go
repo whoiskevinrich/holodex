@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -193,27 +194,27 @@ func TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag(t *testing.T) {
 	}
 }
 
-// F43 P0-10 (HOLODEX-509): an alias of a tag the video does NOT carry — here, one the
-// owner detached while the provider still supplies it — is still written canonically.
+// F43 P0-10 (HOLODEX-509): an alias of a tag the video does NOT carry — here, one only
+// another video carries, while the provider still supplies it — is still written canonically.
 func TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically(t *testing.T) {
 	h, _, r, vid, _ := genreWritebackServer(t)
 	ctx := context.Background()
-	tag, err := r.AttachTagToVideo(ctx, vid, "sci-fi")
+	other, err := r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/b.mkv", FileSize: 1, Title: "B", Container: "Matroska",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tag, err := r.AttachTagToVideo(ctx, other, "sci-fi")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := r.AddEntityAlias(ctx, model.EntityTag, tag.ID, "science fiction"); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.DetachTagFromVideo(ctx, vid, tag.ID); err != nil {
-		t.Fatal(err)
-	}
 	// A case variant of an unattached tag's own name is written in the tag's spelling too.
-	drama, err := r.AttachTagToVideo(ctx, vid, "drama")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := r.DetachTagFromVideo(ctx, vid, drama.ID); err != nil {
+	if _, err := r.AttachTagToVideo(ctx, other, "drama"); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
@@ -227,6 +228,67 @@ func TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically(t *testing.
 	}
 	if len(values) != 2 || values[0] != "sci-fi" || values[1] != "drama" {
 		t.Errorf("values = %v, want [sci-fi drama] — a value naming a tag is written as its name, attached or not", values)
+	}
+}
+
+// F50 P0-8 (HOLODEX-614): a tag the owner removed from the video leaves the write set
+// even while the raw genres side still supplies it — by its name or an alias — and a
+// re-enrich does not attach it again. Adding it back puts it in the write set again.
+func TestGenreWritebackValues_DetachedTagNotWritten(t *testing.T) {
+	h, _, r, vid, _ := genreWritebackServer(t)
+	ctx := context.Background()
+	scifi, err := r.AttachTagToVideo(ctx, vid, "sci-fi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.AddEntityAlias(ctx, model.EntityTag, scifi.ID, "science fiction"); err != nil {
+		t.Fatal(err)
+	}
+	action, err := r.AttachTagToVideo(ctx, vid, "Action")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, vid, "tmdb", "ext-1", map[string][]string{
+		"genres": {"Science Fiction", "Action", "Drama"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{scifi.ID, action.ID} {
+		if err := r.DetachTagFromVideo(ctx, vid, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	values, err := h.GenreWritebackValues(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 1 || values[0] != "Drama" {
+		t.Errorf("values = %v, want [Drama] — a removed tag must not come back via the raw side", values)
+	}
+
+	if err := h.MaterializeVideoTags(ctx, vid); err != nil {
+		t.Fatal(err)
+	}
+	v, _, err := r.GetVideo(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tg := range v.Tags {
+		if tg.ID == scifi.ID || tg.ID == action.ID {
+			t.Errorf("re-enrich attached removed tag %q again", tg.Name)
+		}
+	}
+
+	if _, err := r.AttachTagToVideo(ctx, vid, "science fiction"); err != nil {
+		t.Fatal(err)
+	}
+	values, err = h.GenreWritebackValues(ctx, vid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(values, "sci-fi") || slices.Contains(values, "Action") {
+		t.Errorf("values = %v, want sci-fi back (re-added) and Action still removed", values)
 	}
 }
 
