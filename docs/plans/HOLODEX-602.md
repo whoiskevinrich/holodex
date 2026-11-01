@@ -50,7 +50,7 @@ file ever being overwritten.
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [x] testing `testing-strategy`
-- [ ] security `security-review`
+- [/] security `security-review`. The design review (2026-10-31, `c25e21e4`) found no hole in the designed perimeter's intent, but nine gaps in how it was written. Each is closed in the doc that owns it: the template text and the whole name now face the character checks; the Windows reserved set is complete and judged before the first dot; invisible and invalid characters are removed or refused; the Linux root check is bound to a folder descriptor; the fallback `Lstat`s the target; the via name is built from the id; identity read-back is bounded; name state and job errors stay owner-only; and the apply body is capped. The tests are F7, F8, A8, A9 and §38.11. Held at `[/]`, as HOLODEX-58 and HOLODEX-493 did: the gate settles only on the implementation review of the backend diff.
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -67,12 +67,12 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [security] `/security-review` of metadata-derived names touching the filesystem — `docs/architecture/security-perimeter.md`
-2. [ ] [—] Owner: re-pin the design sign-off `at:` (only other features' design docs changed since e4aeee37) — `docs/plans/HOLODEX-602.md`
-3. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-4. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-5. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
-6. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
+1. [ ] [—] Owner: re-pin the design sign-off `at:` (only other features' design docs changed since e4aeee37) — `docs/plans/HOLODEX-602.md`
+2. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+3. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+4. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
+5. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
+6. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,6 +83,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-10-31 · security review (design)
+- skills: code-review, handoff
+- handoff: The design-time security review is done (`c25e21e4`). Nine perimeter gaps are fixed in the arch, spec and testing docs, and §38.11 records them. The gate stays `[/]` until the implementation review of the backend diff (Up next 6), so `needs-security-review` stays on the ticket. The design sign-off still needs the owner's yes to re-pin `at:`; no file-rename design file changed since e4aeee37. Next is the backend: Plan, then Manual.
 
 ### 2026-10-31 · testing strategy
 - skills: testing-strategy, code-review, handoff
