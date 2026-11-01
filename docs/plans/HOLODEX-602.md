@@ -22,8 +22,8 @@ release_note: The owner can have Holodex rename media files from an ordered list
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 approved:
   design:
-    on: 2026-10-31
-    at: e4aeee37
+    on: 2026-11-01
+    at: 84362775
 ---
 
 # HOLODEX-602 · Rename media files from a template (F86)
@@ -67,12 +67,11 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [—] Owner: re-pin the design sign-off `at:` (only other features' design docs changed since e4aeee37) — `docs/plans/HOLODEX-602.md`
-2. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-3. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
-4. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
-5. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
-6. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
+1. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+2. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
+3. [ ] [backend] Build Plan then Manual modes first, landing tests per `docs/testing-strategy.md` §38.8 — `internal/`
+4. [ ] [frontend] Plan, drift queue, lock, undo and template editor per the handoff — `web/src/`
+5. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,6 +82,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-01 · session
+- skills: code-review, handoff
+- handoff: The collision disambiguator is now ` {hx-<id>}` (braces, matching the marker grammar) across spec, arch, design and testing (`84362775`), and the whole-name check says braces are the builder's own; the owner re-confirmed the design at 84362775. Next is the backend: Plan, then Manual.
 
 ### 2026-10-31 · security review (design)
 - skills: code-review, handoff
