@@ -38,8 +38,10 @@ import (
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
 	"holodex/internal/refresh"
+	"holodex/internal/rename"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
+	"holodex/internal/settings"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
@@ -333,6 +335,12 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetMontages(montages, cfg.MontagePath)
 	handlers.SetEnrichment(enrichSvc)
+	// Owner-settable settings (config-and-settings.md); the rename keys are the first (F86).
+	settingsStore := settings.New(repository, rename.SettingKeys(handlers.RenameProviders)...)
+	if err := settingsStore.Load(ctx); err != nil {
+		log.Warn("settings: stored values not loaded; defaults apply", "err", err)
+	}
+	handlers.SetSettings(settingsStore)
 	sweep := enrich.NewSweepRunner(enrichSvc, repository, log)
 	sweep.SetBaseContext(ctx)
 	handlers.SetSweep(sweep)

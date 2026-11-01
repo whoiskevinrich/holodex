@@ -181,6 +181,10 @@ func TestFoldMovedVideoCarriesWorkAndKeepsOlderIdentity(t *testing.T) {
 	mustExec(t, database, `INSERT INTO writeback_queue (video_id, payload, status, enqueued_at, updated_at) VALUES (?, '{}', 'done', 'x', 'x')`, n)
 	mustExec(t, database, `INSERT INTO job_runs (kind, trigger, status, started_at, finished_at, entity_type, entity_id)
 		VALUES ('refresh', 'manual', 'ok', 'x', 'x', 'video', ?)`, n)
+	// F86 R16: the rename journal moves to older; newer's name state replaces older's.
+	mustExec(t, database, `INSERT INTO file_renames (video_id, old_name, new_name, trigger, state, created_at)
+		VALUES (?, 'a.mp4', 'old.mp4', 'manual', 'done', 'x'), (?, 'b.mp4', 'new.mp4', 'manual', 'done', 'y')`, o, n)
+	mustExec(t, database, `INSERT INTO video_file_names (video_id, locked, lock_source) VALUES (?, 1, 'owner'), (?, 0, '')`, o, n)
 	mustExec(t, database, `INSERT INTO tags (name) VALUES ('manualtag')`)
 	mustExec(t, database, `INSERT INTO video_tags (video_id, tag_id, source) SELECT ?, id, 'manual' FROM tags WHERE name = 'manualtag'`, n)
 
@@ -200,6 +204,12 @@ func TestFoldMovedVideoCarriesWorkAndKeepsOlderIdentity(t *testing.T) {
 	}
 	if got := scalar[int](t, database, `SELECT count(*) FROM videos WHERE id = ?`, n); got != 0 {
 		t.Error("newer row still exists")
+	}
+	if got := scalar[int](t, database, `SELECT count(*) FROM file_renames WHERE video_id = ?`, o); got != 2 {
+		t.Errorf("survivor rename rows = %d, want both sides'", got)
+	}
+	if scalar[bool](t, database, `SELECT locked FROM video_file_names WHERE video_id = ?`, o) {
+		t.Error("older's name state survived; newer's should replace it")
 	}
 
 	// Edits.
