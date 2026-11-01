@@ -5985,15 +5985,15 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | # | Case | Proves |
 |---|---|---|
 | N1 | First fitting template: with the four templates, a video with a studio takes template 1, one without takes template 4, one with a confirmed `provider-1` id and no studio takes template 3. A video with no title and no id fits none and says so. | P0-2 |
-| N2 | Saving refuses a template with no `{title}` and no identity token, a repeated token, and an unknown token, each with its own message. `{provider-9-id}` for an unconfigured provider is unknown. | P0-1 |
+| N2 | Saving refuses a template with no `{title}` and no identity token, a repeated token, and an unknown token, each with its own message. `{provider-9-id}` for an unconfigured provider is unknown. Template text outside its tokens holding `:`, `/`, `\` or a control character is refused; `[{studio}] {title}` is accepted. The builder checks the whole name again, so a template that bypassed saving still can't produce such a name. | P0-1, P0-4, P0-5 |
 | N3 | An identity token renders only from a **confirmed** match. An unconfirmed candidate id makes the template not fit. | P0-1 |
 | N4 | Read-back refusal, each template listed alone so it is the first that fits: `{title} - {studio}` with title `Ada - Redux` is refused, with the parsed title and studio in the reason. `[{studio}] {title}` with studio `Acme]` is refused. The video keeps its name and does **not** fall through to a later template. | P0-3 |
 | N5 | A name that an **earlier** template would read differently is refused, though its own template reads it back exactly. | P0-3 |
 | N6 | Round trip: for every fixture value that survives sanitising, render → parse with the same compiled pattern gives exactly the sanitised values written. Run as a table plus a `testing/quick` property over random strings drawn from the hostile alphabet. | P0-3, P0-4 |
 | N7 | Markers never refuse: a value with `{edition-x}` or `{part-2}` text loses its braces, so the identity, edition and part markers render and read back. | P0-3, P0-4 |
-| N8 | Sanitising: `< > : " / \ | ? *`, control characters and braces are removed; the whitespace run left behind is one space; the result is NFC. One subtest per character. | P0-4 |
+| N8 | Sanitising: `< > : " / \ | ? *`, control characters (C0, DEL, C1), zero-width and text-direction marks (U+200B, U+200E, U+202E, U+2066) and braces are removed; the whitespace run left behind is one space; the result is NFC. A value with invalid UTF-8 is refused. One subtest per character. | P0-4 |
 | N9 | A whole file name ending in a dot or a space is refused, never trimmed silently into a different read-back. The extension normally prevents it, so the case is a file with no extension. A stem ending in a dot before the extension (`Ada..mkv`) is valid on both OSes; the test pins whichever reading the builder takes (see 38.10). | P0-4 |
-| N10 | Reserved names refused with and without an extension and in any case: `CON`, `con`, `Con.mkv`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`. `CONSOLE` and `COM10` are allowed. | P0-4 |
+| N10 | Reserved names refused with and without an extension and in any case: `CON`, `con`, `Con.mkv`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, `CONIN$`, `CONOUT$`, `COM¹`–`COM³`, `LPT¹`–`LPT³`. The part before the first dot decides: `NUL.tar.mkv` and `CON .mkv` are refused. `CONSOLE` and `COM10` are allowed. | P0-4 |
 | N11 | Length counts **bytes**, extension and disambiguator included: 255 bytes passes, 256 is refused, a multibyte title that is 120 characters but 256 bytes is refused, and a name that fits plain but not with ` [hx-12345]` is refused when it needs the disambiguator. Never cut short. | P0-4, P0-6 |
 | N12 | Folder bound: `../etc`, `.`, `..`, a value of only removed characters (empty name) and a value with a separator never produce a name; every produced name passes `filepath.IsLocal`, `Base(name) == name` and `Dir(Join(dir, name)) == dir`. A property test asserts the last three over N6's random inputs. | P0-5 |
 | N13 | Collisions are planned case-folded in NFC: `ada lovelace.mkv` on disk collides with `Ada Lovelace.mkv`, and an NFD spelling collides with its NFC twin. | P0-4, P0-6 |
@@ -6002,7 +6002,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N16 | The extension never changes, including `.MKV` kept upper-case. | Concepts |
 | N17 | Parse-back order: with a rename record, the template that **wrote** the name parses first, ahead of the owner's patterns and the current list. With none, the owner's patterns parse exactly as today; a name none of them fits is tried against the templates. The ` [hx-<id>]` disambiguator is stripped first and never becomes a value. | P0-11 |
 | N18 | Echo suppression: a parsed value equal to the recorded `token_values` entry is not a filename value. A value that differs from the record is routed as F48 routes it, though it equals the **current** resolved value. A drifted name (resolved value changed, file not renamed) produces no filename value. | P0-11 |
-| N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. | P0-11 |
+| N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
 
 ### 38.3 Go unit: the no-overwrite primitive (`internal/rename`)
 
@@ -6011,9 +6011,11 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | F1 | Linux: a target that exists returns the existing-target error and both files are byte-identical afterwards. Skipped off Linux. | P0-6 |
 | F2 | Fallback: with the injected `renameat2` returning `EINVAL`, then `ENOSYS`, the listing check refuses an existing target compared case-folded and in NFC, and a free target is renamed. | P0-6 |
 | F3 | Windows (runs on the dev box): `MoveFileEx` refuses an existing target, and a case-only rename lands with the new case. | P0-4, P0-6 |
-| F4 | Case-only renames always take two steps through `<old>.holodex-rename`, on every primitive; the via name is journalled before the second step. | P0-4 |
+| F4 | Case-only renames always take two steps through `hx-<video id>.holodex-rename`, on every primitive; the via name is journalled before the second step. A 250-byte old name still gets a via name under 255 bytes. An NFD name whose desired name is its NFC twin also takes two steps. | P0-4 |
 | F5 | `Lstat`: a symlinked current file, a symlinked target and a symlinked via name are each refused, and nothing moves. | P0-5 |
 | F6 | Root bound: a video whose folder is a symlink resolving outside `MEDIA_PATH` is refused; one resolving inside is allowed. | P0-5 |
+| F7 | Fallback defers to the filesystem: with the injected `renameat2` returning `EINVAL` and a stubbed listing that misses the holder (a fold Go doesn't make, such as `ß`/`SS` on NTFS), a target that `Lstat` finds and that isn't the source is refused, and the holder is byte-identical. | P0-6 |
+| F8 | Folder swap (Linux): between the root check and the rename, a test hook replaces the folder with a symlink to a directory outside `MEDIA_PATH`. The rename lands in the original folder or fails, and nothing appears outside the library. Skipped off Linux. | P0-5 |
 
 ### 38.4 Repo and integration (real SQLite, real temp library; `make test` unless marked)
 
@@ -6051,11 +6053,13 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 |---|---|---|
 | A1 | Every rename, plan, drift, lock, undo, template and settings route refuses a visitor; a table walks the route list so a new route can't skip `requireOwner`. | P0-5, Users |
 | A2 | The apply request carries only video ids; a request carrying a path, folder or name is refused or ignored, and the folder always comes from `videos.file_path`. | P0-5 |
-| A3 | Templates: an invalid list is refused per row and nothing is written; a valid list is stored as one `settings` row. Mode and settle window are on the allowlist. | P0-1, P0-7 |
+| A3 | Templates: an invalid list is refused per row and nothing is written; a valid list is stored as one `settings` row. Mode and settle window are on the allowlist. Every route that can write the template key, including the generic settings write, refuses an invalid list. A settle window of 0 or 366 is refused by the server. | P0-1, P0-7 |
 | A4 | Mode gating: Off and Plan enqueue nothing and touch no file (assert the library tree unchanged byte for byte); Manual enqueues; On writeback and Job add their triggers and keep Manual. | P0-7 |
 | A5 | The plan's reasons, counts and `?reason=` filter (all, will rename, out of date, already named, no template, won't read back, clash, bad name, locked, held) are server totals over the whole library; paging doesn't change them. The out-of-date row carries each changed field's recorded and current value. | P0-12, P1-1 |
 | A6 | Preview with an unsaved template list computes the plan without saving it and enqueues nothing. | P0-7 |
 | A7 | Lock and unlock change only `video_file_names`; history lists names oldest to newest with their trigger. | P0-13, P1-2 |
+| A8 | Nothing leaks to a visitor: on a video whose rename failed with a path-bearing error, a visitor's `GET /media/{id}`, the `/media` list and the MCP `get_video` result carry no name state, history, old or new name, or job error. The System activity row holds counts only. Assert on the payload, not on a hidden badge. | P0-5, Users |
+| A9 | The apply body is bounded: an oversized body is refused before any row is enqueued. | P0-5 |
 
 ### 38.6 Frontend (`cd web && npm run test`)
 
@@ -6126,7 +6130,7 @@ On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinéma
 
 Tests land with the mode they guard, so each slice is green on its own:
 1. **Plan:** N1–N16, A1, A3, A5–A7, W1–W3, W5, W7; QA 1–4, 17, 20.
-2. **Manual:** N17–N19, F1–F6, R1–R13, R15–R22, R24–R25, A2, A4, W4, W6; QA 5–14, 18, 19.
+2. **Manual:** N17–N19, F1–F8, R1–R13, R15–R22, R24–R25, A2, A4, A8, A9, W4, W6; QA 5–14, 18, 19.
 3. **On writeback:** R23; QA 15. Blocked on the owner's open question (QA 21).
 4. **Job:** R14 and the sweep half of R24; QA 16.
 
@@ -6138,6 +6142,10 @@ Tests land with the mode they guard, so each slice is green on its own:
 - Count characters instead of bytes → N11.
 - Compare collisions case-sensitively → N13, F2.
 - Use `os.Rename` without the listing check in the fallback → F2.
+- Drop the fallback's `Lstat` of the target → F7.
+- Judge a reserved name on the whole stem instead of the part before the first dot → N10.
+- Sanitise only the values and skip the whole-name check → N2.
+- Attach the rename job's error to the visitor media payload → A8.
 - Write the `done` row before the filesystem rename → R4.
 - Use `RepointVideo` in step 3 (it writes `indexed_at`) → R2.
 - Drop the pending-row check from `DeactivateExcept` → R10.
@@ -6149,10 +6157,21 @@ Tests land with the mode they guard, so each slice is green on its own:
 
 - A real case-insensitive Linux mount (drvfs, CIFS) is exercised only by QA 9 and 19; CI runs the
   fallback through the injected `renameat2`.
-- The fallback's gap, an outside process creating the exact name between the listing and
-  `os.Rename`, is accepted by the architecture and not tested.
+- The fallback's gap, an outside process creating the exact name between the `Lstat` and the
+  rename, is accepted by the architecture and not tested.
 - How another media server treats a renamed file is the owner's check (QA 21), not a test.
 - Spec P0-4's "never ends in a dot or a space" doesn't say whether it means the whole name or
   the stem. N9 pins the builder's reading; if the stem is meant, that is a spec edit first.
 - Whether an undo can itself be undone is not stated by the spec (P0-14), so R15 leaves it open.
   Add a case once the build settles it.
+
+### 38.11 Security review
+
+**Design review (2026-10-31), before any code.** It added F7, F8, A8 and A9 and widened N2, N8,
+N10, N19 and A3. The mechanisms are in
+[security-perimeter.md](architecture/security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder)
+and [file-rename.md](architecture/file-rename.md). The rules the owner sees are in spec P0-1 and
+P0-4. Accepted: the fallback's outside-process gap (38.10); the path-based Windows development
+primitive; and the plan computed over the whole library on each request, which only the owner can
+trigger. The implementation review of the backend diff is still owed before the PR is marked
+ready.

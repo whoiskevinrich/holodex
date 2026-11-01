@@ -153,17 +153,23 @@ through a 9p/drvfs layer. The rename primitive is chosen per call:
 - **Linux:** `renameat2(…, RENAME_NOREPLACE)` through `golang.org/x/sys/unix`. On ext4, xfs and
   btrfs this is atomic and fails with `EEXIST` rather than overwrite.
 - **Mounts without it** (drvfs, many CIFS and NFS mounts) return `EINVAL` or `ENOSYS`. The rename
-  then re-reads the folder listing, compares every entry case-folded with the target, and calls
-  `os.Rename` immediately after. Holodex's own
-  jobs on a file are serialised by the queue, so only an outside process creating that exact name in
-  the gap could be overwritten.
+  then re-reads the folder listing and compares every entry case-folded with the target. It also
+  `Lstat`s the target itself and refuses if anything answers that isn't the source file
+  (`os.SameFile`). That lets the filesystem apply its own equivalence, which can be wider than
+  Go's case folding: NTFS's upcase table, or normalisation-insensitive lookups. It then renames
+  immediately after (`renameat` on the folder descriptor). Holodex's own jobs on a file are
+  serialised by the queue, so only an outside process creating that exact name in the gap could be
+  overwritten.
 - **Windows (development):** `MoveFileEx` without `MOVEFILE_REPLACE_EXISTING`, through
   `golang.org/x/sys/windows`.
 - **Case and composition.** Every collision check compares names in NFC (`golang.org/x/text`) and
   case-folded, on every mount, against both tracked videos and the folder listing.
-- **Case-only renames always take two steps**, `old` → `<old>.holodex-rename` → `new`, on every
-  mount. On a case-insensitive filesystem the direct rename is either a no-op or a self-collision.
-  `via_name` journals the half-done step.
+- **Case-only renames always take two steps**, `old` → `hx-<video id>.holodex-rename` → `new`, on
+  every mount. A rename whose old and new names are equal once both are NFC and case-folded counts
+  as case-only, so a change of composition alone takes two steps too. On a case- or
+  normalisation-insensitive filesystem the direct rename is either a no-op or a self-collision. `via_name` journals the half-done step. The via name is built from the id, not
+  from the old name, so it stays short when the old name is near 255 bytes, and it carries no
+  metadata. A swap's step-aside uses the same via name.
 
 **Rejected:** refusing renames on a mount without `RENAME_NOREPLACE`. That rules out Docker Desktop
 on Windows entirely.
@@ -182,7 +188,9 @@ the tokens and is verified by parsing the result. Because the read-back is the i
 regex, P0-3's refusal is a direct comparison, not a second implementation that could drift. Identity
 markers are lifted from the stem in the same pass as the edition and part markers, and go to the
 provider whose namespace they name as an identity hint
-([metadata-providers.md](metadata-providers.md)). The ` [hx-<id>]` disambiguator is stripped first.
+([metadata-providers.md](metadata-providers.md)), within the bound in
+[security-perimeter.md](security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder).
+The ` [hx-<id>]` disambiguator is stripped first.
 
 **Rejected:** rendering with the provider search-pattern renderer
 ([metadata-providers.md](metadata-providers.md)). Its optional-token grammar has no inverse, and

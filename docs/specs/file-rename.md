@@ -108,6 +108,9 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
   many unrelated videos the same.
 - A template that repeats a token, or names a token that doesn't exist, is refused when saved, as
   F48 refuses such a pattern.
+- A template's own text, outside its tokens, follows the character rules of P0-4: one that contains
+  a character P0-4 removes from values, such as `:` or `/`, is refused when saved, never cleaned
+  silently.
 - An identity token renders only from an id the video's provider match has confirmed. A video
   without one doesn't fit that template.
 
@@ -134,11 +137,14 @@ occurrence of that text.
 
 **P0-4. One name that is valid everywhere.** Holodex builds the strictest name that is valid on both
 Windows and Linux, on every platform:
-- The characters `< > : " / \ | ? *`, control characters and braces `{ }` are removed from each
-  value, and any run of whitespace this leaves becomes one space.
+- The characters `< > : " / \ | ? *`, control characters (including DEL and the C1 range),
+  invisible formatting characters (zero-width and text-direction marks) and braces `{ }` are removed
+  from each value, and any run of whitespace this leaves becomes one space.
 - A name never ends in a dot or a space, and is never a name Windows reserves (`CON`, `PRN`, `AUX`,
-  `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, with or without an extension). Such a name is refused.
-- The name is in Unicode composed form (NFC).
+  `NUL`, `CONIN$`, `CONOUT$`, `COM1`–`COM9`, `LPT1`–`LPT9`, and `COM`/`LPT` followed by a
+  superscript ¹ ² ³). The part before the first dot decides, in any case and ignoring trailing
+  spaces, so `con.mkv`, `NUL.tar.mkv` and `CON .mkv` are all reserved. Such a name is refused.
+- The name is valid Unicode text, in composed form (NFC). A value that isn't valid text is refused.
 - The whole file name, extension and any disambiguator included, is at most **255 bytes**. A longer
   name is refused, not cut short.
 - A rename that only changes letter case takes effect, including on a filesystem that ignores case.

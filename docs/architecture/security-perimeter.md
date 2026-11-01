@@ -124,22 +124,44 @@ enough on their own.
 
 - **Inputs.** The request carries only video ids. The folder comes from `videos.file_path`, never
   from a request or a payload. The name is built from the sanitised values the
-  [spec](../specs/file-rename.md) defines (P0-4) and must contain no separator. It must also satisfy
-  `filepath.IsLocal(name)` and `filepath.Base(name) == name`, and
-  `filepath.Dir(join(dir, name)) == dir`.
-- **Root bound.** The video's folder, resolved with `EvalSymlinks`, must sit inside the canonical
-  `MEDIA_PATH` (`filepath.Rel` then `filepath.IsLocal`). With symlinks followed, a file's canonical
-  path can resolve outside the library; such a video is refused, never renamed in place.
+  [spec](../specs/file-rename.md) defines (P0-4) and must contain no separator. The character and
+  reserved-name rules are checked again on the **whole** built name, template text included, not
+  only on each value. The name must be valid UTF-8 and satisfy `filepath.IsLocal(name)`,
+  `filepath.Base(name) == name` and `filepath.Dir(join(dir, name)) == dir`.
+- **Root bound, held to the rename.** The video's folder, resolved with `EvalSymlinks`, must sit
+  inside the canonical `MEDIA_PATH` (`filepath.Rel` then `filepath.IsLocal`). With symlinks followed,
+  a file's canonical path can resolve outside the library; such a video is refused, never renamed in
+  place. On Linux the folder is opened once (`O_DIRECTORY`) and the bound is checked on the
+  descriptor's own path (`/proc/self/fd/<n>`), not on a path resolved before the open. Every
+  `Lstat` and rename for the job is then made relative to that descriptor (`fstatat` with
+  `AT_SYMLINK_NOFOLLOW`, `renameat2`/`renameat`). A folder swapped for a symlink can't redirect the
+  rename.
+  The Windows development primitive stays path-based.
 - **No symlinked targets.** The current file, the target and the via name are each `Lstat`ed, and a
   symlink is refused, as maintenance's `refuseSymlink` does for its sibling files.
 - **No overwrite.** The rename primitive itself refuses an existing target
   ([file-rename.md](file-rename.md#no-overwrite-rename-rename_noreplace-where-the-mount-supports-it-every-name-compared-case-folded)).
 - **Templates widen nothing.** Templates are owner-written `settings`, but they only feed the
-  builder. No template can name a folder, an extension or a path outside the file's own folder.
-- Every rename, plan, lock and undo route sits behind `requireOwner`.
+  builder. No template can name a folder, an extension or a path outside the file's own folder. The
+  template rules run in the key's own validator on the settings allowlist, so every path that writes
+  the key runs them. The settle window is range-checked there too.
+- **Read-back is untrusted input.** An identity token read back from a name may come from any
+  file in the library, not only one Holodex wrote. Its capture is limited to the provider's id
+  characters (`[A-Za-z0-9_-]`, bounded length), and it reaches the provider only escaped for
+  wherever the provider client places it.
+- **Owner gate.** Every rename, plan, drift, lock, undo, history and template route sits behind
+  `requireOwner`. The apply body is bounded with `MaxBytesReader`, and SameSite=Strict keeps a
+  cross-site page from applying a plan.
+- **Names stay with the owner.** Name state, history and the rename job's error never join a
+  visitor's `/media` payload or an MCP tool result. A failed rename's error wraps `os` errors that
+  carry both absolute paths, so it follows the writeback rule: owner reads only. The System
+  activity report holds counts, never names. Server logs may carry paths, because they are the
+  operator's.
 
 **Rejected:** trusting the checks made when the plan or template is saved. Values change between
 the plan and the job, and a provider value is untrusted input every time it is read.
+**Rejected:** path-based renames after the root check on Linux. The check and the rename would name
+the folder twice, and anything that can write the library could swap it for a symlink in between.
 
 Decided in: pending squash (HOLODEX-602).
 
