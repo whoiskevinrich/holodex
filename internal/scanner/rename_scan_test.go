@@ -162,6 +162,32 @@ func TestScanHandEditLocks(t *testing.T) {
 	}
 }
 
+// R13 through the fold: a hand edit the walk sees as a new file (the copy arrives while the
+// Holodex-named file is still there) is healed by FoldMovedVideo, and the name still locks.
+func TestScanHandEditLocksThroughFold(t *testing.T) {
+	rs := newRenameScan(t)
+	rs.done("junk.mp4", "Ada.mp4")
+	data, err := os.ReadFile(rs.p("films/Ada.mp4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeAged(t, rs.p("films/Ada (mine).mp4"), data, time.Hour)
+	rs.scan() // both present: the copy is a new video
+	if rs.count(`SELECT count(*) FROM videos`) != 2 {
+		t.Fatal("the copy was not indexed as new")
+	}
+	os.Remove(rs.p("films/Ada.mp4"))
+	rs.scan() // the original is gone: the fold heals the pair onto the older id
+	st, ok, _ := rs.r.StatByPath(rs.ctx, rs.p("films/Ada (mine).mp4"))
+	if !ok || st.ID != rs.id {
+		t.Fatalf("the fold did not keep the older id: %+v %v", st, ok)
+	}
+	states, _ := rs.r.FileNameStates(rs.ctx)
+	if !states[rs.id].Locked || states[rs.id].LockSource != repo.LockAuto {
+		t.Errorf("hand edit through the fold: state = %+v", states[rs.id])
+	}
+}
+
 // R11: the walk never ingests a via name.
 func TestScanSkipsViaName(t *testing.T) {
 	rs := newRenameScan(t)

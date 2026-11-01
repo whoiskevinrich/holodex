@@ -94,6 +94,7 @@ func (f *fakeRepo) PendingRenameTarget(context.Context, string) (int64, bool, er
 	return 0, false, nil
 }
 func (f *fakeRepo) NoteRepointed(context.Context, int64, string, string) error { return nil }
+func (f *fakeRepo) PathByID(context.Context, int64) (string, error)            { return "", nil }
 
 func (f *fakeRepo) SetContentFingerprint(_ context.Context, id int64, fp string) error {
 	f.mu.Lock()

@@ -55,4 +55,8 @@ func (q *Queue) processRename(ctx context.Context, job *repo.WritebackJob) {
 	if fErr := q.repo.FinishWriteback(ctx, job.ID, ok, msg); fErr != nil {
 		q.log.Warn("finish rename", "id", job.ID, "err", fErr)
 	}
+	// The batch's last job completes the apply's summary row (P0-15).
+	if bErr := q.repo.FinishRenameBatch(ctx, job.BatchID); bErr != nil {
+		q.log.Warn("finish rename batch", "batch", job.BatchID, "err", bErr)
+	}
 }

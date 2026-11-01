@@ -60,6 +60,14 @@ func TestRenameApplyModeGating(t *testing.T) {
 	if nr := body["not_renamed"].(map[string]any); nr[rename.ReasonClash] != float64(1) {
 		t.Errorf("not renamed = %v", nr)
 	}
+	// R24: the apply writes the batch's one summary row, counts only: queued, refused by reason.
+	runs, err := f.r.ListJobRunsByBatch(context.Background(), body["batch_id"].(string))
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("batch runs = %v, %v", runs, err)
+	}
+	if s := runs[0]; s.EntityID != 0 || s.Seen != 2 || s.Skipped != 1 || s.Detail != rename.ReasonClash+" 1" {
+		t.Errorf("apply summary = %+v", s)
+	}
 	if !bytes.Equal(before, treeOf(t, f.lib)) {
 		t.Error("the API renamed a file itself; only the worker may")
 	}

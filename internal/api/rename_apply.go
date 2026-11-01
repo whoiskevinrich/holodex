@@ -129,21 +129,26 @@ func (h *Handlers) renameApply(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]any{"batch_id": batchID, "queued": queued, "not_renamed": refused})
 }
 
-// recordRenameApply writes the apply's System activity row (P0-15): counts by reason, never names.
+// recordRenameApply writes the batch's one System activity summary (P0-15): Seen is the queued
+// count, Skipped the refused total and Detail the refused count per reason (locked and held among
+// them), never a name. The queue fills in renamed and failed when the batch's last job finishes
+// (repo.FinishRenameBatch).
 func (h *Handlers) recordRenameApply(ctx context.Context, batchID string, queued int, refused map[string]int) {
-	parts := []string{fmt.Sprintf("queued %d", queued)}
 	reasons := make([]string, 0, len(refused))
-	for k := range refused {
+	total := 0
+	for k, n := range refused {
 		reasons = append(reasons, k)
+		total += n
 	}
 	sort.Strings(reasons)
+	parts := make([]string, 0, len(reasons))
 	for _, k := range reasons {
 		parts = append(parts, fmt.Sprintf("%s %d", k, refused[k]))
 	}
 	now := time.Now()
 	if err := h.repo.RecordJobRun(ctx, model.JobRun{Kind: model.JobKindRename, Trigger: model.TriggerManual,
-		Status: model.JobStatusOK, StartedAt: now, FinishedAt: now, Detail: "apply: " + strings.Join(parts, " · "),
-		BatchID: batchID}); err != nil {
+		Status: model.JobStatusOK, StartedAt: now, FinishedAt: now, Seen: queued, Skipped: total,
+		Detail: strings.Join(parts, " · "), BatchID: batchID}); err != nil {
 		h.log.Warn("record rename apply", "err", err)
 	}
 }

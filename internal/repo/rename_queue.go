@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"time"
+
+	"holodex/internal/model"
 )
 
 // ErrRenameRaced refuses step 3 of a rename when the video's row no longer names either the old
@@ -98,6 +100,45 @@ func (r *Repo) BatchRenameJobs(ctx context.Context, batchID string) ([]Writeback
 		out = append(out, j)
 	}
 	return out, rows.Err()
+}
+
+// FinishRenameBatch completes an apply's summary run (P0-15) once no job of the batch is queued:
+// renamed and failed are counted from each video's latest run in the batch, so a retried failure
+// counts once. The apply-time counts and refused-by-reason detail are left as written. Calling it
+// again recounts, so a later Retry in the batch keeps the summary current.
+func (r *Repo) FinishRenameBatch(ctx context.Context, batchID string) error {
+	if batchID == "" {
+		return nil
+	}
+	// Mid-batch this is the only query, and it reads the small queue table without the lock.
+	var queued bool
+	if err := r.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM writeback_queue
+		WHERE kind = 'rename' AND batch_id = ? AND status IN ('pending','running'))`, batchID).Scan(&queued); err != nil {
+		return fmt.Errorf("rename batch queued: %w", err)
+	}
+	if queued {
+		return nil
+	}
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	now := time.Now().UTC().Format(timeLayout)
+	_, err := r.db.ExecContext(ctx, `
+		WITH latest AS (SELECT updated AS u, errors AS e FROM job_runs
+		                 WHERE id IN (SELECT max(id) FROM job_runs
+		                               WHERE kind = 'rename' AND batch_id = ?1 AND entity_id <> 0
+		                               GROUP BY entity_id))
+		UPDATE job_runs
+		   SET updated     = (SELECT count(*) FROM latest WHERE u > 0),
+		       errors      = (SELECT count(*) FROM latest WHERE e > 0),
+		       status      = CASE WHEN EXISTS(SELECT 1 FROM latest WHERE e > 0) THEN ?2 ELSE ?3 END,
+		       finished_at = ?4,
+		       duration_ms = CAST((julianday(?4) - julianday(started_at)) * 86400000 AS INTEGER)
+		 WHERE kind = 'rename' AND batch_id = ?1 AND entity_id = 0`,
+		batchID, model.JobStatusErr, model.JobStatusOK, now)
+	if err != nil {
+		return fmt.Errorf("rename batch summary: %w", err)
+	}
+	return nil
 }
 
 // HasRenameJob reports whether a video has a rename row in any state (boot recovery's "a job

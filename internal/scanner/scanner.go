@@ -55,6 +55,7 @@ type Repository interface {
 	// finishes a pending rename or locks a hand-edited name.
 	PendingRenameTarget(ctx context.Context, path string) (int64, bool, error)
 	NoteRepointed(ctx context.Context, id int64, oldPath, newPath string) error
+	PathByID(ctx context.Context, id int64) (string, error)
 	LibraryCounts(ctx context.Context) (repo.LibraryCounts, error)
 }
 
