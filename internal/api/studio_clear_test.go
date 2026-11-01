@@ -43,14 +43,7 @@ func (e *clearEnv) writes(path string) []writeback.FieldWrite {
 
 func (e *clearEnv) drain(t *testing.T) {
 	t.Helper()
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		if n, _ := e.r.PendingWritebackCount(context.Background()); n == 0 {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	t.Fatal("writeback queue did not drain")
+	waitQueueDrained(t, e.r)
 }
 
 // studioClearServer: studio reads Publisher then Label (two file tags), a live

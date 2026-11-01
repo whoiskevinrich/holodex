@@ -210,10 +210,36 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, tags []
 		}
 	}
 
+	// A tag the owner removed from this video stays off it while the file still
+	// carries it (HOLODEX-614): its spellings are suppressed in the video's genres.
+	suppressed := map[string]bool{}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT norm_value FROM metadata_curation
+		 WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND action = ?`,
+		model.EnrichEntityVideo, videoID, genresField, CurationSuppress)
+	if err != nil {
+		return fmt.Errorf("suppressed tags: %w", err)
+	}
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			rows.Close()
+			return err
+		}
+		suppressed[n] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
 	// Tags resolve through the shared name-identity spine (F43, ADR-061) so
 	// case/whitespace variants converge and a merged-away name routes to the
 	// canonical entity — the merge survives re-scans.
 	for _, t := range tags {
+		if suppressed[curationNorm(t.Name)] {
+			continue
+		}
 		// A denied, oversized, or category-colliding term is skipped silently
 		// (ADR-075 D2/item 11; ADR-078 D3): the scanner has no owner present to
 		// surface a rejection to, unlike the manual-attach endpoint (422/400/409).
@@ -1986,6 +2012,20 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			seenTags[t.ID] = struct{}{}
 			res.Tags = append(res.Tags, t)
 		}
+	}
+	// Every tag hit carries its aliases (HOLODEX-612), so the add-tag input can match
+	// the typed text against them. A name hit needs them too: "science-fiction" FTS-
+	// matches the name's words but is only a substring of its dashed alias.
+	tagHitIDs := make([]int64, len(res.Tags))
+	for i, t := range res.Tags {
+		tagHitIDs[i] = t.ID
+	}
+	tagAliases, err := r.AliasesForEntities(ctx, model.EntityTag, tagHitIDs)
+	if err != nil {
+		return res, err
+	}
+	for i := range res.Tags {
+		res.Tags[i].Aliases = tagAliases[res.Tags[i].ID]
 	}
 
 	// Studios: FTS name matches, a new entity group (F38, ADR-053).

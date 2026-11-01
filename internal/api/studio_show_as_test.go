@@ -103,16 +103,7 @@ func TestStudioMergeShowAs(t *testing.T) {
 		t.Errorf("survivor videos = %v (%v), want all 3", ids, err)
 	}
 
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("writeback queue did not drain")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitQueueDrained(t, r)
 	mu.Lock()
 	defer mu.Unlock()
 	for _, path := range []string{"/m/a.mkv", "/m/b.mkv", "/m/c.mkv"} {

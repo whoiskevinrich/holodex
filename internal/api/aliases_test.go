@@ -277,16 +277,7 @@ func TestMergeEndpoint_PropagatesWritebackToAffectedVideos(t *testing.T) {
 	// flaky under load. The post-drain checks below (exactly 3 files written,
 	// with the right content, jenny.mkv untouched) fully cover "one writeback
 	// job per affected video, no more, no less" without racing.
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("writeback queue did not drain")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitQueueDrained(t, r)
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -364,16 +355,7 @@ func TestRenameEndpoint_PropagatesWritebackToLinkedVideos(t *testing.T) {
 		t.Fatalf("rename = %d, want 204", code)
 	}
 
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		if n, _ := r.PendingWritebackCount(ctx); n == 0 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("writeback queue did not drain")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	waitQueueDrained(t, r)
 
 	mu.Lock()
 	defer mu.Unlock()
