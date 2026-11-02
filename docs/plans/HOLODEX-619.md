@@ -13,10 +13,10 @@ profile: full                # the gate posture (see flightplan.yaml `postures:`
                              # session until it does, and the Gates rows below are matched to it.
 depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Smart playlists can now filter by relative dates, other playlists, provider-enriched fields and your watch history, cap how many videos they hold, and have their rules edited right on the playlist page.
-# approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
-#   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
-#     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
-#     at: 3f2a9c1            # `at` is the commit the yes was given against — change the artifact after it
+approved:                    # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
+  design:                    # artifact is committed; THIS means the owner looked and said yes. Written
+    on: 2026-11-02           # only by /implement (which asks) or /handoff (for a yes given this session);
+    at: c8f301b1             # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 ---
 
@@ -62,7 +62,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] `/implement`: owner signs off the handoff, then the draft PR opens — `docs/design/smart-playlist-rules-handoff.md`
+1. [ ] [backend] Slice 1: date conditions, cap and `playlist:` references with the visibility rules (F89 P0-1 to P0-3, P0-5) — `internal/query/`
 2. [ ] [backend] Pick what stamps `updated` (RD2) and add its rows to R2's table — `docs/testing-strategy.md` §40.11
 3. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
@@ -77,8 +77,8 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 -->
 
 ### 2026-11-02 · architecture: resolved-value index, watch history; testing strategy §40
-- skills: architecture, testing-strategy (own session), handoff
-- handoff: Design package complete (spec with RD12/RD13 and the watched-time P0-7, architecture, handoff, SEC-1–11, test strategy §40); next is `/implement` for the owner's design sign-off and the draft PR.
+- skills: architecture, testing-strategy (own session), handoff, implement
+- handoff: Crossed into build — design signed off at c8f301b1; draft PR open. Start at slice 1 (dates, cap, playlist references, P0-1 to P0-3 and P0-5) in `internal/query/`.
 
 ### 2026-11-01 · brainstorm, then spec, design and security in parallel sessions
 - skills: write-spec, design-handoff (security review done by hand at design stage), handoff, architecture
