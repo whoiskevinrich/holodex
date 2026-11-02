@@ -115,7 +115,7 @@ Reuse first (`.claude/rules/frontend-theming.md`, "Reuse before you create").
 | `FilterChip` | Two new optional props. `ownerOnly`: a 12px key glyph before the label, in the chip's own text colour, which never truncates. `problem`: a warn outline and warn text, used in the editor for the chip at fault. | `negated` keeps its outlined accent look; `problem` overrides it. A read-only variant (no × button) for the header and the visitor-free owner row. |
 | `QueryChipGroup` | Passes `ownerOnly` / `problem` through to members; gains a read-only mode (no ×) | — |
 | `AdvancedQueryRow` | Read-only mode (no `Edit as text`) | — |
-| `SortDropdown` | none | `compact`, `extra=[]` for smart |
+| `SortDropdown` | Play-based sorts the spec adds go in the existing owner-only `Owner` optgroup | `compact`, `extra=[]` for smart. Visitors never see them. |
 | **Cap select** | New compact `<select>` in `sort/`, styled as `SortDropdown compact` | Labels ≤ 20 characters (`SortDropdown`'s native-select rule). |
 | `FiltersButton` / `FilterPanel` | none | Same as browse; edits apply to the draft. |
 | F75 stale notice | New kinds (below); action renamed *Edit definition* | Same container. |
@@ -138,7 +138,8 @@ Reuse first (`.claude/rules/frontend-theming.md`, "Reuse before you create").
 | Cancel | click | Discards the draft, closes the mode and clears `#edit`. If the draft differs from what is stored, ConfirmDialog asks `Discard changes to ‹name›?` (`Discard` / `Keep editing`). |
 | Leaving the page with a changed draft | navigation | The same confirm. |
 | Play all | in the mode | Plays the **saved** playlist, not the draft (the run source is the playlist). It is unchanged. |
-| Visibility segment | in the mode | Stays live. Switching to Public with an owner-only chip in the draft triggers the withheld state at once. |
+| Visibility segment | in the mode | Stays live. Switching to Public with an owner-only chip or a private `in:` chip in the draft triggers the withheld state at once. |
+| Visibility segment | Public refused | Stays on Private; see "Visibility refusal". |
 | Stale notice → Edit definition | click | Opens the mode with the stored definition and the chip at fault already marked `problem`. |
 
 ### In-editor problem copy (panel 2)
@@ -148,7 +149,28 @@ Reuse first (`.claude/rules/frontend-theming.md`, "Reuse before you create").
 | Owner-only condition, playlist Public | `A public playlist can’t use owner-only conditions.` | `Remove “{chip label}”, or make the playlist private.` |
 | A reference makes a loop | `“{other playlist}” already includes this playlist, so it can’t be included here.` | `Remove “in: {other playlist}”.` |
 | Referenced playlist deleted | `This definition refers to a playlist that was deleted.` | `Remove “in: #{id}”.` |
+| Public playlist references a private one | `A public playlist can’t include a private playlist.` | `Remove “in: {other playlist}”, make “{other playlist}” public, or make this playlist private.` |
+| Too deep or too large | `This definition is too large to save.` | `It nests playlists too deeply or has too many conditions. Remove a playlist reference or simplify the query.` |
 | Query text invalid | F87 error copy, unchanged | F87 `Did you mean` rows |
+
+The limits behind "too large" (nesting depth, playlists reached, conditions) are set by the spec and
+[security-perimeter.md](../architecture/security-perimeter.md) ("Smart playlist rules"). The copy
+never quotes numbers, so it doesn't drift when they change.
+
+### Visibility refusal
+
+Making a smart playlist **Public** can be refused: it, or a playlist it reaches through references,
+includes a private playlist or an owner-only condition. The Private | Public segment stays on
+Private, and a `text-sm text-warn` line appears under the header row, followed by a
+`text-xs text-muted` fix. It clears on the next visibility change or on opening Edit definition.
+
+| Cause | Sentence | Fix |
+|---|---|---|
+| uses an owner-only condition | `This playlist can’t be public: it uses owner-only conditions.` | `Edit the definition to remove them.` |
+| includes a private playlist | `This playlist can’t be public: it includes “{other playlist}”, which is private.` | `Make “{other playlist}” public first, or remove it from the definition.` |
+
+Making a playlist **Private** always succeeds, even when public playlists reference it; they show the
+"refers to a private playlist" notice below.
 
 ### New grid-replacing notices (states mockup, panel 2)
 
@@ -161,6 +183,11 @@ These use F75's stale-notice container and placement. Owners get **Edit definiti
 | referenced playlist deleted | `This playlist refers to a playlist that was deleted` | `(playlist #{id}). Nothing is shown until the definition is fixed.` | Delete playlist |
 | reference loop | `This playlist includes itself through another playlist` | `({A} → {B} → {A}). Nothing is shown until the definition is fixed.` | Delete playlist |
 | owner-only on public | `This public playlist uses an owner-only condition` | `({chip label}). Make it private or edit the definition.` | **Make private** (`.btn-quiet`) |
+| public references a private playlist | `This public playlist includes a private playlist` | `(“{other playlist}”). Make it private or edit the definition.` | **Make private** (`.btn-quiet`) |
+| too deep or too large | `This playlist nests too many playlists to show` | `Nothing is shown until the definition is simplified.` | Delete playlist |
+
+Visitors never see a notice name a private playlist. For them a private reference reads as missing,
+and every notice shows F75's visitor copy.
 
 F75's existing kinds keep their copy, with "filter" changed to "definition" in the detail and the
 action.
