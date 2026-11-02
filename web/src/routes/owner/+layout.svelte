@@ -18,6 +18,7 @@
 		{ href: '/owner/tags', label: 'Deny-list' },
 		{ href: '/owner/enrichment', label: 'Enrichment' },
 		{ href: '/owner/extraction', label: 'Extraction' },
+		{ href: '/owner/file-names', label: 'File names' },
 		{ href: '/owner/completeness', label: 'Completeness' },
 		{ href: '/owner/trash', label: 'Trash' }
 	];
