@@ -31,9 +31,10 @@ their visibility (F69), the field resolver and the owner's field mapping
   indexed"](../architecture/field-resolution.md).
 - **Where plays are kept** (P0-7 to P0-9): [watch-history.md](../architecture/watch-history.md).
 
-**Design handoff**: pending (the on-page editor, the new chips and states). **Security review**:
-design phase, rules SEC-1 to SEC-11 in [security-perimeter.md, "Smart playlist
-rules"](../architecture/security-perimeter.md), cited by ID below. **Test plan**: pending.
+**Design handoff**: [smart-playlist-rules-handoff.md](../design/smart-playlist-rules-handoff.md).
+**Security review**: design phase, rules SEC-1 to SEC-11 in [security-perimeter.md, "Smart playlist
+rules"](../architecture/security-perimeter.md), cited by ID below. **Test plan**:
+[testing-strategy.md §40](../testing-strategy.md).
 
 ---
 
@@ -106,8 +107,8 @@ the playlist's name, sort and settings.
   - A field whose name is already a query field (`tag`, `person`, `studio`, `category`,
     `resolution`, `year`, `duration`, `matched`, `added`, `updated`, `released`, `playlist`,
     `watched`, `plays`, `played`) keeps the built-in meaning.
-- **Watch history**: the owner's plays. A play counts once the owner has watched about 90% of the
-  video or playback reaches the end. Watching again counts again.
+- **Watch history**: the owner's plays. A play counts once the owner's watched time reaches about
+  90% of the video's length; seeking adds no watched time. Watching again counts again.
   - **watched**: `watched:yes` or `watched:no`, with the owner's manual mark taking precedence
     (P0-9).
   - **plays**: how many counted plays, with F87's comparisons (`plays:>3`).
@@ -165,6 +166,9 @@ and visitors.
 - [ ] `released:<1y` excludes videos with no release date; `-released:<1y` includes them.
 - [ ] `added:<30m` is an error that suggests `30mo` or `30d` (F87 P0-7).
 - [ ] A chip reads in words: `added: last 30 days`, `released: 2026`.
+- [ ] Relative dates count whole days in the server's timezone: `added:<30d` runs from midnight 30
+      days ago, so its result doesn't change through a day. A month or year step that lands past a
+      month's end clamps to its last day: 31 March minus `1mo` is 28 February (RD12).
 
 **P0-2 Cap.** The owner can give a smart playlist a cap, or none (the default). The playlist page,
 its count, Play all, Shuffle, Freeze, and anything referencing it all see the capped set.
@@ -185,7 +189,8 @@ its count, Play all, Shuffle, Freeze, and anything referencing it all see the ca
       Past a limit, saving is refused with the limit named (as F87 P0-9); a playlist pushed past it
       by another playlist's edit is stale.
 - [ ] A smart playlist that has both the Random sort and a cap has no fixed contents, so a reference
-      to it is refused with that reason.
+      to it is refused with that reason. A referenced playlist that is later given both stays
+      editable, and every playlist referencing it is stale until the reference is fixed (RD13).
 - [ ] Deleting a referenced playlist flags every referencing playlist as stale (F75 RD6): nothing
       runs until the reference is fixed, and the query is never quietly widened. The delete
       confirmation names the playlists that reference it.
@@ -231,8 +236,9 @@ by name (*Concepts*), and matches what the video's field list shows.
 - [ ] A field later removed from the mapping makes a saved playlist stale (F75 RD6), naming the
       field.
 
-**P0-7 Record the owner's plays.** While signed in as the owner, a play counts when about 90% of the
-video has played or playback reaches the end. Visitors' playback records nothing.
+**P0-7 Record the owner's plays.** While signed in as the owner, a play counts when the owner's
+watched time reaches about 90% of the video's length. Seeking adds no watched time, so reaching the
+end alone never counts. Visitors' playback records nothing.
 - [ ] Sampling the first minutes, or skipping straight to the end, does not count. Watching
       through and seeking within the last 10% does.
 - [ ] Watching twice counts two plays.
@@ -299,9 +305,10 @@ None open for the owner.
   until no public playlist references it.
 - **RD7 Fields are queried by their own name; built-ins win a clash** (2026-11-01). *Why*: reads
   naturally in text and chips. *Rejected*: a `field:` prefix.
-- **RD8 Only the owner's plays count; a play is ~90% or the end; kept forever** (2026-11-01).
-  *Why*: one owner, so "watched" means the owner watched it. *Rejected*: anonymous all-visitor
-  counts; any play over N seconds; manual marks only; a rolling retention window.
+- **RD8 Only the owner's plays count; a play is ~90% of watched time; kept forever** (2026-11-01;
+  watched time, not position, 2026-11-02). *Why*: one owner, so "watched" means the owner watched it,
+  and seeking to the end isn't watching. *Rejected*: anonymous all-visitor counts; any play over N
+  seconds; reaching the end alone; manual marks only; a rolling retention window.
 - **RD9 Watched mark and manual toggle, no clear-history** (2026-11-01). *Rejected*: clearing
   history.
 - **RD10 Visitors never see a smart playlist's definition** (2026-11-01, confirmed with the design
@@ -309,6 +316,11 @@ None open for the owner.
   reach a visitor. *Rejected*: read-only chips for visitors.
 - **RD11 Edit on the playlist page** (2026-11-01). *Why*: the playlist's sort, cap and settings live
   there. *Rejected*: extending browse's edit mode (F75 P0-8).
+- **RD12 Relative dates count whole days in server time; month steps clamp** (2026-11-02). *Why*:
+  a playlist reads the same all day. *Rejected*: an exact instant (720 hours for `30d`).
+- **RD13 A referenced playlist turned Random with a cap makes its referrers stale** (2026-11-02).
+  *Why*: the same handling as a loop or a limit reached through another playlist's edit; editing
+  stays one step. *Rejected*: refusing the edit while anything references it.
 
 ## Timeline Considerations
 

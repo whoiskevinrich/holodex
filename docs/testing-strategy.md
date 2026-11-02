@@ -6471,17 +6471,6 @@ well; it isn't restated here.
 
 ### 40.11 Standing gaps
 
-- **Spec P0-7 wording.** The owner chose (2026-11-02) that a play counts on **watched time**
-  reaching about 90% of the length; seeking adds no time, so reaching the end alone never counts.
-  W3 pins that. The spec's "or playback reaches the end" still reads as if the end alone counts; it
-  needs a spec edit to match.
-- **A referenced playlist later gaining Random + cap.** P0-3 refuses the reference at save, but
-  doesn't say what happens when the referenced playlist is edited into Random + cap afterwards.
-  R12 and A3 pin the reading that matches loops and caps: the referrer reads stale `invalid`. If
-  the edit should be refused instead, that is a spec edit first.
-- **Date boundaries.** Whether "last 30 days" cuts at an instant or a calendar day, the timezone it
-  uses, and month arithmetic at month ends (Q3 pins clamping to the month's last day) aren't
-  specified. The tests pin the builder's reading.
 - **Where `updated` comes from.** RD2 defines it as the last change in Holodex, but no
   architecture section says what stamps it. Add a case to R2's table, one row per write path, once
   the build picks the mechanism.
