@@ -178,4 +178,4 @@ structurally, with no tuning. **Rejected:** a rate limit on `/query/parse` and `
 caps bound each request, and `/search` has none either. **Rejected:** an owner check in each caller —
 one forgotten caller (the MCP tool already bypasses `mediaFilterFor`) would leak owner-only results.
 
-Decided in: pending squash (HOLODEX-611).
+Decided in [`7906048d`](https://github.com/whoiskevinrich/holodex/commit/7906048d).
