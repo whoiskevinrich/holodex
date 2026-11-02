@@ -9,6 +9,7 @@
 - owner-only conditions carry a **key glyph**
 - the *Save as playlist…* form gets **no cap control**
 - visitors see **no definition**
+- the watched mark is a **bottom-edge bar** on cards, with a **title-row toggle** on the media page
 
 Cinémathèque only.
 
@@ -29,6 +30,18 @@ loop, and an owner-only condition on a public playlist.
 
 Which conditions exist, what they match, and when a definition is refused are in the F89 spec. This
 doc covers only what the owner sees and touches.
+
+| F89 | Covered here |
+|---|---|
+| P0-1 Date conditions | Chip labels (relative dates); absolute ranges keep F87's wording |
+| P0-2 Cap | Cap select, the readout, the sub-title's `first {N}` |
+| P0-3 Playlist conditions | `in:` / `not in:` chips; loop, limit, shuffled-and-capped and deleted-reference problems and notices |
+| P0-4 Edit the definition on the playlist page | Layout item 4, States and interactions |
+| P0-5 Visitors and public playlists | Visitor view (items 1 and 5 only), Visibility refusal, the private-reference notices |
+| P0-6 Field conditions on resolved values | Field chips; key glyph for fields hidden from visitors |
+| P0-8 Watch conditions | Key-glyph chips; owner-only play sorts in `SortDropdown` |
+| P0-7 Record the owner's plays | Nothing visible: a play is counted silently |
+| P0-9 Watched mark and manual toggle | "Watched mark" below; states mockup, panel 4 |
 
 ## Divergences from shipped F75 / F87 (approved 2026-11-01)
 
@@ -76,7 +89,8 @@ Order of the page, top to bottom, for the **owner**. Visitors see items 1 and 5 
      - **Filters**: `FiltersButton` + `FilterPanel`, as on browse.
      - **The readout** (`text-xs text-muted`, `aria-live="polite"`), which is the cap readout:
        - no cap: `{M} match`
-       - capped: `{M} match · the playlist keeps the first {N}`
+       - capped: `{M} match, showing {N}` (F89 P0-2)
+       - capped with the Random sort: `{M} match, showing a fresh {N} each play`
        - when the cap is larger than the match: `{M} match`
        - when the saved count differs: append ` (was {n})`
    - **Preview label** (`text-xs text-muted`): `Preview — the first {N}, in this sort`, or
@@ -224,6 +238,40 @@ hidden. The key comes from the field's visibility, never from a list hard-coded 
 range wording. A playlist name in a chip is the current name, so a rename updates the chip; a
 deleted one reads `in: #{id}` with `problem`.
 
+## Watched mark (F89 P0-9; states mockup, panel 4)
+
+Approved by the owner on 2026-11-01: option A for the card and a toggle in the title row. Visitors
+never see either one.
+
+**Video card.** A watched video gets a bar along the bottom edge of the poster frame:
+`absolute inset-x-0 bottom-0 z-[2] h-[3px] bg-accent pointer-events-none`. It goes inside
+`.video-frame`, after the overlays.
+- **Why:** the four corners of the poster are already used (VideoCard's `CLAUDE.md`). The bar adds no
+  badge, keeps the card the same height, and reads like a progress bar that has run to the end.
+- **Layout:** the bottom-left owner row and the duration chip sit at `bottom-1.5`, which is above the
+  3px bar, so nothing overlaps.
+- **Data:** like `completeness`, the card shows the bar only when the API sends the watched fact. The
+  API sends it only for the owner, so `VideoCard` still never checks `isOwner`.
+- **Where it shows:** every grid that renders `VideoCard` (browse, Media, playlists, entity grids,
+  shelves).
+
+**Media page.** The toggle sits at the end of the title row (`div.flex.flex-wrap.items-center.gap-2`)
+after the edition and part pills, inside `{#if isOwner}`.
+
+| State | Look | Label |
+|---|---|---|
+| Not watched | `.btn-ghost px-3 py-1.5 text-sm`, a check icon (`M5 13l4 4L19 7`, `h-4 w-4`) before the label | `Mark watched` |
+| Watched | The same button with `border-accent text-accent`, `aria-pressed="true"` | `Watched` |
+| Busy | The label stays; the button is withdrawn until the save returns | — |
+| Failed | It flips back, with the existing error toast `Couldn’t update watched` | — |
+
+- A click flips the mark straight away (optimistic); there is no confirm.
+- The toggle sets only the manual mark, never plays. Which wins, and when a later play overrides it,
+  is in the spec (P0-9).
+- When a play is counted (P0-7), the button turns to `Watched` the next time the page loads, not live
+  mid-playback.
+- The meta line gets nothing new: no play count and no last-played date.
+
 ## Responsive behaviour
 
 | Breakpoint | Changes |
@@ -272,6 +320,9 @@ Matches F73 and F87, which animate nothing in the toolbar.
 - The key glyph is `aria-hidden`, and the chip's accessible name gains `, owner only`. A `problem`
   chip's name gains `, {sentence}`.
 - A read-only chip is plain text in a list, with no button and no tab stop.
+- The watched bar is decorative (`aria-hidden`). The card link's accessible name gains `, watched`
+  for the owner. The media-page toggle is one button with `aria-pressed`, and its label never
+  changes meaning: `Mark watched` / `Watched`.
 - Escape in the query field closes suggestions first; a second Escape does nothing (Cancel is
   explicit, so a stray key can't drop a draft).
 
@@ -283,3 +334,5 @@ Matches F73 and F87, which animate nothing in the toolbar.
 - The key glyph is legible at 12px on both the solid accent chip and the warn outline.
 - The 375px banner, field and chips row match panel 3 with no sideways page scroll.
 - Loading (Counting…), empty match, withheld, refused and each notice are all themed.
+- The watched bar reads on both a bright and a dark poster, and doesn't touch the duration chip or
+  the owner row. Visitors see no bar and no toggle.
