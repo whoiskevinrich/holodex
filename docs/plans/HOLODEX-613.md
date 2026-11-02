@@ -28,7 +28,7 @@ The owner picks the first and last frames to keep on Media Details. The cut runs
 as the second F77 Maintenance entry, is checked against those frames, and then either replaces the
 original (held for the F77 window) or lands as a new edition item copied from the original.
 
-**Design package:** [spec F88](../specs/video-trimming.md) · architecture pending · handoff pending · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · handoff pending · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -41,7 +41,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
@@ -63,9 +63,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] `/architecture`: full re-encode vs smart cut, R6's two checks (cut half a frame before the picked frame; shape-only screen check for HDR), edition clone — `docs/architecture/file-maintenance.md`
-2. [ ] [design] `/design-handoff`: trim picker (in/out handles on F84) and edition confirm step — `docs/design/`
-3. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
+1. [ ] [design] `/design-handoff`: trim picker (in/out handles on F84), edition confirm step, skipped-screen-check status — `docs/design/`
+2. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -78,7 +77,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-02 · session
-- handoff: Q1 spike is complete (HOLODEX-613 comments) and spec R6 is rewritten into an exact cut check against the original plus a screen check only where frames differ; Q1 resolved. Next: /architecture (half-frame-early cut, shape-only HDR screen check, re-encode choice, edition clone).
+- skills: architecture
+- handoff: Spike done, R6 rewritten, and architecture decided in file-maintenance.md (59d55a75): full re-encode of the kept range, audio copied and cut on packets, cut half a frame early, exact cut check plus shape-only screen check, edition cloned by the trim job in a journaled transaction. Next: /design-handoff for the trim picker and edition confirm step.
 
 ### 2026-11-01 · session
 - skills: product-management:brainstorm, write-spec, handoff

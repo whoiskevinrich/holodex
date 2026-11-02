@@ -289,7 +289,7 @@ copied streams' extent (below). **Replace** lands through the existing two-renam
 both lanes. A trim and a tag write on the same file must serialise exactly as a flip and a tag write
 already do.
 
-Decided in pending (HOLODEX-613).
+Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a75) (HOLODEX-613).
 
 ## The trim cut: the kept range re-encoded whole, every other stream copied and cut on packets
 
@@ -332,7 +332,7 @@ couldn't prove a join plays. It stays a P2 behind the same contract. **Rejected:
 for sample-exact cuts. Every trim would lose audio quality, each codec would need its own encoder, and
 ffmpeg can't re-encode TrueHD or DTS-HD MA at all.
 
-Decided in pending (HOLODEX-613).
+Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a75) (HOLODEX-613).
 
 ## Frame checks: exact against Holodex's own decode, shape-only against the screen
 
@@ -366,7 +366,7 @@ It fails on HDR files and can't tell still frames apart. **Rejected:** trusting 
 frame check. The cut check is the only evidence that ffmpeg cut where the decode says it did, and the
 screen check is the only evidence that the browser and ffmpeg agree on which frame a time names.
 
-Decided in pending (HOLODEX-613).
+Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a75) (HOLODEX-613).
 
 ## Save as edition: a new file beside the original and a cloned row, journaled in the queue row
 
@@ -421,7 +421,7 @@ row back to its trim. **Rejected:** writing the edition into a sibling folder. A
 would break the film folder convention, and a different volume would make the landing a copy, not a
 rename.
 
-Decided in pending (HOLODEX-613).
+Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a75) (HOLODEX-613).
 
 ## After a trimmed replace: the F77 read-back, with duration-derived state reset
 
@@ -432,4 +432,4 @@ for a flip. The `frame` and `upload` slots are owner images and are kept even wh
 now lies outside the file. `video_poster_sources.frame_at` stays as a record of where the image came
 from. Restore puts the full-length original back and runs the same read-back.
 
-Decided in pending (HOLODEX-613).
+Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a75) (HOLODEX-613).
