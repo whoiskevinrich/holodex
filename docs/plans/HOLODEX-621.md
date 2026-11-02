@@ -5,6 +5,10 @@ status: in-progress          # DERIVED from the Gates below; only `done` and `re
 profile: feature             # new user-facing behavior: spec, design, backend, frontend, testing
 depends-on: []
 release_note: Rename templates can mark a token optional with `?`, such as `[{studio?}]`, so one template names videos with or without that value, and the template help explains it.
+approved:
+  design:
+    on: 2026-11-01
+    at: e452a36f
 ---
 
 # HOLODEX-621 · Optional rename-template tokens (F86 follow-up)
@@ -25,13 +29,12 @@ exactly.
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Get the owner's sign-off on the design line, then open the PR with `/implement` — `docs/design/file-rename-handoff.md`
-2. [ ] [—] On merge, move HOLODEX-621 to Done by hand (a child of HOLODEX-602; CI moves only the branch's own key, so check it moved)
+1. [ ] [—] On merge, move HOLODEX-621 to Done by hand (a child of HOLODEX-602; CI moves only the branch's own key, so check it moved)
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-11-01 · optional tokens
-- skills: code-review high --fix, handoff
-- handoff: `{token?}` optional tokens are built, tested and verified in the preview, along with the template help line (commits `056f5517`, `0d863d73`); next is the owner's design sign-off and `/implement` to open the PR.
+- skills: code-review high --fix, handoff, implement
+- handoff: Crossed into build: design signed off at `e452a36f` and every gate is settled, so the PR opens ready for review; next is merging it and moving HOLODEX-621 to Done.
 
 ## Dropped — newest first (the reason is the point)
