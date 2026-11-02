@@ -1,6 +1,6 @@
 # Handoff Spec: Smart playlist rules — Edit definition on the playlist page (F89)
 
-**Spec:** F89, smart playlist rules (`docs/specs/`, written by spec-619 on HOLODEX-619) · **Extends:**
+**Spec:** [smart-playlist-rules.md](../specs/smart-playlist-rules.md) (F89) · **Extends:**
 [smart-playlists-handoff.md](smart-playlists-handoff.md) (F75) and
 [query-language-handoff.md](query-language-handoff.md) (F87) · **Jira:** HOLODEX-619
 **Approved:** owner, 2026-11-01:
@@ -147,15 +147,19 @@ Reuse first (`.claude/rules/frontend-theming.md`, "Reuse before you create").
 | Problem | Sentence (`text-sm text-warn`) | Fix (`text-xs text-muted`) |
 |---|---|---|
 | Owner-only condition, playlist Public | `A public playlist can’t use owner-only conditions.` | `Remove “{chip label}”, or make the playlist private.` |
-| A reference makes a loop | `“{other playlist}” already includes this playlist, so it can’t be included here.` | `Remove “in: {other playlist}”.` |
+| A reference makes a loop | `This would make a loop: {this} → {A} → … → {this}.` | `Remove “in: {A}”.` |
+| Reference to a shuffled, capped playlist | `“{other playlist}” is shuffled and capped, so its contents change every time.` | `Remove “in: {other playlist}”, or give it another sort or no cap.` |
 | Referenced playlist deleted | `This definition refers to a playlist that was deleted.` | `Remove “in: #{id}”.` |
 | Public playlist references a private one | `A public playlist can’t include a private playlist.` | `Remove “in: {other playlist}”, make “{other playlist}” public, or make this playlist private.` |
-| Too deep or too large | `This definition is too large to save.` | `It nests playlists too deeply or has too many conditions. Remove a playlist reference or simplify the query.` |
+| Too deep | `Playlists can include each other at most {4} deep.` | `Remove a playlist reference.` |
+| Too many playlists | `A definition can reach at most {16} playlists.` | `Remove a playlist reference.` |
+| Too many conditions | `A definition can have at most {256} conditions, counting the playlists it includes.` | `Simplify the query, or remove a playlist reference.` |
 | Query text invalid | F87 error copy, unchanged | F87 `Did you mean` rows |
 
-The limits behind "too large" (nesting depth, playlists reached, conditions) are set by the spec and
-[security-perimeter.md](../architecture/security-perimeter.md) ("Smart playlist rules"). The copy
-never quotes numbers, so it doesn't drift when they change.
+The spec names the limit in the refusal (F89 P0-3, as F87 P0-9). The `{4}`, `{16}` and `{256}` in the
+copy are not literals: each one is the limit the server returns. That way the copy stays correct if
+[security-perimeter.md](../architecture/security-perimeter.md) ("Smart playlist rules") changes a
+number. If several limits are crossed, show the first one in this table's order.
 
 ### Visibility refusal
 
@@ -168,6 +172,11 @@ Private, and a `text-sm text-warn` line appears under the header row, followed b
 |---|---|---|
 | uses an owner-only condition | `This playlist can’t be public: it uses owner-only conditions.` | `Edit the definition to remove them.` |
 | includes a private playlist | `This playlist can’t be public: it includes “{other playlist}”, which is private.` | `Make “{other playlist}” public first, or remove it from the definition.` |
+| includes a playlist that uses owner-only conditions, at any depth | `This playlist can’t be public: it includes “{other playlist}”, which uses owner-only conditions.` | `Remove “in: {other playlist}” from the definition.` |
+
+`{other playlist}` is the direct reference the problem comes through, the chip the owner can
+actually remove. It is not the deeper playlist at fault. The in-editor withheld state uses the same
+copy and marks that chip `problem`.
 
 Making a playlist **Private** always succeeds, even when public playlists reference it; they show the
 "refers to a private playlist" notice below.
@@ -184,7 +193,7 @@ These use F75's stale-notice container and placement. Owners get **Edit definiti
 | reference loop | `This playlist includes itself through another playlist` | `({A} → {B} → {A}). Nothing is shown until the definition is fixed.` | Delete playlist |
 | owner-only on public | `This public playlist uses an owner-only condition` | `({chip label}). Make it private or edit the definition.` | **Make private** (`.btn-quiet`) |
 | public references a private playlist | `This public playlist includes a private playlist` | `(“{other playlist}”). Make it private or edit the definition.` | **Make private** (`.btn-quiet`) |
-| too deep or too large | `This playlist nests too many playlists to show` | `Nothing is shown until the definition is simplified.` | Delete playlist |
+| too deep or too large | `This playlist nests too many playlists to show` | `(another playlist’s edit took it past a limit). Nothing is shown until the definition is simplified.` | Delete playlist |
 
 Visitors never see a notice name a private playlist. For them a private reference reads as missing,
 and every notice shows F75's visitor copy.
@@ -204,6 +213,12 @@ action.
 | last played | key + `played: last {n} days` | key + `not played: last {n} days` |
 | play count | key + `plays: {n} or more` / `plays: fewer than {n}` | — |
 | provider match (F87) | key + `matched: any` / key + `matched: {provider-1}` | key + `not matched: …` |
+| a mapped field hidden from visitors (e.g. `director:`) | key + the field's normal chip label | key + `not …` |
+
+A field hidden from visitors is owner-only in queries (F89 P0-6). Its chip carries the key glyph,
+and on a public playlist it raises the owner-only problem and notice like the watch conditions.
+`released` follows the visibility of the release-date field: it gets a key only when that field is
+hidden. The key comes from the field's visibility, never from a list hard-coded in the chips.
 
 `{n}` units read in words, pluralised (`last 1 day`, `last 2 weeks`). An absolute range keeps F87's
 range wording. A playlist name in a chip is the current name, so a rename updates the chip; a

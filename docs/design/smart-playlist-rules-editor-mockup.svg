@@ -83,7 +83,7 @@
 
   <text x="16" y="468" class="w">A public playlist can’t use owner-only conditions.</text>
   <text x="16" y="486" class="m s12">Remove “unwatched”, or make the playlist private.</text>
-  <text x="16" y="508" class="w">“Favourites” already includes this playlist, so it can’t be included here.</text>
+  <text x="16" y="508" class="w">This would make a loop: Noir, recent → Favourites → Noir, recent.</text>
   <text x="16" y="524" class="m s12">Save stays withdrawn until both are fixed; each message names its chip.</text>
 
   <!-- 3 · 375 -->
