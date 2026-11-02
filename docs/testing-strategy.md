@@ -5941,3 +5941,83 @@ back, the row next opens undecided, and the file's cover art is unchanged (P0-9)
   list-per-group shape and W3's flattened order are what keep that change keyboard-safe.
 - §36's QA 4 expects the `uploaded` thumbnail state after Use this frame. F85 retires that state
   (G12), so the check becomes "`·frame` is the decided poster" (design QA 10.2).
+
+## 38. Query language — AND, OR and NOT over browse (F87, HOLODEX-611)
+
+One `expr` filter key holds the F87 text grammar. It is parsed and compiled only in Go
+(`internal/query`) through the clause builder's fragments, typed in nav search query mode, and drawn
+as chips on browse from a parse endpoint ([spec](specs/query-language.md),
+[handoff](design/query-language-handoff.md); mechanism in
+[browse-and-list-state.md](architecture/browse-and-list-state.md#boolean-queries-an-expr-key-parsed-once-in-go-compiled-through-the-builders-fragments),
+perimeter in [security-perimeter.md](architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup)).
+Risks, ranked by how quietly they would fail:
+
+1. **A query returns the wrong set with no error.** Precedence or NOT scope is off by one level,
+   so motivating query 1 applies `-tag:comedy` to one side of the OR only (P0-2).
+2. **An owner-only condition answers a visitor** through an entry point that skips the shared check.
+   The MCP tool already builds its filter without `mediaFilterFor` (P0-3, P0-8).
+3. **Existing smart playlists change membership,** or a merge leaves a dead id inside `expr` that
+   evaluates as a broader set (P0-10).
+4. **`tag:12` and `?tag=12` drift apart,** for example one includes descendant Tags and the other
+   doesn't (P0-1).
+5. **An unknown name runs and shows an empty grid** instead of an error (P0-7).
+6. **The chips draw a different query from the one that runs** (P0-6).
+7. **User text reaches SQL or FTS5 as syntax** (P0-9, perimeter).
+
+### 38.1 Go unit, `internal/query` (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| Q1 | Precedence table, parse → tree: `a b OR c` is `Or(And(a,b), c)`; `-a b` is `And(Not a, b)`; `-(a OR b)` is `Not(Or(a,b))`; motivating query 1, with and without its outer parentheses, gives the two different trees the spec describes. | P0-2 (risk 1) |
+| Q2 | Round trip: for a corpus including the three motivating queries, parse → canonical print → parse gives an equal tree, and printing twice gives the same bytes. | P0-6, P0-10 |
+| Q3 | `FuzzParse` (Go native fuzzing, seeded with Q1's corpus): never panics; any input that parses round-trips as Q2. Runs for a fixed short time in CI. | P0-2, P0-9 |
+| Q4 | Caps: 1,001 bytes, depth 9 and 65 conditions are each refused with an error naming that cap; 1,000 / 8 / 64 parse. The name resolver passed in is a stub that fails the test if called on a refused input. | P0-9 |
+| Q5 | Errors carry offsets: unknown field, unbalanced parenthesis, bad range (`duration:5m..`), each with the offset of the bad token. Offsets are counted in the same unit the client slices by (W3). | P0-7 |
+| Q6 | Canonicalisation with a stub resolver: a Tag alias resolves to the Tag's id; casing and runs of whitespace don't matter; an unknown name is an error with suggestions; two people with one name is an ambiguous error listing both; durations print in seconds; bare words print as text, never as ids. | P0-1, P0-7, RD1 |
+| Q7 | The owner-only check: `matched:any`, `matched:<provider>` and either one under `NOT` or inside an OR group are refused for a non-owner and allowed for the owner. A tree without them passes for both. | P0-3, P0-8 (risk 2) |
+| Q8 | The compiler with a recording builder: every value is a bound argument (the SQL text has no input substring); `And` / `Or` / `Not` are fully parenthesised; a bare word emits the title MATCH through `ftsPrefixQuery` OR an exact-Tag subtree. | P0-2, risk 7 |
+
+### 38.2 Go repo and API (`make test`, seeded SQLite)
+
+| # | Case | Proves |
+|---|---|---|
+| A1 | Equivalence: for each flat key (`tag`, `person`, `studio_id`, `category_id`, `duration_*`, `year_*`, `resolution`), `ListVideoIDs` with `expr` holding the same condition returns exactly the flat filter's ids. The fixture has a Tag with a descendant and a video with two studios. | P0-1 (risk 4) |
+| A2 | The three motivating queries on a fixture built so every wrong reading returns a different set (a comedy that's also action, a sci-fi film without fantasy, a Ford film in neither): each returns its expected ids exactly. | P0-2, P0-3 (risk 1) |
+| A3 | `-tag:comedy` alone returns every active video except the tagged ones; `-matched:any` returns exactly the videos with no enrichment row; an expr matching nothing returns zero rows, not an error. | P0-2, P0-3 |
+| A4 | Bare word `comedy` returns title matches plus *comedy*-tagged videos; `science` doesn't match *science-fiction* by Tag; creating a *drama* Tag later widens a stored bare `drama` with no rewrite. | RD1 |
+| A5 | FTS and SQL syntax as data: bare words `"`, `*`, `NEAR`, `OR(`, `'; DROP` and a Tag value containing a quote are searched literally and return normally. | risk 7 |
+| A6 | `GET /media?expr=` as a visitor: `matched:` → `401`, the same body shape as `missing_facet`; as the owner → results. A query over the caps → `400` naming the cap. | P0-8, P0-9 (risk 2) |
+| A7 | `GET /api/v1/query/parse`: returns the canonical string, a display tree with current names and errors with offsets; as a visitor, `matched:` is refused. Renaming a Tag changes the display tree's name, not the canonical id. | P0-6, P0-7, P0-10 |
+| A8 | Smart playlists: `canonicalPlaylistQuery` accepts `expr` and stores its canonical form; saving a **public** playlist whose `expr` holds `matched:` is refused; a private one saves. | P0-8, P0-10 (risk 2) |
+| A9 | Existing playlists unchanged: golden test over stored `query` strings without `expr` (one per key family): the stored string and the evaluated id list are identical before and after this change, and `query_version` is unchanged. | P0-10 (risk 3) |
+| A10 | Merge: merging a person referenced inside a stored `expr` rewrites the id in place (parse → rewrite → canonical print); a deleted Tag inside `expr` yields `stale_refs` and no evaluation. | P0-10 (risk 3) |
+| A11 | `internal/mcp`: `search_videos` with `expr` as a non-owner and `matched:` is refused; as the owner it runs; a name argument resolves through aliases and the response carries the canonical string; the caps apply. | P0-8, P2-1 (risk 2) |
+
+### 38.3 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | chip model (`web/src/lib/query.test.ts`, the pure tree → chips function; markup in `sort/queryChips.test.ts`) | A plain AND → plain chips; query 1 → one group of `[AND(science-fiction, fantasy), action]` + NOT `comedy` + `Harrison Ford`; a tree with a second OR level → the Advanced row only, never a partial chip set. | P0-6 (risk 6) |
+| W2 | chip model | Removing `fantasy` leaves `science-fiction` with no parentheses; removing a second member turns the group into a plain chip; the group `×` removes the whole group; each removal yields the expected `expr`. | P0-6 |
+| W3 | error echo (`query.test.ts` slicing; `entity/QuerySuggestPanel.svelte.test.ts` DOM) | Slices before / bad / after at the response's offsets into three text nodes, including a query with `é` and a quoted name before the bad part; the DOM has no HTML from the query (no `{@html}`). | P0-7, perimeter |
+| W4 | query-mode lexer (`query.test.ts`) | `harrison` stays plain search; `tag:`, `-x`, `OR`, `(` switch to query mode; the field under the caret is reported for `tag:sci`, `person:"Harrison F` and after a closing quote. | P0-4, P0-5 |
+| W5 | nav search query mode | `QuerySuggestPanel.svelte.test.ts`: options are unfocusable with the highlight `aria-selected` (the combobox keeps focus); the owner-only example is the owner's only. `query.test.ts`: `fieldsFor(false)` never offers `matched`; a suggestion inserts with a trailing space. The live box (`role="combobox"`, ↑/↓, Tab, Enter with an error does nothing) is checked in QA items 1 to 3; the root layout has no component harness. | P0-4, P0-5, P0-7 |
+| W6 | browse page | Empty result under an `expr` shows `No videos match this query.` and `Edit query`; a refused shared link shows the warn notice and no grid; `Edit as text` fills the nav box in query mode. Live QA plus the `query-back` harness scenario; the browse route has no component harness (§16). | P0-6, P0-7, P0-8 |
+
+### 38.4 Nav harness and QA
+
+- **Nav harness**: add one scenario, `--only query-back`: open browse from a typed query, scroll,
+  open a video, press Back. The chips, the `expr` URL and the scroll position come back (F73
+  list-state). Run under the `backend-stress-open-9600` profile.
+- **QA checklist**: run the handoff's
+  [Cinémathèque QA checklist](design/query-language-handoff.md#cinémathèque-qa-checklist)
+  (items 1 to 8). It isn't restated here. Add one owner step: with `-matched:any` saved as a
+  **private** smart playlist, sign out; opening it is a `404`, and pasting its browse URL shows
+  the owner-only notice.
+
+### 38.5 Standing gaps
+
+- **Query performance at library scale** isn't tested: the caps bound the SQL, but no case times
+  a 64-condition query on the `-big` stress fixture. Add one if a query is ever reported slow.
+- **The natural-language tool** (P2-1) is out of scope; A11 covers the MCP `expr` contract it will
+  use.

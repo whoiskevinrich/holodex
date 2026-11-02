@@ -11,6 +11,7 @@ import (
 
 	"holodex/internal/metadata"
 	"holodex/internal/model"
+	"holodex/internal/query"
 	"holodex/internal/repo"
 )
 
@@ -46,13 +47,26 @@ func (h *Handlers) filterableKeys() map[string]bool {
 // parser would silently ignore it and the stored query would mean less than it looks.
 // Scalar keys keep their first value, as the parser reads them; the rest is
 // normalised by repo.EncodePlaylistQuery so equal sets store equal strings.
-func (h *Handlers) canonicalPlaylistQuery(q url.Values) (string, error) {
+//
+// An F87 `expr` is stored in its canonical form (ids, not names), so a rename never
+// changes what it matches (P0-10). The owner writes playlists, so it is parsed as the owner.
+func (h *Handlers) canonicalPlaylistQuery(ctx context.Context, q url.Values) (string, error) {
 	mapped := h.filterableKeys()
 	out := url.Values{}
 	for key, vals := range q {
 		switch {
 		case fetchKeys[key]:
 			continue
+		case key == "expr":
+			v := url.Values{key: vals}.Get(key)
+			if strings.TrimSpace(v) == "" {
+				continue
+			}
+			parsed, err := ParseExpr(ctx, h.repo, v, true)
+			if err != nil {
+				return "", fmt.Errorf("expr: %w", err)
+			}
+			out.Set(key, parsed.String())
 		case repo.PlaylistIDFacets[key] != "":
 			for _, v := range vals {
 				for _, part := range strings.Split(v, ",") {
@@ -127,11 +141,18 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 	stale := []staleRef{}
 	mapped := h.filterableKeys()
 	refs := map[string][]int64{}
+	var expr *query.Query
 	for key, vals := range q {
 		switch {
 		case repo.PlaylistIDFacets[key] != "":
 			refs[key] = parseIDs(vals)
 		case scalarFilterKeys[key], key == "missing_facet", mapped[key]:
+		case key == "expr":
+			// Stored canonical, so it is parsed, never re-canonicalised: an id that no
+			// longer exists must be a stale ref, not re-read as a name of those digits.
+			if expr, err = query.Parse(q.Get(key)); err != nil {
+				return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid, Key: key}}, nil
+			}
 		default:
 			stale = append(stale, staleRef{Kind: staleUnknown, Key: key, Value: q.Get(key)})
 		}
@@ -147,9 +168,27 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 	}
 	f := h.browseFilter(q)
 	f.Sort = p.Sort
+	ownerOnly := wantsCompleteness(f.Sort, f.MissingFacets)
+	if expr != nil {
+		exprRefs := map[string][]int64{}
+		for field, ids := range query.EntityIDs(expr.Root) {
+			exprRefs[repo.ExprFacetKey[field]] = ids
+		}
+		missing, err := h.repo.MissingFacetIDs(ctx, exprRefs)
+		if err != nil {
+			return repo.VideoFilter{}, nil, err
+		}
+		for _, ids := range missing {
+			for _, id := range ids {
+				stale = append(stale, staleRef{Kind: staleMissing, Key: "expr", Value: strconv.FormatInt(id, 10)})
+			}
+		}
+		f.Expr = expr.Root
+		ownerOnly = ownerOnly || query.OwnerOnly(expr.Root)
+	}
 	// A public playlist reports owner_only to every reader, owner included (testing-strategy
 	// §23.8 Q5), so the owner sees the notice and fixes it; only a repo-level write gets here.
-	if len(stale) == 0 && (!isOwner || p.Visibility == model.PlaylistPublic) && wantsCompleteness(f.Sort, f.MissingFacets) {
+	if len(stale) == 0 && (!isOwner || p.Visibility == model.PlaylistPublic) && ownerOnly {
 		stale = append(stale, staleRef{Kind: staleOwnerOnly})
 	}
 	return f, stale, nil
@@ -157,11 +196,16 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 
 // usesOwnerOnlyInputs reports whether a playlist with this sort and stored query would
 // need owner-only inputs to evaluate (ADR-121 D4), so it can't be public.
-func usesOwnerOnlyInputs(sort string, query *string) bool {
+func usesOwnerOnlyInputs(sort string, stored *string) bool {
 	var facets []string
-	if query != nil {
-		if q, err := url.ParseQuery(*query); err == nil {
+	if stored != nil {
+		if q, err := url.ParseQuery(*stored); err == nil {
 			facets = q["missing_facet"]
+			if src := q.Get("expr"); src != "" {
+				if expr, err := query.Parse(src); err == nil && query.OwnerOnly(expr.Root) {
+					return true
+				}
+			}
 		}
 	}
 	return wantsCompleteness(sort, facets)

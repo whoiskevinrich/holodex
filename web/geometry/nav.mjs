@@ -239,6 +239,28 @@ const SCENARIOS = [
 		}
 	},
 	{
+		// F87: a query typed in the nav box opens browse as ?expr=; Back from a video brings
+		// the expr URL, its chips and the scroll back (testing-strategy §38.4).
+		key: 'query-back',
+		qa: '§38.4 · P0-4 · R7/R8',
+		run: async ({ page }) => {
+			await goto(page, `${base}/`);
+			const box = page.locator('#global-search-input');
+			await box.click();
+			await box.fill('-resolution:4K');
+			await box.press('Enter');
+			await page.waitForURL((u) => u.searchParams.has('expr'), { timeout: 5000 }).catch(() => {});
+			const list = here(page);
+			expect(new URL(list, base).searchParams.get('expr') === '-resolution:4K', `Enter landed on ${list}, expected ?expr=-resolution:4K`);
+			await settle(page);
+			expect((await page.locator(CHIP).count()) === 1, 'the query drew no chip');
+			await scrollTo(page, 600);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			await backTo(page, list, 600);
+			expect((await page.locator(CHIP).count()) === 1, 'Back lost the query chip');
+		}
+	},
+	{
 		// An owner-only sort resolves only once the page knows it's the owner. If that lands
 		// after mount, the list key flips, spends Back's snapshot and restarts at the top.
 		key: 'back-restores-owner-only-sort-scroll',

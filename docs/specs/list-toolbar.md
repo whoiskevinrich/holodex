@@ -78,8 +78,10 @@ shared or bookmarked, and saved filters can come back invisibly on a later visit
 - **The Missing (completeness facet) filter on list pages.** It's removed from the People,
   Studios and Media toolbars. *(Why: it's a work queue, and the owner page already has a
   missing-facet queue. HOLODEX-262's "missing-facet filter chip" is superseded for list pages.)*
-- **Tag, studio or person pickers on Media.** *(Why: the entity pages already answer "show me
-  this studio". Media receives that scope as a chip, see R5.)*
+- **Tag, studio or person pickers on Media** *as toolbar controls*. *(Why: the entity pages already
+  answer "show me this studio". Media receives that scope as a chip, see R5.)* Combining Tags,
+  people and studios with AND, OR and NOT is F87's job: the query language
+  ([query-language.md](query-language.md)) adds them to Media as query chips, not as pickers here.
 - **New filters.** This epic moves and restyles existing filters. It adds no new filterable
   fields.
 

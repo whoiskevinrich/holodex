@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1070" width="1000" height="1070" role="img" aria-labelledby="t d">
+<defs><clipPath id="badclip"><rect x="532" y="100" width="140.4" height="10"/></clipPath></defs>
+<title id="t">F87 query language: nav search query mode, errors, browse query chips and the 375px row</title>
+<desc id="d">Cinémathèque tokens at component sizes, text widths measured in Archivo: 14px controls, 12px chips and captions, 13px mono query text. Approved 2026-10-31: OR groups as one inset box with parentheses around AND sets, NOT as an outlined accent chip, an Advanced query row past one OR level.</desc>
+<g font-family="Archivo, 'Archivo Variable', sans-serif">
+<rect x="0.0" y="0.0" width="1000.0" height="1070.0" rx="2" fill="#0c0a09"/>
+<text x="24.0" y="28.0" font-size="12" fill="#9b9082" text-anchor="start">1 · Query mode: the query tag, value suggestions in place of tabs</text>
+<rect x="24.0" y="40.0" width="448.0" height="32.0" rx="2" fill="#15110e" stroke="#e8a33d"/>
+<text x="36.0" y="61.0" font-size="13" fill="#f3ece1" text-anchor="start" font-family="ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">tag:comedy duration:&lt;2m tag:sci</text>
+<text x="458.0" y="61.0" font-size="14" fill="#9b9082" text-anchor="end">×</text>
+<rect x="405.8" y="47.0" width="38.2" height="18.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="409.8" y="60.0" font-size="12" fill="#e8a33d" text-anchor="start">query</text>
+<rect x="24.0" y="76.0" width="448.0" height="128.0" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="36.0" y="96.0" font-size="12" fill="#9b9082" text-anchor="start">TAGS</text>
+<rect x="25.0" y="104.0" width="446.0" height="32.0" rx="2" fill="#181310"/>
+<text x="36.0" y="125.0" font-size="14" fill="#f3ece1" text-anchor="start">science-fiction</text>
+<text x="460.0" y="125.0" font-size="12" fill="#9b9082" text-anchor="end">alias: sci-fi · 214</text>
+<text x="36.0" y="157.0" font-size="14" fill="#f3ece1" text-anchor="start">science</text>
+<text x="460.0" y="157.0" font-size="12" fill="#9b9082" text-anchor="end">38</text>
+<line x1="25" y1="168.5" x2="471" y2="168.5" stroke="#2a2622"/>
+<text x="36.0" y="190.0" font-size="12" fill="#9b9082" text-anchor="start">Enter searches videos · Tab inserts suggestion</text>
+<text x="460.0" y="190.0" font-size="12" fill="#9b9082" text-anchor="end" text-decoration="underline">Syntax</text>
+<text x="520.0" y="28.0" font-size="12" fill="#9b9082" text-anchor="start">2 · Error: warn border, bad part underlined, fixes below</text>
+<rect x="520.0" y="40.0" width="448.0" height="32.0" rx="2" fill="#15110e" stroke="#e2603f"/>
+<text x="532.0" y="61.0" font-size="13" fill="#f3ece1" text-anchor="start" font-family="ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">tag:sciencefiction OR tag:action</text>
+<text x="954.0" y="61.0" font-size="14" fill="#9b9082" text-anchor="end">×</text>
+<rect x="520.0" y="76.0" width="448.0" height="128.0" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="532.0" y="100.0" font-size="13" fill="#f3ece1" text-anchor="start" font-family="ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">tag:sciencefiction OR tag:action</text>
+<path d="M532 106 q2 -3 4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0" fill="none" stroke="#e2603f" stroke-width="1" clip-path="url(#badclip)"/>
+<text x="532.0" y="128.0" font-size="14" fill="#e2603f" text-anchor="start">No Tag called "sciencefiction".</text>
+<text x="532.0" y="158.0" font-size="12" fill="#9b9082" text-anchor="start">DID YOU MEAN</text>
+<rect x="521.0" y="166.0" width="446.0" height="32.0" rx="2" fill="#181310"/>
+<text x="532.0" y="187.0" font-size="14" fill="#f3ece1" text-anchor="start">science-fiction</text>
+<text x="956.0" y="187.0" font-size="12" fill="#9b9082" text-anchor="end">214</text>
+<text x="24.0" y="252.0" font-size="12" fill="#9b9082" text-anchor="start">3 · Browse chip row (F73 chips row, sm+ wraps). Query 1: OR group = one inset box, ( ) around an AND set, one × for the group; NOT = outlined chip.</text>
+<rect x="24.5" y="264.5" width="294.7" height="29.0" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="28.0" y="283.0" font-size="12" fill="#9b9082" text-anchor="start">(</text>
+<rect x="36.3" y="268.0" width="102.8" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="42.3" y="283.0" font-size="12" fill="#1a1206" text-anchor="start">science-fiction</text>
+<text x="125.6" y="283.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="143.1" y="283.0" font-size="12" fill="#9b9082" text-anchor="start">+</text>
+<rect x="154.6" y="268.0" width="64.4" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="160.6" y="283.0" font-size="12" fill="#1a1206" text-anchor="start">fantasy</text>
+<text x="205.5" y="283.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="223.0" y="283.0" font-size="12" fill="#9b9082" text-anchor="start">)</text>
+<text x="231.3" y="283.0" font-size="12" fill="#9b9082" text-anchor="start">or</text>
+<rect x="246.1" y="268.0" width="58.1" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="252.1" y="283.0" font-size="12" fill="#1a1206" text-anchor="start">action</text>
+<text x="290.7" y="283.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="308.2" y="283.0" font-size="12" fill="#f3ece1" text-anchor="start">×</text>
+<rect x="326.2" y="268.5" width="87.0" height="21.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="331.7" y="283.0" font-size="12" fill="#e8a33d" text-anchor="start">not comedy</text>
+<text x="400.2" y="283.0" font-size="13" fill="#e8a33d" text-anchor="start">×</text>
+<rect x="419.7" y="268.0" width="98.3" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="425.7" y="283.0" font-size="12" fill="#1a1206" text-anchor="start">Harrison Ford</text>
+<text x="504.5" y="283.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="528.0" y="283.0" font-size="12" fill="#9b9082" text-anchor="start">Clear</text>
+<text x="568.5" y="283.0" font-size="12" fill="#9b9082" text-anchor="start" text-decoration="underline">Edit as text</text>
+<text x="24.0" y="326.0" font-size="12" fill="#9b9082" text-anchor="start">Query 2 (owner): provider match is an ordinary NOT chip.</text>
+<rect x="24.0" y="338.0" width="125.3" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="30.0" y="353.0" font-size="12" fill="#1a1206" text-anchor="start">Studio: Paramount</text>
+<text x="135.8" y="353.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<rect x="155.8" y="338.5" width="91.0" height="21.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="161.3" y="353.0" font-size="12" fill="#e8a33d" text-anchor="start">not matched</text>
+<text x="233.8" y="353.0" font-size="13" fill="#e8a33d" text-anchor="start">×</text>
+<text x="24.0" y="390.0" font-size="12" fill="#9b9082" text-anchor="start">Query 3: a plain AND query draws exactly as today's chips.</text>
+<rect x="24.0" y="402.0" width="68.3" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="30.0" y="417.0" font-size="12" fill="#1a1206" text-anchor="start">comedy</text>
+<text x="78.8" y="417.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<rect x="98.3" y="402.0" width="112.9" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="104.3" y="417.0" font-size="12" fill="#1a1206" text-anchor="start">Duration &lt; 2 min</text>
+<text x="197.7" y="417.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="24.0" y="456.0" font-size="12" fill="#9b9082" text-anchor="start">4 · Past one OR level the chips stop: one Advanced query row, never a simplified chip set. Edit as text puts the query in the nav box, focused.</text>
+<rect x="24.5" y="468.5" width="406.9" height="29.0" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="32.0" y="487.0" font-size="12" fill="#f3ece1" text-anchor="start">Advanced query</text>
+<text x="126.5" y="487.0" font-size="13" fill="#9b9082" text-anchor="start" font-family="ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">((tag:a OR (tag:b -tag:c)) tag:d) OR …</text>
+<text x="440.9" y="487.0" font-size="12" fill="#e8a33d" text-anchor="start" text-decoration="underline">Edit as text</text>
+<text x="24.0" y="540.0" font-size="12" fill="#9b9082" text-anchor="start">5 · No results: chips stay; the message names the query and offers Edit query (btn-ghost) instead of Clear filters.</text>
+<rect x="24.0" y="552.0" width="944.0" height="150.0" rx="2" fill="none" stroke="#2a2622" stroke-dasharray="3 3"/>
+<rect x="40.5" y="566.5" width="294.7" height="29.0" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="44.0" y="585.0" font-size="12" fill="#9b9082" text-anchor="start">(</text>
+<rect x="52.3" y="570.0" width="102.8" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="58.3" y="585.0" font-size="12" fill="#1a1206" text-anchor="start">science-fiction</text>
+<text x="141.6" y="585.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="159.1" y="585.0" font-size="12" fill="#9b9082" text-anchor="start">+</text>
+<rect x="170.6" y="570.0" width="64.4" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="176.6" y="585.0" font-size="12" fill="#1a1206" text-anchor="start">fantasy</text>
+<text x="221.5" y="585.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="239.0" y="585.0" font-size="12" fill="#9b9082" text-anchor="start">)</text>
+<text x="247.3" y="585.0" font-size="12" fill="#9b9082" text-anchor="start">or</text>
+<rect x="262.1" y="570.0" width="58.1" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="268.1" y="585.0" font-size="12" fill="#1a1206" text-anchor="start">action</text>
+<text x="306.7" y="585.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="324.2" y="585.0" font-size="12" fill="#f3ece1" text-anchor="start">×</text>
+<rect x="342.2" y="570.5" width="87.0" height="21.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="347.7" y="585.0" font-size="12" fill="#e8a33d" text-anchor="start">not comedy</text>
+<text x="416.2" y="585.0" font-size="13" fill="#e8a33d" text-anchor="start">×</text>
+<rect x="435.7" y="570.0" width="98.3" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="441.7" y="585.0" font-size="12" fill="#1a1206" text-anchor="start">Harrison Ford</text>
+<text x="520.5" y="585.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="496.0" y="640.0" font-size="14" fill="#9b9082" text-anchor="middle">No videos match this query.</text>
+<rect x="452.6" y="656.0" width="86.8" height="32.0" rx="2" fill="none" stroke="#2a2622"/>
+<text x="496.0" y="677.0" font-size="14" fill="#f3ece1" text-anchor="middle">Edit query</text>
+<text x="24.0" y="744.0" font-size="12" fill="#9b9082" text-anchor="start">6 · 375px (content 327px): header row 1 = wordmark + search; chips one line, scrolling sideways; count below.</text>
+<rect x="24.5" y="756.5" width="375.0" height="270.0" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+<text x="48.0" y="790.0" font-size="18" fill="#f3ece1" text-anchor="start" font-family="Fraunces, Georgia, serif">holodex</text>
+<rect x="126.0" y="769.0" width="249.0" height="32.0" rx="2" fill="#15110e" stroke="#e8a33d"/>
+<text x="136.0" y="790.0" font-size="13" fill="#f3ece1" text-anchor="start" font-family="ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace">tag:comedy -tag:a…</text>
+<rect x="310.8" y="776.0" width="38.2" height="18.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="314.8" y="789.0" font-size="12" fill="#e8a33d" text-anchor="start">query</text>
+<text x="363.0" y="790.0" font-size="14" fill="#9b9082" text-anchor="end">×</text>
+<line x1="24" y1="816.5" x2="400" y2="816.5" stroke="#2a2622"/>
+<clipPath id="m"><rect x="48" y="832" width="327" height="40"/></clipPath>
+<g clip-path="url(#m)">
+<rect x="48.5" y="836.5" width="294.7" height="29.0" rx="2" fill="#181310" stroke="#2a2622"/>
+<text x="52.0" y="855.0" font-size="12" fill="#9b9082" text-anchor="start">(</text>
+<rect x="60.3" y="840.0" width="102.8" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="66.3" y="855.0" font-size="12" fill="#1a1206" text-anchor="start">science-fiction</text>
+<text x="149.6" y="855.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="167.1" y="855.0" font-size="12" fill="#9b9082" text-anchor="start">+</text>
+<rect x="178.6" y="840.0" width="64.4" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="184.6" y="855.0" font-size="12" fill="#1a1206" text-anchor="start">fantasy</text>
+<text x="229.5" y="855.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="247.0" y="855.0" font-size="12" fill="#9b9082" text-anchor="start">)</text>
+<text x="255.3" y="855.0" font-size="12" fill="#9b9082" text-anchor="start">or</text>
+<rect x="270.1" y="840.0" width="58.1" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="276.1" y="855.0" font-size="12" fill="#1a1206" text-anchor="start">action</text>
+<text x="314.7" y="855.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+<text x="332.2" y="855.0" font-size="12" fill="#f3ece1" text-anchor="start">×</text>
+<rect x="350.2" y="840.5" width="87.0" height="21.0" rx="2" fill="none" stroke="#e8a33d"/>
+<text x="355.7" y="855.0" font-size="12" fill="#e8a33d" text-anchor="start">not comedy</text>
+<text x="424.2" y="855.0" font-size="13" fill="#e8a33d" text-anchor="start">×</text>
+<rect x="443.7" y="840.0" width="98.3" height="22.0" rx="2" fill="#e8a33d"/>
+<text x="449.7" y="855.0" font-size="12" fill="#1a1206" text-anchor="start">Harrison Ford</text>
+<text x="528.5" y="855.0" font-size="13" fill="#1a1206" text-anchor="start">×</text>
+</g>
+<line x1="375.5" y1="832" x2="375.5" y2="872" stroke="#2a2622" stroke-dasharray="2 2"/>
+<text x="48.0" y="892.0" font-size="14" fill="#9b9082" text-anchor="start">3 videos</text>
+<rect x="48.0" y="908.0" width="160.0" height="90.0" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="215.0" y="908.0" width="160.0" height="90.0" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text x="211.5" y="1048.0" font-size="12" fill="#9b9082" text-anchor="middle">Cinémathèque · 375px</text>
+</g></svg>

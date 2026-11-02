@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -23,6 +24,7 @@ import (
 	"holodex/internal/mapping"
 	"holodex/internal/metadata"
 	"holodex/internal/model"
+	"holodex/internal/query"
 	"holodex/internal/repo"
 )
 
@@ -128,6 +130,7 @@ func (s *Server) register(m *mcpserver.MCPServer) {
 		mcp.WithNumber("page", mcp.Description("1-based page number"), mcp.DefaultNumber(1)),
 		mcp.WithNumber("page_size", mcp.Description("Results per page, 1-100"), mcp.DefaultNumber(20)),
 		mcp.WithObject("fields", mcp.Description(`Filterable configurable metadata fields keyed by canonical name, e.g. {"studio":"Acme"} (F20.6)`)),
+		mcp.WithString("expr", mcp.Description(`An F87 query, ANDed with the other arguments. Conditions are field:value with fields tag, person, studio, category, resolution (SD|HD|FHD|4K), year and duration (<, <=, >, >=, or a..b; durations take s, m or h), plus matched:any or matched:<provider> for the owner. Adjacent parts must all match; OR, a leading - (or NOT) and parentheses combine them; quote names with spaces. A bare word matches the title or the Tag of exactly that name. Names may be aliases. Example: ((tag:science-fiction tag:fantasy) OR tag:action) -tag:comedy person:"Harrison Ford". The response's expr is the canonical form, with ids in place of names.`)),
 	), s.searchVideos)
 
 	m.AddTool(mcp.NewTool("get_video",
@@ -174,7 +177,23 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		f.WidthMin, f.WidthMax = metadata.ResolutionWidthRange(b)
 	}
 
-	empty := searchResponse{Results: []searchItem{}, Page: page, PageSize: pageSize}
+	// An F87 expr goes through the same parse, caps, owner check and canonicalisation
+	// as /media (security-perimeter.md): this tool builds its filter without
+	// mediaFilterFor, so it calls the shared path itself.
+	var canonical string
+	if src := req.GetString("expr", ""); strings.TrimSpace(src) != "" {
+		q, err := api.ParseExpr(ctx, s.repo, src, isOwner(ctx))
+		var qe *query.Error
+		if errors.As(err, &qe) {
+			return mcp.NewToolResultError(exprErrorText(src, qe)), nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		f.Expr, canonical = q.Root, q.String()
+	}
+
+	empty := searchResponse{Results: []searchItem{}, Page: page, PageSize: pageSize, Expr: canonical}
 	// Resolve people/tag names to ids (AND semantics). An unknown name can match
 	// no video, so allFound=false short-circuits the whole search to empty — the
 	// caller asked for someone or something not in the library.
@@ -224,7 +243,7 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 	if err != nil {
 		return nil, err
 	}
-	resp := searchResponse{Results: make([]searchItem, 0, len(vids)), Total: total, Page: page, PageSize: pageSize}
+	resp := searchResponse{Results: make([]searchItem, 0, len(vids)), Total: total, Page: page, PageSize: pageSize, Expr: canonical}
 	for i := range vids {
 		resp.Results = append(resp.Results, toSearchItem(&vids[i]))
 	}
@@ -295,6 +314,24 @@ type searchResponse struct {
 	Total    int          `json:"total"`
 	Page     int          `json:"page"`
 	PageSize int          `json:"page_size"`
+	Expr     string       `json:"expr,omitempty"` // the canonical F87 query that ran
+}
+
+// exprErrorText words a refused expr for a tool: the message, the part it points at,
+// and any names to try instead.
+func exprErrorText(src string, e *query.Error) string {
+	msg := e.Code + ": " + e.Message
+	u := utf16.Encode([]rune(src))
+	if e.Start < e.End && e.End <= len(u) {
+		msg += fmt.Sprintf(" (at %q)", string(utf16.Decode(u[e.Start:e.End])))
+	}
+	if len(e.Suggestions) > 0 {
+		msg += " Did you mean: " + strings.Join(e.Suggestions, ", ") + "?"
+	}
+	for _, c := range e.Candidates {
+		msg += fmt.Sprintf(" Candidate: %s (id %d).", c.Name, c.ID)
+	}
+	return msg
 }
 
 type idName struct {
