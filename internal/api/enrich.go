@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -34,10 +35,10 @@ var imdbPathRe = regexp.MustCompile(`\{imdb-(tt\d+)\}`)
 // enrichVideoResolve and refresh-all's enrichQueryHint (enrich_review.go).
 //
 // providers are the configured providers whose identity markers (`{<provider>-<id>}`, F86 P0-11)
-// a file name may carry. Each marker read back from the base name becomes a "<provider>:<id>"
-// hint, its id bounded to the provider id alphabet (security-perimeter.md "Rename names"),
-// whether Holodex wrote the name or not.
-func videoHint(v *model.Video, resolved []resolver.ResolvedField, query, querySource string, providers []string) enrich.Hint {
+// a file name may carry. Only target's own marker, read back from the base name, becomes a
+// "<target>:<id>" hint, its id bounded to the provider id alphabet (security-perimeter.md "Rename
+// names"), whether Holodex wrote the name or not. Another provider's marker never reaches target.
+func videoHint(v *model.Video, resolved []resolver.ResolvedField, query, querySource, target string, providers []string) enrich.Hint {
 	hint := enrich.Hint{
 		Query:       query,
 		Fields:      searchFieldValues(v, resolved),
@@ -47,12 +48,13 @@ func videoHint(v *model.Video, resolved []resolver.ResolvedField, query, querySo
 	if m := imdbPathRe.FindStringSubmatch(v.FilePath); m != nil {
 		hint.ExternalIDs = []string{"imdb:" + m[1]}
 	}
+	if !slices.Contains(providers, target) {
+		return hint
+	}
 	stem := strings.TrimSuffix(hint.Filename, filepath.Ext(hint.Filename))
-	_, ids := extract.NewIdentityLifter(providers).Lift(rename.StripDisambiguator(stem))
-	for _, p := range providers {
-		if id, ok := ids[p]; ok {
-			hint.ExternalIDs = append(hint.ExternalIDs, p+":"+id)
-		}
+	_, ids := extract.NewIdentityLifter([]string{target}).Lift(rename.StripDisambiguator(stem))
+	if id, ok := ids[target]; ok {
+		hint.ExternalIDs = append(hint.ExternalIDs, target+":"+id)
 	}
 	return hint
 }
@@ -375,7 +377,7 @@ func (h *Handlers) enrichVideoResolve(w http.ResponseWriter, r *http.Request) {
 	if body.Query == h.providerQuery(src, queryFieldsFrom(v, resolved)) {
 		querySource = enrich.QuerySourcePattern
 	}
-	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, resolved, body.Query, querySource, h.RenameProviders()))
+	res, err := h.enrich.Resolve(r.Context(), body.Provider, model.EnrichEntityVideo, videoHint(v, resolved, body.Query, querySource, body.Provider, h.RenameProviders()))
 	if err != nil {
 		h.providerError(w, "video enrich resolve failed", body.Provider, err, "provider lookup failed")
 		return
