@@ -142,7 +142,6 @@ watched:no director:"Ridley Scott"
   before saving, so that I don't lose my place.
 
 **Visitor**
-- As a visitor, I want to see how a public smart playlist is built so that I understand what's in it.
 - As a visitor, I want date conditions on browse so that I can find what was added recently.
 
 **Edge cases**
@@ -207,9 +206,11 @@ A live count and grid preview follow every change. **Save definition** applies t
 - [ ] Saving goes through the same owner-only save as today; the editor adds no new way to change a
       playlist, and every save re-checks the whole definition (SEC-11).
 
-**P0-5 Visitors and public playlists.** A visitor sees a public smart playlist's definition as
-read-only chips. A public playlist may use only what a visitor may.
-- [ ] A visitor sees the same chips as the owner, with no edit controls.
+**P0-5 Visitors and public playlists.** A visitor sees a public smart playlist's name, count and
+sort, and that it updates automatically, but never its definition. Outside the editor, the owner
+sees the definition as read-only chips. A public playlist may use only what a visitor may.
+- [ ] A visitor sees no chips, query text or condition names for a public smart playlist.
+- [ ] The owner sees the definition as chips without edit controls until opening the editor.
 - [ ] Making a playlist public, or saving a public one, is refused while it uses an owner-only
       condition (`matched`, `watched`, `plays`, `played`) or references a private playlist, or a
       playlist that itself uses one, at any depth (SEC-2, SEC-11). The message names the condition.
@@ -305,8 +306,9 @@ None open for the owner. Before build: the two architecture choices under *Depen
   counts; any play over N seconds; manual marks only; a rolling retention window.
 - **RD9 Watched mark and manual toggle, no clear-history** (2026-11-01). *Rejected*: clearing
   history.
-- **RD10 Visitors see a public playlist's definition as read-only chips** (2026-11-01). *Why*:
-  explains the list; RD6 and P0-5 keep anything private out of it. *Rejected*: hide the definition.
+- **RD10 Visitors never see a smart playlist's definition** (2026-11-01, confirmed with the design
+  handoff). *Why*: the name and contents say enough, and nothing about how a list was built can
+  reach a visitor. *Rejected*: read-only chips for visitors.
 - **RD11 Edit on the playlist page** (2026-11-01). *Why*: the playlist's sort, cap and settings live
   there. *Rejected*: extending browse's edit mode (F75 P0-8).
 
