@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 
@@ -31,14 +32,23 @@ func IdentityToken(provider string) string { return provider + "-id" }
 
 var templateTokenRe = regexp.MustCompile(`\{([^{}]*)\}`)
 
-// Template is one compiled rename template: the text the owner wrote, and the F48 pattern that
-// reads its names back (architecture "One grammar both ways").
+// maxOptional bounds a template's optional tokens (P0-1): each one doubles its variants.
+const maxOptional = 6
+
+// Template is one compiled rename template: the text the owner wrote, and the plain templates it
+// stands for once its optional tokens are kept or dropped (P0-1), most tokens kept first.
 type Template struct {
-	Text   string
-	tokens []string
-	ids    *extract.IdentityLifter
+	Text     string
+	ids      *extract.IdentityLifter
+	variants []*variant
+}
+
+// variant is one plain template: its text, and the F48 pattern that reads its names back
+// (architecture "One grammar both ways").
+type variant struct {
+	text string
 	// pattern is nil when nothing but markers is left once they are lifted; rest is then the
-	// literal stem every name from this template reads back to.
+	// literal stem every name from this variant reads back to.
 	pattern *extract.Pattern
 	rest    string
 }
@@ -64,54 +74,150 @@ func parseTemplate(text string, providers []string, ids *extract.IdentityLifter)
 		known[IdentityToken(p)] = "{" + p + "-x}"
 	}
 
-	var tokens []string
 	seen := map[string]bool{}
-	var pat strings.Builder
+	required := map[string]bool{}
+	var optional []string // in written order
 	last := 0
 	for _, loc := range templateTokenRe.FindAllStringSubmatchIndex(text, -1) {
 		if err := checkLiteral(text[last:loc[0]]); err != nil {
 			return nil, err
 		}
-		name := text[loc[2]:loc[3]]
-		form, ok := known[name]
-		if !ok {
+		name, opt := strings.CutSuffix(text[loc[2]:loc[3]], "?")
+		if _, ok := known[name]; !ok {
 			return nil, fmt.Errorf("{%s} isn't a token", name)
 		}
 		if seen[name] {
 			return nil, fmt.Errorf("{%s} appears twice", name)
 		}
 		seen[name] = true
-		tokens = append(tokens, name)
-		pat.WriteString(text[last:loc[0]])
-		pat.WriteString(form)
+		if opt {
+			optional = append(optional, name)
+		} else {
+			required[name] = true
+		}
 		last = loc[1]
 	}
 	if err := checkLiteral(text[last:]); err != nil {
 		return nil, err
 	}
-	pat.WriteString(text[last:])
 
-	hasIdentity := false
+	hasIdentity, anyIdentity := false, false
 	for _, p := range providers {
-		hasIdentity = hasIdentity || seen[IdentityToken(p)]
+		hasIdentity = hasIdentity || required[IdentityToken(p)]
+		anyIdentity = anyIdentity || seen[IdentityToken(p)]
 	}
-	if !seen[TokTitle] && !hasIdentity {
+	if !required[TokTitle] && !hasIdentity {
+		if seen[TokTitle] || anyIdentity {
+			return nil, errors.New("keep {title} or an identity token without ?: without one, unrelated videos could get the same name")
+		}
 		return nil, errors.New("add {title} or an identity token: without one, unrelated videos could get the same name")
 	}
+	if len(optional) > maxOptional {
+		return nil, fmt.Errorf("at most %d tokens can be optional", maxOptional)
+	}
 
-	t := &Template{Text: text, tokens: tokens, ids: ids}
-	rest, _ := ids.Lift(pat.String())
-	rest, _ = extract.LiftMarkers(rest)
-	if templateTokenRe.MatchString(rest) {
-		p, err := extract.Compile(rest)
+	t := &Template{Text: text, ids: ids}
+	compiled := map[string]*extract.Pattern{} // variants that differ only in markers share one
+	for _, drop := range dropSets(len(optional)) {
+		dropped := map[string]bool{}
+		for _, i := range drop {
+			dropped[optional[i]] = true
+		}
+		v, err := compileVariant(dropOptional(text, dropped), known, ids, compiled)
 		if err != nil {
 			return nil, err
 		}
-		t.pattern = p
-	} else {
-		t.rest = rest
+		t.variants = append(t.variants, v)
 	}
 	return t, nil
+}
+
+// compileVariant compiles one plain template, already checked, into the pattern that reads its
+// names back.
+func compileVariant(text string, known map[string]string, ids *extract.IdentityLifter, compiled map[string]*extract.Pattern) (*variant, error) {
+	v := &variant{text: text}
+	var pat strings.Builder
+	last := 0
+	for _, loc := range templateTokenRe.FindAllStringSubmatchIndex(text, -1) {
+		pat.WriteString(text[last:loc[0]])
+		pat.WriteString(known[text[loc[2]:loc[3]]])
+		last = loc[1]
+	}
+	pat.WriteString(text[last:])
+	rest, _ := ids.Lift(pat.String())
+	rest, _ = extract.LiftMarkers(rest)
+	if !templateTokenRe.MatchString(rest) {
+		v.rest = rest
+		return v, nil
+	}
+	if p, ok := compiled[rest]; ok {
+		v.pattern = p
+		return v, nil
+	}
+	p, err := extract.Compile(rest)
+	if err != nil {
+		return nil, err
+	}
+	compiled[rest] = p
+	v.pattern = p
+	return v, nil
+}
+
+// dropSets lists every subset of n optional tokens, by index: the empty set first, then each size
+// in turn, each in written order.
+func dropSets(n int) [][]int {
+	sets := [][]int{nil}
+	for size := 1; size <= n; size++ {
+		var walk func(from int, cur []int)
+		walk = func(from int, cur []int) {
+			if len(cur) == size {
+				sets = append(sets, append([]int(nil), cur...))
+				return
+			}
+			for i := from; i < n; i++ {
+				walk(i+1, append(cur, i))
+			}
+		}
+		walk(0, nil)
+	}
+	return sets
+}
+
+// dropOptional gives the plain template a template stands for when its dropped optional tokens
+// have no value (P0-1). Each one goes with the literal text touching it, up to a space or a
+// neighbouring token, and the space it leaves is closed up. Every kept token loses its ?.
+func dropOptional(text string, dropped map[string]bool) string {
+	locs := templateTokenRe.FindAllStringSubmatchIndex(text, -1)
+	var b strings.Builder
+	last := 0 // text[:last] is written or dropped
+	for i, loc := range locs {
+		name, _ := strings.CutSuffix(text[loc[2]:loc[3]], "?")
+		if !dropped[name] {
+			b.WriteString(text[last:loc[0]] + "{" + name + "}")
+			last = loc[1]
+			continue
+		}
+		start := last
+		if j := strings.LastIndexFunc(text[last:loc[0]], unicode.IsSpace); j >= 0 {
+			_, size := utf8.DecodeRuneInString(text[last+j:])
+			start = last + j + size
+		}
+		b.WriteString(text[last:start])
+		next := len(text)
+		if i+1 < len(locs) {
+			next = locs[i+1][0]
+		}
+		end := next
+		if j := strings.IndexFunc(text[loc[1]:next], unicode.IsSpace); j >= 0 {
+			end = loc[1] + j
+		}
+		if out := b.String(); out == "" || strings.TrimRightFunc(out, unicode.IsSpace) != out {
+			end += len(text[end:next]) - len(strings.TrimLeftFunc(text[end:next], unicode.IsSpace))
+		}
+		last = end
+	}
+	b.WriteString(text[last:])
+	return strings.TrimSpace(b.String())
 }
 
 // checkLiteral applies P0-4's character rules to a template's own text: a character P0-4 removes
@@ -165,16 +271,26 @@ func ListError(errs []error) *TemplateListError {
 // Values are a video's raw resolved values by token. A token with no value is absent or empty.
 type Values map[string][]string
 
-// render fills the template from sanitised values. ok is false when a token has no value, so the
+// render fills the template from sanitised values with its first variant that fits: the one that
+// keeps every optional token with a value. ok is false when a required token has no value, so the
 // template doesn't fit (P0-2). written records the value written per token (P0-10).
 func (t *Template) render(v Values, delimiter string) (stem string, written map[string][]string, ok bool, err error) {
+	for _, vr := range t.variants {
+		if stem, written, ok, err = vr.render(v, delimiter); ok || err != nil {
+			return stem, written, ok, err
+		}
+	}
+	return "", nil, false, nil
+}
+
+func (vr *variant) render(v Values, delimiter string) (stem string, written map[string][]string, ok bool, err error) {
 	written = map[string][]string{}
 	var b strings.Builder
 	last := 0
-	for _, loc := range templateTokenRe.FindAllStringSubmatchIndex(t.Text, -1) {
-		b.WriteString(t.Text[last:loc[0]])
+	for _, loc := range templateTokenRe.FindAllStringSubmatchIndex(vr.text, -1) {
+		b.WriteString(vr.text[last:loc[0]])
 		last = loc[1]
-		tok := t.Text[loc[2]:loc[3]]
+		tok := vr.text[loc[2]:loc[3]]
 		vals, err := sanitizeAll(tokenValues(tok, v[tok]))
 		if err != nil {
 			return "", nil, false, err
@@ -196,7 +312,7 @@ func (t *Template) render(v Values, delimiter string) (stem string, written map[
 			b.WriteString("{" + strings.TrimSuffix(tok, "-id") + "-" + vals[0] + "}")
 		}
 	}
-	b.WriteString(t.Text[last:])
+	b.WriteString(vr.text[last:])
 	return b.String(), written, true, nil
 }
 
@@ -247,17 +363,34 @@ func delimiterOr(d string) string {
 	return d
 }
 
-// read parses a stem with this template alone, returning the value per token.
+// read parses a stem with this template alone, by its first variant that fits, returning the value
+// per token.
 func (t *Template) read(stem, delimiter string) (map[string][]string, bool) {
 	rest, ids := t.ids.Lift(stem)
 	rest, markers := extract.LiftMarkers(rest)
+	for _, vr := range t.variants {
+		if out, ok := vr.read(rest, delimiter); ok {
+			for f, v := range markers {
+				out[f] = []string{v}
+			}
+			for p, id := range ids {
+				out[IdentityToken(p)] = []string{id}
+			}
+			return out, true
+		}
+	}
+	return nil, false
+}
+
+// read matches what is left of a stem once its markers are lifted.
+func (vr *variant) read(rest, delimiter string) (map[string][]string, bool) {
 	out := map[string][]string{}
-	if t.pattern == nil {
-		if rest != t.rest {
+	if vr.pattern == nil {
+		if rest != vr.rest {
 			return nil, false
 		}
 	} else {
-		fields, ok := t.pattern.Match(rest, delimiter)
+		fields, ok := vr.pattern.Match(rest, delimiter)
 		if !ok {
 			return nil, false
 		}
@@ -266,12 +399,6 @@ func (t *Template) read(stem, delimiter string) (map[string][]string, bool) {
 				out[tok] = vals
 			}
 		}
-	}
-	for f, v := range markers {
-		out[f] = []string{v}
-	}
-	for p, id := range ids {
-		out[IdentityToken(p)] = []string{id}
 	}
 	return out, true
 }
