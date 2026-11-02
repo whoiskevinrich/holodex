@@ -233,6 +233,36 @@ in the trigger — duplicates the resolver in SQL. **Rejected:** a global genera
 
 Decided in [`e7e765ec`](https://github.com/whoiskevinrich/holodex/commit/e7e765ec).
 
+## Winning values are indexed in `resolved_values` for queries, on the completeness dirty set
+
+A query condition on a resolved field (F89 P0-6, and `released:`) matches only the resolver's winning
+value (SEC-8). `resolved_values(video_id, field_key, norm_value, value)` stores that value for
+every queryable field, one row per value for multi-value fields, indexed on
+`(field_key, norm_value)`. The query compiler emits an `EXISTS` over it, so a resolved condition
+composes with F87's other conditions under AND, OR and NOT, and count, sort, offset paging and
+`/media/ids` stay SQL. Like the completeness store it is a cache, never a source of truth: the
+media detail page still resolves live.
+
+- **Which fields.** Only fields the registry allowlists as queryable are indexed. `_`-prefixed keys
+  never are (SEC-8). Dates are stored as ISO-8601 text, so a range compares lexically.
+- **Invalidation.** It reuses the completeness triggers and `completeness_dirty` rather than adding
+  a second dirty set. A drain runs the resolver once per dirty video and rewrites both caches from
+  that one pass. Mark-all events (mapping reload, promotion, claim, hint, trust-order change, the
+  boot fingerprint) cover both.
+- **Drain.** Draining the dirty set before evaluation applies to any query whose expression holds a
+  resolved condition, including a visitor's. That is the one exception to "visitors never drain";
+  the work is the same idempotent recompute under `writeMu`. While the boot background drain
+  runs, request-path drains return at once and the query reads the index as it is.
+
+**Rejected:** resolving in memory after SQL narrows the candidates. It's always exact, but a query
+whose only condition is resolved resolves the whole library on every read. SQL also can't count,
+sort or page what Go filters afterwards, so it needs a second evaluator for the whole expression.
+**Rejected:** `EXISTS` over raw `entity_enrichment` and `video_metadata` rows. It also matches
+values that lost to another source, which SEC-8 forbids. **Rejected:** refreshing at each write
+site. There are about 30 of them, the same reason the completeness store rejected it.
+
+Decided in: pending squash (HOLODEX-619).
+
 ## Boot re-scores completeness only when an input fingerprint moves, in the background
 
 At boot (`cmd/holodex/completeness_boot.go`) a SHA-256 over the executable's bytes plus

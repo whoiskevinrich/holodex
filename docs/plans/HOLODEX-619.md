@@ -26,7 +26,7 @@ Done means a smart playlist can express relative dates, a result cap, references
 playlists, resolved (provider-merged) fields and the owner's watch history, and its definition is
 edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 
-**Design package:** [spec F89](../specs/smart-playlist-rules.md) · architecture: pending (two forks) ·
+**Design package:** [spec F89](../specs/smart-playlist-rules.md) · architecture: [resolved_values index](../architecture/field-resolution.md), [watch-history.md](../architecture/watch-history.md) ·
 [handoff](../design/smart-playlist-rules-handoff.md) · [security rules SEC-1–11](../architecture/security-perimeter.md) · testing-strategy: pending
 
 ## Gates — definition of done
@@ -40,7 +40,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**`
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
@@ -62,10 +62,9 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] `/architecture`: how F89 P0-6 queries match resolved field values — `docs/architecture/field-resolution.md`
-2. [ ] [architecture] `/architecture`: where owner play history (P0-7) is stored — `docs/architecture/`
-3. [ ] [testing] `/testing-strategy` for F89 — `docs/testing-strategy.md`
-4. [ ] [design] `/implement`: owner signs off the handoff, then the draft PR opens — `docs/design/smart-playlist-rules-handoff.md`  ⛔ blocked on #1–#2
+1. [ ] [testing] `/testing-strategy` for F89 — `docs/testing-strategy.md`
+2. [ ] [design] `/implement`: owner signs off the handoff, then the draft PR opens — `docs/design/smart-playlist-rules-handoff.md`
+3. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -77,8 +76,12 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-11-02 · architecture: resolved-value index, watch history
+- skills: architecture, handoff
+- handoff: Every design-phase gate is settled (architecture: `resolved_values` on the completeness dirty set; plays as rows plus a summary); next is `/testing-strategy`, then `/implement` for the owner's design sign-off.
+
 ### 2026-11-01 · brainstorm, then spec, design and security in parallel sessions
-- skills: write-spec, design-handoff (security review done by hand at design stage), handoff
+- skills: write-spec, design-handoff (security review done by hand at design stage), handoff, architecture
 - handoff: Spec F89, design handoff and SEC-1–11 are merged here and agree; the architecture gate is open on two forks (resolved-field querying, play-history storage) — start with `/architecture` on item 1.
 
 ## Dropped — newest first (the reason is the point)

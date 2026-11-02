@@ -26,12 +26,10 @@ delivered by P0-6 here).
 their visibility (F69), the field resolver and the owner's field mapping
 ([field-resolution.md](../architecture/field-resolution.md)).
 
-**Depends on, not decided yet** (architecture, before build):
-- **How resolved values are queried** (P0-6). Today the query sees only the file layer, and a
-  video's resolved values exist only when it is shown. The choice of how a query reaches them belongs in
-  [field-resolution.md](../architecture/field-resolution.md) or
-  [browse-and-list-state.md](../architecture/browse-and-list-state.md).
-- **Where plays are kept** (P0-7). Nothing records a play today.
+**Architecture** (decided 2026-11-02):
+- **How resolved values are queried** (P0-6): [field-resolution.md, "Winning values are
+  indexed"](../architecture/field-resolution.md).
+- **Where plays are kept** (P0-7 to P0-9): [watch-history.md](../architecture/watch-history.md).
 
 **Design handoff**: pending (the on-page editor, the new chips and states). **Security review**:
 design phase, rules SEC-1 to SEC-11 in [security-perimeter.md, "Smart playlist
@@ -154,7 +152,7 @@ watched:no director:"Ridley Scott"
 ## Requirements
 
 Ordered so the smaller items can land first: P0-1 to P0-5 need no architecture decision; P0-6 and
-P0-7 to P0-9 each wait on one.
+P0-7 to P0-9 each rest on one (*Architecture* above).
 
 ### P0: must have
 
@@ -279,7 +277,7 @@ A personal library has no analytics, so success is checked, not measured:
 
 ## Open Questions
 
-None open for the owner. Before build: the two architecture choices under *Depends on*.
+None open for the owner.
 
 ## Decisions
 
@@ -315,10 +313,9 @@ None open for the owner. Before build: the two architecture choices under *Depen
 ## Timeline Considerations
 
 - **No hard deadline.** All P0, one epic (owner, 2026-11-01).
-- **Gates before build:** architecture (resolved-value querying; play storage), design handoff (the
-  editor, chips and states at 375px), testing strategy. The design-phase security review is done
-  (SEC-1 to SEC-11); re-review at build.
+- **Gates before build:** design sign-off (the editor, chips and states at 375px) and the testing
+  strategy. Architecture is decided, and the design-phase security review is done (SEC-1 to
+  SEC-11); re-review at build.
 - **Suggested slicing within the epic:** (1) dates, cap and playlist references with the visibility
   rules (P0-1 to P0-3, P0-5); (2) the on-page editor (P0-4); (3) resolved-field conditions (P0-6);
-  (4) plays, watch conditions and the watched mark (P0-7 to P0-9). Slices 3 and 4 each start once
-  their architecture choice is made.
+  (4) plays, watch conditions and the watched mark (P0-7 to P0-9).
