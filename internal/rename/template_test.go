@@ -21,7 +21,7 @@ func mustList(t *testing.T, texts ...string) []*Template {
 	return list
 }
 
-// The §38.1 fixture list.
+// The §39.1 fixture list.
 func fixtureList(t *testing.T) []*Template {
 	return mustList(t, "[{studio}] {title}", "{title} - {studio}", "{title} {provider-1-id}", "{title}")
 }
@@ -204,7 +204,7 @@ func TestReadBackIdentityBound(t *testing.T) {
 	}
 }
 
-// hostile is the §38.1 fixture set, plus bare characters for the property test.
+// hostile is the §39.1 fixture set, plus bare characters for the property test.
 var hostile = []string{"Ada - Redux", "Acme]", "../etc", "CON", "con.txt", "Ada.", "Ada ", "a{b}c", "a:b*c?",
 	"a\t\n b", "Café", strings.Repeat("x", 254)}
 

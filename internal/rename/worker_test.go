@@ -391,7 +391,7 @@ func TestRunUndo(t *testing.T) {
 		t.Errorf("state = %+v", st[id])
 	}
 
-	// An undo is itself the latest rename, so it can be undone (§38.10): back to the plan's name.
+	// An undo is itself the latest rename, so it can be undone (§39.10): back to the plan's name.
 	last, _ = l.r.LatestDoneRename(l.ctx, id)
 	if err := undo(); err != nil || l.path(id) != "Ada.mkv" {
 		t.Fatalf("undo of an undo: %v, path %s", err, l.path(id))

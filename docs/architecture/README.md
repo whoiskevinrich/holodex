@@ -13,7 +13,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [stack.md](stack.md) | Go, SvelteKit SPA, frontend component composition and test harness, SQLite, migrations, REST, MCP transport, CSS token mechanism |
 | [config-and-settings.md](config-and-settings.md) | Config layers, parallel YAMLs, `DATA_PATH` layout, caching posture, the `settings` store |
 | [deployment.md](deployment.md) | Image, SPA embed, bundled media tools, GHCR, retag promotion, sidecar images |
-| [security-perimeter.md](security-perimeter.md) | Owner gate, session cookie, provider SSRF and asset-host allowlists, read gates |
+| [security-perimeter.md](security-perimeter.md) | Owner gate, session cookie, provider SSRF and asset-host allowlists, read gates, query-expression caps |
 | [field-resolution.md](field-resolution.md) | Field mapping, the pure resolver, source decisions, promotion and claims, computed fields, completeness store |
 | [metadata-providers.md](metadata-providers.md) | Sidecar HTTP contract, the enrichment shadow store, hints, assets, links, auto-apply, traffic pacing |
 | [entity-identity.md](entity-identity.md) | Name keys, the alias spine, namespaced external ids, `kind:id` refs, merge, duplicate detection |
@@ -24,7 +24,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [file-maintenance.md](file-maintenance.md) | Picture re-encodes (flip): the per-container pipeline, encoder table, verification gate, two-rename swap, held originals and expiry, queue lanes |
 | [file-rename.md](file-rename.md) | Template renames in place: the rename journal and name state, the `rename` queue kind, crash ordering and scanner coordination, the no-overwrite primitive and case-only renames, template and mode storage |
 | [observability-and-jobs.md](observability-and-jobs.md) | Logging, metrics, health and readiness, `job_runs` history and attribution, dismissals, boot jobs, the refresh sweep |
-| [browse-and-list-state.md](browse-and-list-state.md) | Browse query builder, FTS search, shuffle, related media, resolution buckets, URL list state, scroll snapshots, playlists |
+| [browse-and-list-state.md](browse-and-list-state.md) | Browse query builder, boolean `expr` queries, FTS search, shuffle, related media, resolution buckets, URL list state, scroll snapshots, playlists |
 
 An ADR row marked **Folded** is fully absorbed — read the topic doc, not the ADR. An "arch part"
 row has its architecture absorbed; its product or UI remainder still awaits a spec or design doc.

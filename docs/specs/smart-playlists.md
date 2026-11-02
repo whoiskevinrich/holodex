@@ -11,7 +11,7 @@ order through the F69 next-up player without saving anything, and **Save as smar
 grid's **query** (not its ids) as a playlist that re-runs whenever it is opened. **Shuffle** sits in
 *Play all*'s split-button menu and plays the same set in a fresh random order; a run can be shuffled or un-shuffled
 mid-play, can repeat endlessly, and a playlist can be set to always play shuffled. The stored query **is**
-the canonical `filters.ts` query string, so whatever the browse filters can express — today's facets,
+the browse query (F87's [query language](query-language.md) once it ships), so whatever the browse filters can express — today's facets,
 and later AND/NOT ([HOLODEX-181](https://whoiskevinrich.atlassian.net/browse/HOLODEX-181)) — smart
 playlists can express with no playlist change.
 
@@ -78,8 +78,10 @@ page under-reports the very set the owner wants to watch.
 
 - **A rule editor / query builder.** The only editor is the browse page itself (*Edit filter*, P0-8).
   *Why*: the rule language belongs to filters (Goal 4); a second editor would fork it.
-- **AND/NOT and cross-entity rules.** *Why*: filter work, tracked as HOLODEX-181 / 178; this spec only
-  guarantees they will be storable.
+- **AND/NOT and cross-entity rules.** *Why*: filter work, now specified by F87
+  ([query-language.md](query-language.md)); this spec only guarantees they will be storable. Under
+  F87 a smart playlist stores F87's query (its P0-10), and every playlist saved before it keeps its
+  results.
 - **Smart playlists with exceptions** (pinned or excluded videos on top of a query, iTunes-style).
   *Why*: two sources of membership is a different model; *Freeze* (P0-7) covers "I want to hand-edit
   this now". Revisit only if Freeze-then-edit proves to be a common path.

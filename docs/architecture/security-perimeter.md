@@ -205,3 +205,29 @@ Reads of mixed public/private content are not router-gated; the handler computes
 - The ungated `/capabilities` exposes only a count (`public_playlists`), never ids or names.
 
 Decided in [`8ea55a0e`](https://github.com/whoiskevinrich/holodex/commit/8ea55a0e).
+
+## Query expressions are untrusted input, bounded before any lookup
+
+An F87 `expr` ([browse-and-list-state.md](browse-and-list-state.md#boolean-queries-an-expr-key-parsed-once-in-go-compiled-through-the-builders-fragments))
+arrives from visitors, shared links, stored playlists and the MCP tool alike, and every path goes
+through the same parser and the same checks.
+
+- **Caps in the parser, for owner and visitor alike:** input at most 1,000 bytes, nesting depth at
+  most 8, at most 64 conditions. Past a cap the parse fails before any name lookup or SQL is built.
+  The SQL a valid tree compiles to is bounded by those caps, and every value is a bound parameter.
+- **Owner-only conditions** (`matched:`) are refused for a visitor by one check in `internal/query`
+  that takes the caller's owner status, and every entry point calls it: `mediaFilterFor` (browse,
+  `/media/ids`, smart playlist reads), the parse endpoint, smart playlist save, and the MCP
+  `search_videos` tool, which builds its filter without `mediaFilterFor`. REST callers get the same
+  `401` as `missing_facet`. Saving a public smart playlist whose `expr` holds an owner-only condition
+  is refused, as for today's owner-only keys.
+- **Name resolution answers alike for every reader.** No Tag, person or studio is hidden from
+  visitors, so unknown and ambiguous names report the same way to both. Any future per-entity
+  visibility must make a hidden name resolve as unknown for a visitor.
+
+**Rejected:** a statement timeout or query-cost estimate in SQLite — the caps bound the work
+structurally, with no tuning. **Rejected:** a rate limit on `/query/parse` and `/media?expr=` — the
+caps bound each request, and `/search` has none either. **Rejected:** an owner check in each caller —
+one forgotten caller (the MCP tool already bypasses `mediaFilterFor`) would leak owner-only results.
+
+Decided in: pending squash (HOLODEX-611).

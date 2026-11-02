@@ -18,6 +18,7 @@ import (
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/model"
+	"holodex/internal/query"
 )
 
 // ErrNotFound is returned by single-row getters when no row matches.
@@ -210,10 +211,36 @@ func replaceAssociations(ctx context.Context, tx *sql.Tx, videoID int64, tags []
 		}
 	}
 
+	// A tag the owner removed from this video stays off it while the file still
+	// carries it (HOLODEX-614): its spellings are suppressed in the video's genres.
+	suppressed := map[string]bool{}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT norm_value FROM metadata_curation
+		 WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND action = ?`,
+		model.EnrichEntityVideo, videoID, genresField, CurationSuppress)
+	if err != nil {
+		return fmt.Errorf("suppressed tags: %w", err)
+	}
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			rows.Close()
+			return err
+		}
+		suppressed[n] = true
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
 	// Tags resolve through the shared name-identity spine (F43, ADR-061) so
 	// case/whitespace variants converge and a merged-away name routes to the
 	// canonical entity — the merge survives re-scans.
 	for _, t := range tags {
+		if suppressed[curationNorm(t.Name)] {
+			continue
+		}
 		// A denied, oversized, or category-colliding term is skipped silently
 		// (ADR-075 D2/item 11; ADR-078 D3): the scanner has no owner present to
 		// surface a rejection to, unlike the manual-attach endpoint (422/400/409).
@@ -365,6 +392,10 @@ type VideoFilter struct {
 	// IDs restricts to exactly these video ids (any order; the sort still
 	// applies). The completeness drain's "only the dirty ones" read.
 	IDs []int64
+	// Expr is a canonical F87 query (internal/query), ANDed with every key above
+	// (browse-and-list-state.md, "Boolean queries"). The caller has parsed it,
+	// canonicalised it and run its owner check; nil means none.
+	Expr query.Node
 }
 
 // MappedFilter matches videos carrying a metadata row whose source_key is one of
@@ -574,28 +605,25 @@ func (f VideoFilter) build() (string, []any) {
 	// (GetVideo/PathByID/Related subject) carry the same `deleted_at IS NULL` guard.
 	clauses = append(clauses, "v.active = 1 AND v.deleted_at IS NULL")
 
+	add := func(s string, a []any) {
+		clauses = append(clauses, s)
+		args = append(args, a...)
+	}
 	if q := strings.TrimSpace(f.Query); q != "" {
-		clauses = append(clauses, "v.id IN (SELECT rowid FROM videos_fts WHERE videos_fts MATCH ?)")
-		args = append(args, ftsPrefixQuery(q))
+		add(titleClause(q))
 	}
 	for _, pid := range f.PersonIDs {
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_people vp WHERE vp.video_id = v.id AND vp.person_id = ?)")
-		args = append(args, pid)
+		add(personClause(pid))
 	}
 	if len(f.PersonIDsAny) > 0 {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_people vp WHERE vp.video_id = v.id AND vp.person_id IN ("+placeholders(len(f.PersonIDsAny))+"))")
 		args = append(args, toAnySlice(f.PersonIDsAny)...)
 	}
 	for _, tid := range f.TagIDs {
-		// Descendant-inclusive (F50, ADR-075 D1/P0-6): a video tagged only with a
-		// descendant of tid still matches — tagSubtreeQuery expands tid to itself
-		// plus its full subtree at query time.
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN ("+tagSubtreeQuery+"))")
-		args = append(args, tid)
+		add(tagClause(tid)) // descendant-inclusive
 	}
 	for _, sid := range f.StudioIDs {
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_studios vs WHERE vs.video_id = v.id AND vs.studio_id = ?)")
-		args = append(args, sid)
+		add(studioClause(sid))
 	}
 	if len(f.StudioIDsAny) > 0 {
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_studios vs WHERE vs.video_id = v.id AND vs.studio_id IN ("+placeholders(len(f.StudioIDsAny))+"))")
@@ -607,11 +635,7 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, toAnySlice(f.TagIDsAny)...)
 	}
 	for _, cid := range f.CategoryIDs {
-		// Category → member-tag-id expansion (ADR-078 D2/Consequences): the same
-		// EXISTS(...) clause shape as TagIDs above, with the tag-id set sourced from
-		// category_tags instead of the recursive subtree query (categories are flat).
-		clauses = append(clauses, "EXISTS (SELECT 1 FROM video_tags vt WHERE vt.video_id = v.id AND vt.tag_id IN (SELECT tag_id FROM category_tags WHERE category_id = ?))")
-		args = append(args, cid)
+		add(categoryClause(cid))
 	}
 	for _, c := range f.MissingFacets {
 		clauses = append(clauses, missingFacetClause("video", "v.id"))
@@ -622,28 +646,19 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, toAnySlice(f.IDs)...)
 	}
 	if f.DurationMinSec > 0 {
-		clauses = append(clauses, "v.duration_sec >= ?")
-		args = append(args, f.DurationMinSec)
+		add(durationClause(query.OpGe, int64(f.DurationMinSec)))
 	}
 	if f.DurationMaxSec > 0 {
-		clauses = append(clauses, "v.duration_sec <= ?")
-		args = append(args, f.DurationMaxSec)
+		add(durationClause(query.OpLe, int64(f.DurationMaxSec)))
 	}
-	if f.WidthMin > 0 {
-		clauses = append(clauses, "v.width >= ?")
-		args = append(args, f.WidthMin)
-	}
-	if f.WidthMax > 0 {
-		clauses = append(clauses, "v.width < ?")
-		args = append(args, f.WidthMax)
+	if f.WidthMin > 0 || f.WidthMax > 0 {
+		add(widthClause(f.WidthMin, f.WidthMax))
 	}
 	if f.YearMin > 0 {
-		clauses = append(clauses, "v.recorded_at >= ?")
-		args = append(args, fmt.Sprintf("%04d-01-01T00:00:00Z", f.YearMin))
+		add(yearMinClause(int64(f.YearMin)))
 	}
 	if f.YearMax > 0 {
-		clauses = append(clauses, "v.recorded_at <= ?")
-		args = append(args, fmt.Sprintf("%04d-12-31T23:59:59Z", f.YearMax))
+		add(yearMaxClause(int64(f.YearMax)))
 	}
 	// recorded_at is stored RFC3339; a bare date sorts lexicographically before
 	// that day's timestamps, so >= DateFrom and <= DateTo+end-of-day are inclusive.
@@ -676,6 +691,10 @@ func (f VideoFilter) build() (string, []any) {
 			args = append(args, k)
 		}
 		args = append(args, mf.Value)
+	}
+	if f.Expr != nil {
+		s, a := compileExpr(f.Expr)
+		add("("+s+")", a)
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args
 }
@@ -1988,6 +2007,20 @@ func (r *Repo) Search(ctx context.Context, query string, limit int, filmsEnabled
 			seenTags[t.ID] = struct{}{}
 			res.Tags = append(res.Tags, t)
 		}
+	}
+	// Every tag hit carries its aliases (HOLODEX-612), so the add-tag input can match
+	// the typed text against them. A name hit needs them too: "science-fiction" FTS-
+	// matches the name's words but is only a substring of its dashed alias.
+	tagHitIDs := make([]int64, len(res.Tags))
+	for i, t := range res.Tags {
+		tagHitIDs[i] = t.ID
+	}
+	tagAliases, err := r.AliasesForEntities(ctx, model.EntityTag, tagHitIDs)
+	if err != nil {
+		return res, err
+	}
+	for i := range res.Tags {
+		res.Tags[i].Aliases = tagAliases[res.Tags[i].ID]
 	}
 
 	// Studios: FTS name matches, a new entity group (F38, ADR-053).

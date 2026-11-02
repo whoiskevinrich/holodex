@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// R11 (§38.4): the orphan sweep removes only the writeback temps; a held original and a rename's
+// R11 (§39.4): the orphan sweep removes only the writeback temps; a held original and a rename's
 // via name both survive it.
 func TestSweepOrphansKeepsHeldAndViaNames(t *testing.T) {
 	root := t.TempDir()

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// N18 (§38.2): a parsed value equal to the recorded one is dropped, whatever the current resolved
+// N18 (§39.2): a parsed value equal to the recorded one is dropped, whatever the current resolved
 // value is; one that differs from the record stays, as do fields with no record.
 func TestDropEchoes(t *testing.T) {
 	fields := map[string][]string{

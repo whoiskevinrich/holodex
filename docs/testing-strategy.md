@@ -179,7 +179,7 @@ assert.JSONEq(t, string(want), string(got))
 | **Clear / Dismiss report a prior writeback** (HOLODEX-370, [spec](specs/enrichment-review-workflow.md#api)) | Integration | `TestVideoClearAndDismissReportWrittenBack`: `DELETE /media/{id}/enrich/{provider}` and `POST …/dismiss` answer `200 {written_back}` — false with no audit rows; **still false** with rows from another provider, a same-prefix lookalike (`fakery:` vs `fake:`), `manual` and `revert` sources (the attribution is an exact `<provider>:` prefix, not LIKE); true on both once one `fake:` row exists; undismiss stays 204. Person and film dismiss assert `written_back:false` (no file). Detection only — no revert is triggered, by design (a batch can hold several sources; per-provider revert would need per-field snapshots) | ~95% |
 | **Extraction security** (F48.10) | Unit + Integration | Extraction/review/revert endpoints `requireOwner`-gated (401 without token, controls absent from the SPA DOM); filename-derived values are length-capped/sanitized before storage/write, same posture as F30.6b's manual-value handling; **no new outbound network surface** — extraction is local parsing only (asserted by a zero-HTTP-calls check over the extraction path); the scan-time auto-trigger is bounded by the existing queue concurrency limit, no unbounded write pressure | ~95% |
 | **Person aliases — store** (ADR-036, F23.1–F23.3) | Integration | `person_aliases` CRUD: add (trim, non-empty, ≤200 chars); **per-person case-insensitive uniqueness** (`COLLATE NOCASE`, idempotent add — no dup, no error); same alias allowed on two people; delete by id scoped to person (404 on unknown/foreign id); **`ON DELETE CASCADE`** removes aliases with the person | ~90% |
-| **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped. **Studios and tags too** (F43 P0-9, HOLODEX-511): `StudioIDsAny`/`TagIDsAny` (tag sub-tree-inclusive) fold a matched studio's or tag's media in, specific → broad — title, person, studio, tag — with the limit cutting from the end (`TestSearchReturnsStudioAliasMedia`, `TestSearchReturnsTagAliasMedia`, `TestSearchVideoOrdering`; all three failed before the fix) | ~90% |
+| **Person aliases — search** (ADR-036, F23.5) | Integration | `person_aliases_fts` MATCH surfaces the person by any alias; **diacritic fold** ("beyonce"→alias "Beyoncé"); **dedup** — a person matching both its name and an alias appears **once**; per-group `LIMIT` respected; canonical-name first. **Search videos include the matched person's media** (via `VideoFilter.PersonIDsAny`, OR-semantics) so searching a name *or* alias returns their library even when no video title matches; title matches still included + video-id de-duped. **Studios and tags too** (F43 P0-9, HOLODEX-511): `StudioIDsAny`/`TagIDsAny` (tag sub-tree-inclusive) fold a matched studio's or tag's media in, specific → broad — title, person, studio, tag — with the limit cutting from the end (`TestSearchReturnsStudioAliasMedia`, `TestSearchReturnsTagAliasMedia`, `TestSearchVideoOrdering`; all three failed before the fix). **Every tag hit carries its aliases** (HOLODEX-612) so the media add-tag input can match and label it, including a name hit's dashed spelling (`TestSearchStampsTagAliasHits`, plus `suggestTags`' alias rank, dashed-alias and stale-row cases and `namesTag` under Vitest; the search and rank cases failed before the fix) | ~90% |
 | **Person aliases — scan-time resolution** (ADR-036, F23.8) | Integration | the scanner write path resolves an extracted name **name → alias → create**: a file tagged with an alias links to the **canonical** person (no duplicate created) and a **re-scan keeps it merged** (cardinal merge invariant); name-hit fast path unchanged | ~90% |
 | **Person merge** (ADR-036, F23.9) | Integration | `MergePersons` moves `video_people` as a **de-duped union** (a file under both names collapses to one); merged name → alias; prior aliases re-point to canonical; shadow enrichment dropped; duplicate row deleted; **self-merge & unknown-id error** | ~90% |
 | **Alias/merge collision** (ADR-036, F23.10) | Integration | `PersonConflict` detects a name already owned by a *different* person (by name or another's alias), returns it with context, ignores the self case; add endpoint returns **409 with the conflict person** (never a silent merge) | ~90% |
@@ -1031,8 +1031,14 @@ never forks identity**, **studio merge survives re-derivation**, **backfill auto
   - *Genre writeback (P0-10)*: `TestGenreWritebackValues_AliasCollapsesIntoCanonicalTag` — a raw genre that is an
     alias of an attached tag is **not** written beside it (`[sci-fi Drama]`, never `[sci-fi Science Fiction
     Drama]`). Mutation-checked: reverting the identity dedup fails it with exactly that triple.
-    `TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically` (HOLODEX-509) — the same alias after the
-    owner detached the tag is still written as `sci-fi`; it failed with `[Science Fiction Drama]` before the fix.
+    `TestGenreWritebackValues_AliasOfUnattachedTagWrittenCanonically` (HOLODEX-509) — the same alias of a tag
+    only another video carries is still written as `sci-fi`; it failed with `[Science Fiction Drama]` before the
+    fix. (It used to detach the tag from this video, which HOLODEX-614 made a removal; see below.)
+  - *Removing a tag sticks (P0-8b, HOLODEX-614)*: `TestGenreWritebackValues_DetachedTagNotWritten` — a removed
+    tag stays out of the write set while the provider supplies it by name or alias, a re-enrich does not attach it
+    again, and adding it back by an alias returns it. It failed with `[sci-fi action Drama]` and both tags
+    re-attached before the fix. `TestDetachTagFromVideo_StaysOffOnRescan` — detach records one genres suppress, a
+    rescan of a file still carrying the tag leaves it off, and re-attaching clears the suppress.
   - *Frontend*: `AliasPanel` on `/tags/{id}` — live-QA'd on Cinémathèque against `backend-amv-9300`: add (stored
     lowercase), remove, visitor read-only chips with no controls, 375px with no horizontal overflow. No component
     harness exists for `web/` routes, so this is browser-driven only.
@@ -5936,7 +5942,87 @@ back, the row next opens undecided, and the file's cover art is unchanged (P0-9)
 - §36's QA 4 expects the `uploaded` thumbnail state after Use this frame. F85 retires that state
   (G12), so the check becomes "`·frame` is the decided poster" (design QA 10.2).
 
-## 38. Rename media files from a template (F86, HOLODEX-602)
+## 38. Query language — AND, OR and NOT over browse (F87, HOLODEX-611)
+
+One `expr` filter key holds the F87 text grammar. It is parsed and compiled only in Go
+(`internal/query`) through the clause builder's fragments, typed in nav search query mode, and drawn
+as chips on browse from a parse endpoint ([spec](specs/query-language.md),
+[handoff](design/query-language-handoff.md); mechanism in
+[browse-and-list-state.md](architecture/browse-and-list-state.md#boolean-queries-an-expr-key-parsed-once-in-go-compiled-through-the-builders-fragments),
+perimeter in [security-perimeter.md](architecture/security-perimeter.md#query-expressions-are-untrusted-input-bounded-before-any-lookup)).
+Risks, ranked by how quietly they would fail:
+
+1. **A query returns the wrong set with no error.** Precedence or NOT scope is off by one level,
+   so motivating query 1 applies `-tag:comedy` to one side of the OR only (P0-2).
+2. **An owner-only condition answers a visitor** through an entry point that skips the shared check.
+   The MCP tool already builds its filter without `mediaFilterFor` (P0-3, P0-8).
+3. **Existing smart playlists change membership,** or a merge leaves a dead id inside `expr` that
+   evaluates as a broader set (P0-10).
+4. **`tag:12` and `?tag=12` drift apart,** for example one includes descendant Tags and the other
+   doesn't (P0-1).
+5. **An unknown name runs and shows an empty grid** instead of an error (P0-7).
+6. **The chips draw a different query from the one that runs** (P0-6).
+7. **User text reaches SQL or FTS5 as syntax** (P0-9, perimeter).
+
+### 38.1 Go unit, `internal/query` (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| Q1 | Precedence table, parse → tree: `a b OR c` is `Or(And(a,b), c)`; `-a b` is `And(Not a, b)`; `-(a OR b)` is `Not(Or(a,b))`; motivating query 1, with and without its outer parentheses, gives the two different trees the spec describes. | P0-2 (risk 1) |
+| Q2 | Round trip: for a corpus including the three motivating queries, parse → canonical print → parse gives an equal tree, and printing twice gives the same bytes. | P0-6, P0-10 |
+| Q3 | `FuzzParse` (Go native fuzzing, seeded with Q1's corpus): never panics; any input that parses round-trips as Q2. Runs for a fixed short time in CI. | P0-2, P0-9 |
+| Q4 | Caps: 1,001 bytes, depth 9 and 65 conditions are each refused with an error naming that cap; 1,000 / 8 / 64 parse. The name resolver passed in is a stub that fails the test if called on a refused input. | P0-9 |
+| Q5 | Errors carry offsets: unknown field, unbalanced parenthesis, bad range (`duration:5m..`), each with the offset of the bad token. Offsets are counted in the same unit the client slices by (W3). | P0-7 |
+| Q6 | Canonicalisation with a stub resolver: a Tag alias resolves to the Tag's id; casing and runs of whitespace don't matter; an unknown name is an error with suggestions; two people with one name is an ambiguous error listing both; durations print in seconds; bare words print as text, never as ids. | P0-1, P0-7, RD1 |
+| Q7 | The owner-only check: `matched:any`, `matched:<provider>` and either one under `NOT` or inside an OR group are refused for a non-owner and allowed for the owner. A tree without them passes for both. | P0-3, P0-8 (risk 2) |
+| Q8 | The compiler with a recording builder: every value is a bound argument (the SQL text has no input substring); `And` / `Or` / `Not` are fully parenthesised; a bare word emits the title MATCH through `ftsPrefixQuery` OR an exact-Tag subtree. | P0-2, risk 7 |
+
+### 38.2 Go repo and API (`make test`, seeded SQLite)
+
+| # | Case | Proves |
+|---|---|---|
+| A1 | Equivalence: for each flat key (`tag`, `person`, `studio_id`, `category_id`, `duration_*`, `year_*`, `resolution`), `ListVideoIDs` with `expr` holding the same condition returns exactly the flat filter's ids. The fixture has a Tag with a descendant and a video with two studios. | P0-1 (risk 4) |
+| A2 | The three motivating queries on a fixture built so every wrong reading returns a different set (a comedy that's also action, a sci-fi film without fantasy, a Ford film in neither): each returns its expected ids exactly. | P0-2, P0-3 (risk 1) |
+| A3 | `-tag:comedy` alone returns every active video except the tagged ones; `-matched:any` returns exactly the videos with no enrichment row; an expr matching nothing returns zero rows, not an error. | P0-2, P0-3 |
+| A4 | Bare word `comedy` returns title matches plus *comedy*-tagged videos; `science` doesn't match *science-fiction* by Tag; creating a *drama* Tag later widens a stored bare `drama` with no rewrite. | RD1 |
+| A5 | FTS and SQL syntax as data: bare words `"`, `*`, `NEAR`, `OR(`, `'; DROP` and a Tag value containing a quote are searched literally and return normally. | risk 7 |
+| A6 | `GET /media?expr=` as a visitor: `matched:` → `401`, the same body shape as `missing_facet`; as the owner → results. A query over the caps → `400` naming the cap. | P0-8, P0-9 (risk 2) |
+| A7 | `GET /api/v1/query/parse`: returns the canonical string, a display tree with current names and errors with offsets; as a visitor, `matched:` is refused. Renaming a Tag changes the display tree's name, not the canonical id. | P0-6, P0-7, P0-10 |
+| A8 | Smart playlists: `canonicalPlaylistQuery` accepts `expr` and stores its canonical form; saving a **public** playlist whose `expr` holds `matched:` is refused; a private one saves. | P0-8, P0-10 (risk 2) |
+| A9 | Existing playlists unchanged: golden test over stored `query` strings without `expr` (one per key family): the stored string and the evaluated id list are identical before and after this change, and `query_version` is unchanged. | P0-10 (risk 3) |
+| A10 | Merge: merging a person referenced inside a stored `expr` rewrites the id in place (parse → rewrite → canonical print); a deleted Tag inside `expr` yields `stale_refs` and no evaluation. | P0-10 (risk 3) |
+| A11 | `internal/mcp`: `search_videos` with `expr` as a non-owner and `matched:` is refused; as the owner it runs; a name argument resolves through aliases and the response carries the canonical string; the caps apply. | P0-8, P2-1 (risk 2) |
+
+### 38.3 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | chip model (`web/src/lib/query.test.ts`, the pure tree → chips function; markup in `sort/queryChips.test.ts`) | A plain AND → plain chips; query 1 → one group of `[AND(science-fiction, fantasy), action]` + NOT `comedy` + `Harrison Ford`; a tree with a second OR level → the Advanced row only, never a partial chip set. | P0-6 (risk 6) |
+| W2 | chip model | Removing `fantasy` leaves `science-fiction` with no parentheses; removing a second member turns the group into a plain chip; the group `×` removes the whole group; each removal yields the expected `expr`. | P0-6 |
+| W3 | error echo (`query.test.ts` slicing; `entity/QuerySuggestPanel.svelte.test.ts` DOM) | Slices before / bad / after at the response's offsets into three text nodes, including a query with `é` and a quoted name before the bad part; the DOM has no HTML from the query (no `{@html}`). | P0-7, perimeter |
+| W4 | query-mode lexer (`query.test.ts`) | `harrison` stays plain search; `tag:`, `-x`, `OR`, `(` switch to query mode; the field under the caret is reported for `tag:sci`, `person:"Harrison F` and after a closing quote. | P0-4, P0-5 |
+| W5 | nav search query mode | `QuerySuggestPanel.svelte.test.ts`: options are unfocusable with the highlight `aria-selected` (the combobox keeps focus); the owner-only example is the owner's only. `query.test.ts`: `fieldsFor(false)` never offers `matched`; a suggestion inserts with a trailing space. The live box (`role="combobox"`, ↑/↓, Tab, Enter with an error does nothing) is checked in QA items 1 to 3; the root layout has no component harness. | P0-4, P0-5, P0-7 |
+| W6 | browse page | Empty result under an `expr` shows `No videos match this query.` and `Edit query`; a refused shared link shows the warn notice and no grid; `Edit as text` fills the nav box in query mode. Live QA plus the `query-back` harness scenario; the browse route has no component harness (§16). | P0-6, P0-7, P0-8 |
+
+### 38.4 Nav harness and QA
+
+- **Nav harness**: add one scenario, `--only query-back`: open browse from a typed query, scroll,
+  open a video, press Back. The chips, the `expr` URL and the scroll position come back (F73
+  list-state). Run under the `backend-stress-open-9600` profile.
+- **QA checklist**: run the handoff's
+  [Cinémathèque QA checklist](design/query-language-handoff.md#cinémathèque-qa-checklist)
+  (items 1 to 8). It isn't restated here. Add one owner step: with `-matched:any` saved as a
+  **private** smart playlist, sign out; opening it is a `404`, and pasting its browse URL shows
+  the owner-only notice.
+
+### 38.5 Standing gaps
+
+- **Query performance at library scale** isn't tested: the caps bound the SQL, but no case times
+  a 64-condition query on the `-big` stress fixture. Add one if a query is ever reported slow.
+- **The natural-language tool** (P2-1) is out of scope; A11 covers the MCP `expr` contract it will
+  use.
+
+## 39. Rename media files from a template (F86, HOLODEX-602)
 
 [Spec](specs/file-rename.md) · [architecture](architecture/file-rename.md) · the name bound in
 [security-perimeter.md](architecture/security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder)
@@ -5966,7 +6052,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
    settles, or fights a hand edit. Guards: the settle window, the automatic lock, the mode order.
 7. **A rename counts as an update** (P0-9). It jumps the video to the top of Updated.
 
-### 38.1 Fixtures (synthesized in-test; nothing committed)
+### 39.1 Fixtures (synthesized in-test; nothing committed)
 
 - **Media.** Small files written into `t.TempDir()` as the library root, with metadata from the
   scanner's `stubExtractor`. Rename never reads streams, so byte content only matters for the F79
@@ -5980,7 +6066,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
   test can return `EINVAL` or `ENOSYS` and drive the fallback on any host. A real case-insensitive
   mount is exercised only by the Windows run and by live QA.
 
-### 38.2 Go unit: the name builder and the grammar (`internal/rename`, new; compiler in `internal/extract`)
+### 39.2 Go unit: the name builder and the grammar (`internal/rename`, new; compiler in `internal/extract`)
 
 | # | Case | Proves |
 |---|---|---|
@@ -5992,7 +6078,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N6 | Round trip: for every fixture value that survives sanitising, render → parse with the same compiled pattern gives exactly the sanitised values written. Run as a table plus a `testing/quick` property over random strings drawn from the hostile alphabet. | P0-3, P0-4 |
 | N7 | Markers never refuse: a value with `{edition-x}` or `{part-2}` text loses its braces, so the identity, edition and part markers render and read back. | P0-3, P0-4 |
 | N8 | Sanitising: `< > : " / \ | ? *`, control characters (C0, DEL, C1), zero-width and text-direction marks (U+200B, U+200E, U+202E, U+2066) and braces are removed; the whitespace run left behind is one space; the result is NFC. A value with invalid UTF-8 is refused. One subtest per character. | P0-4 |
-| N9 | A whole file name ending in a dot or a space is refused, never trimmed silently into a different read-back. The extension normally prevents it, so the case is a file with no extension. A stem ending in a dot before the extension (`Ada..mkv`) is valid on both OSes; the test pins whichever reading the builder takes (see 38.10). | P0-4 |
+| N9 | A whole file name ending in a dot or a space is refused, never trimmed silently into a different read-back. The extension normally prevents it, so the case is a file with no extension. A stem ending in a dot before the extension (`Ada..mkv`) is valid on both OSes; the test pins whichever reading the builder takes (see 39.10). | P0-4 |
 | N10 | Reserved names refused with and without an extension and in any case: `CON`, `con`, `Con.mkv`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, `CONIN$`, `CONOUT$`, `COM¹`–`COM³`, `LPT¹`–`LPT³`. The part before the first dot decides: `NUL.tar.mkv` and `CON .mkv` are refused. `CONSOLE` and `COM10` are allowed. | P0-4 |
 | N11 | Length counts **bytes**, extension and disambiguator included: 255 bytes passes, 256 is refused, a multibyte title that is 120 characters but 256 bytes is refused, and a name that fits plain but not with ` {hx-12345}` is refused when it needs the disambiguator. Never cut short. | P0-4, P0-6 |
 | N12 | Folder bound: `../etc`, `.`, `..`, a value of only removed characters (empty name) and a value with a separator never produce a name; every produced name passes `filepath.IsLocal`, `Base(name) == name` and `Dir(Join(dir, name)) == dir`. A property test asserts the last three over N6's random inputs. | P0-5 |
@@ -6004,7 +6090,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N18 | Echo suppression: a parsed value equal to the recorded `token_values` entry is not a filename value. A value that differs from the record is routed as F48 routes it, though it equals the **current** resolved value. A drifted name (resolved value changed, file not renamed) produces no filename value. | P0-11 |
 | N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
 
-### 38.3 Go unit: the no-overwrite primitive (`internal/rename`)
+### 39.3 Go unit: the no-overwrite primitive (`internal/rename`)
 
 | # | Case | Proves |
 |---|---|---|
@@ -6017,7 +6103,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | F7 | Fallback defers to the filesystem: with the injected `renameat2` returning `EINVAL` and a stubbed listing that misses the holder (a fold Go doesn't make, such as `ß`/`SS` on NTFS), a target that `Lstat` finds and that isn't the source is refused, and the holder is byte-identical. | P0-6 |
 | F8 | Folder swap (Linux): between the root check and the rename, a test hook replaces the folder with a symlink to a directory outside `MEDIA_PATH`. The rename lands in the original folder or fails, and nothing appears outside the library. Skipped off Linux. | P0-5 |
 
-### 38.4 Repo and integration (real SQLite, real temp library; `make test` unless marked)
+### 39.4 Repo and integration (real SQLite, real temp library; `make test` unless marked)
 
 | # | Case | Proves |
 |---|---|---|
@@ -6035,7 +6121,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | R12 | Identity survives: curate a video (a title decision, a tag, a playlist place, a film link, provider enrichment), make its thumbnail and motion preview (montage), then rename and rescan. Same `id`; every row present; the thumbnail and montage files, keyed by id, still serve; Date added and Updated order unchanged. | P0-9, Goal 2 |
 | R13 | Hand edit: rename the file outside Holodex away from the latest `done` `new_name`, rescan. `locked = 1`, `lock_source = 'auto'`. Moving it to another folder with the same name doesn't lock. A file renamed by hand to exactly its desired name, never Holodex-written, isn't locked. | P0-13 |
 | R14 | Settle window: the sweep stores `desired_name`/`desired_since`, resets `desired_since` when the desired name changes, and renames only once it is older than the window. A template-list edit makes every affected name drift and none rename before the window. | P0-7, P0-12 |
-| R15 | Undo: undoes the latest rename only, while the file still has that name. It writes an `undo` row with `undo_of`, restores the old name and locks with `lock_source = 'undo'`. Undo with the old name taken by a tracked or untracked file is refused with no disambiguator. Undo after a hand edit is refused. Undoing the undo restores the plan's name with a second `undo` row (38.10). | P0-14 |
+| R15 | Undo: undoes the latest rename only, while the file still has that name. It writes an `undo` row with `undo_of`, restores the old name and locks with `lock_source = 'undo'`. Undo with the old name taken by a tracked or untracked file is refused with no disambiguator. Undo after a hand edit is refused. Undoing the undo restores the plan's name with a second `undo` row (39.10). | P0-14 |
 | R16 | Fold: `FoldMovedVideo` re-keys `file_renames` to the older id, and the newer side's `video_file_names` replaces the older one's. `assertNothingReferences` covers both tables. | P0-9 |
 | R17 | Purge cascades both tables. | P0-10 |
 | R18 | Queue: a rename row never runs while the same video has a running write or re-encode; it is claimed by the tag-write lane, not the maintenance lane; it survives a restart as `pending`; Retry and Dismiss work; `job_runs` records `kind=rename`. | P0-9 |
@@ -6047,7 +6133,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | R24 | Run report: an apply and a sweep each write a System activity row with renamed, refused-by-reason and skipped-locked/held counts. An apply writes its one batch summary at once (queued; refused by reason, locked and held among them), and the batch's last job fills in renamed and failed, counting each video's latest run so a retried failure counts once. | P0-15 |
 | R25 | A name already equal to the desired name records nothing. | Edge Cases |
 
-### 38.5 API (`internal/api/rename_test.go`, new, `httptest` over the real repo)
+### 39.5 API (`internal/api/rename_test.go`, new, `httptest` over the real repo)
 
 | # | Case | Proves |
 |---|---|---|
@@ -6061,7 +6147,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | A8 | Nothing leaks to a visitor: on a video whose rename failed with a path-bearing error, a visitor's `GET /media/{id}`, the `/media` list and the MCP `get_video` result carry no name state, history, old or new name, or job error. The System activity row holds counts only. Assert on the payload, not on a hidden badge. | P0-5, Users |
 | A9 | The apply body is bounded: an oversized body is refused before any row is enqueued. | P0-5 |
 
-### 38.6 Frontend (`cd web && npm run test`)
+### 39.6 Frontend (`cd web && npm run test`)
 
 | # | File | Case | Proves |
 |---|---|---|---|
@@ -6073,7 +6159,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | W6 | `rename/FileNameRow.svelte.test.ts` | Every state in the handoff's table, including undo refused and History; hidden when the mode is Off; Rename absent in Plan mode. | handoff |
 | W7 | Nav harness (`npm --prefix web run nav`, `backend-stress-open-9600` + `web-9600`), new scenario `file-names-filter-survives-back` | Its setup sets the mode to Plan (the fixture starts at Off, which shows no plan). Choose the Clash filter, open a video, go Back: the filter and scroll position are restored. Run with `--only`. | handoff (filter in the URL) |
 
-### 38.7 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+### 39.7 QA checklist (`[smoke]` / `[agent]` / `[human]`)
 
 On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinémathèque), templates
 `[{studio}] {title}` then `{title} {provider-1-id}` then `{title}` unless an item says otherwise.
@@ -6126,7 +6212,7 @@ On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinéma
 21. `[human]` Rename one file and rescan it in the other media server (spec open question). This
     gates On writeback and Job.
 
-### 38.8 Shipping order
+### 39.8 Shipping order
 
 Tests land with the mode they guard, so each slice is green on its own:
 1. **Plan:** N1–N16, A1, A3, A5–A7, W1–W3, W5, W7; QA 1–4, 17, 20.
@@ -6134,7 +6220,7 @@ Tests land with the mode they guard, so each slice is green on its own:
 3. **On writeback:** R23; QA 15. Blocked on the owner's open question (QA 21).
 4. **Job:** R14 and the sweep half of R24; QA 16.
 
-### 38.9 Mutation checks (run once the code exists)
+### 39.9 Mutation checks (run once the code exists)
 
 - Fall through to the next template on a read-back refusal → N4.
 - Compare echoes with the current resolved value instead of the record → N18.
@@ -6153,7 +6239,7 @@ Tests land with the mode they guard, so each slice is green on its own:
 - Move a rename route out of the owner group → A1.
 - Disambiguate on undo → R15.
 
-### 38.10 Standing gaps
+### 39.10 Standing gaps
 
 - A real case-insensitive Linux mount (drvfs, CIFS) is exercised only by QA 9 and 19; CI runs the
   fallback through the injected `renameat2`.
@@ -6166,13 +6252,13 @@ Tests land with the mode they guard, so each slice is green on its own:
   an undo is the video's latest rename, and R15 pins that. If it should be refused, that is a spec
   edit first.
 
-### 38.11 Security review
+### 39.11 Security review
 
 **Design review (2026-10-31), before any code.** It added F7, F8, A8 and A9 and widened N2, N8,
 N10, N19 and A3. The mechanisms are in
 [security-perimeter.md](architecture/security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder)
 and [file-rename.md](architecture/file-rename.md). The rules the owner sees are in spec P0-1 and
-P0-4. Accepted: the fallback's outside-process gap (38.10); the path-based Windows development
+P0-4. Accepted: the fallback's outside-process gap (39.10); the path-based Windows development
 primitive; and the plan computed over the whole library on each request, which only the owner can
 trigger.
 

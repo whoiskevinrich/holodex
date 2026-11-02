@@ -15,7 +15,7 @@ import (
 )
 
 // renameScan is a real-repo scanner over a temp library holding one scanned file, for the F86
-// journal cases (testing-strategy §38.4).
+// journal cases (testing-strategy §39.4).
 type renameScan struct {
 	t   *testing.T
 	ctx context.Context

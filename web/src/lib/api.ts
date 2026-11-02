@@ -1,6 +1,7 @@
 // Typed client for the Holodex REST API. In dev, Vite proxies /api -> :7800;
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
+import type { ParsedQuery, QueryError, QueryParseResult } from './query';
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
@@ -839,6 +840,19 @@ export const api = {
 	// callers don't need a separate films fetch or a films_enabled check.
 	search: (q: string, fetchFn?: typeof fetch) =>
 		get<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, fetchFn),
+
+	// F87: parse a query on the server, the only parser (query.ts). A refused query is a
+	// result, not a throw: 400 (or 401 for an owner-only part) carries the error with its
+	// offsets for the error echo and the browse notice.
+	parseQuery: async (expr: string): Promise<QueryParseResult> => {
+		const path = `/query/parse?expr=${encodeURIComponent(expr)}`;
+		const res = await fetch(`${BASE}${path}`, { redirect: 'manual' });
+		checkRedirect(res);
+		if (res.ok) return { ok: true, ...((await res.json()) as ParsedQuery) };
+		const body = (await res.json().catch(() => null)) as { query_error?: QueryError } | null;
+		if ((res.status === 400 || res.status === 401) && body?.query_error) return { ok: false, error: body.query_error };
+		throw new ApiError(res.status, path);
+	},
 
 	// Configurable metadata fields (F20): filterable facets + key-discovery view.
 	facets: (fetchFn?: typeof fetch) => get<{ facets: Facet[] }>(`/facets`, fetchFn),

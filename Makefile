@@ -1,4 +1,4 @@
-.PHONY: run build test vet test-go test-scripts test-integration test-image tidy fixtures web-dev web-build docker
+.PHONY: run build test vet test-go test-fuzz test-scripts test-integration test-image tidy fixtures web-dev web-build docker
 
 run:
 	go run ./cmd/holodex
@@ -24,6 +24,10 @@ vet:
 
 test-go:
 	go test $(GO_PKGS)
+
+# Fuzz the F87 query parser for a fixed short time (testing-strategy §38.1 Q3).
+test-fuzz:
+	go test ./internal/query -run '^$$' -fuzz FuzzParse -fuzztime 20s
 
 # Dependency-free node scripts (Jira sync, release-digest resolution, the worklog reader)
 # plus the metadata-provider stub, whose /describe and /resolve have to keep agreeing about

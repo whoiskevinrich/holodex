@@ -8,7 +8,7 @@ import (
 	"holodex/internal/model"
 )
 
-// N19 (§38.2): every identity marker in a name reaches its own provider as a hint, echo or not;
+// N19 (§39.2): every identity marker in a name reaches its own provider as a hint, echo or not;
 // a marker outside the id alphabet or over-long yields none, and the disambiguator is no marker.
 func TestVideoHintIdentityMarkers(t *testing.T) {
 	providers := []string{"provider-1", "provider-2"}
