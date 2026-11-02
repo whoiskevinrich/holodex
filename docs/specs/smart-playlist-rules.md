@@ -34,7 +34,8 @@ their visibility (F69), the field resolver and the owner's field mapping
 - **Where plays are kept** (P0-7). Nothing records a play today.
 
 **Design handoff**: pending (the on-page editor, the new chips and states). **Security review**:
-pending (design phase). **Test plan**: pending.
+design phase, rules SEC-1 to SEC-11 in [security-perimeter.md, "Smart playlist
+rules"](../architecture/security-perimeter.md), cited by ID below. **Test plan**: pending.
 
 ---
 
@@ -176,13 +177,16 @@ its count, Play all, Shuffle, Freeze, and anything referencing it all see the ca
 - [ ] A visitor sees the cap applied after their own visibility rules, so it never pulls in a video
       the visitor couldn't browse.
 - [ ] Snapshot playlists have no cap setting.
+- [ ] A cap is a whole number from 1 to 10,000, or none (SEC-7).
 
 **P0-3 Playlist conditions.** `playlist:` and `-playlist:` name any playlist, smart or snapshot.
 - [ ] `tag:noir -playlist:"Watched with friends"` returns noir videos not in that playlist.
 - [ ] Saving a definition that makes a loop, directly or through other playlists, is refused with
-      the playlists in the loop named.
-- [ ] References nest only to a depth the security review sets; past it, saving is refused with the
-      limit named (as F87 P0-9).
+      the playlists in the loop named. A loop that appears later through someone else's edit marks
+      the playlist stale (SEC-6).
+- [ ] References reach at most 4 deep, 16 distinct playlists and 256 conditions in all (SEC-5).
+      Past a limit, saving is refused with the limit named (as F87 P0-9); a playlist pushed past it
+      by another playlist's edit is stale.
 - [ ] A smart playlist that has both the Random sort and a cap has no fixed contents, so a reference
       to it is refused with that reason.
 - [ ] Deleting a referenced playlist flags every referencing playlist as stale (F75 RD6): nothing
@@ -200,17 +204,19 @@ A live count and grid preview follow every change. **Save definition** applies t
       offending condition named, and the editor stays open.
 - [ ] A stale playlist's notice opens this editor with the stale condition marked.
 - [ ] Browse no longer has a playlist edit mode; *Save as playlist…* from browse is unchanged.
+- [ ] Saving goes through the same owner-only save as today; the editor adds no new way to change a
+      playlist, and every save re-checks the whole definition (SEC-11).
 
 **P0-5 Visitors and public playlists.** A visitor sees a public smart playlist's definition as
 read-only chips. A public playlist may use only what a visitor may.
 - [ ] A visitor sees the same chips as the owner, with no edit controls.
 - [ ] Making a playlist public, or saving a public one, is refused while it uses an owner-only
-      condition (`matched`, `watched`, `plays`, `played`) or references a private playlist; the
-      message names the condition.
-- [ ] Making a playlist private is refused while a public playlist references it, naming those
-      playlists.
+      condition (`matched`, `watched`, `plays`, `played`) or references a private playlist, or a
+      playlist that itself uses one, at any depth (SEC-2, SEC-11). The message names the condition.
+- [ ] Making a playlist private always succeeds. A public playlist that references it becomes stale
+      and shows visitors nothing until the owner fixes it (SEC-3).
 - [ ] A visitor's `playlist:` condition accepts public playlists only; a private one behaves as an
-      unknown name (F87 P0-8).
+      unknown name (F87 P0-8, SEC-1).
 
 **P0-6 Field conditions on resolved values.** Any video field in the owner's mapping can be queried
 by name (*Concepts*), and matches what the video's field list shows.
@@ -220,8 +226,9 @@ by name (*Concepts*), and matches what the video's field list shows.
       only; the losing provider value never matches.
 - [ ] Changing a field's source decision changes which playlists the video is in, the next time
       they're read.
-- [ ] Suggestions after `director:` offer existing values. A visitor is never suggested or matched
-      on a field or value hidden from visitors.
+- [ ] Suggestions after `director:` offer existing values. A field hidden from visitors is owner-only
+      in queries: a visitor is never suggested it or matched on it (SEC-8). `released` follows the
+      same rule.
 - [ ] A field later removed from the mapping makes a saved playlist stale (F75 RD6), naming the
       field.
 
@@ -230,14 +237,15 @@ video has played or playback reaches the end. Visitors' playback records nothing
 - [ ] Sampling the first minutes, or skipping straight to the end, does not count. Watching
       through and seeking within the last 10% does.
 - [ ] Watching twice counts two plays.
-- [ ] Plays are kept for as long as the video exists, and removed when it is purged.
+- [ ] Plays are kept for as long as the video exists, and removed when it is purged (SEC-10).
+- [ ] Only the owner can record a play; a visitor's request to record one is refused (SEC-9).
 
 **P0-8 Watch conditions.** `watched`, `plays` and `played` work as in *Concepts*, for the owner only.
 - [ ] `watched:no director:"Ridley Scott"` returns that director's videos with no counted play and
       no manual watched mark.
 - [ ] `played:<7d` returns videos last played in the past 7 days.
-- [ ] A visitor query or link containing any of the three is refused as owner-only (F87 P0-8);
-      nothing runs.
+- [ ] A visitor query or link containing any of the three is refused as owner-only (F87 P0-8,
+      SEC-4); nothing runs. Any later sort by plays is owner-only too.
 
 **P0-9 Watched mark and manual toggle.** The owner sees which videos are watched, and can set it.
 - [ ] An owner-only watched mark shows on video cards and the media page; visitors never see it.
@@ -270,8 +278,7 @@ A personal library has no analytics, so success is checked, not measured:
 
 ## Open Questions
 
-None open for the owner. Before build: the two architecture choices under *Depends on*, and the
-reference-depth limit (P0-3) in the security review.
+None open for the owner. Before build: the two architecture choices under *Depends on*.
 
 ## Decisions
 
@@ -286,9 +293,11 @@ reference-depth limit (P0-3) in the security review.
   already reseeds per pass (F69 RD7). *Rejected*: fixed until rerolled.
 - **RD5 Any playlist can be referenced, with a loop check and a depth limit** (2026-11-01). *Why*:
   smart-on-smart is the useful case. *Rejected*: snapshot playlists only.
-- **RD6 A public playlist can't reference a private one, and a referenced playlist can't go private
-  under a public one** (2026-11-01). *Why*: a visitor would otherwise learn about a private
-  playlist's contents through the results. *Rejected*: allow and hide the name.
+- **RD6 A public playlist can't reference a private one; a referenced playlist going private makes
+  its public referrers stale** (2026-11-01). *Why*: a visitor would otherwise learn about a private
+  playlist's contents through the results. Going private stays one click, and the cost lands on the
+  public playlist that depends on it (SEC-3). *Rejected*: allow and hide the name; refusing to make a
+  referenced playlist private.
 - **RD7 Fields are queried by their own name; built-ins win a clash** (2026-11-01). *Why*: reads
   naturally in text and chips. *Rejected*: a `field:` prefix.
 - **RD8 Only the owner's plays count; a play is ~90% or the end; kept forever** (2026-11-01).
@@ -305,7 +314,8 @@ reference-depth limit (P0-3) in the security review.
 
 - **No hard deadline.** All P0, one epic (owner, 2026-11-01).
 - **Gates before build:** architecture (resolved-value querying; play storage), design handoff (the
-  editor, chips and states at 375px), testing strategy, security review.
+  editor, chips and states at 375px), testing strategy. The design-phase security review is done
+  (SEC-1 to SEC-11); re-review at build.
 - **Suggested slicing within the epic:** (1) dates, cap and playlist references with the visibility
   rules (P0-1 to P0-3, P0-5); (2) the on-page editor (P0-4); (3) resolved-field conditions (P0-6);
   (4) plays, watch conditions and the watched mark (P0-7 to P0-9). Slices 3 and 4 each start once
