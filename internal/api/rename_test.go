@@ -225,6 +225,13 @@ func TestRenamePlanReasonsAndCounts(t *testing.T) {
 	if tc[0].(map[string]any)["wont_read_back"] != float64(1) {
 		t.Errorf("template counts = %v", tc)
 	}
+	wrb := f.plan(t, "?reason="+rename.ReasonWontReadBack)["rows"].([]any)
+	if len(wrb) != 1 || wrb[0].(map[string]any)["written"] == nil || wrb[0].(map[string]any)["parsed"] == nil {
+		t.Errorf("won't-read-back row = %v", wrb)
+	}
+	if _, ok := body["providers"].([]any); !ok {
+		t.Errorf("providers = %v", body["providers"])
+	}
 	if code, _ := getTok(t, f.srv.URL+"/api/v1/rename/plan?reason=nope", "secret"); code != http.StatusBadRequest {
 		t.Errorf("unknown reason = %d", code)
 	}
@@ -263,8 +270,12 @@ func TestRenameLockAndHistory(t *testing.T) {
 		t.Errorf("state = %+v", st[id])
 	}
 	f.put(t, rename.KeyTemplates, `["{title}"]`)
-	if body := f.plan(t, "?reason=locked"); body["filtered"] != float64(1) {
+	body := f.plan(t, "?reason=locked")
+	if body["filtered"] != float64(1) {
 		t.Errorf("locked rows = %v", body["filtered"])
+	}
+	if row := body["rows"].([]any)[0].(map[string]any); row["lock_source"] != repo.LockOwner || row["locked_at"] == nil {
+		t.Errorf("locked row = %v", row)
 	}
 	doJSON(t, http.MethodPut, url, "secret", map[string]bool{"locked": false})
 	st, _ = f.r.FileNameStates(context.Background())

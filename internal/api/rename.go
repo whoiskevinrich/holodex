@@ -80,6 +80,7 @@ var renameTokenFields = map[string]string{
 type renameState struct {
 	inputs []rename.Input
 	titles map[int64]string
+	locks  map[int64]repo.FileNameState
 	disk   rename.Disk
 }
 
@@ -137,7 +138,7 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 		return nil, err
 	}
 
-	st := &renameState{titles: map[int64]string{}, disk: rename.Disk{Paths: map[int64]string{}, ListDir: listDirNames}}
+	st := &renameState{titles: map[int64]string{}, locks: locks, disk: rename.Disk{Paths: map[int64]string{}, ListDir: listDirNames}}
 	for _, p := range paths {
 		st.disk.Paths[p.ID] = p.FilePath
 	}
@@ -222,8 +223,14 @@ type planRowView struct {
 	Reason   string              `json:"reason"`
 	BadName  string              `json:"bad_name,omitempty"`
 	Parsed   map[string][]string `json:"parsed,omitempty"`
+	// Written is the value each token put into the name, sent beside Parsed so a won't-read-back
+	// row can say which value didn't survive.
+	Written  map[string][]string `json:"written,omitempty"`
 	HolderID int64               `json:"holder_id,omitempty"`
 	Changes  []rename.Change     `json:"changes,omitempty"`
+	// LockSource and LockedAt say why and when a locked video was locked (handoff call 7).
+	LockSource string     `json:"lock_source,omitempty"`
+	LockedAt   *time.Time `json:"locked_at,omitempty"`
 }
 
 type templateCount struct {
@@ -234,6 +241,7 @@ type templateCount struct {
 type planView struct {
 	Mode           string          `json:"mode"`
 	Templates      []string        `json:"templates"`
+	Providers      []string        `json:"providers"`
 	Total          int             `json:"total"`
 	Counts         map[string]int  `json:"counts"`
 	TemplateCounts []templateCount `json:"template_counts"`
@@ -314,10 +322,14 @@ func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []str
 	}
 	rows := rename.Plan(list, h.renameDelimiter(), st.inputs, st.disk, nil)
 
-	view := planView{Mode: h.settings.Get(rename.KeyMode), Templates: texts, Total: len(rows), Reason: reason,
-		Counts: map[string]int{}, TemplateCounts: make([]templateCount, len(list)), Rows: []planRowView{}}
+	view := planView{Mode: h.settings.Get(rename.KeyMode), Templates: texts, Providers: h.RenameProviders(),
+		Total: len(rows), Reason: reason, Counts: map[string]int{}, TemplateCounts: make([]templateCount, len(list)),
+		Rows: []planRowView{}}
 	if view.Templates == nil {
 		view.Templates = []string{}
+	}
+	if view.Providers == nil {
+		view.Providers = []string{}
 	}
 	for _, rs := range rename.Reasons {
 		view.Counts[rs] = 0
@@ -344,6 +356,13 @@ func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []str
 		if row.Template >= 0 {
 			t := row.Template
 			rv.Template = &t
+		}
+		if row.Reason == rename.ReasonWontReadBack {
+			rv.Written = row.Written
+		}
+		if ls := st.locks[row.VideoID]; ls.Locked {
+			at := ls.LockedAt
+			rv.LockSource, rv.LockedAt = ls.LockSource, &at
 		}
 		view.Rows = append(view.Rows, rv)
 	}
