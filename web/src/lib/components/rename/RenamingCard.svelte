@@ -242,6 +242,10 @@
 				<p class="text-xs text-muted">
 					The first template whose every token has a value names the file. The extension never changes.
 				</p>
+				<p class="text-xs text-muted">
+					{'{part}'} and {'{edition}'} write their own braces: {'{part}'} becomes {'{part-2}'}. Put a shorter template
+					after a longer one so videos without a part or edition still get a name.
+				</p>
 				<TemplateList bind:items {errors} {counts} {providers} onedit={edited} />
 			</div>
 			{#if dirty}
