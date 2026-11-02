@@ -120,7 +120,8 @@ page under-reports the very set the owner wants to watch.
   broadened.
 - **RD7 — The title filter is part of the query.** On entity pages the title filter (the nav search
   box filtering in place, `navSearch.inPlace`) folds into the query's `q`, so the grid is filtered server-side and Play all / Save see exactly the visible set.
-- **RD8 — No cap.** Neither Play all nor a smart playlist truncates. The entity grids lose their 500 cap
+- **RD8 — No cap.** Neither Play all nor a smart playlist truncates, unless the owner sets a
+  playlist's cap ([F89](smart-playlist-rules.md) P0-2). The entity grids lose their 500 cap
   in HOLODEX-501 (paged, like browse).
 - **RD9 — Visibility is F69's.** `private` (default) ⇒ a visitor gets 404; `public` ⇒ the query is
   evaluated under the **visitor's** posture, exactly as `/media` would evaluate it for that visitor.
@@ -241,7 +242,8 @@ offer smart playlists as targets; the membership endpoints refuse a smart playli
 with `position` = rank, and clears the query — the playlist becomes an F69 snapshot playlist.
 - [ ] After Freeze, a newly matching video does **not** appear; `manual` sort becomes available.
 
-**P0-8 — Edit filter.** From a smart playlist, *Edit filter* opens browse with the stored query loaded
+**P0-8 — Edit filter.** *Superseded by [F89](smart-playlist-rules.md) P0-4: the definition is edited
+on the playlist page, and browse has no edit mode.* As first built: from a smart playlist, *Edit filter* opens browse with the stored query loaded
 and an *Update ‹name›* action in place of *Save as playlist…*; updating replaces the stored query
 (re-canonicalised).
 - [ ] Update changes membership on next read; cancelling leaves the playlist unchanged.
