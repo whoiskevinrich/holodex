@@ -50,7 +50,7 @@ file ever being overwritten.
 - [x] backend → `{cmd,internal,providers}/**`. Plan (`acdf164d`) and Manual (`da951199`, `991628a4`, `98a99eae`) are built and tested against §38. On-writeback and Job are a later slice, blocked on the owner's watch-state test (Up next 5–6).
 - [ ] frontend → `web/src/**`
 - [x] testing `testing-strategy`
-- [/] security `security-review`. The design review (2026-10-31, `c25e21e4`) found no hole in the designed perimeter's intent, but nine gaps in how it was written. Each is closed in the doc that owns it: the template text and the whole name now face the character checks; the Windows reserved set is complete and judged before the first dot; invisible and invalid characters are removed or refused; the Linux root check is bound to a folder descriptor; the fallback `Lstat`s the target; the via name is built from the id; identity read-back is bounded; name state and job errors stay owner-only; and the apply body is capped. The tests are F7, F8, A8, A9 and §38.11. Held at `[/]`, as HOLODEX-58 and HOLODEX-493 did: the gate settles only on the implementation review of the backend diff.
+- [x] security `security-review`. The design review (2026-10-31, `c25e21e4`) found no hole in the designed perimeter's intent, but nine gaps in how it was written. Each is closed in the doc that owns it: the template text and the whole name now face the character checks; the Windows reserved set is complete and judged before the first dot; invisible and invalid characters are removed or refused; the Linux root check is bound to a folder descriptor; the fallback `Lstat`s the target; the via name is built from the id; identity read-back is bounded; name state and job errors stay owner-only; and the apply body is capped. The tests are F7, F8, A8, A9 and §38.11. The implementation review (2026-11-01, `origin/main...66cbe9e2`, Plan and Manual) found one gap. A provider resolve carried every provider's identity id read from the file name, which told provider A which other providers the owner uses; that is fixed in `e419ff5a` with a test. Everything else holds. One builder runs `CheckName` on the whole name, and the worker re-plans and refuses a changed name. On Linux every rename goes through an opened folder descriptor whose `/proc` path is checked against the library root. Symlinks are refused on both sides. `RENAME_NOREPLACE` falls back to the folded listing, then `Lstat` plus `SameFile`. The via name is `hx-<id>`. Every rename and settings route is in the `requireOwner` group, and A1 walks them. The apply body takes ids only, capped at 1 MB. The settings validator gates every write. No rename field reaches `/media` or MCP. Activity rows carry counts, and full errors go only to owner reads and the operator log. Below the bar: a provider that opts into filename hints still sees the whole file name, other providers' markers included, which the operator's `send_filename` deny governs. Settled for Plan and Manual. `until:` On-writeback or Job lands, which adds a rename path (Up next 6).
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -67,12 +67,12 @@ file ever being overwritten.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [security] `/security-review` of the backend diff against §38.11 and the rename perimeter before marking ready; then tick the gate and clear `needs-security-review` — `docs/architecture/security-perimeter.md`
-2. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
-3. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
-4. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
-5. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 4 — `internal/writequeue/`
-6. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 4 — `internal/rename/`
+1. [ ] [frontend] Plan (incl. the Out of date filter), lock, undo and template editor per the handoff; APIs: `/rename/plan`, `/rename/plan/preview`, `/rename/apply`, `/admin/settings/{key}`, `/media/{id}/rename/*` — `web/src/`
+2. [ ] [testing] Confirm F1/F8 (Linux-only primitive tests, F8 is the folder-swap security test) pass in CI; the Windows dev box can't run them — `internal/rename/fs_linux_test.go`
+3. [ ] [—] Owner test: rename one file by hand, check the media server's watch state; gates On-writeback/Job modes only — spec Open Questions
+4. [ ] [backend] On-writeback mode: rename step inside the write job, after WriteBatch, before PostWriteFunc (R23) ⛔ blocked on item 3 — `internal/writequeue/`
+5. [ ] [backend] Job mode: settle-window sweep over `video_file_names.desired_*` (R14, sweep half of R24) ⛔ blocked on item 3 — `internal/rename/`
+6. [ ] [security] `/security-review` of the On-writeback and Job diffs when items 4–5 land — `docs/architecture/security-perimeter.md`
 7. [ ] [—] Decide whether HOLODEX-192 (old rename-schema placeholder, now Relates-linked) closes as a duplicate of this epic
 8. [ ] [—] `TestSyncTagWritebackBulk_DedupsSharedVideo` fails on this Windows box at the pre-feature commit too (3 s drain deadline); not this epic's — `internal/api/tag_writeback_sync_test.go`
 
@@ -85,6 +85,10 @@ file ever being overwritten.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-01 · security review (implementation)
+- skills: code-review, handoff
+- handoff: The security gate is settled for Plan and Manual. The backend review found one leak: a provider lookup carried other providers' ids read from the file name. It is fixed in `e419ff5a`, and every other perimeter promise holds in code. `needs-security-review` is cleared. Next is the frontend (item 1). On-writeback and Job get their own security pass when they land (item 6).
 
 ### 2026-11-01 · jargon doc
 - skills: code-review, handoff

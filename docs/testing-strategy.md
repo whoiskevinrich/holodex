@@ -6174,5 +6174,9 @@ N10, N19 and A3. The mechanisms are in
 and [file-rename.md](architecture/file-rename.md). The rules the owner sees are in spec P0-1 and
 P0-4. Accepted: the fallback's outside-process gap (38.10); the path-based Windows development
 primitive; and the plan computed over the whole library on each request, which only the owner can
-trigger. The implementation review of the backend diff is still owed before the PR is marked
-ready.
+trigger.
+
+**Implementation review (2026-11-01, Plan and Manual).** It found one gap, now fixed: a provider
+lookup carried every provider's identity id read from the file name. Each id now goes only to its
+own provider (`TestVideoHintMarkerOnlyToItsProvider`, beside N19). The On-writeback and Job slices
+get their own review when they land.
