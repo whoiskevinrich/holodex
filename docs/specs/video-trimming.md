@@ -18,7 +18,8 @@ background runs, preflight refusals, verification gate and held original);
 Let the **owner** cut unwanted material off the **start and/or end** of a video file, such as an intro
 bumper, an ad or end cards, from the **Media Details** page. The owner chooses the first and last
 frames to keep by scrubbing the video, starts the trim, and walks away. The cut runs in the
-background, is checked against the frames the owner chose, and then either:
+background, is checked against the original file and, where the frames differ enough to tell, against
+what the owner saw on screen, and then either:
 
 - **replaces the original**: the same library item, with the original held for the F77 window, or
 - **saves as an edition**: a new library item in its own file, carrying everything the original had
@@ -54,8 +55,9 @@ because a trim changes the duration and the chapters, which F77's contract forbi
   end may be left at the file's own start or end, but not both.
 - **Two save modes**: **Replace original** and **Save as edition**.
 - **Background execution** with visible status, exactly as F77.
-- **Frame verification**: the cut file's first and last frames are compared with the frames the owner
-  chose on screen.
+- **Frame verification**: the cut file's first and last frames are checked against the original
+  file's in and out frames, and against the frames the owner chose on screen where those can be
+  told apart from their neighbours (R6).
 - **Edition creation**: a new file beside the original and a new library item copied from it.
 - **Per file.** A trim targets the file of the page it's run from. Other parts of a multi-part video
   are untouched.
@@ -134,7 +136,7 @@ If a rule can't be met for a file, the trim is refused before it starts.
       time cut from the start, the time cut from the end and the kept length.
 - [ ] The in frame comes before the out frame. A range that keeps the whole file can't be confirmed.
 - [ ] When the owner confirms, the picker captures the in frame and the out frame as they appear on
-      screen. Those captures are what R6 checks against.
+      screen. R6's screen check uses those captures.
 
 **R3. Preflight refusals.** F77's refusals apply (read-only library, free space, encoder, missing
 file, deleted video), with the free space sized for the kept range. Also:
@@ -150,11 +152,22 @@ file, deleted video), with the free space sized for the kept range. Also:
 running, done or failed, failures offer Retry and Dismiss, and one file write runs at a time per
 file. For an edition, the status is shown on the original's page until the edition exists.
 
-**R6. Frame verification.**
-- [ ] After cutting, Holodex compares the output's first and last frames with the captures from R2.
-- [ ] If they don't match, Holodex measures the offset, shifts the cut by it and runs once more.
-- [ ] If the second run still doesn't match, the trim fails with a reason that names the offset.
-      Nothing lands: the original is untouched and no edition is created.
+**R6. Frame verification.** Two checks, because they catch different mistakes.
+- [ ] **The cut check (always).** After cutting, Holodex decodes the in frame and the out frame from
+      the original file, the same way it decoded the cut. The output's first frame must be the in
+      frame and its last frame the out frame, not a neighbour. This check is exact, so it holds on a
+      still image, a black frame or a slow fade too.
+- [ ] **The screen check (only where it can tell).** Holodex compares each frame the owner saw on
+      screen (R2) with the original's in or out frame and its neighbours. This catches a browser and
+      Holodex disagreeing about which frame a moment in the video names. It compares the shape of
+      the picture, not its brightness, because a browser shows HDR video at a different brightness.
+- [ ] The screen check is skipped for a frame that can't be told apart from its neighbours: a
+      still image, black, or a slow fade. A one-frame difference there can't be seen either. The
+      trim's status says the check was skipped and why.
+- [ ] If either check finds the cut a frame or more off, Holodex shifts the cut by the measured
+      offset and runs once more.
+- [ ] If the second run still doesn't match, the trim fails with a reason that names the check and
+      the offset. Nothing lands: the original is untouched and no edition is created.
 - [ ] The rest of the output contract is verified as F77 R6 does. A crash mid-trim leaves no partial
       output.
 
@@ -214,10 +227,13 @@ file. For an edition, the status is shown on the original's page until the editi
 
 ## Open questions
 
-- **Q1 (engineering, blocking build):** can a frame comparison reliably tell the right frame from
-  one a frame or two off on near-static footage (fades, black frames, title cards)? Spike on real
-  files first: at least **one MKV and one MP4, each longer than ten minutes**, cut near both ends.
-  If it can't, R6 needs a different check for those frames.
+- ~~Q1~~ **Resolved 2026-11-02 by a spike:** no. On an MKV and an MP4, each longer than ten minutes,
+  cut near both ends, comparing a frame shown in the browser with Holodex's own decode can't tell
+  neighbouring frames apart on still images, black or slow fades. On an HDR file it can't compare
+  brightness at all. Comparing Holodex's cut with its own decode of the original is exact. So R6
+  checks the cut against the original always, and against the screen only where the frames differ.
+  Where the frames did differ, the browser and Holodex agreed on the frame at every point tested.
+  Results are on the epic's ticket.
 - ~~Q2~~ **Resolved 2026-10-31:** an edition's history starts fresh with a "trimmed from" link.
 - ~~Q3~~ **Resolved 2026-10-31:** a mismatch is corrected once by the measured offset, then fails.
 
@@ -225,8 +241,8 @@ file. For an edition, the status is shown on the original's page until the editi
 
 ## Timeline / phasing
 
-- **Phase 0:** the Q1 spike, on an MKV and an MP4 each longer than ten minutes. It decides whether R6
-  stands as written.
+- **Phase 0 (done 2026-11-02):** the Q1 spike, on an MKV and an MP4 each longer than ten minutes. It
+  reshaped R6 into the cut check and the screen check.
 - **Phase 1 (this spec, P0):** both save modes, frame verification, edition copy.
 - **Phase 2:** P1 items. Previewing the edges comes first, because it is the owner's last look
   before walking away.
