@@ -82,10 +82,13 @@ type Queue struct {
 	readTagKeys func(ctx context.Context, path, container string) (map[string][]string, error)
 	readCurrent func(ctx context.Context, path string, mapped []writeback.Mapped) (map[string]string, error)
 	log         *slog.Logger
-	mediaRoot   string
-	concurrency int
-	pollEvery   time.Duration
-	notify      chan struct{}
+	rename      RenameFunc
+	// renameRequeue and renameNoop classify a rename job's error.
+	renameRequeue, renameNoop func(error) bool
+	mediaRoot                 string
+	concurrency               int
+	pollEvery                 time.Duration
+	notify                    chan struct{}
 }
 
 // New builds a queue. concurrency < 1 is clamped to 1. mediaRoot (may be "") bounds
@@ -105,6 +108,16 @@ func New(r *repo.Repo, write WriteFunc, log *slog.Logger, concurrency int, media
 		pollEvery:   3 * time.Second,
 		notify:      make(chan struct{}, 1),
 	}
+}
+
+// RenameFunc runs one kind='rename' job (F86). It returns nil on success, or an error that
+// RenameRequeue or RenameNoop classify.
+type RenameFunc func(ctx context.Context, job *repo.WritebackJob) error
+
+// SetRename wires the rename lane's job runner and its outcome classifiers. Unset, a rename row
+// fails as unsupported.
+func (q *Queue) SetRename(run RenameFunc, requeue, noop func(error) bool) {
+	q.rename, q.renameRequeue, q.renameNoop = run, requeue, noop
 }
 
 // SetPostWrite wires the optional post-write hook (e.g. cover-art re-extract).
@@ -243,6 +256,10 @@ func (q *Queue) worker(ctx context.Context) {
 // in one pass, record audit + job_run, and finish (delete on success, mark failed
 // otherwise). The original file is never left half-written (ADR-041).
 func (q *Queue) process(ctx context.Context, job *repo.WritebackJob) {
+	if job.Kind == repo.WritebackKindRename {
+		q.processRename(ctx, job)
+		return
+	}
 	started := time.Now()
 	// batchID starts as the job's own caller-supplied batch id (e.g. a tag-sync
 	// trigger's batch, HOLODEX-239/ADR-077 D3) so every job_runs row this job

@@ -2,7 +2,7 @@
 
 This doc owns who may reach what: the owner gate on mutations and owner-only surfaces, the signed
 session cookie that carries owner identity in the browser, the network perimeter around metadata
-providers (the `base_url` and `asset_hosts` allowlists), and the read gates that keep non-public
+providers (the `base_url` and `asset_hosts` allowlists), the bound on metadata-built file names, and the read gates that keep non-public
 content from visitors. The provider contract itself lives in [metadata-providers.md](metadata-providers.md);
 how config is loaded and layered lives in [config-and-settings.md](config-and-settings.md).
 
@@ -114,6 +114,58 @@ a fully network-isolated core becomes a requirement; today it would tax every pr
 no-scheduler posture, the second moves egress to a public viewer-triggered GET.
 
 Decided in [`f6c58805`](https://github.com/whoiskevinrich/holodex/commit/f6c58805).
+
+## Rename names: metadata becomes a path component only through one builder
+
+A file rename ([file-rename.md](file-rename.md)) is the one place a value from metadata, which may
+come from a provider or a filename, reaches a filesystem path. Every name passes through one builder
+in Go, and the worker runs it again on every job. The checks in the enqueue request are never
+enough on their own.
+
+- **Inputs.** The request carries only video ids. The folder comes from `videos.file_path`, never
+  from a request or a payload. The name is built from the sanitised values the
+  [spec](../specs/file-rename.md) defines (P0-4) and must contain no separator. The character and
+  reserved-name rules are checked again on the **whole** built name, template text included, not
+  only on each value. Braces are the one exception: the builder's own identity, edition and part
+  markers and the ` {hx-<id>}` disambiguator carry them, and template text can't, so a brace in
+  the built name came from the builder. The name must be valid UTF-8 and satisfy `filepath.IsLocal(name)`,
+  `filepath.Base(name) == name` and `filepath.Dir(join(dir, name)) == dir`.
+- **Root bound, held to the rename.** The video's folder, resolved with `EvalSymlinks`, must sit
+  inside the canonical `MEDIA_PATH` (`filepath.Rel` then `filepath.IsLocal`). With symlinks followed,
+  a file's canonical path can resolve outside the library; such a video is refused, never renamed in
+  place. On Linux the folder is opened once (`O_DIRECTORY`) and the bound is checked on the
+  descriptor's own path (`/proc/self/fd/<n>`), not on a path resolved before the open. Every
+  `Lstat` and rename for the job is then made relative to that descriptor (`fstatat` with
+  `AT_SYMLINK_NOFOLLOW`, `renameat2`/`renameat`). A folder swapped for a symlink can't redirect the
+  rename.
+  The Windows development primitive stays path-based.
+- **No symlinked targets.** The current file, the target and the via name are each `Lstat`ed, and a
+  symlink is refused, as maintenance's `refuseSymlink` does for its sibling files.
+- **No overwrite.** The rename primitive itself refuses an existing target
+  ([file-rename.md](file-rename.md#no-overwrite-rename-rename_noreplace-where-the-mount-supports-it-every-name-compared-case-folded)).
+- **Templates widen nothing.** Templates are owner-written `settings`, but they only feed the
+  builder. No template can name a folder, an extension or a path outside the file's own folder. The
+  template rules run in the key's own validator on the settings allowlist, so every path that writes
+  the key runs them. The settle window is range-checked there too.
+- **Read-back is untrusted input.** An identity token read back from a name may come from any
+  file in the library, not only one Holodex wrote. Its capture is limited to the provider's id
+  characters (`[A-Za-z0-9_-]`, bounded length), and it reaches the provider only escaped for
+  wherever the provider client places it.
+- **Owner gate.** Every rename, plan, drift, lock, undo, history and template route sits behind
+  `requireOwner`. The apply body is bounded with `MaxBytesReader`, and SameSite=Strict keeps a
+  cross-site page from applying a plan.
+- **Names stay with the owner.** Name state, history and the rename job's error never join a
+  visitor's `/media` payload or an MCP tool result. A failed rename's error wraps `os` errors that
+  carry both absolute paths, so it follows the writeback rule: owner reads only. The System
+  activity report holds counts, never names. Server logs may carry paths, because they are the
+  operator's.
+
+**Rejected:** trusting the checks made when the plan or template is saved. Values change between
+the plan and the job, and a provider value is untrusted input every time it is read.
+**Rejected:** path-based renames after the root check on Linux. The check and the rename would name
+the folder twice, and anything that can write the library could swap it for a symlink in between.
+
+Decided in: pending squash (HOLODEX-602).
 
 ## A local poster image crosses no network perimeter
 

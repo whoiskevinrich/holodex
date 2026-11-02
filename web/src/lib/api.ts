@@ -5,6 +5,7 @@ import type { ParsedQuery, QueryError, QueryParseResult } from './query';
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
+import type { RenameHistoryEntry, RenamePlan, RenameReason, RenameStatus } from './rename';
 import type {
 	MediaBrief,
 	CarryPreview,
@@ -110,7 +111,10 @@ export class ApiError extends Error {
 	constructor(
 		readonly status: number,
 		path: string,
-		message?: string
+		message?: string,
+		// The decoded JSON error body, for a caller that reads more than `error` (a template list's
+		// per-row refusals, an undo's refusal reason).
+		readonly body?: Record<string, unknown>
 	) {
 		super(message ?? `API ${path} failed: ${status}`);
 		this.name = 'ApiError';
@@ -250,7 +254,7 @@ async function sendAuthed<T>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: 
 		// paused provider's "tmdb is rate-limiting — try again in 42 s", ADR-103 D4);
 		// uploadAuthed already does this, and the status still rides on the error.
 		const body = (await res.json().catch(() => ({}))) as { error?: string };
-		throw new ApiError(res.status, path, body.error);
+		throw new ApiError(res.status, path, body.error, body);
 	}
 	return (res.status === 204 ? {} : await res.json().catch(() => ({}))) as T;
 }
@@ -385,6 +389,18 @@ function personImageQuery(opts?: PersonImageURLOpts): string {
 		.filter(Boolean)
 		.join('&');
 	return q ? `?${q}` : '';
+}
+
+export type RenamePlanQuery = { reason?: RenameReason | 'all'; offset?: number; limit?: number; videoId?: number };
+
+function renamePlanQuery(q: RenamePlanQuery): string {
+	const p = new URLSearchParams();
+	if (q.reason) p.set('reason', q.reason);
+	if (q.offset) p.set('offset', String(q.offset));
+	if (q.limit) p.set('limit', String(q.limit));
+	if (q.videoId) p.set('video_id', String(q.videoId));
+	const s = p.toString();
+	return s ? `?${s}` : '';
 }
 
 export const api = {
@@ -1379,6 +1395,31 @@ export const api = {
 		sendAuthed<{ retried: boolean }>('POST', `/media/${id}/maintenance/retry`),
 	dismissMaintenance: (id: number) =>
 		sendAuthed<{ dismissed: boolean }>('POST', `/media/${id}/maintenance/dismiss`),
+
+	// Owner settings (internal/api/settings.go). A refused value throws ApiError 422; a refused
+	// template list carries one message per row in `body.rows`.
+	adminSettings: () => getAuthed<Record<string, string>>('/admin/settings'),
+	putSetting: (key: string, value: string) =>
+		sendAuthed<{ key: string; value: string }>('PUT', `/admin/settings/${encodeURIComponent(key)}`, { value }),
+
+	// File names (F86, internal/api/rename.go). The plan is computed per request; `preview` is an
+	// unsaved template list and saves nothing (422 with `body.rows` when a template is refused).
+	renamePlan: (q: RenamePlanQuery = {}, preview?: string[]) =>
+		preview
+			? sendAuthed<RenamePlan>('POST', `/rename/plan/preview${renamePlanQuery(q)}`, { templates: preview })
+			: getAuthed<RenamePlan>(`/rename/plan${renamePlanQuery(q)}`),
+	renameApply: (videoIds: number[]) =>
+		sendAuthed<{ batch_id: string; queued: number; not_renamed: Record<string, number> }>('POST', '/rename/apply', {
+			video_ids: videoIds
+		}),
+	setNameLock: (id: number, locked: boolean) =>
+		sendAuthed<{ locked: boolean }>('PUT', `/media/${id}/name-lock`, { locked }),
+	renameHistory: (id: number) => getAuthed<RenameHistoryEntry[]>(`/media/${id}/renames`),
+	renameStatus: (id: number) => getAuthed<RenameStatus>(`/media/${id}/rename/status`),
+	// Undo answers 409 with `body.reason` ('taken' with `body.name`, 'held', 'not-holodex-name').
+	renameUndo: (id: number) => sendAuthed<{ queued: number }>('POST', `/media/${id}/rename/undo`),
+	renameRetry: (id: number) => sendAuthed<{ retried: number }>('POST', `/media/${id}/rename/retry`),
+	renameDismiss: (id: number) => sendAuthed<{ dismissed: number }>('POST', `/media/${id}/rename/dismiss`),
 
 	// Tag writeback exclusion (HOLODEX-239, ADR-077 D1/D2). Toggling the flag alone
 	// never enqueues a write; the sync endpoints batch-enqueue via the durable

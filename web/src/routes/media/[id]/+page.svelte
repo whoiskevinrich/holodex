@@ -26,6 +26,7 @@
 	import RelatedShelf from '#lib/components/video/RelatedShelf.svelte';
 	import NextUpStrip from '#lib/components/video/NextUpStrip.svelte';
 	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
+	import FileNameRow from '#lib/components/rename/FileNameRow.svelte';
 	import ThumbnailFramePicker from '#lib/components/video/ThumbnailFramePicker.svelte';
 	import { thumbnailButtonLabel } from './thumbnailButton.ts';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
@@ -2723,6 +2724,10 @@
 							{/if}
 						</div>
 						</div>
+						<!-- F86: re-keyed on the held original, which blocks a rename while it lasts. -->
+						{#key maintenance.held?.expires_at}
+							<FileNameRow videoId={video.id} heldUntil={maintenance.held?.expires_at} />
+						{/key}
 					</section>
 				{/if}
 

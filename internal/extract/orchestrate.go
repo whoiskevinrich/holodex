@@ -27,6 +27,31 @@ type Orchestrator struct {
 	Patterns *PatternStore
 	Store    EnrichmentWriter
 	Deps     Deps
+	// Names reads the names Holodex wrote (F86 P0-11). Nil parses exactly as before.
+	Names NameReader
+}
+
+// NameReader reads file names from the rename templates (F86 P0-11). Fields are keyed like a
+// pattern match's (title, studio, people, release_date, edition, part).
+type NameReader interface {
+	// Recorded reads the name of a video with a rename record, with the template that wrote it
+	// and then the current list, ahead of the owner's patterns. recorded is what Holodex last
+	// wrote, by field. ok is false when there is no record or no template fits.
+	Recorded(ctx context.Context, videoID int64, path string) (fields, recorded map[string][]string, ok bool, err error)
+	// Templates reads a name no owner pattern fits with the current template list.
+	Templates(path string) (fields map[string][]string, ok bool)
+}
+
+// dropEchoes removes every parsed field equal to the value Holodex last wrote for it: an echo is
+// not a new filename value (P0-11). The comparison is with the record, never the current resolved
+// value, so a drifted name is never mistaken for a human edit.
+func dropEchoes(fields, recorded map[string][]string) map[string][]string {
+	for f, vals := range fields {
+		if rec, ok := recorded[f]; ok && joinSorted(vals) == joinSorted(rec) {
+			delete(fields, f)
+		}
+	}
+	return fields
 }
 
 // FieldOutcome is one field's routing result from a single video's run.
@@ -57,11 +82,24 @@ func (o *Orchestrator) ExtractVideo(ctx context.Context, videoID int64) (Result,
 		return Result{}, fmt.Errorf("extract: load video %d: %w", videoID, err)
 	}
 
-	patterns, delimiter := o.Patterns.Current()
-	filenameFields, ok := MatchFirst(patterns, v.FilePath, delimiter)
+	var filenameFields, recorded map[string][]string
+	ok := false
+	if o.Names != nil {
+		if filenameFields, recorded, ok, err = o.Names.Recorded(ctx, videoID, v.FilePath); err != nil {
+			return Result{}, fmt.Errorf("extract: read recorded name: %w", err)
+		}
+	}
+	if !ok {
+		patterns, delimiter := o.Patterns.Current()
+		filenameFields, ok = MatchFirst(patterns, v.FilePath, delimiter)
+	}
+	if !ok && o.Names != nil {
+		filenameFields, ok = o.Names.Templates(v.FilePath)
+	}
 	if !ok {
 		return Result{Matched: false}, nil
 	}
+	filenameFields = dropEchoes(filenameFields, recorded)
 
 	if o.Store != nil {
 		if err := Store(ctx, o.Store, model.EnrichEntityVideo, videoID, filenameFields); err != nil {

@@ -516,7 +516,9 @@ Two cross-cutting decisions need to be recorded:
 - `docs/testing-strategy.md` — add extraction/confidence/rollback cases.
 - `docs/specs/metadata-curation.md` — its **Status: Draft** header is stale (F30 is shipped, PR
   #55); fix independently of this spec.
-- The **filename rename-schema** follow-up (Non-Goals) is tracked in
-  [HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192).
+- The **filename rename-schema** follow-up (Non-Goals), first tracked in
+  [HOLODEX-192](https://whoiskevinrich.atlassian.net/browse/HOLODEX-192), is specified as
+  [F86 — rename media files from a template](file-rename.md) (HOLODEX-602). Its templates are read
+  back as filename patterns ahead of the ones configured here.
 - A `qa-metadata-extraction.md` checklist (mirroring `qa-writeback.md`) with numbered,
   tag-grouped items per the repo's QA conventions.

@@ -6021,3 +6021,248 @@ Risks, ranked by how quietly they would fail:
   a 64-condition query on the `-big` stress fixture. Add one if a query is ever reported slow.
 - **The natural-language tool** (P2-1) is out of scope; A11 covers the MCP `expr` contract it will
   use.
+
+## 39. Rename media files from a template (F86, HOLODEX-602)
+
+[Spec](specs/file-rename.md) · [architecture](architecture/file-rename.md) · the name bound in
+[security-perimeter.md](architecture/security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder)
+· [handoff](design/file-rename-handoff.md).
+
+Holodex renames a file in its own folder from the first template that fits. It is the first
+feature that turns metadata into a path component, and a rename touches the one thing every other
+feature keys on: `videos.file_path`. So the weight is on the filesystem and on identity, and the UI
+is thin over a computed plan. Risks, ranked by how quietly and how permanently they would fail:
+
+1. **A file is overwritten or lost** (P0-6, P0-14). Nothing undoes it. Guards: the no-overwrite
+   primitive (`RENAME_NOREPLACE`, its case-folded fallback, `MoveFileEx` without replace); every
+   collision check in NFC, case-folded; an untracked holder refuses; undo never disambiguates.
+2. **A name escapes its folder or the library** (P0-5). Guards: one name builder, run again by the
+   worker; `filepath.IsLocal` plus `Base(name) == name`; the folder `EvalSymlinks`-bounded inside
+   `MEDIA_PATH`; every path `Lstat`ed and a symlink refused; `requireOwner` on every route.
+3. **A video loses its identity** (P0-9). A stop between rename and record, or a scan mid-rename,
+   inserts the new name as a new video, hides the old one, or locks the name as a hand edit.
+   Guards: journal → rename → one transaction; boot recovery; the scanner reads pending rows; F79
+   as the last net.
+4. **A name reads back as different values** (P0-3, P0-11). The next parse puts a wrong title
+   into review or auto-applies it. Guards: render and verify through the same compiled F48
+   pattern; refuse, never fall through; echoes compared against the recorded value.
+5. **A name is invalid on the other OS** (P0-4). It works in Docker on Linux and breaks on the
+   owner's Windows share. Guard: one strictest builder on every platform.
+6. **A name churns against the owner** (P0-7, P0-12, P0-13). Drift renames before metadata
+   settles, or fights a hand edit. Guards: the settle window, the automatic lock, the mode order.
+7. **A rename counts as an update** (P0-9). It jumps the video to the top of Updated.
+
+### 39.1 Fixtures (synthesized in-test; nothing committed)
+
+- **Media.** Small files written into `t.TempDir()` as the library root, with metadata from the
+  scanner's `stubExtractor`. Rename never reads streams, so byte content only matters for the F79
+  cases (reuse §26.2's seeded generator).
+- **Templates.** `[{studio}] {title}`, `{title} - {studio}`, `{title} {provider-1-id}` and
+  `{title}`, in that order unless a case says otherwise.
+- **Values.** Titles and studio names that each break one rule: `Ada - Redux`, `Acme]`, `../etc`,
+  `CON`, `con.txt`, `Ada.`, `Ada `, `a{b}c`, `a:b*c?`, a tab and newline run, an NFD `é`, and a
+  254-byte title. Every hostile value appears as a title, a studio and a cast name.
+- **Mounts.** The no-overwrite primitive takes its `renameat2` call as an injected function, so a
+  test can return `EINVAL` or `ENOSYS` and drive the fallback on any host. A real case-insensitive
+  mount is exercised only by the Windows run and by live QA.
+
+### 39.2 Go unit: the name builder and the grammar (`internal/rename`, new; compiler in `internal/extract`)
+
+| # | Case | Proves |
+|---|---|---|
+| N1 | First fitting template: with the four templates, a video with a studio takes template 1, one without takes template 4, one with a confirmed `provider-1` id and no studio takes template 3. A video with no title and no id fits none and says so. | P0-2 |
+| N2 | Saving refuses a template with no `{title}` and no identity token, a repeated token, and an unknown token, each with its own message. `{provider-9-id}` for an unconfigured provider is unknown. Template text outside its tokens holding `:`, `/`, `\` or a control character is refused; `[{studio}] {title}` is accepted. The builder checks the whole name again, so a template that bypassed saving still can't produce such a name. | P0-1, P0-4, P0-5 |
+| N3 | An identity token renders only from a **confirmed** match. An unconfirmed candidate id makes the template not fit. | P0-1 |
+| N4 | Read-back refusal, each template listed alone so it is the first that fits: `{title} - {studio}` with title `Ada - Redux` is refused, with the parsed title and studio in the reason. `[{studio}] {title}` with studio `Acme]` is refused. The video keeps its name and does **not** fall through to a later template. | P0-3 |
+| N5 | A name that an **earlier** template would read differently is refused, though its own template reads it back exactly. | P0-3 |
+| N6 | Round trip: for every fixture value that survives sanitising, render → parse with the same compiled pattern gives exactly the sanitised values written. Run as a table plus a `testing/quick` property over random strings drawn from the hostile alphabet. | P0-3, P0-4 |
+| N7 | Markers never refuse: a value with `{edition-x}` or `{part-2}` text loses its braces, so the identity, edition and part markers render and read back. | P0-3, P0-4 |
+| N8 | Sanitising: `< > : " / \ | ? *`, control characters (C0, DEL, C1), zero-width and text-direction marks (U+200B, U+200E, U+202E, U+2066) and braces are removed; the whitespace run left behind is one space; the result is NFC. A value with invalid UTF-8 is refused. One subtest per character. | P0-4 |
+| N9 | A whole file name ending in a dot or a space is refused, never trimmed silently into a different read-back. The extension normally prevents it, so the case is a file with no extension. A stem ending in a dot before the extension (`Ada..mkv`) is valid on both OSes; the test pins whichever reading the builder takes (see 39.10). | P0-4 |
+| N10 | Reserved names refused with and without an extension and in any case: `CON`, `con`, `Con.mkv`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`, `CONIN$`, `CONOUT$`, `COM¹`–`COM³`, `LPT¹`–`LPT³`. The part before the first dot decides: `NUL.tar.mkv` and `CON .mkv` are refused. `CONSOLE` and `COM10` are allowed. | P0-4 |
+| N11 | Length counts **bytes**, extension and disambiguator included: 255 bytes passes, 256 is refused, a multibyte title that is 120 characters but 256 bytes is refused, and a name that fits plain but not with ` {hx-12345}` is refused when it needs the disambiguator. Never cut short. | P0-4, P0-6 |
+| N12 | Folder bound: `../etc`, `.`, `..`, a value of only removed characters (empty name) and a value with a separator never produce a name; every produced name passes `filepath.IsLocal`, `Base(name) == name` and `Dir(Join(dir, name)) == dir`. A property test asserts the last three over N6's random inputs. | P0-5 |
+| N13 | Collisions are planned case-folded in NFC: `ada lovelace.mkv` on disk collides with `Ada Lovelace.mkv`, and an NFD spelling collides with its NFC twin. | P0-4, P0-6 |
+| N14 | Collision plan: an untracked holder refuses. A tracked holder keeps its name and the newcomer gets ` {hx-<id>}`. Several newcomers for a free name: the lowest id takes it plain. A name another video gives up in the same run counts as free, and a two-video swap needs no disambiguator. Planning the same inputs twice gives the same plan. | P0-6 |
+| N15 | Case-only change (`ada.mkv` → `Ada.mkv`) is planned as a rename, not "already named", and not as a self-collision. | P0-4 |
+| N16 | The extension never changes, including `.MKV` kept upper-case. | Concepts |
+| N17 | Parse-back order: with a rename record, the template that **wrote** the name parses first, ahead of the owner's patterns and the current list. With none, the owner's patterns parse exactly as today; a name none of them fits is tried against the templates. The ` {hx-<id>}` disambiguator is stripped first and never becomes a value. | P0-11 |
+| N18 | Echo suppression: a parsed value equal to the recorded `token_values` entry is not a filename value. A value that differs from the record is routed as F48 routes it, though it equals the **current** resolved value. A drifted name (resolved value changed, file not renamed) produces no filename value. | P0-11 |
+| N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
+
+### 39.3 Go unit: the no-overwrite primitive (`internal/rename`)
+
+| # | Case | Proves |
+|---|---|---|
+| F1 | Linux: a target that exists returns the existing-target error and both files are byte-identical afterwards. Skipped off Linux. | P0-6 |
+| F2 | Fallback: with the injected `renameat2` returning `EINVAL`, then `ENOSYS`, the listing check refuses an existing target compared case-folded and in NFC, and a free target is renamed. | P0-6 |
+| F3 | Windows (runs on the dev box): `MoveFileEx` refuses an existing target, and a case-only rename lands with the new case. | P0-4, P0-6 |
+| F4 | Case-only renames always take two steps through `hx-<video id>.holodex-rename`, on every primitive; the via name is journalled before the second step. A 250-byte old name still gets a via name under 255 bytes. An NFD name whose desired name is its NFC twin also takes two steps. | P0-4 |
+| F5 | `Lstat`: a symlinked current file, a symlinked target and a symlinked via name are each refused, and nothing moves. | P0-5 |
+| F6 | Root bound: a video whose folder is a symlink resolving outside `MEDIA_PATH` is refused; one resolving inside is allowed. | P0-5 |
+| F7 | Fallback defers to the filesystem: with the injected `renameat2` returning `EINVAL` and a stubbed listing that misses the holder (a fold Go doesn't make, such as `ß`/`SS` on NTFS), a target that `Lstat` finds and that isn't the source is refused, and the holder is byte-identical. | P0-6 |
+| F8 | Folder swap (Linux): between the root check and the rename, a test hook replaces the folder with a symlink to a directory outside `MEDIA_PATH`. The rename lands in the original folder or fails, and nothing appears outside the library. Skipped off Linux. | P0-5 |
+
+### 39.4 Repo and integration (real SQLite, real temp library; `make test` unless marked)
+
+| # | Case | Proves |
+|---|---|---|
+| R1 | Journal: a rename writes a `pending` row before the filesystem call (assert with a primitive stub that reads the table), and step 3 flips it to `done`, sets `file_path` and updates `video_file_names` in one transaction. | P0-10 |
+| R2 | Step 3 writes only `file_path`: `id`, `indexed_at`, `content_fp`, `file_mtime` and every file-layer column are unchanged, so Updated doesn't move. | P0-9 |
+| R3 | Step 3's `file_path IN (old, new)` accepts a row a scan has already repointed. | P0-9 |
+| R4 | Crash after step 1 (file at `old_name`): boot recovery deletes the row, the requeued job runs again, and one `done` row results. | P0-9 |
+| R5 | Crash after step 2 (file at `new_name`, row `pending`): recovery finishes step 3; the video is not locked. | P0-9, P0-13 |
+| R6 | Crash between the two steps of a case-only rename (file at `via_name`): with the job requeued, it resumes to `new_name`; with no job, recovery moves the file back to `old_name`. | P0-9 |
+| R7 | The file at none of the names, or at both `old_name` and `new_name`: recovery deletes the row and fails the job, and touches neither file. | P0-6, P0-9 |
+| R8 | Recovery runs before the queue starts, beside `RecoverSwaps`. | P0-9 |
+| R9 | F79 net: delete the journal row after step 2 and rescan. The fingerprint repoints the same `videos.id`, and nothing is locked when a pending row names the new or via name. | P0-9, P0-13 |
+| R10 | Scan during a rename: with a `pending` row and the file at `via_name` or `new_name`, a full pass inserts nothing, holds nothing and hides nothing (`DeactivateExcept` counts it seen). | P0-9 |
+| R11 | The walk never ingests `*.holodex-rename`, and the orphan sweep never removes it, beside the existing `.holodex-orig` pin. | P0-9 |
+| R12 | Identity survives: curate a video (a title decision, a tag, a playlist place, a film link, provider enrichment), make its thumbnail and motion preview (montage), then rename and rescan. Same `id`; every row present; the thumbnail and montage files, keyed by id, still serve; Date added and Updated order unchanged. | P0-9, Goal 2 |
+| R13 | Hand edit: rename the file outside Holodex away from the latest `done` `new_name`, rescan. `locked = 1`, `lock_source = 'auto'`. Moving it to another folder with the same name doesn't lock. A file renamed by hand to exactly its desired name, never Holodex-written, isn't locked. | P0-13 |
+| R14 | Settle window: the sweep stores `desired_name`/`desired_since`, resets `desired_since` when the desired name changes, and renames only once it is older than the window. A template-list edit makes every affected name drift and none rename before the window. | P0-7, P0-12 |
+| R15 | Undo: undoes the latest rename only, while the file still has that name. It writes an `undo` row with `undo_of`, restores the old name and locks with `lock_source = 'undo'`. Undo with the old name taken by a tracked or untracked file is refused with no disambiguator. Undo after a hand edit is refused. Undoing the undo restores the plan's name with a second `undo` row (39.10). | P0-14 |
+| R16 | Fold: `FoldMovedVideo` re-keys `file_renames` to the older id, and the newer side's `video_file_names` replaces the older one's. `assertNothingReferences` covers both tables. | P0-9 |
+| R17 | Purge cascades both tables. | P0-10 |
+| R18 | Queue: a rename row never runs while the same video has a running write or re-encode; it is claimed by the tag-write lane, not the maintenance lane; it survives a restart as `pending`; Retry and Dismiss work; `job_runs` records `kind=rename`. | P0-9 |
+| R19 | The worker re-runs the builder and collisions, and fails with the "name changed" reason when the desired name moved since the plan. | P0-5, P0-9 |
+| R20 | Batches: a target held by a tracked video with a pending rename in the batch goes back to `pending` behind it; a two-video swap completes through a via name with no disambiguator and no overwrite. | P0-6 |
+| R21 | Held original: refused at enqueue, again at the job step, and inside a write job's on-writeback step; eligible once the hold ends. | P0-8 |
+| R22 | Trashed and locked videos are never renamed by any trigger. | P0-7, P0-13 |
+| R23 | On writeback: a drifted, unlocked file takes its desired name inside the write job, after `WriteBatch` and before `PostWriteFunc`; the read-back re-extracts at the new path. A never-renamed file keeps its name. A refused rename leaves the write successful. (`make test-integration` for a real MKV.) | P0-7 |
+| R24 | Run report: an apply and a sweep each write a System activity row with renamed, refused-by-reason and skipped-locked/held counts. An apply writes its one batch summary at once (queued; refused by reason, locked and held among them), and the batch's last job fills in renamed and failed, counting each video's latest run so a retried failure counts once. | P0-15 |
+| R25 | A name already equal to the desired name records nothing. | Edge Cases |
+
+### 39.5 API (`internal/api/rename_test.go`, new, `httptest` over the real repo)
+
+| # | Case | Proves |
+|---|---|---|
+| A1 | Every rename, plan, drift, lock, undo, template and settings route refuses a visitor; a table walks the route list so a new route can't skip `requireOwner`. | P0-5, Users |
+| A2 | The apply request carries only video ids; a request carrying a path, folder or name is refused or ignored, and the folder always comes from `videos.file_path`. | P0-5 |
+| A3 | Templates: an invalid list is refused per row and nothing is written; a valid list is stored as one `settings` row. Mode and settle window are on the allowlist. Every route that can write the template key, including the generic settings write, refuses an invalid list. A settle window of 0 or 366 is refused by the server. | P0-1, P0-7 |
+| A4 | Mode gating: Off and Plan enqueue nothing and touch no file (assert the library tree unchanged byte for byte); Manual enqueues; On writeback and Job add their triggers and keep Manual. | P0-7 |
+| A5 | The plan's reasons, counts and `?reason=` filter (all, will rename, out of date, already named, no template, won't read back, clash, bad name, locked, held) are server totals over the whole library; paging doesn't change them. The out-of-date row carries each changed field's recorded and current value. | P0-12, P1-1 |
+| A6 | Preview with an unsaved template list computes the plan without saving it and enqueues nothing. | P0-7 |
+| A7 | Lock and unlock change only `video_file_names`; history lists names oldest to newest with their trigger. | P0-13, P1-2 |
+| A8 | Nothing leaks to a visitor: on a video whose rename failed with a path-bearing error, a visitor's `GET /media/{id}`, the `/media` list and the MCP `get_video` result carry no name state, history, old or new name, or job error. The System activity row holds counts only. Assert on the payload, not on a hidden badge. | P0-5, Users |
+| A9 | The apply body is bounded: an oversized body is refused before any row is enqueued. | P0-5 |
+
+### 39.6 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | `rename/TemplateList.svelte.test.ts` | ↑/↓ move a row and keep focus on the same button; withdrawn at the ends with `aria-disabled`; Alt+↑/↓ inside an input move the row; × is withdrawn on the last template while the mode isn't Off; a token chip inserts at the last-focused cursor, else into the last row. | handoff calls 10, 12, 15 |
+| W2 | `rename/RenamingCard.svelte.test.ts` | Folded when saved and valid; open with a draft or an error; Save withdrawn on error; a server refusal marks each row and keeps the draft; Preview switches the plan to unsaved templates and hides Rename. Settle window refuses 0 and 366. | handoff |
+| W3 | `rename/RenamePlanRow.svelte.test.ts` | A row that can't rename has no checkbox and keeps its slot; refusals have the warn border, fine states the muted one; the old name is struck; names are never truncated; `→` carries `aria-label="becomes"`; an id-settled clash is selectable and names the holder. | handoff calls 1–5 |
+| W4 | `rename/RenamePlan.svelte.test.ts` | Select all counts the server total for the filter, not the page; selection survives a filter change; Rename N turns into the inline confirm with focus on Yes, Escape cancels and focus returns; job states (renaming, renamed, failed with Retry/Dismiss, stale with Refresh plan). Defaults to Out of date when its count is above 0. | handoff |
+| W5 | `rename/NameLockButton.svelte.test.ts` | Labelled button glyph shows the action; icon-only toggle shows the state with `aria-pressed`; each of the three lock-reason phrasings. | handoff calls 6, 7 |
+| W6 | `rename/FileNameRow.svelte.test.ts` | Every state in the handoff's table, including undo refused and History; hidden when the mode is Off; Rename absent in Plan mode. | handoff |
+| W7 | Nav harness (`npm --prefix web run nav`, `backend-stress-open-9600` + `web-9600`), new scenario `file-names-filter-survives-back` | Its setup sets the mode to Plan (the fixture starts at Off, which shows no plan). Choose the Clash filter, open a video, go Back: the filter and scroll position are restored. Run with `--only`. | handoff (filter in the URL) |
+
+### 39.7 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinémathèque), templates
+`[{studio}] {title}` then `{title} {provider-1-id}` then `{title}` unless an item says otherwise.
+
+1. `[smoke]` With no rename settings, the File names tab shows mode Off, no plan, and the video
+   page has no File name row.
+2. `[agent]` **Plan.** Switch to Plan. The plan lists every video with its reason and per-template
+   counts. Hash the library tree before and after: identical. No checkboxes, no Rename.
+3. `[agent]` A title edited to `Ada - Redux` with template `{title} - {studio}` first shows
+   **Won't read back** with both parsed values, and the video's name is unchanged after a later
+   apply.
+4. `[agent]` Studio set to `CON`, a title ending in a dot, and a 300-byte title each show under
+   **Bad name** with their specific chip.
+5. `[agent]` **Manual.** Switch to Manual, select three videos, Rename 3, confirm. Each row goes
+   renaming → renamed; the files on disk carry the new names; Date added and Updated order is
+   unchanged; each video page keeps its title decision, tags, playlist place, thumbnail and
+   montage.
+6. `[agent]` Create an untracked file holding one video's desired name. That row is **Clash**, has
+   no checkbox, and the untracked file is byte-identical after an apply of all.
+7. `[agent]` Two videos with the same title and studio: one is plain, the other carries
+   ` {hx-<id>}` and its row names the holder. Applying the plan a second time changes nothing.
+8. `[agent]` Swap two videos' titles and apply both: both are renamed plainly in one run.
+9. `[agent]` Case only: change a title's case and apply. The file takes the new case.
+10. `[agent]` **Crash.** Stop the backend while a batch of 50 is renaming, restart, rescan. No new
+    video in Date added, none hidden, no video locked, one recorded rename per file.
+11. `[agent]` **Echo.** Rescan after a rename: no filename value enters review. Edit the title
+    after the rename (drift): still no filename value in review, and the row shows under **Out
+    of date** naming the title change.
+12. `[agent]` **Hand edit.** Rename a Holodex-named file in Explorer and rescan: the video is
+    locked with "Locked when you renamed it outside Holodex on …", and no trigger renames it.
+13. `[agent]` **Undo** a rename from the video page: the old name is back, the row reads "Locked
+    when you undid a rename on …". Rename again, then put a file at the old name: Undo is refused
+    with "Can't undo: … is taken."
+14. `[agent]` Start a re-encode so a held original exists: the video shows **Held** and can't be
+    renamed until Keep or Restore.
+15. `[agent]` **On writeback** (after the owner's open question): write back a tag to an
+    out-of-date video. The file takes its new name in the same job; a never-renamed video written
+    back keeps its name.
+16. `[agent]` **Job** with a 1-day window (clock moved in the test DB): a drifted name renames only
+    after the window; a locked video never does. System activity shows the sweep's counts.
+17. `[agent]` As a visitor on a gated backend: no File names tab, no File name row, and every
+    rename route returns 401.
+18. `[agent]` 375 px: filters scroll in one row, names stack old over `→ new`, the bar keeps
+    Rename N without Clear. Keyboard: mode radiogroup with arrows, confirm focus and Escape.
+19. `[human]` On the Windows share, rename ten videos with a cast name containing `:` and one
+    with an accented title, then open the folder in Explorer and from the Linux host: every name
+    opens on both.
+20. `[human]` Run Plan over the production library with the chosen templates: **Won't read back**
+    is under 2% (spec success metric). Over 2% means the grammar needs a quoted token.
+21. `[human]` Rename one file and rescan it in the other media server (spec open question). This
+    gates On writeback and Job.
+
+### 39.8 Shipping order
+
+Tests land with the mode they guard, so each slice is green on its own:
+1. **Plan:** N1–N16, A1, A3, A5–A7, W1–W3, W5, W7; QA 1–4, 17, 20.
+2. **Manual:** N17–N19, F1–F8, R1–R13, R15–R22, R24–R25, A2, A4, A8, A9, W4, W6; QA 5–14, 18, 19.
+3. **On writeback:** R23; QA 15. Blocked on the owner's open question (QA 21).
+4. **Job:** R14 and the sweep half of R24; QA 16.
+
+### 39.9 Mutation checks (run once the code exists)
+
+- Fall through to the next template on a read-back refusal → N4.
+- Compare echoes with the current resolved value instead of the record → N18.
+- Trim a trailing dot instead of refusing → N9.
+- Count characters instead of bytes → N11.
+- Compare collisions case-sensitively → N13, F2.
+- Use `os.Rename` without the listing check in the fallback → F2.
+- Drop the fallback's `Lstat` of the target → F7.
+- Judge a reserved name on the whole stem instead of the part before the first dot → N10.
+- Sanitise only the values and skip the whole-name check → N2.
+- Attach the rename job's error to the visitor media payload → A8.
+- Write the `done` row before the filesystem rename → R4.
+- Use `RepointVideo` in step 3 (it writes `indexed_at`) → R2.
+- Drop the pending-row check from `DeactivateExcept` → R10.
+- Set the auto-lock without checking for a pending row → R5, R9.
+- Move a rename route out of the owner group → A1.
+- Disambiguate on undo → R15.
+
+### 39.10 Standing gaps
+
+- A real case-insensitive Linux mount (drvfs, CIFS) is exercised only by QA 9 and 19; CI runs the
+  fallback through the injected `renameat2`.
+- The fallback's gap, an outside process creating the exact name between the `Lstat` and the
+  rename, is accepted by the architecture and not tested.
+- How another media server treats a renamed file is the owner's check (QA 21), not a test.
+- Spec P0-4's "never ends in a dot or a space" doesn't say whether it means the whole name or
+  the stem. N9 pins the builder's reading; if the stem is meant, that is a spec edit first.
+- The spec (P0-14) doesn't say whether an undo can itself be undone. The build allows it, because
+  an undo is the video's latest rename, and R15 pins that. If it should be refused, that is a spec
+  edit first.
+
+### 39.11 Security review
+
+**Design review (2026-10-31), before any code.** It added F7, F8, A8 and A9 and widened N2, N8,
+N10, N19 and A3. The mechanisms are in
+[security-perimeter.md](architecture/security-perimeter.md#rename-names-metadata-becomes-a-path-component-only-through-one-builder)
+and [file-rename.md](architecture/file-rename.md). The rules the owner sees are in spec P0-1 and
+P0-4. Accepted: the fallback's outside-process gap (39.10); the path-based Windows development
+primitive; and the plan computed over the whole library on each request, which only the owner can
+trigger.
+
+**Implementation review (2026-11-01, Plan and Manual).** It found one gap, now fixed: a provider
+lookup carried every provider's identity id read from the file name. Each id now goes only to its
+own provider (`TestVideoHintMarkerOnlyToItsProvider`, beside N19). The On-writeback and Job slices
+get their own review when they land.

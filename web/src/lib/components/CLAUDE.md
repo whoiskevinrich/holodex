@@ -5,10 +5,10 @@ Components are grouped by **feature/domain**, not by component type. Each subfol
 already inside a folder; this file only covers how to decide *which* folder a component belongs
 in.
 
-## The thirteen folders
+## The fourteen folders
 
 `person/`, `enrichment/`, `extraction/`, `completeness/`, `curation/`, `duplicates/`, `entity/`,
-`activity/`, `video/`, `sort/`, `writeback/`, `shared/`, `film/`.
+`activity/`, `video/`, `sort/`, `writeback/`, `shared/`, `film/`, `rename/`.
 
 ## Classification rule
 

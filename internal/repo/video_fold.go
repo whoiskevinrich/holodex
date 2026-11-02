@@ -187,6 +187,20 @@ func (r *Repo) FoldMovedVideo(ctx context.Context, older, newer int64) error {
 		{"writeback snapshots", `UPDATE file_writeback_snapshots SET video_id = ?1 WHERE video_id = ?2`},
 		{"extraction reviews", `UPDATE metadata_extraction_review SET video_id = ?1 WHERE video_id = ?2`},
 		{"job attribution", `UPDATE job_runs SET entity_id = ?1 WHERE entity_type = 'video' AND entity_id = ?2`},
+		// F86: the rename journal moves with the history; newer's name state replaces older's,
+		// because newer describes the file on disk, except the lock, which is merged: older's
+		// lock carries over unless newer's is as strong (owner and undo outrank auto; a tie keeps
+		// newer's), so a healed move never drops a lock (file-rename.md).
+		{"rename journal", `UPDATE file_renames SET video_id = ?1 WHERE video_id = ?2`},
+		{"name state: merge older's lock", `
+			INSERT INTO video_file_names (video_id, locked, lock_source, locked_at)
+			SELECT ?2, 1, lock_source, locked_at FROM video_file_names WHERE video_id = ?1 AND locked = 1
+			ON CONFLICT (video_id) DO UPDATE
+			   SET locked = 1, lock_source = excluded.lock_source, locked_at = excluded.locked_at
+			 WHERE video_file_names.locked = 0
+			    OR (video_file_names.lock_source = 'auto' AND excluded.lock_source <> 'auto')`},
+		{"name state: drop older's", `DELETE FROM video_file_names WHERE video_id = ?1`},
+		{"name state: take newer's", `UPDATE video_file_names SET video_id = ?1 WHERE video_id = ?2`},
 		{"keep-separate", `DELETE FROM entity_keep_separate
 			WHERE entity_type = 'video' AND (id_lo = ?2 OR id_hi = ?2)`},
 	} {
