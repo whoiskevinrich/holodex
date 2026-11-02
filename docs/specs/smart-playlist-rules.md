@@ -297,8 +297,8 @@ None open for the owner. Before build: the two architecture choices under *Depen
 - **RD6 A public playlist can't reference a private one; a referenced playlist going private makes
   its public referrers stale** (2026-11-01). *Why*: a visitor would otherwise learn about a private
   playlist's contents through the results. Going private stays one click, and the cost lands on the
-  public playlist that depends on it (SEC-3). *Rejected*: allow and hide the name; refusing to make a
-  referenced playlist private.
+  public playlist that depends on it (SEC-3). *Rejected*: allow and hide the name; refuse going private
+  until no public playlist references it.
 - **RD7 Fields are queried by their own name; built-ins win a clash** (2026-11-01). *Why*: reads
   naturally in text and chips. *Rejected*: a `field:` prefix.
 - **RD8 Only the owner's plays count; a play is ~90% or the end; kept forever** (2026-11-01).
