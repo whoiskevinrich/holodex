@@ -6089,6 +6089,8 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N17 | Parse-back order: with a rename record, the template that **wrote** the name parses first, ahead of the owner's patterns and the current list. With none, the owner's patterns parse exactly as today; a name none of them fits is tried against the templates. The ` {hx-<id>}` disambiguator is stripped first and never becomes a value. | P0-11 |
 | N18 | Echo suppression: a parsed value equal to the recorded `token_values` entry is not a filename value. A value that differs from the record is routed as F48 routes it, though it equals the **current** resolved value. A drifted name (resolved value changed, file not renamed) produces no filename value. | P0-11 |
 | N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
+| N20 | Optional tokens (HOLODEX-621): the spec's `[{studio?}] {title} ({people?}) {year?} {part?} {edition?}` example gives every value, then `My Title 2026`, then `My Title`. A dropped token takes its touching brackets and literal text up to a space or a neighbouring token (`{title}-{part?}` → `{title}`), and leaves no double or edge space. Every built name reads back to the values written. | P0-1 |
+| N21 | Optional-token refusals: `{title?} {studio}` (no required title or identity), more than six optional tokens, and `{part} {part?}` (repeated) are refused when saved. `{title?} {provider-1-id}` is accepted. | P0-1 |
 
 ### 39.3 Go unit: the no-overwrite primitive (`internal/rename`)
 
