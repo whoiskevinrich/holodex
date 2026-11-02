@@ -99,7 +99,7 @@ mirroring Go's — two implementations of one grammar. **Rejected:** grouped fla
 new meaning — bare words would then match Tags inside existing stored queries, a silent broadening
 that needs a version bump and a rewrite.
 
-Decided in: pending squash (HOLODEX-611).
+Decided in [`7906048d`](https://github.com/whoiskevinrich/holodex/commit/7906048d).
 
 ## Related media: one endpoint, seedless `ORDER BY RANDOM()` kept out of the builder
 
