@@ -190,6 +190,11 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		if err != nil {
 			return nil, err
 		}
+		// This tool has no playlist expansion (the api layer's playlist_refs.go), and an
+		// unexpanded `playlist:` compiles to false, which would widen a NOT. Refuse it.
+		if len(query.EntityIDs(q.Root)[query.FieldPlaylist]) > 0 {
+			return mcp.NewToolResultError("playlist: conditions aren't available in search_videos; open the playlist instead."), nil
+		}
 		f.Expr, canonical = q.Root, q.String()
 	}
 

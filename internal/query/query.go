@@ -25,6 +25,8 @@ const (
 	FieldYear       = "year"
 	FieldDuration   = "duration"
 	FieldMatched    = "matched"
+	FieldAdded      = "added"    // F89 P0-1: when the video arrived in the library
+	FieldPlaylist   = "playlist" // F89 P0-3: in that playlist as it is now, cap included
 )
 
 // Comparison operators a condition carries. OpEq is the plain `field:value`.
@@ -41,12 +43,13 @@ const (
 const MatchedAny = "any"
 
 // entityFields name an entity by identity; canonicalisation binds them to an id.
-var entityFields = map[string]bool{FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true}
+var entityFields = map[string]bool{FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true, FieldPlaylist: true}
 
 // knownFields is every field the grammar accepts (P0-1).
 var knownFields = map[string]bool{
 	FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true,
 	FieldResolution: true, FieldYear: true, FieldDuration: true, FieldMatched: true,
+	FieldAdded: true, FieldPlaylist: true,
 }
 
 // IsEntityField reports whether field names an entity bound by id.
@@ -66,7 +69,8 @@ type Not struct{ X Node }
 
 // Cond is one `field:value` test. Entity fields carry ID once canonicalised (Value
 // keeps the typed name until then); year and duration carry Lo (and Hi for a range),
-// durations in seconds; resolution carries the bucket in Value; matched carries
+// durations in seconds; a date field carries its value as written in Value (dates.go);
+// resolution carries the bucket in Value; matched carries
 // `any` or a provider name in Value. Pos and End are byte offsets into the source.
 type Cond struct {
 	Field  string

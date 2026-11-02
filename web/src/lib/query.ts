@@ -38,7 +38,7 @@ export interface ParsedQuery {
 export type QueryParseResult = ({ ok: true } & ParsedQuery) | { ok: false; error: QueryError };
 
 /** The fields a condition may name; `matched` is the owner's only. */
-export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'resolution', 'matched'] as const;
+export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'resolution', 'playlist', 'matched'] as const;
 export const OWNER_ONLY_FIELDS: readonly string[] = ['matched'];
 
 /** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5). */
@@ -187,6 +187,10 @@ export function condLabel(n: QueryNode): string {
 			return `Resolution: ${n.value}`;
 		case 'matched':
 			return n.value === 'any' ? 'matched' : `matched: ${name}`;
+		case 'added': // the server words it: "last 30 days", "2026-01 to 2026-06"
+			return `added: ${name}`;
+		case 'playlist':
+			return `in: ${name}`;
 		case 'duration':
 		case 'year': {
 			const fmt = n.field === 'duration' ? fmtSeconds : String;

@@ -325,12 +325,23 @@ type Playlist struct {
 	Query        *string `json:"query"`
 	QueryVersion *int    `json:"query_version,omitempty"`
 	PlayShuffled bool    `json:"play_shuffled"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	// Cap is a smart playlist's cap (F89 P0-2): it holds only the first Cap matches.
+	Cap *int `json:"cap"`
+	// MatchCount is a capped smart playlist's matches before the cap, for the owner's
+	// "31 match, showing 25" readout; set only when the cap cuts.
+	MatchCount *int `json:"match_count,omitempty"`
+	// SmartFlag says the playlist is smart even when Query is withheld: a visitor never
+	// sees a smart playlist's definition (F89 P0-5, RD10).
+	SmartFlag bool   `json:"smart"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // Smart reports whether the playlist is a stored query rather than a membership set.
-func (p Playlist) Smart() bool { return p.Query != nil }
+func (p Playlist) Smart() bool { return p.SmartFlag || p.Query != nil }
+
+// PlaylistMaxCap bounds a smart playlist's cap (F89 SEC-7).
+const PlaylistMaxCap = 10_000
 
 // PlaylistQueryVersion is the stored-query grammar version (ADR-121 D2). Bump it only
 // when an existing filter key changes meaning, with a migration rewriting stored queries.

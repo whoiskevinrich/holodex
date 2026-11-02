@@ -480,6 +480,7 @@ export const api = {
 			visibility?: Playlist['visibility'];
 			query?: string;
 			play_shuffled?: boolean;
+			cap?: number | null; // null clears it (F89 P0-2)
 		}
 	) => sendAuthed<{ playlist: Playlist }>('PATCH', `/playlists/${id}`, patch),
 	// Turns a smart playlist into a fixed (snapshot) one holding its current result.

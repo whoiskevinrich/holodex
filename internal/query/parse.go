@@ -271,6 +271,17 @@ func (p *parser) term(t token) (Node, error) {
 			}
 			return nil, bad(code, field+": "+err)
 		}
+	case FieldAdded:
+		if c.Quoted {
+			return nil, bad(CodeBadValue, field+": takes a date, not a quoted name.")
+		}
+		if err := parseDateCond(c, value); err != "" {
+			code := CodeBadValue
+			if strings.Contains(value, "..") {
+				code = CodeBadRange
+			}
+			return nil, bad(code, field+": "+err)
+		}
 	case FieldResolution:
 		b, ok := metadata.ParseResolutionBucket(value)
 		if !ok {

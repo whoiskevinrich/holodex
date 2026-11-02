@@ -141,13 +141,13 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 
 	now := time.Now().UTC().Format(timeLayout)
 	args := append([]any{v.FilePath}, fileLayerArgs(v)...)
-	args = append(args, now, v.ContentFP)
+	args = append(args, now, v.ContentFP, now)
 
 	// Upsert the base row by unique file_path. Every SET expression reads the
 	// row as it was, so the indexed_at CASE compares the old size and mtime.
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO videos (file_path, `+fileLayerList("")+`, indexed_at, content_fp, active)
-		VALUES (?, `+placeholders(len(fileLayerColumns))+`, ?, NULLIF(?, ''), 1)
+		INSERT INTO videos (file_path, `+fileLayerList("")+`, indexed_at, content_fp, active, added_at)
+		VALUES (?, `+placeholders(len(fileLayerColumns))+`, ?, NULLIF(?, ''), 1, ?)
 		ON CONFLICT(file_path) DO UPDATE SET
 			`+fileLayerSet(func(c string) string { return "excluded." + c })+`,
 			indexed_at   = CASE WHEN videos.file_size IS excluded.file_size
@@ -158,6 +158,7 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 		// indexed_at is "when the file itself last changed" (F12.7): a re-upsert of an
 		// unchanged file — manual refresh, the file_tags backfill, a re-extract — keeps
 		// it, so the Updated sort only moves on a real change (HOLODEX-567).
+		// added_at is set on the INSERT only, so it never moves (F89 P0-1).
 		// NB: deleted_at is deliberately NOT in the UPDATE set — a soft-deleted row
 		// whose file changes on disk stays soft-deleted (F24/ADR-037). The scanner
 		// also short-circuits soft-deleted rows before reaching here.
@@ -396,6 +397,14 @@ type VideoFilter struct {
 	// (browse-and-list-state.md, "Boolean queries"). The caller has parsed it,
 	// canonicalised it and run its owner check; nil means none.
 	Expr query.Node
+	// Refs are the playlists Expr's `playlist:` conditions name, keyed by id (F89 P0-3),
+	// expanded and checked by the caller.
+	Refs map[int64]*PlaylistRef
+	// Cap keeps only the first Cap matches in Sort order (F89 P0-2): the count, every
+	// page and the id list all see the capped set. Zero is no cap.
+	Cap int
+	// Now is the clock relative dates count from; zero is the current time.
+	Now time.Time
 }
 
 // MappedFilter matches videos carrying a metadata row whose source_key is one of
@@ -456,7 +465,17 @@ func (r *Repo) CountVideos(ctx context.Context, f VideoFilter) (int, error) {
 		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
 		return 0, fmt.Errorf("count videos: %w", err)
 	}
+	if f.Cap > 0 {
+		total = min(total, f.Cap)
+	}
 	return total, nil
+}
+
+// MatchCount is how many videos match f before its cap: the "31 match" half of a capped
+// playlist's readout (F89 P0-2).
+func (r *Repo) MatchCount(ctx context.Context, f VideoFilter) (int, error) {
+	f.Cap = 0
+	return r.CountVideos(ctx, f)
 }
 
 // ListVideos returns a page of active videos matching filter plus the total
@@ -474,6 +493,14 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 		limit = 50
 	}
 	limit = min(limit, maxListLimit)
+	if f.Cap > 0 {
+		// A page never reaches past the cap: the last page is cut short, and one that
+		// starts beyond it is empty.
+		if f.Offset >= f.Cap {
+			return []model.Video{}, total, nil
+		}
+		limit = min(limit, f.Cap-f.Offset)
+	}
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -566,7 +593,12 @@ func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error)
 	qArgs := make([]any, 0, len(args)+len(orderArgs))
 	qArgs = append(qArgs, args...)
 	qArgs = append(qArgs, orderArgs...)
-	rows, err := r.db.QueryContext(ctx, `SELECT v.id FROM videos v `+where+` ORDER BY `+orderClause, qArgs...)
+	q := `SELECT v.id FROM videos v ` + where + ` ORDER BY ` + orderClause
+	if f.Cap > 0 {
+		q += ` LIMIT ?`
+		qArgs = append(qArgs, f.Cap)
+	}
+	rows, err := r.db.QueryContext(ctx, q, qArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("list video ids: %w", err)
 	}
@@ -693,7 +725,11 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, mf.Value)
 	}
 	if f.Expr != nil {
-		s, a := compileExpr(f.Expr)
+		env := compileEnv{now: f.Now, refs: f.Refs}
+		if env.now.IsZero() {
+			env.now = time.Now()
+		}
+		s, a := env.expr(f.Expr)
 		add("("+s+")", a)
 	}
 	return "WHERE " + strings.Join(clauses, " AND "), args

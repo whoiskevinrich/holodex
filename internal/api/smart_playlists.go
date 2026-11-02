@@ -133,7 +133,18 @@ type staleRef struct {
 // public playlist, any owner-only input is reported as a stale ref rather than evaluated
 // (D4). The caller has already applied visibility, so a visitor never reaches this for a
 // private playlist.
+//
+// `playlist:` conditions are expanded here too (playlist_refs.go), and the playlist's cap
+// is set on the filter, so every read of it — page, count, ids, freeze, a reference —
+// sees the capped set (F89 P0-2, P0-3).
 func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, isOwner bool) (repo.VideoFilter, []staleRef, error) {
+	return h.smartFilterAt(ctx, p, isOwner, newRefExpansion(p.ID))
+}
+
+func (h *Handlers) smartFilterAt(ctx context.Context, p *model.Playlist, isOwner bool, x *refExpansion) (repo.VideoFilter, []staleRef, error) {
+	if p.Query == nil {
+		return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid}}, nil
+	}
 	q, err := url.ParseQuery(*p.Query)
 	if err != nil {
 		return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid}}, nil
@@ -168,10 +179,20 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 	}
 	f := h.browseFilter(q)
 	f.Sort = p.Sort
+	if p.Cap != nil {
+		f.Cap = *p.Cap
+	}
 	ownerOnly := wantsCompleteness(f.Sort, f.MissingFacets)
+	restricted := !isOwner || p.Visibility == model.PlaylistPublic
 	if expr != nil {
+		if s := x.countConds(expr.Root); s != nil {
+			return repo.VideoFilter{}, []staleRef{*s}, nil
+		}
 		exprRefs := map[string][]int64{}
 		for field, ids := range query.EntityIDs(expr.Root) {
+			if field == query.FieldPlaylist {
+				continue // expanded below, by expandRefs
+			}
 			exprRefs[repo.ExprFacetKey[field]] = ids
 		}
 		missing, err := h.repo.MissingFacetIDs(ctx, exprRefs)
@@ -183,12 +204,18 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 				stale = append(stale, staleRef{Kind: staleMissing, Key: "expr", Value: strconv.FormatInt(id, 10)})
 			}
 		}
+		refStale, err := h.expandRefs(ctx, x, expr.Root, restricted)
+		if err != nil {
+			return repo.VideoFilter{}, nil, err
+		}
+		stale = append(stale, refStale...)
 		f.Expr = expr.Root
+		f.Refs = x.refs
 		ownerOnly = ownerOnly || query.OwnerOnly(expr.Root)
 	}
 	// A public playlist reports owner_only to every reader, owner included (testing-strategy
 	// §23.8 Q5), so the owner sees the notice and fixes it; only a repo-level write gets here.
-	if len(stale) == 0 && (!isOwner || p.Visibility == model.PlaylistPublic) && ownerOnly {
+	if len(stale) == 0 && restricted && ownerOnly {
 		stale = append(stale, staleRef{Kind: staleOwnerOnly})
 	}
 	return f, stale, nil

@@ -154,6 +154,9 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 	case *Cond:
 		d.Kind, d.Field, d.Op, d.Value, d.ID, d.Lo, d.Hi = "cond", t.Field, t.Op, condValue(t), t.ID, t.Lo, t.Hi
 		d.Label = t.Value
+		if t.Field == FieldAdded {
+			d.Label = DateLabel(t)
+		}
 		if entityFields[t.Field] && t.ID > 0 {
 			name, ok, err := r.NameOf(ctx, t.Field, t.ID)
 			if err != nil {

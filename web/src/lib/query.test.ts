@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	caretContext,
+	condLabel,
 	echoParts,
 	exprWithout,
 	fieldsFor,
@@ -31,6 +32,16 @@ const comedy = tag(4, 'comedy');
 const ford = person(7, 'Harrison Ford');
 // Motivating query 1: ((sf fantasy) OR action) -comedy ford
 const query1 = () => fill(and(or(and(sf, fantasy), action), not(comedy), ford));
+
+describe('F89 chip labels', () => {
+	it('words dates and playlist references from the server label', () => {
+		const added: QueryNode = { kind: 'cond', field: 'added', op: '<', value: '<30d', label: 'last 30 days', expr: 'added:<30d' };
+		const pl: QueryNode = { kind: 'cond', field: 'playlist', op: '=', value: '4', id: 4, label: 'Favourites', expr: 'playlist:4' };
+		expect(condLabel(added)).toBe('added: last 30 days');
+		expect(condLabel(pl)).toBe('in: Favourites');
+		expect(toChips(fill(not(pl)))).toEqual({ kind: 'chips', items: [{ kind: 'chip', chip: { label: 'not in: Favourites', negated: true, path: [] } }] });
+	});
+});
 
 describe('toChips (W1)', () => {
 	it('draws a plain AND as plain chips', () => {

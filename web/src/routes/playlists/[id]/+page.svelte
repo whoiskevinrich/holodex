@@ -50,7 +50,7 @@
 	// one — a first load, a switch to Random, or a reroll.
 	let seed = $state<number | undefined>(undefined);
 
-	const smart = $derived(playlist?.query != null);
+	const smart = $derived(playlist?.smart ?? false);
 	// The header needs the playlist, its total and the seed, not the tiles.
 	const firstPage = { limit: 1, offset: 0 };
 	// Bumped after a remove or a Freeze: the tiles re-read in place.
@@ -216,7 +216,13 @@
 	});
 
 	// Stale-reference notice copy (handoff §4), by the first ref's kind.
-	const ENTITY_NOUN: Record<string, string> = { person: 'person', tag: 'tag', studio_id: 'studio', category_id: 'category' };
+	const ENTITY_NOUN: Record<string, string> = {
+		person: 'person',
+		tag: 'tag',
+		studio_id: 'studio',
+		category_id: 'category',
+		playlist: 'playlist'
+	};
 	const staleCopy = $derived.by(() => {
 		const r = staleRefs[0];
 		if (!r) return null;
@@ -229,7 +235,22 @@
 			case 'unknown_key':
 				return { sentence: 'This playlist filters on a field that no longer exists', detail: `(${r.key}). ${fix}` };
 			case 'owner_only':
+				if (!isOwner) return { sentence: "This playlist can't be shown right now.", detail: '' };
+				if (r.key === 'playlist')
+					return {
+						sentence: 'This public playlist refers to a private one',
+						detail: `(playlist #${r.value}). Make it private or edit the filter.`
+					};
 				return { sentence: 'This public playlist uses an owner-only filter', detail: 'Make it private or edit the filter.' };
+			case 'loop':
+				return { sentence: 'This playlist includes itself through another playlist', detail: fix };
+			case 'limit':
+				return { sentence: 'This playlist reaches too many other playlists', detail: fix };
+			case 'unstable':
+				return {
+					sentence: 'This playlist refers to one that shuffles a capped selection',
+					detail: `(playlist #${r.value}), which has no fixed contents. ${fix}`
+				};
 			default:
 				return { sentence: "This playlist's filter can't be read", detail: fix };
 		}
@@ -238,7 +259,10 @@
 	const sortLabel = $derived(
 		sort === 'manual' ? MANUAL.label : (MEDIA_SORTS.find((s) => s.value === sort)?.label ?? sort)
 	);
-	const count = $derived(videoCount(total));
+	// A cap that cuts reads "31 match, showing 25" (F89 P0-2); match_count is the owner's only.
+	const count = $derived(
+		playlist?.match_count != null ? `${playlist.match_count} match, showing ${total}` : videoCount(total)
+	);
 
 	// A smart playlist's filter in browse's chip words (handoff §4), so the owner can read
 	// what it matches without opening Edit filter. Mapped facets show their canonical key.

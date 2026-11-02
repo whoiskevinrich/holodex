@@ -738,17 +738,24 @@ export interface Playlist {
 	// Smart playlists (F75, ADR-121): `query` is the stored canonical /media filter,
 	// re-run on every read; null for a snapshot (F69) playlist. A smart playlist has no
 	// membership and refuses the 'manual' sort.
+	// A visitor never gets it (F89 P0-5), so tell smart from snapshot by `smart`.
 	query: string | null;
 	query_version?: number;
+	smart: boolean;
+	// F89 P0-2: a smart playlist's cap, null for none; match_count is the uncut count,
+	// sent to the owner only when the cap cuts ("31 match, showing 25").
+	cap: number | null;
+	match_count?: number;
 	// "Always shuffle" (RD13): the primary play action is Shuffle. Any playlist.
 	play_shuffled: boolean;
 	created_at: string;
 	updated_at: string;
 }
 
-/** Why a smart playlist isn't evaluated (ADR-121 D4/D5); the read then returns no items. */
+/** Why a smart playlist isn't evaluated (ADR-121 D4/D5, F89 P0-3); the read then
+ * returns no items. A visitor gets a bare `owner_only`, never the detail. */
 export interface PlaylistStaleRef {
-	kind: 'missing' | 'unknown_key' | 'owner_only' | 'invalid';
+	kind: 'missing' | 'unknown_key' | 'owner_only' | 'invalid' | 'loop' | 'limit' | 'unstable';
 	key?: string;
 	value?: string;
 }
@@ -761,6 +768,8 @@ export interface PlaylistResponse {
 	ids: number[];
 	stale_refs: PlaylistStaleRef[];
 	seed?: number; // echoed for a 'random' sort so one play-through walks one shuffle
+	/** The owner's only: smart playlists whose definition names this one (F89 P0-3). */
+	referenced_by?: { id: number; name: string }[];
 }
 
 // System Activity — "under the hood" read-model (F21, ADR-028).

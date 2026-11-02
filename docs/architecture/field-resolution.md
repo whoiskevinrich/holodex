@@ -253,6 +253,11 @@ media detail page still resolves live.
   resolved condition, including a visitor's. That is the one exception to "visitors never drain";
   the work is the same idempotent recompute under `writeMu`. While the boot background drain
   runs, request-path drains return at once and the query reads the index as it is.
+- **The change stamp.** `videos.changed_at` (`updated:` and the Updated sort, F89 RD2) is set by
+  the drain when a video's recomputed rows differ from the stored ones, and when `indexed_at`
+  moves. It changes only when something actually changed. Triggers can't do that: a rescan
+  of an unchanged file deletes and re-inserts its file-tag and Tag rows, and a provider
+  refresh can rewrite identical values.
 
 **Rejected:** resolving in memory after SQL narrows the candidates. It's always exact, but a query
 whose only condition is resolved resolves the whole library on every read. SQL also can't count,
@@ -260,6 +265,8 @@ sort or page what Go filters afterwards, so it needs a second evaluator for the 
 **Rejected:** `EXISTS` over raw `entity_enrichment` and `video_metadata` rows. It also matches
 values that lost to another source, which SEC-8 forbids. **Rejected:** refreshing at each write
 site. There are about 30 of them, the same reason the completeness store rejected it.
+**Rejected:** stamping `changed_at` from triggers on every input table. Unchanged rescans and
+refreshes would mark untouched videos as updated.
 
 Decided in: pending squash (HOLODEX-619).
 
