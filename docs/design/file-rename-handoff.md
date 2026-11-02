@@ -118,7 +118,9 @@ The owner chose, on 2026-10-31:
     of the control in Job mode: a label, a 3-digit numeric input and `days`. It wraps under the
     control below `md`.
   - **Rule.** `border-t border-rule`.
-  - **TEMPLATES block.** The label and a one-line rule of thumb, then one row per template:
+  - **TEMPLATES block.** The label and a one-line rule of thumb, then a second `text-xs text-muted`
+    line on token syntax: `?` makes a token optional (`[{studio?}]` drops with its brackets), and
+    `{part}` / `{edition}` bring their own braces. Then one row per template:
     - the index (`font-mono text-xs text-muted`)
     - the input (`rounded-theme border border-rule bg-bg px-2.5 py-1.5 font-mono text-sm
       text-ink`, `border-warn` on error, about 420 px wide on desktop and full width below `md`)

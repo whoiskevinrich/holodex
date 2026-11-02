@@ -240,11 +240,11 @@
 			<div class="space-y-2 border-t border-rule px-4 py-3">
 				<h3 class="text-xs uppercase tracking-wide text-muted">Templates</h3>
 				<p class="text-xs text-muted">
-					The first template whose every token has a value names the file. The extension never changes.
+					The first template whose every required token has a value names the file. The extension never changes.
 				</p>
 				<p class="text-xs text-muted">
-					{'{part}'} and {'{edition}'} write their own braces: {'{part}'} becomes {'{part-2}'}. Put a shorter template
-					after a longer one so videos without a part or edition still get a name.
+					Add ? to make a token optional: {'[{studio?}]'} drops, brackets and all, when a video has no studio. {'{part}'}
+					and {'{edition}'} write their own braces: {'{part}'} becomes {'{part-2}'}.
 				</p>
 				<TemplateList bind:items {errors} {counts} {providers} onedit={edited} />
 			</div>

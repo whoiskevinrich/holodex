@@ -65,6 +65,66 @@ func TestBuildSpecExample(t *testing.T) {
 	}
 }
 
+// N20: optional tokens drop with the literal text touching them, and every name reads back.
+func TestBuildOptionalTokens(t *testing.T) {
+	list := mustList(t, "[{studio?}] {title} ({people?}) {year?} {part?} {edition?}")
+	all := Values{"title": {"My Title"}, "studio": {"My Studio"}, "people": {"Person One", "Person Two"},
+		"year": {"2026"}, "part": {"2"}, "edition": {"My Edition"}}
+	for _, c := range []struct {
+		v    Values
+		want string
+	}{
+		{all, "[My Studio] My Title (Person One, Person Two) 2026 {part-2} {edition-My Edition}.mkv"},
+		{Values{"title": {"My Title"}, "year": {"2026"}}, "My Title 2026.mkv"},
+		{Values{"title": {"My Title"}}, "My Title.mkv"},
+		{Values{"title": {"My Title"}, "people": {"Person One"}, "edition": {"Final"}}, "My Title (Person One) {edition-Final}.mkv"},
+	} {
+		if n, err := Build(list, c.v, ", ", ".mkv"); err != nil || n.Name != c.want {
+			t.Errorf("Build(%v) = %q, %v; want %q", c.v, n.Name, err, c.want)
+		}
+	}
+	if _, err := Build(list, Values{"studio": {"My Studio"}}, "", ".mkv"); !errors.Is(err, ErrNoTemplate) {
+		t.Errorf("no title: err = %v, want ErrNoTemplate", err)
+	}
+}
+
+func TestDropOptional(t *testing.T) {
+	for _, c := range []struct{ text, drop, want string }{
+		{"[{studio?}] {title}", "studio", "{title}"},
+		{"{title} ({people?}) {year}", "people", "{title} {year}"},
+		{"{title} {part?}", "part", "{title}"},
+		{"{title}-{part?}", "part", "{title}"},
+		{"{title}{part?} x", "part", "{title} x"},
+		{"[{studio?}] ({people?}) {title}", "studio people", "{title}"},
+		{"{title} {part?}", "", "{title} {part}"},
+	} {
+		dropped := map[string]bool{}
+		for _, d := range strings.Fields(c.drop) {
+			dropped[d] = true
+		}
+		if got := dropOptional(c.text, dropped); got != c.want {
+			t.Errorf("dropOptional(%q, %q) = %q, want %q", c.text, c.drop, got, c.want)
+		}
+	}
+}
+
+// N21: optional-token refusals.
+func TestParseTemplateOptionalRefuses(t *testing.T) {
+	for _, text := range []string{
+		"{title?} {studio}",
+		"{title?} {provider-1-id?}",
+		"{part} {part?}",
+		"{title} {studio?} {people?} {year?} {part?} {edition?} {provider-1-id?} {provider-2-id?}",
+	} {
+		if _, err := ParseTemplate(text, []string{"provider-1", "provider-2"}); err == nil {
+			t.Errorf("ParseTemplate(%q) accepted", text)
+		}
+	}
+	if _, err := ParseTemplate("{title?} {provider-1-id}", providers); err != nil {
+		t.Errorf("required identity: %v", err)
+	}
+}
+
 // N2: save-time refusals, each with its own message.
 func TestParseTemplateRefuses(t *testing.T) {
 	for _, text := range []string{
@@ -97,9 +157,9 @@ func TestParseTemplateRefuses(t *testing.T) {
 
 // N2 (builder half): a template that bypassed saving still can't produce a bad name.
 func TestBuildChecksWholeName(t *testing.T) {
-	tmpl := &Template{Text: "{title}: x", tokens: []string{"title"}}
 	p, _ := ParseTemplate("{title}", nil)
-	tmpl.pattern = p.pattern
+	tmpl := &Template{Text: "{title}: x", ids: p.ids,
+		variants: []*variant{{text: "{title}: x", pattern: p.variants[0].pattern}}}
 	if _, err := Build([]*Template{tmpl}, Values{"title": {"Ada"}}, "", ".mkv"); !errors.Is(err, ErrBadChar) {
 		t.Fatalf("err = %v, want ErrBadChar", err)
 	}

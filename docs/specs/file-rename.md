@@ -113,9 +113,22 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
   silently.
 - An identity token renders only from an id the video's provider match has confirmed. A video
   without one doesn't fit that template.
+- **Optional tokens** (decided 2026-11-01). A token written with `?`, such as `{studio?}`, is
+  optional: a video without its value still fits the template. The token is dropped together with
+  the literal text touching it, up to the nearest space or neighbouring token, so the brackets in
+  `[{studio?}]` or `({people?})` go with it, and the space it leaves is closed up. `{title}`, or an
+  identity token, must stay required: a template where every one of them is optional is refused
+  when saved. A template may have at most six optional tokens.
+  - Given template `[{studio?}] {title} ({people?}) {year?} {part?} {edition?}`, a video with every
+    value is named `[My Studio] My Title (Person One, Person Two) 2026 {part-2} {edition-My Edition}`.
+    With no studio, cast, part or edition it is named `My Title 2026`, and with a title alone
+    `My Title`.
+  - A template with optional tokens reads back (P0-3, P0-11) as the plain templates it stands for:
+    every optional token kept first, then with one dropped, then two, and so on, in the order they
+    are written.
 
-**P0-2. The ordered template list.** For each video, the **first template whose every token has a
-value** gives its desired name (decided 2026-10-27). A video no template fits is not renamed, and
+**P0-2. The ordered template list.** For each video, the **first template whose every required token
+has a value** gives its desired name (decided 2026-10-27; optional tokens P0-1). A video no template fits is not renamed, and
 the plan says it has no fitting template.
 - Given templates `[{studio}] {title} ({year})`, `{title} ({year})` and `{title}`, a video with
   studio Acme, title Ada Lovelace and year 2023 is named `[Acme] Ada Lovelace (2023)`. With no
