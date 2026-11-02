@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960" role="img" aria-labelledby="t d">
+  <title id="t">Smart playlist rules: Edit definition mode on the playlist page (HOLODEX-619)</title>
+  <desc id="d">Approved option A. Panel 1: the owner's playlist page in Edit definition mode at desktop width, with a banner, a page-owned query field, F87 chips, sort, cap, filters, a cap readout and a live preview grid. Panel 2: in-editor problems that withhold Save. Panel 3: the same mode at 375px. Cinémathèque tokens only.</desc>
+  <defs>
+    <style>
+      text { font-family: Archivo, 'Archivo Variable', sans-serif; fill: #f3ece1; font-size: 14px; }
+      .mono { font-family: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace; font-size: 13px; }
+      .serif { font-family: Fraunces, Georgia, serif; }
+      .m { fill: #9b9082; } .a { fill: #e8a33d; } .w { fill: #e2603f; } .ai { fill: #1a1206; }
+      .s12 { font-size: 12px; }
+      .ttl { font-size: 12px; font-weight: 600; fill: #2c2c2a; }
+      .note { font-size: 11px; fill: #5f5e5a; }
+    </style>
+    <symbol id="key" viewBox="0 0 12 12"><circle cx="4" cy="6" r="2.6" fill="none" stroke="#1a1206" stroke-width="1.4"/><path d="M6.6 6h4.4M9.4 6v2.2" stroke="#1a1206" stroke-width="1.4" fill="none"/></symbol>
+    <symbol id="keyw" viewBox="0 0 12 12"><circle cx="4" cy="6" r="2.6" fill="none" stroke="#e2603f" stroke-width="1.4"/><path d="M6.6 6h4.4M9.4 6v2.2" stroke="#e2603f" stroke-width="1.4" fill="none"/></symbol>
+  </defs>
+  <rect width="720" height="960" fill="#ffffff"/>
+
+  <!-- 1 · desktop -->
+  <text x="8" y="20" class="ttl">1 · Edit definition mode — owner, desktop (Edit definition replaces Edit filter)</text>
+  <rect x="0" y="30" width="720" height="290" rx="4" fill="#0c0a09"/>
+  <rect x="16" y="46" width="688" height="38" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="28" y="70" class="m s12" letter-spacing="0.8">EDITING DEFINITION OF</text>
+  <text x="196" y="70" class="a">Late-night noir, recently added</text>
+  <text x="500" y="70" class="m">Cancel</text>
+  <rect x="560" y="53" width="132" height="24" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="576" y="70" class="a">Save definition</text>
+
+  <rect x="16" y="96" width="688" height="32" rx="2" fill="#0c0a09" stroke="#e8a33d"/>
+  <rect x="24" y="103" width="42" height="18" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="30" y="116" class="a s12">query</text>
+  <text x="74" y="117" class="mono">tag:noir (person:"actor-1" OR person:"actor-2") -studio:"studio-1" added:&lt;30d</text>
+  <text x="688" y="117" class="m">×</text>
+
+  <rect x="16" y="142" width="72" height="20" rx="2" fill="#e8a33d"/>
+  <text x="22" y="156" class="ai s12">tag: noir  ×</text>
+  <rect x="96" y="138" width="270" height="28" rx="2" fill="#181310" stroke="#2a2622"/>
+  <rect x="100" y="142" width="114" height="20" rx="2" fill="#e8a33d"/>
+  <text x="106" y="156" class="ai s12">person: actor-1  ×</text>
+  <text x="220" y="156" class="m s12">or</text>
+  <rect x="236" y="142" width="114" height="20" rx="2" fill="#e8a33d"/>
+  <text x="242" y="156" class="ai s12">person: actor-2  ×</text>
+  <text x="355" y="156" class="s12">×</text>
+  <rect x="374" y="142" width="146" height="20" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="380" y="156" class="a s12">not studio: studio-1  ×</text>
+  <rect x="528" y="142" width="136" height="20" rx="2" fill="#e8a33d"/>
+  <text x="534" y="156" class="ai s12">added: last 30 days  ×</text>
+  <text x="672" y="156" class="m s12" text-decoration="underline">Clear</text>
+
+  <rect x="16" y="178" width="176" height="26" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="26" y="195" class="s12">Date added — newest   ▾</text>
+  <rect x="200" y="178" width="120" height="26" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="210" y="195" class="s12">Cap: first 25   ▾</text>
+  <rect x="328" y="178" width="88" height="26" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="340" y="195" class="m s12">Filters · 4</text>
+  <text x="428" y="195" class="m s12">31 match, showing 25</text>
+
+  <text x="16" y="226" class="m s12">Preview — the first 25, in this sort</text>
+  <g fill="#15110e" stroke="#2a2622">
+    <rect x="16" y="234" width="108" height="61" rx="2"/><rect x="132" y="234" width="108" height="61" rx="2"/>
+    <rect x="248" y="234" width="108" height="61" rx="2"/><rect x="364" y="234" width="108" height="61" rx="2"/>
+    <rect x="480" y="234" width="108" height="61" rx="2"/><rect x="596" y="234" width="108" height="61" rx="2"/>
+  </g>
+  <text x="16" y="312" class="m s12">Header (name, Play all, visibility, Always shuffle, Freeze) stays above the banner; the next-up strip and tile ⋯ are unchanged.</text>
+
+  <!-- 2 · in-editor problems -->
+  <text x="8" y="344" class="ttl">2 · Problems caught before Save — Save definition withdrawn, the chip at fault outlined in warn</text>
+  <rect x="0" y="354" width="720" height="176" rx="4" fill="#0c0a09"/>
+  <rect x="16" y="370" width="688" height="38" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="28" y="394" class="m s12" letter-spacing="0.8">EDITING DEFINITION OF</text>
+  <text x="196" y="394" class="a">Noir, recent</text>
+  <text x="500" y="394" class="m">Cancel</text>
+  <rect x="560" y="377" width="132" height="24" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="576" y="394" class="m">Save definition</text>
+
+  <rect x="16" y="422" width="72" height="20" rx="2" fill="#e8a33d"/>
+  <text x="22" y="436" class="ai s12">tag: noir  ×</text>
+  <rect x="96" y="422" width="108" height="20" rx="2" fill="none" stroke="#e2603f"/>
+  <use href="#keyw" x="101" y="426" width="12" height="12"/>
+  <text x="117" y="436" class="w s12">unwatched  ×</text>
+  <rect x="212" y="422" width="128" height="20" rx="2" fill="none" stroke="#e2603f"/>
+  <text x="218" y="436" class="w s12">in: Favourites  ×</text>
+
+  <text x="16" y="468" class="w">A public playlist can’t use owner-only conditions.</text>
+  <text x="16" y="486" class="m s12">Remove “unwatched”, or make the playlist private.</text>
+  <text x="16" y="508" class="w">This would make a loop: Noir, recent → Favourites → Noir, recent.</text>
+  <text x="16" y="524" class="m s12">Save stays withdrawn until both are fixed; each message names its chip.</text>
+
+  <!-- 3 · 375 -->
+  <text x="8" y="554" class="ttl">3 · 375px — stressed: long name, an OR group wider than the row</text>
+  <rect x="0" y="564" width="375" height="340" rx="4" fill="#0c0a09"/>
+  <rect x="16" y="580" width="343" height="92" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="28" y="600" class="m s12" letter-spacing="0.8">EDITING DEFINITION OF</text>
+  <text x="28" y="620" class="a">Late-night noir, recently added, no s…</text>
+  <text x="168" y="656" class="m">Cancel</text>
+  <rect x="222" y="639" width="126" height="24" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="236" y="656" class="a">Save definition</text>
+
+  <rect x="16" y="684" width="343" height="32" rx="2" fill="#0c0a09" stroke="#e8a33d"/>
+  <rect x="24" y="691" width="42" height="18" rx="2" fill="none" stroke="#e8a33d"/>
+  <text x="30" y="704" class="a s12">query</text>
+  <text x="74" y="705" class="mono">tag:noir (person:"actor-…</text>
+  <text x="343" y="705" class="m">×</text>
+
+  <clipPath id="row375"><rect x="16" y="726" width="343" height="32"/></clipPath>
+  <g clip-path="url(#row375)">
+    <rect x="16" y="732" width="72" height="20" rx="2" fill="#e8a33d"/>
+    <text x="22" y="746" class="ai s12">tag: noir  ×</text>
+    <rect x="96" y="728" width="380" height="28" rx="2" fill="#181310" stroke="#2a2622"/>
+    <rect x="100" y="732" width="200" height="20" rx="2" fill="#e8a33d"/>
+    <text x="106" y="746" class="ai s12">person: a-very-long-actor-n…  ×</text>
+    <text x="306" y="746" class="m s12">or</text>
+    <rect x="322" y="732" width="114" height="20" rx="2" fill="#e8a33d"/>
+  </g>
+  <text x="16" y="774" class="m s12">The chips row scrolls sideways; a group moves as one.</text>
+
+  <rect x="16" y="786" width="160" height="26" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="26" y="803" class="s12">Date added — newest ▾</text>
+  <rect x="184" y="786" width="94" height="26" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="194" y="803" class="s12">Cap: 25 ▾</text>
+  <rect x="286" y="786" width="40" height="26" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="296" y="803" class="m s12">· 4</text>
+  <text x="16" y="832" class="m s12">31 match, showing 25</text>
+  <g fill="#15110e" stroke="#2a2622">
+    <rect x="16" y="844" width="168" height="50" rx="2"/><rect x="191" y="844" width="168" height="50" rx="2"/>
+  </g>
+
+  <text x="392" y="584" class="note">• Banner wraps to three lines below sm; the name truncates</text>
+  <text x="392" y="600" class="note">  with an ellipsis and a title tooltip.</text>
+  <text x="392" y="620" class="note">• Query field scrolls inside itself; the “query” tag stays.</text>
+  <text x="392" y="640" class="note">• Suggestions open as the full-width sheet (F87 §375).</text>
+  <text x="392" y="660" class="note">• Filters collapses to the funnel + count (FiltersButton).</text>
+  <text x="392" y="680" class="note">• The cap readout drops under the controls.</text>
+
+  <text x="8" y="924" class="note">Cinémathèque tokens: bg #0c0a09 · surface #15110e · surface-2 #181310 · ink #f3ece1 · muted #9b9082 · rule #2a2622</text>
+  <text x="8" y="938" class="note">· accent #e8a33d · accent-ink #1a1206 · warn #e2603f · radius 2px</text>
+  <text x="8" y="954" class="note">Approved: owner, 2026-11-01 — option A (Edit definition mode); no cap in the Save form.</text>
+</svg>
