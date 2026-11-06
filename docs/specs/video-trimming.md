@@ -9,7 +9,7 @@ background runs, preflight refusals, verification gate and held original);
 **Related**: [entity identity card](entity-identity-card.md) (the edition field);
 [delete media](delete-media.md) (undoing an edition); [moving thumbnails](moving-thumbnails.md).
 **Architecture**: [file-maintenance.md](../architecture/file-maintenance.md) (the trim sections).
-**Design handoff**: pending.
+**Design handoff**: [video-trimming-handoff.md](../design/video-trimming-handoff.md).
 
 ---
 

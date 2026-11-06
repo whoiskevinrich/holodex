@@ -28,7 +28,7 @@ The owner picks the first and last frames to keep on Media Details. The cut runs
 as the second F77 Maintenance entry, is checked against those frames, and then either replaces the
 original (held for the F77 window) or lands as a new edition item copied from the original.
 
-**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · handoff pending · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · [handoff](../design/video-trimming-handoff.md) · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -42,7 +42,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
@@ -63,7 +63,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] `/design-handoff`: trim picker (in/out handles on F84), edition confirm step, skipped-screen-check status — `docs/design/`
+1. [ ] [design] ⛔ Owner sign-off on the handoff and mockup at `/implement`, which opens the Draft PR — `docs/design/video-trimming-handoff.md`
 2. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -75,6 +75,10 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-06 · session
+- skills: design-handoff
+- handoff: Design handoff and SVG mockup are committed (two handles, a review step in the same dialog, one File row), so every design-phase gate is settled and the epic is labelled fp:ready-to-build. Next: /implement, which asks the owner to sign off on the mockup and opens the Draft PR.
 
 ### 2026-11-02 · session
 - skills: architecture

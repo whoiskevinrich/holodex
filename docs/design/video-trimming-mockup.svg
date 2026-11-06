@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1650" width="1100" height="1650" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">
+  <title>Video trimming: trim picker, review step and Maintenance states (F88, HOLODEX-613)</title>
+  <desc>Cinémathèque tokens: bg #0c0a09, surface #15110e, ink #f3ece1, muted #9b9082, rule #2a2622, accent #e8a33d, accent-ink #1a1206, warn #e2603f. Modal size media (64rem). Top: the picker with the first-frame handle active. Middle: the review step with Save as edition chosen. Bottom: the Maintenance File row at rest, running, with a held original and a skipped screen check, with an edition saved, and failed.</desc>
+  <rect width="1100" height="1650" fill="#0c0a09"/>
+
+  <!-- ===== 1. picker ===== -->
+  <text x="38" y="26" font-size="12" fill="#9b9082">1 · Trim picker, first-frame handle active</text>
+  <rect x="38" y="40" width="1024" height="650" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="62" y="80" font-size="18" fill="#f3ece1">Trim video</text>
+  <text x="62" y="112" font-size="11" letter-spacing="0.8" fill="#9b9082">FIRST FRAME KEPT</text>
+  <rect x="62" y="122" width="736" height="414" fill="#000" stroke="#2a2622"/>
+  <text x="430" y="335" font-size="13" fill="#9b9082" text-anchor="middle">frame under the active handle (muted, never plays)</text>
+  <!-- scrub bar -->
+  <rect x="62" y="554" width="736" height="6" rx="3" fill="#2a2622"/>
+  <rect x="66" y="554" width="702" height="6" fill="#e8a33d"/>
+  <rect x="61" y="547" width="10" height="20" rx="2" fill="#e8a33d" stroke="#f3ece1" stroke-width="2"/>
+  <rect x="763" y="547" width="10" height="20" rx="2" fill="#e8a33d"/>
+  <text x="62" y="588" font-size="12" fill="#9b9082">0:12 · frame 3</text>
+  <text x="798" y="588" font-size="12" fill="#9b9082" text-anchor="end">42:10</text>
+  <text x="62" y="610" font-size="13" fill="#f3ece1">Cuts 0:12 from the start and 1:48 from the end. Keeps 40:10.</text>
+  <text x="62" y="630" font-size="12" fill="#9b9082">Drag a handle · ← → or the mouse wheel step the active handle one frame</text>
+  <!-- rail -->
+  <text x="822" y="112" font-size="11" letter-spacing="0.8" fill="#9b9082">FIRST FRAME KEPT</text>
+  <rect x="822" y="122" width="216" height="122" fill="#000" stroke="#e8a33d" stroke-width="2"/>
+  <text x="930" y="188" font-size="12" fill="#9b9082" text-anchor="middle">0:12 · frame 3</text>
+  <text x="822" y="272" font-size="11" letter-spacing="0.8" fill="#9b9082">LAST FRAME KEPT</text>
+  <rect x="822" y="282" width="216" height="122" fill="#000" stroke="#2a2622"/>
+  <text x="930" y="348" font-size="12" fill="#9b9082" text-anchor="middle">41:07 · frame 9</text>
+  <text x="822" y="426" font-size="12" fill="#9b9082">Click a frame to work on that end</text>
+  <!-- footer -->
+  <rect x="826" y="646" width="74" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="863" y="666" font-size="13" fill="#f3ece1" text-anchor="middle">Cancel</text>
+  <rect x="910" y="646" width="128" height="30" rx="2" fill="#e8a33d"/>
+  <text x="974" y="666" font-size="13" font-weight="500" fill="#1a1206" text-anchor="middle">Review trim…</text>
+
+  <!-- ===== 2. review ===== -->
+  <text x="38" y="726" font-size="12" fill="#9b9082">2 · Review step in the same dialog, Save as edition chosen</text>
+  <rect x="38" y="740" width="1024" height="560" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="62" y="780" font-size="18" fill="#f3ece1">Review trim</text>
+  <text x="62" y="810" font-size="11" letter-spacing="0.8" fill="#9b9082">FIRST FRAME KEPT</text>
+  <rect x="62" y="820" width="256" height="144" fill="#000" stroke="#2a2622"/>
+  <text x="190" y="896" font-size="12" fill="#9b9082" text-anchor="middle">0:12 · frame 3</text>
+  <text x="336" y="810" font-size="11" letter-spacing="0.8" fill="#9b9082">LAST FRAME KEPT</text>
+  <rect x="336" y="820" width="256" height="144" fill="#000" stroke="#2a2622"/>
+  <text x="464" y="896" font-size="12" fill="#9b9082" text-anchor="middle">41:07 · frame 9</text>
+  <text x="62" y="992" font-size="13" fill="#f3ece1">Keeps 40:10 of 42:10. The video is re-encoded. Audio, subtitles and tags are kept, and chapters follow the cut.</text>
+  <!-- replace -->
+  <rect x="62" y="1006" width="976" height="56" rx="2" fill="none" stroke="#2a2622"/>
+  <circle cx="82" cy="1034" r="6" fill="none" stroke="#9b9082"/>
+  <text x="100" y="1029" font-size="14" fill="#f3ece1">Replace original</text>
+  <text x="100" y="1049" font-size="12" fill="#9b9082">Same library item. Original kept until 13 Nov, then deleted.</text>
+  <!-- edition -->
+  <rect x="62" y="1072" width="976" height="146" rx="2" fill="none" stroke="#e8a33d"/>
+  <circle cx="82" cy="1100" r="6" fill="none" stroke="#e8a33d"/>
+  <circle cx="82" cy="1100" r="3" fill="#e8a33d"/>
+  <text x="100" y="1095" font-size="14" fill="#f3ece1">Save as edition</text>
+  <text x="100" y="1115" font-size="12" fill="#9b9082">A new library item with the same people, Tags and edits. The original isn't touched.</text>
+  <text x="100" y="1141" font-size="12" fill="#f3ece1">Edition name</text>
+  <rect x="100" y="1149" width="320" height="32" rx="2" fill="#0c0a09" stroke="#2a2622"/>
+  <text x="110" y="1170" font-size="14" fill="#f3ece1">Trimmed</text>
+  <text x="100" y="1204" font-size="12" font-family="ui-monospace, Consolas, monospace" fill="#9b9082">The Long Road (2004) {edition-Trimmed}.mkv</text>
+  <text x="62" y="1240" font-size="12" fill="#9b9082">Needs 3.1 GB free · 412 GB available</text>
+  <!-- footer -->
+  <text x="62" y="1276" font-size="13" fill="#9b9082">‹ Back</text>
+  <rect x="826" y="1256" width="74" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="863" y="1276" font-size="13" fill="#f3ece1" text-anchor="middle">Cancel</text>
+  <rect x="910" y="1256" width="128" height="30" rx="2" fill="#e8a33d"/>
+  <text x="974" y="1276" font-size="13" font-weight="500" fill="#1a1206" text-anchor="middle">Save edition</text>
+
+  <!-- ===== 3. Maintenance File row ===== -->
+  <text x="38" y="1336" font-size="12" fill="#9b9082">3 · Maintenance File row: at rest · running · held, screen check skipped · edition saved · failed</text>
+
+  <!-- at rest -->
+  <text x="38" y="1370" font-size="14" fill="#9b9082">File</text>
+  <rect x="150" y="1352" width="134" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="217" y="1372" font-size="13" fill="#f3ece1" text-anchor="middle">Flip horizontally…</text>
+  <rect x="294" y="1352" width="60" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="324" y="1372" font-size="13" fill="#f3ece1" text-anchor="middle">Trim…</text>
+
+  <!-- running -->
+  <text x="38" y="1420" font-size="14" fill="#9b9082">File</text>
+  <rect x="150" y="1406" width="62" height="20" rx="10" fill="#e8a33d"/>
+  <text x="181" y="1420" font-size="11" fill="#1a1206" text-anchor="middle">trimming</text>
+  <text x="150" y="1444" font-size="12" fill="#9b9082">Started 14:02. You can leave this page.</text>
+
+  <!-- held -->
+  <text x="38" y="1486" font-size="14" fill="#9b9082">File</text>
+  <rect x="150" y="1468" width="430" height="102" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="162" y="1490" font-size="14" fill="#f3ece1">Trimmed 6 Nov. Original kept until 13 Nov, then deleted.</text>
+  <text x="162" y="1510" font-size="12" fill="#9b9082">The last frame is a still image, so it couldn't be compared with your</text>
+  <text x="162" y="1526" font-size="12" fill="#9b9082">screen. The cut itself was checked.</text>
+  <rect x="162" y="1534" width="96" height="28" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="210" y="1553" font-size="13" fill="#f3ece1" text-anchor="middle">Keep change</text>
+  <text x="272" y="1553" font-size="13" fill="#9b9082">Restore original</text>
+
+  <!-- edition saved -->
+  <text x="620" y="1370" font-size="14" fill="#9b9082">File</text>
+  <rect x="680" y="1352" width="382" height="76" rx="2" fill="#15110e" stroke="#2a2622"/>
+  <text x="692" y="1374" font-size="14" fill="#f3ece1">Saved as the Trimmed edition.</text>
+  <text x="692" y="1394" font-size="12" fill="#9b9082">Both frames were checked. The original wasn't changed.</text>
+  <text x="692" y="1416" font-size="13" fill="#e8a33d" text-decoration="underline">Open edition</text>
+  <text x="782" y="1416" font-size="13" fill="#9b9082" text-decoration="underline">Dismiss</text>
+
+  <!-- failed -->
+  <text x="620" y="1470" font-size="14" fill="#9b9082">File</text>
+  <text x="680" y="1470" font-size="12" fill="#e2603f">Couldn't trim: the cut stayed 2 frames from your last frame after a</text>
+  <text x="680" y="1486" font-size="12" fill="#e2603f">correction. Your file wasn't changed.</text>
+  <text x="896" y="1486" font-size="12" fill="#e8a33d" text-decoration="underline">Retry</text>
+  <text x="936" y="1486" font-size="12" fill="#9b9082" text-decoration="underline">Dismiss</text>
+  <rect x="680" y="1500" width="134" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="747" y="1520" font-size="13" fill="#f3ece1" text-anchor="middle">Flip horizontally…</text>
+  <rect x="824" y="1500" width="60" height="30" rx="2" fill="none" stroke="#2a2622"/>
+  <text x="854" y="1520" font-size="13" fill="#f3ece1" text-anchor="middle">Trim…</text>
+
+  <!-- edition refusal -->
+  <text x="38" y="1604" font-size="12" fill="#9b9082">Review step, name already taken (the Save edition button is withdrawn):</text>
+  <text x="38" y="1626" font-size="12" fill="#e2603f">A file named The Long Road (2004) {edition-Trimmed}.mkv already exists. Choose another name.</text>
+</svg>
