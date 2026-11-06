@@ -322,6 +322,11 @@ None open for the owner.
 - **RD13 A referenced playlist turned Random with a cap makes its referrers stale** (2026-11-02).
   *Why*: the same handling as a loop or a limit reached through another playlist's edit; editing
   stays one step. *Rejected*: refusing the edit while anything references it.
+- **RD14 A frozen snapshot can go public, whatever built it** (2026-11-06). Freezing a playlist
+  that uses `watched:`, `plays:`, `played:` or `matched:` keeps only its videos, and the owner may
+  then publish that list. *Why*: publishing takes two deliberate steps, and a visitor sees a list of
+  videos with no condition, count or date. *Rejected*: refusing to publish a snapshot built from an
+  owner-only condition.
 
 ## Timeline Considerations
 

@@ -62,12 +62,11 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [security] Owner's call: freezing `watched:` or `matched:` results and making that snapshot public shows a list derived from owner-only data — `internal/api/smart_playlists.go`
-2. [ ] [testing] Owner to run QA 10 to 12: real playback, the mark, a rolling date (the fixture's files don't decode) — `docs/testing-strategy.md` §40.8
-3. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
-4. [ ] [testing] Slice 3 left for later: R1 resolver-input cross-check, R3 mark-all events — `docs/testing-strategy.md` §40.11
-5. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
-6. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
+1. [ ] [testing] Owner to run QA 10 to 12: real playback, the mark, a rolling date (the fixture's files don't decode) — `docs/testing-strategy.md` §40.8
+2. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+3. [ ] [testing] Slice 3 left for later: R1 resolver-input cross-check, R3 mark-all events — `docs/testing-strategy.md` §40.11
+4. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
+5. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 

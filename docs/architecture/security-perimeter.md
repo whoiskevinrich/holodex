@@ -259,7 +259,8 @@ them. The spec cites these rules by number.
   entities already do. Owner's choice, 2026-11-01.
 - **SEC-4 — Watch-history conditions and sorts are owner-only** (spec P0-8). `watched:`, `plays:` and `played:`,
   and any sort over play data, sit in the same owner-only set as `matched:` and the completeness
-  sorts. A visitor can never run them, and a public playlist can never store them.
+  sorts. A visitor can never run them, and a public playlist can never store them. A frozen snapshot stores
+  no condition, only videos, so the owner may publish one (spec RD14).
 
 **Bounding the work a stored query triggers**
 

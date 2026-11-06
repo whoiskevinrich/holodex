@@ -244,3 +244,31 @@ func TestWatchConditionsKeepAPlaylistPrivate(t *testing.T) {
 		}
 	}
 }
+
+// RD14: a frozen snapshot can go public whatever built it, and shows a visitor its videos
+// with no condition and no watched fact.
+func TestFrozenWatchPlaylistCanGoPublic(t *testing.T) {
+	e := newRVEnv(t)
+	id := e.video(t, "/m/a.mkv")
+	e.video(t, "/m/b.mkv")
+	e.play(t, id)
+	base := e.srv.URL + "/api/v1"
+	pl := namedSmart(t, base, "Seen", "watched:yes", nil)
+	path := base + "/playlists/" + itoa(pl)
+	if code, resp := postTok(t, path+"/freeze", "s3cret", nil); code != http.StatusOK {
+		t.Fatalf("freeze: %d %v", code, resp)
+	}
+	if code, resp := reqTokBody(t, http.MethodPatch, path, "s3cret", map[string]any{"visibility": "public"}); code != http.StatusOK {
+		t.Fatalf("public: %d %v", code, resp)
+	}
+	code, body := getJSONTok(t, path, "")
+	if code != http.StatusOK {
+		t.Fatalf("visitor read: %d %v", code, body)
+	}
+	if got := numIDs(body["ids"]); len(got) != 1 || got[0] != id {
+		t.Errorf("visitor ids = %v, want [%d]", got, id)
+	}
+	if text := e.raw(t, path, ""); strings.Contains(text, "watched") {
+		t.Errorf("visitor response names watched: %s", text)
+	}
+}
