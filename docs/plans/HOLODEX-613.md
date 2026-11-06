@@ -47,7 +47,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [ ] backend → `{cmd,internal,providers}/**`
+- [x] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`
 - [ ] security `security-review`
@@ -67,10 +67,11 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Trim op, frame checks and edition clone; settle the edition's rename state (proposed: starts with no rename history or lock) in the doc — `docs/architecture/file-maintenance.md`
-2. [ ] [testing] Build §40's fixtures and tests alongside the code, then the `make test-image` file proof — `docs/testing-strategy.md`
-3. [ ] [frontend] `TrimPicker`, the review step and the File row — `docs/design/video-trimming-handoff.md`
-4. [ ] [security] `/security-review` of the capture upload and the new maintenance routes — `docs/architecture/security-perimeter.md`
+1. [ ] [frontend] `TrimPicker`, the review step and the File row, on the routes in `internal/api/maintenance_trim.go` — `docs/design/video-trimming-handoff.md`
+2. [ ] [design] Add handoff copy for the FLAC and second-video-track refusals and the other-scene failure, then re-confirm the sign-off with the owner — `docs/design/video-trimming-handoff.md`
+3. [ ] [testing] §40.8 mutation pass, §40.6 frontend tests, and a fold test for the trim links — `docs/testing-strategy.md`
+4. [ ] [security] `/security-review` of the capture upload and the new write path — `docs/architecture/security-perimeter.md`
+5. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,8 +84,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-06 · session
-- skills: design-handoff, implement, testing-strategy, handoff
-- handoff: In build on Draft PR #581: design signed off (given at 6af567af, pinned at 59c94fbe, the merge of main that left the trim docs unchanged) and the test plan written as testing-strategy §40, which moved the cut to the midpoint with the real neighbouring frame after half the nominal interval failed on variable-frame-rate video. No code yet; testing stays open until §40's tests pass. Next: the trim op in internal/maintenance, settling the edition's rename state as the clone is built.
+- skills: design-handoff, implement, testing-strategy, handoff, code-review
+- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). Next: the frontend, starting at TrimPicker.
 
 ### 2026-11-02 · session
 - skills: architecture

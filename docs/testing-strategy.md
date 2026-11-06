@@ -6275,7 +6275,7 @@ get their own review when they land.
 [handoff](design/video-trimming-handoff.md). A trim is the second F77 Maintenance operation, so §25's
 swap, hold, restore, lane and exposure tests still apply and aren't repeated here. This section covers
 what a trim adds: cuts must land on exact frames, the gate gets looser in three places, and a save as
-edition creates a new file and a new library item. Status: planned on 2026-11-06, before any code.
+edition creates a new file and a new library item.
 
 ### 40.1 Risks, ranked
 
@@ -6315,7 +6315,8 @@ with the cut check. All fixtures are 320×240 and about 6 s, so the matrix fits 
 | T5 | MP4 | H.264, one keyframe only in the file | A cut far from any keyframe, and a video track that isn't the first stream |
 | K5 | MKV | H.264, 24000/1001 fps | Matroska's millisecond timestamps (the browser reports 1.502 for 1.5015) |
 | K6 | MKV | HEVC yuv420p10le, BT.2020/PQ, HDR10 mastering and MaxCLL | K1's shape: two audio tracks, SRT, font attachment, 3 chapters, tags at levels 50/70/30. The spike's HDR case |
-| K7 | MKV | H.264 | AC3 and FLAC audio, with an audible click at a known frame for the sync oracle (§40.4 step 5) |
+| K7 | MKV | H.264 | AC3 and AAC audio. FLAC is refused at preflight (HOLODEX-624) |
+| K8 | MKV | H.264, video only | The cut pass is skipped, and tags still carry |
 
 **Frame content**, one short clip per case with no barcode, because a barcode would make the frames
 distinct:
@@ -6342,13 +6343,13 @@ a part number, a `manual` edition decision and a filename carrying an edition ma
 | U2 | Chapters table: wholly inside (shifted), wholly outside (dropped), straddling the start, straddling the end, ending exactly on the cut, spanning the whole range, all dropped (no chapters block) | 2 |
 | U3 | NCC ignores brightness: a frame and the same frame shifted 25 grey levels score about 1. MAD picks n among n−2…n+2 | 1 |
 | U4 | Distinct test around the 0.02 threshold: 0.019 skips, 0.021 runs, and the reason is recorded per end | 1 |
-| U5 | Offset correction: a stub cutter one frame off lands on run two. Off on both runs fails with the check and offset named, `.holodex-new` gone, original hash unchanged, and never a third run | 1 |
+| U5 | `checkedCut`: one correction across both checks. A cut off once re-encodes, off twice fails naming the end and offset, a screen disagreement twice costs no encode, and there is never a third run | 1 |
 | U6 | Edition target name: replaces an existing marker and never doubles it, sanitises separators, braces, control characters and a leading dot, caps length with a multi-byte name, and a name that sanitises to nothing is refused | 6 |
 | U7 | Preflight: empty name, name equal to the original's edition, existing target, a symlink at the target (`Lstat`), free space of `1.5 × size × kept fraction` for an edition and F77's rule for a replace | 6 |
 | U8 | Gate, one failing candidate per rule, all expected to be refused: one frame too long; one frame short; a chapter not shifted; a dropped audio tail; an audio packet changed inside the range; a stale `_STATISTICS` on a copied track; a second tag differing on an edition; an unchanged edition tag on an edition | 2 |
 | U9 | Gate, must pass: the boundary packet at each end differs, and a neighbour tying n on identical frames | 2 |
 | U10 | Recovery at boot, `stage='landed'`: target present with no clone runs the clone once; target present with a clone changes nothing; target absent restarts from the original | 4 |
-| U11 | Captures are deleted when the job ends in each of done, failed and dismissed, and a leftover folder is swept at boot | 6 |
+| U11 | Captures go when a job succeeds or a failed one is dismissed, stay for Retry after a failure, and a boot sweep removes any folder no queue row names | 6 |
 | U12 | A capture resembling no reference (another scene) fails the screen check instead of matching the least-bad neighbour | 1 |
 
 ### 40.4 Per-container file proof (`-tags integration`, `make test-image`)
@@ -6363,11 +6364,13 @@ inside the built image. For each of T1–T5 and K5–K7, at both ends together a
 3. **Chapters oracle.** `ffprobe` chapters equal a list the test computes by hand for that fixture.
 4. **Stream oracle.** Audio and subtitle packet hashes inside the range equal the original's. Track
    order and flags match. The font attachment and cover art are byte-identical.
-5. **Sync oracle (K7).** The click, found with `silencedetect`, sits at its source frame's new time
-   within one audio packet.
+5. **Sync oracle.** A click at a known time, found with `silencedetect`, sits at its new time relative
+   to the first video frame, within 50 ms, on AAC in MP4 and AC3 in MKV.
 6. **HDR (K6).** Mastering display and MaxCLL are present on the output, and a capture shifted 20 grey
    levels still passes the screen check.
-7. **Save modes.** A replace holds the original and Restore returns its exact bytes. An edition leaves
+7. **Timing.** Every output frame's time strictly follows the last. Neither the barcode nor the cut
+   check can see frames rounded onto one timestamp: the pictures are right and playback judders.
+8. **Save modes.** A replace holds the original and Restore returns its exact bytes. An edition leaves
    the original's hash and row unchanged, and a from-scratch rescan reads the edition from the name.
 
 Then the **real correction path**:
@@ -6401,7 +6404,7 @@ Then **C1–C4**: the status records the expected skip or run for each.
 |---|---|---|
 | A1 | Visitor, and owner with Admin mode off: preflight, enqueue and capture upload all refuse, and a job's status is redacted (F77's rule) | 6 |
 | A2 | Enqueue refuses in at or after out, a range keeping the whole file, times beyond the duration, an edition with no name, and a missing capture | 1, 6 |
-| A3 | Capture upload refuses a non-JPEG, an oversize body and a third image. The stored path comes from the queue id, never from the request | 6 |
+| A3 | The enqueue refuses a non-JPEG and an oversize capture, by content. The stored folder's name is generated by the server, never read from the request | 6 |
 | A4 | A second maintenance job on the same video refuses, and a stale dialog is refused at enqueue | — |
 | A5 | **With F86.** A rename is refused while a trimmed replace holds the original. A rename that takes the edition's target after preflight makes the landing fail cleanly, with no overwrite. A trim queued behind a rename uses the file's current path when it runs | 4, 6 |
 | A6 | Poster kept after a replace: an uploaded poster whose frame was cut stays. A generated thumbnail and the moving thumbnails are regenerated, and duration and size refresh with no rescan | — |
@@ -6457,6 +6460,11 @@ Run through a `web*` dev server only, so nothing can make a sound.
 
 Each change must turn its named test red:
 - Remove the margin and seek to the frame's own time → `TestTrim_RealFiles` T2 barcode oracle.
+- Remove `-seek_timestamp` → K5 and K6, where audio priming makes the start time negative.
+- Decode references through the cut's own seek → the same K5 and K6 cases stop being caught by the
+  cut check, leaving only the barcode oracle red.
+- Remove `-enc_time_base` → step 7, the strictly increasing times.
+- Remove the cover's `-copypriorss` → T1's stream count.
 - Use half of `r_frame_rate`'s interval instead of the midpoint → U1, and the T4 MKV barcode oracle.
 - Compare with absolute pixels instead of NCC → step 6 (K6).
 - Let a third run happen after a second mismatch → U5.
@@ -6479,13 +6487,21 @@ Each change must turn its named test red:
   - **No real browser in CI.** Captures are simulated (§40.2). Browser and ffmpeg agreement rests on
     the spike and QA 9.
   - **Not in CI:** `make test-image` isn't wired into a workflow (§25.9).
+  - **FLAC in Matroska** is refused, not trimmed (HOLODEX-624).
   - **TrueHD, DTS-HD MA and Atmos** have no fixture. They travel the same packet-copy path as AC3 and
     FLAC, and nothing decodes them.
   - **Dolby Vision** remains unit-only, and is refused as in F77.
   - **A long encode's shutdown** is covered by §25's cancel-and-requeue test, not a real one.
   - **Sync is measured at K7's click only,** and judged by ear in QA 11.
 
+**First real-file run (2026-11-06, `holodex:test-image`, no audio played):** every fixture and every
+range passes, and the flip's real-file tests still do. The run found five things the unit tests
+couldn't: a negative container start time landing cuts a frame early, with the cut check blind to it
+because its references shifted too; mkvmerge's `--split` also cutting the re-encoded track; FLAC being
+unsplittable; `-copypriorss 0` dropping cover art; and midpoint seeks rounding frames onto one
+timestamp. Still to do for this gate: §40.5's API and clone rows beyond those built, §40.8's mutation
+pass, and the frontend's §40.6.
+
 **Tried before writing this plan (2026-11-06, ffmpeg, no audio):** the barcode read correctly through
 an x264 re-encode at 24000/1001. Midpoint cuts landed exactly on 17 of 17 cuts across a constant-rate
-MP4, a variable-rate MKV and MP4, and an MP4 with a real edit list. The worker doesn't exist yet, so
-none of the tests above have run.
+MP4, a variable-rate MKV and MP4, and an MP4 with a real edit list.

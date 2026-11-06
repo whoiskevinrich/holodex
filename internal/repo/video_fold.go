@@ -201,6 +201,11 @@ func (r *Repo) FoldMovedVideo(ctx context.Context, older, newer int64) error {
 			    OR (video_file_names.lock_source = 'auto' AND excluded.lock_source <> 'auto')`},
 		{"name state: drop older's", `DELETE FROM video_file_names WHERE video_id = ?1`},
 		{"name state: take newer's", `UPDATE video_file_names SET video_id = ?1 WHERE video_id = ?2`},
+		// Trim links (F88). The older row's own wins; another row naming the newer now names the older.
+		{"trim outcome", `UPDATE OR IGNORE video_trim_results SET video_id = ?1 WHERE video_id = ?2`},
+		{"trim outcome's edition", `UPDATE video_trim_results SET edition_video_id = ?1 WHERE edition_video_id = ?2`},
+		{"trimmed from", `UPDATE OR IGNORE video_trimmed_from SET video_id = ?1 WHERE video_id = ?2`},
+		{"trimmed from's source", `UPDATE video_trimmed_from SET source_video_id = ?1 WHERE source_video_id = ?2`},
 		{"keep-separate", `DELETE FROM entity_keep_separate
 			WHERE entity_type = 'video' AND (id_lo = ?2 OR id_hi = ?2)`},
 	} {

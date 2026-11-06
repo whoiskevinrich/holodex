@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -438,6 +439,15 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		handlers.SetRenamer(writeQ)
 	}
 	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, maintPostWrite, writeQ.Kick, log)
+	trimHooks := maintenance.TrimHooks{CaptureRoot: filepath.Join(cfg.DataPath, "maintenance"), MediaRoot: cfg.MediaPath}
+	if thumbs != nil {
+		trimHooks.CopyOwnerSlots = thumbs.CopyOwnerSlots
+		trimHooks.EnqueueThumb = thumbs.Enqueue
+	}
+	maintWorker.SetTrimHooks(trimHooks)
+	if err := maintWorker.SweepCaptures(ctx); err != nil {
+		log.Warn("maintenance: capture sweep", "err", err)
+	}
 	handlers.SetMaintenance(maintWorker)
 
 	// Filename extraction (F48, ADR-067): the orchestrator ties pattern

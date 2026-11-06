@@ -126,6 +126,13 @@ func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 	}
 	args = append(args, "-d", "!"+strconv.Itoa(vid), toolArg(src),
 		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments")
+	args = append(args, newTrackArgs(v, trackTags)...)
+	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
+}
+
+// newTrackArgs gives the re-encoded track the original's name, language, flags and tags.
+func newTrackArgs(v Stream, trackTags string) []string {
+	var args []string
 	if name := v.Tags["title"]; name != "" {
 		args = append(args, "--track-name", "0:"+name)
 	}
@@ -138,7 +145,7 @@ func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 	if trackTags != "" {
 		args = append(args, "--tags", "0:"+toolArg(trackTags))
 	}
-	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
+	return args
 }
 
 // hasTrackStatistics reports whether any track carries mkvmerge's statistics tags.

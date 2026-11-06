@@ -140,6 +140,9 @@ If a rule can't be met for a file, the trim is refused before it starts.
 
 **R3. Preflight refusals.** F77's refusals apply (read-only library, free space, encoder, missing
 file, deleted video), with the free space sized for the kept range. Also:
+- [ ] A file with a second video track is refused, because that track could only be cut on a keyframe.
+- [ ] A Matroska file with FLAC audio is refused, because the tool that cuts its audio can't split
+      FLAC.
 - [ ] **Save as edition** is refused when the edition name is empty, equals the original's edition, or
       the target filename already exists.
 
@@ -181,8 +184,11 @@ file. For an edition, the status is shown on the original's page until the editi
 
 **R8. Edition: what is copied.**
 - [ ] The edition is a new library item for the new file.
-- [ ] It copies the original's current people, Tags, per-field edits, source decisions, enrichment
-      and poster. Its edition is the name from R4. Nothing else differs.
+- [ ] It copies the original's current people, Tags, per-field edits, source decisions, enrichment,
+      poster, film links and playlist places. Its edition is the name from R4. Nothing else differs,
+      with two exceptions. A numbered scene in a film keeps the link without the number, because the
+      original still holds it. It starts with no rename history and no locked name, because its file
+      has never been renamed.
 - [ ] Its history starts with one entry, "trimmed from" the original, linking to it. The original's
       earlier history stays with the original.
 - [ ] After creation the two items are independent. An edit to one never changes the other.

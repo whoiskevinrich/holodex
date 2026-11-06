@@ -39,22 +39,7 @@ func Rebuild(ctx context.Context, t Tools, family string, op Op, available map[s
 		if _, err := run(ctx, t.FFmpeg, args...); err != nil {
 			return fmt.Errorf("re-encode: %w", err)
 		}
-		// Put the original's tags back. ffmpeg drops XMP (where MP4 edition lives), and with
-		// +bitexact it writes no ©too, so the original's Encoder tag would vanish; restore
-		// the iTunes item list and udta too. Not -all:all: that also turns the container's
-		// brand fields into new Keys tags the original never had.
-		restore := []string{"-overwrite_original", "-TagsFromFile", toolArg(src),
-			"-XMP:all", "-ItemList:all", "-UserData:all"}
-		if format == "mp4" {
-			// Not CoverArt: the mp4 muxer already carried every cover as its own stream, and
-			// exiftool copies only one of a file's duplicate covr items, so restoring it would
-			// drop the rest (HOLODEX-570). The mov muxer writes no covers, so .mov keeps it.
-			restore = append(restore, "--ItemList:CoverArt")
-		}
-		if _, err := run(ctx, t.Exiftool, append(restore, toolArg(dst))...); err != nil {
-			return fmt.Errorf("restore tags: %w", err)
-		}
-		return nil
+		return restoreMP4Tags(ctx, t, src, dst, format)
 	case FamilyMKV:
 		defer os.Remove(intermediate)
 		args, err := MKVEncodeArgs(p, op, available, src, intermediate)
@@ -74,24 +59,51 @@ func Rebuild(ctx context.Context, t Tools, family string, op Op, available map[s
 		if err := runMkvmerge(ctx, t.Mkvmerge, MKVMergeArgs(p, src, intermediate, tags, dst)); err != nil {
 			return fmt.Errorf("rebuild: %w", err)
 		}
-		// The mux date is part of the file as Matroska tools and libraries read it (often as
-		// "date created"); keep the original's rather than mkvmerge's.
-		if date := p.Format.Tags["creation_time"]; date != "" {
-			// mkvpropedit takes YYYY-mm-ddTHH:MM:SSZ only, not ffprobe's six-decimal form.
-			// mkvmerge stamps whole seconds; an original with sub-second precision fails the
-			// verifier rather than being silently rounded.
-			ts, err := time.Parse(time.RFC3339Nano, date)
-			if err != nil {
-				return fmt.Errorf("restore mux date: unreadable %q: %w", date, err)
-			}
-			if err := runMkvmerge(ctx, "mkvpropedit", []string{toolArg(dst), "--edit", "info",
-				"--set", "date=" + ts.UTC().Format("2006-01-02T15:04:05Z")}); err != nil {
-				return fmt.Errorf("restore mux date: %w", err)
-			}
-		}
-		return nil
+		return restoreMKVDate(ctx, p, dst)
 	}
 	return fmt.Errorf("maintenance: unsupported container family %q", family)
+}
+
+// restoreMP4Tags puts the original's tags back on an MP4/MOV ffmpeg just wrote. ffmpeg drops XMP
+// (where MP4 edition lives), and with +bitexact it writes no ©too, so the original's Encoder tag
+// would vanish; restore the iTunes item list and udta too. Not -all:all: that also turns the
+// container's brand fields into new Keys tags the original never had. assign holds exiftool
+// assignments applied after the copy, in the same invocation.
+func restoreMP4Tags(ctx context.Context, t Tools, src, dst, format string, assign ...string) error {
+	restore := []string{"-overwrite_original", "-TagsFromFile", toolArg(src),
+		"-XMP:all", "-ItemList:all", "-UserData:all"}
+	if format == "mp4" {
+		// Not CoverArt: the mp4 muxer already carried every cover as its own stream, and
+		// exiftool copies only one of a file's duplicate covr items, so restoring it would
+		// drop the rest (HOLODEX-570). The mov muxer writes no covers, so .mov keeps it.
+		restore = append(restore, "--ItemList:CoverArt")
+	}
+	restore = append(restore, assign...)
+	if _, err := run(ctx, t.Exiftool, append(restore, toolArg(dst))...); err != nil {
+		return fmt.Errorf("restore tags: %w", err)
+	}
+	return nil
+}
+
+// restoreMKVDate keeps the original's mux date. It is part of the file as Matroska tools and
+// libraries read it (often as "date created"), and mkvmerge would stamp its own.
+func restoreMKVDate(ctx context.Context, p Probe, dst string) error {
+	date := p.Format.Tags["creation_time"]
+	if date == "" {
+		return nil
+	}
+	// mkvpropedit takes YYYY-mm-ddTHH:MM:SSZ only, not ffprobe's six-decimal form. mkvmerge stamps
+	// whole seconds; an original with sub-second precision fails the verifier rather than being
+	// silently rounded.
+	ts, err := time.Parse(time.RFC3339Nano, date)
+	if err != nil {
+		return fmt.Errorf("restore mux date: unreadable %q: %w", date, err)
+	}
+	if err := runMkvmerge(ctx, "mkvpropedit", []string{toolArg(dst), "--edit", "info",
+		"--set", "date=" + ts.UTC().Format("2006-01-02T15:04:05Z")}); err != nil {
+		return fmt.Errorf("restore mux date: %w", err)
+	}
+	return nil
 }
 
 // ErrSymlinkedSibling: a name maintenance writes beside the media file is a symlink. ffmpeg -y

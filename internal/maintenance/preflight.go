@@ -18,6 +18,12 @@ const (
 	ReasonToolMissing     = "tool_missing"
 	ReasonReadOnly        = "read_only"
 	ReasonNoSpace         = "no_space"
+	// Trim only (F88).
+	ReasonMultiVideo   = "multiple_video_tracks"
+	ReasonFLAC         = "flac_in_matroska"
+	ReasonEditionName  = "edition_name_empty"
+	ReasonEditionSame  = "edition_same"
+	ReasonTargetExists = "target_exists"
 )
 
 // Preflight is what the confirm dialog shows: whether the operation can run, and if not why.
@@ -27,6 +33,9 @@ type Preflight struct {
 	Detail    string `json:"detail,omitempty"` // codec, tool name…
 	NeedBytes uint64 `json:"need_bytes"`
 	FreeBytes uint64 `json:"free_bytes"`
+	// An edition's file name and the name as it will be written, sanitized (trim only).
+	Target  string `json:"target,omitempty"`
+	Edition string `json:"edition,omitempty"`
 }
 
 // spaceFactor: a re-encode at constant quality can come out larger than the source; this is
@@ -37,6 +46,13 @@ const spaceNum, spaceDen = 3, 2
 // changing anything (the writability probe creates and removes its own uniquely named file).
 // Refusals come back as a Preflight with OK false; err is for failures to check at all.
 func CheckFlip(ctx context.Context, t Tools, encoders map[string]bool, path string) (Preflight, error) {
+	return checkOp(ctx, t, encoders, path, 1, false)
+}
+
+// checkOp is the shared preflight. kept scales the free space to the share of the file an operation
+// writes. trim adds what a cut can't do: a second video track can only be cut on a keyframe, so its
+// range would disagree with the main one's, and mkvmerge refuses to split a FLAC track at all.
+func checkOp(ctx context.Context, t Tools, encoders map[string]bool, path string, kept float64, trim bool) (Preflight, error) {
 	fi, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return refused(ReasonFileMissing, ""), nil
@@ -61,7 +77,7 @@ func CheckFlip(ctx context.Context, t Tools, encoders map[string]bool, path stri
 	if err := probeWritable(dir); err != nil {
 		return refused(ReasonReadOnly, ""), nil
 	}
-	pf := Preflight{NeedBytes: uint64(fi.Size()) * spaceNum / spaceDen}
+	pf := Preflight{NeedBytes: uint64(float64(uint64(fi.Size())*spaceNum/spaceDen) * kept)}
 	if pf.FreeBytes, err = diskFree(dir); err != nil {
 		return Preflight{}, err
 	}
@@ -77,6 +93,20 @@ func CheckFlip(ctx context.Context, t Tools, encoders map[string]bool, path stri
 	v, ok := p.MainVideo()
 	if !ok {
 		return refused(ReasonNoVideo, ""), nil
+	}
+	if trim {
+		tracks := 0
+		for _, s := range p.Streams {
+			if s.CodecType == "video" && s.Disposition["attached_pic"] == 0 {
+				tracks++
+			}
+			if family == FamilyMKV && s.CodecName == "flac" {
+				return refused(ReasonFLAC, ""), nil
+			}
+		}
+		if tracks > 1 {
+			return refused(ReasonMultiVideo, ""), nil
+		}
 	}
 	if _, err := EncoderArgs(v, "v:0", encoders); err != nil {
 		var re *RefusalError
