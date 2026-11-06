@@ -1,0 +1,232 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 2576" width="960" height="2576" role="img" aria-labelledby="t d">
+<title id="t">File names (F86): the rename plan with reason filters, out-of-date rows, refusals and bulk rename</title>
+<desc id="d">The plan list under the template card. Panel 1: reason filters with counts, a select-all row, and nine rows: a junk name to rename, an out-of-date name showing the title change, a clash with another video settled by its id, refused rows for a name that would not read back, a clash with an untracked file and a name over 255 bytes, a locked row with Unlock, a held row, and a no-template row; a sticky bar with Clear and Rename 3. Panel 2: the bar's inline confirm. Panel 3: rows after the rename is queued. Panel 4: Plan mode and draft preview bars. Panel 5: the list at 375 px.</desc>
+<style>
+text{font-family:"Archivo",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+.serif{font-family:"Fraunces",Georgia,"Times New Roman",serif}
+.mono{font-family:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;font-weight:400}
+.ttl{font-size:12px;font-weight:600;fill:#2c2c2a}
+.cap{font-size:11px;fill:#5f5e5a}
+</style>
+<rect width="960" height="2576" fill="#ffffff"/>
+<text class="ttl" x="16" y="22">1 · Plan in Manual mode, filter All — every reason a row can carry</text>
+<text class="cap" x="16" y="37">Names are never truncated: a pair that doesn't fit one line stacks old over new.</text>
+<rect x="16" y="48" width="928" height="920" rx="2" fill="#0c0a09"/>
+<text x="40" y="78" font-size="12" fill="#9b9082" letter-spacing="0.6">PLAN</text>
+<text x="88" y="78" font-size="12" fill="#9b9082">3,681 videos · names from your saved templates</text>
+<rect x="40" y="94" width="70.1" height="24" rx="2" fill="#181310"/>
+<text x="48" y="110" font-size="12" fill="#f3ece1">All</text>
+<text x="73.3" y="110" font-size="12" fill="#9b9082">3,681</text>
+<text x="122.1" y="110" font-size="12" fill="#9b9082">Will rename</text>
+<text x="193.4" y="110" font-size="12" fill="#9b9082">1,204</text>
+<text x="242.2" y="110" font-size="12" fill="#9b9082">Out of date</text>
+<text x="313.6" y="110" font-size="12" fill="#9b9082">37</text>
+<text x="345.1" y="110" font-size="12" fill="#9b9082">Already named</text>
+<text x="428" y="110" font-size="12" fill="#9b9082">2,410</text>
+<text x="476.8" y="110" font-size="12" fill="#9b9082">No template</text>
+<text x="548.2" y="110" font-size="12" fill="#9b9082">3</text>
+<text x="573.9" y="110" font-size="12" fill="#9b9082">Won't read back</text>
+<text x="668.3" y="110" font-size="12" fill="#9b9082">15</text>
+<text x="699.8" y="110" font-size="12" fill="#9b9082">Clash</text>
+<text x="736.6" y="110" font-size="12" fill="#9b9082">3</text>
+<text x="762.4" y="110" font-size="12" fill="#9b9082">Bad name</text>
+<text x="816.5" y="110" font-size="12" fill="#9b9082">2</text>
+<text x="842.2" y="110" font-size="12" fill="#9b9082">Locked</text>
+<text x="884.8" y="110" font-size="12" fill="#9b9082">6</text>
+<text x="48" y="138" font-size="12" fill="#9b9082">Held</text>
+<text x="79" y="138" font-size="12" fill="#9b9082">1</text>
+<rect x="40" y="162" width="880" height="798" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="56" y="176" width="16" height="16" rx="2" fill="#e8a33d"/>
+<line x1="60" y1="184" x2="68" y2="184" stroke="#1a1206" stroke-width="2"/>
+<text x="84" y="189" font-size="14" fill="#9b9082">3 selected of the 1,241 you can rename</text>
+<text x="904" y="189" font-size="14" fill="#e8a33d" text-anchor="end">Select all 1,241</text>
+<line x1="796.5" y1="192" x2="904" y2="192" stroke="#e8a33d"/>
+<line x1="40" y1="206" x2="920" y2="206" stroke="#2a2622"/>
+<rect x="56" y="217" width="16" height="16" rx="2" fill="#e8a33d"/>
+<path d="M59.5 225.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/>
+<text x="84" y="230" font-size="14" fill="#f3ece1">Ada Lovelace</text>
+<text x="174.6" y="230" font-size="12" fill="#9b9082">template 1</text>
+<rect x="889.5" y="223.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 223.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="252" class="mono" font-size="12" fill="#9b9082">ada.lovelace.2023.1080p.WEB-DL.x264-GRP.mkv</text>
+<line x1="84" y1="248.2" x2="393.6" y2="248.2" stroke="#e2603f"/>
+<text x="401.6" y="252" font-size="12" fill="#9b9082">→</text>
+<text x="419.6" y="252" class="mono" font-size="12" fill="#f3ece1">[Acme] Ada Lovelace (2023).mkv</text>
+<line x1="40" y1="268" x2="920" y2="268" stroke="#2a2622"/>
+<rect x="56" y="279" width="16" height="16" rx="2" fill="#e8a33d"/>
+<path d="M59.5 287.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/>
+<text x="84" y="292" font-size="14" fill="#f3ece1">Northern Lights</text>
+<text x="194.8" y="292" font-size="12" fill="#9b9082">template 1 · out of date</text>
+<rect x="889.5" y="285.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 285.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="314" class="mono" font-size="12" fill="#9b9082">[Acme] Nothern Lights (2019).mkv</text>
+<line x1="84" y1="310.2" x2="314.4" y2="310.2" stroke="#e2603f"/>
+<text x="322.4" y="314" font-size="12" fill="#9b9082">→</text>
+<text x="340.4" y="314" class="mono" font-size="12" fill="#f3ece1">[Acme] Northern Lights (2019).mkv</text>
+<text x="84" y="334" font-size="12" fill="#9b9082">Since Holodex named it, title changed: </text>
+<text x="308.6" y="334" font-size="12" fill="#9b9082">Nothern Lights</text>
+<text x="389.3" y="334" font-size="12" fill="#9b9082"> → </text>
+<text x="406.6" y="334" font-size="12" fill="#f3ece1">Northern Lights</text>
+<line x1="40" y1="348" x2="920" y2="348" stroke="#2a2622"/>
+<rect x="56" y="359" width="16" height="16" rx="2" fill="#e8a33d"/>
+<path d="M59.5 367.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/>
+<text x="84" y="372" font-size="14" fill="#f3ece1">Ada Lovelace</text>
+<text x="174.6" y="372" font-size="12" fill="#9b9082">template 2 · part 2</text>
+<rect x="889.5" y="365.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 365.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="394" class="mono" font-size="12" fill="#9b9082">ada_pt2.mkv</text>
+<line x1="84" y1="390.2" x2="163.2" y2="390.2" stroke="#e2603f"/>
+<text x="171.2" y="394" font-size="12" fill="#9b9082">→</text>
+<text x="189.2" y="394" class="mono" font-size="12" fill="#f3ece1">Ada Lovelace (2023) {hx-412}.mkv</text>
+<text x="84" y="414" font-size="12" fill="#9b9082">Video 398 already has </text>
+<text x="210.7" y="414" class="mono" font-size="12" fill="#f3ece1">Ada Lovelace (2023).mkv</text>
+<text x="376.3" y="414" font-size="12" fill="#9b9082">, so this one carries its id.</text>
+<line x1="40" y1="428" x2="920" y2="428" stroke="#2a2622"/>
+<text x="84" y="452" font-size="14" fill="#f3ece1">The Long Afternoon</text>
+<rect x="215" y="440" width="96.4" height="18" rx="2" fill="none" stroke="#e2603f" stroke-width="1"/>
+<text x="220" y="453" font-size="12" fill="#e2603f">won't read back</text>
+<rect x="889.5" y="445.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 445.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="474" class="mono" font-size="12" fill="#9b9082">long_afternoon_final.mkv</text>
+<text x="84" y="494" font-size="12" fill="#9b9082">Studio </text>
+<text x="124.3" y="494" class="mono" font-size="12" fill="#f3ece1">Acme [EU]</text>
+<text x="189.1" y="494" font-size="12" fill="#9b9082"> contains </text>
+<text x="246.7" y="494" class="mono" font-size="12" fill="#f3ece1">]</text>
+<text x="253.9" y="494" font-size="12" fill="#9b9082">, which ends {studio} in template 1. It would read back as </text>
+<text x="593.8" y="494" class="mono" font-size="12" fill="#f3ece1">Acme [EU</text>
+<text x="651.4" y="494" font-size="12" fill="#9b9082">.</text>
+<line x1="40" y1="508" x2="920" y2="508" stroke="#2a2622"/>
+<text x="84" y="532" font-size="14" fill="#f3ece1">Harbour Lights</text>
+<rect x="188.1" y="520" width="38.8" height="18" rx="2" fill="none" stroke="#e2603f" stroke-width="1"/>
+<text x="193.1" y="533" font-size="12" fill="#e2603f">clash</text>
+<rect x="889.5" y="525.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 525.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="554" class="mono" font-size="12" fill="#9b9082">harbour.lights.2021.mkv</text>
+<text x="84" y="574" class="mono" font-size="12" fill="#f3ece1">Harbour Lights (2021).mkv</text>
+<text x="264" y="574" font-size="12" fill="#9b9082"> is already in this folder and isn't in your library.</text>
+<line x1="40" y1="588" x2="920" y2="588" stroke="#2a2622"/>
+<text x="84" y="612" font-size="14" fill="#f3ece1">A Very Long Title That Keeps Going Well Past What Fits…</text>
+<rect x="463.6" y="600" width="56.1" height="18" rx="2" fill="none" stroke="#e2603f" stroke-width="1"/>
+<text x="468.6" y="613" font-size="12" fill="#e2603f">too long</text>
+<rect x="889.5" y="605.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 605.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="634" class="mono" font-size="12" fill="#9b9082">vlt_master_v3.mkv</text>
+<text x="84" y="654" font-size="12" fill="#9b9082">The name would be 291 bytes. The limit is 255.</text>
+<line x1="40" y1="668" x2="920" y2="668" stroke="#2a2622"/>
+<text x="84" y="692" font-size="14" fill="#f3ece1">Night Ferry</text>
+<rect x="167.9" y="680" width="44.6" height="18" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+<text x="172.9" y="693" font-size="12" fill="#9b9082">locked</text>
+<rect x="835.2" y="687.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M837.1800000000001 687.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="851.7" y="693.9" font-size="14" fill="#9b9082">Unlock</text>
+<text x="84" y="714" class="mono" font-size="12" fill="#9b9082">night ferry - my cut.mkv</text>
+<text x="84" y="734" font-size="12" fill="#9b9082">Locked when you renamed it outside Holodex on Oct 12.</text>
+<line x1="40" y1="748" x2="920" y2="748" stroke="#2a2622"/>
+<text x="84" y="772" font-size="14" fill="#f3ece1">Glass Harbour</text>
+<rect x="181.4" y="760" width="33" height="18" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+<text x="186.4" y="773" font-size="12" fill="#9b9082">held</text>
+<rect x="889.5" y="765.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 765.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="794" class="mono" font-size="12" fill="#9b9082">glass_harbour.mkv</text>
+<text x="84" y="814" font-size="12" fill="#9b9082">Its original is held until Nov 4. It can be renamed after that.</text>
+<line x1="40" y1="828" x2="920" y2="828" stroke="#2a2622"/>
+<text x="84" y="852" font-size="14" fill="#f3ece1">IMG_2041</text>
+<rect x="147.8" y="840" width="73.4" height="18" rx="2" fill="none" stroke="#9b9082" stroke-width="1"/>
+<text x="152.8" y="853" font-size="12" fill="#9b9082">no template</text>
+<rect x="889.5" y="845.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M891.5 845.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="84" y="874" class="mono" font-size="12" fill="#9b9082">IMG_2041.mov</text>
+<text x="84" y="894" font-size="12" fill="#9b9082">No template fits: it has no title.</text>
+<line x1="40" y1="908" x2="920" y2="908" stroke="#2a2622"/>
+<rect x="41" y="909" width="878" height="50" rx="0" fill="#15110e"/>
+<text x="56" y="939" font-size="14" fill="#9b9082">3 selected</text>
+<rect x="826.2" y="918" width="77.8" height="30" rx="2" fill="#e8a33d"/>
+<text x="838.2" y="937.9" font-size="14" fill="#1a1206" font-weight="500">Rename 3</text>
+<rect x="760.6" y="918" width="57.6" height="30" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+<text x="772.6" y="937.9" font-size="14" fill="#f3ece1">Clear</text>
+<text class="ttl" x="16" y="1008">2 · Rename asks once, inline in the bar (System activity's confirm pattern)</text>
+<rect x="16" y="1022" width="928" height="84" rx="2" fill="#0c0a09"/>
+<rect x="40" y="1038" width="880" height="52" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="56" y="1069" font-size="14" fill="#f3ece1">Rename 1,241 files? You can undo each one from its video page.</text>
+<rect x="839.7" y="1049" width="64.3" height="30" rx="2" fill="none" stroke="#2a2622" stroke-width="1"/>
+<text x="851.7" y="1068.9" font-size="14" fill="#f3ece1">Cancel</text>
+<rect x="693.4" y="1049" width="138.2" height="30" rx="2" fill="#e8a33d"/>
+<text x="705.4" y="1068.9" font-size="14" fill="#1a1206" font-weight="500">Yes, rename 1,241</text>
+<text class="ttl" x="16" y="1146">3 · After Rename: rows report in place; the run's totals go to System activity</text>
+<rect x="16" y="1160" width="928" height="270" rx="2" fill="#0c0a09"/>
+<rect x="40" y="1176" width="880" height="238" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<path d="M58 1195l4 4 8-8" fill="none" stroke="#e8a33d" stroke-width="2"/>
+<text x="84" y="1200" font-size="14" fill="#f3ece1">Ada Lovelace</text>
+<text x="174.6" y="1200" font-size="12" fill="#9b9082">renamed</text>
+<text x="84" y="1220" class="mono" font-size="12" fill="#f3ece1">[Acme] Ada Lovelace (2023).mkv</text>
+<line x1="40" y1="1230" x2="920" y2="1230" stroke="#2a2622"/>
+<circle cx="64" cy="1251" r="4.5" fill="none" stroke="#e8a33d" stroke-opacity=".35" stroke-width="1.5"/>
+<path d="M64 1246.5a4.5 4.5 0 0 1 4.5 4.5" fill="none" stroke="#e8a33d" stroke-width="1.5"/>
+<text x="84" y="1256" font-size="14" fill="#f3ece1">Northern Lights</text>
+<text x="194.8" y="1256" font-size="12" fill="#9b9082">renaming</text>
+<text x="84" y="1276" class="mono" font-size="12" fill="#9b9082">[Acme] Northern Lights (2019).mkv</text>
+<line x1="40" y1="1286" x2="920" y2="1286" stroke="#2a2622"/>
+<path d="M64 1299l7 13h-14z" fill="none" stroke="#e2603f" stroke-width="1.4"/>
+<text x="64" y="1310" font-size="9" fill="#e2603f" font-weight="700" text-anchor="middle">!</text>
+<text x="84" y="1312" font-size="14" fill="#f3ece1">Ada Lovelace</text>
+<text x="174.6" y="1312" font-size="12" fill="#e2603f">failed</text>
+<text x="84" y="1332" class="mono" font-size="12" fill="#9b9082">Ada Lovelace (2023) {hx-412}.mkv</text>
+<text x="84" y="1350" font-size="12" fill="#e2603f">Not renamed: a file took that name before the rename ran. </text>
+<text x="418.1" y="1350" font-size="12" fill="#e8a33d">Retry</text>
+<line x1="418.1" y1="1352" x2="446.9" y2="1352" stroke="#e8a33d"/>
+<text x="456.9" y="1350" font-size="12" fill="#9b9082">Dismiss</text>
+<line x1="40" y1="1362" x2="920" y2="1362" stroke="#2a2622"/>
+<text x="56" y="1390" font-size="14" fill="#9b9082">1 renamed · 1 renaming · 1 failed.</text>
+<text x="292.5" y="1390" font-size="14" fill="#e8a33d">Open System activity</text>
+<text class="ttl" x="16" y="1470">4 · The bar when nothing can be renamed from here</text>
+<text class="cap" x="16" y="1485">Plan mode: no checkboxes and no Rename. Draft preview: the plan shows unsaved templates, and Rename waits for Save.</text>
+<rect x="16" y="1496" width="928" height="140" rx="2" fill="#0c0a09"/>
+<rect x="40" y="1512" width="880" height="50" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="56" y="1542" font-size="14" fill="#9b9082">Plan mode: nothing on disk changes. Choose Manual above to rename.</text>
+<rect x="40" y="1574" width="880" height="50" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<text x="56" y="1604" font-size="14" fill="#f3ece1">Previewing unsaved templates. Save them to rename.</text>
+<rect x="785.9" y="1584" width="118.1" height="30" rx="2" fill="none" stroke="#e8a33d" stroke-width="1"/>
+<text x="797.9" y="1603.9" font-size="14" fill="#e8a33d">Save templates</text>
+<text class="ttl" x="16" y="1676">5 · 375 px: filters scroll sideways in one row; names always stack</text>
+<rect x="16" y="1690" width="375" height="352" rx="2" fill="#0c0a09"/>
+<clipPath id="m"><rect x="16" y="1708" width="375" height="30"/></clipPath><g clip-path="url(#m)">
+<text x="40" y="1724" font-size="12" fill="#9b9082">All</text>
+<text x="63.3" y="1724" font-size="12" fill="#9b9082">3,681</text>
+<text x="114.1" y="1724" font-size="12" fill="#9b9082">Will rename</text>
+<text x="183.4" y="1724" font-size="12" fill="#9b9082">1,204</text>
+<rect x="226.2" y="1708" width="98.9" height="24" rx="2" fill="#181310"/>
+<text x="234.2" y="1724" font-size="12" fill="#f3ece1">Out of date</text>
+<text x="303.6" y="1724" font-size="12" fill="#9b9082">37</text>
+<text x="337.1" y="1724" font-size="12" fill="#9b9082">Already named</text>
+<text x="418" y="1724" font-size="12" fill="#9b9082">2,410</text>
+<text x="468.8" y="1724" font-size="12" fill="#9b9082">No template</text>
+<text x="538.2" y="1724" font-size="12" fill="#9b9082">3</text>
+</g>
+<rect x="32" y="1744" width="343" height="254" rx="2" fill="#15110e" stroke="#2a2622" stroke-width="1"/>
+<rect x="44" y="1756" width="16" height="16" rx="2" fill="#e8a33d"/>
+<path d="M47.5 1764.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/>
+<text x="70" y="1769" font-size="14" fill="#f3ece1">Northern Lights</text>
+<rect x="350.5" y="1762.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M352.5 1762.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="70" y="1792" class="mono" font-size="12" fill="#9b9082">[Acme] Nothern Lights (2019).mkv</text>
+<line x1="70" y1="1788.2" x2="300.4" y2="1788.2" stroke="#e2603f"/>
+<text x="70" y="1810" class="mono" font-size="12" fill="#f3ece1">→ [Acme] Northern Lights (2019).mkv</text>
+<text x="70" y="1830" font-size="12" fill="#9b9082">Title changed since Holodex named it.</text>
+<line x1="32" y1="1844" x2="375" y2="1844" stroke="#2a2622"/>
+<rect x="44" y="1856" width="16" height="16" rx="2" fill="#e8a33d"/>
+<path d="M47.5 1864.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/>
+<text x="70" y="1869" font-size="14" fill="#f3ece1">Rivermouth</text>
+<rect x="350.5" y="1862.5" width="9" height="6.5" rx="1" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<path d="M352.5 1862.5v-1.8a2.5 2.5 0 0 1 5 0" fill="none" stroke="#9b9082" stroke-width="1.3"/>
+<text x="70" y="1892" class="mono" font-size="12" fill="#9b9082">[Acme] Rivermoth (2020).mkv</text>
+<line x1="70" y1="1888.2" x2="264.4" y2="1888.2" stroke="#e2603f"/>
+<text x="70" y="1910" class="mono" font-size="12" fill="#f3ece1">→ [Acme] Rivermouth (2020).mkv</text>
+<text x="70" y="1930" font-size="12" fill="#9b9082">Title changed since Holodex named it.</text>
+<line x1="32" y1="1944" x2="375" y2="1944" stroke="#2a2622"/>
+<text x="44" y="1978" font-size="14" fill="#9b9082">2 selected</text>
+<rect x="285.2" y="1958" width="77.8" height="30" rx="2" fill="#e8a33d"/>
+<text x="297.2" y="1977.9" font-size="14" fill="#1a1206" font-weight="500">Rename 2</text>
+<text class="ttl" x="16" y="2082">6 · Landing: saved templates fold to one line; the tab opens on Out of date while it isn't empty</text>
+<text class="cap" x="16" y="2097">The card stays open while a draft is unsaved or a template has an error. Edit templates ▾ opens it.</text>
+<g transform="translate(0 2064)"><rect x="16" y="44" width="928" height="452" rx="2" fill="#0c0a09"/><text x="40" y="76" font-size="14" fill="#9b9082">Status · Metadata keys · … · Extraction</text><rect x="300" y="58" width="91" height="28" rx="2" fill="#181310"/><text x="312" y="77" font-size="14" fill="#f3ece1">File names</text><text x="404" y="76" font-size="14" fill="#9b9082">Completeness · Trash</text><line x1="40" y1="98" x2="920" y2="98" stroke="#2a2622"/><rect x="40" y="112" width="880" height="44" rx="2" fill="#15110e" stroke="#2a2622"/><text x="56" y="139" font-size="14" fill="#f3ece1">Manual</text><text x="112" y="139" font-size="14" fill="#9b9082">· 3 templates · first: <tspan class="mono" fill="#f3ece1">[{studio}] {title} ({year})</tspan></text><text x="904" y="139" font-size="14" fill="#9b9082" text-anchor="end">Edit templates ▾</text><text x="40" y="186" font-size="12" fill="#9b9082" letter-spacing="0.6">PLAN</text><text x="40" y="211" font-size="12" fill="#9b9082">All 3,681</text><text x="112" y="211" font-size="12" fill="#9b9082">Will rename 1,204</text><rect x="228" y="195" width="92" height="24" rx="2" fill="#181310"/><text x="236" y="211" font-size="12" fill="#f3ece1">Out of date <tspan fill="#9b9082">37</tspan></text><text x="332" y="211" font-size="12" fill="#9b9082">Already named 2,410 · No template 3 · Won't read back 15 · Clash 3 · …</text><rect x="40" y="232" width="880" height="248" rx="2" fill="#15110e" stroke="#2a2622"/><rect x="56" y="246" width="16" height="16" rx="2" fill="#e8a33d"/><path d="M59.5 254.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/><text x="84" y="259" font-size="14" fill="#9b9082">37 selected of 37 out of date</text><line x1="40" y1="276" x2="920" y2="276" stroke="#2a2622"/><rect x="56" y="287" width="16" height="16" rx="2" fill="#e8a33d"/><path d="M59.5 295.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/><text x="84" y="300" font-size="14" fill="#f3ece1">Northern Lights</text><text x="195" y="300" font-size="12" fill="#9b9082">template 1</text><text x="84" y="322" class="mono" font-size="12" fill="#9b9082" text-decoration="line-through">[Acme] Nothern Lights (2019).mkv</text><text x="322" y="322" font-size="12" fill="#9b9082">→</text><text x="340" y="322" class="mono" font-size="12" fill="#f3ece1">[Acme] Northern Lights (2019).mkv</text><text x="84" y="342" font-size="12" fill="#9b9082">Since Holodex named it, title changed: Nothern Lights → <tspan fill="#f3ece1">Northern Lights</tspan></text><line x1="40" y1="356" x2="920" y2="356" stroke="#2a2622"/><rect x="56" y="367" width="16" height="16" rx="2" fill="#e8a33d"/><path d="M59.5 375.5l3 3 6-6.5" fill="none" stroke="#1a1206" stroke-width="2"/><text x="84" y="380" font-size="14" fill="#f3ece1">Ada Lovelace</text><text x="175" y="380" font-size="12" fill="#9b9082">template 1</text><text x="84" y="402" class="mono" font-size="12" fill="#9b9082" text-decoration="line-through">[Acme] Ada Lovelace (2023).mkv</text><text x="308" y="402" font-size="12" fill="#9b9082">→</text><text x="326" y="402" class="mono" font-size="12" fill="#f3ece1">[Acme Films] Ada Lovelace (2023).mkv</text><text x="84" y="422" font-size="12" fill="#9b9082">Since Holodex named it, studio changed: Acme → <tspan fill="#f3ece1">Acme Films</tspan></text><line x1="40" y1="436" x2="920" y2="436" stroke="#2a2622"/><text x="56" y="464" font-size="14" fill="#9b9082">37 selected</text><rect x="761" y="444" width="58" height="28" rx="2" fill="none" stroke="#2a2622"/><text x="773" y="463" font-size="14" fill="#f3ece1">Clear</text><rect x="826" y="444" width="86" height="28" rx="2" fill="#e8a33d"/><text x="836" y="463" font-size="14" fill="#1a1206" font-weight="500">Rename 37</text></g>
+</svg>

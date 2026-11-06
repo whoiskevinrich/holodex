@@ -404,7 +404,7 @@ func (h *Handlers) enrichQueryHint(w http.ResponseWriter, r *http.Request, entit
 		fields := queryFieldsFrom(v, resolved)
 		return func(provider string) enrich.Hint {
 			src, _ := h.enrich.Store().Current().ByName(provider)
-			return videoHint(v, resolved, h.providerQuery(src, fields), enrich.QuerySourcePattern)
+			return videoHint(v, resolved, h.providerQuery(src, fields), enrich.QuerySourcePattern, provider, h.RenameProviders())
 		}, true
 	case model.EnrichEntityFilm:
 		f, err := h.repo.GetFilm(r.Context(), id)

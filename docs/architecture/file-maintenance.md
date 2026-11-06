@@ -51,6 +51,9 @@ already gives a tag write:
   write enqueued during a flip waits; it is never refused. The reverse also holds.
 - **Refused at enqueue:** a second `maintenance` row for a video that already has a pending or running
   one.
+- **Renames** are a third kind, `kind='rename'`, claimed by the tag-write lane under the same
+  one-running-job rule. A rename is refused while a `held_originals` row exists, because `held_path`
+  is derived from `file_path` ([file-rename.md](file-rename.md)).
 - **Shutdown** cancels the ffmpeg process through the application-lifetime context. The job returns
   to `pending` at boot and starts again from the original. A re-encode cannot resume midway.
 

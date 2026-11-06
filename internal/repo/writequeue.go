@@ -25,6 +25,7 @@ const (
 const (
 	WritebackKindWrite       = "write"
 	WritebackKindMaintenance = "maintenance"
+	WritebackKindRename      = "rename" // F86: claimed by the tag-write lane
 )
 
 // ErrMaintenanceInFlight is returned by EnqueueMaintenance when the video already has a
@@ -164,9 +165,10 @@ func (r *Repo) EnqueueMaintenance(ctx context.Context, videoID int64, payload st
 	return id, nil
 }
 
-// ClaimNextWriteback claims the next tag-write job (the write lane).
+// ClaimNextWriteback claims the next job of the tag-write lane: a tag write or a file rename
+// (F86, file-rename.md: a rename takes milliseconds and must not wait behind a re-encode).
 func (r *Repo) ClaimNextWriteback(ctx context.Context) (*WritebackJob, error) {
-	return r.claimNext(ctx, WritebackKindWrite)
+	return r.claimNext(ctx, WritebackKindWrite, WritebackKindRename)
 }
 
 // ClaimNextMaintenance claims the next maintenance job (the maintenance lane, F77).
@@ -179,17 +181,18 @@ func (r *Repo) ClaimNextMaintenance(ctx context.Context) (*WritebackJob, error) 
 // video already has a running row of EITHER kind is skipped, so a tag write and a re-encode
 // never touch one file at once (F77). The select-then-update runs under the write lock so
 // two workers can't claim the same row (F30.4c), and so the running check can't go stale.
-func (r *Repo) claimNext(ctx context.Context, kind string) (*WritebackJob, error) {
+func (r *Repo) claimNext(ctx context.Context, kinds ...string) (*WritebackJob, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	job := WritebackJob{Kind: kind}
+	var job WritebackJob
+	kind := kinds[0]
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, video_id, payload, attempts, batch_id FROM writeback_queue
-		WHERE status = 'pending' AND kind = ?
+		SELECT id, video_id, kind, payload, attempts, batch_id FROM writeback_queue
+		WHERE status = 'pending' AND kind IN (`+placeholders(len(kinds))+`)
 		  AND video_id NOT IN (SELECT video_id FROM writeback_queue WHERE status = 'running')
-		ORDER BY enqueued_at, id LIMIT 1`, kind).
-		Scan(&job.ID, &job.VideoID, &job.Payload, &job.Attempts, &job.BatchID)
+		ORDER BY enqueued_at, id LIMIT 1`, toAnySlice(kinds)...).
+		Scan(&job.ID, &job.VideoID, &job.Kind, &job.Payload, &job.Attempts, &job.BatchID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

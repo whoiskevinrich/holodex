@@ -91,6 +91,14 @@ func (r *Repo) AttachTagToVideo(ctx context.Context, videoID int64, name string)
 	if err != nil {
 		return nil, err
 	}
+	// Adding the tag back lifts the genres suppress an earlier detach left (HOLODEX-614).
+	spellings, err := tagSpellingsTx(ctx, tx, tid)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := clearCurationsLocked(ctx, tx, model.EnrichEntityVideo, videoID, genresField, spellings, CurationSuppress); err != nil {
+		return nil, err
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
@@ -159,14 +167,50 @@ func (r *Repo) PromoteIgnoredFileTags(ctx context.Context, videoID int64) (int64
 	return res.RowsAffected()
 }
 
+// genresField is the canonical field a video's tags are written through (F50 P0-10).
+const genresField = "genres"
+
+// tagSpellingsTx returns tagID's name and every alias — each spelling the file or a
+// provider might carry the tag under.
+func tagSpellingsTx(ctx context.Context, tx *sql.Tx, tagID int64) ([]string, error) {
+	rows, err := tx.QueryContext(ctx,
+		`SELECT name FROM tags WHERE id = ?
+		 UNION SELECT alias FROM entity_aliases WHERE entity_type = ? AND entity_id = ?`,
+		tagID, model.EntityTag, tagID)
+	if err != nil {
+		return nil, fmt.Errorf("tag spellings: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // DetachTagFromVideo removes tagID's link to videoID. ErrNotFound if the tag isn't
 // currently attached to the video — surfaced, not a silent no-op, so the owner UI
 // can tell a stale chip apart from a real removal.
+//
+// The removal also suppresses the tag's name and aliases in the video's genres
+// (HOLODEX-614), in the same transaction: otherwise the raw genres union — the file's
+// own Genre, a provider's genres — puts it straight back into the write set, and the
+// next enrich attaches it again. AttachTagToVideo lifts the suppress.
 func (r *Repo) DetachTagFromVideo(ctx context.Context, videoID, tagID int64) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
-	res, err := r.db.ExecContext(ctx,
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // no-op after Commit
+
+	res, err := tx.ExecContext(ctx,
 		`DELETE FROM video_tags WHERE video_id = ? AND tag_id = ?`, videoID, tagID)
 	if err != nil {
 		return fmt.Errorf("detach tag: %w", err)
@@ -178,5 +222,14 @@ func (r *Repo) DetachTagFromVideo(ctx context.Context, videoID, tagID int64) err
 	if n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	spellings, err := tagSpellingsTx(ctx, tx, tagID)
+	if err != nil {
+		return err
+	}
+	for _, s := range spellings {
+		if err := r.setCurationLocked(ctx, tx, model.EnrichEntityVideo, videoID, genresField, s, CurationSuppress); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

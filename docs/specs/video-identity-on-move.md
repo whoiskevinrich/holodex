@@ -40,7 +40,7 @@ duration, which is likely the trace of exactly this.
 ## Non-Goals
 
 - **Renaming or moving files from inside Holodex.** This spec only recognises moves made outside
-  it. An in-app move is a separate feature.
+  it. An in-app rename is [F86](file-rename.md); an in-app move to another folder is deferred there.
 - **Recognising a file that was moved *and* re-encoded.** Changed content is a new file. That is
   acceptable and expected.
 - **Merging two copies that are both present.** Two files with the same content that both exist on
@@ -143,7 +143,8 @@ so that the owner can resolve it by hand, for example by removing a stray copy.
 ### Future Considerations (P2)
 
 - **Moving or renaming from inside Holodex.** Whatever recognises a move should make an in-app move
-  trivial later, as the same identity-preserving step without the matching.
+  trivial later, as the same identity-preserving step without the matching. Renaming is
+  [F86](file-rename.md), which relies on this spec's recognition if a rename stops partway.
 - **A trashed video whose file moves.** Today it would arrive as new, and the trash's eventual
   purge targets a path that no longer exists. That interaction belongs to the delete spec.
 

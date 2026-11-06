@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/url"
 	"strings"
 	"testing"
@@ -13,7 +14,7 @@ func canon(t *testing.T, h *Handlers, raw string) string {
 	if err != nil {
 		t.Fatalf("parse %q: %v", raw, err)
 	}
-	out, err := h.canonicalPlaylistQuery(q)
+	out, err := h.canonicalPlaylistQuery(context.Background(), q)
 	if err != nil {
 		t.Fatalf("canonicalPlaylistQuery(%q): %v", raw, err)
 	}

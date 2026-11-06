@@ -239,6 +239,63 @@ const SCENARIOS = [
 		}
 	},
 	{
+		// F87: a query typed in the nav box opens browse as ?expr=; Back from a video brings
+		// the expr URL, its chips and the scroll back (testing-strategy §38.4).
+		key: 'query-back',
+		qa: '§38.4 · P0-4 · R7/R8',
+		run: async ({ page }) => {
+			await goto(page, `${base}/`);
+			const box = page.locator('#global-search-input');
+			await box.click();
+			await box.fill('-resolution:4K');
+			await box.press('Enter');
+			await page.waitForURL((u) => u.searchParams.has('expr'), { timeout: 5000 }).catch(() => {});
+			const list = here(page);
+			expect(new URL(list, base).searchParams.get('expr') === '-resolution:4K', `Enter landed on ${list}, expected ?expr=-resolution:4K`);
+			await settle(page);
+			expect((await page.locator(CHIP).count()) === 1, 'the query drew no chip');
+			await scrollTo(page, 600);
+			await openVisible(page, MEDIA_CARD, /^\/media\/\d+$/);
+			await backTo(page, list, 600);
+			expect((await page.locator(CHIP).count()) === 1, 'Back lost the query chip');
+		}
+	},
+	{
+		// F86: the File names plan's reason filter lives in the URL (?reason=), so Back from a
+		// video brings the filter and the scroll back (testing-strategy §39.6 W7). The fixture
+		// starts at Off, which shows no plan, so the setup turns Plan on and restores it after.
+		key: 'file-names-filter-survives-back',
+		qa: '§39.6 W7',
+		run: async ({ page }) => {
+			const settings = await (await fetch(`${base}/api/v1/admin/settings`)).json();
+			const put = (key, value) =>
+				fetch(`${base}/api/v1/admin/settings/${key}`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ value })
+				});
+			await put('rename.mode', 'plan');
+			if (settings['rename.templates'] === '[]') await put('rename.templates', '["{title}"]');
+			try {
+				// Clash when the library has one; the stress fixture's videos have no files, so it may not.
+				const plan = await (await fetch(`${base}/api/v1/rename/plan?limit=1`)).json();
+				const reason =
+					plan.counts.clash > 0 ? 'clash' : Object.entries(plan.counts).sort((a, b) => b[1] - a[1])[0][0];
+				const list = `/owner/file-names?reason=${reason}`;
+				await goto(page, `${base}${list}`);
+				await page.waitForSelector('[data-plan-video]', { timeout: 10000 });
+				await scrollTo(page, 600);
+				await openVisible(page, '[data-plan-video]', /^\/media\/\d+$/);
+				await backTo(page, list, 600);
+				const active = await page.locator('[aria-label="Filter by reason"] button[aria-pressed="true"]').count();
+				expect(active === 1, 'Back lost the active reason filter');
+			} finally {
+				await put('rename.mode', settings['rename.mode'] ?? 'off');
+				await put('rename.templates', settings['rename.templates'] ?? '[]');
+			}
+		}
+	},
+	{
 		// An owner-only sort resolves only once the page knows it's the owner. If that lands
 		// after mount, the list key flips, spends Back's snapshot and restarts at the top.
 		key: 'back-restores-owner-only-sort-scroll',

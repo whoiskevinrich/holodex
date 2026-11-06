@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -38,8 +39,10 @@ import (
 	"holodex/internal/personimage"
 	"holodex/internal/purge"
 	"holodex/internal/refresh"
+	"holodex/internal/rename"
 	"holodex/internal/repo"
 	"holodex/internal/scanner"
+	"holodex/internal/settings"
 	"holodex/internal/thumbnail"
 	"holodex/internal/writeback"
 	"holodex/internal/writequeue"
@@ -333,6 +336,12 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	handlers.SetMetadataFields(mappings, cacheBackend)
 	handlers.SetMontages(montages, cfg.MontagePath)
 	handlers.SetEnrichment(enrichSvc)
+	// Owner-settable settings (config-and-settings.md); the rename keys are the first (F86).
+	settingsStore := settings.New(repository, rename.SettingKeys(handlers.RenameProviders)...)
+	if err := settingsStore.Load(ctx); err != nil {
+		log.Warn("settings: stored values not loaded; defaults apply", "err", err)
+	}
+	handlers.SetSettings(settingsStore)
 	sweep := enrich.NewSweepRunner(enrichSvc, repository, log)
 	sweep.SetBaseContext(ctx)
 	handlers.SetSweep(sweep)
@@ -414,6 +423,20 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		postWrite(ctx, id, path)
 		montages.Invalidate(ctx, id)
 	}
+	// File renames (F86) ride the tag-write lane. Their journal is replayed here, beside
+	// RecoverSwaps and before the queue starts (file-rename.md "Boot recovery").
+	if cfg.MediaPath != "" {
+		if n, err := rename.RecoverPending(ctx, repository, cfg.MediaPath); err != nil {
+			log.Warn("rename: journal recovery left rows unsettled", "settled", n, "err", err)
+		} else if n > 0 {
+			log.Info("rename: recovered interrupted renames", "count", n)
+		}
+		renamer := &rename.Executor{Repo: repository, Root: cfg.MediaPath, Plan: handlers.RenamePlanRow}
+		writeQ.SetRename(renamer.Run,
+			func(err error) bool { return errors.Is(err, rename.ErrRequeue) },
+			func(err error) bool { return errors.Is(err, rename.ErrNoop) })
+		handlers.SetRenamer(writeQ)
+	}
 	maintWorker := maintenance.NewWorker(repository, swapper, maintTools, maintEncoders, maintPostWrite, writeQ.Kick, log)
 	handlers.SetMaintenance(maintWorker)
 
@@ -431,7 +454,9 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 		Videos:   repository,
 		Mappings: mappings,
 		Patterns: patterns,
-		Store:    repository,
+		// F86: names Holodex wrote read back with their templates; echoes are not new values.
+		Names: &rename.NameReader{Repo: repository, Current: handlers.RenameTemplateSet},
+		Store: repository,
 		Deps: extract.Deps{
 			Resolver:         repository,
 			ManualSource:     repository,

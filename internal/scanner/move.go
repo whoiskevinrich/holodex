@@ -24,6 +24,7 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 	}
 	cands := make([][]int64, len(st.held))
 	claims := map[int64]int{}
+	oldPaths := map[int64]string{}
 	for i, h := range st.held {
 		rows, err := s.repo.MoveCandidates(ctx, h.v)
 		if err != nil {
@@ -41,6 +42,7 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 			}
 			cands[i] = append(cands[i], c.ID)
 			claims[c.ID]++
+			oldPaths[c.ID] = c.FilePath
 		}
 	}
 	for i, h := range st.held {
@@ -52,6 +54,9 @@ func (s *Scanner) matchHeld(ctx context.Context, st *stats) {
 			}
 			st.recordSeen(c[0])
 			st.incRepointed()
+			if err := s.repo.NoteRepointed(ctx, c[0], oldPaths[c[0]], h.path); err != nil {
+				s.log.Warn("rename journal after repoint failed", "id", c[0], "err", err)
+			}
 			s.log.Info("recognised moved file", "id", c[0], "path", h.path)
 			continue
 		case len(c) > 0:
@@ -86,12 +91,19 @@ func (s *Scanner) foldMoves(ctx context.Context, st *stats) {
 		}
 	}
 	for _, p := range pairs {
+		oldPath, _ := s.repo.PathByID(ctx, p.Older)
 		if err := s.repo.FoldMovedVideo(ctx, p.Older, p.Newer); err != nil {
 			s.log.Warn("healing a moved file failed", "older", p.Older, "newer", p.Newer, "err", err)
 			continue
 		}
 		st.incFolded()
 		s.log.Info("healed moved file", "older", p.Older, "newer", p.Newer)
+		// The survivor now has newer's path; a heal of a Holodex-written name is a hand edit (F86).
+		if newPath, err := s.repo.PathByID(ctx, p.Older); err == nil && oldPath != "" {
+			if err := s.repo.NoteRepointed(ctx, p.Older, oldPath, newPath); err != nil {
+				s.log.Warn("rename journal after heal failed", "id", p.Older, "err", err)
+			}
+		}
 		if s.relink != nil {
 			if err := s.relink(ctx, p.Older); err != nil {
 				s.log.Warn("relink after heal failed", "id", p.Older, "err", err)

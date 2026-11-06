@@ -181,6 +181,14 @@ func (r *Repo) ClearCuration(ctx context.Context, entityType string, entityID in
 // ClearCurations is ClearCuration over several spellings of one decision, under one
 // lock (HOLODEX-555: clearing a person's suppress restores every spelling it covered).
 func (r *Repo) ClearCurations(ctx context.Context, entityType string, entityID int64, fieldKey string, values []string, action string) (int64, error) {
+	r.writeMu.Lock()
+	defer r.writeMu.Unlock()
+	return clearCurationsLocked(ctx, r.db, entityType, entityID, fieldKey, values, action)
+}
+
+// clearCurationsLocked is ClearCurations' implementation, assuming the caller already
+// holds writeMu — shared with AttachTagToVideo's in-transaction suppress lift.
+func clearCurationsLocked(ctx context.Context, ex execer, entityType string, entityID int64, fieldKey string, values []string, action string) (int64, error) {
 	if len(values) == 0 {
 		return 0, nil
 	}
@@ -188,9 +196,7 @@ func (r *Repo) ClearCurations(ctx context.Context, entityType string, entityID i
 	for _, v := range values {
 		args = append(args, curationNorm(v))
 	}
-	r.writeMu.Lock()
-	defer r.writeMu.Unlock()
-	res, err := r.db.ExecContext(ctx, `
+	res, err := ex.ExecContext(ctx, `
 		DELETE FROM metadata_curation
 		WHERE entity_type = ? AND entity_id = ? AND field_key = ? AND action = ?
 		  AND norm_value IN (?`+strings.Repeat(",?", len(values)-1)+`)`, args...)
