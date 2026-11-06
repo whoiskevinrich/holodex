@@ -32,7 +32,7 @@ The owner picks the first and last frames to keep on Media Details. The cut runs
 as the second F77 Maintenance entry, is checked against those frames, and then either replaces the
 original (held for the F77 window) or lands as a new edition item copied from the original.
 
-**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · [handoff](../design/video-trimming-handoff.md) · testing-strategy § pending   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · [handoff](../design/video-trimming-handoff.md) · [testing-strategy §40](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -49,7 +49,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [/] testing `testing-strategy`
 - [ ] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,8 +67,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
-2. [ ] [backend] Trim op, frame checks and edition clone; settle the edition's rename state (proposed: starts with no rename history or lock) in the doc — `docs/architecture/file-maintenance.md`
+1. [ ] [backend] Trim op, frame checks and edition clone; settle the edition's rename state (proposed: starts with no rename history or lock) in the doc — `docs/architecture/file-maintenance.md`
+2. [ ] [testing] Build §40's fixtures and tests alongside the code, then the `make test-image` file proof — `docs/testing-strategy.md`
 3. [ ] [frontend] `TrimPicker`, the review step and the File row — `docs/design/video-trimming-handoff.md`
 4. [ ] [security] `/security-review` of the capture upload and the new maintenance routes — `docs/architecture/security-perimeter.md`
 
@@ -83,8 +83,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-06 · session
-- skills: design-handoff, implement
-- handoff: Crossed into build — design signed off (given at 6af567af, pinned at 59c94fbe, the merge of main that left the trim docs unchanged); Draft PR open. Start at the testing fixture matrix, then the trim op; F86 file rename landed on main, so settle the edition's rename state while building the clone.
+- skills: design-handoff, implement, testing-strategy, handoff
+- handoff: In build on Draft PR #581: design signed off (given at 6af567af, pinned at 59c94fbe, the merge of main that left the trim docs unchanged) and the test plan written as testing-strategy §40, which moved the cut to the midpoint with the real neighbouring frame after half the nominal interval failed on variable-frame-rate video. No code yet; testing stays open until §40's tests pass. Next: the trim op in internal/maintenance, settling the edition's rename state as the clone is built.
 
 ### 2026-11-02 · session
 - skills: architecture

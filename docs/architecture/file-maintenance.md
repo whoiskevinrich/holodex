@@ -296,11 +296,16 @@ Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a7
 
 ## The trim cut: the kept range re-encoded whole, every other stream copied and cut on packets
 
-- **Cut points.** The encode seeks to `in_time − ½ frame` and stops at `out_time + ½ frame`. The frame
-  interval is the source's (`r_frame_rate`), never the browser's. Seeking to the frame's own start time
-  landed one frame late on 4 of 8 MP4 test points, because a timestamp parsed fractionally below the
-  frame's pts discards the frame. The half-frame margin landed exactly on 16 of 16. It also absorbs
-  Matroska's millisecond timestamps, which a browser reports rounded (1.502 for 1.5015).
+- **Cut points.** The encode seeks to the midpoint between the in frame and the frame before it, and
+  stops at the midpoint between the out frame and the frame after it. Both neighbours' times come from
+  the source's own frames (ffprobe around each cut), never from the browser. A cut at the file's first
+  or last frame has no neighbour, so that side gets no seek or stop. Seeking to the frame's own start
+  time landed one frame late on 4 of 8 MP4 test points, because a timestamp parsed fractionally below
+  the frame's pts discards the frame. A half-frame margin landed exactly on 16 of 16 at a constant
+  rate. It also absorbs Matroska's millisecond timestamps, which a browser reports rounded (1.502 for
+  1.5015). The margin is the real gap, not half of `r_frame_rate`'s interval, because frames can sit
+  closer together than that: on a variable-frame-rate MKV with 10 ms gaps at a nominal 25 fps, half
+  the nominal interval landed correctly on 1 of 5 cuts and midpoints on 5 of 5.
 - **Video.** The kept range is re-encoded **whole**, through the F77 encoder table, colour pinning and
   `-fps_mode passthrough`, with no new rows. Accurate input seeking (`-ss` before `-i`) decodes from
   the preceding keyframe and drops frames before the cut.
