@@ -15,6 +15,10 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Trim unwanted footage off the start or end of a video from its details page, frame-accurately in the background, replacing the original or saving the cut as a new edition with all its metadata.  # the ONE user-facing sentence; authored once by /handoff, flows to the
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
+approved:
+  design:
+    on: 2026-11-06
+    at: 59c94fbe
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -63,8 +67,10 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] ⛔ Owner sign-off on the handoff and mockup at `/implement`, which opens the Draft PR — `docs/design/video-trimming-handoff.md`
-2. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
+1. [ ] [testing] Fixture matrix for frame accuracy and edition copy — `docs/testing-strategy.md`
+2. [ ] [backend] Trim op, frame checks and edition clone; settle the edition's rename state (proposed: starts with no rename history or lock) in the doc — `docs/architecture/file-maintenance.md`
+3. [ ] [frontend] `TrimPicker`, the review step and the File row — `docs/design/video-trimming-handoff.md`
+4. [ ] [security] `/security-review` of the capture upload and the new maintenance routes — `docs/architecture/security-perimeter.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -77,8 +83,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-06 · session
-- skills: design-handoff
-- handoff: Design handoff and SVG mockup are committed (two handles, a review step in the same dialog, one File row), so every design-phase gate is settled and the epic is labelled fp:ready-to-build. Next: /implement, which asks the owner to sign off on the mockup and opens the Draft PR.
+- skills: design-handoff, implement
+- handoff: Crossed into build — design signed off (given at 6af567af, pinned at 59c94fbe, the merge of main that left the trim docs unchanged); Draft PR open. Start at the testing fixture matrix, then the trim op; F86 file rename landed on main, so settle the edition's rename state while building the clone.
 
 ### 2026-11-02 · session
 - skills: architecture
