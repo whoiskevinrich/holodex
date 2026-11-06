@@ -50,7 +50,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`
-- [/] security `security-review`
+- [x] security `security-review` — backend reviewed 2026-11-06, no findings; `security-perimeter.md` updated
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -70,8 +70,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 1. [ ] [frontend] `TrimPicker`, the review step and the File row, on the routes in `internal/api/maintenance_trim.go` — `docs/design/video-trimming-handoff.md`
 2. [ ] [design] Add handoff copy for the FLAC and second-video-track refusals and the other-scene failure, then re-confirm the sign-off with the owner — `docs/design/video-trimming-handoff.md`
 3. [ ] [testing] §40.8 mutation pass, §40.6 frontend tests, and a fold test for the trim links — `docs/testing-strategy.md`
-4. [ ] [security] `/security-review` of the capture upload and the new write path — `docs/architecture/security-perimeter.md`
-5. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
+4. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -85,7 +84,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
-- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). CodeQL's path alert on the edition target is answered with an explicit bound on the file name. Next: finish the security review, then the frontend, starting at TrimPicker.
+- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). CodeQL's path alert on the edition target is answered with an explicit bound on the file name. The security review of the backend found nothing above the bar, and the perimeter doc records the new surface; re-run it if the frontend changes a route. Next: the frontend, starting at TrimPicker.
 
 ### 2026-11-02 · session
 - skills: architecture
