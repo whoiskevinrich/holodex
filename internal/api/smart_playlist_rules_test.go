@@ -198,6 +198,21 @@ func TestSmartPlaylistPrivateReferenceIsUnknown(t *testing.T) {
 	}
 }
 
+// P0-2: a request can't page past the cap, with a negative offset or any other.
+func TestSmartPlaylistCapHoldsForAnyOffset(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	base := srv.URL + "/api/v1"
+	seedPlaylistVideos(t, r, 5)
+	capped := namedSmart(t, base, "Newest 2", "tag:amv", map[string]any{"sort": "added_desc", "cap": 2})
+	code, body := getJSONTok(t, base+"/playlists/"+itoa(capped)+"?offset=-100000&limit=10", "s3cret")
+	if code != http.StatusOK {
+		t.Fatalf("%d %v", code, body)
+	}
+	if items, _ := body["items"].([]any); len(items) > 2 {
+		t.Errorf("%d tiles past a cap of 2", len(items))
+	}
+}
+
 // P0-4 / SEC-11: ?check=1 runs every rule of a save and writes nothing, and names the chip
 // a deep problem comes through.
 func TestSmartPlaylistDefinitionCheck(t *testing.T) {

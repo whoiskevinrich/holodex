@@ -42,10 +42,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [/] backend → `{cmd,internal,providers}/**` — all four slices landed (added:, cap, playlist: refs, visibility; resolved_values, field conditions, released:, updated:, the change stamp; plays, watch conditions, the mark); the test items below remain
+- [x] backend → `{cmd,internal,providers}/**` — all four slices landed, with their tests
 - [/] frontend → `web/src/**` — all slices landed (chips, the on-page editor, field suggestions and key glyphs, the watched bar and toggle); the design comparison is due before this gate settles
 - [/] testing `testing-strategy` — strategy is §40 of `docs/testing-strategy.md`; its tests are written in the build
-- [/] security `security-review` — design-stage rules SEC-1–11 committed; slices 2 to 4 reviewed as built; a final review of the whole diff is still due before merge
+- [x] security `security-review` — SEC-1–11 committed; final review of the whole diff on 2026-11-06 found no High or Medium issue; it read the code and ran no exploit
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -63,7 +63,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
 1. [ ] [testing] Owner to run QA 10 to 12: real playback, the mark, a rolling date (the fixture's files don't decode) — `docs/testing-strategy.md` §40.8
-2. [ ] [security] Final review of the whole diff, then compare the built UI with the approved mockups before settling the gates — `docs/design/smart-playlist-rules-handoff.md`
+2. [ ] [frontend] Compare the built UI with the approved mockups with the owner, before settling the gate — `docs/design/smart-playlist-rules-handoff.md`
 3. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -76,8 +76,12 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-11-06 · final security review
+- skills: security-review, handoff
+- handoff: The final security review found nothing High or Medium, and the backend and security gates are settled; a negative offset paging past a cap is fixed. Next: the owner runs QA 10 to 12 on real playback, then compares the built UI with the approved mockups.
+
 ### 2026-11-06 · the remaining §40 tests
-- skills: handoff
+- skills: handoff, security-review
 - handoff: Q6, Q8, A2 depth, R1, R3, the editor component test and the `playlist-edit-back` scenario are in and mutation-checked, so §40's build tests are done; next are the owner's QA 10 to 12 on real playback and the final security review.
 
 ### 2026-11-06 · slice 4: plays, watch conditions, the watched mark

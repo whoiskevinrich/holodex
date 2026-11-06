@@ -496,13 +496,14 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 		limit = 50
 	}
 	limit = min(limit, maxListLimit)
+	offset := max(f.Offset, 0) // a negative one would widen the cap's limit below
 	if f.Cap > 0 {
 		// A page never reaches past the cap: the last page is cut short, and one that
 		// starts beyond it is empty.
-		if f.Offset >= f.Cap {
+		if offset >= f.Cap {
 			return []model.Video{}, total, nil
 		}
-		limit = min(limit, f.Cap-f.Offset)
+		limit = min(limit, f.Cap-offset)
 	}
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
@@ -515,7 +516,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	qArgs := make([]any, 0, len(args)+len(orderArgs)+2)
 	qArgs = append(qArgs, args...)
 	qArgs = append(qArgs, orderArgs...)
-	qArgs = append(qArgs, limit, f.Offset)
+	qArgs = append(qArgs, limit, offset)
 	rows, err := r.db.QueryContext(ctx, q, qArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list videos: %w", err)

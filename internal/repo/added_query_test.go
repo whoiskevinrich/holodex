@@ -91,3 +91,18 @@ func TestVideoFilterCap(t *testing.T) {
 		t.Errorf("page past the cap has %d items", len(page))
 	}
 }
+
+// P0-2: no page reaches past a cap, whatever offset it asks for.
+func TestCapHoldsForAnyOffset(t *testing.T) {
+	r, _, _ := watchFixture(t, 5)
+	ctx := context.Background()
+	for _, tc := range []struct{ offset, want int }{{-100000, 2}, {-1, 2}, {0, 2}, {1, 1}, {2, 0}, {3, 0}} {
+		got, total, err := r.ListVideos(ctx, repo.VideoFilter{Cap: 2, Offset: tc.offset, Limit: 10})
+		if err != nil {
+			t.Fatalf("offset %d: %v", tc.offset, err)
+		}
+		if len(got) != tc.want || total != 2 {
+			t.Errorf("offset %d: %d videos, total %d; want %d, total 2", tc.offset, len(got), total, tc.want)
+		}
+	}
+}
