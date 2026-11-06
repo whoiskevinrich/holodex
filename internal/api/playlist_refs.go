@@ -69,6 +69,11 @@ func (h *Handlers) expandRefs(ctx context.Context, x *refExpansion, n query.Node
 		if err != nil {
 			return nil, err
 		}
+		// Via ends up as the reference in the playlist being read, the one chip the owner
+		// can remove, however deep the problem is: each level up overwrites it.
+		for i := range s {
+			s[i].Via = id
+		}
 		stale = append(stale, s...)
 	}
 	return stale, nil
@@ -120,7 +125,10 @@ func (h *Handlers) expandRef(ctx context.Context, x *refExpansion, id int64, res
 // checkPlaylistDefinition is the save-time half (SEC-11): the definition a create or
 // PATCH would leave behind is expanded as a read would be, and any stale ref refuses the
 // save with that ref named. It writes 400 and returns false on refusal.
-func (h *Handlers) checkPlaylistDefinition(ctx context.Context, w http.ResponseWriter, p *model.Playlist) bool {
+//
+// visibilityOnly is a save that only makes the playlist public, whose refusal is worded
+// for the visibility control rather than the editor (handoff "Visibility refusal").
+func (h *Handlers) checkPlaylistDefinition(ctx context.Context, w http.ResponseWriter, p *model.Playlist, visibilityOnly bool) bool {
 	if !p.Smart() {
 		return true
 	}
@@ -133,59 +141,98 @@ func (h *Handlers) checkPlaylistDefinition(ctx context.Context, w http.ResponseW
 	// stays F75's read-time notice, as before.
 	var stale []staleRef
 	for _, s := range all {
-		if s.Key == query.FieldPlaylist || s.Kind == staleLoop || s.Kind == staleLimit || s.Kind == staleUnstable {
+		if s.Via != 0 || s.Key == query.FieldPlaylist || s.Kind == staleLoop || s.Kind == staleLimit || s.Kind == staleUnstable {
 			stale = append(stale, s)
 		}
 	}
 	if len(stale) == 0 {
 		return true
 	}
-	writeJSON(w, http.StatusBadRequest, map[string]any{"error": h.staleMessage(ctx, stale[0]), "stale_refs": stale})
+	h.nameStaleRefs(ctx, stale)
+	sentence, fix := refusalCopy(stale[0], visibilityOnly)
+	writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "stale_refs": stale})
 	return false
 }
 
-// staleMessage words a refusal for the owner, naming the playlists involved.
-func (h *Handlers) staleMessage(ctx context.Context, s staleRef) string {
-	name := func(v string) string {
-		id, _ := strconv.ParseInt(v, 10, 64)
+// nameStaleRefs fills in the current names of the playlists each ref involves, for the
+// owner's notices and refusals. A visitor's response never carries them.
+func (h *Handlers) nameStaleRefs(ctx context.Context, refs []staleRef) {
+	name := func(id int64) string {
+		if id == 0 {
+			return "this playlist"
+		}
 		if n, ok, err := h.repo.QueryPlaylistName(ctx, id, false); err == nil && ok {
 			return n
 		}
-		return "playlist #" + v
+		return "#" + strconv.FormatInt(id, 10)
 	}
+	for i := range refs {
+		s := &refs[i]
+		if s.Via != 0 {
+			s.ViaName = name(s.Via)
+		}
+		switch {
+		case s.Kind == staleLoop:
+			var names []string
+			for _, v := range strings.Split(s.Value, ",") {
+				id, _ := strconv.ParseInt(v, 10, 64)
+				names = append(names, name(id))
+			}
+			s.Name = strings.Join(names, " → ")
+		case s.Key == query.FieldPlaylist:
+			id, _ := strconv.ParseInt(s.Value, 10, 64)
+			s.Name = name(id)
+		}
+	}
+}
+
+// refusalCopy words a refused definition for the owner, a sentence and how to fix it
+// (handoff "In-editor problem copy"). The limits are the ref's own, never literals here.
+// It reads the names nameStaleRefs filled in.
+func refusalCopy(s staleRef, visibilityOnly bool) (sentence, fix string) {
+	other := s.ViaName
+	if other == "" {
+		other = s.Name
+	}
+	removeChip := "Remove “in: " + other + "”"
+	const removeRef = "Remove a playlist reference."
 	switch s.Kind {
 	case staleLoop:
-		var names []string
-		for _, v := range strings.Split(s.Value, ",") {
-			if v == "0" {
-				names = append(names, "this playlist")
-				continue
-			}
-			names = append(names, name(v))
-		}
-		return "This would make a loop: " + strings.Join(names, " → ") + "."
+		return "This would make a loop: " + s.Name + ".", removeChip + "."
 	case staleLimit:
 		switch s.Key {
 		case "depth":
-			return "Playlists can refer to each other at most " + s.Value + " levels deep."
+			return "Playlists can include each other at most " + s.Value + " deep.", removeRef
 		case "playlists":
-			return "A definition can reach at most " + s.Value + " other playlists."
+			return "A definition can reach at most " + s.Value + " playlists.", removeRef
 		}
-		return "A definition can hold at most " + s.Value + " conditions, counting the playlists it refers to."
+		return "A definition can have at most " + s.Value + " conditions, counting the playlists it includes.",
+			"Simplify the query, or remove a playlist reference."
 	case staleUnstable:
-		return name(s.Value) + " shuffles a capped selection, so it has no fixed contents to refer to."
+		return "“" + s.Name + "” is shuffled and capped, so its contents change every time.",
+			removeChip + ", or give it another sort or no cap."
 	case staleOwnerOnly:
-		if s.Key == query.FieldPlaylist {
-			return "A public playlist can't refer to " + name(s.Value) + ", which is private or uses owner-only conditions."
+		direct := s.Via == 0 || (s.Key == query.FieldPlaylist && s.Value == strconv.FormatInt(s.Via, 10))
+		switch {
+		case s.Key != query.FieldPlaylist:
+			return "This playlist can’t be public: it includes “" + other + "”, which uses owner-only conditions.",
+				removeChip + " from the definition."
+		case !direct:
+			return "This playlist can’t be public: it includes “" + other + "”, which includes a private playlist.",
+				removeChip + " from the definition."
+		case visibilityOnly:
+			return "This playlist can’t be public: it includes “" + other + "”, which is private.",
+				"Make “" + other + "” public first, or remove it from the definition."
 		}
-		return "A public playlist can't use owner-only conditions."
+		return "A public playlist can’t include a private playlist.",
+			removeChip + ", make “" + other + "” public, or make this playlist private."
 	case staleMissing:
 		if s.Key == query.FieldPlaylist {
-			return "This refers to a playlist that was deleted (playlist #" + s.Value + ")."
+			return "This definition refers to a playlist that was deleted.", "Remove “in: #" + s.Value + "”."
 		}
-		return "This refers to something that was deleted."
+		return "This definition refers to something that was deleted.", "Remove that condition."
 	}
-	return "This definition can't be saved."
+	return "This definition can’t be saved.", ""
 }
 
 // referencedBy lists the smart playlists whose definition names id: the delete

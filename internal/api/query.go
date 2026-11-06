@@ -135,8 +135,9 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 	// the same rules a smart playlist's read runs; a reference that can't be read refuses
 	// the query rather than compiling to false and quietly widening a NOT.
 	x := newRefExpansion(0)
-	if err := x.countConds(parsed.Root); err != nil {
-		return &query.Error{Code: query.CodeBadValue, Message: h.staleMessage(ctx, *err)}
+	if s := x.countConds(parsed.Root); s != nil {
+		msg, _ := refusalCopy(*s, false)
+		return &query.Error{Code: query.CodeBadValue, Message: msg}
 	}
 	stale, err := h.expandRefs(ctx, x, parsed.Root, !isOwner)
 	if err != nil {
@@ -145,7 +146,8 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 	if len(stale) > 0 {
 		msg := "This refers to a playlist that can't be shown."
 		if isOwner {
-			msg = h.staleMessage(ctx, stale[0])
+			h.nameStaleRefs(ctx, stale)
+			msg, _ = refusalCopy(stale[0], false)
 		}
 		// A visitor gets no detail: the ref could name a private playlist a public one
 		// reaches (SEC-1).
@@ -160,7 +162,16 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 // it runs the same owner check as /media, so a visitor's `matched:` is refused here too.
 func (h *Handlers) parseQuery(w http.ResponseWriter, r *http.Request) {
 	isOwner := h.auth.authorized(r)
-	q, err := ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), isOwner)
+	var q *query.Query
+	var err error
+	if isOwner && r.URL.Query().Get("stored") != "" {
+		// A stored definition is already canonical (ids): it is parsed, never re-bound, so
+		// a deleted entity reads as itself, marked missing, not as a name of those digits
+		// (F89 "in: #14"). The owner's only: a visitor never sees a definition.
+		q, err = query.Parse(r.URL.Query().Get("expr"))
+	} else {
+		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), isOwner)
+	}
 	if err != nil {
 		h.writeQueryError(w, "parse query", err)
 		return

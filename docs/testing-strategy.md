@@ -6381,14 +6381,14 @@ and the mark, `internal/mcp/mcp_test.go` for `search_videos`.
 | W1 | `web/src/lib/components/sort/queryChips.test.ts` | Chip labels from the handoff table: `added: last 30 days`, `not in: ‹name›`, `released: 2026`, `plays: 3 or more`, pluralisation (`last 1 day`, `last 2 weeks`), a deleted reference as `in: #{id}` marked `problem`. | P0-1, P0-3 |
 | W2 | `queryChips.test.ts` | The key glyph comes from the field's visibility in the response: a hidden field gets it, the same field made visible loses it, with no hard-coded list. Read-only mode renders no × and no tab stop. | P0-5, P0-6 |
 | W3 | `web/src/lib/playCount.test.ts` (new, pure module) | **What counts as a play** (owner's choice, 2026-11-02: watched time, not position). Watching the first minutes: no post. Seeking to the end: no post. Playing through, then seeking within the last 10%: one post. Playing twice: two posts. Exactly one post per counted play, never a heartbeat. With no owner session the module posts nothing. | P0-7, SEC-9 (risk 8) |
-| W4 | `web/src/lib/smartDefinitionDraft.test.ts` (new, the editor's draft state) | Seeds from the stored query, sort and cap; Save is withheld while the text is invalid or a visibility problem holds; Cancel and navigation ask only when the draft differs; Play all reads the saved definition; `#edit` opens the mode; an old `#edit_playlist=` link lands on the playlist with the mode open. | P0-4 |
+| W4 | `web/src/lib/playlistDefinition.test.ts` (the editor's pure rules; the flows below that need the component are `[agent]` QA until a component test covers them) | Seeds from the stored query, sort and cap; Save is withheld while the text is invalid or a visibility problem holds; Cancel and navigation ask only when the draft differs; Play all reads the saved definition; `#edit` opens the mode; an old `#edit_playlist=` link lands on the playlist with the mode open. | P0-4 |
 | W5 | `web/src/lib/components/video/VideoCard.svelte.test.ts` (new) | The watched bar renders only when the API sends the watched fact, and the card never reads `isOwner`; the accessible name gains `, watched`. | P0-9 |
 
 ### 40.7 Nav harness
 
 One scenario, `--only playlist-edit-back`, under `backend-stress-open-9600` + `web-9600`: open a
-smart playlist, open Edit definition, change the query, open a preview tile, press Back. The mode,
-the draft and the scroll position come back; nothing is saved. Take a baseline on `main` first
+smart playlist, open Edit definition, open a preview tile, press Back: the mode comes back. With a
+changed draft, opening the tile asks first (P0-4), and Keep editing keeps the draft; nothing is saved. Take a baseline on `main` first
 (the playlist page has no harness scenario today).
 
 ### 40.8 QA checklist (`[smoke]` / `[agent]` / `[human]`)

@@ -258,6 +258,7 @@ referenced playlist shows.
 - `added:` reads `videos.added_at`, set on insert only and backfilled from `indexed_at`. Relative
   dates are kept as written and bound at compile time from `VideoFilter.Now`, in whole days of the
   server's zone.
+- The editor asks whether a draft would save with `PATCH /playlists/{id}?check=1`: every rule of the save runs and nothing is written, so there is no second copy of the rules and no new route (SEC-11).
 
 **Rejected:** materialising a smart playlist's membership for references. It would need a refresh
 on every input change, the problem the resolved-values index solves for fields. **Rejected:** the

@@ -16,7 +16,7 @@ release_note: Smart playlists can now filter by relative dates, other playlists,
 approved:                    # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
   design:                    # artifact is committed; THIS means the owner looked and said yes. Written
     on: 2026-11-02           # only by /implement (which asks) or /handoff (for a yes given this session);
-    at: c8f301b1             # `at` is the commit the yes was given against — change the artifact after it
+    at: e91f3aee             # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 ---
 
@@ -43,7 +43,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [/] backend → `{cmd,internal,providers}/**` — slice 1 landed (added:, cap, playlist: refs, visibility); slices 3–4 to go
-- [/] frontend → `web/src/**` — slice 1 chips and readout only; the on-page editor is slice 2
+- [/] frontend → `web/src/**` — slices 1–2 landed (chips, the on-page editor); key glyphs for fields and the watched mark come with slices 3–4
 - [/] testing `testing-strategy` — strategy is §40 of `docs/testing-strategy.md`; its tests are written in the build
 - [/] security `security-review` — design-stage rules SEC-1–11 committed; a review of the built diff is still due before merge
 
@@ -62,10 +62,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] Slice 2: the on-page definition editor with the Cap control (P0-4), replacing browse edit mode — `web/src/routes/playlists/[id]/+page.svelte`
-2. [ ] [backend] Slice 3: `resolved_values` index, field conditions (P0-6), `released:` and `updated:` with the changed_at stamp from the drain — `internal/repo/`
-3. [ ] [backend] Slice 4: plays, watch conditions and the watched mark (P0-7 to P0-9) — `docs/architecture/watch-history.md`
-4. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+1. [ ] [backend] Slice 3: `resolved_values` index, field conditions (P0-6), `released:` and `updated:` with the changed_at stamp from the drain — `internal/repo/`
+2. [ ] [backend] Slice 4: plays, watch conditions and the watched mark (P0-7 to P0-9) — `docs/architecture/watch-history.md`
+3. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+4. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
 5. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -77,6 +77,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-06 · slice 2: the on-page definition editor
+- skills: code-review, handoff
+- handoff: Slice 2 is in: Edit definition on the playlist page with query field, chips, Filters, Sort, Cap, live preview and an unsaved-changes guard, browse's edit mode gone, owner sees read-only chips, visitors none; next is slice 3, the resolved_values index.
 
 ### 2026-11-02 · architecture: resolved-value index, watch history; testing strategy §40
 - skills: architecture, testing-strategy (own session), handoff, implement, code-review, security-review

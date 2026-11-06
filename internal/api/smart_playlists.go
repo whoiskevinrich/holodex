@@ -125,6 +125,11 @@ type staleRef struct {
 	Kind  string `json:"kind"`
 	Key   string `json:"key,omitempty"`
 	Value string `json:"value,omitempty"`
+	// Via is the reference in the playlist being read that a problem came through: the
+	// one chip the owner can remove. Name and ViaName are the current names, owner only.
+	Via     int64  `json:"via,omitempty"`
+	Name    string `json:"name,omitempty"`
+	ViaName string `json:"via_name,omitempty"`
 }
 
 // smartPlaylistFilter turns a smart playlist into the filter its read runs (ADR-121 D3):

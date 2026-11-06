@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -131,6 +132,9 @@ type DisplayNode struct {
 	Lo    int64         `json:"lo,omitempty"`
 	Hi    int64         `json:"hi,omitempty"`
 	Label string        `json:"label,omitempty"` // the entity's current name, the provider, or the word
+	// Missing: the entity no longer exists. Only a stored definition reaches this, since
+	// canonicalising refuses an unknown id.
+	Missing bool `json:"missing,omitempty"`
 }
 
 // Display builds the display tree of a canonical query, naming each entity by its
@@ -164,6 +168,8 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 			}
 			if ok {
 				d.Label = name
+			} else {
+				d.Label, d.Missing = "#"+strconv.FormatInt(t.ID, 10), true
 			}
 		}
 	}

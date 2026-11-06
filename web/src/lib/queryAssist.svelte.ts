@@ -1,6 +1,7 @@
 // Nav search query mode (F87, query-language-handoff.md "States and interactions"): the
 // debounced server parse that drives the error echo, the suggestions for the field under
-// the caret, and the highlighted row. One instance, owned by the nav box.
+// the caret, and the highlighted row. The nav box owns `queryAssist`; a page-owned field
+// (sort/QueryField, the playlist editor) makes its own, so it never touches the nav box's.
 import { api } from './api';
 import { toMessage } from './format';
 import { caretContext, fieldsFor, insertAt, quoteValue, type QueryError, type QueryParseResult } from './query';
@@ -22,6 +23,7 @@ const SUGGEST_MS = 150;
 const CAP = 8;
 
 const DURATION_HINTS = ['<2m', '>1h', '20m..1h'];
+const DATE_HINTS = ['<30d', '<6mo', '>1y', '2026-01..2026-06'];
 const RESOLUTIONS = ['SD', 'HD', 'FHD', '4K'];
 const HEADINGS: Record<string, string> = {
 	tag: 'Tags',
@@ -30,10 +32,12 @@ const HEADINGS: Record<string, string> = {
 	category: 'Categories',
 	resolution: 'Resolution',
 	duration: 'Duration',
+	added: 'Added',
+	playlist: 'Playlists',
 	matched: 'Providers'
 };
 
-class QueryAssist {
+export class QueryAssist {
 	parse = $state<QueryParseResult | null>(null);
 	/** The text `parse` answered for: its offsets slice this text, not a newer one. */
 	parsedText = $state('');
@@ -49,6 +53,7 @@ class QueryAssist {
 	private parseSeq = 0;
 	private suggestSeq = 0;
 	private providers: string[] | null = null;
+	private playlists: string[] | null = null;
 
 	/** The parse error for text, or null while text's own parse hasn't answered. */
 	errorFor(text: string): QueryError | null {
@@ -138,6 +143,15 @@ class QueryAssist {
 					case 'duration':
 						rows = DURATION_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
 						break;
+					case 'added':
+						rows = DATE_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
+						break;
+					case 'playlist':
+						// The server lists what this reader may name: a visitor, public ones only.
+						// Read once per query session: the list re-counts every smart playlist.
+						this.playlists ??= (await api.listPlaylists()).items.map((x) => x.name);
+						rows = this.playlists.filter((x) => x.toLowerCase().includes(p.toLowerCase())).map((x) => at(x));
+						break;
 					case 'matched':
 						if (isOwner) {
 							this.providers ??= (await api.providers()).providers.map((x) => x.name);
@@ -177,6 +191,7 @@ class QueryAssist {
 		clearTimeout(this.suggestTimer);
 		this.parseSeq++;
 		this.suggestSeq++;
+		this.playlists = null;
 		this.parse = null;
 		this.parsedText = '';
 		this.suggestions = [];

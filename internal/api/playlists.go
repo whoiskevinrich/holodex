@@ -120,6 +120,8 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 				// detail that could name a private playlist (SEC-1, RD10).
 				redactPlaylist(p)
 				stale = []staleRef{{Kind: staleOwnerOnly}}
+			} else {
+				h.nameStaleRefs(r.Context(), stale)
 			}
 			out["stale_refs"], out["items"], out["ids"], out["total"] = stale, []model.Video{}, []int64{}, 0
 			writeJSON(w, http.StatusOK, out)
@@ -191,7 +193,7 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 // redactPlaylist withholds a smart playlist's definition from a visitor (F89 P0-5,
 // RD10): the name, count, sort and that it updates automatically, never its query.
 func redactPlaylist(p *model.Playlist) {
-	p.Query, p.QueryVersion = nil, nil
+	p.Query, p.QueryVersion, p.Cap = nil, nil, nil
 }
 
 // writePlaylist answers a mutation with the playlist as the owner now sees it.
@@ -267,13 +269,20 @@ func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, r *http.Request, b 
 // public one can't hold: `manual` sort on a smart playlist (no position, RD4), and
 // owner-only inputs — a completeness sort or a missing_facet query — on a public one
 // (ADR-121 D4). Called with the state a create or PATCH would leave behind.
-func checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string) bool {
+//
+// visibilityOnly words the refusal for the visibility control (F89 handoff).
+func checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string, visibilityOnly bool) bool {
 	if query != nil && sort == model.PlaylistSortManual {
 		writeError(w, http.StatusBadRequest, "a smart playlist can't use the manual sort")
 		return false
 	}
 	if visibility == model.PlaylistPublic && usesOwnerOnlyInputs(sort, query) {
-		writeError(w, http.StatusBadRequest, "a public playlist can't use owner-only filters or sorts")
+		sentence := "A public playlist can’t use owner-only conditions."
+		fix := "Remove the owner-only condition or sort, or make the playlist private."
+		if visibilityOnly {
+			sentence, fix = "This playlist can’t be public: it uses owner-only conditions.", "Edit the definition to remove them."
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "owner_only": true})
 		return false
 	}
 	return true
@@ -388,10 +397,10 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "only a smart playlist has a cap")
 		return
 	}
-	if !checkSmartPlaylistState(w, sort, visibility, b.Query) {
+	if !checkSmartPlaylistState(w, sort, visibility, b.Query, false) {
 		return
 	}
-	if !h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{Sort: sort, Visibility: visibility, Query: b.Query, Cap: b.Cap.Value}) {
+	if !h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{Sort: sort, Visibility: visibility, Query: b.Query, Cap: b.Cap.Value}, false) {
 		return
 	}
 	cap := 0
@@ -462,15 +471,23 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	// A rename or always-shuffle toggle changes none of these, so it doesn't re-judge a
 	// state that predates the rule (an F69 public playlist on a completeness sort).
 	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil || b.Cap.Set
-	if touchesState && !checkSmartPlaylistState(w, sort, visibility, query) {
+	visibilityOnly := b.Visibility != nil && b.Query == nil && b.Sort == nil && !b.Cap.Set
+	if touchesState && !checkSmartPlaylistState(w, sort, visibility, query, visibilityOnly) {
 		return
 	}
 	// Every save that changes what the playlist evaluates re-runs the whole check, its
 	// references included, going public too (SEC-11). Going private always succeeds:
 	// whatever referred to it goes stale instead (SEC-3).
-	goingPrivate := b.Visibility != nil && *b.Visibility == model.PlaylistPrivate && b.Query == nil && b.Sort == nil && !b.Cap.Set
+	goingPrivate := visibilityOnly && *b.Visibility == model.PlaylistPrivate
 	if touchesState && !goingPrivate &&
-		!h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{ID: id, Sort: sort, Visibility: visibility, Query: query, Cap: capped}) {
+		!h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{ID: id, Sort: sort, Visibility: visibility, Query: query, Cap: capped}, visibilityOnly) {
+		return
+	}
+	// ?check=1 is the editor asking whether a draft would save (F89 P0-4): every rule
+	// above has run, and nothing is written. It adds no route and no way to change a
+	// playlist (SEC-11).
+	if r.URL.Query().Get("check") != "" {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 		return
 	}
 	err = h.repo.UpdatePlaylist(r.Context(), id, repo.PlaylistPatch{

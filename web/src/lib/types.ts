@@ -758,6 +758,20 @@ export interface PlaylistStaleRef {
 	kind: 'missing' | 'unknown_key' | 'owner_only' | 'invalid' | 'loop' | 'limit' | 'unstable';
 	key?: string;
 	value?: string;
+	/** The reference in this playlist the problem came through: the chip to remove. */
+	via?: number;
+	/** Current names, for the owner's copy: a loop's whole path, or the playlist at fault. */
+	name?: string;
+	via_name?: string;
+}
+
+/** A refused save's error body (F89 handoff "In-editor problem copy"). */
+export interface PlaylistRefusal {
+	error: string;
+	fix?: string;
+	/** The definition's own owner-only condition. */
+	owner_only?: boolean;
+	stale_refs?: PlaylistStaleRef[];
 }
 
 export interface PlaylistResponse {

@@ -120,17 +120,17 @@ func TestSmartPlaylistReferences(t *testing.T) {
 	}
 
 	// B → A would close a loop: refused, naming both.
-	code, resp := patchTok(t, base+"/playlists/"+itoa(b), "s3cret", map[string]any{"query": "expr=" + url.QueryEscape("playlist:" + itoa(a))})
+	code, resp := patchTok(t, base+"/playlists/"+itoa(b), "s3cret", map[string]any{"query": "expr=" + url.QueryEscape("playlist:"+itoa(a))})
 	if code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "loop") || !strings.Contains(resp["error"].(string), "Odd amv") {
 		t.Errorf("loop save: %d %v", code, resp)
 	}
-	if code, _ := patchTok(t, base+"/playlists/"+itoa(a), "s3cret", map[string]any{"query": "expr=" + url.QueryEscape("playlist:" + itoa(a))}); code != http.StatusBadRequest {
+	if code, _ := patchTok(t, base+"/playlists/"+itoa(a), "s3cret", map[string]any{"query": "expr=" + url.QueryEscape("playlist:"+itoa(a))}); code != http.StatusBadRequest {
 		t.Errorf("self-reference save: %d, want 400", code)
 	}
 
 	// A Random + capped target has no fixed contents.
 	shuffled := namedSmart(t, base, "Shuffled 2", "tag:amv", map[string]any{"sort": "random", "cap": 2})
-	if code, resp := postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "x", "query": "expr=" + url.QueryEscape("playlist:" + itoa(shuffled))}); code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "no fixed contents") {
+	if code, resp := postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "x", "query": "expr=" + url.QueryEscape("playlist:"+itoa(shuffled))}); code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "shuffled and capped") {
 		t.Errorf("ref to random+cap: %d %v", code, resp)
 	}
 	// Given Random + cap later, its referrer reads stale (RD13).
@@ -165,8 +165,8 @@ func TestSmartPlaylistReferenceDepth(t *testing.T) {
 	if ids, _ := plIDs(t, base, prev, "s3cret"); len(ids) != 2 {
 		t.Errorf("4 deep: %v, want both videos", ids)
 	}
-	code, resp := postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "p5", "query": "expr=" + url.QueryEscape("playlist:" + itoa(prev))})
-	if code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "4 levels") {
+	code, resp := postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "p5", "query": "expr=" + url.QueryEscape("playlist:"+itoa(prev))})
+	if code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "at most 4 deep") {
 		t.Errorf("5 deep: %d %v", code, resp)
 	}
 }
@@ -195,6 +195,61 @@ func TestSmartPlaylistPrivateReferenceIsUnknown(t *testing.T) {
 	}
 	if code, _ := getJSONTok(t, base+"/media?expr="+url.QueryEscape("playlist:"+itoa(priv)), "s3cret"); code != http.StatusOK {
 		t.Errorf("owner reference: %d", code)
+	}
+}
+
+// P0-4 / SEC-11: ?check=1 runs every rule of a save and writes nothing, and names the chip
+// a deep problem comes through.
+func TestSmartPlaylistDefinitionCheck(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	base := srv.URL + "/api/v1"
+	seedPlaylistVideos(t, r, 2)
+	inner := namedSmart(t, base, "Inner", "tag:even", nil)
+	middle := namedSmart(t, base, "Middle", "playlist:"+itoa(inner), nil)
+	outer := namedSmart(t, base, "Outer", "tag:amv", nil)
+	url1 := base + "/playlists/" + itoa(outer)
+	draft := "expr=" + url.QueryEscape("-playlist:"+itoa(middle))
+
+	code, resp := patchTok(t, url1+"?check=1", "s3cret", map[string]any{"query": draft, "cap": 5})
+	if code != http.StatusOK || resp["ok"] != true {
+		t.Fatalf("clean draft: %d %v", code, resp)
+	}
+	_, body := getJSONTok(t, url1, "s3cret")
+	if pl := body["playlist"].(map[string]any); pl["cap"] != nil || strings.Contains(pl["query"].(string), "playlist") {
+		t.Errorf("check wrote: %v", pl)
+	}
+	if code, _ := patchTok(t, url1+"?check=1", "", map[string]any{"query": draft}); code != http.StatusUnauthorized {
+		t.Errorf("visitor check: %d, want 401", code)
+	}
+	// Inner → Outer would close Outer → Middle → Inner → Outer once saved.
+	patchTok(t, url1, "s3cret", map[string]any{"query": draft})
+	code, resp = patchTok(t, base+"/playlists/"+itoa(inner)+"?check=1", "s3cret", map[string]any{"query": "expr=" + url.QueryEscape("playlist:"+itoa(outer))})
+	refs, _ := resp["stale_refs"].([]any)
+	if code != http.StatusBadRequest || len(refs) != 1 || refs[0].(map[string]any)["kind"] != "loop" ||
+		refs[0].(map[string]any)["via"].(float64) != float64(outer) || resp["fix"] != "Remove “in: Outer”." {
+		t.Errorf("deep loop: %d %v", code, resp)
+	}
+	// Going public through a chain names the direct reference, the chip to remove.
+	code, resp = patchTok(t, url1, "s3cret", map[string]any{"visibility": "public"})
+	if code != http.StatusBadRequest || !strings.Contains(resp["error"].(string), "“Middle”, which is private") {
+		t.Errorf("public via private: %d %v", code, resp)
+	}
+}
+
+// A stored definition parses as itself: a deleted reference is marked, not re-read as a
+// name, and only for the owner.
+func TestQueryParseStored(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	base := srv.URL + "/api/v1"
+	seedPlaylistVideos(t, r, 1)
+	expr := url.QueryEscape("playlist:987654")
+	code, body := getJSONTok(t, base+"/query/parse?stored=1&expr="+expr, "s3cret")
+	tree, _ := body["tree"].(map[string]any)
+	if code != http.StatusOK || tree["missing"] != true || tree["label"] != "#987654" {
+		t.Errorf("stored as owner: %d %v", code, body)
+	}
+	if code, _ := getJSONTok(t, base+"/query/parse?stored=1&expr="+expr, ""); code != http.StatusBadRequest {
+		t.Errorf("stored as visitor: %d, want the normal unknown-name 400", code)
 	}
 }
 

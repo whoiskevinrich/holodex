@@ -39,14 +39,14 @@ describe('F89 chip labels', () => {
 		const pl: QueryNode = { kind: 'cond', field: 'playlist', op: '=', value: '4', id: 4, label: 'Favourites', expr: 'playlist:4' };
 		expect(condLabel(added)).toBe('added: last 30 days');
 		expect(condLabel(pl)).toBe('in: Favourites');
-		expect(toChips(fill(not(pl)))).toEqual({ kind: 'chips', items: [{ kind: 'chip', chip: { label: 'not in: Favourites', negated: true, path: [] } }] });
+		expect(toChips(fill(not(pl)))).toMatchObject({ kind: 'chips', items: [{ kind: 'chip', chip: { label: 'not in: Favourites', negated: true, path: [] } }] });
 	});
 });
 
 describe('toChips (W1)', () => {
 	it('draws a plain AND as plain chips', () => {
 		const m = toChips(fill(and(comedy, { kind: 'cond', field: 'duration', op: '<', lo: 120, expr: 'duration:<120s' })));
-		expect(m).toEqual({
+		expect(m).toMatchObject({
 			kind: 'chips',
 			items: [
 				{ kind: 'chip', chip: { label: 'comedy', negated: false, path: [0] } },
@@ -66,7 +66,7 @@ describe('toChips (W1)', () => {
 			expect(group.members.map((s) => s.map((c) => c.label))).toEqual([['science-fiction', 'fantasy'], ['action']]);
 			expect(groupLabel(group.members)).toBe('science-fiction and fantasy, or action');
 		}
-		expect(notChip).toEqual({ kind: 'chip', chip: { label: 'not comedy', negated: true, path: [1] } });
+		expect(notChip).toMatchObject({ kind: 'chip', chip: { label: 'not comedy', negated: true, path: [1] } });
 		expect(fordChip.kind === 'chip' && fordChip.chip.label).toBe('Harrison Ford');
 	});
 
