@@ -6409,8 +6409,9 @@ well; it isn't restated here.
 4. `[agent]` **Loop and caps.** Reference A from B, then try to reference B from A: refused,
    naming `A → B → A`. Build a 5-deep chain: the fifth save is refused naming the limit 4.
 5. `[agent]` **Resolved field.** On a video whose director came only from `provider-1`,
-   `director:` matches it. Switch that field's source decision to the file's value and reload the
-   playlist: membership follows the decision.
+   `director:` matches it. On a video whose title came from `provider-1`, switch that field's source
+   decision to the file's value and reload the playlist: membership follows the decision. (Director
+   is a merged list, so it takes no decision.)
 6. `[agent]` **Visibility.** Make a playlist using `watched:` public: refused with the owner-only
    copy. Make a public playlist reference a private one: refused naming the private one. Make a
    referenced public playlist private: it succeeds, and its public referrer shows the
@@ -6473,9 +6474,13 @@ well; it isn't restated here.
 
 ### 40.11 Standing gaps
 
-- **Where `updated` comes from.** RD2 defines it as the last change in Holodex, but no
-  architecture section says what stamps it. Add a case to R2's table, one row per write path, once
-  the build picks the mechanism.
+- **R1, the resolver-input cross-check,** isn't built. The trigger list is pinned by §4's test, and
+  R2 covers the write paths one at a time, so a new input table would only be caught if it gets a
+  row there.
+- **Mark-all events (R3)** beyond a mapping reload are untested here: they share
+  `MarkAllCompletenessDirty`, which §4 covers.
+- **`/query/values`** doesn't drain, so a brand-new value is offered from the next read that does.
+- **`search_videos` (MCP)** has no drain, so it refuses mapped fields, `updated:` and `released:`.
 - **Performance.** No case times a 16-playlist, 256-condition expansion on the `-big` fixture, or
   `GET /playlists` re-counting every smart playlist (SEC-5's accepted cost). Add one if either is
   reported slow.

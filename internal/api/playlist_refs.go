@@ -251,7 +251,7 @@ func (h *Handlers) referencedBy(ctx context.Context, id int64) ([]map[string]any
 		if err != nil || q.Get("expr") == "" {
 			continue
 		}
-		expr, err := query.Parse(q.Get("expr"))
+		expr, err := query.ParseStored(q.Get("expr"), nil)
 		if err != nil {
 			continue
 		}

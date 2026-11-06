@@ -226,8 +226,9 @@ sees the definition as read-only chips. A public playlist may use only what a vi
 by name (*Concepts*), and matches what the video's field list shows.
 - [ ] `director:"Ridley Scott"` matches a video whose director comes only from provider-1, and one
       whose director comes only from its file tags.
-- [ ] A video where the owner chose the file's value over provider-1's matches on the file's value
-      only; the losing provider value never matches.
+- [ ] A video where the owner chose the file's title over provider-1's matches on the file's title
+      only; the losing provider value never matches. A person-linked field such as director is a
+      list that holds every source's values, as the field list shows, so it takes no such choice.
 - [ ] Changing a field's source decision changes which playlists the video is in, the next time
       they're read.
 - [ ] Suggestions after `director:` offer existing values. A field hidden from visitors is owner-only

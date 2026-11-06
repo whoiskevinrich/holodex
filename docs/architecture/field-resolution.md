@@ -243,21 +243,23 @@ composes with F87's other conditions under AND, OR and NOT, and count, sort, off
 `/media/ids` stay SQL. Like the completeness store it is a cache, never a source of truth: the
 media detail page still resolves live.
 
-- **Which fields.** Only fields the registry allowlists as queryable are indexed. `_`-prefixed keys
-  never are (SEC-8). Dates are stored as ISO-8601 text, so a range compares lexically.
+- **Which fields.** Mapped fields only, less `_`-prefixed keys (SEC-8), computed fields, images and
+  names the query language keeps for itself. Dates are stored as `YYYY-MM-DD`, so a range compares
+  lexically; a year or year-month stands for its first day.
 - **Invalidation.** It reuses the completeness triggers and `completeness_dirty` rather than adding
   a second dirty set. A drain runs the resolver once per dirty video and rewrites both caches from
   that one pass. Mark-all events (mapping reload, promotion, claim, hint, trust-order change, the
   boot fingerprint) cover both.
 - **Drain.** Draining the dirty set before evaluation applies to any query whose expression holds a
-  resolved condition, including a visitor's. That is the one exception to "visitors never drain";
+  resolved condition or `updated:`, or that sorts by Updated, including a visitor's. That is the one exception to "visitors never drain";
   the work is the same idempotent recompute under `writeMu`. While the boot background drain
   runs, request-path drains return at once and the query reads the index as it is.
 - **The change stamp.** `videos.changed_at` (`updated:` and the Updated sort, F89 RD2) is set by
-  the drain when a video's recomputed rows differ from the stored ones, and when `indexed_at`
-  moves. It changes only when something actually changed. Triggers can't do that: a rescan
-  of an unchanged file deletes and re-inserts its file-tag and Tag rows, and a provider
-  refresh can rewrite identical values.
+  the drain when `videos.change_sig` differs: a fingerprint of the video's links, enrichment, curation
+  and decisions, without timestamps or `_` keys. `UpsertVideo` sets it when the file changed, as it
+  does `indexed_at`; what's read from an unchanged file stays out of the fingerprint. Triggers can't
+  do this: a rescan of an unchanged file deletes and re-inserts its Tag rows, and a provider refresh
+  can rewrite identical values. The first fingerprint moves nothing, so the backfill leaves the library alone.
 
 **Rejected:** resolving in memory after SQL narrows the candidates. It's always exact, but a query
 whose only condition is resolved resolves the whole library on every read. SQL also can't count,
@@ -266,7 +268,8 @@ sort or page what Go filters afterwards, so it needs a second evaluator for the 
 values that lost to another source, which SEC-8 forbids. **Rejected:** refreshing at each write
 site. There are about 30 of them, the same reason the completeness store rejected it.
 **Rejected:** stamping `changed_at` from triggers on every input table. Unchanged rescans and
-refreshes would mark untouched videos as updated.
+refreshes would mark untouched videos as updated. **Rejected:** comparing the resolved rows. A Tag
+or a losing provider value wouldn't count, and a mapping edit would stamp the whole library.
 
 Decided in: pending squash (HOLODEX-619).
 

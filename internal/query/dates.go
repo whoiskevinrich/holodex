@@ -218,6 +218,29 @@ func Bounds(c *Cond, now time.Time, loc *time.Location) (lo, hi time.Time, ok bo
 	return d.in(loc), d.end(loc), true
 }
 
+// NormValue is a resolved value as the index stores it (field-resolution.md): a date as
+// YYYY-MM-DD, so a range compares lexically, with a year or year-month standing for its
+// first day; anything else lower-cased with its whitespace collapsed. ok is false when
+// it has nothing to index: blank, or a date that isn't one.
+func NormValue(kind, raw string) (string, bool) {
+	s := strings.ToLower(strings.Join(strings.Fields(raw), " "))
+	if kind != KindDate {
+		return s, s != ""
+	}
+	switch {
+	case len(s) > 10:
+		s = s[:10]
+	case len(s) == 7:
+		s += "-01"
+	case len(s) == 4:
+		s += "-01-01"
+	}
+	if d, ok := parseAbsDate(s); ok && d.days == 1 {
+		return s, true
+	}
+	return "", false
+}
+
 // DateLabel is a date condition in words, for its chip: `last 30 days`, `over 2
 // weeks ago`, `2026`, `2026-01 to 2026-06`, `before 2026`.
 func DateLabel(c *Cond) string {

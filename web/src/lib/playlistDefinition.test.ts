@@ -80,6 +80,12 @@ describe('problems and their chips', () => {
 		expect(missingProblem(model)).toBeNull();
 	});
 
+	it('words a condition on a field gone from the mapping', () => {
+		const m = toChips({ kind: 'cond', field: 'director', op: '=', value: 'x', label: 'x', expr: 'director:x', missing: true });
+		expect(missingProblem(m)?.sentence).toBe('This definition filters on a field that no longer exists.');
+		expect(chipAtFault(allChips(m)[0], null)).toBe(true);
+	});
+
 	it('words a server error with no body as itself', () => {
 		expect(toProblem(new Error('offline'), null).sentence).toBe('offline');
 	});

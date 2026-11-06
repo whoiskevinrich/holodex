@@ -271,12 +271,12 @@ func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, r *http.Request, b 
 // (ADR-121 D4). Called with the state a create or PATCH would leave behind.
 //
 // visibilityOnly words the refusal for the visibility control (F89 handoff).
-func checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string, visibilityOnly bool) bool {
+func (h *Handlers) checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string, visibilityOnly bool) bool {
 	if query != nil && sort == model.PlaylistSortManual {
 		writeError(w, http.StatusBadRequest, "a smart playlist can't use the manual sort")
 		return false
 	}
-	if visibility == model.PlaylistPublic && usesOwnerOnlyInputs(sort, query) {
+	if visibility == model.PlaylistPublic && h.usesOwnerOnlyInputs(sort, query) {
 		sentence := "A public playlist can’t use owner-only conditions."
 		fix := "Remove the owner-only condition or sort, or make the playlist private."
 		if visibilityOnly {
@@ -397,7 +397,7 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "only a smart playlist has a cap")
 		return
 	}
-	if !checkSmartPlaylistState(w, sort, visibility, b.Query, false) {
+	if !h.checkSmartPlaylistState(w, sort, visibility, b.Query, false) {
 		return
 	}
 	if !h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{Sort: sort, Visibility: visibility, Query: b.Query, Cap: b.Cap.Value}, false) {
@@ -472,7 +472,7 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	// state that predates the rule (an F69 public playlist on a completeness sort).
 	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil || b.Cap.Set
 	visibilityOnly := b.Visibility != nil && b.Query == nil && b.Sort == nil && !b.Cap.Set
-	if touchesState && !checkSmartPlaylistState(w, sort, visibility, query, visibilityOnly) {
+	if touchesState && !h.checkSmartPlaylistState(w, sort, visibility, query, visibilityOnly) {
 		return
 	}
 	// Every save that changes what the playlist evaluates re-runs the whole check, its

@@ -89,9 +89,10 @@ func (r QueryResolver) Suggest(ctx context.Context, kind, name string, n int) ([
 
 // ParseExpr is the whole path from expr text to a runnable query, shared by every entry
 // point: parse (the caps refuse first), the owner check (before any lookup), then
-// canonicalisation. A refused query is a *query.Error.
-func ParseExpr(ctx context.Context, r *repo.Repo, src string, isOwner bool) (*query.Query, error) {
-	q, err := query.Parse(src)
+// canonicalisation. A refused query is a *query.Error. fields is the mapped-field
+// catalogue; with none, naming a mapped field is an unknown field.
+func ParseExpr(ctx context.Context, r *repo.Repo, src string, fields query.Fields, isOwner bool) (*query.Query, error) {
+	q, err := query.ParseWith(src, fields)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 	if strings.TrimSpace(src) == "" {
 		return nil
 	}
-	parsed, err := ParseExpr(ctx, h.repo, src, isOwner)
+	parsed, err := ParseExpr(ctx, h.repo, src, h.queryFields(), isOwner)
 	if err != nil {
 		return err
 	}
@@ -154,6 +155,7 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 		return &query.Error{Code: query.CodeBadValue, Message: msg, Field: query.FieldPlaylist}
 	}
 	f.Expr, f.Refs = parsed.Root, x.refs
+	h.drainForFilter(ctx, f.Expr, "")
 	return nil
 }
 
@@ -168,9 +170,9 @@ func (h *Handlers) parseQuery(w http.ResponseWriter, r *http.Request) {
 		// A stored definition is already canonical (ids): it is parsed, never re-bound, so
 		// a deleted entity reads as itself, marked missing, not as a name of those digits
 		// (F89 "in: #14"). The owner's only: a visitor never sees a definition.
-		q, err = query.Parse(r.URL.Query().Get("expr"))
+		q, err = query.ParseStored(r.URL.Query().Get("expr"), h.queryFields())
 	} else {
-		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), isOwner)
+		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), h.queryFields(), isOwner)
 	}
 	if err != nil {
 		h.writeQueryError(w, "parse query", err)

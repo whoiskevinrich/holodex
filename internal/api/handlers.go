@@ -420,6 +420,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/search", h.search)
 	// F87 query parse: canonical form, display tree and errors for chips and query mode.
 	r.Get("/query/parse", h.parseQuery)
+	r.Get("/query/fields", h.queryFieldList)
+	r.Get("/query/values", h.queryFieldValues)
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
@@ -608,6 +610,7 @@ func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.
 		h.writeQueryError(w, "media filter", err)
 		return f, false
 	}
+	h.drainForFilter(r.Context(), nil, f.Sort)
 	return f, true
 }
 

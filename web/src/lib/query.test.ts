@@ -136,3 +136,23 @@ describe('query-mode lexer (W4)', () => {
 		expect(fieldsFor(true)).toContain('matched');
 	});
 });
+
+describe('mapped fields and the F89 dates', () => {
+	const cond = (x: Partial<QueryNode>): QueryNode => ({ kind: 'cond', expr: '', ...x });
+	it('labels a mapped field by its own label, a date in the server\'s words', () => {
+		expect(condLabel(cond({ field: 'actors', field_label: 'Actors', label: 'Ann Lee' }))).toBe('Actors: Ann Lee');
+		expect(condLabel(cond({ field: 'updated', label: 'last 30 days' }))).toBe('updated: last 30 days');
+		expect(condLabel(cond({ field: 'released', label: '2026' }))).toBe('released: 2026');
+		expect(condLabel(cond({ field: 'director', label: 'gone', missing: true }))).toBe('director: gone');
+	});
+	it('takes the key glyph from the server, with no list of fields', () => {
+		const chipFor = (x: QueryNode) => (toChips(x) as { items: { kind: string; chip: { ownerOnly?: boolean } }[] }).items[0].chip;
+		expect(chipFor(cond({ field: 'container', label: 'x', owner_only: true })).ownerOnly).toBe(true);
+		expect(chipFor(cond({ field: 'director', label: 'x' })).ownerOnly).toBeUndefined();
+	});
+	it('offers the reader\'s mapped fields after the built-ins', () => {
+		expect(fieldsFor(false, ['director'])).toContain('director');
+		expect(fieldsFor(false)).toContain('released');
+		expect(fieldsFor(false)).not.toContain('matched');
+	});
+});

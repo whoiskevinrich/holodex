@@ -32,10 +32,22 @@ type token struct {
 // an input past one is refused before any lookup (security-perimeter.md). Errors are
 // *Error with source offsets. Entity names are not resolved here — see Canonicalize.
 //
+// Parse knows the built-in fields only. ParseWith adds the mapped ones.
+//
 // Grammar, loosest first: or := and (OR and)* ; and := unary ([AND] unary)* ;
 // unary := (- | NOT) unary | primary ; primary := ( or ) | term. Adjacency is AND.
 // OR, AND and NOT are keywords only in upper case; a lowercase `or` is a word.
-func Parse(src string) (*Query, error) {
+func Parse(src string) (*Query, error) { return parse(src, nil, false) }
+
+// ParseWith is Parse with the owner's queryable mapped fields (F89 P0-6).
+func ParseWith(src string, fields Fields) (*Query, error) { return parse(src, fields, false) }
+
+// ParseStored reads a definition already saved. A condition on a field the catalogue
+// doesn't have is kept as KindGone rather than refused, so a field later removed from the
+// mapping is a stale ref naming it, and a merge can rewrite the definition around it.
+func ParseStored(src string, fields Fields) (*Query, error) { return parse(src, fields, true) }
+
+func parse(src string, fields Fields, stored bool) (*Query, error) {
 	if len(src) > MaxBytes {
 		return nil, newError(src, CodeTooLong, fmt.Sprintf("This query is too long to run (over %d characters). Try splitting it.", MaxBytes), MaxBytes, len(src))
 	}
@@ -46,7 +58,7 @@ func Parse(src string) (*Query, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &parser{src: src, toks: toks}
+	p := &parser{src: src, toks: toks, fields: fields, stored: stored}
 	root, err := p.parseOr(0)
 	if err != nil {
 		return nil, err
@@ -109,10 +121,12 @@ func lex(src string) ([]token, error) {
 func isSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\n' || c == '\r' }
 
 type parser struct {
-	src   string
-	toks  []token
-	i     int
-	conds int
+	src    string
+	toks   []token
+	i      int
+	conds  int
+	fields Fields
+	stored bool
 }
 
 func (p *parser) peek() token { return p.toks[p.i] }
@@ -236,13 +250,23 @@ func (p *parser) term(t token) (Node, error) {
 		}
 		return &Word{Text: text, Pos: t.pos, End: t.end}, nil
 	}
-	if !knownFields[field] {
+	spec, mapped := p.fields[field]
+	if !knownFields[field] && !mapped && !p.stored {
 		e := newError(p.src, CodeUnknownField, fmt.Sprintf("%q isn't something you can search by.", field), t.pos, t.pos+len(field))
 		e.Field = field
 		return nil, e
 	}
 	valPos := t.pos + len(field) + 1
 	c := &Cond{Field: field, Op: OpEq, Pos: t.pos, End: t.end}
+	switch {
+	case field == FieldReleased:
+		c.Owner = spec.OwnerOnly
+	case knownFields[field]:
+	case mapped:
+		c.Kind, c.FieldLabel, c.Owner = spec.Kind, spec.Label, spec.OwnerOnly
+	default:
+		c.Kind = KindGone
+	}
 	if len(value) >= 2 && value[0] == '"' && value[len(value)-1] == '"' {
 		value, c.Quoted = value[1:len(value)-1], true
 	}
@@ -255,14 +279,18 @@ func (p *parser) term(t token) (Node, error) {
 	if value == "" {
 		return nil, bad(CodeBadValue, field+": needs a value.")
 	}
-	switch field {
-	case FieldYear, FieldDuration:
+	switch {
+	case c.Kind == KindText, c.Kind == KindList, c.Kind == KindGone:
+		c.Value = value
+	case field == FieldYear, field == FieldDuration, c.Kind == KindNumber:
 		if c.Quoted {
 			return nil, bad(CodeBadValue, field+": takes a number, not a quoted name.")
 		}
 		num := parseYear
 		if field == FieldDuration {
 			num = parseDuration
+		} else if c.Kind == KindNumber {
+			num = parseNumber
 		}
 		if err := parseComparison(c, value, num); err != "" {
 			code := CodeBadValue
@@ -271,7 +299,7 @@ func (p *parser) term(t token) (Node, error) {
 			}
 			return nil, bad(code, field+": "+err)
 		}
-	case FieldAdded:
+	case dateFields[field], c.Kind == KindDate:
 		if c.Quoted {
 			return nil, bad(CodeBadValue, field+": takes a date, not a quoted name.")
 		}
@@ -282,13 +310,13 @@ func (p *parser) term(t token) (Node, error) {
 			}
 			return nil, bad(code, field+": "+err)
 		}
-	case FieldResolution:
+	case field == FieldResolution:
 		b, ok := metadata.ParseResolutionBucket(value)
 		if !ok {
 			return nil, bad(CodeBadValue, "resolution: is one of SD, HD, FHD or 4K.")
 		}
 		c.Value = string(b)
-	case FieldMatched:
+	case field == FieldMatched:
 		c.Value = value
 		if strings.EqualFold(value, MatchedAny) {
 			c.Value = MatchedAny
@@ -354,6 +382,12 @@ func parseComparison(c *Cond, v string, num func(string) (int64, bool)) string {
 func parseYear(s string) (int64, bool) {
 	n, err := strconv.ParseInt(s, 10, 64)
 	return n, err == nil && n >= 1 && n <= 9999
+}
+
+// parseNumber reads a mapped number field's whole number.
+func parseNumber(s string) (int64, bool) {
+	n, err := strconv.ParseInt(s, 10, 64)
+	return n, err == nil && n >= 0 && n <= 1_000_000_000_000
 }
 
 // parseDuration reads a whole number of seconds (s), minutes (m, or no unit, as the

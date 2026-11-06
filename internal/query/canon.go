@@ -132,9 +132,13 @@ type DisplayNode struct {
 	Lo    int64         `json:"lo,omitempty"`
 	Hi    int64         `json:"hi,omitempty"`
 	Label string        `json:"label,omitempty"` // the entity's current name, the provider, or the word
-	// Missing: the entity no longer exists. Only a stored definition reaches this, since
-	// canonicalising refuses an unknown id.
+	// Missing: the entity or mapped field no longer exists. Only a stored definition
+	// reaches this, since canonicalising refuses an unknown id or field.
 	Missing bool `json:"missing,omitempty"`
+	// FieldLabel names a mapped field; OwnerOnly draws the key glyph (handoff: from the
+	// field's visibility, never a list in the chips).
+	FieldLabel string `json:"field_label,omitempty"`
+	OwnerOnly  bool   `json:"owner_only,omitempty"`
 }
 
 // Display builds the display tree of a canonical query, naming each entity by its
@@ -157,9 +161,13 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 		d.Kind, d.Label = "word", t.Text
 	case *Cond:
 		d.Kind, d.Field, d.Op, d.Value, d.ID, d.Lo, d.Hi = "cond", t.Field, t.Op, condValue(t), t.ID, t.Lo, t.Hi
+		d.FieldLabel, d.OwnerOnly, d.Missing = t.FieldLabel, t.ownerOnly(), t.Kind == KindGone
 		d.Label = t.Value
-		if t.Field == FieldAdded {
+		switch {
+		case dateFields[t.Field], t.Kind == KindDate:
 			d.Label = DateLabel(t)
+		case t.Kind == KindNumber:
+			d.Label = condValue(t)
 		}
 		if entityFields[t.Field] && t.ID > 0 {
 			name, ok, err := r.NameOf(ctx, t.Field, t.ID)

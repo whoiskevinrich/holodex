@@ -1,7 +1,7 @@
 // Typed client for the Holodex REST API. In dev, Vite proxies /api -> :7800;
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
-import type { ParsedQuery, QueryError, QueryParseResult } from './query';
+import type { ParsedQuery, QueryError, QueryFieldInfo, QueryParseResult } from './query';
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
@@ -867,6 +867,9 @@ export const api = {
 	// offsets for the error echo and the browse notice.
 	// `stored`: expr is a saved definition, already canonical; the server marks a deleted
 	// entity instead of re-reading its id as a name (the owner's only, F89).
+	queryFields: () => get<{ fields: QueryFieldInfo[] }>('/query/fields'),
+	queryValues: (field: string, q: string) =>
+		get<{ values: string[] }>(`/query/values?${new URLSearchParams({ field, q })}`),
 	parseQuery: async (expr: string, stored = false): Promise<QueryParseResult> => {
 		const path = `/query/parse?expr=${encodeURIComponent(expr)}${stored ? '&stored=1' : ''}`;
 		const res = await fetch(`${BASE}${path}`, { redirect: 'manual' });

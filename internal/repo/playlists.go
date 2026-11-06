@@ -524,7 +524,8 @@ func rewriteSmartPlaylistRefs(ctx context.Context, tx *sql.Tx, entityType string
 		}
 		// An F87 expr names the same id inside its text: parse → rewrite → canonical print.
 		if src := q.Get("expr"); src != "" {
-			if expr, err := query.Parse(src); err == nil && query.RewriteID(expr.Root, mergeExprField[entityType], mergedID, canonicalID) {
+			// ParseStored: the repo has no field catalogue, and a mapped field reprints as written.
+			if expr, err := query.ParseStored(src, nil); err == nil && query.RewriteID(expr.Root, mergeExprField[entityType], mergedID, canonicalID) {
 				q.Set("expr", expr.String())
 				changed = true
 			}

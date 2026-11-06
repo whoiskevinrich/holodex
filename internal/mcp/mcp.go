@@ -182,7 +182,7 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 	// mediaFilterFor, so it calls the shared path itself.
 	var canonical string
 	if src := req.GetString("expr", ""); strings.TrimSpace(src) != "" {
-		q, err := api.ParseExpr(ctx, s.repo, src, isOwner(ctx))
+		q, err := api.ParseExpr(ctx, s.repo, src, nil, isOwner(ctx))
 		var qe *query.Error
 		if errors.As(err, &qe) {
 			return mcp.NewToolResultError(exprErrorText(src, qe)), nil
@@ -194,6 +194,10 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		// unexpanded `playlist:` compiles to false, which would widen a NOT. Refuse it.
 		if len(query.EntityIDs(q.Root)[query.FieldPlaylist]) > 0 {
 			return mcp.NewToolResultError("playlist: conditions aren't available in search_videos; open the playlist instead."), nil
+		}
+		// Nor does it drain the index these read, so it would answer from stale values.
+		if query.NeedsIndex(q.Root) {
+			return mcp.NewToolResultError("updated: and released: conditions aren't available in search_videos."), nil
 		}
 		f.Expr, canonical = q.Root, q.String()
 	}

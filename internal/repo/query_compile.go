@@ -112,20 +112,21 @@ func matchedClause(provider string) (string, []any) {
 	return base + " AND ee.provider = ?)", []any{provider}
 }
 
-// addedClause is `added:` (F89 P0-1) over added_at, RFC3339 UTC text, so the bounds
-// compare as strings. A video with no added_at (rows written before 0069 by a path
-// other than the scanner) matches no date, and so its negation includes it.
-func addedClause(c *query.Cond, now time.Time) (string, []any) {
+// instantClause is `added:` or `updated:` (F89 P0-1) over a video column of RFC3339 UTC
+// text, so the bounds compare as strings. A video with no value (a row written by a path
+// other than the scanner) matches no date, and so its negation includes it. col is a
+// literal from the compiler, never input.
+func instantClause(col string, c *query.Cond, now time.Time) (string, []any) {
 	lo, hi, ok := query.Bounds(c, now, time.Local)
 	if !ok {
 		return "0", nil
 	}
-	s, args := "v.added_at IS NOT NULL", []any(nil)
+	s, args := col+" IS NOT NULL", []any(nil)
 	if !lo.IsZero() {
-		s, args = s+" AND v.added_at >= ?", append(args, lo.UTC().Format(timeLayout))
+		s, args = s+" AND "+col+" >= ?", append(args, lo.UTC().Format(timeLayout))
 	}
 	if !hi.IsZero() {
-		s, args = s+" AND v.added_at < ?", append(args, hi.UTC().Format(timeLayout))
+		s, args = s+" AND "+col+" < ?", append(args, hi.UTC().Format(timeLayout))
 	}
 	return s, args
 }
@@ -185,9 +186,16 @@ func (e compileEnv) list(items []query.Node, sep string) (string, []any) {
 func (e compileEnv) cond(c *query.Cond) (string, []any) {
 	switch c.Field {
 	case query.FieldAdded:
-		return addedClause(c, e.now)
+		return instantClause("v.added_at", c, e.now)
+	case query.FieldUpdated:
+		return instantClause("v.changed_at", c, e.now)
+	case query.FieldReleased:
+		return resolvedClause(query.ReleaseDateKey, query.KindDate, c, e.now)
 	case query.FieldPlaylist:
 		return e.playlistClause(e.refs[c.ID])
+	}
+	if c.Kind != "" {
+		return resolvedClause(c.Field, c.Kind, c, e.now)
 	}
 	return compileCond(c)
 }

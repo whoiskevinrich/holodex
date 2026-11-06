@@ -56,6 +56,9 @@ export function allChips(model: ChipModel | null): ChipCond[] {
 export function missingProblem(model: ChipModel | null): DefinitionProblem | null {
 	const gone = allChips(model).find((c) => c.missing);
 	if (!gone) return null;
+	if (gone.id == null) {
+		return { sentence: 'This definition filters on a field that no longer exists.', fix: `Remove “${gone.label}”.` };
+	}
 	const noun = gone.field === 'playlist' ? 'a playlist' : 'something';
 	return { sentence: `This definition refers to ${noun} that was deleted.`, fix: `Remove “${gone.label}”.` };
 }

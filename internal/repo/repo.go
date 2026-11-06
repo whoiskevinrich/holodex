@@ -141,24 +141,28 @@ func (r *Repo) UpsertVideo(ctx context.Context, v *model.Video, extra []model.Ex
 
 	now := time.Now().UTC().Format(timeLayout)
 	args := append([]any{v.FilePath}, fileLayerArgs(v)...)
-	args = append(args, now, v.ContentFP, now)
+	args = append(args, now, v.ContentFP, now, now)
 
 	// Upsert the base row by unique file_path. Every SET expression reads the
 	// row as it was, so the indexed_at CASE compares the old size and mtime.
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO videos (file_path, `+fileLayerList("")+`, indexed_at, content_fp, active, added_at)
-		VALUES (?, `+placeholders(len(fileLayerColumns))+`, ?, NULLIF(?, ''), 1, ?)
+		INSERT INTO videos (file_path, `+fileLayerList("")+`, indexed_at, content_fp, active, added_at, changed_at)
+		VALUES (?, `+placeholders(len(fileLayerColumns))+`, ?, NULLIF(?, ''), 1, ?, ?)
 		ON CONFLICT(file_path) DO UPDATE SET
 			`+fileLayerSet(func(c string) string { return "excluded." + c })+`,
 			indexed_at   = CASE WHEN videos.file_size IS excluded.file_size
 			                     AND videos.file_mtime IS excluded.file_mtime
 			                    THEN videos.indexed_at ELSE excluded.indexed_at END,
+			changed_at   = CASE WHEN videos.file_size IS excluded.file_size
+			                     AND videos.file_mtime IS excluded.file_mtime
+			                    THEN videos.changed_at ELSE excluded.changed_at END,
 			content_fp   = excluded.content_fp,
 			active       = 1`,
 		// indexed_at is "when the file itself last changed" (F12.7): a re-upsert of an
 		// unchanged file — manual refresh, the file_tags backfill, a re-extract — keeps
 		// it, so the Updated sort only moves on a real change (HOLODEX-567).
-		// added_at is set on the INSERT only, so it never moves (F89 P0-1).
+		// added_at is set on the INSERT only, so it never moves (F89 P0-1). A changed file
+		// also moves changed_at, which the drain moves for every other change (F89 RD2).
 		// NB: deleted_at is deliberately NOT in the UPDATE set — a soft-deleted row
 		// whose file changes on disk stays soft-deleted (F24/ADR-037). The scanner
 		// also short-circuits soft-deleted rows before reaching here.
@@ -423,8 +427,7 @@ type MappedFilter struct {
 //
 // "added" is arrival order: id is AUTOINCREMENT and survives a same-path re-upsert,
 // so it never moves when a file is edited or refreshed (F12.1, HOLODEX-567).
-// "updated" is when the file itself last changed — indexed_at, which UpsertVideo
-// only moves on a size or mtime change (F12.7).
+// "updated" is when anything about the video last changed — changed_at (F89 RD2).
 func (f VideoFilter) orderBy() (string, []any) {
 	switch f.Sort {
 	case "title_asc":
@@ -434,9 +437,9 @@ func (f VideoFilter) orderBy() (string, []any) {
 	case "added_asc":
 		return "v.id ASC", nil
 	case "updated_desc":
-		return "v.indexed_at DESC, v.id DESC", nil
+		return "v.changed_at DESC, v.id DESC", nil
 	case "updated_asc":
-		return "v.indexed_at ASC, v.id ASC", nil
+		return "v.changed_at ASC, v.id ASC", nil
 	case "duration_desc":
 		return "v.duration_sec DESC, v.id DESC", nil
 	case "duration_asc":

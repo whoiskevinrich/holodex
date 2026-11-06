@@ -27,7 +27,36 @@ const (
 	FieldMatched    = "matched"
 	FieldAdded      = "added"    // F89 P0-1: when the video arrived in the library
 	FieldPlaylist   = "playlist" // F89 P0-3: in that playlist as it is now, cap included
+	FieldUpdated    = "updated"  // F89 RD2: when anything about the video last changed
+	FieldReleased   = "released" // F89 P0-1: the resolved release date
 )
+
+// ReleaseDateKey is the mapped field `released:` reads.
+const ReleaseDateKey = "release_date"
+
+// A mapped field's kind (F89 P0-6), which decides how its value parses and compares.
+const (
+	KindText   = "text"   // contains the words, ignoring case
+	KindList   = "list"   // one item equals the value, ignoring case
+	KindDate   = "date"   // the date syntax
+	KindNumber = "number" // F87's comparisons
+	// KindGone is a stored condition on a field no longer in the mapping. Only ParseStored
+	// produces it, and it never compiles: its playlist reads as stale (P0-6).
+	KindGone = "gone"
+)
+
+// FieldSpec is one queryable mapped field.
+type FieldSpec struct {
+	Kind  string
+	Label string
+	// OwnerOnly: hidden from visitors, so an owner-only condition (SEC-8).
+	OwnerOnly bool
+}
+
+// Fields is the catalogue of queryable mapped fields, from the owner's mapping and the
+// registry's allowlist. Only a field named here reaches the compiler (SEC-8). The
+// FieldReleased entry carries the release-date field's visibility.
+type Fields map[string]FieldSpec
 
 // Comparison operators a condition carries. OpEq is the plain `field:value`.
 const (
@@ -49,8 +78,18 @@ var entityFields = map[string]bool{FieldTag: true, FieldPerson: true, FieldStudi
 var knownFields = map[string]bool{
 	FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true,
 	FieldResolution: true, FieldYear: true, FieldDuration: true, FieldMatched: true,
-	FieldAdded: true, FieldPlaylist: true,
+	FieldAdded: true, FieldPlaylist: true, FieldUpdated: true, FieldReleased: true,
 }
+
+// reservedFields keep their built-in meaning (spec RD7) ahead of the watch conditions.
+var reservedFields = map[string]bool{"watched": true, "plays": true, "played": true}
+
+// IsBuiltin reports whether a name belongs to the grammar, so a mapped field of that name
+// can't be queried by it (RD7).
+func IsBuiltin(field string) bool { return knownFields[field] || reservedFields[field] }
+
+// dateFields compare by the date syntax without being mapped-field conditions.
+var dateFields = map[string]bool{FieldAdded: true, FieldUpdated: true, FieldReleased: true}
 
 // IsEntityField reports whether field names an entity bound by id.
 func IsEntityField(field string) bool { return entityFields[field] }
@@ -71,16 +110,21 @@ type Not struct{ X Node }
 // keeps the typed name until then); year and duration carry Lo (and Hi for a range),
 // durations in seconds; a date field carries its value as written in Value (dates.go);
 // resolution carries the bucket in Value; matched carries
-// `any` or a provider name in Value. Pos and End are byte offsets into the source.
+// `any` or a provider name in Value. A mapped field carries its Kind, and its value by
+// kind: text, list or date in Value, a number in Lo (and Hi). Owner marks a condition on a
+// field hidden from visitors. Pos and End are byte offsets into the source.
 type Cond struct {
-	Field  string
-	Op     string
-	Value  string
-	Quoted bool
-	ID     int64
-	Lo, Hi int64
-	Pos    int
-	End    int
+	Field      string
+	Op         string
+	Value      string
+	Quoted     bool
+	ID         int64
+	Lo, Hi     int64
+	Pos        int
+	End        int
+	Kind       string
+	FieldLabel string
+	Owner      bool
 }
 
 // Word is a bare word or quoted phrase: title text, or the Tag of exactly that name or
@@ -130,15 +174,41 @@ func Conds(n Node) []*Cond {
 	return out
 }
 
+// ownerOnly reports whether one condition is the owner's alone.
+func (c *Cond) ownerOnly() bool { return c.Field == FieldMatched || c.Owner }
+
 // OwnerOnly reports whether n holds a condition only the owner may run (`matched:`,
-// P0-3), anywhere — under a NOT or inside an OR group included.
+// P0-3; a field hidden from visitors, SEC-8), anywhere — under a NOT or inside an OR
+// group included.
 func OwnerOnly(n Node) bool {
 	for _, c := range Conds(n) {
-		if c.Field == FieldMatched {
+		if c.ownerOnly() {
 			return true
 		}
 	}
 	return false
+}
+
+// NeedsIndex reports whether n reads the resolved-value index or the change stamp, which
+// the dirty set's drain keeps current (field-resolution.md, "Drain").
+func NeedsIndex(n Node) bool {
+	for _, c := range Conds(n) {
+		if c.Kind != "" || c.Field == FieldUpdated || c.Field == FieldReleased {
+			return true
+		}
+	}
+	return false
+}
+
+// GoneFields returns the fields n names that are no longer in the mapping.
+func GoneFields(n Node) []string {
+	var out []string
+	for _, c := range Conds(n) {
+		if c.Kind == KindGone {
+			out = append(out, c.Field)
+		}
+	}
+	return out
 }
 
 // CheckOwner is the one owner-only check (security-perimeter.md): every entry point
@@ -149,7 +219,7 @@ func (q *Query) CheckOwner(isOwner bool) error {
 		return nil
 	}
 	for _, c := range Conds(q.Root) {
-		if c.Field == FieldMatched {
+		if c.ownerOnly() {
 			return q.errAt(CodeOwnerOnly, "Part of this query is only available to the owner.", c.Pos, c.End)
 		}
 	}

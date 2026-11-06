@@ -16,8 +16,19 @@ export interface QueryNode {
 	lo?: number;
 	hi?: number;
 	label?: string;
-	/** A stored definition's entity that no longer exists; label is `#id` (F89). */
+	/** A stored definition's entity or mapped field that no longer exists (F89). */
 	missing?: boolean;
+	/** A mapped field's label, and whether it's hidden from visitors (the key glyph). */
+	field_label?: string;
+	owner_only?: boolean;
+}
+
+/** A mapped field this reader may name (GET /query/fields). */
+export interface QueryFieldInfo {
+	field: string;
+	label: string;
+	kind: 'text' | 'list' | 'date' | 'number';
+	owner_only?: boolean;
 }
 
 /** A refused query (internal/query Error). start/end are UTF-16 offsets into the text. */
@@ -40,12 +51,13 @@ export interface ParsedQuery {
 export type QueryParseResult = ({ ok: true } & ParsedQuery) | { ok: false; error: QueryError };
 
 /** The fields a condition may name; `matched` is the owner's only. */
-export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'resolution', 'playlist', 'matched'] as const;
+export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched'] as const;
 export const OWNER_ONLY_FIELDS: readonly string[] = ['matched'];
 
-/** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5). */
-export function fieldsFor(isOwner: boolean): string[] {
-	return QUERY_FIELDS.filter((f) => isOwner || !OWNER_ONLY_FIELDS.includes(f));
+/** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5).
+ * mapped is the reader's own list from the server, which already leaves out hidden fields. */
+export function fieldsFor(isOwner: boolean, mapped: readonly string[] = []): string[] {
+	return [...QUERY_FIELDS.filter((f) => isOwner || !OWNER_ONLY_FIELDS.includes(f)), ...mapped];
 }
 
 const FIELD_TERM = /^-?\p{L}[\p{L}_]*:/u;
@@ -196,7 +208,9 @@ export function condLabel(n: QueryNode): string {
 		case 'matched':
 			return n.value === 'any' ? 'matched' : `matched: ${name}`;
 		case 'added': // the server words it: "last 30 days", "2026-01 to 2026-06"
-			return `added: ${name}`;
+		case 'updated':
+		case 'released':
+			return `${n.field}: ${name}`;
 		case 'playlist':
 			return `in: ${name}`;
 		case 'duration':
@@ -209,7 +223,7 @@ export function condLabel(n: QueryNode): string {
 			return `${title} ${fmt(lo)}`;
 		}
 	}
-	return name;
+	return n.field_label ? `${n.field_label}: ${name}` : n.field ? `${n.field}: ${name}` : name;
 }
 
 const isLeaf = (n: QueryNode) => n.kind === 'cond' || n.kind === 'word';
@@ -219,7 +233,7 @@ function chipOf(n: QueryNode, path: number[]): ChipCond | null {
 	const facts = (x: QueryNode) => ({
 		...(x.field ? { field: x.field } : {}),
 		...(x.id ? { id: x.id } : {}),
-		...(x.field && OWNER_ONLY_FIELDS.includes(x.field) ? { ownerOnly: true } : {}),
+		...(x.owner_only || (x.field && OWNER_ONLY_FIELDS.includes(x.field)) ? { ownerOnly: true } : {}),
 		...(x.missing ? { missing: true } : {})
 	});
 	if (isLeaf(n)) return { label: condLabel(n), negated: false, path, ...facts(n) };

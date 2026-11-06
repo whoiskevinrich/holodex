@@ -42,10 +42,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [/] backend → `{cmd,internal,providers}/**` — slice 1 landed (added:, cap, playlist: refs, visibility); slices 3–4 to go
-- [/] frontend → `web/src/**` — slices 1–2 landed (chips, the on-page editor); key glyphs for fields and the watched mark come with slices 3–4
+- [/] backend → `{cmd,internal,providers}/**` — slices 1 and 3 landed (added:, cap, playlist: refs, visibility; resolved_values, field conditions, released:, updated:, the change stamp); slice 4 to go
+- [/] frontend → `web/src/**` — slices 1–3 landed (chips, the on-page editor, field suggestions and key glyphs); the watched mark comes with slice 4
 - [/] testing `testing-strategy` — strategy is §40 of `docs/testing-strategy.md`; its tests are written in the build
-- [/] security `security-review` — design-stage rules SEC-1–11 committed; a review of the built diff is still due before merge
+- [/] security `security-review` — design-stage rules SEC-1–11 committed; slices 2 and 3 reviewed as built; a final review of the whole diff is still due before merge
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -62,9 +62,9 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Slice 3: `resolved_values` index, field conditions (P0-6), `released:` and `updated:` with the changed_at stamp from the drain — `internal/repo/`
-2. [ ] [backend] Slice 4: plays, watch conditions and the watched mark (P0-7 to P0-9) — `docs/architecture/watch-history.md`
-3. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+1. [ ] [backend] Slice 4: plays, watch conditions and the watched mark (P0-7 to P0-9) — `docs/architecture/watch-history.md`
+2. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+3. [ ] [testing] Slice 3 left for later: R1 resolver-input cross-check, R3 mark-all events — `docs/testing-strategy.md` §40.11
 4. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
 5. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
@@ -77,6 +77,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-06 · slice 3: field conditions, released, updated
+- skills: handoff
+- handoff: Slice 3 is in: `director:` and any mapped field match winning values through the resolved_values index, `released:` and `updated:` work, and the Updated sort follows any real change (F12.7 rewritten); next is slice 4, plays and the watch conditions.
 
 ### 2026-11-06 · slice 2: the on-page definition editor
 - skills: code-review, handoff

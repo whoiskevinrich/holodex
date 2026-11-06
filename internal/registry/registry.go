@@ -68,6 +68,20 @@ type FieldDef struct {
 	// row to type a Custom value into. Set it only in the change that designs the
 	// field's empty state; an unflagged field is still dropped from resolved[].
 	OfferWhenEmpty bool
+	// QueryKind is how a query compares this field (F89 P0-6) when it isn't text or a
+	// list: "date" or "number", the query package's kinds. Empty for the rest.
+	QueryKind string
+}
+
+// HiddenFromVisitors reports whether a field is one the API blanks for a visitor, the
+// file facts redactFileMetadataForVisitor names, which makes a query on it owner-only (F89
+// SEC-8). The mapping decides whether such a field exists at all.
+func HiddenFromVisitors(canonical string) bool {
+	switch strings.ToLower(strings.TrimSpace(canonical)) {
+	case "video_codec", "audio_codec", "bitrate_kbps", "container", "file_path":
+		return true
+	}
+	return false
 }
 
 // EntityKind values (F40, ADR-072) — see FieldDef.EntityKind.
@@ -132,6 +146,7 @@ var KnownFields = []FieldDef{
 		Label:       "Released",
 		Display:     "",
 		Description: "Release date in YYYY-MM-DD format.",
+		QueryKind:   "date",
 		Criticality: CriticalityNiceToHave,
 	},
 	{
@@ -154,6 +169,7 @@ var KnownFields = []FieldDef{
 		Label:       "Runtime (min)",
 		Display:     "",
 		Description: "Runtime in minutes (integer string).",
+		QueryKind:   "number",
 		Criticality: CriticalityOptional, // F65 RD4 demotion (spec § Facet tables)
 	},
 	{
