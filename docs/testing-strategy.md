@@ -6321,8 +6321,9 @@ Go test data.
 
 ### 40.3 Go unit, `internal/query` (`make test`)
 
-`internal/query/query_test.go` for the grammar; expansion in `internal/query/expand_test.go`
-(new).
+`internal/query/query_test.go` for the grammar. Expansion lives in the api layer, so Q6 to Q9 run
+through its routes over real SQLite, in `internal/api/smart_playlist_refs_test.go` and
+`smart_playlist_rules_test.go`.
 
 | # | Case | Proves |
 |---|---|---|
@@ -6331,7 +6332,7 @@ Go test data.
 | Q3 | Date compile with the fake clock: `added:<30d` at now *T* and at *T*+31d produce different bounds; a year-month range covers 1 January to 30 June inclusive; `<1mo` on 31 March lands on the last day of February (pinned, see 40.10). | P0-1 (risk 7) |
 | Q4 | Field names: a name in the test mapping parses as a resolved field (`director:`); every built-in in spec *Concepts* (`tag`, `person`, `studio`, …, `played`) keeps its built-in meaning even when the mapping also has a field of that name; an unmapped name is F87's unknown-field error. `_`-prefixed keys and a name not on the registry's queryable allowlist are unknown fields, and the compiler takes the field key only from the allowlist lookup (recording builder: no request text in SQL). | P0-6, RD7, SEC-8 (risk 4) |
 | Q5 | `OwnerOnly` gains `watched`, `plays`, `played`, a sort over plays, and a field hidden from visitors, each alone, under `NOT` and inside an OR group. `released:` is owner-only exactly when the release-date field is hidden. | P0-6, P0-8, SEC-4, SEC-8 |
-| Q6 | Expansion with a stub playlist store: a chain 4 deep expands; 5 deep is refused naming the depth cap; a star of 16 distinct playlists expands, 17 is refused; 256 expanded conditions pass and 257 are refused. Each refusal is returned before the compiler runs (the stub compiler fails the test if called). The F87 per-string caps still apply to each stored string. | P0-3, SEC-5 (risk 6) |
+| Q6 | Expansion with a stub playlist store: a chain 4 deep expands; 5 deep is refused naming the depth cap; a star of 16 distinct playlists expands, 17 is refused; 256 expanded conditions pass and 257 are refused. Each refusal names its limit, and a read past one returns no videos. The F87 per-string caps still apply to each stored string. | P0-3, SEC-5 (risk 6) |
 | Q7 | Loops: A → A, A → B → A and A → B → C → A are each refused with the cycle named in order; the visited set catches a cycle the stub store returns only on the second read (the two-edit case) as stale `loop`, with no recursion past depth 4. | P0-3, SEC-6 (risk 6) |
 | Q8 | `OwnerOnly` is transitive: a query referencing a private playlist, or a public playlist whose own expansion holds `matched:` or `watched:` at depth 1, 2, 3 and 4, is owner-only; the same tree with every reference public and clean is not. | SEC-2 (risk 2) |
 | Q9 | A reference to a smart playlist that has the Random sort and a cap is refused with that reason; Random without a cap, or a cap without Random, expands. | P0-3 |
@@ -6340,7 +6341,7 @@ Go test data.
 
 | # | File | Case | Proves |
 |---|---|---|---|
-| R1 | `internal/db/completeness_triggers_test.go` (extended) | **Every resolver input table has a trigger.** Today's `TestMigration0049_TriggerSetMatchesEnumeratedInputs` cross-checks `completenessInputs` against the live `cd_*` triggers both ways (§4 trigger-set row). Add the same two-way check for the resolver: the repo's resolver-input loader declares the tables, and for `videos` the columns, it reads, as a list the loader itself uses. Every table in it must be in `completenessInputs` with insert, update and delete triggers, and `cd_videos_au`'s column list (today `title`, `active`, `deleted_at`) must cover every `videos` column the loader reads. A new resolver input without a trigger fails here, not in production. | P0-6 (risk 1) |
+| R1 | `internal/api/resolver_inputs_internal_test.go` | **Every resolver input has a trigger, with no list to remember.** Each table is renamed in turn, and a drain that then fails, in its error or its log, shows it reads that table. Any such table must carry a `cd_*` trigger, or be one of the drain's outputs or a named non-input. For `videos`, each field of a video is varied in turn through the resolver: only `Title` may change the result, and `cd_videos_au` must watch it. A new input without a trigger fails here, not in production. | P0-6 (risk 1) |
 | R2 | `resolved_values_test.go` | **Stale read after each write path.** Table-driven, one row per write path: add or remove a Tag, set curation, set or clear a source decision, upsert and delete an enrichment row, add an alias, a rescan that changes file metadata, link a person, link a studio, link a film. Each row writes, then immediately runs `ListVideoIDs` with a `director:` / `title:` / `actors:` condition and expects the new result with no explicit drain call. | P0-6 (risk 1) |
 | R3 | `resolved_values_test.go` | **Mark-all events.** Mapping reload, promotion, claim, hint, trust-order change and a moved boot fingerprint each leave every video dirty, and the next resolved query reflects the change (for the mapping: a field whose source changed in the YAML). | P0-6 (risk 1) |
 | R4 | `resolved_values_test.go` | **The index equals the resolver.** After a drain, for every fixture video and queryable field, the `resolved_values` rows equal the live resolver's winning values (multi-value fields one row each); V3 has no row for `provider-1`'s losing director; no row has a `_`-prefixed key. | P0-6, SEC-8 |
@@ -6389,7 +6390,8 @@ and the mark, `internal/mcp/mcp_test.go` for `search_videos`.
 One scenario, `--only playlist-edit-back`, under `backend-stress-open-9600` + `web-9600`: open a
 smart playlist, open Edit definition, open a preview tile, press Back: the mode comes back. With a
 changed draft, opening the tile asks first (P0-4), and Keep editing keeps the draft; nothing is saved. Take a baseline on `main` first
-(the playlist page has no harness scenario today).
+(the scenario can't run on `main`, which has no editor, so its baseline is a mutation check instead:
+see 40.10).
 
 ### 40.8 QA checklist (`[smoke]` / `[agent]` / `[human]`)
 
@@ -6471,14 +6473,20 @@ well; it isn't restated here.
 - Remove the visited set from expansion → Q7 fails (bounded by the depth cap, never a hang).
 - Upsert the summary outside the play-row transaction → R8 fails.
 - Evaluate `added:<30d` at save → Q3 fails.
+- Raise any of the three reference limits by one → its Q6 case fails.
+- Expand references unrestricted, or don't mark an owner-only condition stale → Q8 fails.
+- Read a new `videos` field in the resolver, or drop a resolver input's triggers → R1 fails.
+- Skip the mark-all on a mapping reload → R3 fails.
+- Remove the editor's leave guard → W4 and `playlist-edit-back` fail. Ignore `#edit` → the scenario
+  fails.
 
 ### 40.11 Standing gaps
 
-- **R1, the resolver-input cross-check,** isn't built. The trigger list is pinned by §4's test, and
-  R2 covers the write paths one at a time, so a new input table would only be caught if it gets a
-  row there.
-- **Mark-all events (R3)** beyond a mapping reload are untested here: they share
-  `MarkAllCompletenessDirty`, which §4 covers.
+- **R1 sees only what fails loudly.** A loader that swallows a read error without logging it would
+  look like it doesn't read that table. The fixture also has to reach each query, so it holds one
+  row of every kind a loader walks.
+- **Trust order (R3)** has no event of its own: precedence comes from the mapping, so the reload case
+  stands in for it. A moved boot fingerprint is `cmd/holodex`'s `completeness_boot_test`.
 - **Real playback** isn't driven by an agent. The stress fixture's files don't decode, so W3 pins
   the counting rule, the page's wiring was checked with synthetic `timeupdate` and `seeking` events,
   and an element really playing is QA 10's, a `[human]` item.

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -498,4 +499,58 @@ func TestExprFieldsCatalogueIsOptional(t *testing.T) {
 	if !query.NeedsIndex(q.Root) {
 		t.Error("updated: doesn't report needing the index")
 	}
+}
+
+// R3: every event that changes what a field resolves to marks the whole library dirty, so
+// the next resolved query reflects it. The mapping's sources stand in for any change of
+// precedence; a moved boot fingerprint is cmd/holodex's completeness_boot_test.
+func TestMarkAllEventsReachResolvedQueries(t *testing.T) {
+	e := newRVEnv(t)
+	a := e.video(t, "/m/a.mkv", tag("Director", "Ann Lee"), tag("Other", "Del Moss"))
+	b := e.video(t, "/m/b.mkv", tag("Director", "Ann Lee"), tag("Other", "Fay Lund"))
+	e.want(t, `director:"Ann Lee"`, a, b)
+	dirty := func() (n int) {
+		t.Helper()
+		if err := e.db.QueryRow(`SELECT COUNT(*) FROM completeness_dirty WHERE entity_type = 'video'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if n := dirty(); n != 0 {
+		t.Fatalf("%d dirty after a drain", n)
+	}
+
+	const now = "'2026-01-01T00:00:00Z'"
+	for _, event := range []struct{ name, write string }{
+		{"promotion", `INSERT INTO field_promotions (entity_type, field_key, created_at, updated_at) VALUES ('video', 'height', ` + now + `, ` + now + `)`},
+		{"claim", `INSERT INTO field_claims (entity_type, provider, field_key, canonical, created_at, updated_at) VALUES ('video', 'fake', 'hq', 'country', ` + now + `, ` + now + `)`},
+		{"hint", `INSERT INTO provider_field_hints (provider, field_key, updated_at) VALUES ('fake', 'height', ` + now + `)`},
+	} {
+		if _, err := e.db.Exec(event.write); err != nil {
+			t.Fatalf("%s: %v", event.name, err)
+		}
+		if n := dirty(); n != 2 {
+			t.Errorf("%s left %d videos dirty, want all 2", event.name, n)
+		}
+		e.want(t, `director:"Ann Lee"`, a, b) // drains
+	}
+
+	// A mapping reload: the field now reads another tag, and the query follows at once.
+	yaml := strings.Replace(rvMappings, "sources: [fake:director, file:Director]", "sources: [fake:director, file:Other]", 1)
+	if yaml == rvMappings {
+		t.Fatal("the mapping edit changed nothing")
+	}
+	if err := os.WriteFile(e.mpath, []byte(yaml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, resp := reqTokBody(t, http.MethodPost, e.srv.URL+"/api/v1/admin/reload-config", "s3cret", nil)
+	if code != http.StatusOK {
+		t.Fatalf("reload: %d %v", code, resp)
+	}
+	if n := dirty(); n != 2 {
+		t.Errorf("reload left %d videos dirty, want all 2", n)
+	}
+	e.want(t, `director:"Ann Lee"`)
+	e.want(t, `director:"Del Moss"`, a)
+	e.want(t, `director:"Fay Lund"`, b)
 }
