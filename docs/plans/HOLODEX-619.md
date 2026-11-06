@@ -42,10 +42,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - [x] spec `write-spec` → `docs/specs/**`
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
-- [/] backend → `{cmd,internal,providers}/**` — slices 1 and 3 landed (added:, cap, playlist: refs, visibility; resolved_values, field conditions, released:, updated:, the change stamp); slice 4 to go
-- [/] frontend → `web/src/**` — slices 1–3 landed (chips, the on-page editor, field suggestions and key glyphs); the watched mark comes with slice 4
+- [/] backend → `{cmd,internal,providers}/**` — all four slices landed (added:, cap, playlist: refs, visibility; resolved_values, field conditions, released:, updated:, the change stamp; plays, watch conditions, the mark); the test items below remain
+- [/] frontend → `web/src/**` — all slices landed (chips, the on-page editor, field suggestions and key glyphs, the watched bar and toggle); the design comparison is due before this gate settles
 - [/] testing `testing-strategy` — strategy is §40 of `docs/testing-strategy.md`; its tests are written in the build
-- [/] security `security-review` — design-stage rules SEC-1–11 committed; slices 2 and 3 reviewed as built; a final review of the whole diff is still due before merge
+- [/] security `security-review` — design-stage rules SEC-1–11 committed; slices 2 to 4 reviewed as built; a final review of the whole diff is still due before merge
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -62,11 +62,12 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Slice 4: plays, watch conditions and the watched mark (P0-7 to P0-9) — `docs/architecture/watch-history.md`
-2. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
-3. [ ] [testing] Slice 3 left for later: R1 resolver-input cross-check, R3 mark-all events — `docs/testing-strategy.md` §40.11
-4. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
-5. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
+1. [ ] [security] Owner's call: freezing `watched:` or `matched:` results and making that snapshot public shows a list derived from owner-only data — `internal/api/smart_playlists.go`
+2. [ ] [testing] Owner to run QA 10 to 12: real playback, the mark, a rolling date (the fixture's files don't decode) — `docs/testing-strategy.md` §40.8
+3. [ ] [testing] Slice 1 left for later: §40 Q6 fan-out/condition-count cases, Q8 depth-2+ transitive, A2 depth 1–4 — `internal/api/smart_playlist_rules_test.go`
+4. [ ] [testing] Slice 3 left for later: R1 resolver-input cross-check, R3 mark-all events — `docs/testing-strategy.md` §40.11
+5. [ ] [testing] Slice 2 left for later: an editor component test, and the §40.7 `playlist-edit-back` harness scenario — `web/src/lib/components/video/PlaylistDefinitionEditor.svelte`
+6. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -77,6 +78,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-06 · slice 4: plays, watch conditions, the watched mark
+- skills: security-review, handoff
+- handoff: Slice 4 is in, so all of F89's P0 is built: plays count at 90% of watched time, `watched:`, `plays:` and `played:` work for the owner only, and cards and the media page show the mark; next is the owner's QA 10 to 12 on real playback, then the remaining test items and the final security review.
 
 ### 2026-11-06 · slice 3: field conditions, released, updated
 - skills: handoff

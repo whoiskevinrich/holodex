@@ -51,8 +51,8 @@ export interface ParsedQuery {
 export type QueryParseResult = ({ ok: true } & ParsedQuery) | { ok: false; error: QueryError };
 
 /** The fields a condition may name; `matched` is the owner's only. */
-export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched'] as const;
-export const OWNER_ONLY_FIELDS: readonly string[] = ['matched'];
+export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched', 'watched', 'plays', 'played'] as const;
+export const OWNER_ONLY_FIELDS: readonly string[] = ['matched', 'watched', 'plays', 'played'];
 
 /** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5).
  * mapped is the reader's own list from the server, which already leaves out hidden fields. */
@@ -210,7 +210,11 @@ export function condLabel(n: QueryNode): string {
 		case 'added': // the server words it: "last 30 days", "2026-01 to 2026-06"
 		case 'updated':
 		case 'released':
+		case 'played':
+		case 'plays':
 			return `${n.field}: ${name}`;
+		case 'watched':
+			return n.value === 'no' ? 'unwatched' : 'watched';
 		case 'playlist':
 			return `in: ${name}`;
 		case 'duration':

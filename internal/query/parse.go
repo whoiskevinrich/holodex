@@ -206,6 +206,11 @@ func (p *parser) parseUnary(depth int) (Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		// watched and unwatched are each other's negation (handoff), so there's one spelling.
+		if c, ok := x.(*Cond); ok && c.Field == FieldWatched {
+			c.Value = map[string]string{WatchedYes: WatchedNo, WatchedNo: WatchedYes}[c.Value]
+			return c, nil
+		}
 		return &Not{X: x}, nil
 	case tokLParen:
 		if depth+1 > MaxDepth {
@@ -282,14 +287,14 @@ func (p *parser) term(t token) (Node, error) {
 	switch {
 	case c.Kind == KindText, c.Kind == KindList, c.Kind == KindGone:
 		c.Value = value
-	case field == FieldYear, field == FieldDuration, c.Kind == KindNumber:
+	case field == FieldYear, field == FieldDuration, field == FieldPlays, c.Kind == KindNumber:
 		if c.Quoted {
 			return nil, bad(CodeBadValue, field+": takes a number, not a quoted name.")
 		}
 		num := parseYear
 		if field == FieldDuration {
 			num = parseDuration
-		} else if c.Kind == KindNumber {
+		} else if c.Kind == KindNumber || field == FieldPlays {
 			num = parseNumber
 		}
 		if err := parseComparison(c, value, num); err != "" {
@@ -316,6 +321,11 @@ func (p *parser) term(t token) (Node, error) {
 			return nil, bad(CodeBadValue, "resolution: is one of SD, HD, FHD or 4K.")
 		}
 		c.Value = string(b)
+	case field == FieldWatched:
+		c.Value = strings.ToLower(value)
+		if c.Value != WatchedYes && c.Value != WatchedNo {
+			return nil, bad(CodeBadValue, "watched: is yes or no.")
+		}
 	case field == FieldMatched:
 		c.Value = value
 		if strings.EqualFold(value, MatchedAny) {

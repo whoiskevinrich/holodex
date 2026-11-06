@@ -85,6 +85,9 @@ type Video struct {
 	// Completeness is the owner-only ring-badge payload (F65.5, ADR-099 D5),
 	// attached to list items from the materialized store; absent for a visitor.
 	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+	// Watched is the owner's watched mark (F89 P0-9), stamped by the API layer for the
+	// owner only, so a visitor's payload never carries it (SEC-10).
+	Watched bool `json:"watched,omitempty"`
 }
 
 // CompletenessSummary is the two completeness bands a list item carries for the

@@ -156,3 +156,19 @@ describe('mapped fields and the F89 dates', () => {
 		expect(fieldsFor(false)).not.toContain('matched');
 	});
 });
+
+describe('the watch conditions', () => {
+	const cond = (x: Partial<QueryNode>): QueryNode => ({ kind: 'cond', expr: '', ...x });
+	it('labels them from the handoff table', () => {
+		expect(condLabel(cond({ field: 'watched', value: 'yes' }))).toBe('watched');
+		expect(condLabel(cond({ field: 'watched', value: 'no' }))).toBe('unwatched');
+		expect(condLabel(cond({ field: 'plays', label: '3 or more' }))).toBe('plays: 3 or more');
+		expect(condLabel(cond({ field: 'played', label: 'last 7 days' }))).toBe('played: last 7 days');
+	});
+	it('offers them to the owner alone', () => {
+		for (const f of ['watched', 'plays', 'played']) {
+			expect(fieldsFor(true)).toContain(f);
+			expect(fieldsFor(false)).not.toContain(f);
+		}
+	});
+});

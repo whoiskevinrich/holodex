@@ -141,6 +141,11 @@
 					{bucket}
 				</span>
 			{/if}
+			{#if video.watched}
+				<!-- The owner's watched mark (F89 P0-9). The API sends the fact to the owner only;
+				     this card never checks isOwner. -->
+				<span class="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[3px] bg-accent" aria-hidden="true"></span>
+			{/if}
 		</div>
 
 		<!-- The title box is always two lines (h-10), so every card is one height: the
@@ -149,6 +154,7 @@
 			<h3 class="skin-title line-clamp-2 h-10 text-sm font-medium text-ink" title={video.title}>
 				{video.title}
 			</h3>
+			{#if video.watched}<span class="sr-only">, watched</span>{/if}
 		</div>
 	</a>
 	{#if video.completeness || video.part}

@@ -6479,6 +6479,9 @@ well; it isn't restated here.
   row there.
 - **Mark-all events (R3)** beyond a mapping reload are untested here: they share
   `MarkAllCompletenessDirty`, which §4 covers.
+- **Real playback** isn't driven by an agent. The stress fixture's files don't decode, so W3 pins
+  the counting rule, the page's wiring was checked with synthetic `timeupdate` and `seeking` events,
+  and an element really playing is QA 10's, a `[human]` item.
 - **`/query/values`** doesn't drain, so a brand-new value is offered from the next read that does.
 - **`search_videos` (MCP)** has no drain, so it refuses mapped fields, `updated:` and `released:`.
 - **Performance.** No case times a 16-playlist, 256-condition expansion on the `-big` fixture, or

@@ -131,6 +131,24 @@ func instantClause(col string, c *query.Cond, now time.Time) (string, []any) {
 	return s, args
 }
 
+// watchedClause is `watched:` (P0-8). A video with no summary row is unwatched.
+func watchedClause(value string) (string, []any) {
+	s := "EXISTS (SELECT 1 FROM video_watch w WHERE w.video_id = v.id AND " + watchedExpr + ")"
+	if value == query.WatchedNo {
+		s = "NOT " + s
+	}
+	return s, nil
+}
+
+// playsClause is `plays:` (P0-8), where a video with no summary row has no plays.
+func playsClause(c *query.Cond) (string, []any) {
+	const count = "COALESCE((SELECT w.play_count FROM video_watch w WHERE w.video_id = v.id), 0)"
+	if c.Op == query.OpRange {
+		return count + " >= ? AND " + count + " <= ?", []any{c.Lo, c.Hi}
+	}
+	return count + " " + sqlOp(c.Op) + " ?", []any{c.Lo}
+}
+
 // PlaylistRef is one referenced playlist a `playlist:` condition compiles against (F89
 // P0-3): a snapshot's membership rows, or a smart playlist's own filter, cap included.
 // The api layer builds these (it owns the loop, depth and visibility checks, SEC-5/6);
@@ -193,6 +211,14 @@ func (e compileEnv) cond(c *query.Cond) (string, []any) {
 		return resolvedClause(query.ReleaseDateKey, query.KindDate, c, e.now)
 	case query.FieldPlaylist:
 		return e.playlistClause(e.refs[c.ID])
+	case query.FieldWatched:
+		return watchedClause(c.Value)
+	case query.FieldPlays:
+		return playsClause(c)
+	case query.FieldPlayed:
+		// A video never played has no row, so matches no date, and its negation includes it.
+		s, args := instantClause("w.last_played_at", c, e.now)
+		return "EXISTS (SELECT 1 FROM video_watch w WHERE w.video_id = v.id AND " + s + ")", args
 	}
 	if c.Kind != "" {
 		return resolvedClause(c.Field, c.Kind, c, e.now)

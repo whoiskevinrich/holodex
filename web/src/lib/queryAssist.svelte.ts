@@ -36,7 +36,10 @@ const HEADINGS: Record<string, string> = {
 	updated: 'Updated',
 	released: 'Released',
 	playlist: 'Playlists',
-	matched: 'Providers'
+	matched: 'Providers',
+	watched: 'Watched',
+	plays: 'Plays',
+	played: 'Played'
 };
 
 export class QueryAssist {
@@ -150,8 +153,14 @@ export class QueryAssist {
 					case 'added':
 					case 'updated':
 					case 'released':
+					case 'played':
 						rows = DATE_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
 						break;
+					case 'watched':
+						rows = ['yes', 'no'].filter((x) => x.startsWith(p.toLowerCase())).map((x) => at(x));
+						break;
+					case 'plays':
+						break; // a number: nothing to list
 					case 'playlist':
 						// The server lists what this reader may name: a visitor, public ones only.
 						// Read once per query session: the list re-counts every smart playlist.

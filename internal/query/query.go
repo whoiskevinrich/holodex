@@ -29,6 +29,15 @@ const (
 	FieldPlaylist   = "playlist" // F89 P0-3: in that playlist as it is now, cap included
 	FieldUpdated    = "updated"  // F89 RD2: when anything about the video last changed
 	FieldReleased   = "released" // F89 P0-1: the resolved release date
+	FieldWatched    = "watched"  // F89 P0-8: yes or no, the owner's mark first
+	FieldPlays      = "plays"    // F89 P0-8: how many counted plays
+	FieldPlayed     = "played"   // F89 P0-8: when the last counted play happened
+)
+
+// The two values of `watched:`.
+const (
+	WatchedYes = "yes"
+	WatchedNo  = "no"
 )
 
 // ReleaseDateKey is the mapped field `released:` reads.
@@ -79,17 +88,15 @@ var knownFields = map[string]bool{
 	FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true,
 	FieldResolution: true, FieldYear: true, FieldDuration: true, FieldMatched: true,
 	FieldAdded: true, FieldPlaylist: true, FieldUpdated: true, FieldReleased: true,
+	FieldWatched: true, FieldPlays: true, FieldPlayed: true,
 }
-
-// reservedFields keep their built-in meaning (spec RD7) ahead of the watch conditions.
-var reservedFields = map[string]bool{"watched": true, "plays": true, "played": true}
 
 // IsBuiltin reports whether a name belongs to the grammar, so a mapped field of that name
 // can't be queried by it (RD7).
-func IsBuiltin(field string) bool { return knownFields[field] || reservedFields[field] }
+func IsBuiltin(field string) bool { return knownFields[field] }
 
 // dateFields compare by the date syntax without being mapped-field conditions.
-var dateFields = map[string]bool{FieldAdded: true, FieldUpdated: true, FieldReleased: true}
+var dateFields = map[string]bool{FieldAdded: true, FieldUpdated: true, FieldReleased: true, FieldPlayed: true}
 
 // IsEntityField reports whether field names an entity bound by id.
 func IsEntityField(field string) bool { return entityFields[field] }
@@ -175,10 +182,16 @@ func Conds(n Node) []*Cond {
 }
 
 // ownerOnly reports whether one condition is the owner's alone.
-func (c *Cond) ownerOnly() bool { return c.Field == FieldMatched || c.Owner }
+func (c *Cond) ownerOnly() bool {
+	switch c.Field {
+	case FieldMatched, FieldWatched, FieldPlays, FieldPlayed:
+		return true
+	}
+	return c.Owner
+}
 
 // OwnerOnly reports whether n holds a condition only the owner may run (`matched:`,
-// P0-3; a field hidden from visitors, SEC-8), anywhere — under a NOT or inside an OR
+// P0-3; the watch conditions, P0-8; a field hidden from visitors, SEC-8), anywhere — under a NOT or inside an OR
 // group included.
 func OwnerOnly(n Node) bool {
 	for _, c := range Conds(n) {

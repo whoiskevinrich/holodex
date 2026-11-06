@@ -73,11 +73,11 @@ func condValue(c *Cond) string {
 		return quoteIfNeeded(c.Value, false)
 	}
 	switch c.Field {
-	case FieldYear:
+	case FieldYear, FieldPlays:
 		return comparison(c, "")
 	case FieldDuration:
 		return comparison(c, "s")
-	case FieldResolution, FieldAdded, FieldUpdated, FieldReleased:
+	case FieldResolution, FieldAdded, FieldUpdated, FieldReleased, FieldPlayed, FieldWatched:
 		return c.Value
 	case FieldMatched:
 		return quoteIfNeeded(c.Value, false)

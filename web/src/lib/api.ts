@@ -1069,6 +1069,10 @@ export const api = {
 	addVideoTag: (videoId: number, name: string) =>
 		sendAuthed<{ tag: Tag }>('POST', `/media/${videoId}/tags`, { name }),
 
+	// The owner's watch history (F89 P0-7, P0-9).
+	recordPlay: (videoId: number, progress: number) => sendAuthed<void>('POST', `/media/${videoId}/plays`, { progress }),
+	setWatched: (videoId: number, watched: boolean) => sendAuthed<void>('PUT', `/media/${videoId}/watched`, { watched }),
+
 	removeVideoTag: (videoId: number, tagId: number) =>
 		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/tags/${tagId}`),
 

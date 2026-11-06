@@ -332,6 +332,8 @@ export interface ExtraMetadata {
 }
 
 export interface Video {
+	/** The owner's watched mark (F89 P0-9): the API sends it only to the owner. */
+	watched?: boolean;
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;

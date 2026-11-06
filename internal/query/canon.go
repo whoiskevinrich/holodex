@@ -147,6 +147,24 @@ func (q *Query) Display(ctx context.Context, r Resolver) (DisplayNode, error) {
 	return display(ctx, r, q.Root)
 }
 
+// playsLabel words a play count for a chip: `plays:>=3` is "3 or more" (handoff).
+func playsLabel(c *Cond) string {
+	lo, hi := strconv.FormatInt(c.Lo, 10), strconv.FormatInt(c.Hi, 10)
+	switch c.Op {
+	case OpGe:
+		return lo + " or more"
+	case OpGt:
+		return strconv.FormatInt(c.Lo+1, 10) + " or more"
+	case OpLt:
+		return "fewer than " + lo
+	case OpLe:
+		return lo + " or fewer"
+	case OpRange:
+		return lo + " to " + hi
+	}
+	return lo
+}
+
 func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 	d := DisplayNode{Expr: Print(n)}
 	var kids []Node
@@ -168,6 +186,8 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 			d.Label = DateLabel(t)
 		case t.Kind == KindNumber:
 			d.Label = condValue(t)
+		case t.Field == FieldPlays:
+			d.Label = playsLabel(t)
 		}
 		if entityFields[t.Field] && t.ID > 0 {
 			name, ok, err := r.NameOf(ctx, t.Field, t.ID)
