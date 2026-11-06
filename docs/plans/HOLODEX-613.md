@@ -50,7 +50,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [/] testing `testing-strategy`
-- [ ] security `security-review`
+- [/] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -84,8 +84,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-06 · session
-- skills: design-handoff, implement, testing-strategy, handoff, code-review
-- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). Next: the frontend, starting at TrimPicker.
+- skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
+- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). CodeQL's path alert on the edition target is answered with an explicit bound on the file name. Next: finish the security review, then the frontend, starting at TrimPicker.
 
 ### 2026-11-02 · session
 - skills: architecture

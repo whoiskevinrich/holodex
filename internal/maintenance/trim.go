@@ -274,5 +274,11 @@ func EditionTarget(path, name string) (target, cleanName string, ok bool) {
 	if cleanName == "" {
 		return "", "", false
 	}
-	return filepath.Join(filepath.Dir(path), stem+" {edition-"+cleanName+"}"+ext), cleanName, true
+	// The bound on the result, whatever the sanitizer above allowed: one name, in the original's
+	// folder. Same check as rename's name builder.
+	fileName := stem + " {edition-" + cleanName + "}" + ext
+	if !filepath.IsLocal(fileName) || filepath.Base(fileName) != fileName {
+		return "", "", false
+	}
+	return filepath.Join(filepath.Dir(path), fileName), cleanName, true
 }
