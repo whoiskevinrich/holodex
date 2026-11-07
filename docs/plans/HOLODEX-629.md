@@ -15,9 +15,9 @@ is unchanged.
 
 ## Gates — definition of done
 
-- [~] design — no change: the handoff's plan-row explanation line keeps its wording; only which token it names changes.
+- [~] design `design-handoff` — no change: the handoff's plan-row explanation line keeps its wording; only which token it names changes.
 - [x] frontend → `web/src/**`. `readBack` in `web/src/lib/rename.ts` returns the first token holding its breaker, else the first that differs, and finds a token written optional (`{tok?}`).
-- [x] testing. `rename.test.ts` "blames the token whose value holds its breaker" covers the owner's case (title with ` (` before `({people})`) and an optional `{title?}`; the rename vitest suite passes.
+- [x] testing `testing-strategy`. `rename.test.ts` "blames the token whose value holds its breaker" covers the owner's case (title with ` (` before `({people})`) and an optional `{title?}`; the rename vitest suite passes.
 
 ## Up next — ordered (position = priority)
 
