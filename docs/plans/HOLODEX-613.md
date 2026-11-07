@@ -85,7 +85,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-07 · session
-- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, and its work is merged into this branch from #584, and an edition starts unwatched (spec R8). The owner chose to merge before the by-hand QA so it can run on the testbed from edge: testing is settled on the automated tests, and the QA moved to HOLODEX-631. The owner re-confirmed the design at 46f8fb1c and said the build matches the mockup. Next: QA on edge (HOLODEX-631), then move HOLODEX-624 to Done.
+- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, and its work is merged into this branch from #584, and an edition starts unwatched (spec R8). The owner chose to merge before the by-hand QA so it can run on the testbed from edge: testing is settled on the automated tests, and the QA moved to HOLODEX-631. The owner re-confirmed the design at 46f8fb1c and said the build matches the mockup. Main merged in (rename fixes #585, #586). Next: QA on edge (HOLODEX-631), then move HOLODEX-624 to Done.
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
