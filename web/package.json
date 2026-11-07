@@ -16,15 +16,15 @@
     "nav": "node geometry/nav.mjs"
   },
   "devDependencies": {
-    "@sveltejs/adapter-static": "^4.0.0",
-    "@sveltejs/kit": "^3.1.0",
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.1.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.5",
-    "@vitest/browser-playwright": "^5.0.5",
+    "@tailwindcss/vite": "^4.3.4",
+    "@types/node": "^26.6.6",
+    "@vitest/browser-playwright": "^5.1.0",
     "playwright": "^1.64.1",
-    "svelte": "^5.57.2",
-    "svelte-check": "^4.7.7",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vite": "^8.3.5",
@@ -37,7 +37,7 @@
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/fraunces": "^5.3.0",
-    "@tanstack/virtual-core": "3.19.4",
+    "@tanstack/virtual-core": "3.19.11",
     "flag-icons": "^7.6.0"
   }
 }
