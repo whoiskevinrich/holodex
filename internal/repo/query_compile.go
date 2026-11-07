@@ -3,6 +3,7 @@ package repo
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"holodex/internal/metadata"
 	"holodex/internal/model"
@@ -111,35 +112,141 @@ func matchedClause(provider string) (string, []any) {
 	return base + " AND ee.provider = ?)", []any{provider}
 }
 
+// instantClause is `added:` or `updated:` (F89 P0-1) over a video column of RFC3339 UTC
+// text, so the bounds compare as strings. A video with no value (a row written by a path
+// other than the scanner) matches no date, and so its negation includes it. col is a
+// literal from the compiler, never input.
+func instantClause(col string, c *query.Cond, now time.Time) (string, []any) {
+	lo, hi, ok := query.Bounds(c, now, time.Local)
+	if !ok {
+		return "0", nil
+	}
+	s, args := col+" IS NOT NULL", []any(nil)
+	if !lo.IsZero() {
+		s, args = s+" AND "+col+" >= ?", append(args, lo.UTC().Format(timeLayout))
+	}
+	if !hi.IsZero() {
+		s, args = s+" AND "+col+" < ?", append(args, hi.UTC().Format(timeLayout))
+	}
+	return s, args
+}
+
+// watchedClause is `watched:` (P0-8). A video with no summary row is unwatched.
+func watchedClause(value string) (string, []any) {
+	s := "EXISTS (SELECT 1 FROM video_watch w WHERE w.video_id = v.id AND " + watchedExpr + ")"
+	if value == query.WatchedNo {
+		s = "NOT " + s
+	}
+	return s, nil
+}
+
+// playsClause is `plays:` (P0-8), where a video with no summary row has no plays.
+func playsClause(c *query.Cond) (string, []any) {
+	const count = "COALESCE((SELECT w.play_count FROM video_watch w WHERE w.video_id = v.id), 0)"
+	if c.Op == query.OpRange {
+		return count + " >= ? AND " + count + " <= ?", []any{c.Lo, c.Hi}
+	}
+	return count + " " + sqlOp(c.Op) + " ?", []any{c.Lo}
+}
+
+// PlaylistRef is one referenced playlist a `playlist:` condition compiles against (F89
+// P0-3): a snapshot's membership rows, or a smart playlist's own filter, cap included.
+// The api layer builds these (it owns the loop, depth and visibility checks, SEC-5/6);
+// a condition naming a playlist with no ref matches nothing, so a gap never widens.
+type PlaylistRef struct {
+	ID       int64
+	Snapshot bool
+	Filter   VideoFilter // a smart playlist's; unused for a snapshot
+}
+
+// compileEnv is what an expression compiles against beyond the tree: the clock relative
+// dates count from, and the referenced playlists.
+type compileEnv struct {
+	now  time.Time
+	refs map[int64]*PlaylistRef
+}
+
 // compileExpr compiles a canonical F87 tree to one predicate: AND / OR / NOT nest as
 // parenthesised SQL, and each condition is the flat keys' own fragment. The tree is
 // bounded by the parser's caps, so the SQL is too.
 func compileExpr(n query.Node) (string, []any) {
+	return compileEnv{now: time.Now()}.expr(n)
+}
+
+func (e compileEnv) expr(n query.Node) (string, []any) {
 	switch t := n.(type) {
 	case *query.And:
-		return compileList(t.Items, " AND ")
+		return e.list(t.Items, " AND ")
 	case *query.Or:
-		return compileList(t.Items, " OR ")
+		return e.list(t.Items, " OR ")
 	case *query.Not:
-		s, args := compileExpr(t.X)
+		s, args := e.expr(t.X)
 		return "NOT (" + s + ")", args
 	case *query.Word:
 		return wordClause(t.Text)
 	case *query.Cond:
-		return compileCond(t)
+		return e.cond(t)
 	}
 	return "0", nil
 }
 
-func compileList(items []query.Node, sep string) (string, []any) {
+func (e compileEnv) list(items []query.Node, sep string) (string, []any) {
 	parts := make([]string, len(items))
 	var args []any
 	for i, it := range items {
-		s, a := compileExpr(it)
+		s, a := e.expr(it)
 		parts[i] = "(" + s + ")"
 		args = append(args, a...)
 	}
 	return strings.Join(parts, sep), args
+}
+
+func (e compileEnv) cond(c *query.Cond) (string, []any) {
+	switch c.Field {
+	case query.FieldAdded:
+		return instantClause("v.added_at", c, e.now)
+	case query.FieldUpdated:
+		return instantClause("v.changed_at", c, e.now)
+	case query.FieldReleased:
+		return resolvedClause(query.ReleaseDateKey, query.KindDate, c, e.now)
+	case query.FieldPlaylist:
+		return e.playlistClause(e.refs[c.ID])
+	case query.FieldWatched:
+		return watchedClause(c.Value)
+	case query.FieldPlays:
+		return playsClause(c)
+	case query.FieldPlayed:
+		// A video never played has no row, so matches no date, and its negation includes it.
+		s, args := instantClause("w.last_played_at", c, e.now)
+		return "EXISTS (SELECT 1 FROM video_watch w WHERE w.video_id = v.id AND " + s + ")", args
+	}
+	if c.Kind != "" {
+		return resolvedClause(c.Field, c.Kind, c, e.now)
+	}
+	return compileCond(c)
+}
+
+// playlistClause is membership in a referenced playlist as it is now. A smart one is
+// its own filter as a subquery, in its sort and cut at its cap when it has one, so the
+// referencing playlist sees exactly what the referenced one shows. It counts relative
+// dates from the same clock as the outer query.
+func (e compileEnv) playlistClause(ref *PlaylistRef) (string, []any) {
+	if ref == nil {
+		return "0", nil
+	}
+	if ref.Snapshot {
+		return "v.id IN (SELECT pv.video_id FROM playlist_videos pv WHERE pv.playlist_id = ?)", []any{ref.ID}
+	}
+	inner := ref.Filter
+	inner.Now = e.now
+	where, args := inner.build()
+	sub := "SELECT v.id FROM videos v " + where
+	if ref.Filter.Cap > 0 {
+		order, orderArgs := ref.Filter.orderBy()
+		sub += " ORDER BY " + order + " LIMIT ?"
+		args = append(append(args, orderArgs...), ref.Filter.Cap)
+	}
+	return "v.id IN (" + sub + ")", args
 }
 
 func compileCond(c *query.Cond) (string, []any) {

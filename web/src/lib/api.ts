@@ -1,7 +1,7 @@
 // Typed client for the Holodex REST API. In dev, Vite proxies /api -> :7800;
 // in production the Go binary serves both from the same origin (ADR-007).
 import { filtersToParams } from './filters';
-import type { ParsedQuery, QueryError, QueryParseResult } from './query';
+import type { ParsedQuery, QueryError, QueryFieldInfo, QueryParseResult } from './query';
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
@@ -472,7 +472,7 @@ export const api = {
 		from_query?: string;
 		query?: string;
 	}) => sendAuthed<{ playlist: Playlist }>('POST', `/playlists`, body),
-	// `query` is Edit filter's Update (smart playlists only).
+	// `query` and `cap` are Save definition's (smart playlists only).
 	updatePlaylist: (
 		id: number,
 		patch: {
@@ -481,8 +481,13 @@ export const api = {
 			visibility?: Playlist['visibility'];
 			query?: string;
 			play_shuffled?: boolean;
+			cap?: number | null; // null clears it (F89 P0-2)
 		}
 	) => sendAuthed<{ playlist: Playlist }>('PATCH', `/playlists/${id}`, patch),
+	// Would this draft save? Runs every rule of the PATCH and writes nothing (F89 P0-4). A
+	// refusal throws an ApiError whose body is a PlaylistRefusal.
+	checkPlaylist: (id: number, patch: { query?: string; sort?: string; cap?: number | null }) =>
+		sendAuthed<{ ok: true }>('PATCH', `/playlists/${id}?check=1`, patch),
 	// Turns a smart playlist into a fixed (snapshot) one holding its current result.
 	freezePlaylist: (id: number) => sendAuthed<{ playlist: Playlist }>('POST', `/playlists/${id}/freeze`),
 	deletePlaylist: (id: number) => sendAuthed<Record<string, never>>('DELETE', `/playlists/${id}`),
@@ -861,8 +866,13 @@ export const api = {
 	// F87: parse a query on the server, the only parser (query.ts). A refused query is a
 	// result, not a throw: 400 (or 401 for an owner-only part) carries the error with its
 	// offsets for the error echo and the browse notice.
-	parseQuery: async (expr: string): Promise<QueryParseResult> => {
-		const path = `/query/parse?expr=${encodeURIComponent(expr)}`;
+	// `stored`: expr is a saved definition, already canonical; the server marks a deleted
+	// entity instead of re-reading its id as a name (the owner's only, F89).
+	queryFields: () => get<{ fields: QueryFieldInfo[] }>('/query/fields'),
+	queryValues: (field: string, q: string) =>
+		get<{ values: string[] }>(`/query/values?${new URLSearchParams({ field, q })}`),
+	parseQuery: async (expr: string, stored = false): Promise<QueryParseResult> => {
+		const path = `/query/parse?expr=${encodeURIComponent(expr)}${stored ? '&stored=1' : ''}`;
 		const res = await fetch(`${BASE}${path}`, { redirect: 'manual' });
 		checkRedirect(res);
 		if (res.ok) return { ok: true, ...((await res.json()) as ParsedQuery) };
@@ -1059,6 +1069,10 @@ export const api = {
 	// `err.status` off the thrown ApiError to tell those apart (no structured body).
 	addVideoTag: (videoId: number, name: string) =>
 		sendAuthed<{ tag: Tag }>('POST', `/media/${videoId}/tags`, { name }),
+
+	// The owner's watch history (F89 P0-7, P0-9).
+	recordPlay: (videoId: number, progress: number) => sendAuthed<void>('POST', `/media/${videoId}/plays`, { progress }),
+	setWatched: (videoId: number, watched: boolean) => sendAuthed<void>('PUT', `/media/${videoId}/watched`, { watched }),
 
 	removeVideoTag: (videoId: number, tagId: number) =>
 		sendAuthed<Record<string, never>>('DELETE', `/media/${videoId}/tags/${tagId}`),

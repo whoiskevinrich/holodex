@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	caretContext,
+	condLabel,
 	echoParts,
 	exprWithout,
 	fieldsFor,
@@ -32,10 +33,20 @@ const ford = person(7, 'Harrison Ford');
 // Motivating query 1: ((sf fantasy) OR action) -comedy ford
 const query1 = () => fill(and(or(and(sf, fantasy), action), not(comedy), ford));
 
+describe('F89 chip labels', () => {
+	it('words dates and playlist references from the server label', () => {
+		const added: QueryNode = { kind: 'cond', field: 'added', op: '<', value: '<30d', label: 'last 30 days', expr: 'added:<30d' };
+		const pl: QueryNode = { kind: 'cond', field: 'playlist', op: '=', value: '4', id: 4, label: 'Favourites', expr: 'playlist:4' };
+		expect(condLabel(added)).toBe('added: last 30 days');
+		expect(condLabel(pl)).toBe('in: Favourites');
+		expect(toChips(fill(not(pl)))).toMatchObject({ kind: 'chips', items: [{ kind: 'chip', chip: { label: 'not in: Favourites', negated: true, path: [] } }] });
+	});
+});
+
 describe('toChips (W1)', () => {
 	it('draws a plain AND as plain chips', () => {
 		const m = toChips(fill(and(comedy, { kind: 'cond', field: 'duration', op: '<', lo: 120, expr: 'duration:<120s' })));
-		expect(m).toEqual({
+		expect(m).toMatchObject({
 			kind: 'chips',
 			items: [
 				{ kind: 'chip', chip: { label: 'comedy', negated: false, path: [0] } },
@@ -55,7 +66,7 @@ describe('toChips (W1)', () => {
 			expect(group.members.map((s) => s.map((c) => c.label))).toEqual([['science-fiction', 'fantasy'], ['action']]);
 			expect(groupLabel(group.members)).toBe('science-fiction and fantasy, or action');
 		}
-		expect(notChip).toEqual({ kind: 'chip', chip: { label: 'not comedy', negated: true, path: [1] } });
+		expect(notChip).toMatchObject({ kind: 'chip', chip: { label: 'not comedy', negated: true, path: [1] } });
 		expect(fordChip.kind === 'chip' && fordChip.chip.label).toBe('Harrison Ford');
 	});
 
@@ -123,5 +134,41 @@ describe('query-mode lexer (W4)', () => {
 	it('never offers matched to a visitor', () => {
 		expect(fieldsFor(false)).not.toContain('matched');
 		expect(fieldsFor(true)).toContain('matched');
+	});
+});
+
+describe('mapped fields and the F89 dates', () => {
+	const cond = (x: Partial<QueryNode>): QueryNode => ({ kind: 'cond', expr: '', ...x });
+	it('labels a mapped field by its own label, a date in the server\'s words', () => {
+		expect(condLabel(cond({ field: 'actors', field_label: 'Actors', label: 'Ann Lee' }))).toBe('Actors: Ann Lee');
+		expect(condLabel(cond({ field: 'updated', label: 'last 30 days' }))).toBe('updated: last 30 days');
+		expect(condLabel(cond({ field: 'released', label: '2026' }))).toBe('released: 2026');
+		expect(condLabel(cond({ field: 'director', label: 'gone', missing: true }))).toBe('director: gone');
+	});
+	it('takes the key glyph from the server, with no list of fields', () => {
+		const chipFor = (x: QueryNode) => (toChips(x) as { items: { kind: string; chip: { ownerOnly?: boolean } }[] }).items[0].chip;
+		expect(chipFor(cond({ field: 'container', label: 'x', owner_only: true })).ownerOnly).toBe(true);
+		expect(chipFor(cond({ field: 'director', label: 'x' })).ownerOnly).toBeUndefined();
+	});
+	it('offers the reader\'s mapped fields after the built-ins', () => {
+		expect(fieldsFor(false, ['director'])).toContain('director');
+		expect(fieldsFor(false)).toContain('released');
+		expect(fieldsFor(false)).not.toContain('matched');
+	});
+});
+
+describe('the watch conditions', () => {
+	const cond = (x: Partial<QueryNode>): QueryNode => ({ kind: 'cond', expr: '', ...x });
+	it('labels them from the handoff table', () => {
+		expect(condLabel(cond({ field: 'watched', value: 'yes' }))).toBe('watched');
+		expect(condLabel(cond({ field: 'watched', value: 'no' }))).toBe('unwatched');
+		expect(condLabel(cond({ field: 'plays', label: '3 or more' }))).toBe('plays: 3 or more');
+		expect(condLabel(cond({ field: 'played', label: 'last 7 days' }))).toBe('played: last 7 days');
+	});
+	it('offers them to the owner alone', () => {
+		for (const f of ['watched', 'plays', 'played']) {
+			expect(fieldsFor(true)).toContain(f);
+			expect(fieldsFor(false)).not.toContain(f);
+		}
 	});
 });

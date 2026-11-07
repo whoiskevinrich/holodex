@@ -259,3 +259,101 @@ caps bound each request, and `/search` has none either. **Rejected:** an owner c
 one forgotten caller (the MCP tool already bypasses `mediaFilterFor`) would leak owner-only results.
 
 Decided in [`7906048d`](https://github.com/whoiskevinrich/holodex/commit/7906048d).
+
+## Smart playlist rules: references, watch history and resolved fields stay inside the query perimeter
+
+HOLODEX-619 adds playlist references, watch-history conditions, resolved-field conditions, relative
+dates and a per-playlist cap to the query a smart playlist stores. Each one goes through the
+[query perimeter](#query-expressions-are-untrusted-input-bounded-before-any-lookup) and the
+[read gates](#read-gates-owner-ness-is-a-request-property-applied-at-read-time) above, not around
+them. The spec cites these rules by number.
+
+**Visibility of what a query can name**
+
+- **SEC-1 — A reference resolves under the reader's visibility** (spec P0-3, P0-5). For a visitor, a `playlist:` condition
+  naming a private playlist resolves exactly like an id that doesn't exist: same error code, same
+  message, same position. It is never a `401` or `403`, because either would confirm the id. This
+  holds at every entry point: `mediaFilterFor`, the parse endpoint, smart-playlist reads and the MCP
+  `search_videos` tool.
+- **SEC-2 — Owner-only is transitive through references** (spec P0-3, P0-5). A query is owner-only when it holds an
+  owner-only condition, references a private playlist, or references a playlist whose own expansion
+  is owner-only. `query.OwnerOnly` stays the single test, now with the expansion. `CheckOwner`,
+  `usesOwnerOnlyInputs` and `smartPlaylistFilter` all use it, so a public playlist is refused at save
+  if it would need a private reference, and reports `owner_only` at read if a reference becomes
+  private later.
+- **SEC-3 — Making a referenced playlist private never fails** (spec P0-3, P0-5). The visibility change goes through,
+  and any public playlist that references it reads as stale `owner_only` (SEC-2), showing no results
+  until the owner edits it. Deleting a referenced playlist reads as stale `missing`, as deleted
+  entities already do. Owner's choice, 2026-11-01.
+- **SEC-4 — Watch-history conditions and sorts are owner-only** (spec P0-8). `watched:`, `plays:` and `played:`,
+  and any sort over play data, sit in the same owner-only set as `matched:` and the completeness
+  sorts. A visitor can never run them, and a public playlist can never store them. A frozen snapshot stores
+  no condition, only videos, so the owner may publish one (spec RD14).
+
+**Bounding the work a stored query triggers**
+
+- **SEC-5 — References expand under hard caps, checked before any SQL** (spec P0-3). A stored reference expands
+  to the referenced playlist's definition. Two caps apply:
+  - the expansion is at most 4 references deep;
+  - the fully expanded tree names at most 16 distinct playlists and holds at most 256 conditions.
+
+  The 1,000-byte, depth-8 and 64-condition parser caps still bound each stored string on its own.
+  Past a cap the read reports stale `invalid` and the save is refused. Values stay bound parameters.
+- **SEC-6 — Cycles are refused at save and caught at read** (spec P0-3). The save (create, or a `PATCH` of the
+  query) walks the reference graph from the new definition and refuses one that reaches itself. Two
+  separate edits could still close a loop between them, so expansion also keeps a visited set and
+  reports stale `invalid` on a repeat. It never recurses unbounded.
+- **SEC-7 — The cap is a bounded integer, validated at the API** (spec P0-2). A playlist's result cap is empty or
+  an integer from 1 to 10,000, checked in the handler the way `visibility` is. It shows a visitor
+  nothing beyond the match count the same query already returns in browse, because SEC-2 keeps every
+  public query evaluable by a visitor.
+- **Accepted:** `GET /playlists` re-counts every smart playlist on every read. Each count is bounded by
+  SEC-5, and the owner alone controls how many playlists exist. Caching the counts was rejected,
+  because a cache would need invalidating on every library write and every reference change.
+
+**What a resolved-field condition may see**
+
+- **SEC-8 — A query matches only what that reader could be shown** (spec P0-1, P0-6).
+  - It compares against the resolver's winning value, never a losing candidate or a raw
+    `entity_enrichment` payload. Otherwise a visitor could probe shadow values the page never
+    displays.
+  - A field redacted for visitors (the file-metadata fields `redactFileMetadataForVisitor` blanks)
+    is an owner-only condition.
+  - `_`-prefixed enrichment keys are never query fields.
+  - A field name reaches SQL only after a lookup in the registry's allowlist, never as text from the
+    request. That includes a JSON path into stored values.
+  - `released:` follows the same rule.
+
+**The new write paths**
+
+- **SEC-9 — Recording a play is an owner-only write** (spec P0-7). The play-recording route mounts in the
+  `requireOwner` group. A visitor's playback records nothing, and the client never sends their plays.
+  There is no visitor-reachable write, so it needs no rate limit beyond the owner gate.
+- **SEC-10 — Play history is a minimal private record that lives as long as its video** (spec
+  P0-7, P0-9).
+  - A play row holds the video, a timestamp and how far playback got. It never holds an IP address,
+    user agent or session id.
+  - Rows are kept for as long as the video exists. There is no clear-all and no per-video clear.
+  - Purging a video cascades to its plays, which is the only delete path.
+  - The manual watched/unwatched mark is a separate owner-only write in the same `requireOwner`
+    group as SEC-9. It sets or unsets the mark and never adds or removes a play row.
+  - Play data and the mark never appear in a visitor response or a visitor MCP result.
+  - Database backups include it. The owner knows that, since they hold the backups.
+
+  Owner's choice, 2026-11-01. Rejected: automatic expiry and owner-run clearing. The record is
+  already minimal, and the watched mark corrects a mistaken play without deleting history.
+- **SEC-11 — The on-page editor adds no write route** (spec P0-4).
+  - The definition editor saves through the existing owner-gated `PATCH /playlists/{id}` (query,
+    sort, cap), and previews through the existing reads (`GET /query/parse`, `GET /media?expr=`).
+  - Every write that can change what a playlist evaluates re-runs the whole check: create, a `PATCH`
+    of the query, sort or cap, a change of visibility to public, and freeze. The check is
+    canonicalisation, `CheckOwner`, SEC-2's public test, SEC-5's caps and SEC-6's cycle walk.
+  - A change of visibility to public must apply SEC-2 transitively, not only to the playlist's own
+    conditions.
+
+**Rejected:** evaluating a referenced smart playlist under the *owner's* posture when a visitor reads
+a public playlist. It would let a public playlist launder owner-only results through a private
+reference. **Rejected:** a separate permission check per new field. As the query section above notes,
+one forgotten caller leaks, so the new fields join the one `OwnerOnly` set.
+
+Decided in: pending squash (HOLODEX-619).

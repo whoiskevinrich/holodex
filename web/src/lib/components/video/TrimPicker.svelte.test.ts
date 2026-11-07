@@ -4,9 +4,9 @@ import { userEvent } from 'vitest/browser';
 import { tick } from 'svelte';
 import TrimPicker from './TrimPicker.svelte';
 
-// The trim picker (F88, testing-strategy §40.6). No real video is decoded here, so the element is
+// The trim picker (F88, testing-strategy §41.6). No real video is decoded here, so the element is
 // faked to a 100 s, 1280×720 video, and requestVideoFrameCallback is hidden so the picker takes its
-// 1/30 s fallback. Real decoding is checked in the browser (§40.7).
+// 1/30 s fallback. Real decoding is checked in the browser (§41.7).
 
 const play = vi.spyOn(HTMLMediaElement.prototype, 'play');
 const proto = HTMLVideoElement.prototype as Partial<HTMLVideoElement>;

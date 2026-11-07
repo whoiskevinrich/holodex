@@ -206,6 +206,24 @@ func (r *Repo) FoldMovedVideo(ctx context.Context, older, newer int64) error {
 		{"trim outcome's edition", `UPDATE video_trim_results SET edition_video_id = ?1 WHERE edition_video_id = ?2`},
 		{"trimmed from", `UPDATE OR IGNORE video_trimmed_from SET video_id = ?1 WHERE video_id = ?2`},
 		{"trimmed from's source", `UPDATE video_trimmed_from SET source_video_id = ?1 WHERE source_video_id = ?2`},
+		// F89: a move keeps the watch history (watch-history.md). The later mark stands, unless
+		// a play after it cleared it, as it would have on one row. newer's summary goes with
+		// its row.
+		{"plays", `UPDATE video_plays SET video_id = ?1 WHERE video_id = ?2`},
+		{"watch summary", `
+			INSERT INTO video_watch (video_id, play_count, last_played_at, manual_watched, manual_at)
+			SELECT ?1, play_count, last_played_at, manual_watched, manual_at FROM video_watch WHERE video_id = ?2
+			ON CONFLICT (video_id) DO UPDATE SET
+				play_count = video_watch.play_count + excluded.play_count,
+				last_played_at = CASE WHEN excluded.last_played_at > COALESCE(video_watch.last_played_at, '')
+					THEN excluded.last_played_at ELSE video_watch.last_played_at END,
+				manual_watched = CASE WHEN excluded.manual_at >= COALESCE(video_watch.manual_at, '')
+					THEN excluded.manual_watched ELSE video_watch.manual_watched END,
+				manual_at = CASE WHEN excluded.manual_at >= COALESCE(video_watch.manual_at, '')
+					THEN excluded.manual_at ELSE video_watch.manual_at END`},
+		{"watch mark: a later play clears it", `
+			UPDATE video_watch SET manual_watched = NULL, manual_at = NULL
+			 WHERE video_id = ?1 AND manual_at < last_played_at`},
 		{"keep-separate", `DELETE FROM entity_keep_separate
 			WHERE entity_type = 'video' AND (id_lo = ?2 OR id_hi = ?2)`},
 	} {

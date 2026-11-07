@@ -24,6 +24,8 @@ type CompletenessRow struct {
 	Required   *int
 	Extras     *int
 	Missing    []MissingFacet
+	// Values is a video's resolved-value index rows, written by the drain only.
+	Values []ResolvedValue
 }
 
 // MissingFacet is one absent scored facet: its canonical name and the band
@@ -71,7 +73,17 @@ func (r *Repo) DirtyCompleteness(ctx context.Context) (map[string][]int64, error
 // read (WAL reads never take writeMu); an id it does not return — soft-
 // deleted, inactive, a person with no active video, an entity type nothing
 // scores — ends up with no store rows, the correct "nothing to badge" state.
+//
+// An empty set returns before taking writeMu, so a read that drains first (a visitor's
+// included, F89) waits on no writer when there's nothing to do.
 func (r *Repo) DrainCompleteness(ctx context.Context, compute func(entityType string, ids []int64) ([]CompletenessRow, error)) error {
+	var pending bool
+	if err := r.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM completeness_dirty)`).Scan(&pending); err != nil {
+		return fmt.Errorf("drain completeness: %w", err)
+	}
+	if !pending {
+		return nil
+	}
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 	dirty, err := r.DirtyCompleteness(ctx)
@@ -149,6 +161,11 @@ func (r *Repo) writeCompleteness(ctx context.Context, entityType string, ids []i
 				entityType, row.EntityID, m.Canonical, m.Band); err != nil {
 				return fmt.Errorf("write completeness: insert missing %s/%d/%s: %w", entityType, row.EntityID, m.Canonical, err)
 			}
+		}
+	}
+	if clearDirty && entityType == model.EnrichEntityVideo {
+		if err := writeResolvedValues(ctx, tx, ids, rows, now); err != nil {
+			return err
 		}
 	}
 	return tx.Commit()

@@ -26,12 +26,12 @@ var CloneTables = struct{ Copied, Derived, History, NoVideos []string }{
 	},
 	Derived: []string{
 		"video_metadata", "video_montages", "entity_completeness", "entity_completeness_missing",
-		"completeness_dirty",
+		"completeness_dirty", "resolved_values",
 	},
 	History: []string{
 		"file_writebacks", "file_writeback_snapshots", "writeback_queue", "held_originals",
 		"metadata_extraction_review", "job_runs", "file_renames", "video_file_names",
-		"video_trim_results", "video_trimmed_from",
+		"video_trim_results", "video_trimmed_from", "video_plays", "video_watch",
 	},
 	NoVideos: []string{"entity_aliases", "entity_alias_suppressions", "entity_external_ids"},
 }

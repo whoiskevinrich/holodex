@@ -20,13 +20,24 @@ import (
 // (security-perimeter.md, "Query expressions").
 
 // QueryResolver implements query.Resolver over the repository. The MCP server shares it.
-type QueryResolver struct{ Repo *repo.Repo }
+// PublicOnly is set for a visitor: a private playlist then binds as an unknown name, never
+// a refusal, so a reference can't confirm it exists (F89 SEC-1).
+type QueryResolver struct {
+	Repo       *repo.Repo
+	PublicOnly bool
+}
 
 func (r QueryResolver) Lookup(ctx context.Context, kind, name string) ([]query.Candidate, error) {
+	if kind == query.FieldPlaylist {
+		return r.Repo.QueryLookupPlaylists(ctx, name, r.PublicOnly)
+	}
 	return r.Repo.QueryLookup(ctx, kind, name)
 }
 
 func (r QueryResolver) NameOf(ctx context.Context, kind string, id int64) (string, bool, error) {
+	if kind == query.FieldPlaylist {
+		return r.Repo.QueryPlaylistName(ctx, id, r.PublicOnly)
+	}
 	return r.Repo.QueryNameOf(ctx, kind, id)
 }
 
@@ -40,7 +51,13 @@ const suggestMinScore = 0.85
 
 // Suggest ranks every name and alias of kind against an unknown name (P0-7).
 func (r QueryResolver) Suggest(ctx context.Context, kind, name string, n int) ([]string, error) {
-	pool, err := r.Repo.QueryNames(ctx, kind)
+	var pool []string
+	var err error
+	if kind == query.FieldPlaylist {
+		pool, err = r.Repo.QueryPlaylistNames(ctx, r.PublicOnly)
+	} else {
+		pool, err = r.Repo.QueryNames(ctx, kind)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -72,16 +89,17 @@ func (r QueryResolver) Suggest(ctx context.Context, kind, name string, n int) ([
 
 // ParseExpr is the whole path from expr text to a runnable query, shared by every entry
 // point: parse (the caps refuse first), the owner check (before any lookup), then
-// canonicalisation. A refused query is a *query.Error.
-func ParseExpr(ctx context.Context, r *repo.Repo, src string, isOwner bool) (*query.Query, error) {
-	q, err := query.Parse(src)
+// canonicalisation. A refused query is a *query.Error. fields is the mapped-field
+// catalogue; with none, naming a mapped field is an unknown field.
+func ParseExpr(ctx context.Context, r *repo.Repo, src string, fields query.Fields, isOwner bool) (*query.Query, error) {
+	q, err := query.ParseWith(src, fields)
 	if err != nil {
 		return nil, err
 	}
 	if err := q.CheckOwner(isOwner); err != nil {
 		return nil, err
 	}
-	if err := q.Canonicalize(ctx, QueryResolver{r}); err != nil {
+	if err := q.Canonicalize(ctx, QueryResolver{Repo: r, PublicOnly: !isOwner}); err != nil {
 		return nil, err
 	}
 	return q, nil
@@ -110,11 +128,34 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 	if strings.TrimSpace(src) == "" {
 		return nil
 	}
-	parsed, err := ParseExpr(ctx, h.repo, src, isOwner)
+	parsed, err := ParseExpr(ctx, h.repo, src, h.queryFields(), isOwner)
 	if err != nil {
 		return err
 	}
-	f.Expr = parsed.Root
+	// `playlist:` conditions read the named playlists as they are now (F89 P0-3), under
+	// the same rules a smart playlist's read runs; a reference that can't be read refuses
+	// the query rather than compiling to false and quietly widening a NOT.
+	x := newRefExpansion(0)
+	if s := x.countConds(parsed.Root); s != nil {
+		msg, _ := refusalCopy(*s, false)
+		return &query.Error{Code: query.CodeBadValue, Message: msg}
+	}
+	stale, err := h.expandRefs(ctx, x, parsed.Root, !isOwner)
+	if err != nil {
+		return err
+	}
+	if len(stale) > 0 {
+		msg := "This refers to a playlist that can't be shown."
+		if isOwner {
+			h.nameStaleRefs(ctx, stale)
+			msg, _ = refusalCopy(stale[0], false)
+		}
+		// A visitor gets no detail: the ref could name a private playlist a public one
+		// reaches (SEC-1).
+		return &query.Error{Code: query.CodeBadValue, Message: msg, Field: query.FieldPlaylist}
+	}
+	f.Expr, f.Refs = parsed.Root, x.refs
+	h.drainForFilter(ctx, f.Expr, "")
 	return nil
 }
 
@@ -122,12 +163,22 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 // tree with current names for the chips, or the error with its offsets. Ungated, and
 // it runs the same owner check as /media, so a visitor's `matched:` is refused here too.
 func (h *Handlers) parseQuery(w http.ResponseWriter, r *http.Request) {
-	q, err := ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), h.auth.authorized(r))
+	isOwner := h.auth.authorized(r)
+	var q *query.Query
+	var err error
+	if isOwner && r.URL.Query().Get("stored") != "" {
+		// A stored definition is already canonical (ids): it is parsed, never re-bound, so
+		// a deleted entity reads as itself, marked missing, not as a name of those digits
+		// (F89 "in: #14"). The owner's only: a visitor never sees a definition.
+		q, err = query.ParseStored(r.URL.Query().Get("expr"), h.queryFields())
+	} else {
+		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), h.queryFields(), isOwner)
+	}
 	if err != nil {
 		h.writeQueryError(w, "parse query", err)
 		return
 	}
-	tree, err := q.Display(r.Context(), QueryResolver{h.repo})
+	tree, err := q.Display(r.Context(), QueryResolver{Repo: h.repo, PublicOnly: !isOwner})
 	if err != nil {
 		h.fail(w, "parse query", err)
 		return

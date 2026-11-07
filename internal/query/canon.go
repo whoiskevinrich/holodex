@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -131,12 +132,37 @@ type DisplayNode struct {
 	Lo    int64         `json:"lo,omitempty"`
 	Hi    int64         `json:"hi,omitempty"`
 	Label string        `json:"label,omitempty"` // the entity's current name, the provider, or the word
+	// Missing: the entity or mapped field no longer exists. Only a stored definition
+	// reaches this, since canonicalising refuses an unknown id or field.
+	Missing bool `json:"missing,omitempty"`
+	// FieldLabel names a mapped field; OwnerOnly draws the key glyph (handoff: from the
+	// field's visibility, never a list in the chips).
+	FieldLabel string `json:"field_label,omitempty"`
+	OwnerOnly  bool   `json:"owner_only,omitempty"`
 }
 
 // Display builds the display tree of a canonical query, naming each entity by its
 // current name, so a renamed Tag shows its new name while the canonical id is unchanged.
 func (q *Query) Display(ctx context.Context, r Resolver) (DisplayNode, error) {
 	return display(ctx, r, q.Root)
+}
+
+// playsLabel words a play count for a chip: `plays:>=3` is "3 or more" (handoff).
+func playsLabel(c *Cond) string {
+	lo, hi := strconv.FormatInt(c.Lo, 10), strconv.FormatInt(c.Hi, 10)
+	switch c.Op {
+	case OpGe:
+		return lo + " or more"
+	case OpGt:
+		return strconv.FormatInt(c.Lo+1, 10) + " or more"
+	case OpLt:
+		return "fewer than " + lo
+	case OpLe:
+		return lo + " or fewer"
+	case OpRange:
+		return lo + " to " + hi
+	}
+	return lo
 }
 
 func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
@@ -153,7 +179,16 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 		d.Kind, d.Label = "word", t.Text
 	case *Cond:
 		d.Kind, d.Field, d.Op, d.Value, d.ID, d.Lo, d.Hi = "cond", t.Field, t.Op, condValue(t), t.ID, t.Lo, t.Hi
+		d.FieldLabel, d.OwnerOnly, d.Missing = t.FieldLabel, t.ownerOnly(), t.Kind == KindGone
 		d.Label = t.Value
+		switch {
+		case dateFields[t.Field], t.Kind == KindDate:
+			d.Label = DateLabel(t)
+		case t.Kind == KindNumber:
+			d.Label = condValue(t)
+		case t.Field == FieldPlays:
+			d.Label = playsLabel(t)
+		}
 		if entityFields[t.Field] && t.ID > 0 {
 			name, ok, err := r.NameOf(ctx, t.Field, t.ID)
 			if err != nil {
@@ -161,6 +196,8 @@ func display(ctx context.Context, r Resolver, n Node) (DisplayNode, error) {
 			}
 			if ok {
 				d.Label = name
+			} else {
+				d.Label, d.Missing = "#"+strconv.FormatInt(t.ID, 10), true
 			}
 		}
 	}

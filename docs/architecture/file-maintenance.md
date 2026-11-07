@@ -438,9 +438,10 @@ Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a7
      - **`part` is copied.** **`edition`** becomes a `manual` decision with the new name, so neither the
        source's edition decision nor a stale filename read can win.
      - **Not copied:** history (`file_writebacks`, snapshots, `writeback_queue`, `held_originals`,
-       extraction reviews, other `job_runs`, and F86's `file_renames` and `video_file_names`, so an
-       edition starts with no rename history and no name lock) and derived state (montage, completeness,
-       which is marked dirty). `repo.CloneTables` classifies every table holding per-video state, and a
+       extraction reviews, other `job_runs`, F86's `file_renames` and `video_file_names`, so an edition
+       starts with no rename history and no name lock, and `video_plays` and `video_watch`, so it starts
+       unwatched) and derived state (montage, completeness, `resolved_values`, all rebuilt once the row
+       is marked dirty). `repo.CloneTables` classifies every table holding per-video state, and a
        test fails on one it doesn't list. `video_metadata`, file facts and the `file`/`auto` slots come from `ReExtract` and
        thumbnail generation on the new file.
      - **Links:** an `entity_keep_separate('video', lo, hi)` row is written, which is what "label as

@@ -40,19 +40,24 @@ const liveMemberCount = `(SELECT COUNT(*) FROM playlist_videos pv
 	WHERE pv.playlist_id = p.id AND v.active = 1 AND v.deleted_at IS NULL)`
 
 const playlistColumns = `p.id, p.name, p.sort, p.visibility, p.query, p.query_version, p.play_shuffled,
-	p.created_at, p.updated_at, ` + liveMemberCount
+	p.cap, p.created_at, p.updated_at, ` + liveMemberCount
 
 func scanPlaylist(s rowScanner) (model.Playlist, error) {
 	var p model.Playlist
 	var query sql.NullString
-	var version sql.NullInt64
+	var version, capped sql.NullInt64
 	err := s.Scan(&p.ID, &p.Name, &p.Sort, &p.Visibility, &query, &version, &p.PlayShuffled,
-		&p.CreatedAt, &p.UpdatedAt, &p.ItemCount)
+		&capped, &p.CreatedAt, &p.UpdatedAt, &p.ItemCount)
 	if query.Valid {
 		p.Query = &query.String
 		v := int(version.Int64)
 		p.QueryVersion = &v
 	}
+	if capped.Valid {
+		c := int(capped.Int64)
+		p.Cap = &c
+	}
+	p.SmartFlag = p.Query != nil
 	return p, err
 }
 
@@ -178,6 +183,11 @@ func (r *Repo) CountPublicPlaylists(ctx context.Context) (int, error) {
 // (ADR-121 D1) at the current query version; the caller passes no videoIDs then.
 // Validation of name/sort/visibility/query is the handler's; this trusts its arguments.
 func (r *Repo) CreatePlaylist(ctx context.Context, name, sort, visibility string, query *string, videoIDs []int64) (*model.Playlist, error) {
+	return r.CreateCappedPlaylist(ctx, name, sort, visibility, query, videoIDs, 0)
+}
+
+// CreateCappedPlaylist is CreatePlaylist with a smart playlist's cap (F89 P0-2); 0 is none.
+func (r *Repo) CreateCappedPlaylist(ctx context.Context, name, sort, visibility string, query *string, videoIDs []int64, cap int) (*model.Playlist, error) {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
 
@@ -193,8 +203,8 @@ func (r *Repo) CreatePlaylist(ctx context.Context, name, sort, visibility string
 		version = &v
 	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO playlists (name, sort, visibility, query, query_version) VALUES (?, ?, ?, ?, ?)`,
-		name, sort, visibility, query, version)
+		`INSERT INTO playlists (name, sort, visibility, query, query_version, cap) VALUES (?, ?, ?, ?, ?, ?)`,
+		name, sort, visibility, query, version, sql.NullInt64{Int64: int64(cap), Valid: cap > 0})
 	if err != nil {
 		return nil, fmt.Errorf("create playlist: %w", err)
 	}
@@ -251,6 +261,8 @@ func insertPlaylistVideos(ctx context.Context, tx *sql.Tx, playlistID int64, vid
 type PlaylistPatch struct {
 	Name, Sort, Visibility, Query *string
 	PlayShuffled                  *bool
+	// Cap sets a smart playlist's cap (F89 P0-2); 0 clears it.
+	Cap *int
 }
 
 // UpdatePlaylist applies patch and bumps updated_at. ErrNotFound for an unknown id.
@@ -279,6 +291,10 @@ func (r *Repo) UpdatePlaylist(ctx context.Context, id int64, patch PlaylistPatch
 	if patch.PlayShuffled != nil {
 		sets = append(sets, "play_shuffled = ?")
 		args = append(args, *patch.PlayShuffled)
+	}
+	if patch.Cap != nil {
+		sets = append(sets, "cap = ?")
+		args = append(args, sql.NullInt64{Int64: int64(*patch.Cap), Valid: *patch.Cap > 0})
 	}
 	args = append(args, id)
 	res, err := r.db.ExecContext(ctx, `UPDATE playlists SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)
@@ -442,7 +458,7 @@ func (r *Repo) FreezePlaylist(ctx context.Context, id int64, videoIDs []int64) e
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx,
-		`UPDATE playlists SET query = NULL, query_version = NULL,
+		`UPDATE playlists SET query = NULL, query_version = NULL, cap = NULL,
 		        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 		 WHERE id = ? AND query IS NOT NULL`, id)
 	if err != nil {
@@ -508,7 +524,8 @@ func rewriteSmartPlaylistRefs(ctx context.Context, tx *sql.Tx, entityType string
 		}
 		// An F87 expr names the same id inside its text: parse → rewrite → canonical print.
 		if src := q.Get("expr"); src != "" {
-			if expr, err := query.Parse(src); err == nil && query.RewriteID(expr.Root, mergeExprField[entityType], mergedID, canonicalID) {
+			// ParseStored: the repo has no field catalogue, and a mapped field reprints as written.
+			if expr, err := query.ParseStored(src, nil); err == nil && query.RewriteID(expr.Root, mergeExprField[entityType], mergedID, canonicalID) {
 				q.Set("expr", expr.String())
 				changed = true
 			}

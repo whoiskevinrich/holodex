@@ -17,7 +17,7 @@ import (
 	"testing"
 )
 
-// Real-file proof for a trim (testing-strategy §40.4). Fixtures are synthesized here; nothing is
+// Real-file proof for a trim (testing-strategy §41.4). Fixtures are synthesized here; nothing is
 // committed. Every frame carries its number as ten vertical bars, so which frame an output holds is
 // read from its pixels, sharing no code with the cut check.
 

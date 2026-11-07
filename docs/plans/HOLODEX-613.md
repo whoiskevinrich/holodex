@@ -32,7 +32,7 @@ The owner picks the first and last frames to keep on Media Details. The cut runs
 as the second F77 Maintenance entry, is checked against those frames, and then either replaces the
 original (held for the F77 window) or lands as a new edition item copied from the original.
 
-**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · [handoff](../design/video-trimming-handoff.md) · [testing-strategy §40](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
+**Design package:** [spec F88](../specs/video-trimming.md) · architecture (59d55a75: [file-maintenance.md](../architecture/file-maintenance.md)) · [handoff](../design/video-trimming-handoff.md) · [testing-strategy §41](../testing-strategy.md)   <!-- links; source of truth for *what*; this file is source of truth for *where it stands* -->
 
 ## Gates — definition of done
 
@@ -67,7 +67,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] QA by hand: §40.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
+1. [ ] [testing] QA by hand: §41.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
 2. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
