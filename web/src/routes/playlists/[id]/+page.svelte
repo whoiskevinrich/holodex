@@ -293,10 +293,11 @@
 
 					<div class="flex flex-wrap items-end gap-2">
 						{#if isOwner}
-							{#if smart && !editing}
+							<!-- A notice owns Edit definition, and a stale playlist has nothing to sort. -->
+							{#if smart && !editing && !notice}
 								<button type="button" onclick={openEditor} class="btn-ghost px-3 py-2 text-sm">Edit definition</button>
 							{/if}
-							{#if !editing}
+							{#if !editing && !notice}
 								<div class="flex items-end gap-2">
 									<!-- A smart playlist has no position to honour: no Manual order (RD4). -->
 									<SortDropdown bind:sort owner extra={smart ? [] : [MANUAL]} />
@@ -412,7 +413,8 @@
 				/>
 			{/if}
 
-			{#if isOwner}
+			<!-- A notice without Make private already offers Delete playlist. -->
+			{#if isOwner && (editing || !notice || notice.makePrivate)}
 				<div class="flex justify-end">
 					<button type="button" onclick={() => (confirmDelete = true)} class="btn-quiet px-3 py-1.5 text-sm">
 						Delete playlist

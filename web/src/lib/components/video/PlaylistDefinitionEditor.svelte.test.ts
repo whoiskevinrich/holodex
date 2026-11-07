@@ -160,6 +160,21 @@ describe('PlaylistDefinitionEditor', () => {
 		expect(button('Save definition')!.disabled).toBe(true);
 	});
 
+	it('shows every problem of a refused draft together', async () => {
+		h.checkPlaylist.mockImplementation(async () => {
+			throw new ApiError(400, '/playlists/7', 'A public playlist can’t use owner-only conditions.', {
+				error: 'A public playlist can’t use owner-only conditions.',
+				fix: 'Remove the owner-only condition or sort, or make the playlist private.',
+				owner_only: true,
+				also: [{ error: 'This would make a loop: A → B → A.', fix: 'Remove “in: B”.', via: 2 }]
+			});
+		});
+		await mount();
+		await expect.poll(() => document.body.textContent).toContain('This would make a loop: A → B → A.');
+		expect(document.body.textContent).toContain('A public playlist can’t use owner-only conditions.');
+		expect(button('Save definition')!.disabled).toBe(true);
+	});
+
 	it('saves the draft through the one PATCH', async () => {
 		const { onsaved } = await mount();
 		await setCap('25');

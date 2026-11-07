@@ -251,7 +251,8 @@ never see either one.
 - **Layout:** the bottom-left owner row and the duration chip sit at `bottom-1.5`, which is above the
   3px bar, so nothing overlaps.
 - **Data:** like `completeness`, the card shows the bar only when the API sends the watched fact. The
-  API sends it only for the owner, so `VideoCard` still never checks `isOwner`.
+  API sends it only for the owner, and the card hides it while Owner view is off, so the owner's
+  visitor preview shows what a visitor sees.
 - **Where it shows:** every grid that renders `VideoCard` (browse, Media, playlists, entity grids,
   shelves).
 

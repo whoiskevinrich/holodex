@@ -77,7 +77,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 -->
 
 ### 2026-11-06 · final security review
-- skills: security-review, handoff
+- skills: security-review, handoff, code-review
 - handoff: The final security review found nothing High or Medium, and the backend and security gates are settled; a negative offset paging past a cap is fixed. Next: the owner runs QA 10 to 12 on real playback, then compares the built UI with the approved mockups.
 
 ### 2026-11-06 · the remaining §40 tests

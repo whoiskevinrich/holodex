@@ -78,6 +78,13 @@ export function toProblem(e: unknown, model: ChipModel | null): DefinitionProble
 	return { sentence: body?.error ?? toMessage(e), fix: body?.fix ?? '', via: ref?.via };
 }
 
+/** Every reason a refused draft can't save, the mockup's "each message names its chip". */
+export function toProblems(e: unknown, model: ChipModel | null): DefinitionProblem[] {
+	const body = e instanceof ApiError ? (e.body as Partial<PlaylistRefusal> | undefined) : undefined;
+	const also = (body?.also ?? []).map((p) => ({ sentence: p.error, fix: p.fix, via: p.via }));
+	return [toProblem(e, model), ...also];
+}
+
 /** Whether a problem marks this chip. */
 export function chipAtFault(chip: ChipCond, problem: DefinitionProblem | null): boolean {
 	if (chip.missing) return true;

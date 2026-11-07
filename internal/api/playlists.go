@@ -277,15 +277,19 @@ func (h *Handlers) checkSmartPlaylistState(w http.ResponseWriter, sort, visibili
 		return false
 	}
 	if visibility == model.PlaylistPublic && h.usesOwnerOnlyInputs(sort, query) {
-		sentence := "A public playlist can’t use owner-only conditions."
-		fix := "Remove the owner-only condition or sort, or make the playlist private."
-		if visibilityOnly {
-			sentence, fix = "This playlist can’t be public: it uses owner-only conditions.", "Edit the definition to remove them."
-		}
+		sentence, fix := ownerOnlyRefusal(visibilityOnly)
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "owner_only": true})
 		return false
 	}
 	return true
+}
+
+// ownerOnlyRefusal words a public playlist's owner-only input.
+func ownerOnlyRefusal(visibilityOnly bool) (sentence, fix string) {
+	if visibilityOnly {
+		return "This playlist can’t be public: it uses owner-only conditions.", "Edit the definition to remove them."
+	}
+	return "A public playlist can’t use owner-only conditions.", "Remove the owner-only condition or sort, or make the playlist private."
 }
 
 // validPlaylistSort accepts every browse sort key plus 'manual' (ADR-104 D2).
@@ -472,6 +476,21 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	// state that predates the rule (an F69 public playlist on a completeness sort).
 	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil || b.Cap.Set
 	visibilityOnly := b.Visibility != nil && b.Query == nil && b.Sort == nil && !b.Cap.Set
+	dryRun := r.URL.Query().Get("check") != ""
+	// The editor shows every problem at once: an owner-only refusal stops a real save
+	// below, but a dry run also reports what the reference rules would refuse.
+	if dryRun && touchesState && sort != model.PlaylistSortManual && visibility == model.PlaylistPublic && h.usesOwnerOnlyInputs(sort, query) {
+		problems, stale, err := h.definitionRefusal(r.Context(), &model.Playlist{ID: id, Sort: sort, Visibility: visibility, Query: query, Cap: capped}, visibilityOnly)
+		if err != nil {
+			h.fail(w, "check playlist", err)
+			return
+		}
+		if len(stale) > 0 {
+			sentence, fix := ownerOnlyRefusal(visibilityOnly)
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "owner_only": true, "stale_refs": stale, "also": problems})
+			return
+		}
+	}
 	if touchesState && !h.checkSmartPlaylistState(w, sort, visibility, query, visibilityOnly) {
 		return
 	}
@@ -486,7 +505,7 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	// ?check=1 is the editor asking whether a draft would save (F89 P0-4): every rule
 	// above has run, and nothing is written. It adds no route and no way to change a
 	// playlist (SEC-11).
-	if r.URL.Query().Get("check") != "" {
+	if dryRun {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 		return
 	}

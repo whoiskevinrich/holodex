@@ -774,6 +774,8 @@ export interface PlaylistRefusal {
 	/** The definition's own owner-only condition. */
 	owner_only?: boolean;
 	stale_refs?: PlaylistStaleRef[];
+	/** Further reasons the same draft can't save, each marking its own chip. */
+	also?: { error: string; fix: string; via?: number }[];
 }
 
 export interface PlaylistResponse {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from './api';
-import { allChips, capReadout, chipAtFault, draftDirty, draftQueryString, missingProblem, staleNotice, toProblem } from './playlistDefinition';
+import { allChips, capReadout, chipAtFault, draftDirty, draftQueryString, missingProblem, staleNotice, toProblem, toProblems } from './playlistDefinition';
 import { printNames, toChips, type ChipCond, type QueryNode } from './query';
 
 const pl = (id: number, label: string, missing = false): QueryNode => ({
@@ -49,6 +49,20 @@ describe('capReadout (P0-2)', () => {
 describe('problems and their chips', () => {
 	const model = toChips(and(pl(4, 'Favourites'), matched));
 	const chip = (field: string) => allChips(model).find((c) => c.field === field) as ChipCond;
+
+	it('lists every problem of a refused draft, each marking its own chip', () => {
+		const e = new ApiError(400, '/playlists/1', 'x', {
+			error: 'A public playlist can’t use owner-only conditions.',
+			owner_only: true,
+			also: [{ error: 'This would make a loop: A → Favourites → A.', fix: 'Remove “in: Favourites”.', via: 4 }]
+		});
+		const [own, loop, ...rest] = toProblems(e, model);
+		expect(rest).toEqual([]);
+		expect(chipAtFault(chip('matched'), own)).toBe(true);
+		expect(loop.sentence).toBe('This would make a loop: A → Favourites → A.');
+		expect(chipAtFault(chip('playlist'), loop)).toBe(true);
+		expect(chipAtFault(chip('matched'), loop)).toBe(false);
+	});
 
 	it('marks the owner-only chips on an own-condition refusal, naming one in the fix', () => {
 		const e = new ApiError(400, '/playlists/1', 'x', { error: 'A public playlist can’t use owner-only conditions.', owner_only: true });

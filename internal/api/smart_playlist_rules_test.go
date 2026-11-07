@@ -251,6 +251,40 @@ func TestSmartPlaylistDefinitionCheck(t *testing.T) {
 	}
 }
 
+// P0-4: a dry run reports every problem at once; a real save still stops at the first.
+func TestSmartPlaylistCheckReportsEveryProblem(t *testing.T) {
+	srv, r := identityServer(t, "s3cret")
+	base := srv.URL + "/api/v1"
+	seedPlaylistVideos(t, r, 2)
+	a := namedSmart(t, base, "A", "tag:amv", nil)
+	b := namedSmart(t, base, "B", "playlist:"+itoa(a), nil)
+	patchTok(t, base+"/playlists/"+itoa(a), "s3cret", map[string]any{"visibility": "public"})
+	patchTok(t, base+"/playlists/"+itoa(b), "s3cret", map[string]any{"visibility": "public"})
+	url1 := base + "/playlists/" + itoa(a)
+	draft := map[string]any{"query": "expr=" + url.QueryEscape("watched:no playlist:"+itoa(b))}
+
+	code, resp := patchTok(t, url1+"?check=1", "s3cret", draft)
+	also, _ := resp["also"].([]any)
+	if code != http.StatusBadRequest || resp["owner_only"] != true || len(also) == 0 {
+		t.Fatalf("check: %d %v", code, resp)
+	}
+	var loop bool
+	for _, p := range also {
+		m := p.(map[string]any)
+		if strings.Contains(m["error"].(string), "would make a loop") && m["via"].(float64) == float64(b) {
+			loop = true
+		}
+	}
+	if !loop {
+		t.Errorf("no loop among %v", also)
+	}
+
+	code, resp = patchTok(t, url1, "s3cret", draft)
+	if code != http.StatusBadRequest || resp["owner_only"] != true || resp["also"] != nil {
+		t.Errorf("save: %d %v", code, resp)
+	}
+}
+
 // A stored definition parses as itself: a deleted reference is marked, not re-read as a
 // name, and only for the owner.
 func TestQueryParseStored(t *testing.T) {

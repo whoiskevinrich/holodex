@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Video } from '#lib/types.ts';
+	import { activity } from '#lib/activity.svelte.ts';
 	import { api } from '#lib/api.ts';
 	import { formatDuration, resolutionBucket } from '#lib/format.ts';
 	import { sceneBadgeLabel } from '#lib/components/film/sceneNumber.ts';
@@ -15,6 +16,8 @@
 	}: { video: Video; sceneNumber?: number | null; onEditScene?: (video: Video) => void } = $props();
 
 	const bucket = $derived(resolutionBucket(video.width));
+	// The API sends the fact to the owner only; Owner view off hides it too, as a visitor sees.
+	const watched = $derived(video.watched && activity.effectiveOwner);
 
 	// Thumbnails are generated in the background (ADR-009): the card attempts the image
 	// at once and retries with backoff while it's still generating (thumbnailLoad.svelte.ts).
@@ -141,9 +144,8 @@
 					{bucket}
 				</span>
 			{/if}
-			{#if video.watched}
-				<!-- The owner's watched mark (F89 P0-9). The API sends the fact to the owner only;
-				     this card never checks isOwner. -->
+			{#if watched}
+				<!-- The owner's watched mark (F89 P0-9). -->
 				<span class="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-[3px] bg-accent" aria-hidden="true"></span>
 			{/if}
 		</div>
@@ -154,7 +156,7 @@
 			<h3 class="skin-title line-clamp-2 h-10 text-sm font-medium text-ink" title={video.title}>
 				{video.title}
 			</h3>
-			{#if video.watched}<span class="sr-only">, watched</span>{/if}
+			{#if watched}<span class="sr-only">, watched</span>{/if}
 		</div>
 	</a>
 	{#if video.completeness || video.part}

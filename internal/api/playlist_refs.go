@@ -129,13 +129,36 @@ func (h *Handlers) expandRef(ctx context.Context, x *refExpansion, id int64, res
 // visibilityOnly is a save that only makes the playlist public, whose refusal is worded
 // for the visibility control rather than the editor (handoff "Visibility refusal").
 func (h *Handlers) checkPlaylistDefinition(ctx context.Context, w http.ResponseWriter, p *model.Playlist, visibilityOnly bool) bool {
-	if !p.Smart() {
-		return true
-	}
-	_, all, err := h.smartPlaylistFilter(ctx, p, true)
+	problems, stale, err := h.definitionRefusal(ctx, p, visibilityOnly)
 	if err != nil {
 		h.fail(w, "check playlist", err)
 		return false
+	}
+	if len(stale) == 0 {
+		return true
+	}
+	writeJSON(w, http.StatusBadRequest, map[string]any{
+		"error": problems[0].Error, "fix": problems[0].Fix, "stale_refs": stale, "also": problems[1:],
+	})
+	return false
+}
+
+// refusalProblem is one reason a definition can't save, for the editor to show them all.
+type refusalProblem struct {
+	Error string `json:"error"`
+	Fix   string `json:"fix"`
+	Via   int64  `json:"via,omitempty"`
+}
+
+// definitionRefusal judges a smart playlist's references: why it can't save, in the order
+// found, and the refs behind that. It writes nothing.
+func (h *Handlers) definitionRefusal(ctx context.Context, p *model.Playlist, visibilityOnly bool) ([]refusalProblem, []staleRef, error) {
+	if !p.Smart() {
+		return nil, nil, nil
+	}
+	_, all, err := h.smartPlaylistFilter(ctx, p, true)
+	if err != nil {
+		return nil, nil, err
 	}
 	// Only the reference rules refuse a save. A flat id facet naming a deleted entity
 	// stays F75's read-time notice, as before.
@@ -146,12 +169,25 @@ func (h *Handlers) checkPlaylistDefinition(ctx context.Context, w http.ResponseW
 		}
 	}
 	if len(stale) == 0 {
-		return true
+		return nil, nil, nil
 	}
 	h.nameStaleRefs(ctx, stale)
-	sentence, fix := refusalCopy(stale[0], visibilityOnly)
-	writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "stale_refs": stale})
-	return false
+	var problems []refusalProblem
+	seen := map[string]bool{}
+	limited := false
+	for _, s := range stale {
+		// Of several crossed limits, only the first is worded (handoff "In-editor problem copy").
+		if s.Kind == staleLimit && limited {
+			continue
+		}
+		limited = limited || s.Kind == staleLimit
+		sentence, fix := refusalCopy(s, visibilityOnly)
+		if !seen[sentence] {
+			seen[sentence] = true
+			problems = append(problems, refusalProblem{Error: sentence, Fix: fix, Via: s.Via})
+		}
+	}
+	return problems, stale, nil
 }
 
 // nameStaleRefs fills in the current names of the playlists each ref involves, for the

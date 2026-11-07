@@ -16,7 +16,7 @@
 		draftDirty,
 		draftQueryString,
 		missingProblem,
-		toProblem,
+		toProblems,
 		type DefinitionProblem
 	} from '#lib/playlistDefinition.ts';
 	import { printNames } from '#lib/query.ts';
@@ -88,7 +88,7 @@
 	}
 
 	// Would this draft save? Checked as it changes, a beat after the last change.
-	let refusal = $state<DefinitionProblem | null>(null);
+	let refusals = $state<DefinitionProblem[]>([]);
 	let checkSeq = 0;
 	$effect(() => {
 		const body = { query: draftQs, sort: sort as string, cap };
@@ -98,16 +98,16 @@
 			api
 				.checkPlaylist(playlist.id, body)
 				.then(() => {
-					if (mine === checkSeq) refusal = null;
+					if (mine === checkSeq) refusals = [];
 				})
 				.catch((e) => {
-					if (mine === checkSeq) refusal = toProblem(e, parsed.chips);
+					if (mine === checkSeq) refusals = toProblems(e, parsed.chips);
 				});
 		}, 200);
 		return () => clearTimeout(t);
 	});
 	const gone = $derived(missingProblem(parsed.chips));
-	const problem = $derived(gone ?? refusal);
+	const problems = $derived(gone ? [gone] : refusals);
 
 	let matches = $state<number | null>(null);
 	const readout = $derived(
@@ -129,7 +129,7 @@
 			leaving = true;
 			onsaved(res.playlist);
 		} catch (e) {
-			refusal = toProblem(e, parsed.chips);
+			refusals = toProblems(e, parsed.chips);
 		} finally {
 			busy = false;
 		}
@@ -167,7 +167,7 @@
 		</p>
 		<div class="ml-auto flex items-center gap-2">
 			<button type="button" onclick={cancel} class="btn-quiet px-3 py-1.5 text-sm">Cancel</button>
-			<button type="button" onclick={save} disabled={busy || !!problem || textInvalid} class="btn-accent px-3 py-1.5 text-sm">
+			<button type="button" onclick={save} disabled={busy || problems.length > 0 || textInvalid} class="btn-accent px-3 py-1.5 text-sm">
 				Save definition
 			</button>
 		</div>
@@ -186,7 +186,7 @@
 			<QueryChips
 				model={parsed.chips}
 				onremove={(path) => set({ expr: parsed.without(path) })}
-				problem={(c) => chipAtFault(c, problem)}
+				problem={(c) => chipAtFault(c, null) || problems.some((p) => chipAtFault(c, p))}
 			/>
 			{#each filterChips.filter((c) => c.kind !== 'scope') as c (c.id)}
 				<FilterChip label={c.label} kind={c.kind} onremove={() => set(c.clear)} />
@@ -209,10 +209,14 @@
 		<p class="text-xs text-muted" aria-live="polite">{busy ? 'Saving…' : readout}</p>
 	</div>
 
-	{#if problem}
-		<div aria-live="polite">
-			<p class="text-sm text-warn">{problem.sentence}</p>
-			{#if problem.fix}<p class="text-xs text-muted">{problem.fix}</p>{/if}
+	{#if problems.length > 0}
+		<div aria-live="polite" class="space-y-2">
+			{#each problems as problem (problem.sentence)}
+				<div>
+					<p class="text-sm text-warn">{problem.sentence}</p>
+					{#if problem.fix}<p class="text-xs text-muted">{problem.fix}</p>{/if}
+				</div>
+			{/each}
 		</div>
 	{/if}
 
