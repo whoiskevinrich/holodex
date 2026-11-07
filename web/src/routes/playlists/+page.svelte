@@ -128,7 +128,7 @@
 						<span class="flex-1 truncate">{p.name}</span>
 						<!-- F75 handoff §2: the smart marker reads for visitors too; it says
 						     what the playlist is, not who may edit it. -->
-						{#if p.query != null}
+						{#if p.smart}
 							<PlaylistVisibilityChip smart />
 						{/if}
 						{#if isOwner}

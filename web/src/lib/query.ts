@@ -16,6 +16,19 @@ export interface QueryNode {
 	lo?: number;
 	hi?: number;
 	label?: string;
+	/** A stored definition's entity or mapped field that no longer exists (F89). */
+	missing?: boolean;
+	/** A mapped field's label, and whether it's hidden from visitors (the key glyph). */
+	field_label?: string;
+	owner_only?: boolean;
+}
+
+/** A mapped field this reader may name (GET /query/fields). */
+export interface QueryFieldInfo {
+	field: string;
+	label: string;
+	kind: 'text' | 'list' | 'date' | 'number';
+	owner_only?: boolean;
 }
 
 /** A refused query (internal/query Error). start/end are UTF-16 offsets into the text. */
@@ -38,12 +51,13 @@ export interface ParsedQuery {
 export type QueryParseResult = ({ ok: true } & ParsedQuery) | { ok: false; error: QueryError };
 
 /** The fields a condition may name; `matched` is the owner's only. */
-export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'resolution', 'matched'] as const;
-export const OWNER_ONLY_FIELDS: readonly string[] = ['matched'];
+export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched', 'watched', 'plays', 'played'] as const;
+export const OWNER_ONLY_FIELDS: readonly string[] = ['matched', 'watched', 'plays', 'played'];
 
-/** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5). */
-export function fieldsFor(isOwner: boolean): string[] {
-	return QUERY_FIELDS.filter((f) => isOwner || !OWNER_ONLY_FIELDS.includes(f));
+/** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5).
+ * mapped is the reader's own list from the server, which already leaves out hidden fields. */
+export function fieldsFor(isOwner: boolean, mapped: readonly string[] = []): string[] {
+	return [...QUERY_FIELDS.filter((f) => isOwner || !OWNER_ONLY_FIELDS.includes(f)), ...mapped];
 }
 
 const FIELD_TERM = /^-?\p{L}[\p{L}_]*:/u;
@@ -155,6 +169,12 @@ export interface ChipCond {
 	label: string;
 	negated: boolean;
 	path: number[];
+	/** The condition's field and id, for marking the chip a refusal names (F89). */
+	field?: string;
+	id?: number;
+	/** Draws the key glyph; absent otherwise. */
+	ownerOnly?: boolean;
+	missing?: boolean;
 }
 
 /** One entry in the chips row. A group is one OR level whose members are a chip or an
@@ -187,6 +207,16 @@ export function condLabel(n: QueryNode): string {
 			return `Resolution: ${n.value}`;
 		case 'matched':
 			return n.value === 'any' ? 'matched' : `matched: ${name}`;
+		case 'added': // the server words it: "last 30 days", "2026-01 to 2026-06"
+		case 'updated':
+		case 'released':
+		case 'played':
+		case 'plays':
+			return `${n.field}: ${name}`;
+		case 'watched':
+			return n.value === 'no' ? 'unwatched' : 'watched';
+		case 'playlist':
+			return `in: ${name}`;
 		case 'duration':
 		case 'year': {
 			const fmt = n.field === 'duration' ? fmtSeconds : String;
@@ -197,16 +227,22 @@ export function condLabel(n: QueryNode): string {
 			return `${title} ${fmt(lo)}`;
 		}
 	}
-	return name;
+	return n.field_label ? `${n.field_label}: ${name}` : n.field ? `${n.field}: ${name}` : name;
 }
 
 const isLeaf = (n: QueryNode) => n.kind === 'cond' || n.kind === 'word';
 
 /** A leaf or a NOT over a leaf as a chip, else null. */
 function chipOf(n: QueryNode, path: number[]): ChipCond | null {
-	if (isLeaf(n)) return { label: condLabel(n), negated: false, path };
+	const facts = (x: QueryNode) => ({
+		...(x.field ? { field: x.field } : {}),
+		...(x.id ? { id: x.id } : {}),
+		...(x.owner_only || (x.field && OWNER_ONLY_FIELDS.includes(x.field)) ? { ownerOnly: true } : {}),
+		...(x.missing ? { missing: true } : {})
+	});
+	if (isLeaf(n)) return { label: condLabel(n), negated: false, path, ...facts(n) };
 	if (n.kind === 'not' && n.items && isLeaf(n.items[0])) {
-		return { label: `not ${condLabel(n.items[0])}`, negated: true, path };
+		return { label: `not ${condLabel(n.items[0])}`, negated: true, path, ...facts(n.items[0]) };
 	}
 	return null;
 }
@@ -271,7 +307,7 @@ export function printTree(n: QueryNode, group = false): string {
 	}
 }
 
-const ENTITY_FIELDS = new Set(['tag', 'person', 'studio', 'category']);
+const ENTITY_FIELDS = new Set(['tag', 'person', 'studio', 'category', 'playlist']);
 
 /** printTree with each entity named by its current name instead of its id: the text
  * Edit as text puts in the nav box (the server re-binds it on the way back). */
@@ -289,7 +325,7 @@ export function printNames(n: QueryNode, group = false): string {
 		case 'not':
 			return '-' + printNames(kids[0], kids[0].kind === 'and' || kids[0].kind === 'or');
 		case 'cond':
-			if (n.field && ENTITY_FIELDS.has(n.field) && n.label) {
+			if (n.field && ENTITY_FIELDS.has(n.field) && n.label && !n.missing) {
 				const v = quoteValue(n.label);
 				return `${n.field}:${/^\d+$/.test(v) ? `"${v}"` : v}`;
 			}

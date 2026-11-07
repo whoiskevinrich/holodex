@@ -64,12 +64,20 @@ func printNode(b *strings.Builder, n Node, group bool) {
 }
 
 func condValue(c *Cond) string {
+	switch c.Kind {
+	case KindDate:
+		return c.Value
+	case KindNumber:
+		return comparison(c, "")
+	case KindText, KindList, KindGone:
+		return quoteIfNeeded(c.Value, false)
+	}
 	switch c.Field {
-	case FieldYear:
+	case FieldYear, FieldPlays:
 		return comparison(c, "")
 	case FieldDuration:
 		return comparison(c, "s")
-	case FieldResolution:
+	case FieldResolution, FieldAdded, FieldUpdated, FieldReleased, FieldPlayed, FieldWatched:
 		return c.Value
 	case FieldMatched:
 		return quoteIfNeeded(c.Value, false)

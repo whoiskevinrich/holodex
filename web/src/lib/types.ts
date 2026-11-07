@@ -332,6 +332,8 @@ export interface ExtraMetadata {
 }
 
 export interface Video {
+	/** The owner's watched mark (F89 P0-9): the API sends it only to the owner. */
+	watched?: boolean;
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
@@ -738,19 +740,42 @@ export interface Playlist {
 	// Smart playlists (F75, ADR-121): `query` is the stored canonical /media filter,
 	// re-run on every read; null for a snapshot (F69) playlist. A smart playlist has no
 	// membership and refuses the 'manual' sort.
+	// A visitor never gets it (F89 P0-5), so tell smart from snapshot by `smart`.
 	query: string | null;
 	query_version?: number;
+	smart: boolean;
+	// F89 P0-2: a smart playlist's cap, null for none; match_count is the uncut count,
+	// sent to the owner only when the cap cuts ("31 match, showing 25").
+	cap: number | null;
+	match_count?: number;
 	// "Always shuffle" (RD13): the primary play action is Shuffle. Any playlist.
 	play_shuffled: boolean;
 	created_at: string;
 	updated_at: string;
 }
 
-/** Why a smart playlist isn't evaluated (ADR-121 D4/D5); the read then returns no items. */
+/** Why a smart playlist isn't evaluated (ADR-121 D4/D5, F89 P0-3); the read then
+ * returns no items. A visitor gets a bare `owner_only`, never the detail. */
 export interface PlaylistStaleRef {
-	kind: 'missing' | 'unknown_key' | 'owner_only' | 'invalid';
+	kind: 'missing' | 'unknown_key' | 'owner_only' | 'invalid' | 'loop' | 'limit' | 'unstable';
 	key?: string;
 	value?: string;
+	/** The reference in this playlist the problem came through: the chip to remove. */
+	via?: number;
+	/** Current names, for the owner's copy: a loop's whole path, or the playlist at fault. */
+	name?: string;
+	via_name?: string;
+}
+
+/** A refused save's error body (F89 handoff "In-editor problem copy"). */
+export interface PlaylistRefusal {
+	error: string;
+	fix?: string;
+	/** The definition's own owner-only condition. */
+	owner_only?: boolean;
+	stale_refs?: PlaylistStaleRef[];
+	/** Further reasons the same draft can't save, each marking its own chip. */
+	also?: { error: string; fix: string; via?: number }[];
 }
 
 export interface PlaylistResponse {
@@ -761,6 +786,8 @@ export interface PlaylistResponse {
 	ids: number[];
 	stale_refs: PlaylistStaleRef[];
 	seed?: number; // echoed for a 'random' sort so one play-through walks one shuffle
+	/** The owner's only: smart playlists whose definition names this one (F89 P0-3). */
+	referenced_by?: { id: number; name: string }[];
 }
 
 // System Activity — "under the hood" read-model (F21, ADR-028).

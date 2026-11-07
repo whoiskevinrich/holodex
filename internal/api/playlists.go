@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -63,6 +64,11 @@ func (h *Handlers) listPlaylists(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if !isOwner {
+		for i := range items {
+			redactPlaylist(&items[i])
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
@@ -109,6 +115,14 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(stale) > 0 {
 			p.ItemCount = 0
+			if !isOwner {
+				// A visitor learns only that it can't be shown: no definition, and no ref
+				// detail that could name a private playlist (SEC-1, RD10).
+				redactPlaylist(p)
+				stale = []staleRef{{Kind: staleOwnerOnly}}
+			} else {
+				h.nameStaleRefs(r.Context(), stale)
+			}
 			out["stale_refs"], out["items"], out["ids"], out["total"] = stale, []model.Video{}, []int64{}, 0
 			writeJSON(w, http.StatusOK, out)
 			return
@@ -122,6 +136,17 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 		if items, p.ItemCount, err = h.repo.ListVideos(r.Context(), f); err != nil {
 			h.fail(w, "playlist videos", err)
 			return
+		}
+		if isOwner && f.Cap > 0 && p.ItemCount == f.Cap {
+			// The readout's "31 match, showing 25" (P0-2) needs the uncut count too.
+			n, err := h.repo.MatchCount(r.Context(), f)
+			if err != nil {
+				h.fail(w, "playlist videos", err)
+				return
+			}
+			if n > f.Cap {
+				p.MatchCount = &n
+			}
 		}
 		if ids, err = h.repo.ListVideoIDs(r.Context(), f); err != nil {
 			h.fail(w, "playlist videos", err)
@@ -151,8 +176,24 @@ func (h *Handlers) getPlaylist(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, "playlist videos", err)
 		return
 	}
+	if isOwner && atoiDefault(r.URL.Query().Get("offset"), 0) == 0 {
+		// The delete confirmation names what would go stale (F89 P0-3). Only the first read
+		// carries it: the later tile pages of a long playlist never use it.
+		if out["referenced_by"], err = h.referencedBy(r.Context(), id); err != nil {
+			h.fail(w, "get playlist", err)
+			return
+		}
+	} else {
+		redactPlaylist(p)
+	}
 	out["items"], out["ids"], out["total"] = items, ids, p.ItemCount
 	writeJSON(w, http.StatusOK, out)
+}
+
+// redactPlaylist withholds a smart playlist's definition from a visitor (F89 P0-5,
+// RD10): the name, count, sort and that it updates automatically, never its query.
+func redactPlaylist(p *model.Playlist) {
+	p.Query, p.QueryVersion, p.Cap = nil, nil, nil
 }
 
 // writePlaylist answers a mutation with the playlist as the owner now sees it.
@@ -180,6 +221,30 @@ type playlistBody struct {
 	// smart; on PATCH it is Edit filter's Update, and only a smart playlist takes it.
 	Query        *string `json:"query"`
 	PlayShuffled *bool   `json:"play_shuffled"`
+	// Cap is a smart playlist's cap (F89 P0-2): 1..10,000, or null for none (SEC-7).
+	Cap optionalInt `json:"cap"`
+}
+
+// optionalInt tells a JSON field that is absent (Set false) from one that is null (Set,
+// Value nil). Only a whole JSON number reads as a value: 1.5, "25" and an out-of-range
+// number are decode errors.
+type optionalInt struct {
+	Set   bool
+	Value *int
+}
+
+func (o *optionalInt) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var n int
+	if err := json.Unmarshal(b, &n); err != nil {
+		return err
+	}
+	o.Value = &n
+	return nil
 }
 
 // canonicalBodyQuery canonicalises b.Query in place (ADR-121 D2), writing 400 and
@@ -204,16 +269,27 @@ func (h *Handlers) canonicalBodyQuery(w http.ResponseWriter, r *http.Request, b 
 // public one can't hold: `manual` sort on a smart playlist (no position, RD4), and
 // owner-only inputs — a completeness sort or a missing_facet query — on a public one
 // (ADR-121 D4). Called with the state a create or PATCH would leave behind.
-func checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string) bool {
+//
+// visibilityOnly words the refusal for the visibility control (F89 handoff).
+func (h *Handlers) checkSmartPlaylistState(w http.ResponseWriter, sort, visibility string, query *string, visibilityOnly bool) bool {
 	if query != nil && sort == model.PlaylistSortManual {
 		writeError(w, http.StatusBadRequest, "a smart playlist can't use the manual sort")
 		return false
 	}
-	if visibility == model.PlaylistPublic && usesOwnerOnlyInputs(sort, query) {
-		writeError(w, http.StatusBadRequest, "a public playlist can't use owner-only filters or sorts")
+	if visibility == model.PlaylistPublic && h.usesOwnerOnlyInputs(sort, query) {
+		sentence, fix := ownerOnlyRefusal(visibilityOnly)
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "owner_only": true})
 		return false
 	}
 	return true
+}
+
+// ownerOnlyRefusal words a public playlist's owner-only input.
+func ownerOnlyRefusal(visibilityOnly bool) (sentence, fix string) {
+	if visibilityOnly {
+		return "This playlist can’t be public: it uses owner-only conditions.", "Edit the definition to remove them."
+	}
+	return "A public playlist can’t use owner-only conditions.", "Remove the owner-only condition or sort, or make the playlist private."
 }
 
 // validPlaylistSort accepts every browse sort key plus 'manual' (ADR-104 D2).
@@ -246,6 +322,10 @@ func validatePlaylistFields(w http.ResponseWriter, b *playlistBody) bool {
 	}
 	if b.Visibility != nil && !validVisibility(*b.Visibility) {
 		writeError(w, http.StatusBadRequest, "unknown visibility")
+		return false
+	}
+	if v := b.Cap.Value; v != nil && (*v < 1 || *v > model.PlaylistMaxCap) {
+		writeError(w, http.StatusBadRequest, "a cap is a whole number from 1 to 10,000, or none")
 		return false
 	}
 	return true
@@ -317,10 +397,21 @@ func (h *Handlers) createPlaylist(w http.ResponseWriter, r *http.Request) {
 	if b.Sort != nil {
 		sort = *b.Sort
 	}
-	if !checkSmartPlaylistState(w, sort, visibility, b.Query) {
+	if b.Cap.Value != nil && b.Query == nil {
+		writeError(w, http.StatusBadRequest, "only a smart playlist has a cap")
 		return
 	}
-	p, err := h.repo.CreatePlaylist(r.Context(), *b.Name, sort, visibility, b.Query, ids)
+	if !h.checkSmartPlaylistState(w, sort, visibility, b.Query, false) {
+		return
+	}
+	if !h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{Sort: sort, Visibility: visibility, Query: b.Query, Cap: b.Cap.Value}, false) {
+		return
+	}
+	cap := 0
+	if b.Cap.Value != nil {
+		cap = *b.Cap.Value
+	}
+	p, err := h.repo.CreateCappedPlaylist(r.Context(), *b.Name, sort, visibility, b.Query, ids, cap)
 	if err != nil {
 		h.fail(w, "create playlist", err)
 		return
@@ -337,7 +428,7 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &b) || !validatePlaylistFields(w, &b) {
 		return
 	}
-	if b.Name == nil && b.Sort == nil && b.Visibility == nil && b.Query == nil && b.PlayShuffled == nil {
+	if b.Name == nil && b.Sort == nil && b.Visibility == nil && b.Query == nil && b.PlayShuffled == nil && !b.Cap.Set {
 		writeError(w, http.StatusBadRequest, "nothing to update")
 		return
 	}
@@ -373,14 +464,53 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 	if b.Visibility != nil {
 		visibility = *b.Visibility
 	}
+	capped := cur.Cap
+	if b.Cap.Set {
+		if !cur.Smart() {
+			writeError(w, http.StatusBadRequest, "only a smart playlist has a cap")
+			return
+		}
+		capped = b.Cap.Value
+	}
 	// A rename or always-shuffle toggle changes none of these, so it doesn't re-judge a
 	// state that predates the rule (an F69 public playlist on a completeness sort).
-	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil
-	if touchesState && !checkSmartPlaylistState(w, sort, visibility, query) {
+	touchesState := b.Query != nil || b.Sort != nil || b.Visibility != nil || b.Cap.Set
+	visibilityOnly := b.Visibility != nil && b.Query == nil && b.Sort == nil && !b.Cap.Set
+	dryRun := r.URL.Query().Get("check") != ""
+	// The editor shows every problem at once: an owner-only refusal stops a real save
+	// below, but a dry run also reports what the reference rules would refuse.
+	if dryRun && touchesState && sort != model.PlaylistSortManual && visibility == model.PlaylistPublic && h.usesOwnerOnlyInputs(sort, query) {
+		problems, stale, err := h.definitionRefusal(r.Context(), &model.Playlist{ID: id, Sort: sort, Visibility: visibility, Query: query, Cap: capped}, visibilityOnly)
+		if err != nil {
+			h.fail(w, "check playlist", err)
+			return
+		}
+		if len(stale) > 0 {
+			sentence, fix := ownerOnlyRefusal(visibilityOnly)
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": sentence, "fix": fix, "owner_only": true, "stale_refs": stale, "also": problems})
+			return
+		}
+	}
+	if touchesState && !h.checkSmartPlaylistState(w, sort, visibility, query, visibilityOnly) {
+		return
+	}
+	// Every save that changes what the playlist evaluates re-runs the whole check, its
+	// references included, going public too (SEC-11). Going private always succeeds:
+	// whatever referred to it goes stale instead (SEC-3).
+	goingPrivate := visibilityOnly && *b.Visibility == model.PlaylistPrivate
+	if touchesState && !goingPrivate &&
+		!h.checkPlaylistDefinition(r.Context(), w, &model.Playlist{ID: id, Sort: sort, Visibility: visibility, Query: query, Cap: capped}, visibilityOnly) {
+		return
+	}
+	// ?check=1 is the editor asking whether a draft would save (F89 P0-4): every rule
+	// above has run, and nothing is written. It adds no route and no way to change a
+	// playlist (SEC-11).
+	if dryRun {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 		return
 	}
 	err = h.repo.UpdatePlaylist(r.Context(), id, repo.PlaylistPatch{
-		Name: b.Name, Sort: b.Sort, Visibility: b.Visibility, Query: b.Query, PlayShuffled: b.PlayShuffled,
+		Name: b.Name, Sort: b.Sort, Visibility: b.Visibility, Query: b.Query, PlayShuffled: b.PlayShuffled, Cap: capPatch(b.Cap),
 	})
 	if errors.Is(err, repo.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "playlist not found")
@@ -391,6 +521,18 @@ func (h *Handlers) patchPlaylist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writePlaylist(w, r, id)
+}
+
+// capPatch is a body's cap as a repo patch: nil leaves it, 0 clears it.
+func capPatch(c optionalInt) *int {
+	if !c.Set {
+		return nil
+	}
+	n := 0
+	if c.Value != nil {
+		n = *c.Value
+	}
+	return &n
 }
 
 func (h *Handlers) deletePlaylist(w http.ResponseWriter, r *http.Request) {

@@ -261,6 +261,59 @@ const SCENARIOS = [
 		}
 	},
 	{
+		// F89 P0-4: Edit definition is a mode of the playlist page, in the fragment, so Back from
+		// a preview tile brings it back. With a changed draft the tile asks first, and Keep
+		// editing keeps the draft with nothing saved. The scenario brings its own playlist.
+		key: 'playlist-edit-back',
+		qa: '§40.7 · P0-4',
+		run: async ({ page, filter }) => {
+			const res = await page.request.post(`${base}/api/v1/playlists`, {
+				data: { name: 'nav playlist-edit-back', query: `resolution=${filter}` }
+			});
+			expect(res.ok(), `could not create the playlist: ${res.status()}`);
+			const { playlist } = await res.json();
+			const api = `${base}/api/v1/playlists/${playlist.id}`;
+			try {
+				const field = page.locator('input[aria-label="Definition query"]');
+				const open = async () => {
+					await page.getByRole('button', { name: 'Edit definition' }).click();
+					await field.waitFor({ timeout: 5000 });
+				};
+				await goto(page, `${base}/playlists/${playlist.id}`);
+				await open();
+				const editing = here(page);
+				expect(new URL(page.url()).hash === '#edit', `the mode isn't in the fragment: ${page.url()}`);
+				await page.locator(MEDIA_CARD).first().waitFor({ timeout: 5000 });
+
+				await page.locator(MEDIA_CARD).first().click();
+				await page.waitForURL((u) => /^\/media\/\d+$/.test(u.pathname), { timeout: 5000 });
+				await settle(page);
+				await page.goBack();
+				await page.waitForURL((u) => u.hash === '#edit', { timeout: 5000 }).catch(() => {});
+				await field.waitFor({ timeout: 5000 }).catch(() => {});
+				expect((await field.count()) === 1, `Back didn't bring the mode back: ${page.url()}`);
+				expect(here(page) === editing, `Back landed on ${here(page)}, expected ${editing}`);
+
+				const cap = page.getByRole('combobox', { name: 'Cap' });
+				await cap.selectOption('10');
+				await page.locator(MEDIA_CARD).first().waitFor({ timeout: 5000 });
+				await page.locator(MEDIA_CARD).first().click();
+				const ask = page.getByText(/^Discard changes to /);
+				await ask.waitFor({ timeout: 5000 }).catch(() => {});
+				expect((await ask.count()) === 1, 'opening a tile with a changed draft asked nothing');
+				expect(new URL(page.url()).hash === '#edit', `the tile navigated anyway: ${page.url()}`);
+
+				await page.getByRole('button', { name: 'Keep editing' }).click();
+				await ask.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+				expect((await cap.inputValue()) === '10', 'Keep editing lost the draft');
+				const saved = await (await page.request.get(api)).json();
+				expect(saved.playlist.cap == null, `the draft was saved: cap ${saved.playlist.cap}`);
+			} finally {
+				await page.request.delete(api);
+			}
+		}
+	},
+	{
 		// F86: the File names plan's reason filter lives in the URL (?reason=), so Back from a
 		// video brings the filter and the scroll back (testing-strategy §39.6 W7). The fixture
 		// starts at Off, which shows no plan, so the setup turns Plan on and restores it after.

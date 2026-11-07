@@ -1,9 +1,10 @@
 // Nav search query mode (F87, query-language-handoff.md "States and interactions"): the
 // debounced server parse that drives the error echo, the suggestions for the field under
-// the caret, and the highlighted row. One instance, owned by the nav box.
+// the caret, and the highlighted row. The nav box owns `queryAssist`; a page-owned field
+// (sort/QueryField, the playlist editor) makes its own, so it never touches the nav box's.
 import { api } from './api';
 import { toMessage } from './format';
-import { caretContext, fieldsFor, insertAt, quoteValue, type QueryError, type QueryParseResult } from './query';
+import { caretContext, fieldsFor, insertAt, quoteValue, type QueryError, type QueryFieldInfo, type QueryParseResult } from './query';
 import { matchedAlias } from './tagInput';
 
 /** One suggestion row: `label` is shown, `insert` replaces [start, end). */
@@ -22,6 +23,7 @@ const SUGGEST_MS = 150;
 const CAP = 8;
 
 const DURATION_HINTS = ['<2m', '>1h', '20m..1h'];
+const DATE_HINTS = ['<30d', '<6mo', '>1y', '2026-01..2026-06'];
 const RESOLUTIONS = ['SD', 'HD', 'FHD', '4K'];
 const HEADINGS: Record<string, string> = {
 	tag: 'Tags',
@@ -30,10 +32,17 @@ const HEADINGS: Record<string, string> = {
 	category: 'Categories',
 	resolution: 'Resolution',
 	duration: 'Duration',
-	matched: 'Providers'
+	added: 'Added',
+	updated: 'Updated',
+	released: 'Released',
+	playlist: 'Playlists',
+	matched: 'Providers',
+	watched: 'Watched',
+	plays: 'Plays',
+	played: 'Played'
 };
 
-class QueryAssist {
+export class QueryAssist {
 	parse = $state<QueryParseResult | null>(null);
 	/** The text `parse` answered for: its offsets slice this text, not a newer one. */
 	parsedText = $state('');
@@ -49,6 +58,8 @@ class QueryAssist {
 	private parseSeq = 0;
 	private suggestSeq = 0;
 	private providers: string[] | null = null;
+	private playlists: string[] | null = null;
+	private mapped: QueryFieldInfo[] | null = null;
 
 	/** The parse error for text, or null while text's own parse hasn't answered. */
 	errorFor(text: string): QueryError | null {
@@ -102,12 +113,13 @@ class QueryAssist {
 		const seq = ++this.suggestSeq;
 		const ctx = caretContext(text, caret);
 		let rows: QuerySuggestion[] = [];
-		const heading = ctx.kind === 'field' ? 'Fields' : ctx.kind === 'value' ? (HEADINGS[ctx.field] ?? '') : '';
+		let heading = ctx.kind === 'field' ? 'Fields' : ctx.kind === 'value' ? (HEADINGS[ctx.field] ?? '') : '';
 		const at = (label: string, insert = quoteValue(label), sub?: string): QuerySuggestion =>
 			ctx.kind === 'none' ? { label, insert, start: 0, end: 0 } : { label, sub, insert, start: ctx.start, end: ctx.end };
 		try {
 			if (ctx.kind === 'field') {
-				rows = fieldsFor(isOwner)
+				this.mapped ??= (await api.queryFields()).fields;
+				rows = fieldsFor(isOwner, this.mapped.map((f) => f.field))
 					.filter((f) => f.startsWith(ctx.prefix))
 					.map((f) => ({ ...at(`${f}:`, `${f}:`), field: true }));
 			} else if (ctx.kind === 'value') {
@@ -138,12 +150,36 @@ class QueryAssist {
 					case 'duration':
 						rows = DURATION_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
 						break;
+					case 'added':
+					case 'updated':
+					case 'released':
+					case 'played':
+						rows = DATE_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
+						break;
+					case 'watched':
+						rows = ['yes', 'no'].filter((x) => x.startsWith(p.toLowerCase())).map((x) => at(x));
+						break;
+					case 'plays':
+						break; // a number: nothing to list
+					case 'playlist':
+						// The server lists what this reader may name: a visitor, public ones only.
+						// Read once per query session: the list re-counts every smart playlist.
+						this.playlists ??= (await api.listPlaylists()).items.map((x) => x.name);
+						rows = this.playlists.filter((x) => x.toLowerCase().includes(p.toLowerCase())).map((x) => at(x));
+						break;
 					case 'matched':
 						if (isOwner) {
 							this.providers ??= (await api.providers()).providers.map((x) => x.name);
 							rows = ['any', ...this.providers].filter((x) => x.startsWith(p.toLowerCase())).map((x) => at(x));
 						}
 						break;
+					default: {
+						this.mapped ??= (await api.queryFields()).fields;
+						const info = this.mapped.find((f) => f.field === ctx.field);
+						heading = info?.label ?? '';
+						if (info?.kind === 'date') rows = DATE_HINTS.filter((d) => d.startsWith(p)).map((d) => at(d));
+						else if (info && info.kind !== 'number') rows = (await api.queryValues(info.field, p)).values.map((x) => at(x));
+					}
 				}
 			}
 		} catch {
@@ -177,6 +213,8 @@ class QueryAssist {
 		clearTimeout(this.suggestTimer);
 		this.parseSeq++;
 		this.suggestSeq++;
+		this.playlists = null;
+		this.mapped = null;
 		this.parse = null;
 		this.parsedText = '';
 		this.suggestions = [];

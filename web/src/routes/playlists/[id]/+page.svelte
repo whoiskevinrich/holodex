@@ -1,24 +1,29 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { api } from '#lib/api.ts';
+	import { ApiError, api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { toMessage, videoCount } from '#lib/format.ts';
 	import { MEDIA_SORTS } from '#lib/filters.ts';
 	import { filterLabels, loadScopeNames } from '#lib/filterLabels.ts';
+	import { parsedExpr } from '#lib/parsedExpr.svelte.ts';
+	import { staleNotice } from '#lib/playlistDefinition.ts';
 	import { mediaSchema } from '#lib/listState.ts';
 	import { forgetPlaylist } from '#lib/playlistContext.ts';
 	import { beginRun } from '#lib/runContext.ts';
 	import type { RunMode } from '#lib/run.ts';
 	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
 	import PlaylistVisibilityChip from '#lib/components/video/PlaylistVisibilityChip.svelte';
-	import type { Playlist, PlaylistResponse, PlaylistStaleRef, Video } from '#lib/types.ts';
+	import type { Playlist, PlaylistRefusal, PlaylistResponse, PlaylistStaleRef, Video } from '#lib/types.ts';
 	import AsyncState from '#lib/components/shared/AsyncState.svelte';
 	import ConfirmDialog from '#lib/components/shared/ConfirmDialog.svelte';
 	import Switch from '#lib/components/shared/Switch.svelte';
 	import NameEditControl from '#lib/components/entity/NameEditControl.svelte';
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import SortReroll from '#lib/components/sort/SortReroll.svelte';
+	import FilterChip from '#lib/components/sort/FilterChip.svelte';
+	import QueryChips from '#lib/components/sort/QueryChips.svelte';
+	import PlaylistDefinitionEditor from '#lib/components/video/PlaylistDefinitionEditor.svelte';
 	import PlaylistVideos from '#lib/components/video/PlaylistVideos.svelte';
 
 	// /playlists/[id] (F69 P0-6, design handoff §2). A container page, not an entity
@@ -28,7 +33,7 @@
 	// (ADR-104 D5).
 	//
 	// A smart playlist (F75 handoff §4, ADR-121) is the same page plus a `smart` chip,
-	// Edit filter, Freeze, no Manual order and no per-tile remove, and a stale query replaces
+	// Edit definition, Freeze, no Manual order and no per-tile remove, and a stale query replaces
 	// the grid with a notice. Both kinds scroll the whole list (F80 EL14, HOLODEX-604):
 	// PlaylistVideos reads the tiles a page at a time; this page's own read is the header's.
 	type PlaylistSort = string; // a browse sort key or 'manual'
@@ -39,7 +44,10 @@
 
 	let playlist = $state<Playlist | null>(null);
 	let total = $state(0);
+	// Held apart from `playlist`: only this page's reads carry it, not a mutation's answer.
+	let matchCount = $state<number | null>(null);
 	let staleRefs = $state<PlaylistStaleRef[]>([]);
+	let referencedBy = $state<{ id: number; name: string }[]>([]);
 	let loading = $state(true);
 	let error = $state('');
 	// The sort the dropdown binds to; written back to the playlist with PATCH.
@@ -50,7 +58,7 @@
 	// one — a first load, a switch to Random, or a reroll.
 	let seed = $state<number | undefined>(undefined);
 
-	const smart = $derived(playlist?.query != null);
+	const smart = $derived(playlist?.smart ?? false);
 	// The header needs the playlist, its total and the seed, not the tiles.
 	const firstPage = { limit: 1, offset: 0 };
 	// Bumped after a remove or a Freeze: the tiles re-read in place.
@@ -82,7 +90,9 @@
 	function apply(res: PlaylistResponse) {
 		playlist = res.playlist;
 		total = res.total;
+		matchCount = res.playlist.match_count ?? null;
 		staleRefs = res.stale_refs ?? [];
+		if (res.referenced_by) referencedBy = res.referenced_by;
 		seed = res.seed;
 	}
 
@@ -94,9 +104,10 @@
 	// Owner edits. Each one PATCHes and re-reads the items in place (a sort change
 	// reorders; a rename and a visibility flip only touch the header).
 	let actionError = $state('');
+	let actionFix = $state('');
 	async function patch(body: Parameters<typeof api.updatePlaylist>[1], refetch = false): Promise<boolean> {
 		if (!playlist) return false;
-		actionError = '';
+		actionError = actionFix = '';
 		try {
 			const res = await api.updatePlaylist(playlist.id, body);
 			playlist = res.playlist;
@@ -105,6 +116,7 @@
 			return true;
 		} catch (e) {
 			actionError = toMessage(e);
+			if (e instanceof ApiError) actionFix = (e.body as Partial<PlaylistRefusal> | undefined)?.fix ?? '';
 			return false;
 		}
 	}
@@ -207,54 +219,51 @@
 		);
 	}
 
-	// Edit filter (handoff §5): browse with the stored query and the playlist's sort, in
-	// edit mode. The flag is UI state, so it's in the fragment, never the filter string.
-	const editHref = $derived.by(() => {
-		const p = new URLSearchParams(playlist?.query ?? '');
-		if (playlist) p.set('sort', playlist.sort);
-		return `/?${p}#edit_playlist=${id}`;
-	});
+	// Edit definition (F89 P0-4): a mode of this page, in the fragment so a reload or Back
+	// keeps it and the list schema never reads it. An old browse link arrives here too.
+	const editing = $derived(page.url.hash === '#edit' && isOwner && smart);
+	function openEditor() {
+		actionError = actionFix = savedNote = '';
+		void goto('#edit', { reset: false, replace: true }); // no history entry to Back through twice
+	}
+	const closeEditor = () => goto(page.url.pathname, { reset: false, replace: true });
+	let savedNote = $state('');
+	async function definitionSaved(saved: Playlist) {
+		sort = saved.sort;
+		playlist = saved;
+		forgetPlaylist(saved.id);
+		seed = undefined;
+		await closeEditor();
+		await reload();
+		gridRefresh++;
+		savedNote = `Saved ${saved.name}`;
+	}
 
-	// Stale-reference notice copy (handoff §4), by the first ref's kind.
-	const ENTITY_NOUN: Record<string, string> = { person: 'person', tag: 'tag', studio_id: 'studio', category_id: 'category' };
-	const staleCopy = $derived.by(() => {
-		const r = staleRefs[0];
-		if (!r) return null;
-		const fix = 'Nothing is shown until the filter is fixed.';
-		switch (r.kind) {
-			case 'missing': {
-				const noun = ENTITY_NOUN[r.key ?? ''] ?? 'entry';
-				return { sentence: `This playlist refers to a ${noun} that was deleted`, detail: `(${noun} #${r.value}). ${fix}` };
-			}
-			case 'unknown_key':
-				return { sentence: 'This playlist filters on a field that no longer exists', detail: `(${r.key}). ${fix}` };
-			case 'owner_only':
-				return { sentence: 'This public playlist uses an owner-only filter', detail: 'Make it private or edit the filter.' };
-			default:
-				return { sentence: "This playlist's filter can't be read", detail: fix };
-		}
-	});
+	// Stale-reference notice (handoff "New notices"), by the first ref's kind.
+	const notice = $derived(staleRefs[0] ? staleNotice(staleRefs[0]) : null);
 
 	const sortLabel = $derived(
 		sort === 'manual' ? MANUAL.label : (MEDIA_SORTS.find((s) => s.value === sort)?.label ?? sort)
 	);
+	// A cap that cuts reads "31 match, showing 25" (F89 P0-2); match_count is the owner's only.
 	const count = $derived(videoCount(total));
+	const countLine = $derived(matchCount != null ? `${matchCount.toLocaleString()} match, showing ${total.toLocaleString()}` : count);
 
-	// A smart playlist's filter in browse's chip words (handoff §4), so the owner can read
-	// what it matches without opening Edit filter. Mapped facets show their canonical key.
-	const filterQuery = $derived(
-		playlist?.query != null ? mediaSchema.parseQuery(new URLSearchParams(playlist.query)) : null
+	// The definition as read-only chips, the owner's only (F89 P0-5; a visitor gets no query).
+	const definition = $derived(
+		isOwner && playlist?.query != null ? mediaSchema.parseQuery(new URLSearchParams(playlist.query)) : null
 	);
+	const definitionChips = parsedExpr(() => definition?.expr, true);
 	let scopeNames = $state<Record<string, string>>({});
 	$effect(() => {
-		if (filterQuery) loadScopeNames(filterQuery, scopeNames);
+		if (definition) loadScopeNames(definition, scopeNames);
 	});
-	const filterSummary = $derived.by(() => {
-		if (!filterQuery || !playlist?.query) return '';
-		const parts = filterLabels(filterQuery, scopeNames).map((l) => l.label);
-		if (filterQuery.q) parts.unshift(`“${filterQuery.q}”`);
-		for (const f of new URLSearchParams(playlist.query).getAll('missing_facet')) parts.push(`Missing: ${f}`);
-		return parts.join(' · ');
+	const flatChips = $derived.by(() => {
+		if (!definition || !playlist?.query) return [];
+		const labels = filterLabels(definition, scopeNames).map((l) => ({ label: l.label, ownerOnly: false }));
+		if (definition.q) labels.unshift({ label: `“${definition.q}”`, ownerOnly: false });
+		for (const f of new URLSearchParams(playlist.query).getAll('missing_facet')) labels.push({ label: `Missing: ${f}`, ownerOnly: true });
+		return labels;
 	});
 </script>
 
@@ -276,24 +285,27 @@
 							{#if smart}<PlaylistVisibilityChip smart />{/if}
 						</div>
 						<p class="text-sm text-muted">
-							{count} · {sortLabel}{#if playlist.play_shuffled}{' · '}<span class="text-xs text-accent"
+							{countLine} · {sortLabel}{#if isOwner && playlist.cap != null}{' · '}<span class="text-xs">first {playlist.cap.toLocaleString()}</span>{/if}{#if playlist.play_shuffled}{' · '}<span class="text-xs text-accent"
 									>always shuffled</span
-								>{/if}{#if filterSummary}{' · '}<span class="text-xs">{filterSummary}</span>{/if}
+								>{/if}{#if smart && !isOwner}{' · '}<span class="text-xs">updates automatically</span>{/if}
 						</p>
 					</div>
 
 					<div class="flex flex-wrap items-end gap-2">
 						{#if isOwner}
-							{#if smart}
-								<a href={editHref} class="btn-ghost px-3 py-2 text-sm">Edit filter</a>
+							<!-- A notice owns Edit definition, and a stale playlist has nothing to sort. -->
+							{#if smart && !editing && !notice}
+								<button type="button" onclick={openEditor} class="btn-ghost px-3 py-2 text-sm">Edit definition</button>
 							{/if}
-							<div class="flex items-end gap-2">
-								<!-- A smart playlist has no position to honour: no Manual order (RD4). -->
-								<SortDropdown bind:sort owner extra={smart ? [] : [MANUAL]} />
-								{#if sort === 'random'}
-									<SortReroll onreroll={reroll} />
-								{/if}
-							</div>
+							{#if !editing && !notice}
+								<div class="flex items-end gap-2">
+									<!-- A smart playlist has no position to honour: no Manual order (RD4). -->
+									<SortDropdown bind:sort owner extra={smart ? [] : [MANUAL]} />
+									{#if sort === 'random'}
+										<SortReroll onreroll={reroll} />
+									{/if}
+								</div>
+							{/if}
 							<!-- Visibility: a two-state segment; reversible in one click, nothing is
 							     sent anywhere, so no confirm. -->
 							<div role="radiogroup" aria-label="Visibility" class="flex items-center">
@@ -323,10 +335,18 @@
 						/>
 					</div>
 				</div>
-				{#if isOwner}
+				{#if !editing && (definitionChips.count > 0 || flatChips.length > 0)}
+					<div class="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap" data-list-chips>
+						<QueryChips model={definitionChips.chips} />
+						{#each flatChips as c (c.label)}
+							<FilterChip label={c.label} ownerOnly={c.ownerOnly} />
+						{/each}
+					</div>
+				{/if}
+				{#if isOwner && !editing}
 					<div class="flex flex-wrap items-center gap-4 text-xs">
 						<Switch checked={playlist.play_shuffled} onclick={toggleShuffled} disabled={shuffleBusy} label="Always shuffle" />
-						{#if smart && !staleCopy}
+						{#if smart && !notice}
 							<button type="button" onclick={() => (confirmFreeze = true)} class="btn-quiet text-xs">
 								Freeze into a fixed playlist…
 							</button>
@@ -336,23 +356,37 @@
 				{/if}
 			</div>
 			{#if actionError}
-				<p class="text-sm text-warn" aria-live="polite">{actionError}</p>
+				<div aria-live="polite">
+					<p class="text-sm text-warn">{actionError}</p>
+					{#if actionFix}<p class="text-xs text-muted">{actionFix}</p>{/if}
+				</div>
+			{/if}
+			{#if savedNote && !editing}
+				<p class="text-xs text-muted" aria-live="polite">{savedNote}</p>
 			{/if}
 
-			{#if staleCopy}
-				<!-- Stale-reference notice (handoff §4): replaces the grid; nothing is evaluated
-				     until the filter is fixed (ADR-121 D5). -->
+			{#if editing}
+				<PlaylistDefinitionEditor {playlist} savedCount={total} onclose={closeEditor} onsaved={definitionSaved} />
+			{:else if notice}
+				<!-- Stale-reference notice: replaces the grid; nothing is evaluated until the
+				     definition is fixed (ADR-121 D5). -->
 				<div role="status" class="flex flex-wrap items-center justify-between gap-3 rounded-theme border border-warn bg-surface px-3 py-2">
 					{#if isOwner}
 						<p class="text-sm">
-							<span class="text-warn">{staleCopy.sentence}</span>
-							<span class="text-xs text-muted">{staleCopy.detail}</span>
+							<span class="text-warn">{notice.sentence}</span>
+							<span class="text-xs text-muted">{notice.detail}</span>
 						</p>
 						<div class="flex items-center gap-2">
-							<a href={editHref} class="btn-accent px-3 py-1.5 text-sm">Edit filter</a>
-							<button type="button" onclick={() => (confirmDelete = true)} class="btn-quiet px-3 py-1.5 text-sm">
-								Delete playlist
-							</button>
+							<button type="button" onclick={openEditor} class="btn-accent px-3 py-1.5 text-sm">Edit definition</button>
+							{#if notice.makePrivate}
+								<button type="button" onclick={() => patch({ visibility: 'private' }, true)} class="btn-quiet px-3 py-1.5 text-sm">
+									Make private
+								</button>
+							{:else}
+								<button type="button" onclick={() => (confirmDelete = true)} class="btn-quiet px-3 py-1.5 text-sm">
+									Delete playlist
+								</button>
+							{/if}
 						</div>
 					{:else}
 						<p class="text-sm text-warn">This playlist can’t be shown right now.</p>
@@ -361,7 +395,7 @@
 			{:else if total === 0}
 				<p class="py-16 text-center text-sm text-muted">
 					{#if smart}
-						Nothing matches this filter yet.
+						Nothing matches this definition yet.
 					{:else if isOwner}
 						Nothing here yet — add videos from any video's page, or
 						<a href="/" class="text-accent hover:underline">save a browse view</a> as a playlist.
@@ -379,7 +413,8 @@
 				/>
 			{/if}
 
-			{#if isOwner}
+			<!-- A notice without Make private already offers Delete playlist. -->
+			{#if isOwner && (editing || !notice || notice.makePrivate)}
 				<div class="flex justify-end">
 					<button type="button" onclick={() => (confirmDelete = true)} class="btn-quiet px-3 py-1.5 text-sm">
 						Delete playlist
@@ -421,6 +456,12 @@
 						<span class="font-semibold">{playlist?.name}</span> will be deleted. The {count}
 						{total === 1 ? 'stays' : 'stay'} in your library.
 					</p>
+					{#if referencedBy.length}
+						<p class="mt-2">
+							{referencedBy.length === 1 ? 'This playlist refers to it and' : 'These playlists refer to it and'} will show nothing
+							until fixed: {referencedBy.map((r) => r.name).join(', ')}.
+						</p>
+					{/if}
 				{/snippet}
 			</ConfirmDialog>
 		{/if}

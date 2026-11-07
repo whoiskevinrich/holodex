@@ -219,7 +219,7 @@ length. Past a limit it is refused with a message saying which one (P0-7). The v
 security review, high enough that no hand-written query reaches them.
 
 **P0-10 Smart playlists store the query.** Save as smart playlist (F75) saves the query. Opening the
-playlist re-runs it; *Edit filter* opens browse with it.
+playlist re-runs it; *Edit filter* edits it on the playlist page ([F89](smart-playlist-rules.md) P0-4).
 - [ ] Every smart playlist saved before this feature opens with the same results after it.
 - [ ] Renaming a Tag, person or studio in a saved query changes how the query reads, not what it
       matches.

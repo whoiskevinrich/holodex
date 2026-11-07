@@ -118,6 +118,75 @@ func (r *Repo) QueryNames(ctx context.Context, kind string) ([]string, error) {
 	return out, rows.Err()
 }
 
+// QueryLookupPlaylists returns every playlist a name means for a `playlist:` condition
+// (F89 P0-3): its name ignoring case and runs of spaces. Playlists carry no aliases.
+// publicOnly hides private playlists, so a visitor's reference to one reads as an
+// unknown name (SEC-1).
+func (r *Repo) QueryLookupPlaylists(ctx context.Context, name string, publicOnly bool) ([]query.Candidate, error) {
+	name = strings.Join(strings.Fields(name), " ")
+	if name == "" {
+		return nil, nil
+	}
+	// Compared in Go, not SQL: SQLite's lower() folds ASCII only, and a stored name keeps
+	// its own spacing. A library holds few playlists.
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, name FROM playlists WHERE 1 = 1`+playlistVisibleClause(publicOnly)+` ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("query lookup playlist: %w", err)
+	}
+	defer rows.Close()
+	var out []query.Candidate
+	for rows.Next() {
+		var c query.Candidate
+		if err := rows.Scan(&c.ID, &c.Name); err != nil {
+			return nil, err
+		}
+		if strings.EqualFold(strings.Join(strings.Fields(c.Name), " "), name) {
+			out = append(out, c)
+		}
+	}
+	return out, rows.Err()
+}
+
+// QueryPlaylistName returns a playlist's current name; ok is false when it no longer
+// exists, or is private and publicOnly is set (SEC-1).
+func (r *Repo) QueryPlaylistName(ctx context.Context, id int64, publicOnly bool) (string, bool, error) {
+	var name string
+	err := r.db.QueryRowContext(ctx, `SELECT name FROM playlists WHERE id = ?`+playlistVisibleClause(publicOnly), id).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("query name of playlist %d: %w", id, err)
+	}
+	return name, true, nil
+}
+
+// QueryPlaylistNames is the suggestion pool for an unknown playlist name.
+func (r *Repo) QueryPlaylistNames(ctx context.Context, publicOnly bool) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT name FROM playlists WHERE 1 = 1`+playlistVisibleClause(publicOnly))
+	if err != nil {
+		return nil, fmt.Errorf("query names playlist: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+func playlistVisibleClause(publicOnly bool) string {
+	if publicOnly {
+		return ` AND visibility = '` + model.PlaylistPublic + `'`
+	}
+	return ""
+}
+
 // QueryProviders returns the providers any video is matched to: the names a
 // `matched:` condition may use.
 func (r *Repo) QueryProviders(ctx context.Context) ([]string, error) {

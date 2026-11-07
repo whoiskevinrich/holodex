@@ -16,6 +16,7 @@
 		listId,
 		errorId,
 		isOwner,
+		enterHint = 'Enter searches videos',
 		onpick,
 		onhover
 	}: {
@@ -29,6 +30,8 @@
 		errorId: string;
 		/** The owner-only field (matched) appears in the syntax help for the owner only. */
 		isOwner: boolean;
+		/** What Enter does, in the footer: a page-owned field applies rather than searches. */
+		enterHint?: string;
 		onpick: (i: number) => void;
 		onhover: (i: number) => void;
 	} = $props();
@@ -74,7 +77,7 @@
 	{#if syntaxOpen}
 		<div class="border-t border-rule px-3 py-2 text-xs text-muted">
 			<p>
-				Fields: <span class="font-mono">tag: person: studio: category: duration: year: resolution:</span>.
+				Fields: <span class="font-mono">tag: person: studio: category: duration: year: added: resolution: playlist:</span>.
 				Next to each other = all must match; <span class="font-mono">OR</span>; <span class="font-mono">-</span> or
 				<span class="font-mono">NOT</span> excludes; ( ) groups; quote names with spaces.
 			</p>
@@ -86,7 +89,7 @@
 		</div>
 	{/if}
 	<div class="flex items-center justify-between border-t border-rule px-3 py-1.5 text-xs text-muted">
-		<span>Enter searches videos · Tab inserts suggestion</span>
+		<span>{enterHint} · Tab inserts suggestion</span>
 		<button
 			type="button"
 			class="underline hover:text-ink"

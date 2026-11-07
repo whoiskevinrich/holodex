@@ -1,21 +1,24 @@
 <script lang="ts">
 	// One F87 OR group in the chips row (query-language-handoff.md, approved Option A): an
 	// inset box of member chips joined by `or`, an AND set wrapped in muted ( ) with `+`
-	// between, and one trailing × that removes the whole group. It wraps as one unit.
+	// between, and one trailing × that removes the whole group. It wraps as one unit. With
+	// no onremove it is read-only (F89), and `problem` marks a member a refusal names.
 	import FilterChip from './FilterChip.svelte';
 	import { groupLabel, type ChipCond } from '#lib/query.ts';
 
 	let {
 		members,
 		onremove,
-		onremovemember
+		onremovemember,
+		problem
 	}: {
 		/** Each member is one chip or an AND set of chips. */
 		members: ChipCond[][];
 		/** Removes the whole group. */
-		onremove: () => void;
+		onremove?: () => void;
 		/** Removes one member chip, by its path in the query tree. */
-		onremovemember: (path: number[]) => void;
+		onremovemember?: (path: number[]) => void;
+		problem?: (chip: ChipCond) => boolean;
 	} = $props();
 
 	const spoken = $derived(groupLabel(members));
@@ -31,16 +34,24 @@
 		{#if set.length > 1}<span class="text-muted" aria-hidden="true">(</span>{/if}
 		{#each set as c, j (c.path.join('.'))}
 			{#if j > 0}<span class="text-muted" aria-hidden="true">+</span>{/if}
-			<FilterChip label={c.label} negated={c.negated} onremove={() => onremovemember(c.path)} />
+			<FilterChip
+				label={c.label}
+				negated={c.negated}
+				ownerOnly={c.ownerOnly}
+				problem={problem?.(c)}
+				onremove={onremovemember ? () => onremovemember(c.path) : undefined}
+			/>
 		{/each}
 		{#if set.length > 1}<span class="text-muted" aria-hidden="true">)</span>{/if}
 	{/each}
-	<button
-		type="button"
-		onclick={onremove}
-		aria-label={`Remove group: ${spoken}`}
-		class="rounded-theme px-1 leading-none text-ink hover:bg-surface"
-	>
-		×
-	</button>
+	{#if onremove}
+		<button
+			type="button"
+			onclick={onremove}
+			aria-label={`Remove group: ${spoken}`}
+			class="rounded-theme px-1 leading-none text-ink hover:bg-surface"
+		>
+			×
+		</button>
+	{/if}
 </span>

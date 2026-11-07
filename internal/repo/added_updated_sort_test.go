@@ -45,7 +45,7 @@ func upsert(t *testing.T, r *repo.Repo, v *model.Video) int64 {
 // backdate pins indexed_at so the test doesn't depend on wall-clock seconds.
 func backdate(t *testing.T, database *sql.DB, id int64, at string) {
 	t.Helper()
-	if _, err := database.Exec(`UPDATE videos SET indexed_at = ? WHERE id = ?`, at, id); err != nil {
+	if _, err := database.Exec(`UPDATE videos SET indexed_at = ?, changed_at = ? WHERE id = ?`, at, at, id); err != nil {
 		t.Fatalf("backdate %d: %v", id, err)
 	}
 }

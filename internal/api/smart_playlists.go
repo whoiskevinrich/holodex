@@ -62,7 +62,7 @@ func (h *Handlers) canonicalPlaylistQuery(ctx context.Context, q url.Values) (st
 			if strings.TrimSpace(v) == "" {
 				continue
 			}
-			parsed, err := ParseExpr(ctx, h.repo, v, true)
+			parsed, err := ParseExpr(ctx, h.repo, v, h.queryFields(), true)
 			if err != nil {
 				return "", fmt.Errorf("expr: %w", err)
 			}
@@ -125,6 +125,11 @@ type staleRef struct {
 	Kind  string `json:"kind"`
 	Key   string `json:"key,omitempty"`
 	Value string `json:"value,omitempty"`
+	// Via is the reference in the playlist being read that a problem came through: the
+	// one chip the owner can remove. Name and ViaName are the current names, owner only.
+	Via     int64  `json:"via,omitempty"`
+	Name    string `json:"name,omitempty"`
+	ViaName string `json:"via_name,omitempty"`
 }
 
 // smartPlaylistFilter turns a smart playlist into the filter its read runs (ADR-121 D3):
@@ -133,7 +138,18 @@ type staleRef struct {
 // public playlist, any owner-only input is reported as a stale ref rather than evaluated
 // (D4). The caller has already applied visibility, so a visitor never reaches this for a
 // private playlist.
+//
+// `playlist:` conditions are expanded here too (playlist_refs.go), and the playlist's cap
+// is set on the filter, so every read of it — page, count, ids, freeze, a reference —
+// sees the capped set (F89 P0-2, P0-3).
 func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, isOwner bool) (repo.VideoFilter, []staleRef, error) {
+	return h.smartFilterAt(ctx, p, isOwner, newRefExpansion(p.ID))
+}
+
+func (h *Handlers) smartFilterAt(ctx context.Context, p *model.Playlist, isOwner bool, x *refExpansion) (repo.VideoFilter, []staleRef, error) {
+	if p.Query == nil {
+		return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid}}, nil
+	}
 	q, err := url.ParseQuery(*p.Query)
 	if err != nil {
 		return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid}}, nil
@@ -150,8 +166,11 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 		case key == "expr":
 			// Stored canonical, so it is parsed, never re-canonicalised: an id that no
 			// longer exists must be a stale ref, not re-read as a name of those digits.
-			if expr, err = query.Parse(q.Get(key)); err != nil {
+			if expr, err = query.ParseStored(q.Get(key), h.queryFields()); err != nil {
 				return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid, Key: key}}, nil
+			}
+			for _, field := range query.GoneFields(expr.Root) {
+				stale = append(stale, staleRef{Kind: staleUnknown, Key: field})
 			}
 		default:
 			stale = append(stale, staleRef{Kind: staleUnknown, Key: key, Value: q.Get(key)})
@@ -168,10 +187,20 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 	}
 	f := h.browseFilter(q)
 	f.Sort = p.Sort
+	if p.Cap != nil {
+		f.Cap = *p.Cap
+	}
 	ownerOnly := wantsCompleteness(f.Sort, f.MissingFacets)
+	restricted := !isOwner || p.Visibility == model.PlaylistPublic
 	if expr != nil {
+		if s := x.countConds(expr.Root); s != nil {
+			return repo.VideoFilter{}, []staleRef{*s}, nil
+		}
 		exprRefs := map[string][]int64{}
 		for field, ids := range query.EntityIDs(expr.Root) {
+			if field == query.FieldPlaylist {
+				continue // expanded below, by expandRefs
+			}
 			exprRefs[repo.ExprFacetKey[field]] = ids
 		}
 		missing, err := h.repo.MissingFacetIDs(ctx, exprRefs)
@@ -183,26 +212,35 @@ func (h *Handlers) smartPlaylistFilter(ctx context.Context, p *model.Playlist, i
 				stale = append(stale, staleRef{Kind: staleMissing, Key: "expr", Value: strconv.FormatInt(id, 10)})
 			}
 		}
+		refStale, err := h.expandRefs(ctx, x, expr.Root, restricted)
+		if err != nil {
+			return repo.VideoFilter{}, nil, err
+		}
+		stale = append(stale, refStale...)
 		f.Expr = expr.Root
+		f.Refs = x.refs
 		ownerOnly = ownerOnly || query.OwnerOnly(expr.Root)
 	}
 	// A public playlist reports owner_only to every reader, owner included (testing-strategy
 	// §23.8 Q5), so the owner sees the notice and fixes it; only a repo-level write gets here.
-	if len(stale) == 0 && (!isOwner || p.Visibility == model.PlaylistPublic) && ownerOnly {
+	if len(stale) == 0 && restricted && ownerOnly {
 		stale = append(stale, staleRef{Kind: staleOwnerOnly})
+	}
+	if len(stale) == 0 {
+		h.drainForFilter(ctx, f.Expr, f.Sort)
 	}
 	return f, stale, nil
 }
 
 // usesOwnerOnlyInputs reports whether a playlist with this sort and stored query would
 // need owner-only inputs to evaluate (ADR-121 D4), so it can't be public.
-func usesOwnerOnlyInputs(sort string, stored *string) bool {
+func (h *Handlers) usesOwnerOnlyInputs(sort string, stored *string) bool {
 	var facets []string
 	if stored != nil {
 		if q, err := url.ParseQuery(*stored); err == nil {
 			facets = q["missing_facet"]
 			if src := q.Get("expr"); src != "" {
-				if expr, err := query.Parse(src); err == nil && query.OwnerOnly(expr.Root) {
+				if expr, err := query.ParseStored(src, h.queryFields()); err == nil && query.OwnerOnly(expr.Root) {
 					return true
 				}
 			}

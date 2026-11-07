@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { api } from '#lib/api.ts';
-	import { forgetPlaylist } from '#lib/playlistContext.ts';
 	import SavePlaylistForm from '#lib/components/video/SavePlaylistForm.svelte';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { browseCache } from '#lib/browse.svelte.ts';
@@ -12,8 +11,8 @@
 	import { beginRun, queryLabel } from '#lib/runContext.ts';
 	import type { RunMode } from '#lib/run.ts';
 	import PlaySplitButton from '#lib/components/video/PlaySplitButton.svelte';
-	import { formatBytes, formatDuration, resolutionBucket, toMessage, videoCount } from '#lib/format.ts';
-	import type { Facet, MediaFilters, Resolution, Video } from '#lib/types.ts';
+	import { formatBytes, formatDuration, resolutionBucket, videoCount } from '#lib/format.ts';
+	import type { Facet, MediaFilters, Video } from '#lib/types.ts';
 	import VirtualVideoGrid from '#lib/components/video/VirtualVideoGrid.svelte';
 	import ScrollPositionChip from '#lib/components/shared/ScrollPositionChip.svelte';
 	import { SparseList } from '#lib/sparseList.svelte.ts';
@@ -22,24 +21,22 @@
 	import SortDropdown from '#lib/components/sort/SortDropdown.svelte';
 	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
 	import FilterChip from '#lib/components/sort/FilterChip.svelte';
-	import QueryChipGroup from '#lib/components/sort/QueryChipGroup.svelte';
-	import AdvancedQueryRow from '#lib/components/sort/AdvancedQueryRow.svelte';
-	import { exprWithout, isQueryMode, printNames, toChips, type QueryParseResult } from '#lib/query.ts';
+	import QueryChips from '#lib/components/sort/QueryChips.svelte';
+	import MediaFilterFields from '#lib/components/sort/MediaFilterFields.svelte';
+	import { parsedExpr } from '#lib/parsedExpr.svelte.ts';
+	import { isQueryMode, printNames } from '#lib/query.ts';
 	import RecentlyAddedShelf from '#lib/components/video/RecentlyAddedShelf.svelte';
-	import MappedFacets from '#lib/components/curation/MappedFacets.svelte';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import ListTable from '#lib/components/sort/ListTable.svelte';
 	import VideoThumb from '#lib/components/video/VideoThumb.svelte';
 	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
-	import { exitAfterRemoval, mediaSchema, type MediaQuery } from '#lib/listState.ts';
+	import { mediaSchema, type MediaQuery } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
 	import { MEDIA_COLUMNS } from '#lib/listColumns.ts';
 	import { shortDate } from '#lib/maintenance.ts';
 	import { PAGE_VIEWS, readView, writeView } from '#lib/viewPreference.svelte.ts';
-
-	const RESOLUTIONS: Resolution[] = ['All', 'SD', 'HD', 'FHD', '4K'];
 
 	// Sort + filters follow the F73 list contract (ADR-114), held by ListController: the
 	// sort is sticky (localStorage) and in the URL; filters and entity scope live in the URL
@@ -159,89 +156,30 @@
 	// ---- F87 query chips (query-language-handoff.md): drawn from the server's parse of
 	// ?expr=, never from the text. The previous chips stay until the new parse returns.
 	const expr = $derived(query.expr);
-	let parsed = $state<QueryParseResult | null>(null);
-	let parseSeq = 0;
-	$effect(() => {
-		const e = expr;
-		const seq = ++parseSeq;
-		if (!e) {
-			parsed = null;
-			return;
-		}
-		api
-			.parseQuery(e)
-			.then((r) => {
-				if (seq === parseSeq) parsed = r;
-			})
-			.catch((err) => {
-				if (seq === parseSeq) parsed = { ok: false, error: { code: 'error', message: toMessage(err), start: 0, end: 0 } };
-			});
-	});
-	const queryChips = $derived(parsed?.ok ? toChips(parsed.tree) : null);
+	const parsedQuery = parsedExpr(() => expr);
 	// A refused query (an owner-only part in a shared link, a stale name, past a cap) runs
 	// nothing: this notice replaces the grid, with no partial results.
-	const refused = $derived(expr && parsed && !parsed.ok ? parsed.error : null);
-	const queryChipCount = $derived(queryChips ? (queryChips.kind === 'advanced' ? 1 : queryChips.items.length) : 0);
+	const refused = $derived(parsedQuery.refused);
 	function removeQueryPart(path: number[]) {
-		if (parsed?.ok) setQuery({ expr: exprWithout(parsed.tree, path) || undefined });
+		setQuery({ expr: parsedQuery.without(path) });
 	}
 	// Edit as text / Edit query: the query with current names, in the nav box in query mode.
 	function editQueryText() {
-		void navSearch.editQuery(parsed?.ok ? printNames(parsed.tree) : (expr ?? ''));
+		const p = parsedQuery.parsed;
+		void navSearch.editQuery(p?.ok ? printNames(p.tree) : (expr ?? ''));
 	}
 
 	// The Filters button counts what its panel holds — not entity scope, which has no field.
 	const filterCount = $derived(activeChips.filter((c) => c.kind === 'filter').length);
-
-	const num = (v: string) => (v === '' ? undefined : Number(v) || undefined);
 
 	// Save as playlist… (F75 handoff "Save form"; was F69 P0-8 in the ⋯ menu): the count
 	// line's form saves the current filters + sort, smart or snapshot. No filter = the
 	// whole library in this sort, a valid smart playlist ("everything, newest first").
 	let saveOpen = $state(false);
 
-	// Browse edit mode (F75 handoff §5, P0-8): a smart playlist's *Edit filter* opens
-	// `/?<stored query>#edit_playlist=<id>`. The flag is UI state, so it rides the fragment:
-	// in the query string the list schema would read it as a mapped filter (a chip, and a
-	// key the server refuses on Update). The controller's first URL write drops the
-	// fragment, so it's read once here. Update replaces the stored query with the filters
-	// on screen (sort apart — it's the playlist's own).
-	const editId = Number(new URLSearchParams(location.hash.slice(1)).get('edit_playlist')) || null;
-	let editName = $state('');
-	let editWas = $state<number | null>(null);
-	let editBusy = $state(false);
-	let editError = $state('');
-	if (editId != null) {
-		api
-			.getPlaylist(editId, undefined, { limit: 1, offset: 0 })
-			.then((res) => {
-				editName = res.playlist.name;
-				editWas = res.playlist.item_count;
-			})
-			.catch((err) => (editError = toMessage(err)));
-	}
-	async function updatePlaylistFilter() {
-		if (editId == null || editBusy) return;
-		editBusy = true;
-		editError = '';
-		try {
-			await api.updatePlaylist(editId, { query: filterQuery() });
-			forgetPlaylist(editId);
-			await goto(`/playlists/${editId}`);
-		} catch (err) {
-			editError = toMessage(err);
-		} finally {
-			editBusy = false;
-		}
-	}
-	// Cancel returns to the playlist: Back when it's the page we came from, else a plain
-	// link (ADR-114 D4, exitAfterRemoval's rule).
-	let editFromPlaylist = false;
-	afterNavigate(({ from }) => {
-		// SvelteKit 3 hands the initial `enter` navigation a `from` whose url is null.
-		editFromPlaylist ||= from?.url?.pathname === `/playlists/${editId}`;
-	});
-	const cancelEdit = () => exitAfterRemoval(editFromPlaylist, `/playlists/${editId}`);
+	// An old Edit filter link: playlists are edited on their own page now (F89 P0-4).
+	const oldEditId = Number(new URLSearchParams(location.hash.slice(1)).get('edit_playlist')) || null;
+	if (oldEditId != null) void goto(`/playlists/${oldEditId}#edit`, { replace: true });
 
 	// The whole-list scroll (F80 EL11/EL14, HOLODEX-604): the grid is one list as tall as
 	// every match, read a page at a time from GET /media where it's viewed. The list reads
@@ -359,38 +297,13 @@
 			? [{ label: `${showRecent ? 'Hide' : 'Show'} “Recently Added”`, onselect: toggleRecent }]
 			: []
 	);
-	const numberInput =
-		'w-20 rounded-theme border border-rule bg-bg px-2 py-1.5 text-sm text-ink focus:border-accent focus:outline-none';
 </script>
 
 <section class="space-y-5">
-	{#if editId != null && isOwner}
-		<!-- Browse edit mode (F75 handoff §5): the filters below are a smart playlist's. -->
-		<div class="flex flex-wrap items-center justify-between gap-3 rounded-theme border border-rule bg-surface px-3 py-2 text-sm">
-			<p class="flex min-w-0 flex-wrap items-baseline gap-x-2">
-				<span class="text-xs uppercase tracking-wide text-muted">Editing filter of</span>
-				<span class="max-w-[24ch] truncate text-accent" title={editName}>{editName || '…'}</span>
-				{#if !loading}
-					<span class="text-muted">
-						· {videoCount(total)} match{editWas != null ? ` (was ${editWas.toLocaleString()})` : ''}
-					</span>
-				{/if}
-			</p>
-			<div class="flex items-center gap-2">
-				<button type="button" onclick={updatePlaylistFilter} disabled={editBusy || !editName} class="btn-accent px-3 py-1.5 text-sm">
-					Update “{editName}”
-				</button>
-				<button type="button" onclick={cancelEdit} disabled={editBusy} class="btn-quiet px-3 py-1.5 text-sm">Cancel</button>
-			</div>
-			{#if editError}
-				<p class="basis-full text-sm text-warn">{editError}</p>
-			{/if}
-		</div>
-	{/if}
 	<ListToolbar
 		reroll={sortBy === 'random' ? rerollMedia : undefined}
 		{actions}
-		chipCount={activeChips.length + queryChipCount}
+		chipCount={activeChips.length + parsedQuery.count}
 		onclear={clearAll}
 	>
 		{#snippet sort()}
@@ -398,47 +311,7 @@
 		{/snippet}
 		{#snippet filters()}
 			<FilterPanel count={filterCount} resultLabel={loading ? '' : videoCount(total)} onclear={clearAll}>
-				<div>
-					<span class="mb-1 block text-xs text-muted">Resolution</span>
-					<div class="flex overflow-hidden rounded-theme border border-rule text-sm" role="group" aria-label="Resolution">
-						{#each RESOLUTIONS as r (r)}
-							<button
-								type="button"
-								aria-pressed={(query.resolution ?? 'All') === r}
-								onclick={() => setQuery({ resolution: r })}
-								class="px-3 py-1 {(query.resolution ?? 'All') === r
-									? 'bg-accent text-accent-ink'
-									: 'text-muted hover:text-ink'}"
-							>
-								{r}
-							</button>
-						{/each}
-					</div>
-				</div>
-				<div>
-					<span class="mb-1 block text-xs text-muted">Year</span>
-					<div class="flex items-center gap-2">
-						<input type="number" aria-label="Year from" placeholder="from" class={numberInput}
-							value={query.year_min ?? ''} oninput={(e) => setQuery({ year_min: num(e.currentTarget.value) })} />
-						<span class="text-xs text-muted">to</span>
-						<input type="number" aria-label="Year to" placeholder="to" class={numberInput}
-							value={query.year_max ?? ''} oninput={(e) => setQuery({ year_max: num(e.currentTarget.value) })} />
-					</div>
-				</div>
-				<div>
-					<span class="mb-1 block text-xs text-muted">Duration (min)</span>
-					<div class="flex items-center gap-2">
-						<input type="number" min="0" aria-label="Minimum duration in minutes" placeholder="min" class={numberInput}
-							value={query.duration_min ?? ''} oninput={(e) => setQuery({ duration_min: num(e.currentTarget.value) })} />
-						<span class="text-xs text-muted">to</span>
-						<input type="number" min="0" aria-label="Maximum duration in minutes" placeholder="max" class={numberInput}
-							value={query.duration_max ?? ''} oninput={(e) => setQuery({ duration_max: num(e.currentTarget.value) })} />
-					</div>
-				</div>
-				<MappedFacets
-					bind:mapped={() => query.mapped ?? {}, (m) => setQuery({ mapped: m })}
-					onfacets={(f) => (facets = f)}
-				/>
+				<MediaFilterFields {query} set={setQuery} onfacets={(f) => (facets = f)} />
 			</FilterPanel>
 		{/snippet}
 		{#snippet view()}
@@ -452,31 +325,13 @@
 			{#each activeChips.filter((c) => c.kind === 'scope') as c (c.id)}
 				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
 			{/each}
-			{#if queryChips?.kind === 'advanced'}
-				<AdvancedQueryRow text={queryChips.text} onedit={editQueryText} />
-			{:else if queryChips}
-				{#each queryChips.items as item (item.kind === 'chip' ? item.chip.path.join('.') : `g${item.path.join('.')}`)}
-					{#if item.kind === 'chip'}
-						<FilterChip
-							label={item.chip.label}
-							negated={item.chip.negated}
-							onremove={() => removeQueryPart(item.chip.path)}
-						/>
-					{:else}
-						<QueryChipGroup
-							members={item.members}
-							onremove={() => removeQueryPart(item.path)}
-							onremovemember={removeQueryPart}
-						/>
-					{/if}
-				{/each}
-			{/if}
+			<QueryChips model={parsedQuery.chips} onremove={removeQueryPart} onedit={editQueryText} />
 			{#each activeChips.filter((c) => c.kind !== 'scope') as c (c.id)}
 				<FilterChip label={c.label} kind={c.kind} onremove={c.remove} />
 			{/each}
 		{/snippet}
 		{#snippet chipsEnd()}
-			{#if queryChips?.kind === 'chips'}
+			{#if parsedQuery.chips?.kind === 'chips'}
 				<button type="button" onclick={editQueryText} class="btn-quiet shrink-0 text-xs underline">Edit as text</button>
 			{/if}
 		{/snippet}
@@ -507,7 +362,7 @@
 			<p class="text-sm text-muted" aria-live="polite">{loading ? 'Loading…' : videoCount(total)}</p>
 			<div class="flex flex-wrap items-center gap-2">
 				<PlaySplitButton disabled={loading || total === 0} onplay={playRun} />
-				{#if isOwner && editId == null && !saveOpen}
+				{#if isOwner && !saveOpen}
 					<button type="button" onclick={() => (saveOpen = true)} class="btn-quiet px-3 py-1.5 text-sm">Save as playlist…</button>
 				{/if}
 			</div>
