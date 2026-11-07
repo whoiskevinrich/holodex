@@ -15,8 +15,8 @@ depends-on: []               # [KEY-…] cross-epic deps that must land first
 release_note: Smart playlists can now filter by relative dates, other playlists, provider-enriched fields and your watch history, cap how many videos they hold, and have their rules edited right on the playlist page.
 approved:                    # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
   design:                    # artifact is committed; THIS means the owner looked and said yes. Written
-    on: 2026-11-02           # only by /implement (which asks) or /handoff (for a yes given this session);
-    at: e91f3aee             # `at` is the commit the yes was given against — change the artifact after it
+    on: 2026-11-06           # only by /implement (which asks) or /handoff (for a yes given this session);
+    at: 9b4df82f             # `at` is the commit the yes was given against — change the artifact after it
                              # and the sign-off is stale: re-confirmed with the diff, never revoked.
 ---
 
@@ -43,8 +43,8 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**` — all four slices landed, with their tests
-- [/] frontend → `web/src/**` — all slices landed (chips, the on-page editor, field suggestions and key glyphs, the watched bar and toggle); the design comparison is due before this gate settles
-- [/] testing `testing-strategy` — strategy is §40 of `docs/testing-strategy.md`; its tests are written in the build
+- [x] frontend → `web/src/**` — all slices landed; the owner compared the build with the approved mockups on 2026-11-06, three differences were fixed, and they said it matches
+- [~] testing `testing-strategy` — §40's build tests are in and mutation-checked; the owner chose to merge with QA 10 to 12 not run, because the fixture's files don't decode — until: HOLODEX-627 runs them on real playback
 - [x] security `security-review` — SEC-1–11 committed; final review of the whole diff on 2026-11-06 found no High or Medium issue; it read the code and ran no exploit
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -62,9 +62,7 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Owner to run QA 10 to 12: real playback, the mark, a rolling date (the fixture's files don't decode) — `docs/testing-strategy.md` §40.8
-2. [ ] [frontend] Compare the built UI with the approved mockups with the owner, before settling the gate — `docs/design/smart-playlist-rules-handoff.md`
-3. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
+1. [ ] [architecture] On the squash, pin both "Decided in: pending squash (HOLODEX-619)" lines — `docs/architecture/field-resolution.md`, `docs/architecture/watch-history.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -75,6 +73,10 @@ edited on the playlist page itself, all inside the SEC-1 to SEC-11 perimeter.
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-06 · mockup comparison and merge
+- skills: code-review, handoff
+- handoff: The owner compared the build with the mockups, three differences were fixed and they said it matches, so every gate is settled, with testing skipped until HOLODEX-627 runs QA 10 to 12 on real playback; next is pinning the two "Decided in" lines to the squash commit. The completeness ring's preview gap went to HOLODEX-628.
 
 ### 2026-11-06 · final security review
 - skills: security-review, handoff, code-review
