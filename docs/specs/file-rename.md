@@ -109,8 +109,8 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
 - A template that repeats a token, or names a token that doesn't exist, is refused when saved. F48
   accepts an unknown token in a filename pattern; a rename template does not.
 - A template's own text, outside its tokens, follows the character rules of P0-4: one that contains
-  a character P0-4 removes from values, such as `:` or `/`, is refused when saved, never cleaned
-  silently.
+  a character no file name may hold, such as `:` or `/`, is refused when saved, never cleaned
+  silently. `!` and `;` are allowed in a template's own text: the owner typed them on purpose.
 - An identity token renders only from an id the video's provider match has confirmed. A video
   without one doesn't fit that template.
 - **Optional tokens** (decided 2026-11-01). A token written with `?`, such as `{studio?}`, is
@@ -151,9 +151,27 @@ occurrence of that text.
 
 **P0-4. One name that is valid everywhere.** Holodex builds the strictest name that is valid on both
 Windows and Linux, on every platform:
-- The characters `< > : " / \ | ? *`, control characters (including DEL and the C1 range),
-  invisible formatting characters (zero-width and text-direction marks) and braces `{ }` are removed
-  from each value, and any run of whitespace this leaves becomes one space.
+- Characters a file name can't hold, plus `!` and `;`, become a readable stand-in in each value,
+  or are removed:
+
+  | Character | Becomes | Example |
+  |---|---|---|
+  | `:` `\|` `*` | `-` | `Star Wars: Episode IV` → `Star Wars- Episode IV` |
+  | `"` | `'` | `The "Thing"` → `The 'Thing'` |
+  | `/` `\` | `+` | `AC/DC` → `AC+DC` |
+  | `;` | `,` | `Love; Death` → `Love, Death` |
+  | `?` `<` `>` `!` | removed | `Who Goes There?` → `Who Goes There` |
+
+  A `-` stand-in joins the word before it, so `Ada : Love` becomes `Ada- Love`. A substituted value
+  therefore never forms ` - `, which is common template text and would otherwise fail the read-back
+  check (P0-3). With no word before it, as in `*batteries`, the `-` is dropped, so a name never
+  starts with `-`. A `-` the value already had is kept as it is. A stand-in can still match other
+  template text. For example, a `;` in a cast member's name becomes `,`, which matches the default
+  people delimiter. Such a name is refused under P0-3, like any value that contains its template's
+  text.
+- Control characters (including DEL and the C1 range), invisible formatting characters (zero-width
+  and text-direction marks) and braces `{ }` are removed from each value, and any run of whitespace
+  this leaves becomes one space.
 - A name never ends in a dot or a space, and is never a name Windows reserves (`CON`, `PRN`, `AUX`,
   `NUL`, `CONIN$`, `CONOUT$`, `COM1`–`COM9`, `LPT1`–`LPT9`, and `COM`/`LPT` followed by a
   superscript ¹ ² ³). The part before the first dot decides, in any case and ignoring trailing

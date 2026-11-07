@@ -9,7 +9,7 @@ import (
 
 // N8: every removed character, one subtest each.
 func TestSanitizeValueRemoves(t *testing.T) {
-	for _, r := range []rune{'<', '>', ':', '"', '/', '\\', '|', '?', '*', '{', '}',
+	for _, r := range []rune{'<', '>', '?', '!', '{', '}',
 		0x00, 0x1F, 0x7F, 0x85, 0x9F, 0x200B, 0x200E, 0x202E, 0x2066, 0xFEFF} {
 		t.Run(string(r), func(t *testing.T) {
 			got, err := SanitizeValue("Ada" + string(r) + "Love")
@@ -20,16 +20,43 @@ func TestSanitizeValueRemoves(t *testing.T) {
 	}
 }
 
+// HOLODEX-632: every substituted character, one subtest each.
+func TestSanitizeValueSubstitutes(t *testing.T) {
+	for r, want := range map[rune]string{
+		':': "Ada-Love", '|': "Ada-Love", '*': "Ada-Love",
+		'"': "Ada'Love", '/': "Ada+Love", '\\': "Ada+Love", ';': "Ada,Love",
+	} {
+		t.Run(string(r), func(t *testing.T) {
+			got, err := SanitizeValue("Ada" + string(r) + "Love")
+			if err != nil || got != want {
+				t.Fatalf("SanitizeValue(%q) = %q, %v; want %q", r, got, err, want)
+			}
+		})
+	}
+}
+
 func TestSanitizeValueWhitespaceAndNFC(t *testing.T) {
 	cases := map[string]string{
-		"a\t\n b":     "a b",
-		"  Ada  ":     "Ada",
-		"a : b":       "a b",
-		"a{b}c":       "abc",
-		"a:b*c?":      "abc",
-		"Café":       "Café", // NFD é composes
-		"../etc":      "..etc",
-		"{edition-x}": "edition-x",
+		"a\t\n b": "a b",
+		"  Ada  ": "Ada",
+		"a{b}c":   "abc",
+		"Café":   "Café", // NFD é composes
+		"../etc":  "..+etc",
+		// A substituted dash joins the word before it, so it never forms " - ".
+		"Star Wars: Episode IV": "Star Wars- Episode IV",
+		"a : b":                 "a- b",
+		"Fire | Ice":            "Fire- Ice",
+		"a - b":                 "a - b", // a dash the value already had is kept as is
+		"M*A*S*H":               "M-A-S-H",
+		`The "Thing"`:           "The 'Thing'",
+		"AC/DC":                 "AC+DC",
+		"Love; Death":           "Love, Death",
+		"Airplane!":             "Airplane",
+		"Who Goes There?":       "Who Goes There",
+		"a:b*c?":                "a-b-c",
+		" : a":                  "a",
+		"*batteries":            "batteries", // no word before the dash, so a name never starts with "-"
+		"{edition-x}":           "edition-x",
 	}
 	for in, want := range cases {
 		got, err := SanitizeValue(in)
