@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -137,6 +139,16 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 	if err != nil {
 		return nil, err
 	}
+	personIDs := map[int64]bool{}
+	for _, v := range videos {
+		for _, p := range v.People {
+			personIDs[p.ID] = true
+		}
+	}
+	aliases, err := h.repo.AliasesForEntities(ctx, model.EnrichEntityPerson, slices.Collect(maps.Keys(personIDs)))
+	if err != nil {
+		return nil, err
+	}
 
 	st := &renameState{titles: map[int64]string{}, locks: locks, disk: rename.Disk{Paths: map[int64]string{}, ListDir: listDirNames}}
 	for _, p := range paths {
@@ -151,7 +163,11 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 		fs = h.mergeClaims(ctx, model.EnrichEntityVideo, fs)
 		resolved := resolver.Resolve(v, extra[v.ID], injectFilmSources(enrichmentFromRows(rows), films[v.ID]),
 			curationFromRows(cur[v.ID]), fs, h.resolveOptions(decisionsFromRows(dec[v.ID])))
-		in := rename.Input{ID: v.ID, Path: v.FilePath, Values: renameValues(resolved, rows, providers),
+		vals := renameValues(resolved, rows, providers)
+		if people, ok := vals[rename.TokPeople]; ok {
+			vals[rename.TokPeople] = canonicalPeople(people, v.People, aliases)
+		}
+		in := rename.Input{ID: v.ID, Path: v.FilePath, Values: vals,
 			Locked: locks[v.ID].Locked, Held: held[v.ID]}
 		if fr, ok := last[v.ID]; ok {
 			in.Last = &rename.Record{NewName: fr.NewName, TokenValues: fr.TokenValues}
@@ -180,6 +196,34 @@ func renameValues(resolved []resolver.ResolvedField, rows []repo.EnrichmentRow, 
 		}
 	}
 	return v
+}
+
+// canonicalPeople names each of the video's linked people once, by their canonical name. The actors
+// merge folds only case and whitespace, so a file tag's alias and a source's name for the same
+// person both survive it; the links already fold them to one person. Every link counts, whatever
+// its role: a link made before roles existed has none. A value that isn't a linked person's name
+// or alias (not yet relinked) passes through. The field's order is kept.
+func canonicalPeople(values []string, linked []model.Person, aliases map[int64][]model.EntityAlias) []string {
+	key := func(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+	names := map[string]string{}
+	for _, p := range linked {
+		names[key(p.Name)] = p.Name
+		for _, a := range aliases[p.ID] {
+			names[key(a.Alias)] = p.Name
+		}
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, v := range values {
+		if n, ok := names[key(v)]; ok {
+			v = n
+		}
+		if !seen[key(v)] {
+			seen[key(v)] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // listDirNames lists a folder's entry names. A folder that can't be read lists nothing; the worker
