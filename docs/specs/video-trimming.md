@@ -186,9 +186,10 @@ file. For an edition, the status is shown on the original's page until the editi
 - [ ] The edition is a new library item for the new file.
 - [ ] It copies the original's current people, Tags, per-field edits, source decisions, enrichment,
       poster, film links and playlist places. Its edition is the name from R4. Nothing else differs,
-      with two exceptions. A numbered scene in a film keeps the link without the number, because the
+      with three exceptions. A numbered scene in a film keeps the link without the number, because the
       original still holds it. It starts with no rename history and no locked name, because its file
-      has never been renamed.
+      has never been renamed. It starts unwatched, with no plays, because nobody has watched this cut
+      yet (chosen 2026-11-07).
 - [ ] Its history starts with one entry, "trimmed from" the original, linking to it. The original's
       earlier history stays with the original.
 - [ ] After creation the two items are independent. An edit to one never changes the other.
