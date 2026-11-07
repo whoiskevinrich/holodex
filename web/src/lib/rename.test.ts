@@ -82,6 +82,25 @@ describe('readBack', () => {
 		const plain = row({ reason: 'wont-read-back', template: 0, written: { title: ['x'] }, parsed: { title: ['y'] } });
 		expect(readBack(plain, ['{title}'])?.breaker).toBeUndefined();
 	});
+
+	it('blames the token whose value holds its breaker, not the first token that read back wrong', () => {
+		// The title's " (" ends {title} early, so people reads back wrong too; people comes first.
+		const r = row({
+			reason: 'wont-read-back',
+			template: 0,
+			written: { people: ['Ada Lovelace'], title: ['Engines (Part 2)'] },
+			parsed: { people: ['Part 2) (Ada Lovelace'], title: ['Engines'] }
+		});
+		expect(readBack(r, ['{title} ({people})'])).toEqual({
+			token: 'title',
+			value: 'Engines (Part 2)',
+			breaker: ' (',
+			template: 1,
+			readsAs: 'Engines'
+		});
+		// An optional token is written {title?} in the template; its breaker is still found.
+		expect(readBack(r, ['{title?} ({people}) {provider-1-id}'])?.token).toBe('title');
+	});
 });
 
 describe('wording', () => {
