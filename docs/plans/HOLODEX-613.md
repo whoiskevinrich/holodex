@@ -68,7 +68,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
 1. [ ] [testing] QA by hand: §41.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
-2. [ ] [—] Trim Matroska with FLAC audio, built in its own session; its PR targets this branch, so merge it in before ready → HOLODEX-624
+2. [ ] [—] Sweep child HOLODEX-624 (FLAC trims, merged into this branch from #584) with the epic: In Review when #581 goes ready, Done on merge
 
 ## Decisions
 
@@ -85,7 +85,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-07 · session
-- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, now being built in its own session with a PR against this branch, and an edition starts unwatched (spec R8). Testing is still the last open gate. Next: the by-hand QA on the two long films, then merge HOLODEX-624's work in before ready.
+- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, and its work is merged into this branch from #584, and an edition starts unwatched (spec R8). Testing is still the last open gate. Next: the by-hand QA on the two long films, including one with FLAC audio if the library has one.
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
