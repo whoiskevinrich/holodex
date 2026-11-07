@@ -92,7 +92,10 @@ needs a well-defined query to translate into, and today there isn't one.
   - **category**, **resolution**, **year**, **duration**: today's browse facets. *year* and
     *duration* take a comparison or a range.
   - **matched**: the video is matched to a provider (`matched:any`, or a specific provider by its
-    name). Owner-only.
+    name). Owner-only. "Matched" means *linked* as [F90](provider-and-field-filters.md) defines it:
+    a video's filename parse doesn't count.
+  - **has**: the video has a value for a field (`has:director`, `-has:poster`). Owner-only; F90 owns
+    the rules.
   - **Bare words** (no `field:`): a video matches when its title contains the word **or** it has
     the Tag whose name or alias is exactly that word (with that Tag's descendants). A bare word
     never matches a person or a studio; those need `person:` and `studio:`. Quote a phrase to
@@ -220,6 +223,8 @@ playlist re-runs it; *Edit filter* opens browse with it.
 - [ ] Every smart playlist saved before this feature opens with the same results after it.
 - [ ] Renaming a Tag, person or studio in a saved query changes how the query reads, not what it
       matches.
+- [ ] One deliberate exception: F90's corrected meaning of "matched" drops videos with only a filename
+      parse from saved `matched` queries ([F90](provider-and-field-filters.md) P0-9).
 
 ### P1: nice to have
 
