@@ -1,9 +1,13 @@
 package maintenance
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -227,6 +231,45 @@ func parsePackets(out []byte) ([]packet, error) {
 		pkts = append(pkts, packet{PTS: last, Hash: strings.TrimRight(b, ",")})
 	}
 	return pkts, nil
+}
+
+// compareSamples checks that a re-encoded lossless track (Matroska FLAC) decodes to exactly the
+// original's samples over r, cut by the same accurate seek step 1 used. It returns "" when they
+// match, else what differs.
+func compareSamples(ctx context.Context, t Tools, orig, cand string, origIndex, candIndex int, r trimRange) (string, error) {
+	// The two decodes are independent, and each can take a while on a feature's audio.
+	var want string
+	var wantErr error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		want, wantErr = pcmDigest(ctx, t.FFmpeg, append(trimInputArgs("matroska", orig, r), "-map", "0:"+strconv.Itoa(origIndex)))
+	}()
+	have, err := pcmDigest(ctx, t.FFmpeg, append(trimInputArgs("matroska", cand, trimRange{}), "-map", "0:"+strconv.Itoa(candIndex)))
+	<-done
+	if err == nil {
+		err = wantErr
+	}
+	if err != nil {
+		return "", err
+	}
+	if want != have {
+		return "samples changed inside the kept range", nil
+	}
+	return "", nil
+}
+
+// pcmDigest decodes the one audio stream input selects to raw 32-bit samples and hashes them as they
+// arrive: a feature's worth of lossless audio is gigabytes once decoded.
+func pcmDigest(ctx context.Context, ffmpeg string, input []string) (string, error) {
+	cmd := exec.CommandContext(ctx, ffmpeg, append(input, "-f", "s32le", "-")...)
+	h := sha256.New()
+	var stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = h, &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("decode samples: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // comparePackets checks that a cut stream's packets are the original's inside the kept range, bit

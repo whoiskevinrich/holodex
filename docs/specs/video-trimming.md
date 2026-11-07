@@ -141,8 +141,7 @@ If a rule can't be met for a file, the trim is refused before it starts.
 **R3. Preflight refusals.** F77's refusals apply (read-only library, free space, encoder, missing
 file, deleted video), with the free space sized for the kept range. Also:
 - [ ] A file with a second video track is refused, because that track could only be cut on a keyframe.
-- [ ] A Matroska file with FLAC audio is refused, because the tool that cuts its audio can't split
-      FLAC.
+- [ ] A Matroska file with FLAC audio is trimmed like any other, with its audio intact and in sync.
 - [ ] **Save as edition** is refused when the edition name is empty, equals the original's edition, or
       the target filename already exists.
 

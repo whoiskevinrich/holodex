@@ -20,7 +20,6 @@ const (
 	ReasonNoSpace         = "no_space"
 	// Trim only (F88).
 	ReasonMultiVideo   = "multiple_video_tracks"
-	ReasonFLAC         = "flac_in_matroska"
 	ReasonEditionName  = "edition_name_empty"
 	ReasonEditionSame  = "edition_same"
 	ReasonTargetExists = "target_exists"
@@ -51,7 +50,7 @@ func CheckFlip(ctx context.Context, t Tools, encoders map[string]bool, path stri
 
 // checkOp is the shared preflight. kept scales the free space to the share of the file an operation
 // writes. trim adds what a cut can't do: a second video track can only be cut on a keyframe, so its
-// range would disagree with the main one's, and mkvmerge refuses to split a FLAC track at all.
+// range would disagree with the main one's.
 func checkOp(ctx context.Context, t Tools, encoders map[string]bool, path string, kept float64, trim bool) (Preflight, error) {
 	fi, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -99,9 +98,6 @@ func checkOp(ctx context.Context, t Tools, encoders map[string]bool, path string
 		for _, s := range p.Streams {
 			if s.CodecType == "video" && s.Disposition["attached_pic"] == 0 {
 				tracks++
-			}
-			if family == FamilyMKV && s.CodecName == "flac" {
-				return refused(ReasonFLAC, ""), nil
 			}
 		}
 		if tracks > 1 {

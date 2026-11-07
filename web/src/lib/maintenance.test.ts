@@ -36,7 +36,7 @@ describe('trim copy (F88)', () => {
 		expect(heldVerb('hflip')).toBe('Flipped');
 	});
 	it('says trim, not flip, in its refusals', () => {
-		for (const reason of ['dolby_vision', 'no_video', 'unsupported_container', 'multiple_video_tracks', 'flac_in_matroska']) {
+		for (const reason of ['dolby_vision', 'no_video', 'unsupported_container', 'multiple_video_tracks']) {
 			const copy = refusalCopy({ reason, ...none }, TRIM);
 			expect(copy, reason).toMatch(/trim/);
 			expect(copy, reason).not.toMatch(/flip/);
@@ -79,7 +79,7 @@ describe('trim copy (F88)', () => {
 		expect(failureCopy('trim', 'maintenance refused: target_exists (a.mkv)')).toBe(
 			"Couldn't trim. A file named a.mkv already exists. Choose another name. Your file wasn't changed."
 		);
-		expect(failureCopy('trim', 'maintenance refused: flac_in_matroska')).toMatch(/^Couldn't trim\. .*FLAC/);
+		expect(failureCopy('trim', 'maintenance refused: multiple_video_tracks')).toMatch(/^Couldn't trim\. .*second video track/);
 		expect(failureCopy('trim', 're-encode: exit 1 /secret/path')).not.toMatch(/secret/);
 	});
 });
