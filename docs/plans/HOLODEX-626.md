@@ -27,7 +27,7 @@ release_note: Owners can now filter and sort videos, people and studios by provi
 Done means the owner can ask which videos, people and studios are linked to a provider, which have or
 lack a field's value, and how much providers contributed, with the Completeness score and ring gone.
 
-**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: [field-resolution.md](../architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) · handoff: pending · testing-strategy: pending
+**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: [field-resolution.md](../architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) · handoff: [provider-and-field-filters-handoff.md](../design/provider-and-field-filters-handoff.md) · testing-strategy: pending
 
 ## Gates — definition of done
 
@@ -41,7 +41,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 
 - [x] spec `write-spec` → `docs/specs/**` — F90 written; F55, F73 and F87 point to it
 - [x] architecture `architecture` → `docs/architecture/**` — `entity_field_state` cache and declared-provider `matched` in field-resolution.md
-- [ ] design `design-handoff` → `docs/design/**`
+- [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy`
@@ -62,7 +62,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Handoff for the Filters panel and field picker on all three lists, using F89's merged chips — `docs/design/`
+1. [ ] [design] Run /implement: owner signs off the handoff and SVGs, then the Draft PR opens — `docs/design/provider-and-field-filters-handoff.md`
 2. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
 3. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
 4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
@@ -81,8 +81,8 @@ lack a field's value, and how much providers contributed, with the Completeness 
 -->
 
 ### 2026-11-07 · F89 merged; architecture
-- skills: architecture
-- handoff: F89 is merged into this branch and the architecture is settled (one `entity_field_state` cache for all three entity types, `matched:any` limited to declared providers); next is the design handoff for the Filters panel against F89's chips.
+- skills: architecture, design-handoff
+- handoff: Architecture (one `entity_field_state` cache, declared-provider `matched`) and the design handoff (add-a-field picker, Studios Table view, ring removed) are committed; every design gate is settled, so next is /implement for the owner's sign-off and the Draft PR.
 
 ### 2026-11-06 · brainstorm and spec
 - skills: write-spec, code-review, handoff

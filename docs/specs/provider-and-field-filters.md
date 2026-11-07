@@ -26,7 +26,7 @@ displays queryable, and this spec builds on that.
 
 **Architecture**: [field-resolution.md](../architecture/field-resolution.md), "Field presence and
 provider contribution are cached".
-**Design handoff**: to be written. **Test plan**: to be written.
+**Design handoff**: [provider-and-field-filters-handoff.md](../design/provider-and-field-filters-handoff.md). **Test plan**: to be written.
 
 ---
 
@@ -219,8 +219,6 @@ There's no analytics in this product, so success is checked directly:
 
 ## Open Questions
 
-- **[design, blocking the build]** How the field picker stays usable with 20 or more mapped fields, and
-  and how it sits beside F89's chips and query field. The design handoff must use those as merged.
 - **[engineering, non-blocking]** Whether the filename problem with `matched:any` behaves as read from
   the code. P0-1's first test confirms it before the fix.
 
