@@ -31,6 +31,8 @@ import (
 type VideoCompleteness struct {
 	Video        model.Video           `json:"video"`
 	Completeness resolver.Completeness `json:"completeness"`
+	// Resolved is the same pass's field list, which the drain also indexes (F89 P0-6).
+	Resolved []resolver.ResolvedField `json:"-"`
 }
 
 // PersonCompleteness pairs one person with its computed completeness.
@@ -156,6 +158,7 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 		out[i] = VideoCompleteness{
 			Video:        v,
 			Completeness: resolver.Complete(fields, resolved, notApplicableByVideo[v.ID]),
+			Resolved:     resolved,
 		}
 	}
 	return out, nil
@@ -371,8 +374,11 @@ func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 			if err != nil {
 				return nil, err
 			}
+			fields := h.queryFields()
 			for _, vc := range scored {
-				rows = append(rows, completenessRow(entityType, vc.Video.ID, vc.Completeness))
+				row := completenessRow(entityType, vc.Video.ID, vc.Completeness)
+				row.Values = resolvedValueRows(fields, vc.Resolved)
+				rows = append(rows, row)
 			}
 		case model.EnrichEntityPerson:
 			scored, err := h.completenessForPeople(ctx, repo.NamedListFilter{IDs: ids})

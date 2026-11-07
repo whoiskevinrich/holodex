@@ -420,6 +420,8 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/search", h.search)
 	// F87 query parse: canonical form, display tree and errors for chips and query mode.
 	r.Get("/query/parse", h.parseQuery)
+	r.Get("/query/fields", h.queryFieldList)
+	r.Get("/query/values", h.queryFieldValues)
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
@@ -479,6 +481,9 @@ func (h *Handlers) Mount(r chi.Router) {
 		r.Post("/media/{id}/thumbnail", h.regenerateThumbnail)
 		// Hover montage request and status (F83): a request starts ffmpeg work.
 		r.Post("/media/{id}/montage", h.requestMontage)
+		// The owner's watch history (F89 SEC-9, SEC-10).
+		r.Post("/media/{id}/plays", h.recordPlay)
+		r.Put("/media/{id}/watched", h.setWatched)
 		r.Get("/media/{id}/montage/status", h.montageStatus)
 		// Media soft-delete / purge-now / restore / Trash (F24, ADR-037).
 		h.mountDelete(r)
@@ -585,6 +590,9 @@ func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwne
 		if err := h.attachVideoCompleteness(ctx, items); err != nil {
 			return err
 		}
+		if err := h.attachWatched(ctx, items); err != nil {
+			return err
+		}
 	}
 	redactFileMetadataForVisitors(items, isOwner)
 	return nil
@@ -608,6 +616,7 @@ func (h *Handlers) mediaFilterFor(w http.ResponseWriter, r *http.Request, q url.
 		h.writeQueryError(w, "media filter", err)
 		return f, false
 	}
+	h.drainForFilter(r.Context(), nil, f.Sort)
 	return f, true
 }
 
@@ -850,6 +859,14 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 	v.PosterUploaded = h.thumbDir != "" && fileExists(thumbnail.SlotPath(h.thumbDir, v.ID, thumbnail.SlotUpload))
 	authorized := h.auth.authorized(r)
 	redactFileMetadataForVisitor(v, authorized)
+	if authorized {
+		watched, err := h.repo.WatchedVideos(r.Context(), []int64{v.ID})
+		if err != nil {
+			h.fail(w, "get media", err)
+			return
+		}
+		v.Watched = watched[v.ID]
+	}
 	// Films section (F56, design handoff §3a): fetched once, ahead of both consumers —
 	// the resolver-source injection below (mappings path only) and the response's
 	// "films" field (always) — avoiding two identical DB round-trips for the same
@@ -1115,6 +1132,12 @@ func (h *Handlers) getRelated(w http.ResponseWriter, r *http.Request) {
 			h.prepareThumbnails(shelf.Items)
 			h.prepareMontages(r.Context(), shelf.Items)
 			h.applyPartsTo(r.Context(), shelf.Items)
+			if isOwner {
+				if err := h.attachWatched(r.Context(), shelf.Items); err != nil {
+					h.fail(w, "related media", err)
+					return
+				}
+			}
 			redactFileMetadataForVisitors(shelf.Items, isOwner)
 		}
 	}

@@ -137,6 +137,11 @@ Copy by `stale_refs[].kind`:
 
 ### 5 · Browse edit mode
 
+> **Superseded by F89** ([smart-playlist-rules-handoff.md](smart-playlist-rules-handoff.md),
+> HOLODEX-619): *Edit filter* becomes *Edit definition*, a mode on the playlist page, and this browse
+> edit mode is retired when F89 ships. The F89 handoff also changes §4's filter summary (owner-only,
+> read-only chips) and the stale notice's action label.
+
 Entered via `/?<stored query>&edit_playlist=<id>`; the flag is UI state and is never saved. A bar
 above `ListToolbar`:
 

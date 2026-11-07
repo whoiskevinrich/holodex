@@ -6268,3 +6268,230 @@ trigger.
 lookup carried every provider's identity id read from the file name. Each id now goes only to its
 own provider (`TestVideoHintMarkerOnlyToItsProvider`, beside N19). The On-writeback and Job slices
 get their own review when they land.
+
+## 40. Smart playlist rules — dates, a cap, playlist references, resolved fields and watch history (F89, HOLODEX-619)
+
+[Spec](specs/smart-playlist-rules.md) · [handoff](design/smart-playlist-rules-handoff.md) ·
+[resolved-value index](architecture/field-resolution.md#winning-values-are-indexed-in-resolved_values-for-queries-on-the-completeness-dirty-set) ·
+[watch history](architecture/watch-history.md) ·
+[perimeter, SEC-1 to SEC-11](architecture/security-perimeter.md#smart-playlist-rules-references-watch-history-and-resolved-fields-stay-inside-the-query-perimeter).
+This extends §23 (F75) and §38 (F87). Five new things reach the stored query: relative dates, a
+cap stored beside it, `playlist:` references that expand into other definitions, conditions over
+the resolver's winning values, and the owner's plays. Two of them add a cache that can go stale
+(`resolved_values`, the `video_watch` summary), and one adds a graph that can loop or fan out.
+
+The invariant behind every test below, carried from §23: **what a smart playlist holds is one set,
+the same through the grid, a run, a reference and a count, and no reader sees more through it than
+through `/media`.**
+
+### 40.1 Risks, ranked by how quietly they would fail
+
+1. **A stale resolved value answers a query.** A write path changes a resolver input, no trigger
+   marks the video dirty, and `director:` keeps matching the old winner. Nothing errors (P0-6).
+2. **A public playlist launders owner-only data** through a reference: a public playlist reaches a
+   private one or an owner-only condition at depth 2 or more, or a visibility flip skips the
+   transitive check (SEC-2, SEC-3, SEC-11).
+3. **A visitor learns that a private playlist exists** because its reference answers differently
+   from an unknown id: a different code, message, offset or status (SEC-1).
+4. **Existing smart playlists change membership** after the upgrade: a cap column defaulting to
+   something other than none, or a field name now parsed as a resolved field when it used to be a
+   built-in (RD7).
+5. **The watch summary drifts from the play rows**, so `watched:` and `plays:` disagree with the
+   history (watch-history.md).
+6. **Reference expansion runs unbounded**: a loop closed by two separate edits, or a fan-out past
+   16 playlists or 256 conditions that reaches SQL (SEC-5, SEC-6).
+7. **A relative date is frozen at save**, so "last 30 days" stops rolling (P0-1).
+8. **A play counts that shouldn't**, or a visitor's playback writes one (P0-7, SEC-9).
+
+### 40.2 Fixtures
+
+Synthesized in each test over the existing seeded-SQLite helpers. Nothing is committed beyond
+Go test data.
+
+- **Clock.** The query compiler takes `now` from an injected clock, never `time.Now()` inside the
+  compiler. Every relative-date case sets it.
+- **Resolver fixture.** Four videos with a `director` and `actors` field in the test mapping:
+  V1's director only from file tags; V2's only from `provider-1`; V3 with both, and the owner's
+  decision choosing the file's value; V4 with neither. `title`, `studio` and Tags round it out.
+  The test mapping marks one field hidden from visitors.
+- **Playlist graph.** Helpers build a chain of *n* smart playlists (`A → B → … `), a star of *n*
+  references, and a two-edit loop (A saved referencing B, then B edited to reference A).
+- **Watch history.** A helper records plays at given times and sets or clears the manual mark,
+  through the same repo calls the handlers use.
+
+### 40.3 Go unit, `internal/query` (`make test`)
+
+`internal/query/query_test.go` for the grammar. Expansion lives in the api layer, so Q6 to Q9 run
+through its routes over real SQLite, in `internal/api/smart_playlist_refs_test.go` and
+`smart_playlist_rules_test.go`.
+
+| # | Case | Proves |
+|---|---|---|
+| Q1 | Date grammar: `added:<30d`, `<2w`, `<6mo`, `<1y`, `>30d`, `>2026-01-01`, `<=2025-12-31`, `2026-01..2026-06`, `released:2026` each parse and print canonically; the relative form prints as written, never as a resolved date. | P0-1, RD1 (risk 7) |
+| Q2 | `added:<30m` is an error at the `m` offset whose suggestions are `30mo` and `30d`; `duration:<30m` still means minutes. | P0-1 |
+| Q3 | Date compile with the fake clock: `added:<30d` at now *T* and at *T*+31d produce different bounds; a year-month range covers 1 January to 30 June inclusive; `<1mo` on 31 March lands on the last day of February (pinned, see 40.10). | P0-1 (risk 7) |
+| Q4 | Field names: a name in the test mapping parses as a resolved field (`director:`); every built-in in spec *Concepts* (`tag`, `person`, `studio`, …, `played`) keeps its built-in meaning even when the mapping also has a field of that name; an unmapped name is F87's unknown-field error. `_`-prefixed keys and a name not on the registry's queryable allowlist are unknown fields, and the compiler takes the field key only from the allowlist lookup (recording builder: no request text in SQL). | P0-6, RD7, SEC-8 (risk 4) |
+| Q5 | `OwnerOnly` gains `watched`, `plays`, `played`, a sort over plays, and a field hidden from visitors, each alone, under `NOT` and inside an OR group. `released:` is owner-only exactly when the release-date field is hidden. | P0-6, P0-8, SEC-4, SEC-8 |
+| Q6 | Expansion with a stub playlist store: a chain 4 deep expands; 5 deep is refused naming the depth cap; a star of 16 distinct playlists expands, 17 is refused; 256 expanded conditions pass and 257 are refused. Each refusal names its limit, and a read past one returns no videos. The F87 per-string caps still apply to each stored string. | P0-3, SEC-5 (risk 6) |
+| Q7 | Loops: A → A, A → B → A and A → B → C → A are each refused with the cycle named in order; the visited set catches a cycle the stub store returns only on the second read (the two-edit case) as stale `loop`, with no recursion past depth 4. | P0-3, SEC-6 (risk 6) |
+| Q8 | `OwnerOnly` is transitive: a query referencing a private playlist, or a public playlist whose own expansion holds `matched:` or `watched:` at depth 1, 2, 3 and 4, is owner-only; the same tree with every reference public and clean is not. | SEC-2 (risk 2) |
+| Q9 | A reference to a smart playlist that has the Random sort and a cap is refused with that reason; Random without a cap, or a cap without Random, expands. | P0-3 |
+
+### 40.4 Repo and integration (`make test`, real SQLite)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| R1 | `internal/api/resolver_inputs_internal_test.go` | **Every resolver input has a trigger, with no list to remember.** Each table is renamed in turn, and a drain that then fails, in its error or its log, shows it reads that table. Any such table must carry a `cd_*` trigger, or be one of the drain's outputs or a named non-input. For `videos`, each field of a video is varied in turn through the resolver: only `Title` may change the result, and `cd_videos_au` must watch it. A new input without a trigger fails here, not in production. | P0-6 (risk 1) |
+| R2 | `resolved_values_test.go` | **Stale read after each write path.** Table-driven, one row per write path: add or remove a Tag, set curation, set or clear a source decision, upsert and delete an enrichment row, add an alias, a rescan that changes file metadata, link a person, link a studio, link a film. Each row writes, then immediately runs `ListVideoIDs` with a `director:` / `title:` / `actors:` condition and expects the new result with no explicit drain call. | P0-6 (risk 1) |
+| R3 | `resolved_values_test.go` | **Mark-all events.** Mapping reload, promotion, claim, hint, trust-order change and a moved boot fingerprint each leave every video dirty, and the next resolved query reflects the change (for the mapping: a field whose source changed in the YAML). | P0-6 (risk 1) |
+| R4 | `resolved_values_test.go` | **The index equals the resolver.** After a drain, for every fixture video and queryable field, the `resolved_values` rows equal the live resolver's winning values (multi-value fields one row each); V3 has no row for `provider-1`'s losing director; no row has a `_`-prefixed key. | P0-6, SEC-8 |
+| R5 | `resolved_values_test.go` | **The visitor-drain exception.** A visitor query holding a resolved condition drains the dirty set first; a visitor query without one leaves the dirty set exactly as it was (row count compared). While the boot background drain flag is up, a resolved query returns at once and reads the index as is. | field-resolution.md "Drain" |
+| R6 | `resolved_values_test.go` | Resolved conditions compose: `director:X -tag:noir`, `(director:X OR studio:Y)`, `-director:X` return the expected ids; count, sort and offset paging over a resolved condition agree with the id list. | P0-6 |
+| R7 | `internal/repo/watch_test.go` (new) | **The summary rebuilds from the rows.** A seeded random sequence of plays and manual marks over several videos; after each step, the `video_watch` summary recomputed from `video_plays` (`play_count`, `last_played_at`) equals the recorded summary. A mark never changes the row count. | watch-history.md (risk 5) |
+| R8 | `watch_test.go` | Recording a play inserts the row and upserts the summary in one transaction: a forced error after the insert leaves neither. | watch-history.md (risk 5) |
+| R9 | `watch_test.go` | Mark precedence: no plays + no mark → unwatched; a mark of watched → watched with `plays:0`; a mark of unwatched over 2 plays → unwatched; a counted play after either mark clears it. `watched:no` follows P0-9's rule, not the play count alone. | P0-8, P0-9 |
+| R10 | `watch_test.go` | Purging a video removes its plays and summary (cascade), and nothing else does: no repo function deletes from `video_plays` except through the purge. `PRAGMA table_info` on `video_plays` has exactly `id, video_id, played_at, progress`. | P0-7, SEC-10 |
+| R11 | `internal/repo/smart_playlists_test.go` | Cap: 31 matches with cap 25 return 25 and a match count of 31; Freeze stores exactly those 25 in order; with the Random sort, two run seeds draw different 25s from all 31; a reference to a capped playlist sees 25. | P0-2 |
+| R12 | `smart_playlists_test.go` | References: `tag:noir -playlist:B` returns noir minus B's current results; deleting B makes A read stale `missing`; renaming B changes nothing A returns; a loop closed by a second edit reads stale `loop`. | P0-3 (risk 6) |
+| R13 | `smart_playlists_test.go` | **Existing playlists unchanged.** Extends §38's A9 golden test: every stored `query` form from F75 and F87 fixtures (one per key family, plus `expr` with OR and NOT) evaluates to the identical id list, in the identical order, before and after the migration; the new cap column is none for every existing row; `query_version` is unchanged. Includes a stored `expr` whose bare word or condition name matches a newly mapped field name. | spec Success Metrics (risk 4) |
+
+### 40.5 API (`internal/api`, `httptest` over the real repo)
+
+`internal/api/smart_playlists_test.go` and `playlists_test.go` for playlists,
+`internal/api/query_test.go` for parse and `/media`, `internal/api/watch_test.go` (new) for plays
+and the mark, `internal/mcp/mcp_test.go` for `search_videos`.
+
+| # | Case | Proves |
+|---|---|---|
+| A1 | **SEC-1, byte for byte.** As a visitor, `playlist:<private id>` and `playlist:<id that never existed>` give identical status, error code, message and offset at all four entry points: `GET /media?expr=`, `GET /query/parse`, a public smart playlist read, and MCP `search_videos`. Neither is ever a `401` or `403`. The same reference as the owner resolves. | P0-5, SEC-1 (risk 3) |
+| A2 | **Visibility flips.** `PATCH` visibility to public is refused when the playlist reaches a private playlist or an owner-only condition at depth 1 to 4, with the direct reference named (handoff "Visibility refusal"); refused with the same copy when the cause is its own condition. Making a referenced playlist private always returns 2xx, after which its public referrer reads stale `owner_only` and returns no results to a visitor, and the visitor's notice body names no private playlist. | P0-5, SEC-2, SEC-3, SEC-11 (risk 2) |
+| A3 | **Every write re-checks the whole definition.** Create, `PATCH` of query, `PATCH` of sort, `PATCH` of cap, visibility to public and Freeze each run canonicalisation, `CheckOwner`, the transitive public test, the caps and the cycle walk: one case per write × one failing rule. A `PATCH` that sends only `cap` on a public playlist whose reference went private since is refused. | SEC-11 (risk 2) |
+| A4 | **Cap bounds.** `cap` of `0`, `-1`, `10001`, `1.5`, `"25"` and a 20-digit number are `400`; `null`, `1` and `10000` save. A cap on a snapshot playlist is `400`. A visitor's `PATCH` with a cap is the owner gate's `401`. | P0-2, SEC-7 |
+| A5 | Cap after visibility: a public capped playlist read by a visitor counts and returns only videos the visitor could browse, then caps; its count equals the same query's `/media` total for that visitor. | P0-2, SEC-7 |
+| A6 | Visitor queries with `watched:`, `plays:`, `played:`, a play-count sort or a hidden field are refused as owner-only before any SQL, at all four entry points; suggestions after `di` never offer a hidden field to a visitor. | P0-6, P0-8, SEC-4, SEC-8 |
+| A7 | Plays and the mark: the play route and the mark route are in the `requireOwner` group (route-table assertion, like §39's A1), and a visitor `POST` to either is `401` with no row written. A visitor's media and playlist responses, and MCP results, carry no watched fact, count or date; the owner's do. | P0-7, P0-9, SEC-9, SEC-10 |
+| A8 | Refusal bodies carry the limit the server applied (4, 16, 256), the loop path and the offending condition, so the handoff copy never hard-codes them. | P0-3, P0-4 |
+| A9 | Deleting a referenced playlist: the delete-confirmation read lists its referrers; after the delete each referrer is stale `missing`. | P0-3 |
+| A10 | A field removed from the mapping (reload with the test YAML edited) makes a playlist using it stale, naming the field. | P0-6 |
+| A11 | A visitor reading a public smart playlist gets no `query`, chips or condition names in the response; the owner gets the definition. | P0-5, RD10 |
+
+### 40.6 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | `web/src/lib/components/sort/queryChips.test.ts` | Chip labels from the handoff table: `added: last 30 days`, `not in: ‹name›`, `released: 2026`, `plays: 3 or more`, pluralisation (`last 1 day`, `last 2 weeks`), a deleted reference as `in: #{id}` marked `problem`. | P0-1, P0-3 |
+| W2 | `queryChips.test.ts` | The key glyph comes from the field's visibility in the response: a hidden field gets it, the same field made visible loses it, with no hard-coded list. Read-only mode renders no × and no tab stop. | P0-5, P0-6 |
+| W3 | `web/src/lib/playCount.test.ts` (new, pure module) | **What counts as a play** (owner's choice, 2026-11-02: watched time, not position). Watching the first minutes: no post. Seeking to the end: no post. Playing through, then seeking within the last 10%: one post. Playing twice: two posts. Exactly one post per counted play, never a heartbeat. With no owner session the module posts nothing. | P0-7, SEC-9 (risk 8) |
+| W4 | `web/src/lib/playlistDefinition.test.ts` (the editor's pure rules; the flows below that need the component are `[agent]` QA until a component test covers them) | Seeds from the stored query, sort and cap; Save is withheld while the text is invalid or a visibility problem holds; Cancel and navigation ask only when the draft differs; Play all reads the saved definition; `#edit` opens the mode; an old `#edit_playlist=` link lands on the playlist with the mode open. | P0-4 |
+| W5 | `web/src/lib/components/video/VideoCard.svelte.test.ts` (new) | The watched bar renders only when the API sends the watched fact and Owner view is on; the accessible name gains `, watched`. | P0-9 |
+
+### 40.7 Nav harness
+
+One scenario, `--only playlist-edit-back`, under `backend-stress-open-9600` + `web-9600`: open a
+smart playlist, open Edit definition, open a preview tile, press Back: the mode comes back. With a
+changed draft, opening the tile asks first (P0-4), and Keep editing keeps the draft; nothing is saved. Take a baseline on `main` first
+(the scenario can't run on `main`, which has no editor, so its baseline is a mutation check instead:
+see 40.10).
+
+### 40.8 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinémathèque), signed in
+as the owner unless an item says visitor. Run the handoff's
+[Cinémathèque QA checklist](design/smart-playlist-rules-handoff.md#cinémathèque-qa-checklist) as
+well; it isn't restated here.
+
+1. `[smoke]` **Before and after.** Before switching to this branch's backend, record every smart
+   playlist's id list (`GET /playlists/{id}` ids, in order). After the upgrade, every list is
+   identical and no playlist shows a cap.
+2. `[smoke]` Build the spec's four playlists on the playlist page: `added:<30d` (Newest first),
+   `tag:noir` with cap 25, `tag:noir -playlist:"‹one of them›"`, `watched:no director:"‹a director›"`.
+   Each saves and shows the expected videos.
+3. `[agent]` **Cap.** A playlist matching more than 25 with cap 25 reads `{M} match, showing 25`;
+   Freeze keeps exactly those; with Random, two Play all passes differ.
+4. `[agent]` **Loop and caps.** Reference A from B, then try to reference B from A: refused,
+   naming `A → B → A`. Build a 5-deep chain: the fifth save is refused naming the limit 4.
+5. `[agent]` **Resolved field.** On a video whose director came only from `provider-1`,
+   `director:` matches it. On a video whose title came from `provider-1`, switch that field's source
+   decision to the file's value and reload the playlist: membership follows the decision. (Director
+   is a merged list, so it takes no decision.)
+6. `[agent]` **Visibility.** Make a playlist using `watched:` public: refused with the owner-only
+   copy. Make a public playlist reference a private one: refused naming the private one. Make a
+   referenced public playlist private: it succeeds, and its public referrer shows the
+   "includes a private playlist" notice with Make private.
+7. `[agent]` **Visitor.** Sign out. The public referrer from item 6 shows `This playlist can't be
+   shown right now.` and names nothing. A public smart playlist shows name, count, sort and
+   `updates automatically`, and no chips. Paste a browse URL with `playlist:<private id>`: the
+   same message as an unknown id. A URL with `watched:no` is refused as owner-only. No card has a
+   watched bar; the media page has no toggle.
+8. `[agent]` **Editor.** Edit definition opens on the page with the field focused; chips, Sort,
+   Cap and the live count follow edits; Cancel with changes asks `Discard changes to ‹name›?`;
+   Escape twice in the field keeps the draft; a stale notice's Edit definition opens with the chip
+   at fault marked.
+9. `[agent]` The 375px layout matches the handoff's panel 3, with no sideways page scroll.
+10. `[human]` **Plays.** Through `web-9300` only (the dev server's silence, never a backend port):
+    sample the first minutes of a video, then skip to the end. It stays unwatched. Watch one
+    through, seeking within the last 10%: the media page reads `Watched` on reload and the card has
+    the bar. `played:<7d` includes it.
+11. `[human]` **Mark.** Mark an unplayed video watched: a `watched:no` playlist drops it on its next
+    read. Mark it unwatched: it returns. Neither changes `plays:`.
+12. `[human]` **Rolling date.** Leave `added:<30d` saved and check it again on a later day (or
+    after adding a video): the set has moved with the date, with no edit.
+
+### 40.9 Requirement and rule map
+
+| Item | Tests |
+|---|---|
+| P0-1 Dates | Q1–Q3, R6 (compose), W1, QA 2, 12 |
+| P0-2 Cap | R11, A4, A5, QA 3 |
+| P0-3 Playlist references | Q6, Q7, Q9, R12, A8, A9, W1, QA 4 |
+| P0-4 On-page editor | A3, A8, W4, nav `playlist-edit-back`, QA 8, 9 |
+| P0-5 Visitors and public playlists | Q8, A1, A2, A11, W2, QA 6, 7 |
+| P0-6 Resolved fields | Q4, Q5, R1–R6, A6, A10, W2, QA 5 |
+| P0-7 Record plays | R8, R10, A7, W3, QA 10 |
+| P0-8 Watch conditions | Q5, R9, A6, QA 2, 7 |
+| P0-9 Watched mark | R9, A7, W5, QA 10, 11 |
+| SEC-1 Private reads as unknown | A1, QA 7 |
+| SEC-2 Owner-only is transitive | Q8, A2, A3 |
+| SEC-3 Going private never fails | A2, QA 6 |
+| SEC-4 Watch conditions owner-only | Q5, A6 |
+| SEC-5 Expansion caps | Q6, A8, QA 4 |
+| SEC-6 Cycles | Q7, R12, QA 4 |
+| SEC-7 Cap bounds | A4, A5 |
+| SEC-8 Winning values only | Q4, Q5, R4, A6 |
+| SEC-9 Plays owner-only | A7, W3 |
+| SEC-10 Minimal, cascading record | R10, A7 |
+| SEC-11 Every write re-checks | A2, A3 |
+| Success metric: existing playlists unchanged | R13, QA 1 |
+
+### 40.10 Mutation checks (run once the code exists)
+
+- Drop one `cd_*` trigger, or remove a column from `cd_videos_au` that the resolver reads → R1
+  and R2 fail.
+- Skip the drain on a visitor query with a resolved condition → R5 fails.
+- Make the public test non-transitive (own conditions only) → Q8, A2 fail.
+- Return `403` for a visitor's private reference → A1 fails.
+- Remove the visited set from expansion → Q7 fails (bounded by the depth cap, never a hang).
+- Upsert the summary outside the play-row transaction → R8 fails.
+- Evaluate `added:<30d` at save → Q3 fails.
+- Raise any of the three reference limits by one → its Q6 case fails.
+- Expand references unrestricted, or don't mark an owner-only condition stale → Q8 fails.
+- Read a new `videos` field in the resolver, or drop a resolver input's triggers → R1 fails.
+- Skip the mark-all on a mapping reload → R3 fails.
+- Remove the editor's leave guard → W4 and `playlist-edit-back` fail. Ignore `#edit` → the scenario
+  fails.
+
+### 40.11 Standing gaps
+
+- **R1 sees only what fails loudly.** A loader that swallows a read error without logging it would
+  look like it doesn't read that table. The fixture also has to reach each query, so it holds one
+  row of every kind a loader walks.
+- **Trust order (R3)** has no event of its own: precedence comes from the mapping, so the reload case
+  stands in for it. A moved boot fingerprint is `cmd/holodex`'s `completeness_boot_test`.
+- **Real playback** isn't driven by an agent. The stress fixture's files don't decode, so W3 pins
+  the counting rule, the page's wiring was checked with synthetic `timeupdate` and `seeking` events,
+  and an element really playing is QA 10's, a `[human]` item.
+- **`/query/values`** doesn't drain, so a brand-new value is offered from the next read that does.
+- **`search_videos` (MCP)** has no drain, so it refuses mapped fields, `updated:` and `released:`.
+- **Performance.** No case times a 16-playlist, 256-condition expansion on the `-big` fixture, or
+  `GET /playlists` re-counting every smart playlist (SEC-5's accepted cost). Add one if either is
+  reported slow.

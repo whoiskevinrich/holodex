@@ -238,6 +238,34 @@ table of referenced ids — a second copy of the query that can drift.
 
 Decided in [`8ea55a0e`](https://github.com/whoiskevinrich/holodex/commit/8ea55a0e).
 
+## Playlist references inline as subqueries; the cap is a filter field
+
+A `playlist:N` condition (F89 P0-3) compiles to `v.id IN (…)`. For a snapshot playlist that is its
+`playlist_videos` rows. For a smart playlist it is that playlist's own compiled filter, ordered by
+its sort and cut with `LIMIT cap` when it has a cap, so a reference sees exactly what the
+referenced playlist shows.
+
+- The api layer expands references before compiling (`playlist_refs.go`) and hands the compiler a
+  map of them on `VideoFilter.Refs`. The expansion is where the loop, depth, fan-out and
+  visibility rules run (SEC-1 to SEC-6 in [security-perimeter.md](security-perimeter.md)), each
+  reported as a stale ref. A condition with no expanded ref compiles to false, so a gap never
+  widens a set.
+- Nothing is cached: a playlist reached twice is expanded twice, and SEC-5's condition count covers
+  both. Each read runs one SQL statement, with every referenced playlist nested inside it.
+- `playlists.cap` becomes `VideoFilter.Cap`. `CountVideos`, `ListVideos` and `ListVideoIDs` all
+  apply it, so the count, each page, the run's ids and Freeze see the same capped set.
+  `MatchCount` is the uncapped count for the owner's readout.
+- `added:` reads `videos.added_at`, set on insert only and backfilled from `indexed_at`. Relative
+  dates are kept as written and bound at compile time from `VideoFilter.Now`, in whole days of the
+  server's zone.
+- The editor asks whether a draft would save with `PATCH /playlists/{id}?check=1`: every rule of the save runs and nothing is written, so there is no second copy of the rules and no new route (SEC-11).
+
+**Rejected:** materialising a smart playlist's membership for references. It would need a refresh
+on every input change, the problem the resolved-values index solves for fields. **Rejected:** the
+cap as a query term. Browse, links and MCP would then meet a cap they can't express.
+
+Decided in: pending squash (HOLODEX-619).
+
 ## Runs are client-held state over an id list fetched once
 
 Play all and Shuffle are a run (`web/src/lib/run.ts`, `runContext.ts`): a source (a query, a

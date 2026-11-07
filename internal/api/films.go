@@ -120,11 +120,23 @@ func (h *Handlers) getFilm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	authorized := h.auth.authorized(r)
+	var watched map[int64]bool
+	if authorized {
+		ids := make([]int64, len(fvs))
+		for i, fv := range fvs {
+			ids[i] = fv.Video.ID
+		}
+		if watched, err = h.repo.WatchedVideos(r.Context(), ids); err != nil {
+			h.fail(w, "film videos", err)
+			return
+		}
+	}
 	scenes := []repo.FilmVideo{}
 	fullFilms := []repo.FilmVideo{}
 	for _, fv := range fvs {
 		h.setThumbnailURL(&fv.Video)
 		h.setMontageURL(&fv.Video)
+		fv.Video.Watched = watched[fv.Video.ID]
 		redactFileMetadataForVisitor(&fv.Video, authorized)
 		if fv.IsFullFilm {
 			fv.Edition = h.videoEdition(r.Context(), fv.Video.ID)

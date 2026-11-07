@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
 	import { page } from '$app/state';
+	import { PlayCounter } from '#lib/playCount.ts';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { exitAfterRemoval } from '#lib/listState.ts';
 	import { api, ApiError } from '#lib/api.ts';
@@ -1250,6 +1251,42 @@
 	// runs — behaviour is exactly today's. An unreadable source (a visitor on a private
 	// playlist) leaves `run` null and the params inert: the video still plays, no error.
 	let videoEl = $state<HTMLVideoElement | null>(null);
+
+	// The owner's plays (F89 P0-7): signed in is what counts, with Owner view on or off. One
+	// post per counted play; a lost one isn't retried.
+	const playCounter = new PlayCounter(
+		() => activity.isOwner,
+		(progress) => {
+			if (video) void api.recordPlay(video.id, progress).catch(() => {});
+		}
+	);
+	// Keyed on the id alone: a reload of the same video mustn't drop its watched time.
+	const playingId = $derived(video?.id);
+	$effect(() => {
+		void playingId;
+		playCounter.reset();
+	});
+
+	// The watched toggle (F89 P0-9): flips at once, and back if the save fails.
+	let watchedBusy = $state(false);
+	let watchedError = $state('');
+	async function toggleWatched() {
+		if (!video) return;
+		const v = video;
+		const next = !v.watched;
+		v.watched = next;
+		watchedBusy = true;
+		watchedError = '';
+		try {
+			await api.setWatched(v.id, next);
+		} catch {
+			v.watched = !next;
+			watchedError = 'Couldn’t update watched';
+		} finally {
+			watchedBusy = false;
+		}
+	}
+
 	let run = $state<Run | null>(null);
 	const runParam = $derived(parseRunParam(page.url));
 	$effect(() => {
@@ -1674,6 +1711,8 @@
 						onplay={() => setPlaying(true)}
 						onpause={() => setPlaying(false)}
 						onended={onEnded}
+						ontimeupdate={(e) => playCounter.timeupdate(e.currentTarget.currentTime, e.currentTarget.duration)}
+						onseeking={() => playCounter.seeking()}
 						onerror={() => (playFailed = true)}
 					></video>
 					{#if playFailed}
@@ -1830,6 +1869,23 @@
 							>
 						{:else if isOwner && slotSettable('part')}
 							{@render slotEditor('part', 'Part number', 'w-28', true)}
+						{/if}
+						{#if isOwner}
+							<button
+								type="button"
+								class="btn-ghost inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm {video.watched
+									? 'border-accent text-accent'
+									: ''}"
+								aria-pressed={!!video.watched}
+								disabled={watchedBusy}
+								onclick={toggleWatched}
+							>
+								<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+								{video.watched ? 'Watched' : 'Mark watched'}
+							</button>
+							{#if watchedError}<span class="text-xs text-warn" role="alert">{watchedError}</span>{/if}
 						{/if}
 					</div>
 					<div class="flex flex-wrap items-center gap-2 text-sm text-muted">

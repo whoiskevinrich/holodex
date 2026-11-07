@@ -19,6 +19,39 @@ import (
 	"holodex/internal/repo"
 )
 
+// F89: this tool has no drain, so it refuses what reads the index or the change stamp, and
+// knows no mapped field at all, rather than answer from stale values.
+// A6: a visitor's search_videos is refused the watch conditions before any SQL.
+func TestSearchRefusesWatchConditionsForVisitor(t *testing.T) {
+	s, _ := newTestServer(t)
+	for _, expr := range []string{`watched:no`, `-watched:no`, `plays:>1`, `played:<7d`} {
+		req := mcp.CallToolRequest{}
+		req.Params.Arguments = map[string]any{"expr": expr}
+		res, err := s.searchVideos(context.Background(), req)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		if !res.IsError {
+			t.Errorf("%s ran for a visitor", expr)
+		}
+	}
+}
+
+func TestSearchRefusesIndexConditions(t *testing.T) {
+	s, _ := newTestServer(t)
+	for _, expr := range []string{`updated:<30d`, `released:2026`, `director:x`} {
+		req := mcp.CallToolRequest{}
+		req.Params.Arguments = map[string]any{"expr": expr}
+		res, err := s.searchVideos(context.Background(), req)
+		if err != nil {
+			t.Fatalf("%s: %v", expr, err)
+		}
+		if !res.IsError {
+			t.Errorf("%s ran", expr)
+		}
+	}
+}
+
 func newTestServer(t *testing.T) (*Server, *repo.Repo) {
 	t.Helper()
 	database, err := db.Open(filepath.Join(t.TempDir(), "mcp.db"))
