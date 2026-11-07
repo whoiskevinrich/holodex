@@ -14,7 +14,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [config-and-settings.md](config-and-settings.md) | Config layers, parallel YAMLs, `DATA_PATH` layout, caching posture, the `settings` store |
 | [deployment.md](deployment.md) | Image, SPA embed, bundled media tools, GHCR, retag promotion, sidecar images |
 | [security-perimeter.md](security-perimeter.md) | Owner gate, session cookie, provider SSRF and asset-host allowlists, read gates, query-expression caps |
-| [field-resolution.md](field-resolution.md) | Field mapping, the pure resolver, source decisions, promotion and claims, computed fields, completeness store, the `resolved_values` query index |
+| [field-resolution.md](field-resolution.md) | Field mapping, the pure resolver, source decisions, promotion and claims, computed fields, completeness store, the `resolved_values` query index, the `entity_field_state` presence cache |
 | [metadata-providers.md](metadata-providers.md) | Sidecar HTTP contract, the enrichment shadow store, hints, assets, links, auto-apply, traffic pacing |
 | [entity-identity.md](entity-identity.md) | Name keys, the alias spine, namespaced external ids, `kind:id` refs, merge, duplicate detection |
 | [entity-relationships.md](entity-relationships.md) | Derived person/studio links, tag provenance and hierarchy, categories, film membership and cascades |

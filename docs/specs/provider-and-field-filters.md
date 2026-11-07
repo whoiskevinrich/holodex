@@ -21,12 +21,11 @@ replaces the Completeness score, ring and sort.
 
 **Depends on**: [F89](smart-playlist-rules.md) (smart playlist rules,
 [HOLODEX-619](https://whoiskevinrich.atlassian.net/browse/HOLODEX-619),
-[PR 580](https://github.com/whoiskevinrich/holodex/pull/580)), **which isn't merged yet**. F89 makes
-the values a video displays queryable. This spec assumes it has landed and is built after it. Until
-then its link above doesn't resolve on `main`.
+[PR 580](https://github.com/whoiskevinrich/holodex/pull/580), merged). F89 makes the values a video
+displays queryable, and this spec builds on that.
 
-**Architecture**: to be written. People and studios have no equivalent of F89's queryable values, and
-images aren't part of it, so how to answer "has a value" for them is a real technology choice.
+**Architecture**: [field-resolution.md](../architecture/field-resolution.md), "Field presence and
+provider contribution are cached".
 **Design handoff**: to be written. **Test plan**: to be written.
 
 ---
@@ -220,10 +219,8 @@ There's no analytics in this product, so success is checked directly:
 
 ## Open Questions
 
-- **[engineering, blocking the build]** How does a person's or studio's "has a value" stay exact and
-  current, and how does a video's image field join it? To settle in the architecture doc.
 - **[design, blocking the build]** How the field picker stays usable with 20 or more mapped fields, and
-  what the merged F89 chips and query field look like. The design handoff must use the merged versions.
+  and how it sits beside F89's chips and query field. The design handoff must use those as merged.
 - **[engineering, non-blocking]** Whether the filename problem with `matched:any` behaves as read from
   the code. P0-1's first test confirms it before the fix.
 
@@ -254,7 +251,7 @@ There's no analytics in this product, so success is checked directly:
 
 ## Timeline Considerations
 
-F89 merges first. Suggested build order, each usable on its own:
+F89 has merged. Suggested build order, each usable on its own:
 
 1. The definition of linked, its fix, and `has` on Media (P0-1, P0-2, P0-5, P0-8, P0-9).
 2. The Filters control on all three lists (P0-3).

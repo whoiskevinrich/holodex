@@ -27,7 +27,7 @@ release_note: Owners can now filter and sort videos, people and studios by provi
 Done means the owner can ask which videos, people and studios are linked to a provider, which have or
 lack a field's value, and how much providers contributed, with the Completeness score and ring gone.
 
-**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: pending · handoff: pending · testing-strategy: pending
+**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: [field-resolution.md](../architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) · handoff: pending · testing-strategy: pending
 
 ## Gates — definition of done
 
@@ -40,7 +40,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
      /handoff writes [~] or [x]. -->
 
 - [x] spec `write-spec` → `docs/specs/**` — F90 written; F55, F73 and F87 point to it
-- [ ] architecture `architecture` → `docs/architecture/**`
+- [x] architecture `architecture` → `docs/architecture/**` — `entity_field_state` cache and declared-provider `matched` in field-resolution.md
 - [ ] design `design-handoff` → `docs/design/**`
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
@@ -62,12 +62,13 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [architecture] Settle how people, studios and images answer "has a value", and the enriched count, once F89's index lands — `docs/architecture/field-resolution.md`  ⛔ blocked on HOLODEX-619 merging
-2. [ ] [design] Handoff for the Filters panel and field picker on all three lists, using F89's merged chips — `docs/design/`  ⛔ blocked on HOLODEX-619 merging
-3. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
-4. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
+1. [ ] [design] Handoff for the Filters panel and field picker on all three lists, using F89's merged chips — `docs/design/`
+2. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
+3. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
+4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
 5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-6. [ ] [architecture] On F89's squash, re-check that spec F90's links to it resolve — `docs/specs/provider-and-field-filters.md`
+6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -78,6 +79,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-07 · F89 merged; architecture
+- skills: architecture
+- handoff: F89 is merged into this branch and the architecture is settled (one `entity_field_state` cache for all three entity types, `matched:any` limited to declared providers); next is the design handoff for the Filters panel against F89's chips.
 
 ### 2026-11-06 · brainstorm and spec
 - skills: write-spec, code-review, handoff
