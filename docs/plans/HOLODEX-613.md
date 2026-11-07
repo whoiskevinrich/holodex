@@ -17,8 +17,8 @@ release_note: Trim unwanted footage off the start or end of a video from its det
                              # gates [x] but this empty.
 approved:
   design:
-    on: 2026-11-06
-    at: e304549a
+    on: 2026-11-07
+    at: 46f8fb1c
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -49,7 +49,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**`
 - [x] frontend → `web/src/**`
-- [/] testing `testing-strategy`
+- [x] testing `testing-strategy` — §41 plus unit, real-file and mutation tests; the by-hand QA runs on edge after merge, by the owner's choice → HOLODEX-631
 - [x] security `security-review` — backend reviewed 2026-11-06, no findings; `security-perimeter.md` updated
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -67,7 +67,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] QA by hand: §41.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
+1. [ ] [testing] QA by hand on edge after merge: §41.7 items 2, 5, 6, 9, 10, 11 and a FLAC film → HOLODEX-631
 2. [ ] [—] Sweep child HOLODEX-624 (FLAC trims, merged into this branch from #584) with the epic: In Review when #581 goes ready, Done on merge
 
 ## Decisions
@@ -85,7 +85,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 -->
 
 ### 2026-11-07 · session
-- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, and its work is merged into this branch from #584, and an edition starts unwatched (spec R8). Testing is still the last open gate. Next: the by-hand QA on the two long films, including one with FLAC audio if the library has one.
+- handoff: The owner decided both open questions: FLAC in MKV gets fixed in HOLODEX-624, and its work is merged into this branch from #584, and an edition starts unwatched (spec R8). The owner chose to merge before the by-hand QA so it can run on the testbed from edge: testing is settled on the automated tests, and the QA moved to HOLODEX-631. The owner re-confirmed the design at 46f8fb1c and said the build matches the mockup. Next: QA on edge (HOLODEX-631), then move HOLODEX-624 to Done.
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
