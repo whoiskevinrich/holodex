@@ -306,11 +306,8 @@ func (w *Worker) trim(ctx context.Context, family, path, dst string, t *TrimPara
 		},
 		func() ([2]int, error) { return w.cutOnce(ctx, family, path, dst, &s, edition) },
 		func(off [2]int) {
-			// The output held the wrong frames, so the cut moves the other way. The frames the
-			// owner chose don't change.
 			os.Remove(dst)
-			s.inCut -= off[0]
-			s.outCut -= off[1]
+			s.moveCut(off)
 		})
 	if err != nil {
 		return nil, err
@@ -469,6 +466,13 @@ func (w *Worker) cutOnce(ctx context.Context, family, path, dst string, s *trimS
 	off = [2]int{cutOffset(first.frame, inRefs), cutOffset(last.frame, outRefs)}
 	keep = off == [2]int{}
 	return off, nil
+}
+
+// moveCut corrects the cut after the cut check measured off. The output held the wrong frames, so the
+// cut moves the other way. The frames the owner chose don't change.
+func (s *trimState) moveCut(off [2]int) {
+	s.inCut -= off[0]
+	s.outCut -= off[1]
 }
 
 func (s *trimState) currentRange() trimRange {

@@ -3,6 +3,7 @@
 package maintenance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -595,6 +596,104 @@ func TestCheckTrimRefusals(t *testing.T) {
 	ff(t, "-f", "lavfi", "-i", "testsrc2=s=64x64:r=25:d=1", "-f", "lavfi", "-i", "testsrc=s=64x64:r=25:d=1", "-map", "0", "-map", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", two)
 	if pf, err := checkOp(ctx, localTools, detectedEncoders(t), two, 1, true); err != nil || pf.OK || pf.Reason != ReasonMultiVideo {
 		t.Errorf("two video tracks: %+v, %v", pf, err)
+	}
+}
+
+// The correction path on real files, in the direction that matters. A cut placed two frames late is
+// seen by the cut check as +2 at both ends, its output goes, and the original is untouched. Moving the
+// cut back by what was measured lands exactly on the chosen frames.
+func TestTrim_RealFiles_CutCheckCorrects(t *testing.T) {
+	w := cutWorker(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	src := trimFixtures[1].build(t, dir)
+	before, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := frameTimesOf(t, src)
+	bars := readBars(t, src)
+	p, err := RunProbe(ctx, "ffprobe", "mov", src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orig, err := CollectSnapshot(ctx, localTools, FamilyMP4, src, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inW, _ := listFrames(ctx, localTools, FamilyMP4, src, p, ts[30], 10)
+	outW, _ := listFrames(ctx, localTools, FamilyMP4, src, p, ts[100], 10)
+	s := trimState{p: p, orig: orig, inW: inW, outW: outW, inAt: inW.nearest(ts[30]), outAt: outW.nearest(ts[100]), inCut: 2, outCut: 2}
+	dst := filepath.Join(dir, "cut.mp4")
+
+	off, err := w.cutOnce(ctx, FamilyMP4, src, dst, &s, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off != [2]int{2, 2} {
+		t.Errorf("offsets = %v, want the output two frames late at both ends", off)
+	}
+	if _, err := os.Stat(dst); err == nil {
+		t.Error("a cut that missed left its output")
+	}
+	after, _ := os.ReadFile(src)
+	if !bytes.Equal(before, after) {
+		t.Error("the original changed")
+	}
+
+	s.moveCut(off)
+	off, err = w.cutOnce(ctx, FamilyMP4, src, dst, &s, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off != [2]int{} {
+		t.Fatalf("offsets after the correction = %v", off)
+	}
+	got := readBars(t, dst)
+	if got[0] != bars[30] || got[len(got)-1] != bars[100] {
+		t.Errorf("frames %d..%d, want %d..%d", got[0], got[len(got)-1], bars[30], bars[100])
+	}
+}
+
+// Statistics describe the kept range on every stream, not the original's whole length. The gate
+// exempts these tags, so this is the only thing checking them.
+func TestTrim_RealFiles_StatisticsRecomputed(t *testing.T) {
+	w := cutWorker(t)
+	ctx := context.Background()
+	var fx trimFixture
+	for _, f := range trimFixtures {
+		if strings.HasPrefix(f.name, "K5") {
+			fx = f
+		}
+	}
+	src := fx.build(t, t.TempDir())
+	ts := frameTimesOf(t, src)
+	dst, _, err := runCut(t, w, src, "cut", TrimParams{InTime: ts[25], OutTime: ts[100], Mode: TrimReplace}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, _ := RunProbe(ctx, "ffprobe", "matroska", src)
+	cp, err := RunProbe(ctx, "ffprobe", "matroska", dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := func(s Stream, base string) int {
+		for k, v := range s.Tags {
+			if hasTagBase(k, []string{base}) {
+				n, _ := strconv.Atoi(v)
+				return n
+			}
+		}
+		t.Fatalf("stream %d (%s) has no %s tag: %v", s.Index, s.CodecType, base, s.Tags)
+		return 0
+	}
+	if v, _ := cp.MainVideo(); stat(v, "NUMBER_OF_FRAMES") != 76 {
+		t.Errorf("video NUMBER_OF_FRAMES = %d, want the 76 kept", stat(v, "NUMBER_OF_FRAMES"))
+	}
+	for i, s := range op.Streams {
+		if s.CodecType == "audio" && stat(cp.Streams[i], "NUMBER_OF_BYTES") >= stat(s, "NUMBER_OF_BYTES") {
+			t.Errorf("audio NUMBER_OF_BYTES %d wasn't recomputed from %d", stat(cp.Streams[i], "NUMBER_OF_BYTES"), stat(s, "NUMBER_OF_BYTES"))
+		}
 	}
 }
 

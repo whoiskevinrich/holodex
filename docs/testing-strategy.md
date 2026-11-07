@@ -6456,13 +6456,33 @@ Run through a `web*` dev server only, so nothing can make a sound.
 11. `[human]` Watch both cut points with sound on your own player, outside the dev environment: no
     audible slip, and a visual check of the re-encode's quality.
 
-### 40.8 Mutation checks (run once the code exists)
+### 40.8 Mutation checks
+
+Run on 2026-11-06 with a script that applied each break, ran its named test and restored the file: 49
+breaks, every one now red. The first pass caught 42 cleanly. Four survived because the test passed by
+coincidence: an even brightness shift that plain pixel comparison also handles, a correction test doing
+its own sum instead of using the production line, a mid-move test checking only the final state, and a
+check-in-progress test whose first check had no earlier answer to fall back on. Three breaks had to be
+rebuilt, because two didn't compile and one failed only by crashing. Rebuilt, one of them survived too,
+since nothing tested a trashed row holding the edition's name. All five survivors now have tests that go
+red.
+
+Beyond the list below, the pass broke the capture bounds, the packet comparison, the clone's copy
+list, the fold's trim links, the owner gate, the journal after a failed landing, and the picker's handle
+limits and silence.
+
+Where a break is caught isn't always where this plan first guessed. Removing the margin, and using half
+the nominal interval, fail the length rule or a decode before the barcode reads anything. Removing
+`-seek_timestamp` is now caught by the cut check itself, because references no longer share the cut's
+seek. Put references back on that broken seek as well and the cut check goes quiet: K5 is then caught
+only by the length rule and K6 only by the barcode.
 
 Each change must turn its named test red:
 - Remove the margin and seek to the frame's own time → `TestTrim_RealFiles` T2 barcode oracle.
 - Remove `-seek_timestamp` → K5 and K6, where audio priming makes the start time negative.
-- Decode references through the cut's own seek → the same K5 and K6 cases stop being caught by the
-  cut check, leaving only the barcode oracle red.
+- Decode references through the cut's own seek, with `-seek_timestamp` removed too → K6 goes red only
+  on the barcode oracle.
+- Correct the cut the wrong way → `TestTrim_RealFiles_CutCheckCorrects`.
 - Remove `-enc_time_base` → step 7, the strictly increasing times.
 - Remove the cover's `-copypriorss` → T1's stream count.
 - Use half of `r_frame_rate`'s interval instead of the midpoint → U1, and the T4 MKV barcode oracle.
@@ -6499,7 +6519,7 @@ range passes, and the flip's real-file tests still do. The run found five things
 couldn't: a negative container start time landing cuts a frame early, with the cut check blind to it
 because its references shifted too; mkvmerge's `--split` also cutting the re-encoded track; FLAC being
 unsplittable; `-copypriorss 0` dropping cover art; and midpoint seeks rounding frames onto one
-timestamp. Still to do for this gate: §40.8's mutation pass and a fold test for the trim links.
+timestamp. §40.8's mutation pass has since run, and `TestFoldMovedVideoCarriesTrimLinks` covers the fold.
 
 **First run in the app (2026-11-06, `web-9700` against the built image, silent test files):** a replace
 on an MP4 chosen at 6.12 s and 21.92 s kept source frames 153 to 548, read from the barcode. An edition

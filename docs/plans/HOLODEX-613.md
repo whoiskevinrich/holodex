@@ -67,9 +67,8 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] §40.8 mutation pass and a fold test for the trim links — `docs/testing-strategy.md`
-2. [ ] [testing] QA by hand: §40.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
-3. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
+1. [ ] [testing] QA by hand: §40.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
+2. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,7 +82,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
-- handoff: Backend and frontend are built on Draft PR #581, and real trims in the app land on the exact frames chosen: replace on MP4, edition on MP4 and MKV, plus Restore. The owner re-confirmed the design at e304549a after a Trimmed from link and new copy were added. Testing is the last open gate. Next: the §40.8 mutation pass, then the by-hand QA on the two long films.
+- handoff: Backend and frontend are built on Draft PR #581, and real trims in the app land on the exact frames chosen: replace on MP4, edition on MP4 and MKV, plus Restore. The owner re-confirmed the design at e304549a after a Trimmed from link and new copy were added. The mutation pass catches all 49 breaks after five tests were tightened or added. Testing is the last open gate. Next: the by-hand QA on the two long films.
 
 ### 2026-11-02 · session
 - skills: architecture

@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
+import { tick } from 'svelte';
 import TrimPicker from './TrimPicker.svelte';
 
 // The trim picker (F88, testing-strategy §40.6). No real video is decoded here, so the element is
@@ -138,6 +139,13 @@ describe('TrimPicker', () => {
 		await vi.waitFor(() => expect(answer).toBeDefined());
 		answer(okCheck);
 		await expect.element(m.screen.getByRole('button', { name: 'Replace original' })).toBeEnabled();
+		// A second check, after a passed one: the old answer doesn't keep the primary available.
+		const before = answer;
+		await m.screen.getByRole('radio', { name: /Save as edition/ }).click();
+		await vi.waitFor(() => expect(answer).not.toBe(before));
+		await expect.element(m.screen.getByRole('button', { name: 'Save edition' })).toBeDisabled();
+		answer(okCheck);
+		await expect.element(m.screen.getByRole('button', { name: 'Save edition' })).toBeEnabled();
 	});
 
 	it('a refusal replaces the save choice', async () => {
@@ -176,12 +184,14 @@ describe('TrimPicker', () => {
 
 	it('an end chosen mid-move waits for the moved one to rest', async () => {
 		const m = await mount();
-		(m.first.element() as HTMLElement).focus();
-		await userEvent.keyboard('{ArrowRight}');
-		// Before the 150 ms rest: the first end is still the one in hand.
-		await m.screen.getByRole('button', { name: /Work on the last frame/ }).click();
-		await vi.waitFor(() => expect(Number(m.first.element().getAttribute('aria-valuenow'))).toBeCloseTo(1 / 30, 3));
-		await expect.element(m.screen.getByRole('button', { name: /Work on the last frame/ })).toHaveAttribute('aria-pressed', 'true');
+		const still = m.screen.getByRole('button', { name: /Work on the last frame/ }).element() as HTMLElement;
+		// Synchronous, so both land inside the 150 ms rest: the first end is still the one in hand.
+		m.first.element().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+		still.click();
+		await tick();
+		expect(still.getAttribute('aria-pressed')).toBe('false');
+		await vi.waitFor(() => expect(still.getAttribute('aria-pressed')).toBe('true'));
+		expect(Number(m.first.element().getAttribute('aria-valuenow'))).toBeCloseTo(1 / 30, 3);
 	});
 
 	it('Back returns focus to the handle, so the arrow keys still step', async () => {

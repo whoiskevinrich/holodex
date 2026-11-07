@@ -254,6 +254,15 @@ func TestScreenOffset(t *testing.T) {
 	}
 }
 
+// A browser tone-maps an HDR frame, so what it shows differs in contrast as well as level. By pixels
+// that capture sits nearer a duller neighbour, as on a fade. By shape the two tie, and a tie is no move.
+func TestScreenOffsetIgnoresContrast(t *testing.T) {
+	refs := references{At: 1, Frames: []grey{shaped(100, 20, 240), shaped(100, 20, 240), shaped(100, 90, 150)}}
+	if got := screenOffset(shaped(100, 88, 152), refs); got != 0 {
+		t.Errorf("offset %d: the capture's contrast was taken for a neighbouring frame", got)
+	}
+}
+
 // U12: a capture of another scene fails instead of matching the least-bad neighbour.
 func TestScreenOffsetRefusesAnotherScene(t *testing.T) {
 	other := make(grey, checkSize)

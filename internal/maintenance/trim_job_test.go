@@ -168,6 +168,46 @@ func TestTrimEditionRefusesATakenName(t *testing.T) {
 	}
 }
 
+// U7: a library row holding the name counts as taken with no file there: a trashed video's state must
+// not merge into the new edition.
+func TestTrimEditionRefusesANameARowHolds(t *testing.T) {
+	g := trimRig(t, model.ThumbnailGenerated)
+	ctx := context.Background()
+	target := filepath.Join(filepath.Dir(g.path), "a {edition-Trimmed}.mkv")
+	if _, err := g.r.UpsertVideo(ctx, &model.Video{FilePath: target, Title: "gone", FileMtime: time.Now().UTC().Truncate(time.Second)}, nil); err != nil {
+		t.Fatal(err)
+	}
+	g.w.process(ctx, g.enqueueTrim(t, TrimParams{InTime: 1, OutTime: 2, Mode: TrimEdition, Edition: "Trimmed"}))
+	if s := g.queueStatus(t); !s.Failed || !strings.Contains(s.Error, ReasonTargetExists) {
+		t.Fatalf("queue: %+v", s)
+	}
+	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("wrote the edition anyway: %v", err)
+	}
+}
+
+// U7: a symlink at the target counts as taken even when it points at nothing, or a write could
+// follow it out of the library.
+func TestTrimEditionRefusesADanglingSymlink(t *testing.T) {
+	g := trimRig(t, model.ThumbnailGenerated)
+	target := filepath.Join(filepath.Dir(g.path), "a {edition-Trimmed}.mkv")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "nowhere"), target); err != nil {
+		t.Skipf("symlinks unavailable here: %v", err)
+	}
+	cut := false
+	g.w.runTrim = func(context.Context, string, string, string, *TrimParams, string) ([]SkippedCheck, error) {
+		cut = true
+		return nil, nil
+	}
+	g.w.process(context.Background(), g.enqueueTrim(t, TrimParams{InTime: 1, OutTime: 2, Mode: TrimEdition, Edition: "Trimmed"}))
+	if s := g.queueStatus(t); !s.Failed || !strings.Contains(s.Error, ReasonTargetExists) {
+		t.Fatalf("queue: %+v", s)
+	}
+	if cut {
+		t.Error("cut a file for a taken name")
+	}
+}
+
 // A5: a file that takes the name after the check isn't overwritten at landing.
 func TestTrimEditionLandingNeverOverwrites(t *testing.T) {
 	g := trimRig(t, model.ThumbnailGenerated)
