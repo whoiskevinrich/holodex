@@ -29,6 +29,8 @@ type TrimExpect struct {
 	CopiedOK map[int]string
 }
 
+const xmpToolkitTag = "xmp:XMP-x:XMPToolkit"
+
 // isEditionTag names a file's edition tag in either container's report of it.
 func isEditionTag(k string) bool {
 	return strings.EqualFold(k, "xmp:XMP-prism:Edition") || hasTagBase(k, []string{"EDITION"})
@@ -88,8 +90,10 @@ func VerifyTrim(orig, cand Snapshot, want TrimExpect) error {
 		}
 	}
 
-	// An edition's file differs in exactly one tag, and that tag must hold the new value.
-	editionOK := func(k string) bool { return want.Edition != "" && isEditionTag(k) }
+	// An edition's file differs in exactly one tag, and that tag must hold the new value. Writing it
+	// into a file with no XMP yet makes exiftool create the packet, stamped with its own toolkit:
+	// a record of the write, like a mux stamp, not a tag of the file's.
+	editionOK := func(k string) bool { return want.Edition != "" && (isEditionTag(k) || k == xmpToolkitTag) }
 	containerIgnore := func(k string) bool { return isFileTypeBrand(k) || editionOK(k) }
 	if orig.Family == FamilyMKV {
 		containerIgnore = func(k string) bool { return isContainerStamp(k) || editionOK(k) }

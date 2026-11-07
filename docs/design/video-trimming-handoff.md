@@ -54,7 +54,8 @@ operations. There are no other entry points.
   - F84's position and length row (`text-xs tabular-nums text-muted`), for the active handle.
   - The summary, `text-sm text-ink`: "Cuts 0:12 from the start and 1:48 from the end. Keeps 40:10."
     With one end cut: "Cuts 0:12 from the start. Keeps 41:58." With nothing cut: "Move a handle to
-    choose what to cut."
+    choose what to cut." A cut under a second reads "less than a second", because a cut of a few frames
+    would otherwise read "0:00".
   - The hint, `text-xs text-muted`: "Drag a handle · ← → or the mouse wheel step the active handle
     one frame".
 - **Rail:** "First frame kept" and "Last frame kept", each a `<button>` holding a still in F84's frame
@@ -140,8 +141,10 @@ sits in the existing `aria-live="polite"` region.
 If an original is already held from an earlier flip, the notice keeps naming that first operation and
 its date, since Restore goes back to before it.
 
-**On the new edition's page:** nothing special. Its job history starts with "Trimmed from {title}",
-which links to the original.
+**On the new edition's page:** the File row carries one more line under its buttons, `text-xs
+text-muted`: "Trimmed from {title}", linking to the original (`text-accent underline`). The media page
+has no job history, so this is where the edition's first history entry shows. It stays for as long as
+the original exists, and it is owner-only like the rest of the section.
 
 ## Copy
 
@@ -153,7 +156,10 @@ which links to the original.
 | Edition saved, skipped | The skipped line, then "The original wasn't changed." |
 | Failed, cut check | "Couldn't trim: the cut stayed {n} frames from your {first or last} frame after a correction. Your file wasn't changed." |
 | Failed, screen check | "Couldn't trim: the file and your screen disagreed by {n} frames about your {first or last} frame after a correction. Your file wasn't changed." |
-| Failed, other | F77's "Couldn't trim: {reason}. Your file wasn't changed.", with "the new file's chapters didn't match what was expected" for the chapters rule |
+| Failed, other scene | "Couldn't trim: your {first or last} frame on screen didn't match the file at that point. Your file wasn't changed." |
+| Failed, other | F77's "Couldn't trim: {reason}. Your file wasn't changed.", with "the new file's chapters didn't match what was expected" for the chapters rule and "the new file's length didn't match what you chose" for the length rule |
+| Second video track | "This file has a second video track, which can't be cut on the frames you choose, so it can't be trimmed." |
+| FLAC in Matroska | "This file's FLAC audio can't be cut yet, so it can't be trimmed." |
 | Name empty | "Enter a name for this edition." |
 | Name matches the original's | "This video is already the {name} edition. Choose another name." |
 | Name's file exists | "A file named {filename} already exists. Choose another name." |

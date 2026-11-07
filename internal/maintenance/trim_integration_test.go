@@ -358,7 +358,8 @@ func TestTrim_RealFiles_KeepsWhatItMust(t *testing.T) {
 // Save as edition's file half: the new edition is written, and nothing else differs.
 func TestTrim_RealFiles_EditionTag(t *testing.T) {
 	w := cutWorker(t)
-	for _, idx := range []int{0, 6} {
+	// T1 already has XMP, T2 has none, and K5 is Matroska. A file with no XMP once failed every edition.
+	for _, idx := range []int{0, 1, 6} {
 		fx := trimFixtures[idx]
 		t.Run(fx.name, func(t *testing.T) {
 			src := fx.build(t, t.TempDir())

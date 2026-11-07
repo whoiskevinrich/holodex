@@ -6499,8 +6499,16 @@ range passes, and the flip's real-file tests still do. The run found five things
 couldn't: a negative container start time landing cuts a frame early, with the cut check blind to it
 because its references shifted too; mkvmerge's `--split` also cutting the re-encoded track; FLAC being
 unsplittable; `-copypriorss 0` dropping cover art; and midpoint seeks rounding frames onto one
-timestamp. Still to do for this gate: §40.5's API and clone rows beyond those built, §40.8's mutation
-pass, and the frontend's §40.6.
+timestamp. Still to do for this gate: §40.8's mutation pass and a fold test for the trim links.
+
+**First run in the app (2026-11-06, `web-9700` against the built image, silent test files):** a replace
+on an MP4 chosen at 6.12 s and 21.92 s kept source frames 153 to 548, read from the barcode. An edition
+on an MKV chosen at 0.40 s and 28.96 s kept frames 10 to 724, carried the sanitized name in its file
+name and tag, and left the original alone. Real browser captures passed the screen check on both.
+Restore returned the full length. The run also found a bug no test had: an edition on an MP4 with no
+XMP failed the gate on exiftool's toolkit stamp, so `TestTrim_RealFiles_EditionTag` now covers that
+file too. QA items 1, 3 and 4 (at 1280 and 375 px), 7 and 8 are covered by this
+run; 2, 5, 6, 9, 10 and 11 are still to do.
 
 **Tried before writing this plan (2026-11-06, ffmpeg, no audio):** the barcode read correctly through
 an x264 re-encode at 24000/1001. Midpoint cuts landed exactly on 17 of 17 cuts across a constant-rate

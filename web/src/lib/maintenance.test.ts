@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { clockTime, failureCopy, fileName, pillLabel, refusalCopy, shortDate } from './maintenance';
+import {
+	TRIM,
+	clockTime,
+	editionOutcomeCopy,
+	failureCopy,
+	fileName,
+	heldVerb,
+	nameRefusalCopy,
+	pillLabel,
+	refusalCopy,
+	shortDate,
+	skippedCopy
+} from './maintenance';
 
 describe('pillLabel', () => {
 	it('names the running operation', () => {
@@ -12,6 +24,63 @@ describe('pillLabel', () => {
 		expect(pillLabel('hflip', false)).toBe('queued');
 		expect(pillLabel('restore', false)).toBe('queued');
 		expect(pillLabel('hflip', true)).toBe('flipping');
+	});
+});
+
+describe('trim copy (F88)', () => {
+	const none = { need_bytes: 0, free_bytes: 0 };
+	it('labels the pill and the held notice', () => {
+		expect(pillLabel('trim')).toBe('trimming');
+		expect(pillLabel('trim', false)).toBe('queued');
+		expect(heldVerb('trim')).toBe('Trimmed');
+		expect(heldVerb('hflip')).toBe('Flipped');
+	});
+	it('says trim, not flip, in its refusals', () => {
+		for (const reason of ['dolby_vision', 'no_video', 'unsupported_container', 'multiple_video_tracks', 'flac_in_matroska']) {
+			const copy = refusalCopy({ reason, ...none }, TRIM);
+			expect(copy, reason).toMatch(/trim/);
+			expect(copy, reason).not.toMatch(/flip/);
+		}
+		expect(refusalCopy({ reason: 'dolby_vision', ...none })).toMatch(/flipped/);
+	});
+	it("refuses the edition's name under the file name", () => {
+		expect(nameRefusalCopy({ reason: 'edition_name_empty' })).toBe('Enter a name for this edition.');
+		expect(nameRefusalCopy({ reason: 'edition_same', edition: 'Trimmed' })).toBe('This video is already the Trimmed edition. Choose another name.');
+		expect(nameRefusalCopy({ reason: 'target_exists', target: 'a {edition-T}.mkv' })).toBe('A file named a {edition-T}.mkv already exists. Choose another name.');
+		expect(nameRefusalCopy({ reason: 'no_space' })).toBe('');
+	});
+	it('says what the screen check skipped', () => {
+		expect(skippedCopy([])).toBe('');
+		expect(skippedCopy([{ end: 'last', reason: 'still' }])).toBe(
+			"The last frame is a still image, so it couldn't be compared with your screen. The cut itself was checked."
+		);
+		expect(skippedCopy([{ end: 'first', reason: 'black' }])).toMatch(/first frame is a black frame/);
+		expect(skippedCopy([{ end: 'first', reason: 'slow_fade' }])).toMatch(/slow fade/);
+		expect(skippedCopy([{ end: 'first', reason: 'black' }, { end: 'last', reason: 'still' }])).toBe(
+			"Neither frame could be compared with your screen, because they barely differ from their neighbours. The cut itself was checked."
+		);
+	});
+	it("words an edition's outcome", () => {
+		expect(editionOutcomeCopy([])).toBe("Both frames were checked. The original wasn't changed.");
+		expect(editionOutcomeCopy([{ end: 'last', reason: 'still' }])).toMatch(/still image.*The original wasn't changed\.$/);
+	});
+	it('names the check, the end and the offset in a failure', () => {
+		expect(failureCopy('trim', 'verification failed (cut_check): last:2')).toBe(
+			"Couldn't trim: the cut stayed 2 frames from your last frame after a correction. Your file wasn't changed."
+		);
+		expect(failureCopy('trim', 'verification failed (cut_check): first:1')).toMatch(/stayed 1 frame from your first/);
+		expect(failureCopy('trim', 'verification failed (screen_check): first:3')).toBe(
+			"Couldn't trim: the file and your screen disagreed by 3 frames about your first frame after a correction. Your file wasn't changed."
+		);
+		expect(failureCopy('trim', 'verification failed (screen_check): last:no_match')).toBe(
+			"Couldn't trim: your last frame on screen didn't match the file at that point. Your file wasn't changed."
+		);
+		expect(failureCopy('trim', 'verification failed (chapters): chapter 1 moved')).toMatch(/what was expected/);
+		expect(failureCopy('trim', 'maintenance refused: target_exists (a.mkv)')).toBe(
+			"Couldn't trim. A file named a.mkv already exists. Choose another name. Your file wasn't changed."
+		);
+		expect(failureCopy('trim', 'maintenance refused: flac_in_matroska')).toMatch(/^Couldn't trim\. .*FLAC/);
+		expect(failureCopy('trim', 're-encode: exit 1 /secret/path')).not.toMatch(/secret/);
 	});
 });
 

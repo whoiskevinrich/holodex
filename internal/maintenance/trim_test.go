@@ -393,6 +393,15 @@ func TestVerifyTrimEdition(t *testing.T) {
 	if err := VerifyTrim(mp4o, mp4c, want); err != nil {
 		t.Fatalf("MP4 edition: %v", err)
 	}
+	// A file with no XMP gains exiftool's toolkit stamp along with the packet it creates.
+	mp4c.Extra[xmpToolkitTag] = `"Image::ExifTool 13.25"`
+	if err := VerifyTrim(mp4o, mp4c, want); err != nil {
+		t.Fatalf("exiftool's stamp on a new XMP packet: %v", err)
+	}
+	replace := goodExpect()
+	if err := VerifyTrim(mp4o, mp4c, replace); err == nil {
+		t.Error("a replace must not add XMP at all")
+	}
 	mp4c.Extra["xmp:XMP-dc:Title"] = `"changed"`
 	if err := VerifyTrim(mp4o, mp4c, want); err == nil {
 		t.Error("a second tag differing on an edition passed")
