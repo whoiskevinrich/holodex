@@ -94,8 +94,6 @@ export function refusalCopy(
 			return 'This video already has maintenance queued. Wait for it to finish.';
 		case 'multiple_video_tracks':
 			return "This file has a second video track, which can't be cut on the frames you choose, so it can't be trimmed.";
-		case 'flac_in_matroska':
-			return "This file's FLAC audio can't be cut yet, so it can't be trimmed.";
 		default:
 			return `This file can't be ${action.done} right now.`;
 	}

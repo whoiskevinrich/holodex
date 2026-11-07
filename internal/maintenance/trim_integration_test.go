@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -186,6 +187,40 @@ var trimFixtures = []trimFixture{
 		ffEnc(t, []string{"-f", "lavfi", "-i", fmt.Sprintf("color=black:s=%dx%d:r=25:d=6,%s", bcW, bcH, barcode)}, out)
 		return out
 	}},
+	{"K9 mkv FLAC beside AC3 and a subtitle", buildFLACMKV(true, 24)},
+	{"K9 mkv video and FLAC only", buildFLACMKV(false, 24)},
+}
+
+// buildFLACMKV makes a Matroska file with a FLAC track of pink noise (never periodic, so its samples
+// can be found in the original by content alone) at bits per sample (24 or 32). With others, an AC3
+// track comes before it and a subtitle after, so the cut pass runs; without, nothing is left to cut.
+// Through mkvmerge, as a real library's files are, so the FLAC track has tags of its own.
+func buildFLACMKV(others bool, bits int) func(t *testing.T, dir string) string {
+	return func(t *testing.T, dir string) string {
+		raw := filepath.Join(dir, "k9raw.mkv")
+		args := []string{"-f", "lavfi", "-i", fmt.Sprintf("color=black:s=%dx%d:r=25:d=6,%s", bcW, bcH, barcode),
+			"-f", "lavfi", "-i", "anoisesrc=d=6:c=pink:r=48000:a=0.5:seed=7"}
+		maps := []string{"-map", "0:v"}
+		codecs := []string{"-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p"}
+		flac := "0"
+		if others {
+			srt := filepath.Join(dir, "s.srt")
+			os.WriteFile(srt, []byte("1\n00:00:01,000 --> 00:00:02,000\nHello\n\n2\n00:00:03,000 --> 00:00:04,000\nThere\n"), 0o644)
+			args = append(args, "-f", "lavfi", "-i", "sine=f=660:d=6", "-i", srt)
+			maps = append(maps, "-map", "2:a", "-map", "1:a", "-map", "3:s")
+			codecs = append(codecs, "-c:a:0", "ac3", "-c:s", "srt")
+			flac = "1"
+		} else {
+			maps = append(maps, "-map", "1:a")
+		}
+		codecs = append(codecs, "-c:a:"+flac, "flac", "-sample_fmt:a:"+flac, "s32",
+			"-bits_per_raw_sample:a:"+flac, strconv.Itoa(bits), "-strict:a:"+flac, "experimental",
+			"-metadata:s:a:"+flac, "title=Commentary", "-metadata:s:a:"+flac, "language=jpn", "-t", "6", raw)
+		ff(t, append(append(args, maps...), codecs...)...)
+		out := filepath.Join(dir, "k9.mkv")
+		sh(t, "mkvmerge", "-q", "-o", out, raw)
+		return out
+	}
 }
 
 func detectedEncoders(t *testing.T) map[string]bool {
@@ -531,7 +566,7 @@ func TestTrim_RealFiles_AudioStaysInSync(t *testing.T) {
 	w := cutWorker(t)
 	const clickAt = 3.0
 	click := fmt.Sprintf("aevalsrc='if(between(t\\,%v\\,%v)\\,0.9\\,0)':d=6", clickAt, clickAt+0.02)
-	for _, c := range []struct{ ext, codec string }{{"mp4", "aac"}, {"mkv", "ac3"}} {
+	for _, c := range []struct{ ext, codec string }{{"mp4", "aac"}, {"mkv", "ac3"}, {"mkv", "flac"}} {
 		t.Run(c.codec, func(t *testing.T) {
 			dir := t.TempDir()
 			src := filepath.Join(dir, "sync."+c.ext)
@@ -580,17 +615,105 @@ func TestTrim_RealFiles_RefusesTheWholeFile(t *testing.T) {
 	}
 }
 
+// decodePCM decodes path's audio track a as raw 32-bit samples.
+func decodePCM(t *testing.T, path string, a int) []byte {
+	t.Helper()
+	out, err := exec.Command("ffmpeg", "-nostdin", "-loglevel", "error", "-i", path, "-map", "0:a:"+strconv.Itoa(a), "-f", "s32le", "-").Output()
+	if err != nil {
+		t.Fatalf("decode %s: %v", path, err)
+	}
+	return out
+}
+
+// FLAC is re-encoded rather than cut on packets (mkvmerge can't split it). The kept samples must be
+// the original's bit for bit, starting where the first kept frame does, with the track's bit depth,
+// name, language and position kept, and lasting as long as the kept video.
+func TestTrim_RealFiles_FLAC(t *testing.T) {
+	w := cutWorker(t)
+	for _, c := range []struct {
+		others bool
+		bits   int
+	}{{true, 24}, {false, 24}, {false, 32}} {
+		others := c.others
+		t.Run(fmt.Sprintf("others=%v bits=%d", others, c.bits), func(t *testing.T) {
+			dir := t.TempDir()
+			src := buildFLACMKV(others, c.bits)(t, dir)
+			ts := frameTimesOf(t, src)
+			in, out := 15, len(ts)-17
+			dst, _, err := runCut(t, w, src, "cut", TrimParams{InTime: ts[in], OutTime: ts[out], Mode: TrimReplace}, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := RunProbe(context.Background(), "ffprobe", "matroska", dst)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var types []string
+			for _, s := range p.Streams {
+				types = append(types, s.CodecType+":"+s.CodecName)
+			}
+			want, flacAt := "video:h264 audio:flac", 0
+			if others {
+				want, flacAt = "video:h264 audio:ac3 audio:flac subtitle:subrip", 1
+			}
+			if got := strings.Join(types, " "); got != want {
+				t.Fatalf("tracks %q, want %q", got, want)
+			}
+			var f Stream
+			for _, s := range p.Streams {
+				if isFLAC(s) {
+					f = s
+				}
+			}
+			if f.Tags["title"] != "Commentary" || f.Tags["language"] != "jpn" {
+				t.Errorf("FLAC track tags %v", f.Tags)
+			}
+			if bits, _ := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:"+strconv.Itoa(flacAt),
+				"-show_entries", "stream=bits_per_raw_sample", "-of", "csv=p=0", dst).Output(); strings.TrimSpace(string(bits)) != strconv.Itoa(c.bits) {
+				t.Errorf("bits per sample %q, want %d", bits, c.bits)
+			}
+			// Bit for bit: the kept samples are a run of the original's, starting at the cut.
+			orig, kept := decodePCM(t, src, flacAt), decodePCM(t, dst, flacAt)
+			const rate, frameBytes = 48000.0, 4 // mono, 32-bit
+			at := bytes.Index(orig, kept)
+			if at < 0 {
+				t.Fatalf("the kept %d bytes of audio aren't a run of the original's", len(kept))
+			}
+			first := frameTimesOf(t, dst)[0]
+			if start, wantStart := float64(at/frameBytes)/rate, ts[in]-first; math.Abs(start-wantStart) > 0.001 {
+				t.Errorf("audio starts at the original's %.4fs, want %.4fs", start, wantStart)
+			}
+			kd, vd := float64(len(kept)/frameBytes)/rate, ts[out]-ts[in]+0.04
+			if math.Abs(kd-vd) > 0.04 {
+				t.Errorf("audio lasts %.3fs, the kept video %.3fs", kd, vd)
+			}
+			// The gate's sample comparison sees a track cut one frame off.
+			sp, err := RunProbe(context.Background(), "ffprobe", "matroska", src)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var origIdx int
+			for _, s := range sp.Streams {
+				if isFLAC(s) {
+					origIdx = s.Index
+				}
+			}
+			shifted := trimRange{Seek: ts[in+1] - 0.02, HasSeek: true, Stop: ts[out] + 0.02, HasStop: true}
+			if detail, err := compareSamples(context.Background(), localTools, src, dst, origIdx, f.Index, shifted); err != nil || detail == "" {
+				t.Errorf("a shifted range passed the sample comparison: %q, %v", detail, err)
+			}
+		})
+	}
+}
+
 // What a cut can't do is refused before anything runs.
 func TestCheckTrimRefusals(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	flac := filepath.Join(dir, "flac.mkv")
 	ff(t, "-f", "lavfi", "-i", "testsrc2=s=64x64:r=25:d=1", "-f", "lavfi", "-i", "sine=d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "flac", flac)
-	if pf, err := checkOp(ctx, localTools, detectedEncoders(t), flac, 1, true); err != nil || pf.OK || pf.Reason != ReasonFLAC {
-		t.Errorf("FLAC: %+v, %v", pf, err)
-	}
-	if pf, err := checkOp(ctx, localTools, detectedEncoders(t), flac, 1, false); err != nil || !pf.OK {
-		t.Errorf("a flip still takes FLAC: %+v, %v", pf, err)
+	if pf, err := checkOp(ctx, localTools, detectedEncoders(t), flac, 1, true); err != nil || !pf.OK {
+		t.Errorf("FLAC in Matroska is trimmed, not refused: %+v, %v", pf, err)
 	}
 	two := filepath.Join(dir, "two.mkv")
 	ff(t, "-f", "lavfi", "-i", "testsrc2=s=64x64:r=25:d=1", "-f", "lavfi", "-i", "testsrc=s=64x64:r=25:d=1", "-map", "0", "-map", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", two)

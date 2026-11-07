@@ -335,10 +335,20 @@ Decided in [`59d55a75`](https://github.com/whoiskevinrich/holodex/commit/59d55a7
   applies to a whole output and the intermediate is already the kept range. A second mkvmerge pass
   joins the two with the intermediate's track in the original position and the computed chapters as
   `--chapters` XML. The F77 mkvmerge flags (`--no-date`, statistics, tag carry) apply unchanged. A
-  video-only file skips the cut: its tags and attachments come from the original with `-D`. mkvmerge
-  won't split a FLAC track at all, so such a file is refused at preflight (HOLODEX-624 tracks cutting
-  it another way). Chapter languages aren't kept: ffprobe doesn't report them, and rule 5 asks for
-  titles.
+  file with nothing left to cut skips the cut: its tags and attachments come from the original with
+  `-D -A`. Chapter languages aren't kept: ffprobe doesn't report them, and rule 5 asks for titles.
+- **FLAC in Matroska is re-encoded, losslessly, with the video.** mkvmerge won't split a FLAC track
+  at all. So step 1 maps each FLAC track beside the video and writes it with ffmpeg's `flac` encoder,
+  and step 2 leaves it out with `-a !<ids>`. Step 3 puts it back in its original position with its
+  name, language, flags and track tags, as it does the video. FLAC is lossless, so the decoded samples
+  are the original's bit for bit, and ffmpeg keeps the bit depth (a 24-bit track stays 24-bit; a
+  32-bit one needs `-strict experimental`, without which the encoder silently writes 24 bits). The
+  same accurate seek cuts it on the sample, not the packet, so it is closer to the video than a copied
+  track. Its packets can't match the original's, so the gate decodes both instead: the output track's
+  samples must hash equal to the original's decoded over the same seek range. Rejected: refusing the file (the owner's call, 2026-11-07); cutting the FLAC with ffmpeg
+  `-c copy` (still on packets, and a second ffmpeg pass for nothing); remuxing it to another lossless
+  codec (changes the file's codec). Proven in `holodex:test-image` (ffmpeg 7.1, mkvmerge 92): the
+  kept range's PCM matched the source's for 16-, 24- and 32-bit tracks.
 - **MP4.** One ffmpeg pass does the same seek on every mapped stream: `-c copy`, with
   `-c:v:<n> <encoder>` for the main video track and the computed chapters as `-map_chapters` input.
   `-copypriorss 0` stops ffmpeg copying the packets between the keyframe it seeks to and the cut. Cover

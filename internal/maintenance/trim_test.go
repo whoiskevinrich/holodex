@@ -432,7 +432,7 @@ func TestTrimMKVArgsCutPassLeavesTheVideoOut(t *testing.T) {
 		}
 	}
 	// With the video gone the subtitle is track 1 of the cut file; the video returns between them.
-	merge := strings.Join(TrimMKVMergeArgs(p, "/m/cut", true, "/m/enc", "", "/m/ch.xml", "/m/dst"), " ")
+	merge := strings.Join(TrimMKVMergeArgs(p, "/m/cut", true, "/m/enc", []string{""}, "/m/ch.xml", "/m/dst"), " ")
 	for _, want := range []string{"--track-order 0:0,1:0,0:1", "--chapters " + toolArg("/m/ch.xml")} {
 		if !strings.Contains(merge, want) {
 			t.Errorf("merge args %q missing %q", merge, want)
@@ -441,6 +441,68 @@ func TestTrimMKVArgsCutPassLeavesTheVideoOut(t *testing.T) {
 	// A cut from the file's start, or to its end, leaves that side open.
 	if got := strings.Join(TrimMKVCutArgs(p, "/m/a.mkv", "/m/cut", trimRange{Stop: 9, HasStop: true}), " "); !strings.Contains(got, "parts:-00:00:09") {
 		t.Errorf("no start: %q", got)
+	}
+}
+
+// mkvmerge can't split FLAC, so step 1 re-encodes each FLAC track beside the video, step 2 leaves
+// it out, and step 3 puts it back in place with its own name, language, flags and tags.
+func TestTrimMKVArgsReencodeFLACBesideTheVideo(t *testing.T) {
+	p := Probe{Streams: []Stream{
+		{Index: 0, CodecType: "video", CodecName: "h264", Disposition: map[string]int{"default": 1}},
+		{Index: 1, CodecType: "audio", CodecName: "ac3"},
+		{Index: 2, CodecType: "audio", CodecName: "flac", Tags: map[string]string{"title": "Commentary", "language": "jpn"}, Disposition: map[string]int{"forced": 1}},
+		{Index: 3, CodecType: "attachment"},
+		{Index: 4, CodecType: "subtitle"},
+		{Index: 5, CodecType: "audio", CodecName: "flac"},
+	}}
+	r := trimRange{Seek: 1.5, HasSeek: true, Stop: 9, HasStop: true}
+	args, err := TrimMKVEncodeArgs(p, map[string]bool{"libx264": true}, "/m/a.mkv", "/m/enc", r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc := strings.Join(args, " ")
+	for _, want := range []string{"-map 0:0 -map 0:2 -map 0:5 ", "-c:a flac -strict:a experimental"} {
+		if !strings.Contains(enc, want) {
+			t.Errorf("encode args %q missing %q", enc, want)
+		}
+	}
+	if strings.Contains(enc, "-map 0:1 ") {
+		t.Errorf("encode args map the AC3 track: %q", enc)
+	}
+	if otherTracks(p) != 2 {
+		t.Errorf("otherTracks = %d, want 2 (AC3 and the subtitle)", otherTracks(p))
+	}
+	// The attachment isn't a track, so the second FLAC track is mkvmerge track 4.
+	cut := strings.Join(TrimMKVCutArgs(p, "/m/a.mkv", "/m/cut", r), " ")
+	if !strings.Contains(cut, "-d !0 -a !2,4 ") {
+		t.Errorf("cut args %q don't leave the video and both FLAC tracks out", cut)
+	}
+	merge := strings.Join(TrimMKVMergeArgs(p, "/m/cut", true, "/m/enc", []string{"", "/m/t2.xml", ""}, "", "/m/dst"), " ")
+	for _, want := range []string{
+		"--track-order 1:0,0:0,1:1,0:1,1:2",
+		"--track-name 1:Commentary --language 1:jpn --default-track-flag 1:0 --forced-display-flag 1:1 --tags 1:" + toolArg("/m/t2.xml"),
+		"--default-track-flag 2:0 --forced-display-flag 2:0 " + toolArg("/m/enc"),
+	} {
+		if !strings.Contains(merge, want) {
+			t.Errorf("merge args %q missing %q", merge, want)
+		}
+	}
+	// Video and FLAC alone: nothing to cut, so the original contributes no tracks at all.
+	only := Probe{Streams: []Stream{p.Streams[0], p.Streams[2]}}
+	if otherTracks(only) != 0 {
+		t.Fatalf("otherTracks = %d", otherTracks(only))
+	}
+	base := strings.Join(TrimMKVMergeArgs(only, "/m/a.mkv", false, "/m/enc", []string{"", ""}, "", "/m/dst"), " ")
+	if !strings.Contains(base, "-D -A "+toolArg("/m/a.mkv")) || !strings.Contains(base, "--track-order 1:0,1:1") {
+		t.Errorf("merge args %q", base)
+	}
+	// No FLAC: no audio codec option, no -a in the cut.
+	plain := Probe{Streams: []Stream{p.Streams[0], p.Streams[1]}}
+	if args, _ := TrimMKVEncodeArgs(plain, map[string]bool{"libx264": true}, "/m/a.mkv", "/m/enc", r); strings.Contains(strings.Join(args, " "), "-c:a") {
+		t.Errorf("encode args without FLAC: %q", args)
+	}
+	if got := strings.Join(TrimMKVCutArgs(plain, "/m/a.mkv", "/m/cut", r), " "); strings.Contains(got, " -a ") {
+		t.Errorf("cut args without FLAC: %q", got)
 	}
 }
 

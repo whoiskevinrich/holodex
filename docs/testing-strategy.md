@@ -6542,8 +6542,9 @@ with the cut check. All fixtures are 320×240 and about 6 s, so the matrix fits 
 | T5 | MP4 | H.264, one keyframe only in the file | A cut far from any keyframe, and a video track that isn't the first stream |
 | K5 | MKV | H.264, 24000/1001 fps | Matroska's millisecond timestamps (the browser reports 1.502 for 1.5015) |
 | K6 | MKV | HEVC yuv420p10le, BT.2020/PQ, HDR10 mastering and MaxCLL | K1's shape: two audio tracks, SRT, font attachment, 3 chapters, tags at levels 50/70/30. The spike's HDR case |
-| K7 | MKV | H.264 | AC3 and AAC audio. FLAC is refused at preflight (HOLODEX-624) |
+| K7 | MKV | H.264 | AC3 and AAC audio |
 | K8 | MKV | H.264, video only | The cut pass is skipped, and tags still carry |
+| K9 | MKV | H.264 | 24-bit FLAC (HOLODEX-624), named and with a language, through mkvmerge. Two shapes: beside an AC3 track and a subtitle, and with no other track, so nothing is left to cut. The FLAC is pink noise, never periodic, so its samples can be found in the original by content |
 
 **Frame content**, one short clip per case with no barcode, because a barcode would make the frames
 distinct:
@@ -6590,9 +6591,15 @@ inside the built image. For each of T1–T5 and K5–K7, at both ends together a
    duration, statistics and, on an edition, the edition tag.
 3. **Chapters oracle.** `ffprobe` chapters equal a list the test computes by hand for that fixture.
 4. **Stream oracle.** Audio and subtitle packet hashes inside the range equal the original's. Track
-   order and flags match. The font attachment and cover art are byte-identical.
+   order and flags match. The font attachment and cover art are byte-identical. FLAC in MKV is
+   re-encoded, so its oracle is the decoded samples instead (`TestTrim_RealFiles_FLAC`): the output's
+   samples are a run of the original's bit for bit, starting within 1 ms of the first kept frame's
+   original time, lasting as long as the kept video within a frame, at the source's 24 or 32 bits (a
+   32-bit case runs video and FLAC only), with the track's name,
+   language and position kept. The gate makes the same sample comparison, and a range shifted one
+   frame fails it.
 5. **Sync oracle.** A click at a known time, found with `silencedetect`, sits at its new time relative
-   to the first video frame, within 50 ms, on AAC in MP4 and AC3 in MKV.
+   to the first video frame, within 50 ms, on AAC in MP4, and AC3 and FLAC in MKV.
 6. **HDR (K6).** Mastering display and MaxCLL are present on the output, and a capture shifted 20 grey
    levels still passes the screen check.
 7. **Timing.** Every output frame's time strictly follows the last. Neither the barcode nor the cut
@@ -6734,12 +6741,12 @@ Each change must turn its named test red:
   - **No real browser in CI.** Captures are simulated (§41.2). Browser and ffmpeg agreement rests on
     the spike and QA 9.
   - **Not in CI:** `make test-image` isn't wired into a workflow (§25.9).
-  - **FLAC in Matroska** is refused, not trimmed (HOLODEX-624).
-  - **TrueHD, DTS-HD MA and Atmos** have no fixture. They travel the same packet-copy path as AC3 and
-    FLAC, and nothing decodes them.
+  - **FLAC in MP4** has no fixture. It travels MP4's one-pass packet copy like AAC.
+  - **TrueHD, DTS-HD MA and Atmos** have no fixture. They travel the same packet-copy path as AC3,
+    and nothing decodes them.
   - **Dolby Vision** remains unit-only, and is refused as in F77.
   - **A long encode's shutdown** is covered by §25's cancel-and-requeue test, not a real one.
-  - **Sync is measured at K7's click only,** and judged by ear in QA 11.
+  - **Sync is measured at one click per codec,** and judged by ear in QA 11.
 
 **First real-file run (2026-11-06, `holodex:test-image`, no audio played):** every fixture and every
 range passes, and the flip's real-file tests still do. The run found five things the unit tests

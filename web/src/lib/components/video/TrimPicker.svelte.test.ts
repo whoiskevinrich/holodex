@@ -149,10 +149,10 @@ describe('TrimPicker', () => {
 	});
 
 	it('a refusal replaces the save choice', async () => {
-		const m = await mount({ preflight: async () => ({ ...okCheck, ok: false, reason: 'flac_in_matroska' }) });
+		const m = await mount({ preflight: async () => ({ ...okCheck, ok: false, reason: 'multiple_video_tracks' }) });
 		await moveFirstHandle(m);
 		await m.screen.getByRole('button', { name: 'Review trim…' }).click();
-		await expect.element(m.screen.getByText(/FLAC audio can't be cut yet/)).toBeVisible();
+		await expect.element(m.screen.getByText(/has a second video track/)).toBeVisible();
 		await expect.element(m.screen.getByRole('radio', { name: /Replace original/ })).not.toBeInTheDocument();
 		await expect.element(m.screen.getByRole('button', { name: '‹ Back' })).toBeEnabled();
 	});

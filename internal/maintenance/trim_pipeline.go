@@ -82,8 +82,27 @@ func TrimMP4Args(p Probe, available map[string]bool, format, src, dst, chaptersF
 		"-movflags", "+faststart", "-f", format, toolArg(dst)), nil
 }
 
+// isFLAC reports whether s is a FLAC audio track. mkvmerge can't split one, so a Matroska trim
+// re-encodes it beside the video instead: FLAC is lossless, so its samples come out bit for bit, and
+// the accurate seek cuts it on the sample rather than the packet.
+func isFLAC(s Stream) bool { return s.CodecType == "audio" && s.CodecName == "flac" }
+
+// trimEncoded lists the tracks step 1 writes, in the intermediate's track order: the main video,
+// then each FLAC track. p must have a main video.
+func trimEncoded(p Probe) []Stream {
+	v, _ := p.MainVideo()
+	out := []Stream{v}
+	for _, s := range p.Streams {
+		if isFLAC(s) {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
 // TrimMKVEncodeArgs builds step 1 for a Matroska trim: the kept range of the main video track,
-// re-encoded, into an intermediate with no tags or chapters of its own.
+// re-encoded, and of each FLAC track, re-encoded losslessly, into an intermediate with no tags or
+// chapters of its own.
 func TrimMKVEncodeArgs(p Probe, available map[string]bool, src, intermediate string, r trimRange) ([]string, error) {
 	v, ok := p.MainVideo()
 	if !ok {
@@ -94,28 +113,35 @@ func TrimMKVEncodeArgs(p Probe, available map[string]bool, src, intermediate str
 		return nil, err
 	}
 	args := trimInputArgs("matroska", src, r)
-	args = append(args, "-map", "0:"+strconv.Itoa(v.Index))
+	encoded := trimEncoded(p)
+	for _, s := range encoded {
+		args = append(args, "-map", "0:"+strconv.Itoa(s.Index))
+	}
 	args = append(args, enc...)
 	args = append(args, "-enc_time_base:v:0", trimClock)
+	if len(encoded) > 1 {
+		// Without -strict experimental the encoder writes a 32-bit source at 24 bits.
+		args = append(args, "-c:a", "flac", "-strict:a", "experimental")
+	}
 	return append(args, "-map_metadata", "-1", "-map_chapters", "-1",
 		"-fflags", "+bitexact", "-f", "matroska", toolArg(intermediate)), nil
 }
 
-// otherTracks counts the Matroska tracks left once the main video is removed.
+// otherTracks counts the Matroska tracks left for step 2 to cut: neither the main video nor FLAC.
 func otherTracks(p Probe) int {
 	v, _ := p.MainVideo()
 	n := 0
 	for _, s := range p.Streams {
-		if s.CodecType != "attachment" && s.Index != v.Index {
+		if s.CodecType != "attachment" && s.Index != v.Index && !isFLAC(s) {
 			n++
 		}
 	}
 	return n
 }
 
-// TrimMKVCutArgs builds step 2: every track but the main video, cut on packets. With no video
+// TrimMKVCutArgs builds step 2: every track step 1 didn't encode, cut on packets. With no video
 // track left mkvmerge can split at any packet rather than at a keyframe. This must be its own
-// pass: --split applies to a whole output, and the re-encoded track is already the kept range.
+// pass: --split applies to a whole output, and the re-encoded tracks are already the kept range.
 // Attachments and global tags stay on this file; step 3 carries them.
 func TrimMKVCutArgs(p Probe, src, cut string, r trimRange) []string {
 	v, _ := p.MainVideo()
@@ -130,26 +156,38 @@ func TrimMKVCutArgs(p Probe, src, cut string, r trimRange) []string {
 	if !hasTrackStatistics(p) {
 		args = append(args, "--disable-track-statistics-tags")
 	}
-	return append(args, "--split", "parts:"+from+"-"+to, "--no-chapters",
-		"-d", "!"+strconv.Itoa(mkvTrackID(p, v)), toolArg(src))
+	args = append(args, "--split", "parts:"+from+"-"+to, "--no-chapters",
+		"-d", "!"+strconv.Itoa(mkvTrackID(p, v)))
+	var flac []string
+	for _, s := range trimEncoded(p)[1:] {
+		flac = append(flac, strconv.Itoa(mkvTrackID(p, s)))
+	}
+	if len(flac) > 0 {
+		args = append(args, "-a", "!"+strings.Join(flac, ","))
+	}
+	return append(args, toolArg(src))
 }
 
-// TrimMKVMergeArgs builds step 3: dst is the cut tracks plus the re-encoded track, put back in the
-// original's position with its name, language and flags. base is step 2's file, or the original
-// with every track dropped for a video-only file, whose tags and attachments still carry. A cut
-// file renumbers its tracks without the video, so the order is rebuilt rather than reused.
+// TrimMKVMergeArgs builds step 3: dst is the cut tracks plus the re-encoded ones, each put back in
+// the original's position with its name, language, flags and tags (trackTags, aligned with
+// trimEncoded; "" for a track with none). base is step 2's file, or the original with every track
+// dropped when nothing was left to cut, whose tags and attachments still carry. A cut file
+// renumbers its tracks without the re-encoded ones, so the order is rebuilt rather than reused.
 // chaptersFile is "" when no chapter survives the cut.
-func TrimMKVMergeArgs(p Probe, base string, baseHasTracks bool, intermediate, trackTags, chaptersFile, dst string) []string {
-	v, _ := p.MainVideo()
-	vid := mkvTrackID(p, v)
+func TrimMKVMergeArgs(p Probe, base string, baseHasTracks bool, intermediate string, trackTags []string, chaptersFile, dst string) []string {
+	encoded := trimEncoded(p)
+	at := make(map[int]int, len(encoded)) // stream index → intermediate track id
+	for i, s := range encoded {
+		at[s.Index] = i
+	}
 	var order []string
 	next := 0
 	for _, s := range p.Streams {
 		if s.CodecType == "attachment" {
 			continue
 		}
-		if mkvTrackID(p, s) == vid {
-			order = append(order, "1:0")
+		if i, ok := at[s.Index]; ok {
+			order = append(order, "1:"+strconv.Itoa(i))
 			continue
 		}
 		order = append(order, "0:"+strconv.Itoa(next))
@@ -164,10 +202,12 @@ func TrimMKVMergeArgs(p Probe, base string, baseHasTracks bool, intermediate, tr
 	}
 	args = append(args, "--no-chapters")
 	if !baseHasTracks {
-		args = append(args, "-D")
+		args = append(args, "-D", "-A")
 	}
 	args = append(args, toolArg(base), "--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments")
-	args = append(args, newTrackArgs(v, trackTags)...)
+	for i, s := range encoded {
+		args = append(args, newTrackArgs(i, s, trackTags[i])...)
+	}
 	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
 }
 
@@ -220,12 +260,14 @@ func RebuildTrim(ctx context.Context, t Tools, family string, available map[stri
 		if err != nil {
 			return err
 		}
-		tags, err := PrepareTrackTags(ctx, t, src, p)
+		tags, err := prepareTrackTagFiles(ctx, t, src, p, trimEncoded(p))
 		if err != nil {
 			return err
 		}
-		if tags != "" {
-			defer os.Remove(tags)
+		for _, f := range tags {
+			if f != "" {
+				defer os.Remove(f)
+			}
 		}
 		if _, err := run(ctx, t.FFmpeg, args...); err != nil {
 			return fmt.Errorf("re-encode: %w", err)

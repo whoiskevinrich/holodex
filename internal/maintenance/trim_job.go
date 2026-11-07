@@ -516,7 +516,8 @@ func (w *Worker) outputFrames(ctx context.Context, family, path string, p Probe)
 }
 
 // comparePacketStreams fills want.CopiedOK for every timeline stream the output kept. Streams are
-// matched by position, because dropping an MP4's chapter track can renumber what follows.
+// matched by position, because dropping an MP4's chapter track can renumber what follows. A
+// Matroska FLAC track was re-encoded, not copied, so its decoded samples are compared instead.
 func (w *Worker) comparePacketStreams(ctx context.Context, family, path, dst string, op, cp Probe, r trimRange, fileDur float64, want *TrimExpect) error {
 	ostreams, cstreams := withoutChapterTrack(op.Streams), withoutChapterTrack(cp.Streams)
 	if len(ostreams) != len(cstreams) {
@@ -529,6 +530,14 @@ func (w *Worker) comparePacketStreams(ctx context.Context, family, path, dst str
 	}
 	for i, s := range ostreams {
 		if s.Index == v.Index || s.CodecType == "attachment" || s.Disposition["attached_pic"] != 0 {
+			continue
+		}
+		if family == FamilyMKV && isFLAC(s) {
+			detail, err := compareSamples(ctx, w.tools, path, dst, s.Index, cstreams[i].Index, r)
+			if err != nil {
+				return err
+			}
+			want.CopiedOK[s.Index] = detail
 			continue
 		}
 		origPkts, err := streamPackets(ctx, w.tools, family, path, s.Index)
