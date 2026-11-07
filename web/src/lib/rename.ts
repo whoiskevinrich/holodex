@@ -204,30 +204,34 @@ export interface ReadBackLine {
 	readsAs: string;
 }
 
+// A token holding its breaker is the cause; the tokens after it only read back wrong because of it,
+// so it is named ahead of an earlier token that merely differs.
 export function readBack(row: RenamePlanRow, templates: string[]): ReadBackLine | null {
 	const written = row.written ?? {};
 	const parsed = row.parsed ?? {};
+	const text = row.template != null ? templates[row.template] : undefined;
+	let first: ReadBackLine | null = null;
 	for (const token of Object.keys(written)) {
 		const value = joinValues(written[token]);
 		const readsAs = joinValues(parsed[token]);
 		if (value === readsAs) continue;
 		const line: ReadBackLine = { token, value, readsAs };
-		const text = row.template != null ? templates[row.template] : undefined;
 		if (text) {
 			// The literal that ends the token: everything up to the next token or the end.
-			const at = text.indexOf(`{${token}}`);
-			const rest = at >= 0 ? text.slice(at + token.length + 2) : '';
+			const mark = [`{${token}}`, `{${token}?}`].find((s) => text.includes(s));
+			const rest = mark ? text.slice(text.indexOf(mark) + mark.length) : '';
 			const brace = rest.indexOf('{');
 			const literal = brace >= 0 ? rest.slice(0, brace) : rest;
 			const breaker = [literal, literal.trim()].find((s) => s && value.includes(s));
 			if (breaker) {
 				line.breaker = breaker;
 				line.template = row.template! + 1;
+				return line;
 			}
 		}
-		return line;
+		first ??= line;
 	}
-	return null;
+	return first;
 }
 
 // badNameLine spells out a bad-name refusal (spec P0-4).
