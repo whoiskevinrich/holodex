@@ -93,6 +93,12 @@ func Write(ctx context.Context, path, tagName string, values []string) error {
 	return WriteBatch(ctx, path, []FieldWrite{{TagName: tagName, Values: values}})
 }
 
+// WriteMatroska writes fields to a Matroska file whatever its name says. WriteBatch chooses a tool
+// by extension, so it can't reach a working file such as x.mkv.holodex-new.
+func WriteMatroska(ctx context.Context, path string, fields []FieldWrite) error {
+	return writeMKVBatch(ctx, path, fields)
+}
+
 // writeMKVBatch dispatches to mkvpropedit (fast, in-place) when available,
 // falling back to ffmpeg remux (already a required project dependency).
 //

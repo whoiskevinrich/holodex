@@ -126,19 +126,27 @@ func MKVMergeArgs(p Probe, src, intermediate, trackTags, dst string) []string {
 	}
 	args = append(args, "-d", "!"+strconv.Itoa(vid), toolArg(src),
 		"--no-global-tags", "--no-track-tags", "--no-chapters", "--no-attachments")
-	if name := v.Tags["title"]; name != "" {
-		args = append(args, "--track-name", "0:"+name)
+	args = append(args, newTrackArgs(0, v, trackTags)...)
+	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
+}
+
+// newTrackArgs gives track id of the intermediate the original s's name, language, flags and tags.
+func newTrackArgs(id int, s Stream, trackTags string) []string {
+	tid := strconv.Itoa(id) + ":"
+	var args []string
+	if name := s.Tags["title"]; name != "" {
+		args = append(args, "--track-name", tid+name)
 	}
-	if lang := v.Tags["language"]; lang != "" {
-		args = append(args, "--language", "0:"+lang)
+	if lang := s.Tags["language"]; lang != "" {
+		args = append(args, "--language", tid+lang)
 	}
 	args = append(args,
-		"--default-track-flag", "0:"+flag(v.Disposition["default"]),
-		"--forced-display-flag", "0:"+flag(v.Disposition["forced"]))
+		"--default-track-flag", tid+flag(s.Disposition["default"]),
+		"--forced-display-flag", tid+flag(s.Disposition["forced"]))
 	if trackTags != "" {
-		args = append(args, "--tags", "0:"+toolArg(trackTags))
+		args = append(args, "--tags", tid+toolArg(trackTags))
 	}
-	return append(args, toolArg(intermediate), "--track-order", strings.Join(order, ","))
+	return args
 }
 
 // hasTrackStatistics reports whether any track carries mkvmerge's statistics tags.

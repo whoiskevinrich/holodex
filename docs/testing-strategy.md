@@ -6495,3 +6495,275 @@ well; it isn't restated here.
 - **Performance.** No case times a 16-playlist, 256-condition expansion on the `-big` fixture, or
   `GET /playlists` re-counting every smart playlist (SEC-5's accepted cost). Add one if either is
   reported slow.
+
+## 41. Video trimming (F88, HOLODEX-613)
+
+[Spec](specs/video-trimming.md) · [architecture](architecture/file-maintenance.md) ·
+[handoff](design/video-trimming-handoff.md). A trim is the second F77 Maintenance operation, so §25's
+swap, hold, restore, lane and exposure tests still apply and aren't repeated here. This section covers
+what a trim adds: cuts must land on exact frames, the gate gets looser in three places, and a save as
+edition creates a new file and a new library item.
+
+### 41.1 Risks, ranked
+
+1. **A trim lands on the wrong frame and says it checked.** The output starts or ends one frame off
+   and the gate passes it. The owner walks away trusting it (spec R6), so nothing else catches this.
+2. **The relaxed gate lets real damage through.** Duration, chapters and copied-stream extent are
+   exactly the rules a trim loosens, so a dropped stream tail or a mis-shifted chapter could now pass.
+3. **The edition silently misses state.** A table holding per-video state isn't cloned, including one
+   added later. F86 added two such tables after the clone was designed.
+4. **A half-finished edition.** A crash between the file landing and the clone leaves a file with a
+   bare item, or a clone with no file. A scanner that sees the file first creates a duplicate row.
+5. **Audio out of sync.** Video is cut on a frame and audio on a packet, so an error of more than half
+   a packet per end is a defect.
+6. **The name is an input to a path.** The edition name reaches the filesystem. A bad name could
+   escape the folder or overwrite another file.
+7. **The cut margin on variable-frame-rate files.** A margin of half the nominal frame interval reaches
+   past frames that sit closer together than that. Tried on 2026-11-06, it landed 2 frames early on a
+   clip with 10 ms gaps, which is why the cut uses the midpoint with the real neighbouring frame. T4
+   keeps that from regressing.
+8. **Sound.** The picker is a second place that opens a video element in the dialog (F84 risk 2).
+
+### 41.2 Fixtures (synthesized in-test; nothing committed)
+
+**The oracle is a frame barcode, not the verifier.** Each picture source carries ten vertical bars
+drawn with `geq`, lit by the bits of the frame number `N`. The bars survive a re-encode, so the test
+decodes an output frame, thresholds the bars and reads which source frame it is. This shares no code
+with the cut check. All fixtures are 320×240 and about 6 s, so the matrix fits §25's image budget.
+
+**Frame accuracy:**
+
+| ID | Container | Video | Why it exists |
+|---|---|---|---|
+| T1 | MP4 | H.264, 25 fps, B-frames, 1 s keyframe gap | The baseline. Also carries AAC, `mov_text`, 3 chapters, cover art, XMP `Edition`, iTunes title (M1's shape) |
+| T2 | MP4 | H.264, 24000/1001 fps | The spike's failure: a cut at the frame's own time landed a frame late on 4 of 8 points |
+| T3 | MP4 with an **edit list** and a non-zero start | H.264 with B-frames, cut with `-c copy` so the list is written | Spec success measure. Presented time differs from stored time |
+| T4 | MP4 and MKV, **variable frame rate** | H.264, `settb=1/1000` then `setpts` mixing 40 ms and 10 ms gaps, `-fps_mode passthrough -enc_time_base 1:1000`. Without the time base the gaps round to nothing, so the test first asserts the 10 ms gaps exist. Remuxing to MP4 can change the reported `r_frame_rate`, so each container is built and checked | Spec success measure, and risk 7 |
+| T5 | MP4 | H.264, one keyframe only in the file | A cut far from any keyframe, and a video track that isn't the first stream |
+| K5 | MKV | H.264, 24000/1001 fps | Matroska's millisecond timestamps (the browser reports 1.502 for 1.5015) |
+| K6 | MKV | HEVC yuv420p10le, BT.2020/PQ, HDR10 mastering and MaxCLL | K1's shape: two audio tracks, SRT, font attachment, 3 chapters, tags at levels 50/70/30. The spike's HDR case |
+| K7 | MKV | H.264 | AC3 and AAC audio |
+| K8 | MKV | H.264, video only | The cut pass is skipped, and tags still carry |
+| K9 | MKV | H.264 | 24-bit FLAC (HOLODEX-624), named and with a language, through mkvmerge. Two shapes: beside an AC3 track and a subtitle, and with no other track, so nothing is left to cut. The FLAC is pink noise, never periodic, so its samples can be found in the original by content |
+
+**Frame content**, one short clip per case with no barcode, because a barcode would make the frames
+distinct:
+
+| ID | Content | Expected |
+|---|---|---|
+| C1 | One still image | The screen check skips. The cut check ties and passes. Status names a still image |
+| C2 | Black | Same, naming a black frame |
+| C3 | A slow fade, about 0.2 grey levels per frame | Same, naming a slow fade |
+| C4 | `testsrc2` motion | The screen check runs |
+
+**Captures** stand in for the browser, since CI has no decoder that matches it. Each is a JPEG from
+ffmpeg of a chosen frame, with `eq` shifting brightness by about 20 grey levels to imitate HDR tone
+mapping. The real browser is covered by QA items 2 and 9.
+
+**Edition state:** `seedFullVideo` fills every table in the §41.5 list for a source video, including
+a part number, a `manual` edition decision and a filename carrying an edition marker.
+
+### 41.3 Go unit
+
+| # | Case | Guards risk |
+|---|---|---|
+| U1 | Cut times are the midpoints with the real neighbouring frames, given uneven frame times. A cut at the file's first or last frame gives no seek or no stop on that side | 1, 7 |
+| U2 | Chapters table: wholly inside (shifted), wholly outside (dropped), straddling the start, straddling the end, ending exactly on the cut, spanning the whole range, all dropped (no chapters block) | 2 |
+| U3 | NCC ignores brightness: a frame and the same frame shifted 25 grey levels score about 1. MAD picks n among n−2…n+2 | 1 |
+| U4 | Distinct test around the 0.02 threshold: 0.019 skips, 0.021 runs, and the reason is recorded per end | 1 |
+| U5 | `checkedCut`: one correction across both checks. A cut off once re-encodes, off twice fails naming the end and offset, a screen disagreement twice costs no encode, and there is never a third run | 1 |
+| U6 | Edition target name: replaces an existing marker and never doubles it, sanitises separators, braces, control characters and a leading dot, caps length with a multi-byte name, and a name that sanitises to nothing is refused | 6 |
+| U7 | Preflight: empty name, name equal to the original's edition, existing target, a symlink at the target (`Lstat`), free space of `1.5 × size × kept fraction` for an edition and F77's rule for a replace | 6 |
+| U8 | Gate, one failing candidate per rule, all expected to be refused: one frame too long; one frame short; a chapter not shifted; a dropped audio tail; an audio packet changed inside the range; a stale `_STATISTICS` on a copied track; a second tag differing on an edition; an unchanged edition tag on an edition | 2 |
+| U9 | Gate, must pass: the boundary packet at each end differs, and a neighbour tying n on identical frames | 2 |
+| U10 | Recovery at boot, `stage='landed'`: target present with no clone runs the clone once; target present with a clone changes nothing; target absent restarts from the original | 4 |
+| U11 | Captures go when a job succeeds or a failed one is dismissed, stay for Retry after a failure, and a boot sweep removes any folder no queue row names | 6 |
+| U12 | A capture resembling no reference (another scene) fails the screen check instead of matching the least-bad neighbour | 1 |
+
+### 41.4 Per-container file proof (`-tags integration`, `make test-image`)
+
+`internal/maintenance/trim_integration_test.go`, `TestTrim_RealFiles`, runs through the real worker
+inside the built image. For each of T1–T5 and K5–K7, at both ends together and each end alone:
+
+1. **Barcode oracle.** The output's first and last frames read as exactly the chosen numbers, and the
+   decoded frame count is `out − in + 1`.
+2. **Metadata oracle, independent of `Verify`.** As §25.5 step 4, with the documented exceptions only:
+   duration, statistics and, on an edition, the edition tag.
+3. **Chapters oracle.** `ffprobe` chapters equal a list the test computes by hand for that fixture.
+4. **Stream oracle.** Audio and subtitle packet hashes inside the range equal the original's. Track
+   order and flags match. The font attachment and cover art are byte-identical. FLAC in MKV is
+   re-encoded, so its oracle is the decoded samples instead (`TestTrim_RealFiles_FLAC`): the output's
+   samples are a run of the original's bit for bit, starting within 1 ms of the first kept frame's
+   original time, lasting as long as the kept video within a frame, at the source's 24 or 32 bits (a
+   32-bit case runs video and FLAC only), with the track's name,
+   language and position kept. The gate makes the same sample comparison, and a range shifted one
+   frame fails it.
+5. **Sync oracle.** A click at a known time, found with `silencedetect`, sits at its new time relative
+   to the first video frame, within 50 ms, on AAC in MP4, and AC3 and FLAC in MKV.
+6. **HDR (K6).** Mastering display and MaxCLL are present on the output, and a capture shifted 20 grey
+   levels still passes the screen check.
+7. **Timing.** Every output frame's time strictly follows the last. Neither the barcode nor the cut
+   check can see frames rounded onto one timestamp: the pictures are right and playback judders.
+8. **Save modes.** A replace holds the original and Restore returns its exact bytes. An edition leaves
+   the original's hash and row unchanged, and a from-scratch rescan reads the edition from the name.
+
+Then the **real correction path**:
+- A capture of frame n+1 sent with the time of frame n. The screen check measures +1, run two starts
+  on n+1, and the barcode confirms it.
+- A capture of an unrelated scene: the job fails, the original's hash is unchanged and no edition
+  exists.
+
+Then **C1–C4**: the status records the expected skip or run for each.
+
+### 41.5 Repo and API integration (real repo, `httptest`)
+
+**The clone (`internal/repo/video_clone_test.go`):**
+
+| # | Case | Guards risk |
+|---|---|---|
+| R1 | **Every table is classified.** The test lists each table with a `video_id` or `entity_id` column from `sqlite_master` (enrichment, curation and decisions key on `entity_id`) and requires each to appear in one of four lists: copied, not copied, derived, never holds videos. A new table fails until someone decides. This is the guard for risk 3 | 3 |
+| R2 | After a clone, each copied table's rows equal the source's apart from the id: `video_people`, `video_tags`, `video_studios`, `film_videos`, `playlist_videos`, `metadata_curation`, `field_source_decisions`, `entity_enrichment`, `facet_not_applicable`, `enrichment_dismissals`, `video_poster_sources` | 3 |
+| R3 | Poster slot files for `frame` and `upload` are real copies under the new id. Deleting the edition leaves the source's files | 3 |
+| R4 | `part` is copied. `edition` is a `manual` decision with the new name, and it beats a source decision and a stale filename read | 3 |
+| R5 | Nothing else differs: the resolved metadata of source and edition are compared field by field | 3 |
+| R6 | Not copied: `file_writebacks`, snapshots, `writeback_queue`, `held_originals`, extraction reviews, other `job_runs`, and **`file_renames` and `video_file_names`**, so an edition starts with no rename history and no lock (proposed; the owner can overrule at build) | 3 |
+| R7 | One `job_runs` row with op `trim-edition`, attributed to the new video and carrying the source id | 3 |
+| R8 | An `entity_keep_separate` row exists in `lo, hi` order, and the pair never enters the duplicates queue | 3 |
+| R9 | Independence: an edit, tag or decision on either side leaves the other unchanged, both ways | 3 |
+| R10 | A scanner row already at the target is filled in with no second row. Running the clone twice gives the same result | 4 |
+
+**The routes:**
+
+| # | Case | Guards risk |
+|---|---|---|
+| A1 | Visitor, and owner with Admin mode off: preflight, enqueue and capture upload all refuse, and a job's status is redacted (F77's rule) | 6 |
+| A2 | Enqueue refuses in at or after out, a range keeping the whole file, times beyond the duration, an edition with no name, and a missing capture | 1, 6 |
+| A3 | The enqueue refuses a non-JPEG and an oversize capture, by content. The stored folder's name is generated by the server, never read from the request | 6 |
+| A4 | A second maintenance job on the same video refuses, and a stale dialog is refused at enqueue | — |
+| A5 | **With F86.** A rename is refused while a trimmed replace holds the original. A rename that takes the edition's target after preflight makes the landing fail cleanly, with no overwrite. A trim queued behind a rename uses the file's current path when it runs | 4, 6 |
+| A6 | Poster kept after a replace: an uploaded poster whose frame was cut stays. A generated thumbnail and the moving thumbnails are regenerated, and duration and size refresh with no rescan | — |
+
+### 41.6 Frontend
+
+**Unit (`video/trimPicker.test.ts`):** the handles' limits (never crossing, one frame apart, both ends
+of a very short file); the summary's three forms; the filename preview (replaces a marker, drops
+refused characters, matches a shared table of names with U6's Go case).
+
+**Component (`TrimPicker.svelte.test.ts`):**
+
+| # | Case | Guards risk |
+|---|---|---|
+| P1 | The `<video>` is `muted`, has `volume = 0`, no `controls` and no `autoplay`, and `play` is never called through a drag, keys, the wheel, Back and a save | 8 |
+| P2 | Opens on the first and last frames with the first active. ← and → move only the active handle, and do nothing while a button has focus | 1 |
+| P3 | Nothing to cut, loading and can't decode each withdraw Review trim… | — |
+| P4 | Review arrives with Replace original chosen, and ‹ Back keeps both handles | — |
+| P5 | Save as edition reveals the name prefilled "Trimmed" and selected. The primary is withdrawn while checking, refused or with a refused name, and never shown and then pulled away | — |
+| P6 | `onconfirm` receives both media times and both captures from the frames at rest. A rejected `onconfirm` keeps the dialog open with the message | 1 |
+| P7 | Escape and the backdrop close from either step except while queuing | — |
+
+**`web/src/lib/maintenance.test.ts`:** state selection and copy for trimming, the skipped lines, edition
+saved and each failure, one case per row of the handoff's copy table, and an earlier flip's name kept
+in the held notice.
+
+### 41.7 Live QA (Cinémathèque; numbered and tagged)
+
+Run through a `web*` dev server only, so nothing can make a sound.
+
+1. `[smoke]` Owner with Admin mode on sees **File** with Flip horizontally… and Trim…. A visitor and
+   Admin mode off see neither.
+2. `[agent]` On the 84-minute MP4: drag both handles, step with ← → and the wheel, and read `paused`,
+   `muted` and `volume` after each step. The frame number moves by exactly one per step.
+3. `[agent]` Click each still to change the active end. The 2px border and the slider's focus follow.
+4. `[agent]` Geometry at 360, 768 and 1280 px: the rail stacks below `lg`, the review stills stack
+   below `sm`, there's no sideways scroll and the footer stays inside the dialog.
+5. `[agent]` Keyboard only: Tab between handles, Home and End to the limits, and focus lands on the
+   "Review trim" heading. The summary is announced once a handle comes to rest.
+6. `[agent]` Name refusals on a stress video: empty, the original's edition, and a file that already
+   exists. Each shows its copy and withdraws Save edition.
+7. `[agent]` Replace on a test copy. The pill reads queued, then trimming. The notice appears with its
+   date, and the player and thumbnail reload with no hard refresh. Restore brings back the full length.
+8. `[agent]` Save as edition on a test copy. The title, actors, director, studio and Tags match on the
+   new item. Its history starts "Trimmed from {title}", linking back, and Duplicates doesn't list the pair.
+9. `[human]` Frame truth on the spike's two long files, an MKV tagged HDR and an MP4, at both ends:
+   step to a clear frame, trim, then open the output. Its first and last frames are the ones chosen.
+10. `[human]` Trim a still or black ending. The notice says the screen check was skipped and why.
+11. `[human]` Watch both cut points with sound on your own player, outside the dev environment: no
+    audible slip, and a visual check of the re-encode's quality.
+
+### 41.8 Mutation checks
+
+Run on 2026-11-06 with a script that applied each break, ran its named test and restored the file: 49
+breaks, every one now red. The first pass caught 42 cleanly. Four survived because the test passed by
+coincidence: an even brightness shift that plain pixel comparison also handles, a correction test doing
+its own sum instead of using the production line, a mid-move test checking only the final state, and a
+check-in-progress test whose first check had no earlier answer to fall back on. Three breaks had to be
+rebuilt, because two didn't compile and one failed only by crashing. Rebuilt, one of them survived too,
+since nothing tested a trashed row holding the edition's name. All five survivors now have tests that go
+red.
+
+Beyond the list below, the pass broke the capture bounds, the packet comparison, the clone's copy
+list, the fold's trim links, the owner gate, the journal after a failed landing, and the picker's handle
+limits and silence.
+
+Where a break is caught isn't always where this plan first guessed. Removing the margin, and using half
+the nominal interval, fail the length rule or a decode before the barcode reads anything. Removing
+`-seek_timestamp` is now caught by the cut check itself, because references no longer share the cut's
+seek. Put references back on that broken seek as well and the cut check goes quiet: K5 is then caught
+only by the length rule and K6 only by the barcode.
+
+Each change must turn its named test red:
+- Remove the margin and seek to the frame's own time → `TestTrim_RealFiles` T2 barcode oracle.
+- Remove `-seek_timestamp` → K5 and K6, where audio priming makes the start time negative.
+- Decode references through the cut's own seek, with `-seek_timestamp` removed too → K6 goes red only
+  on the barcode oracle.
+- Correct the cut the wrong way → `TestTrim_RealFiles_CutCheckCorrects`.
+- Remove `-enc_time_base` → step 7, the strictly increasing times.
+- Remove the cover's `-copypriorss` → T1's stream count.
+- Use half of `r_frame_rate`'s interval instead of the midpoint → U1, and the T4 MKV barcode oracle.
+- Compare with absolute pixels instead of NCC → step 6 (K6).
+- Let a third run happen after a second mismatch → U5.
+- Land before the frame checks → the failed-correction case's original hash.
+- Keep the boundary packets in the hash → U9.
+- Stop recomputing statistics on copied streams → U8, and K6's metadata oracle.
+- Remove one table from the clone → R1 and R2.
+- Add a `video_id` table with no classification → R1.
+- Skip the `entity_keep_separate` row → R8.
+- Build the target without `Lstat` → U7.
+- Skip the landing-time target re-check → A5.
+- Call `play()` in the picker → P1.
+
+### 41.9 Coverage targets and standing gaps
+
+- **Targets:** `internal/maintenance` stays at or above §25.9's 90%, and every output-contract rule owns
+  at least one failing case. The clone has 100% of its tables classified. The real-file matrix passes
+  under `make test-image` before the PR is marked ready, recorded in the worklog.
+- **Gaps:**
+  - **No real browser in CI.** Captures are simulated (§41.2). Browser and ffmpeg agreement rests on
+    the spike and QA 9.
+  - **Not in CI:** `make test-image` isn't wired into a workflow (§25.9).
+  - **FLAC in MP4** has no fixture. It travels MP4's one-pass packet copy like AAC.
+  - **TrueHD, DTS-HD MA and Atmos** have no fixture. They travel the same packet-copy path as AC3,
+    and nothing decodes them.
+  - **Dolby Vision** remains unit-only, and is refused as in F77.
+  - **A long encode's shutdown** is covered by §25's cancel-and-requeue test, not a real one.
+  - **Sync is measured at one click per codec,** and judged by ear in QA 11.
+
+**First real-file run (2026-11-06, `holodex:test-image`, no audio played):** every fixture and every
+range passes, and the flip's real-file tests still do. The run found five things the unit tests
+couldn't: a negative container start time landing cuts a frame early, with the cut check blind to it
+because its references shifted too; mkvmerge's `--split` also cutting the re-encoded track; FLAC being
+unsplittable; `-copypriorss 0` dropping cover art; and midpoint seeks rounding frames onto one
+timestamp. §41.8's mutation pass has since run, and `TestFoldMovedVideoCarriesTrimLinks` covers the fold.
+
+**First run in the app (2026-11-06, `web-9700` against the built image, silent test files):** a replace
+on an MP4 chosen at 6.12 s and 21.92 s kept source frames 153 to 548, read from the barcode. An edition
+on an MKV chosen at 0.40 s and 28.96 s kept frames 10 to 724, carried the sanitized name in its file
+name and tag, and left the original alone. Real browser captures passed the screen check on both.
+Restore returned the full length. The run also found a bug no test had: an edition on an MP4 with no
+XMP failed the gate on exiftool's toolkit stamp, so `TestTrim_RealFiles_EditionTag` now covers that
+file too. QA items 1, 3 and 4 (at 1280 and 375 px), 7 and 8 are covered by this
+run; 2, 5, 6, 9, 10 and 11 are still to do.
+
+**Tried before writing this plan (2026-11-06, ffmpeg, no audio):** the barcode read correctly through
+an x264 re-encode at 24000/1001. Midpoint cuts landed exactly on 17 of 17 cuts across a constant-rate
+MP4, a variable-rate MKV and MP4, and an MP4 with a real edit list.

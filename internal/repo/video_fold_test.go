@@ -283,6 +283,41 @@ func TestFoldMovedVideoCarriesWorkAndKeepsOlderIdentity(t *testing.T) {
 // F86 R16: a fold merges the name lock rather than replacing it. The survivor is locked when either
 // side was, an owner or undo lock outranks an auto one, a tie keeps newer's, and newer's settle
 // observation (desired_name, desired_since) still wins, because newer describes the file on disk.
+// A healed move keeps a trim's links: its own outcome and source, and other rows naming it.
+func TestFoldMovedVideoCarriesTrimLinks(t *testing.T) {
+	r, database := newRepoDB(t)
+	ctx := context.Background()
+	o, n := seedMovePair(t, r, database, "/m/old.mp4", "/m/new.mp4", "fp-trim")
+	src, err := r.UpsertVideo(ctx, legacyVideo("/m/source.mp4"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edition, err := r.UpsertVideo(ctx, legacyVideo("/m/edition.mp4"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The moved video was trimmed from src and has an outcome of its own. An edition was trimmed from
+	// it, and src's outcome names it.
+	mustExec(t, database, `INSERT INTO video_trimmed_from (video_id, source_video_id, created_at) VALUES (?, ?, 'x'), (?, ?, 'x')`, n, src, edition, n)
+	mustExec(t, database, `INSERT INTO video_trim_results (video_id, mode, created_at) VALUES (?, 'replace', 'x')`, n)
+	mustExec(t, database, `INSERT INTO video_trim_results (video_id, mode, edition_video_id, created_at) VALUES (?, 'edition', ?, 'x')`, src, n)
+	if err := r.FoldMovedVideo(ctx, o, n); err != nil {
+		t.Fatal(err)
+	}
+	if got := scalar[int64](t, database, `SELECT source_video_id FROM video_trimmed_from WHERE video_id = ?`, o); got != src {
+		t.Errorf("survivor's source = %d, want %d", got, src)
+	}
+	if got := scalar[int64](t, database, `SELECT source_video_id FROM video_trimmed_from WHERE video_id = ?`, edition); got != o {
+		t.Errorf("an edition of the moved video names %d, want %d", got, o)
+	}
+	if got := scalar[string](t, database, `SELECT mode FROM video_trim_results WHERE video_id = ?`, o); got != "replace" {
+		t.Errorf("survivor's outcome = %s", got)
+	}
+	if got := scalar[int64](t, database, `SELECT edition_video_id FROM video_trim_results WHERE video_id = ?`, src); got != o {
+		t.Errorf("an outcome names edition %d, want %d", got, o)
+	}
+}
+
 func TestFoldMovedVideoMergesNameLock(t *testing.T) {
 	type side struct {
 		locked bool
