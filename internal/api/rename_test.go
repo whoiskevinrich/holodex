@@ -48,7 +48,8 @@ func renameServer(t *testing.T, token string) *renameFixture {
 	mpath := filepath.Join(dir, "metadata-mappings.yaml")
 	yaml := "fields:\n" +
 		"  - canonical: title\n    label: Title\n    sources: [file:title]\n" +
-		"  - canonical: studio\n    label: Studio\n    sources: [Publisher]\n"
+		"  - canonical: studio\n    label: Studio\n    sources: [Publisher]\n" +
+		"  - canonical: actors\n    label: Actors\n    sources: [Artist, Performer]\n"
 	if err := os.WriteFile(mpath, []byte(yaml), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -237,6 +238,49 @@ func TestRenamePlanReasonsAndCounts(t *testing.T) {
 	}
 	if after := treeOf(t, f.lib); !bytes.Equal(before, after) {
 		t.Error("the plan touched the library")
+	}
+}
+
+// {people} names each linked person once, by their canonical name: a file tag carrying an alias
+// and a source carrying the name survive the actors merge as two values, but they are one person.
+func TestRenamePeopleUseCanonicalName(t *testing.T) {
+	f := renameServer(t, "secret")
+	ctx := context.Background()
+	path := filepath.Join(f.lib, "junk5.mkv")
+	if err := os.WriteFile(path, []byte("junk5"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vid, err := f.r.UpsertVideo(ctx, &model.Video{FilePath: path, Title: "Gala",
+		FileMtime: time.Now().UTC().Truncate(time.Second)}, []model.ExtraMetadata{
+		{SourceKey: "Artist", Value: "J. Doe"}, {SourceKey: "Artist", Value: "R. Roe"},
+		{SourceKey: "Performer", Value: "Jane Doe"}, {SourceKey: "Performer", Value: "Ray Roe"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Ray's link has no role, as a link made before roles existed does.
+	if err := f.r.ReconcileVideoPeople(ctx, vid, []repo.PersonRoleName{
+		{Name: "Jane Doe", Role: "actor"}, {Name: "Ray Roe", Role: ""}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	for name, alias := range map[string]string{"Jane Doe": "J. Doe", "Ray Roe": "R. Roe"} {
+		pid, ok, err := f.r.PersonIDByName(ctx, name)
+		if err != nil || !ok {
+			t.Fatalf("person %s = %v %v", name, ok, err)
+		}
+		if _, err := f.r.AddPersonAlias(ctx, pid, alias); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.put(t, rename.KeyTemplates, `["{title} - {people}"]`)
+	f.put(t, rename.KeyMode, rename.ModePlan)
+
+	rows := f.plan(t, "?reason=all&video_id="+itoa(vid))["rows"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("rows = %v", rows)
+	}
+	if name := rows[0].(map[string]any)["name"]; name != "Gala - Jane Doe, Ray Roe.mkv" {
+		t.Errorf("name = %v, want Gala - Jane Doe, Ray Roe.mkv", name)
 	}
 }
 

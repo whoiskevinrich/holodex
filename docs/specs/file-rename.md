@@ -99,7 +99,7 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
 | Token | Renders | Read back as |
 |---|---|---|
 | `{title}`, `{studio}` | the resolved value | the same field |
-| `{people}` | the cast, joined with the configured people delimiter | the cast |
+| `{people}` | the cast, joined with the configured people delimiter; each person once, by their name, never an alias | the cast |
 | `{year}` | the year of the release date, four digits | the release year |
 | `{edition}`, `{part}` | the F48 markers `{edition-…}` and `{part-N}` | the same field |
 | `{provider-1-id}` (one per provider) | an identity marker, `{provider-1-<id>}` | an identity hint (P0-11) |
