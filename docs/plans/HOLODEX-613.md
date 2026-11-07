@@ -18,7 +18,7 @@ release_note: Trim unwanted footage off the start or end of a video from its det
 approved:
   design:
     on: 2026-11-06
-    at: 59c94fbe
+    at: e304549a
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -48,7 +48,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 - [x] architecture `architecture` → `docs/architecture/**`
 - [x] design `design-handoff` → `docs/design/**`
 - [x] backend → `{cmd,internal,providers}/**`
-- [ ] frontend → `web/src/**`
+- [x] frontend → `web/src/**`
 - [/] testing `testing-strategy`
 - [x] security `security-review` — backend reviewed 2026-11-06, no findings; `security-perimeter.md` updated
 
@@ -67,10 +67,9 @@ original (held for the F77 window) or lands as a new edition item copied from th
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [frontend] `TrimPicker`, the review step and the File row, on the routes in `internal/api/maintenance_trim.go` — `docs/design/video-trimming-handoff.md`
-2. [ ] [design] Add handoff copy for the FLAC and second-video-track refusals and the other-scene failure, then re-confirm the sign-off with the owner — `docs/design/video-trimming-handoff.md`
-3. [ ] [testing] §40.8 mutation pass, §40.6 frontend tests, and a fold test for the trim links — `docs/testing-strategy.md`
-4. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
+1. [ ] [testing] §40.8 mutation pass and a fold test for the trim links — `docs/testing-strategy.md`
+2. [ ] [testing] QA by hand: §40.7 items 2, 5, 6, then the owner's 9, 10, 11 on the two long films — `docs/testing-strategy.md`
+3. [ ] [—] Trim Matroska with FLAC audio → HOLODEX-624
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,7 +83,7 @@ original (held for the F77 window) or lands as a new edition item copied from th
 
 ### 2026-11-06 · session
 - skills: design-handoff, implement, testing-strategy, handoff, code-review, security-review
-- handoff: Backend built and proven on real files in holodex:test-image (every container and range lands exact frames; flip tests still pass): trim job, frame checks, edition clone, routes and migration 0069. Building changed the design in the architecture doc: real timestamps with -seek_timestamp, a 90 kHz encoder clock, references picked by timestamp, a three-step MKV path. FLAC in MKV is refused for now (HOLODEX-624). CodeQL's path alert on the edition target is answered with an explicit bound on the file name. The security review of the backend found nothing above the bar, and the perimeter doc records the new surface; re-run it if the frontend changes a route. Next: the frontend, starting at TrimPicker.
+- handoff: Backend and frontend are built on Draft PR #581, and real trims in the app land on the exact frames chosen: replace on MP4, edition on MP4 and MKV, plus Restore. The owner re-confirmed the design at e304549a after a Trimmed from link and new copy were added. Testing is the last open gate. Next: the §40.8 mutation pass, then the by-hand QA on the two long films.
 
 ### 2026-11-02 · session
 - skills: architecture
