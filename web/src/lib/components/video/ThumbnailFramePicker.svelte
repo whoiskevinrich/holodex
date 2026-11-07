@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import Modal from '#lib/components/shared/Modal.svelte';
 	import { formatDuration, toMessage } from '#lib/format.ts';
-	import { FALLBACK_FRAME, WheelStepper, frameInterval, stepTarget, timecode } from './framePicker.ts';
+	import { FALLBACK_FRAME, FrameReader, WheelStepper, captureFrame, stepTarget, timecode } from './framePicker.ts';
 
 	let {
 		src,
@@ -41,11 +41,9 @@
 	let saving = $state(false);
 	let error = $state('');
 
-	const canRVFC = typeof HTMLVideoElement !== 'undefined' && 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
-	let lastPresented = 0;
-	let presented = 0; // frames reported by watchFrames; 0 means the browser isn't reporting any
-	let onPresent: (() => void) | null = null; // seekAndRead's early finish
-	let alive = true;
+	const reader = new FrameReader((mediaTime, seeking) => {
+		if (!seeking) aim = mediaTime;
+	});
 	const wheel = new WheelStepper();
 
 	function seek(t: number) {
@@ -61,96 +59,33 @@
 		aim = Math.max(0, t - interval / 2);
 	}
 
-	// Track the presented frame. A paused video presents a frame only after a seek, so this loop
-	// is idle while the owner isn't scrubbing.
-	function watchFrames(v: HTMLVideoElement) {
-		const cb: VideoFrameRequestCallback = (_now, meta) => {
-			lastPresented = meta.mediaTime;
-			presented++;
-			if (!v.seeking) aim = meta.mediaTime;
-			onPresent?.();
-			if (alive) v.requestVideoFrameCallback(cb);
-		};
-		v.requestVideoFrameCallback(cb);
-	}
-
 	// A settled seek snaps `aim` back to a frame start. A seek inside the presented frame brings
 	// no new report, and a raw mid-frame `aim` would make the next step skip a frame. Without
 	// any reports, the start is estimated from the fallback interval.
 	function onSeeked() {
 		if (!videoEl || videoEl.seeking) return;
-		aim = presented > 0 ? lastPresented : Math.floor(videoEl.currentTime / interval + 1e-6) * interval;
+		aim = reader.count > 0 ? reader.last : Math.floor(videoEl.currentTime / interval + 1e-6) * interval;
 	}
 
-	// Seek and resolve with the presented frame's media time: as soon as a new frame is reported
-	// after the seek, else from watchFrames' record shortly after it settles (a seek inside the
-	// same frame presents nothing new, so the record is already right). Null when the browser
-	// has reported no frame at all (a page that isn't rendering).
-	function seekAndRead(v: HTMLVideoElement, t: number): Promise<number | null> {
-		return new Promise((resolve) => {
-			const before = presented;
-			let done = false;
-			const finish = () => {
-				if (done) return;
-				done = true;
-				onPresent = null;
-				resolve(presented > 0 ? lastPresented : null);
-			};
-			onPresent = () => {
-				if (presented > before && !v.seeking) finish();
-			};
-			v.addEventListener('seeked', () => setTimeout(finish, 200), { once: true });
-			setTimeout(finish, 1500); // a seek that never settles
-			v.currentTime = t;
-		});
-	}
-
-	// Spec P0-6: one frame is the real interval between two presented frames, probed in
-	// 1/120 s steps from the opening frame.
 	async function measure(v: HTMLVideoElement, from: number) {
-		const first = await seekAndRead(v, from);
-		if (first === null) {
+		const m = await reader.measure(v, from);
+		if (!m) {
 			onSeeked();
 			return;
 		}
-		for (let k = 1; k <= 8 && alive; k++) {
-			const next = await seekAndRead(v, first + k / 120);
-			if (next !== null && next > first) {
-				interval = frameInterval(first, next);
-				break;
-			}
-		}
-		if (!alive) return;
-		await seekAndRead(v, first + interval / 2);
-		aim = first;
+		interval = m.interval;
+		aim = m.first;
 	}
 
 	async function onLoadedMetadata() {
 		if (!videoEl) return;
 		duration = videoEl.duration || 0;
 		const start = Math.min(Math.max(startAt, 0), duration);
-		if (canRVFC) {
-			watchFrames(videoEl);
+		if (FrameReader.supported) {
+			reader.watch(videoEl);
 			await measure(videoEl, start);
 		} else seek(start);
 		ready = true;
-	}
-
-	function settled(v: HTMLVideoElement): Promise<void> {
-		return v.seeking ? new Promise((r) => v.addEventListener('seeked', () => r(), { once: true })) : Promise.resolve();
-	}
-
-	async function capture(v: HTMLVideoElement): Promise<File> {
-		await settled(v);
-		const canvas = document.createElement('canvas');
-		canvas.width = v.videoWidth;
-		canvas.height = v.videoHeight;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error("This browser can't capture the frame.");
-		ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-		const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', 0.92));
-		if (!blob) throw new Error("This browser can't capture the frame.");
-		return new File([blob], 'frame.jpg', { type: 'image/jpeg' });
 	}
 
 	async function useFrame() {
@@ -158,7 +93,7 @@
 		saving = true;
 		error = '';
 		try {
-			await onuse(await capture(videoEl), aim);
+			await onuse(await captureFrame(videoEl), aim);
 		} catch (e) {
 			error = toMessage(e);
 		} finally {
@@ -215,7 +150,7 @@
 		// On the panel itself: clicking the frame focuses the panel, and keys must still step.
 		p?.addEventListener('keydown', onKeydown);
 		return () => {
-			alive = false;
+			reader.stop();
 			area?.removeEventListener('wheel', onWheel);
 			p?.removeEventListener('keydown', onKeydown);
 			// Stop the detached element buffering the stream.

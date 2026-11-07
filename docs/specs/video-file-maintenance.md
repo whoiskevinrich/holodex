@@ -78,7 +78,9 @@ discards the original early. When the window expires, the held original is delet
   at a time, and a wrong batch re-encode is expensive to undo.
 - **Changing codec, container or quality** (transcoding to "fix" a file). Maintenance repairs the
   picture. It does not modernise the file.
-- **Trimming or cutting.** That changes duration and chapters, and so breaks the output contract.
+- **Trimming or cutting.** That changes duration and chapters, and so breaks this output contract.
+  Trimming is the second Maintenance entry, with its own contract: [video trimming](video-trimming.md)
+  (F88).
 - **Undo after the window.** Once a held original expires or the owner keeps the change, the flip is
   permanent. Flipping again is the only way back, and it costs a second generation of re-encoding.
 

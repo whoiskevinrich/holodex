@@ -89,6 +89,30 @@ func (m *Manager) SetOwnerImage(ctx context.Context, id int64, kind string, data
 	return m.Present(ctx, id)
 }
 
+// CopyOwnerSlots gives a trimmed edition its own copies of the source's frame and upload slots,
+// then presents it (F88). Its rows and decision were cloned in the database; the bytes are the part
+// the database can't hold. A source with no such slot has nothing to copy.
+func (m *Manager) CopyOwnerSlots(ctx context.Context, srcID, dstID int64) error {
+	m.ownerMu.Lock()
+	defer m.ownerMu.Unlock()
+	if err := os.MkdirAll(m.cfg.Dir, 0o755); err != nil {
+		return fmt.Errorf("copy owner slots: %w", err)
+	}
+	for _, slot := range []string{SlotFrame, SlotUpload} {
+		data, err := os.ReadFile(m.slotPath(srcID, slot))
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("copy owner slots: %w", err)
+		}
+		if err := writeAtomic(m.slotPath(dstID, slot), data); err != nil {
+			return fmt.Errorf("copy owner slots: %w", err)
+		}
+	}
+	return m.Present(ctx, dstID)
+}
+
 // RemoveOwnerImage deletes an owner slot and a poster_url decision naming it, then
 // presents the fallback (P0-9). It never touches the media file. cleared reports
 // whether the removed slot was the decided poster.

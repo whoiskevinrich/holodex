@@ -29,6 +29,8 @@
 	import MontageStatus from '#lib/components/video/MontageStatus.svelte';
 	import FileNameRow from '#lib/components/rename/FileNameRow.svelte';
 	import ThumbnailFramePicker from '#lib/components/video/ThumbnailFramePicker.svelte';
+	import TrimPicker from '#lib/components/video/TrimPicker.svelte';
+	import type { TrimChoice } from '#lib/components/video/trimPicker.ts';
 	import { thumbnailButtonLabel } from './thumbnailButton.ts';
 	import PlaylistPicker from '#lib/components/video/PlaylistPicker.svelte';
 	import { setPlayIntent, takePlayIntent } from '#lib/playlistContext.ts';
@@ -81,6 +83,9 @@
 	import { waitForWritebackJob, waitForVideoWriteback } from '#lib/writebackJob.ts';
 	import {
 		MAINTENANCE_IDLE,
+		editionOutcomeCopy,
+		heldVerb,
+		skippedCopy,
 		clockTime,
 		failureCopy,
 		fileName,
@@ -210,6 +215,10 @@
 	let maintError = $state('');
 	let maintAction = $state<'retry' | 'dismiss' | null>(null);
 	let maintActionError = $state('');
+	// The video the trim dialog was opened on. Navigating away leaves it behind, so a dialog can never
+	// queue one video's frames against another.
+	let trimVideoId = $state<number | null>(null);
+	let trimDismissing = $state(false);
 	// The stream URL's version (file_mtime). Pinned per video and advanced only when a
 	// maintenance job settles: a tag write also changes the mtime, and re-versioning the
 	// <video> src on every reload would restart playback mid-watch.
@@ -793,6 +802,39 @@
 
 	function closeMaint() {
 		if (!maintBusy) maintDialog = null;
+	}
+
+	// Trim… (F88) pauses the page player, like the frame picker, and opens the dialog.
+	function openTrim() {
+		videoEl?.pause();
+		trimVideoId = id;
+	}
+
+	// Resolves to the refusal when the re-run check refused, so the dialog can show it. On success
+	// the row moves to the pill at once and the poll takes it from there.
+	async function confirmTrim(t: TrimChoice): Promise<MaintenancePreflight | void> {
+		const target = trimVideoId;
+		if (target === null) return;
+		const res = await api.trimMedia(target, t);
+		if (res.refused) return res.refused;
+		trimVideoId = null;
+		if (target === id) {
+			maintenance = { ...maintenance, pending: true, running: false, failed: false, error: undefined, op: 'trim' };
+		}
+	}
+
+	async function dismissTrimOutcome() {
+		if (trimDismissing) return;
+		trimDismissing = true;
+		maintActionError = '';
+		try {
+			await api.dismissTrimOutcome(id);
+			maintenance = { ...maintenance, trim: undefined };
+		} catch (e) {
+			maintActionError = toMessage(e);
+		} finally {
+			trimDismissing = false;
+		}
 	}
 
 	// Queue an operation; on success the dialog closes and the section shows the pill at once
@@ -2674,9 +2716,9 @@
 				<!-- Owner-only Maintenance block (F77, docs/design/video-file-maintenance-handoff.md):
 				     repairs to the file's picture and its derived images, apart from Manage's
 				     deletes. Labelled rows: the still thumbnail, the hover montage (F83,
-				     moving-thumbnails-handoff.md), then the picture operations, where aspect-ratio
-				     operations will stack. While a picture job runs its button is replaced, not
-				     disabled, by the status pill. -->
+				     moving-thumbnails-handoff.md), then the File row's operations (flip, trim),
+				     where aspect-ratio operations will stack. While a job runs its buttons are
+				     replaced, not disabled, by the status pill. -->
 				{#if isOwner}
 					<section class="space-y-3 border-t border-rule pt-4" aria-labelledby="maintenance-heading">
 						<h2 id="maintenance-heading" class="text-xs uppercase tracking-wide text-muted">Maintenance</h2>
@@ -2705,7 +2747,7 @@
 							<MontageStatus videoId={video.id} />
 						{/if}
 						<div class="flex flex-wrap items-start gap-x-3 gap-y-2">
-						<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">Picture</span>
+						<span class="w-28 shrink-0 pt-1.5 text-sm text-muted">File</span>
 						<div class="flex flex-col items-start gap-2" aria-live="polite">
 							{#if maintenance.pending}
 								<span
@@ -2724,9 +2766,12 @@
 								{#if maintenance.held}
 									<div class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink">
 										<p>
-											Flipped {shortDate(maintenance.held.created_at)}. Original kept until
+											{heldVerb(maintenance.held.op)} {shortDate(maintenance.held.created_at)}. Original kept until
 											{shortDate(maintenance.held.expires_at)}, then deleted.
 										</p>
+										{#if maintenance.trim?.mode === 'replace' && skippedCopy(maintenance.trim.skipped)}
+											<p class="mt-1 text-xs text-muted">{skippedCopy(maintenance.trim.skipped)}</p>
+										{/if}
 										<div class="mt-2 flex flex-wrap gap-2">
 											<button
 												type="button"
@@ -2738,6 +2783,25 @@
 												class="btn-quiet px-3 py-1.5 text-sm"
 												onclick={() => ((maintError = ''), (maintDialog = 'restore'))}>Restore original</button
 											>
+										</div>
+									</div>
+								{/if}
+								{#if maintenance.trim?.mode === 'edition'}
+									<div class="rounded-theme border border-rule bg-surface px-3 py-2 text-sm text-ink">
+										<p>Saved as the {maintenance.trim.edition_name} edition.</p>
+										<p class="mt-1 text-xs text-muted">{editionOutcomeCopy(maintenance.trim.skipped)}</p>
+										<div class="mt-2 flex flex-wrap gap-3 text-sm">
+											{#if maintenance.trim.edition_video_id}
+												<a href={`/media/${maintenance.trim.edition_video_id}`} class="text-accent underline hover:no-underline">Open edition</a>
+											{/if}
+											<button
+												type="button"
+												onclick={dismissTrimOutcome}
+												disabled={trimDismissing}
+												class="text-muted underline hover:no-underline disabled:cursor-not-allowed"
+											>
+												{trimDismissing ? 'Dismissing…' : 'Dismiss'}
+											</button>
 										</div>
 									</div>
 								{/if}
@@ -2761,10 +2825,11 @@
 											{maintAction === 'dismiss' ? 'Dismissing…' : 'Dismiss'}
 										</button>
 									</p>
-									{#if maintActionError}
-										<p class="text-xs text-warn">{maintActionError}</p>
-									{/if}
 								{/if}
+								{#if maintActionError}
+									<p class="text-xs text-warn">{maintActionError}</p>
+								{/if}
+								<div class="flex flex-wrap gap-2">
 								<button
 									type="button"
 									onclick={openFlip}
@@ -2777,9 +2842,26 @@
 									</svg>
 									Flip horizontally…
 								</button>
+								<button type="button" onclick={openTrim} class="btn-ghost rounded-theme px-3 py-1.5 text-sm">Trim…</button>
+								</div>
+							{/if}
+							{#if maintenance.trimmed_from}
+								<p class="text-xs text-muted">
+									Trimmed from
+									<a href={`/media/${maintenance.trimmed_from.video_id}`} class="text-accent underline hover:no-underline">{maintenance.trimmed_from.title}</a>
+								</p>
 							{/if}
 						</div>
 						</div>
+						{#if video && trimVideoId === video.id}
+							<TrimPicker
+								src={api.streamURL(video.id, streamVersion)}
+								filename={fileName(video.file_path)}
+								preflight={(t) => api.trimPreflight(id, t)}
+								onconfirm={confirmTrim}
+								onclose={() => (trimVideoId = null)}
+							/>
+						{/if}
 						<!-- F86: re-keyed on the held original, which blocks a rename while it lasts. -->
 						{#key maintenance.held?.expires_at}
 							<FileNameRow videoId={video.id} heldUntil={maintenance.held?.expires_at} />

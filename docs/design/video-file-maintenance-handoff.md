@@ -34,6 +34,8 @@ Same treatment as Manage: no card, just a top rule.
   file of the page it's on, so there is no part picker.
 - Entries stack vertically (`flex flex-col items-start gap-2`) so aspect-ratio operations add rows
   without changing the layout.
+- The row holding Flip is labelled **File** and also holds **Trim…**, sharing this status block. See
+  the [video trimming handoff](video-trimming-handoff.md).
 
 ## 2. Components and states
 

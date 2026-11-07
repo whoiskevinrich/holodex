@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,8 @@ import (
 // the hold window the confirm dialog quotes, and the wake-up after an enqueue.
 type Maintenance interface {
 	CheckFlip(ctx context.Context, path string) (maintenance.Preflight, error)
+	CheckTrim(ctx context.Context, path string, kept float64, mode, edition, current string) (maintenance.Preflight, error)
+	CaptureRoot() string
 	Hold() time.Duration
 	Kick()
 }
@@ -34,6 +37,8 @@ const reasonInFlight = "in_flight"
 func (h *Handlers) mountMaintenance(r chi.Router) {
 	r.Get("/media/{id}/maintenance/preflight", h.maintenancePreflight)
 	r.Post("/media/{id}/maintenance", h.enqueueFlip)
+	r.Post("/media/{id}/maintenance/trim", h.enqueueTrim)
+	r.Post("/media/{id}/maintenance/trim/dismiss", h.dismissTrimResult)
 	r.Post("/media/{id}/maintenance/restore", h.enqueueHeld(maintenance.OpRestore))
 	r.Post("/media/{id}/maintenance/discard", h.enqueueHeld(maintenance.OpDiscard))
 	r.Post("/media/{id}/maintenance/retry", h.retryMaintenance)
@@ -48,6 +53,28 @@ type preflightView struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+// laneGate is what every operation's preflight shares: the date a held original would be deleted,
+// and whether this video's lane is already busy (the returned view then carries the refusal).
+func (h *Handlers) laneGate(ctx context.Context, id int64) (preflightView, bool, error) {
+	view := preflightView{ExpiresAt: time.Now().Add(h.maint.Hold()).UTC()}
+	held, err := h.repo.GetHeldOriginal(ctx, id)
+	if err != nil {
+		return preflightView{}, false, err
+	}
+	if held != nil {
+		view.ExpiresAt = held.ExpiresAt
+	}
+	ms, err := h.repo.GetVideoMaintenanceStatus(ctx, id)
+	if err != nil {
+		return preflightView{}, false, err
+	}
+	if ms.Pending {
+		view.Reason = reasonInFlight
+		return view, true, nil
+	}
+	return view, false, nil
+}
+
 // flipPreflight runs every check, the worker's and the queue's, for video id.
 func (h *Handlers) flipPreflight(ctx context.Context, id int64) (preflightView, int, error) {
 	path, err := h.repo.PathByID(ctx, id)
@@ -56,20 +83,11 @@ func (h *Handlers) flipPreflight(ctx context.Context, id int64) (preflightView, 
 	} else if err != nil {
 		return preflightView{}, http.StatusInternalServerError, err
 	}
-	view := preflightView{ExpiresAt: time.Now().Add(h.maint.Hold()).UTC()}
-	held, err := h.repo.GetHeldOriginal(ctx, id)
+	view, busy, err := h.laneGate(ctx, id)
 	if err != nil {
 		return preflightView{}, http.StatusInternalServerError, err
 	}
-	if held != nil {
-		view.ExpiresAt = held.ExpiresAt
-	}
-	ms, err := h.repo.GetVideoMaintenanceStatus(ctx, id)
-	if err != nil {
-		return preflightView{}, http.StatusInternalServerError, err
-	}
-	if ms.Pending {
-		view.Reason = reasonInFlight
+	if busy {
 		return view, http.StatusOK, nil
 	}
 	if view.Preflight, err = h.maint.CheckFlip(ctx, path); err != nil {
@@ -88,11 +106,28 @@ func (h *Handlers) maintenancePreflight(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	if op := r.URL.Query().Get("op"); op != string(maintenance.OpHFlip) {
+	var (
+		view   preflightView
+		status int
+		err    error
+	)
+	switch r.URL.Query().Get("op") {
+	case string(maintenance.OpHFlip):
+		view, status, err = h.flipPreflight(r.Context(), id)
+	case string(maintenance.OpTrim):
+		q := r.URL.Query()
+		in, _ := strconv.ParseFloat(q.Get("in"), 64)
+		out, _ := strconv.ParseFloat(q.Get("out"), 64)
+		mode := q.Get("mode")
+		if !validTrimMode(mode) {
+			writeError(w, http.StatusBadRequest, "unknown trim mode")
+			return
+		}
+		view, status, err = h.trimPreflight(r.Context(), id, in, out, mode, q.Get("edition"))
+	default:
 		writeError(w, http.StatusBadRequest, "unknown maintenance operation")
 		return
 	}
-	view, status, err := h.flipPreflight(r.Context(), id)
 	if err != nil {
 		if status == http.StatusNotFound {
 			writeError(w, status, "media not found")
@@ -199,10 +234,19 @@ func (h *Handlers) dismissMaintenance(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// A failed trim's captures wait for Retry, so dismissing it is what lets them go.
+	ms, err := h.repo.GetVideoMaintenanceStatus(r.Context(), id)
+	if err != nil {
+		h.fail(w, "dismiss maintenance", err)
+		return
+	}
 	n, err := h.repo.DismissFailedMaintenance(r.Context(), id)
 	if err != nil {
 		h.fail(w, "dismiss maintenance", err)
 		return
+	}
+	if n > 0 && h.maint != nil {
+		h.removeTrimCaptures(ms.Payload)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"dismissed": n > 0})
 }
@@ -219,11 +263,28 @@ type maintenanceView struct {
 	Error     string     `json:"error,omitempty"`
 	Op        string     `json:"op,omitempty"`
 	Held      *heldView  `json:"held"`
+	// The last trim's outcome until dismissed, and an edition's source (F88).
+	Trim        *trimResultView  `json:"trim,omitempty"`
+	TrimmedFrom *trimmedFromView `json:"trimmed_from,omitempty"`
 }
 
 type heldView struct {
+	Op        string    `json:"op"`
 	CreatedAt time.Time `json:"created_at"`
 	ExpiresAt time.Time `json:"expires_at"`
+}
+
+type trimResultView struct {
+	Mode           string                     `json:"mode"`
+	EditionName    string                     `json:"edition_name,omitempty"`
+	EditionVideoID *int64                     `json:"edition_video_id,omitempty"`
+	Skipped        []maintenance.SkippedCheck `json:"skipped"`
+	CreatedAt      time.Time                  `json:"created_at"`
+}
+
+type trimmedFromView struct {
+	VideoID int64  `json:"video_id"`
+	Title   string `json:"title"`
 }
 
 func (h *Handlers) maintenanceFor(ctx context.Context, id int64) (*maintenanceView, error) {
@@ -244,7 +305,26 @@ func (h *Handlers) maintenanceFor(ctx context.Context, id int64) (*maintenanceVi
 		return nil, err
 	}
 	if held != nil && held.State == repo.HeldHeld {
-		v.Held = &heldView{CreatedAt: held.CreatedAt, ExpiresAt: held.ExpiresAt}
+		v.Held = &heldView{Op: held.Op, CreatedAt: held.CreatedAt, ExpiresAt: held.ExpiresAt}
+	}
+	tr, err := h.repo.GetTrimResult(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if tr != nil {
+		view := &trimResultView{Mode: tr.Mode, EditionName: tr.EditionName, EditionVideoID: tr.EditionVideoID,
+			Skipped: []maintenance.SkippedCheck{}, CreatedAt: tr.CreatedAt}
+		if err := json.Unmarshal([]byte(tr.Skipped), &view.Skipped); err != nil {
+			return nil, err
+		}
+		v.Trim = view
+	}
+	from, err := h.repo.GetTrimmedFrom(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if from != nil {
+		v.TrimmedFrom = &trimmedFromView{VideoID: from.VideoID, Title: from.Title}
 	}
 	return v, nil
 }

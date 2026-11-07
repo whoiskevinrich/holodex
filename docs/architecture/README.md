@@ -21,7 +21,7 @@ Index of ADRs for Holodex. Each records one decision, its rationale, and consequ
 | [images.md](images.md) | Image stores and serve routes, normalization, dedup, provenance lock, studio roles, gallery bound, provider icons |
 | [media-ingest.md](media-ingest.md) | Scanner and change detection, move recognition (content fingerprint + fold), symlinks, extraction tools, thumbnails, hover montages, Range serving, soft-delete and purge, refresh |
 | [writeback.md](writeback.md) | Atomic file writes, the durable queue, snapshots and revert, read-back, the tag file contract, MKV and MP4 paths, sync state |
-| [file-maintenance.md](file-maintenance.md) | Picture re-encodes (flip): the per-container pipeline, encoder table, verification gate, two-rename swap, held originals and expiry, queue lanes |
+| [file-maintenance.md](file-maintenance.md) | Picture re-encodes (flip) and trims: the per-container pipeline, encoder table, verification gate, frame checks, two-rename swap, held originals and expiry, edition landing and clone, queue lanes |
 | [file-rename.md](file-rename.md) | Template renames in place: the rename journal and name state, the `rename` queue kind, crash ordering and scanner coordination, the no-overwrite primitive and case-only renames, template and mode storage |
 | [observability-and-jobs.md](observability-and-jobs.md) | Logging, metrics, health and readiness, `job_runs` history and attribution, dismissals, boot jobs, the refresh sweep |
 | [browse-and-list-state.md](browse-and-list-state.md) | Browse query builder, boolean `expr` queries, FTS search, shuffle, related media, resolution buckets, URL list state, scroll snapshots, playlists |
