@@ -5,7 +5,7 @@ import type { ParsedQuery, QueryError, QueryFieldInfo, QueryParseResult } from '
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
-import type { RenameHistoryEntry, RenamePlan, RenameReason, RenameStatus } from './rename';
+import type { RenameHistoryEntry, RenamePlan, RenamePreview, RenameReason, RenameStatus } from './rename';
 import type {
 	MediaBrief,
 	CarryPreview,
@@ -1436,10 +1436,11 @@ export const api = {
 		sendAuthed<{ key: string; value: string }>('PUT', `/admin/settings/${encodeURIComponent(key)}`, { value }),
 
 	// File names (F86, internal/api/rename.go). The plan is computed per request; `preview` is an
-	// unsaved template list and saves nothing (422 with `body.rows` when a template is refused).
-	renamePlan: (q: RenamePlanQuery = {}, preview?: string[]) =>
+	// unsaved template list, plus the character table when it changed, and saves nothing (422 with
+	// `body.rows` when a template is refused, `body.characters` when a table row is).
+	renamePlan: (q: RenamePlanQuery = {}, preview?: RenamePreview) =>
 		preview
-			? sendAuthed<RenamePlan>('POST', `/rename/plan/preview${renamePlanQuery(q)}`, { templates: preview })
+			? sendAuthed<RenamePlan>('POST', `/rename/plan/preview${renamePlanQuery(q)}`, preview)
 			: getAuthed<RenamePlan>(`/rename/plan${renamePlanQuery(q)}`),
 	renameApply: (videoIds: number[]) =>
 		sendAuthed<{ batch_id: string; queued: number; not_renamed: Record<string, number> }>('POST', '/rename/apply', {

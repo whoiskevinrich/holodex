@@ -72,6 +72,19 @@ func (h *Handlers) renameDelimiter() string {
 	return d
 }
 
+// renameCharacters is the owner's P0-4 character table. A stored table that no longer validates
+// falls back to the default (nil).
+func (h *Handlers) renameCharacters() rename.Characters {
+	if h.settings == nil {
+		return nil
+	}
+	c, err := rename.DecodeCharacters(h.settings.Get(rename.KeyCharacters))
+	if err != nil {
+		return nil
+	}
+	return c
+}
+
 // renameTokenFields maps a template token to the canonical field it renders from.
 var renameTokenFields = map[string]string{
 	rename.TokTitle: "title", rename.TokStudio: "studio", rename.TokPeople: "actors",
@@ -305,12 +318,14 @@ func (h *Handlers) renamePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	texts, list := h.renameTemplates()
-	h.writePlan(w, r, texts, list)
+	h.writePlan(w, r, texts, list, h.renameCharacters())
 }
 
-// planPreview is the body of a preview: an unsaved template list (A6). Nothing is saved.
+// planPreview is the body of a preview: an unsaved template list (A6) and, when it changed, an
+// unsaved character table. Nothing is saved.
 type planPreview struct {
-	Templates []string `json:"templates"`
+	Templates  []string          `json:"templates"`
+	Characters map[string]string `json:"characters,omitempty"`
 }
 
 func (h *Handlers) renamePlanPreview(w http.ResponseWriter, r *http.Request) {
@@ -329,10 +344,20 @@ func (h *Handlers) renamePlanPreview(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": tle.Error(), "rows": tle.Rows})
 		return
 	}
-	h.writePlan(w, r, body.Templates, list)
+	chars := h.renameCharacters()
+	if body.Characters != nil {
+		c, err := rename.ParseCharacters(body.Characters)
+		var cte *rename.CharacterTableError
+		if errors.As(err, &cte) {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": cte.Error(), "characters": cte.Rows})
+			return
+		}
+		chars = c
+	}
+	h.writePlan(w, r, body.Templates, list, chars)
 }
 
-func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []string, list []*rename.Template) {
+func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []string, list []*rename.Template, chars rename.Characters) {
 	q := r.URL.Query()
 	reason := q.Get("reason")
 	if reason == "" {
@@ -364,7 +389,7 @@ func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []str
 		h.fail(w, "rename plan", err)
 		return
 	}
-	rows := rename.Plan(list, h.renameDelimiter(), st.inputs, st.disk, nil)
+	rows := rename.Plan(list, h.renameDelimiter(), chars, st.inputs, st.disk, nil)
 
 	view := planView{Mode: h.settings.Get(rename.KeyMode), Templates: texts, Providers: h.RenameProviders(),
 		Total: len(rows), Reason: reason, Counts: map[string]int{}, TemplateCounts: make([]templateCount, len(list)),

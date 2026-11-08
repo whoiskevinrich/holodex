@@ -20,6 +20,7 @@
 		type RenameMode,
 		type RenamePlan,
 		type RenamePlanRow,
+		type RenamePreview,
 		type RenameReason
 	} from '#lib/rename.ts';
 	import RenamePlanRowView, { type RowJob } from './RenamePlanRow.svelte';
@@ -29,13 +30,16 @@
 	let {
 		mode,
 		onloaded,
-		onsavetemplates
+		onsavetemplates,
+		saveLabel = 'Save templates'
 	}: {
 		mode: RenameMode;
 		// Every load's response, so the card can show per-template counts and the provider chips.
 		onloaded?: (plan: RenamePlan) => void;
-		// The bar's Save templates while a preview is showing.
+		// The bar's Save button while a preview is showing.
 		onsavetemplates?: () => void;
+		// The card's Save label: Save templates, Save characters or Save changes (HOLODEX-633).
+		saveLabel?: string;
 	} = $props();
 
 	const PAGE = 100;
@@ -49,8 +53,11 @@
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let error = $state('');
-	// An unsaved template list the plan was last computed from; null shows the saved templates.
-	let preview = $state<string[] | null>(null);
+	// An unsaved draft the plan was last computed from; null shows the saved templates.
+	let preview = $state<RenamePreview | null>(null);
+	const unsaved = $derived(
+		saveLabel === 'Save characters' ? 'characters' : saveLabel === 'Save changes' ? 'changes' : 'templates'
+	);
 
 	const selected = new SvelteSet<number>();
 	let selectedAllOf = $state<Filter | null>(null);
@@ -82,13 +89,13 @@
 		return { renamed, renaming, failed };
 	});
 
-	// reload recomputes the plan, from `list` when given (a preview), else from the saved templates.
+	// reload recomputes the plan, from `list` when given (a preview), else from the saved settings.
 	// A refused preview rejects with ApiError 422 and leaves the plan as it was.
-	export async function reload(list: string[] | null = preview) {
+	export async function reload(list: RenamePreview | null = preview) {
 		await load(filter, list);
 	}
 
-	async function load(want: Filter | null, list: string[] | null) {
+	async function load(want: Filter | null, list: RenamePreview | null) {
 		loading = true;
 		error = '';
 		try {
@@ -324,7 +331,7 @@
 		<h2 id="plan-heading" class="text-xs uppercase tracking-wide text-muted">Plan</h2>
 		{#if plan}
 			<p class="text-sm text-muted">
-				{nf.format(plan.total)} videos · names from your {preview ? 'unsaved' : 'saved'} templates
+				{nf.format(plan.total)} videos · names from your {preview ? `unsaved ${unsaved}` : 'saved templates'}
 			</p>
 		{/if}
 	</div>
@@ -393,8 +400,8 @@
 
 		<div class="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-surface px-3 py-2.5">
 			{#if preview}
-				<p class="text-sm text-muted">Previewing unsaved templates. Save them to rename.</p>
-				<button type="button" class="btn-accent rounded-theme px-3 py-1.5 text-sm" onclick={() => onsavetemplates?.()}>Save templates</button>
+				<p class="text-sm text-muted">Previewing unsaved {unsaved}. Save them to rename.</p>
+				<button type="button" class="btn-accent rounded-theme px-3 py-1.5 text-sm" onclick={() => onsavetemplates?.()}>{saveLabel}</button>
 			{:else if !atLeastManual(mode)}
 				<p class="text-sm text-muted">Plan mode: nothing on disk changes. Choose Manual above to rename.</p>
 			{:else if confirming}

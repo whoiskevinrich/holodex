@@ -69,7 +69,7 @@ func (l *lib) plan(ctx context.Context, videoID int64, run []int64) (Row, error)
 			inputs = append(inputs, Input{ID: p.ID, Path: p.FilePath, Values: Values{"title": {l.titles[p.ID]}}, Locked: locked})
 		}
 	}
-	for _, row := range Plan(list, "", inputs, disk, func(id int64) bool { return inRun[id] }) {
+	for _, row := range Plan(list, "", nil, inputs, disk, func(id int64) bool { return inRun[id] }) {
 		if row.VideoID == videoID {
 			return row, nil
 		}

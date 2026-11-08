@@ -56,7 +56,7 @@ func (h *Handlers) RenamePlanRow(ctx context.Context, videoID int64, run []int64
 		return rename.Row{}, err
 	}
 	_, list := h.renameTemplates()
-	for _, row := range rename.Plan(list, h.renameDelimiter(), st.inputs, st.disk, func(id int64) bool { return only[id] }) {
+	for _, row := range rename.Plan(list, h.renameDelimiter(), h.renameCharacters(), st.inputs, st.disk, func(id int64) bool { return only[id] }) {
 		if row.VideoID == videoID {
 			return row, nil
 		}
@@ -104,7 +104,7 @@ func (h *Handlers) renameApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	texts, list := h.renameTemplates()
-	rows := rename.Plan(list, h.renameDelimiter(), st.inputs, st.disk, nil)
+	rows := rename.Plan(list, h.renameDelimiter(), h.renameCharacters(), st.inputs, st.disk, nil)
 
 	batchID := "rename-" + strconv.FormatInt(time.Now().UnixNano(), 36)
 	var jobs []repo.RenameEnqueue
