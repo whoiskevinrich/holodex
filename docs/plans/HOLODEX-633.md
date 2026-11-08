@@ -26,11 +26,14 @@ plan, and saves it; the rename builder uses the saved table everywhere it builds
 
 ## Up next — ordered (position = priority)
 
-1. [ ] [—] Once #587 (HOLODEX-632) merges, the PR retargets to main: merge `origin/main` in (never rebase) and re-run the suites.
-2. [ ] [—] On merge, move HOLODEX-633 to Done if CI doesn't (stacked branch).
-3. [ ] [—] Fold trim's `SanitizeEditionName` (`internal/maintenance/trim.go`) into the same table (spun out of HOLODEX-632's review).
+1. [ ] [—] On merge, check HOLODEX-633 moved to Done (CI moves the branch's own key).
+2. [ ] [—] Fold trim's `SanitizeEditionName` (`internal/maintenance/trim.go`) into the same table (spun out of HOLODEX-632's review).
 
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
+
+### 2026-11-07 · retarget after #587
+- skills: none (merged `origin/main` with #587's squash in; every conflict was #587's own change, so this branch's side was kept)
+- handoff: #588 now targets main and carries only HOLODEX-633's changes; next is review and merge.
 
 ### 2026-11-07 · build
 - skills: code-review high --fix (1 fixed: the browser isSpace port compared to an invisible BOM literal; 2 skipped: stand-in maxlength counts UTF-16 units, and Save changes is two writes; 1 no change: a corrupt stored table falls back to the default)
