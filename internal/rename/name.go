@@ -29,18 +29,34 @@ var (
 	ErrNotLocal    = errors.New("does not stay in its folder")
 )
 
-// forbidden are the characters P0-4 removes from every value. Braces are removed from values but
-// allowed in a whole name, where only the builder's own markers put them.
+// forbidden are the characters no file name may hold. P0-4 substitutes or removes them in every
+// value. Braces are removed from values but allowed in a whole name, where only the builder's own
+// markers put them.
 const forbidden = `<>:"/\|?*`
 
-// removedRune reports a rune P0-4 removes from a value: the forbidden set, braces, control
-// characters (C0, DEL, C1) and invisible formatting characters (zero-width, text direction).
+// substitutes are P0-4's stand-ins, applied to a value before anything is removed. An empty
+// stand-in removes the character. `!` and `;` are legal file-name characters, but values never
+// keep them. Characters of the forbidden set that aren't listed here are removed.
+var substitutes = map[rune]string{
+	':': "-", '|': "-", '*': "-",
+	'"': "'",
+	'/': "+", '\\': "+",
+	';': ",",
+	'!': "",
+}
+
+// removedRune reports a rune P0-4 removes from a value and refuses in template text: the forbidden
+// set, braces, control characters (C0, DEL, C1) and invisible formatting characters (zero-width,
+// text direction).
 func removedRune(r rune) bool {
 	return strings.ContainsRune(forbidden, r) || r == '{' || r == '}' ||
 		unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
 }
 
-// SanitizeValue applies P0-4 to one token value: removed characters go, each whitespace run left
+// SanitizeValue applies P0-4 to one token value. Substituted characters become their stand-ins,
+// and removed characters are dropped. A `-` stand-in joins the word before it, so `Ada : Love`
+// becomes `Ada- Love` and never ` - `, which is common template text. With no word before it, the
+// stand-in is dropped, so a name never starts with `-`. Each whitespace run left
 // behind becomes one space, the ends are trimmed, and the result is NFC. A value that isn't valid
 // UTF-8 is refused. An empty result means the token has no value.
 func SanitizeValue(s string) (string, error) {
@@ -55,14 +71,22 @@ func SanitizeValue(s string) (string, error) {
 			space = true
 			continue
 		}
-		if removedRune(r) {
+		out, substituted := substitutes[r]
+		if !substituted {
+			if removedRune(r) {
+				continue
+			}
+			out = string(r)
+		}
+		glue := substituted && out == "-"
+		if out == "" || glue && b.Len() == 0 {
 			continue
 		}
-		if space && b.Len() > 0 {
+		if space && b.Len() > 0 && !glue {
 			b.WriteByte(' ')
 		}
 		space = false
-		b.WriteRune(r)
+		b.WriteString(out)
 	}
 	return norm.NFC.String(b.String()), nil
 }

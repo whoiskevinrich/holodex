@@ -308,7 +308,7 @@ func TestRoundTripProperty(t *testing.T) {
 	}
 	// Exactness is Build's own read-back comparison; prove a plain value round-trips.
 	n, err := Build(list, Values{"title": {"a:b*c?"}}, "", ".mkv")
-	if err != nil || !reflect.DeepEqual(n.Written["title"], []string{"abc"}) {
+	if err != nil || !reflect.DeepEqual(n.Written["title"], []string{"a-b-c"}) {
 		t.Errorf("got %v, %v", n.Written, err)
 	}
 }
