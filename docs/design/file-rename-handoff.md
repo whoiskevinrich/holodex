@@ -45,6 +45,29 @@ The owner chose, on 2026-10-31:
 
 ![Video page File name row in Maintenance, ten states: up to date with "Matches template 1." and Lock name; out of date with "Would be [Acme] Northern Lights (2019).mkv", the changed field, Rename and Lock name; the accent renaming pill with "Started 14:02. You can leave this page."; renamed, with a surface box "Renamed Oct 30 from Ada Lovelace (2023).mkv", Undo rename and History (2); the history list of names it has carried, oldest to newest (arrived, then a job rename, then a manual rename), with the trigger of each; locked after a hand edit, with a padlock after the name and Unlock; blocked by a held original; refused because the name wouldn't read back; undo refused because the old name is taken; a failed rename with Retry and Dismiss.](file-rename-video-mockup.svg)
 
+### Characters (HOLODEX-633)
+
+The Renaming card gets a **Characters** section under Templates: the spec's P0-4 character table,
+one row per character. The owner chose, on 2026-11-07:
+
+- **A row per character (A), not a one-line `char=stand-in` field (B).** This was decided after both
+  were mocked up side by side. A row has room for a live example and its own error, and `=` stays
+  usable as a stand-in.
+- **Characters preview before they save, like templates.** The section shares the card's one draft
+  and footer. Preview recomputes the plan from the unsaved templates *and* characters together.
+
+![Characters section, panel 1: under the Renaming card's Templates, a CHARACTERS heading and help line; a Character / Stand-in / Example header; nine rows for : " / \ | * ? < > with stand-ins - ' + + - - and three "removed", each with a live example such as "Star Wars: Episode IV → Star Wars- Episode IV" and no remove button; then rows for ; (,) and ! (removed) and an added & (␣and␣, "Fast & Furious → Fast and Furious"), each with ×; an added @ row whose stand-in a/t has a warn border and "A stand-in can't contain /."; a note that the nine always have a row; + Add character and Reset to defaults; the footer "Unsaved changes. The plan shows them after Preview." with "Fix the @ row to save.", Discard, Preview and a withdrawn Save characters. Panel 2: a draft row whose character input holds "a", refused with "Add a symbol, not a letter, digit or space." Panel 3: the folded card line "Manual · 3 templates · 12 characters · first: [{studio}] {title} ({year})".](file-rename-characters-mockup.svg)
+
+Calls made here:
+
+- **The example column is computed in the browser** from one fixed sample per default character and
+  `a<c>b` for an added one, run through the row's stand-in with P0-4's rules. It is a preview only;
+  the server's answer is what lands.
+- **A stand-in's spaces show as `␣`** only while the input isn't focused, so ` and ` is visible.
+- **The footer's Save button names what changed**: Save templates, Save characters, or Save changes
+  when both did. The plan bar's Save button uses the same label.
+- **The fold line** adds `· N characters` after the template count.
+
 ### Design calls made here (not in the spec)
 
 1. **Every name is shown whole.** A name is a filename the owner must verify, so it is never
@@ -193,6 +216,7 @@ There are no new tokens and no hard-coded colours.
 |---|---|---|
 | `rename/RenamingCard.svelte` | File names tab | Mode, settle window and templates, with the draft state and fold. Composes the owner section chrome. |
 | `rename/TemplateList.svelte` | inside the card | Ordered rows, ↑/↓/×, + Add template, token chips, per-row error and counts. |
+| `rename/CharacterTable.svelte` | inside the card | The Characters section: one row per character, stand-in input, live example, per-row error, × on removable rows, + Add character and Reset to defaults (HOLODEX-633). |
 | `rename/RenamePlan.svelte` | File names tab | Filter row, select-all, rows, `LoadMoreButton`, sticky bar and confirm. |
 | `rename/RenamePlanRow.svelte` | plan | Title line, name lines, explanation and lock button. One row shape for every reason. |
 | `rename/FileNameRow.svelte` | video page Maintenance | Every video-page state below, including History (P1). |
@@ -219,6 +243,10 @@ mechanism is renaming. Add its `CLAUDE.md` table and the folder's row in the sam
 | Save templates | click | Saves the list. On a server refusal, each refused row gets its message and the draft is kept. On success the footer goes and the card folds. |
 | Discard | click | Reverts the draft. The plan reloads from the saved templates if a preview was showing. |
 | Leaving with a draft | navigate | The app's standard unsaved-changes prompt. |
+| Stand-in input | edit | Marks the draft dirty. Empty means removed, shown as a muted `removed` placeholder. The example updates as you type. Errors appear on Preview or Save. |
+| Character × | click | Removes an added or `!`/`;` row. The nine a file name can't hold have no ×. |
+| + Add character | click | Appends a draft row and focuses its one-character input. A letter, digit, space or brace is refused with "Add a symbol, not a letter, digit or space." A repeat gets "`&` is already in the table." |
+| Reset to defaults | click | Puts the default table into the draft (it isn't saved until Save). Withdrawn while the draft already equals the default. |
 
 ### Plan
 
