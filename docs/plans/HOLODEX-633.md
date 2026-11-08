@@ -4,6 +4,10 @@ key: HOLODEX-633
 status: in-progress          # DERIVED from the Gates below; only `done` and `released` are read from here.
 profile: feature             # a new owner setting with a UI surface; no technology fork, no auth change
 depends-on: [HOLODEX-632]
+approved:
+  design:
+    on: 2026-11-07
+    at: 99884aa9
 release_note: You can now choose what each character a file name can't hold becomes, and add your own, from the Characters section of File names.
 ---
 
@@ -30,5 +34,5 @@ plan, and saves it; the rename builder uses the saved table everywhere it builds
 ## Session log — newest first (cap: last 8 sessions; older → archive/)
 
 ### 2026-11-07 · design
-- skills: none (spec and handoff written in place; mockups rendered inline and approved)
-- handoff: Spec and design are settled and owner-approved; next is /implement, then the backend setting.
+- skills: implement (spec and handoff written in place; mockups rendered inline and approved)
+- handoff: Crossed into build — design signed off at 99884aa9; draft PR open. Start at Up next 1 (backend setting).
