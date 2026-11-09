@@ -301,6 +301,52 @@ func TestRenamePlanPreview(t *testing.T) {
 	}
 }
 
+// HOLODEX-633: a preview carries an unsaved character table and renders with it; a refused table
+// names each bad row; the saved table is what the plan uses after it's stored.
+func TestRenameCharacterTable(t *testing.T) {
+	f := renameServer(t, "secret")
+	table := map[string]string{":": "-", "\"": "'", "/": "+", "\\": "+", "|": "-", "*": "-", "?": "", "<": "", ">": "", "-": "+"}
+	names := func(body map[string]any) map[string]bool {
+		out := map[string]bool{}
+		for _, row := range body["rows"].([]any) {
+			if n, _ := row.(map[string]any)["name"].(string); n != "" {
+				out[n] = true
+			}
+		}
+		return out
+	}
+
+	code, body := doJSON(t, http.MethodPost, f.srv.URL+"/api/v1/rename/plan/preview", "secret",
+		map[string]any{"templates": []string{"{title}"}, "characters": table})
+	if code != http.StatusOK || !names(body)["Ada + Redux.mkv"] {
+		t.Fatalf("preview with a '-' row = %d, names %v; want Ada + Redux.mkv", code, names(body))
+	}
+	if _, ok, _ := f.r.GetSetting(context.Background(), rename.KeyCharacters); ok {
+		t.Error("preview saved the character table")
+	}
+
+	code, body = doJSON(t, http.MethodPost, f.srv.URL+"/api/v1/rename/plan/preview", "secret",
+		map[string]any{"templates": []string{"{title}"}, "characters": map[string]string{":": "/", "a": "b"}})
+	rows, _ := body["characters"].(map[string]any)
+	if code != http.StatusUnprocessableEntity || rows[":"] == nil || rows["a"] == nil || rows["?"] == nil {
+		t.Fatalf("refused table = %d %v; want 422 naming :, a and the missing ?", code, body)
+	}
+
+	if code, body := f.put(t, rename.KeyCharacters, `{"a":"b"}`); code != http.StatusUnprocessableEntity || body["characters"] == nil {
+		t.Errorf("PUT refused table = %d %v, want 422 with characters", code, body)
+	}
+	raw, _ := json.Marshal(table)
+	if code, _ := f.put(t, rename.KeyCharacters, string(raw)); code != http.StatusOK {
+		t.Fatalf("PUT valid table = %d", code)
+	}
+	if code, _ := f.put(t, rename.KeyTemplates, `["{title}"]`); code != http.StatusOK {
+		t.Fatal("PUT templates")
+	}
+	if !names(f.plan(t, ""))["Ada + Redux.mkv"] {
+		t.Error("the saved table didn't reach the plan")
+	}
+}
+
 // A7: lock and unlock change only the name state; history lists done renames oldest first.
 func TestRenameLockAndHistory(t *testing.T) {
 	f := renameServer(t, "secret")

@@ -47,12 +47,15 @@ func (h *Handlers) putSetting(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	err := h.settings.Put(r.Context(), key, body.Value)
 	var tle *rename.TemplateListError
+	var cte *rename.CharacterTableError
 	var inv *settings.InvalidError
 	switch {
 	case errors.Is(err, settings.ErrUnknownKey):
 		writeError(w, http.StatusNotFound, err.Error())
 	case errors.As(err, &tle):
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": tle.Error(), "rows": tle.Rows})
+	case errors.As(err, &cte):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": cte.Error(), "characters": cte.Rows})
 	case errors.As(err, &inv):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
 	case err != nil:

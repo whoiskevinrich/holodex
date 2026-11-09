@@ -12,7 +12,7 @@ func TestSanitizeValueRemoves(t *testing.T) {
 	for _, r := range []rune{'<', '>', '?', '!', '{', '}',
 		0x00, 0x1F, 0x7F, 0x85, 0x9F, 0x200B, 0x200E, 0x202E, 0x2066, 0xFEFF} {
 		t.Run(string(r), func(t *testing.T) {
-			got, err := SanitizeValue("Ada" + string(r) + "Love")
+			got, err := SanitizeValue("Ada"+string(r)+"Love", nil)
 			if err != nil || got != "AdaLove" {
 				t.Fatalf("SanitizeValue(%U) = %q, %v; want %q", r, got, err, "AdaLove")
 			}
@@ -27,11 +27,30 @@ func TestSanitizeValueSubstitutes(t *testing.T) {
 		'"': "Ada'Love", '/': "Ada+Love", '\\': "Ada+Love", ';': "Ada,Love",
 	} {
 		t.Run(string(r), func(t *testing.T) {
-			got, err := SanitizeValue("Ada" + string(r) + "Love")
+			got, err := SanitizeValue("Ada"+string(r)+"Love", nil)
 			if err != nil || got != want {
 				t.Fatalf("SanitizeValue(%q) = %q, %v; want %q", r, got, err, want)
 			}
 		})
+	}
+}
+
+// HOLODEX-633: an owner's table replaces the default. A stand-in's spaces collapse with the value's,
+// substitution is one pass, and a forbidden character outside the table is still removed.
+func TestSanitizeValueOwnerTable(t *testing.T) {
+	chars := Characters{':': " - ", '&': " and ", '!': ";", ';': "!", '-': "-"}
+	for in, want := range map[string]string{
+		"Fast & Furious": "Fast and Furious",
+		"Fast&Furious":   "Fast and Furious",
+		"a: b":           "a - b",
+		"Wow!":           "Wow;", // one pass: the ; stand-in isn't itself substituted
+		"a;b":            "a!b",
+		"a?b":            "ab", // not in this table, but no file name may hold it
+		"a - b":          "a- b",
+	} {
+		if got, err := SanitizeValue(in, chars); err != nil || got != want {
+			t.Errorf("SanitizeValue(%q) = %q, %v; want %q", in, got, err, want)
+		}
 	}
 }
 
@@ -59,12 +78,12 @@ func TestSanitizeValueWhitespaceAndNFC(t *testing.T) {
 		"{edition-x}":           "edition-x",
 	}
 	for in, want := range cases {
-		got, err := SanitizeValue(in)
+		got, err := SanitizeValue(in, nil)
 		if err != nil || got != want {
 			t.Errorf("SanitizeValue(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	if _, err := SanitizeValue("a\xffb"); !errors.Is(err, ErrInvalidText) {
+	if _, err := SanitizeValue("a\xffb", nil); !errors.Is(err, ErrInvalidText) {
 		t.Errorf("invalid UTF-8: err = %v, want ErrInvalidText", err)
 	}
 }

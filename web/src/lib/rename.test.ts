@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	DEFAULT_CHARACTERS,
+	characterExample,
+	characterOrder,
+	draftTable,
+	parseCharacters,
+	sameTable,
+	sanitizeValue,
 	changedSince,
 	failureLine,
 	lockLine,
@@ -128,5 +135,82 @@ describe('wording', () => {
 		expect(sentence('add {title} or an identity token: without one, unrelated videos could get the same name')).toBe(
 			'Add {title} or an identity token. Without one, unrelated videos could get the same name.'
 		);
+	});
+});
+
+// HOLODEX-633: the character table's example column mirrors internal/rename/name.go's SanitizeValue
+// (the same cases as name_test.go), so the browser's preview reads like the server's answer.
+describe('sanitizeValue', () => {
+	it('applies the default table like the server', () => {
+		const cases: Record<string, string> = {
+			'a\t\n b': 'a b',
+			'  Ada  ': 'Ada',
+			'a{b}c': 'abc',
+			'Café': 'Café',
+			'../etc': '..+etc',
+			'Star Wars: Episode IV': 'Star Wars- Episode IV',
+			'a : b': 'a- b',
+			'Fire | Ice': 'Fire- Ice',
+			'a - b': 'a - b',
+			'M*A*S*H': 'M-A-S-H',
+			'The "Thing"': "The 'Thing'",
+			'AC/DC': 'AC+DC',
+			'Love; Death': 'Love, Death',
+			'Airplane!': 'Airplane',
+			'Who Goes There?': 'Who Goes There',
+			'a:b*c?': 'a-b-c',
+			' : a': 'a',
+			'*batteries': 'batteries',
+			'{edition-x}': 'edition-x',
+			'a​b': 'ab'
+		};
+		for (const [input, want] of Object.entries(cases)) expect(sanitizeValue(input, DEFAULT_CHARACTERS), input).toBe(want);
+	});
+
+	it('applies an owner table in one pass, still removing what no file name may hold', () => {
+		const chars = { ':': ' - ', '&': ' and ', '!': ';', ';': '!', '-': '-' };
+		const cases: Record<string, string> = {
+			'Fast & Furious': 'Fast and Furious',
+			'Fast&Furious': 'Fast and Furious',
+			'a: b': 'a - b',
+			'Wow!': 'Wow;',
+			'a;b': 'a!b',
+			'a?b': 'ab',
+			'a - b': 'a- b'
+		};
+		for (const [input, want] of Object.entries(cases)) expect(sanitizeValue(input, chars), input).toBe(want);
+	});
+});
+
+describe('characterExample', () => {
+	it('runs a fixed sample through the row stand-in alone, a<c>b for an added character', () => {
+		expect(characterExample(':', '-')).toEqual({ sample: 'Star Wars: Episode IV', result: 'Star Wars- Episode IV' });
+		expect(characterExample('"', "'")).toEqual({ sample: 'The "Thing"', result: "The 'Thing'" });
+		expect(characterExample('?', '')).toEqual({ sample: 'Who Goes There?', result: 'Who Goes There' });
+		expect(characterExample('&', ' and ')).toEqual({ sample: 'Fast & Furious', result: 'Fast and Furious' });
+		expect(characterExample('@', ' at ')).toEqual({ sample: 'a@b', result: 'a at b' });
+	});
+});
+
+describe('character table helpers', () => {
+	it('orders the nine first, then the others in table order', () => {
+		expect(characterOrder({ '!': '', ';': ',', '&': 'and', ':': '-' })).toEqual([
+			':', '"', '/', '\\', '|', '*', '?', '<', '>', '!', ';', '&'
+		]);
+	});
+
+	it('has no table for a row with no character or a repeated one', () => {
+		expect(draftTable([{ char: '&', standIn: 'and' }])).toEqual({ '&': 'and' });
+		expect(draftTable([{ char: '', standIn: 'x' }])).toBeNull();
+		expect(draftTable([{ char: '&', standIn: 'a' }, { char: '&', standIn: 'b' }])).toBeNull();
+	});
+
+	it('compares tables by content, and reads a bad setting as the default', () => {
+		expect(sameTable({ a: '1', b: '2' }, { b: '2', a: '1' })).toBe(true);
+		expect(sameTable({ a: '1' }, { a: '2' })).toBe(false);
+		expect(sameTable({ a: '1' }, { a: '1', b: '' })).toBe(false);
+		expect(parseCharacters('{"&":"and"}')).toEqual({ '&': 'and' });
+		expect(parseCharacters('nope')).toEqual(DEFAULT_CHARACTERS);
+		expect(parseCharacters('{"&":1}')).toEqual(DEFAULT_CHARACTERS);
 	});
 });

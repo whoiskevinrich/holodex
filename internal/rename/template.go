@@ -274,16 +274,16 @@ type Values map[string][]string
 // render fills the template from sanitised values with its first variant that fits: the one that
 // keeps every optional token with a value. ok is false when a required token has no value, so the
 // template doesn't fit (P0-2). written records the value written per token (P0-10).
-func (t *Template) render(v Values, delimiter string) (stem string, written map[string][]string, ok bool, err error) {
+func (t *Template) render(v Values, delimiter string, chars Characters) (stem string, written map[string][]string, ok bool, err error) {
 	for _, vr := range t.variants {
-		if stem, written, ok, err = vr.render(v, delimiter); ok || err != nil {
+		if stem, written, ok, err = vr.render(v, delimiter, chars); ok || err != nil {
 			return stem, written, ok, err
 		}
 	}
 	return "", nil, false, nil
 }
 
-func (vr *variant) render(v Values, delimiter string) (stem string, written map[string][]string, ok bool, err error) {
+func (vr *variant) render(v Values, delimiter string, chars Characters) (stem string, written map[string][]string, ok bool, err error) {
 	written = map[string][]string{}
 	var b strings.Builder
 	last := 0
@@ -291,7 +291,7 @@ func (vr *variant) render(v Values, delimiter string) (stem string, written map[
 		b.WriteString(vr.text[last:loc[0]])
 		last = loc[1]
 		tok := vr.text[loc[2]:loc[3]]
-		vals, err := sanitizeAll(tokenValues(tok, v[tok]))
+		vals, err := sanitizeAll(tokenValues(tok, v[tok]), chars)
 		if err != nil {
 			return "", nil, false, err
 		}
@@ -333,10 +333,10 @@ func tokenValues(tok string, raw []string) []string {
 	return raw[:1]
 }
 
-func sanitizeAll(raw []string) ([]string, error) {
+func sanitizeAll(raw []string, chars Characters) ([]string, error) {
 	var out []string
 	for _, s := range raw {
-		v, err := SanitizeValue(s)
+		v, err := SanitizeValue(s, chars)
 		if err != nil {
 			return nil, err
 		}
@@ -441,9 +441,9 @@ type Name struct {
 // Build gives a video's desired name (P0-2): the first template whose every token has a value,
 // read back with the whole list (P0-3) and checked whole (P0-4, P0-5). ext is the current file's
 // extension, which never changes. A refusal never falls through to a later template.
-func Build(list []*Template, v Values, delimiter, ext string) (Name, error) {
+func Build(list []*Template, v Values, delimiter string, chars Characters, ext string) (Name, error) {
 	for i, t := range list {
-		stem, written, ok, err := t.render(v, delimiter)
+		stem, written, ok, err := t.render(v, delimiter, chars)
 		if err != nil {
 			return Name{}, err
 		}

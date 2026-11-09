@@ -152,7 +152,7 @@ occurrence of that text.
 **P0-4. One name that is valid everywhere.** Holodex builds the strictest name that is valid on both
 Windows and Linux, on every platform:
 - Characters a file name can't hold, plus `!` and `;`, become a readable stand-in in each value,
-  or are removed:
+  or are removed. This is the default character table:
 
   | Character | Becomes | Example |
   |---|---|---|
@@ -169,6 +169,21 @@ Windows and Linux, on every platform:
   template text. For example, a `;` in a cast member's name becomes `,`, which matches the default
   people delimiter. Such a name is refused under P0-3, like any value that contains its template's
   text.
+- **The owner edits the character table:**
+  - Each character a file name can't hold (`: " / \ | ? * < >`) always has a row. Its stand-in can
+    change, or be empty to remove the character, but the character itself can never be kept.
+  - The owner can add any other single visible character, such as `&` → `and`, and can delete a row
+    they added, including the default `!` and `;` rows. A letter, a digit, a space, a brace or a
+    character already in the table can't be added.
+  - A stand-in is at most 8 characters. It may not contain a character a file name can't hold, a
+    brace or a control character. It may contain spaces, which collapse with the spaces around them
+    like any other whitespace, so `Fast & Furious` with `&` → ` and ` becomes `Fast and Furious`.
+  - Substitution is one pass: a stand-in is never itself substituted.
+  - The `-` joining rule above applies to any stand-in that is exactly `-`.
+  - A changed table is previewed before it's saved, like a changed template list: the plan shows the
+    names it would produce. Once it's saved, every video whose name changes shows as out of date
+    (P0-12).
+  - **Reset to defaults** restores the table above.
 - Control characters (including DEL and the C1 range), invisible formatting characters (zero-width
   and text-direction marks) and braces `{ }` are removed from each value, and any run of whitespace
   this leaves becomes one space.
