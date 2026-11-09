@@ -15,6 +15,10 @@ depends-on: [HOLODEX-619]               # [KEY-…] cross-epic deps that must la
 release_note: Owners can now filter and sort videos, people and studios by provider link, by whether a field has a value, and by how much providers contributed, which replaces the Completeness score and ring.
                              # Release-Note: git trailer → release notes. An epic can't close with all
                              # gates [x] but this empty.
+approved:
+  design:
+    on: 2026-11-09
+    at: f6e95759
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -62,13 +66,13 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [design] Run /implement: owner signs off the handoff and SVGs, then the Draft PR opens — `docs/design/provider-and-field-filters-handoff.md`
-2. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
-3. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
-4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
+1. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
+2. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
+3. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+4. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
+5. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+6. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
+7. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -79,6 +83,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-08 · crossed into build
+- skills: implement
+- handoff: Crossed into build — design signed off at f6e95759 (F90 files unchanged since 3cf89354, main merged in); the Draft PR is open. Start at the testing strategy, with its failing `matched:any` test first.
 
 ### 2026-11-07 · F89 merged; architecture
 - skills: architecture, design-handoff
