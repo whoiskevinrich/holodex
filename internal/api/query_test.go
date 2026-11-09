@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"holodex/internal/extract"
 	"holodex/internal/model"
 	"holodex/internal/query"
 	"holodex/internal/repo"
@@ -234,6 +235,24 @@ func TestQueryNegationAndEmpty(t *testing.T) {
 	}
 	if got := fx.expr(t, "-year:2001", filmTok); !slices.Contains(got, fx.v["Other Unmatched"]) {
 		t.Errorf("-year:2001 drops the video with no recorded date: %v", got)
+	}
+}
+
+// F90 P0-1: filename parsing writes shadow-store rows under its own provider name, but a
+// video whose only data came from its filename is not linked to a provider.
+// It failed against the code on 2026-11-09 (testing-strategy §42.5 A1); the fix removes the skip.
+func TestQueryMatchedAnyIgnoresFilename(t *testing.T) {
+	t.Skip("F90 build: matched:any still counts filename rows; remove this skip with the fix")
+	fx := newQueryFixture(t)
+	id := fx.v["Other Unmatched"]
+	if err := fx.r.UpsertEnrichment(context.Background(), model.EnrichEntityVideo, id, extract.Provider, "", map[string][]string{"title": {"Other Unmatched"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := fx.expr(t, "matched:any", filmTok); slices.Contains(got, id) {
+		t.Errorf("matched:any includes a filename-only video: %v", got)
+	}
+	if got := fx.expr(t, "-matched:any", filmTok); !slices.Contains(got, id) {
+		t.Errorf("-matched:any drops a filename-only video: %v", got)
 	}
 }
 

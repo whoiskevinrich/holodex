@@ -31,7 +31,7 @@ approved:
 Done means the owner can ask which videos, people and studios are linked to a provider, which have or
 lack a field's value, and how much providers contributed, with the Completeness score and ring gone.
 
-**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: [field-resolution.md](../architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) · handoff: [provider-and-field-filters-handoff.md](../design/provider-and-field-filters-handoff.md) · testing-strategy: pending
+**Design package:** [spec F90](../specs/provider-and-field-filters.md) · architecture: [field-resolution.md](../architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) · handoff: [provider-and-field-filters-handoff.md](../design/provider-and-field-filters-handoff.md) · testing-strategy: [§42](../testing-strategy.md#42-provider-link-and-field-filters-the-enriched-count-the-score-retired-f90-holodex-626)
 
 ## Gates — definition of done
 
@@ -48,7 +48,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy`
+- [ ] testing `testing-strategy` — §42 strategy written; A1 committed skipped; the rest is written with the build
 - [ ] security `security-review`
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,13 +66,14 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [testing] Strategy section, starting with a failing test for `matched:any` and filename-only videos — `docs/testing-strategy.md`
-2. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
-3. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-4. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-5. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-6. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
-7. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
+1. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
+2. [ ] [backend] Restrict `matched` to declared providers, remove A1's skip, declare `provider-1` in §38.2's fixture — `internal/repo/query_compile.go`
+3. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
+6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
+8. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -83,6 +84,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-09 · testing strategy
+- skills: handoff
+- handoff: Testing strategy §42 is written and the `matched:any` premise is confirmed by a failing test (A1, committed skipped); next is the security review, then the backend fix that removes A1's skip.
 
 ### 2026-11-08 · crossed into build
 - skills: implement

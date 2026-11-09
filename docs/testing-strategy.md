@@ -6768,3 +6768,174 @@ run; 2, 5, 6, 9, 10 and 11 are still to do.
 **Tried before writing this plan (2026-11-06, ffmpeg, no audio):** the barcode read correctly through
 an x264 re-encode at 24000/1001. Midpoint cuts landed exactly on 17 of 17 cuts across a constant-rate
 MP4, a variable-rate MKV and MP4, and an MP4 with a real edit list.
+
+## 42. Provider link and field filters, the enriched count, the score retired (F90, HOLODEX-626)
+
+[Spec](specs/provider-and-field-filters.md) · [handoff](design/provider-and-field-filters-handoff.md) ·
+[presence cache](architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types).
+This extends §38 (F87), §40 (F89), §20 (F73) and §33 (F82's Table view). It also retires the
+score, ring and Done-column tests in §4. Those rows go with the code they cover, at build, not
+before.
+
+F90 adds one cache that can go stale (`entity_field_state`) and narrows what `matched:` means.
+The invariant behind every test below: **a filter's answer equals what the entity's own page
+shows, and only the owner can ask.**
+
+### 42.1 Risks, ranked by how quietly they would fail
+
+1. **The cache disagrees with the page.** A write path marks nothing dirty, or a poster writer
+   moves neither `video_poster_sources` nor `thumbnail_state`, and `-has:poster` keeps an entity
+   that now has one. Nothing errors (P0-5).
+2. **"Shown" is computed differently from the page:**
+   - the automatic thumbnail counted as a poster;
+   - a value hidden by the owner's source decision counted;
+   - a not-applicable field read as present (P0-2, RD4).
+3. **Owner data leaks to a visitor** through `has:`, an enriched sort, a People or Studios filter,
+   or a list response that carries the count or link state (P0-8).
+4. **`matched:` moves more than intended.** An empty or misread declared-provider list makes
+   nothing linked, or saved playlists shift beyond the one exception P0-9 names.
+5. **The retired score breaks a reader.** An old `?sort=` errors, or the queue fails once
+   `entity_completeness` is dropped (P0-6, P0-7).
+6. **The enriched count is wrong:**
+   - it counts a field twice;
+   - it counts filename, internal or image data;
+   - ties repeat or skip an item across pages (P0-4).
+7. **The panel rewrites a query it can't show** (P0-3).
+
+### 42.2 Fixtures
+
+Synthesized in each test over the seeded-SQLite helpers, so nothing is committed beyond Go test
+data.
+
+- **Declared providers.** The test config declares `provider-1` and `provider-2`; `filename` is
+  never declared.
+  - §38.2's query fixture has to declare `provider-1` too, or *Para Matched* stops counting.
+  - That is the first test the fix breaks, by design. Declare it in the fixture rather than
+    weakening the assertion.
+- **Test mapping.** Title, actors, director, studio, a release date and a person's birthdate.
+- **Video fixture:**
+
+  | Video | Set up as |
+  |---|---|
+  | V1 | Director from file tags only |
+  | V2 | Director from `provider-1` only |
+  | V3 | Director from both, the owner's decision choosing the file |
+  | V4 | No director |
+  | V5 | Only filename data |
+  | V6 | Linked only through its Film |
+  | V7 | Only an automatic thumbnail |
+  | V8 | A file-cover poster |
+  | V9 | A malformed release date that still displays |
+  | V10 | Director marked not applicable, with no value |
+
+- **People:** P1 with a birthdate from `provider-1`, P2 with none, P3 with a headshot only.
+- **Studios:** S1 linked, S2 not linked, S3 with a branding image.
+
+### 42.3 Go unit, `internal/query` (`make test`)
+
+| # | Case | Proves |
+|---|---|---|
+| Q1 | `has:director`, `-has:poster` and `has:released` parse and print canonically. `has:_x`, a computed field, `has:cover` and an unmapped name are each F87's unknown-field error at the right offset. | P0-2 |
+| Q2 | `OwnerOnly` is true for `has:` and for each enriched sort, alone, under NOT and inside an OR group. | P0-8 (risk 3) |
+| Q3 | A stored Completeness sort key reads as the list's default sort, with no error. | P0-6 (risk 5) |
+
+### 42.4 Repo (`make test`, real SQLite)
+
+| # | Case | Proves |
+|---|---|---|
+| R1 | **The cache equals the page.** After a drain, for every fixture entity of all three types and every field, `shown` equals whether that entity's detail response displays a value. The detail response is read through the same code the page uses. `enriched` equals "a declared provider stored data mapping to this field". V7 has no poster, V8 has one, V9 has a release date, V10 lacks a director, and V3's `provider-1` director is enriched but not what's shown. | P0-2, P0-4 (risks 1, 2) |
+| R2 | **Stale read after each write path.** Extends §40's R2 table. It adds: set and clear a headshot; set a studio image role; set the poster's local slot; a file cover arriving on rescan; a regenerated thumbnail; a source decision; clearing a provider; curation removing a value. Each writes, then at once reads a `has:`, linked or enriched-sort query, with no explicit drain. | P0-5 (risk 1) |
+| R3 | **Every input has a trigger.** §40's R1 extended to the image tables, `video_poster_sources` and `thumbnail_state`, so a new poster writer that bypasses both fails here. | P0-5 (risk 1) |
+| R4 | **Not applicable.** V10 is in `-has:director` and out of the queue's director group. | P0-7, RD4 |
+| R5 | **The enriched count.** Two providers on one field count 1. Filename, `_` keys, images and unmapped fields count 0. Most and Least enriched over many ties, paged in threes, return every id exactly once. | P0-4 (risk 6) |
+| R6 | **Migration.** Up drops `entity_completeness` and keeps `completeness_dirty` and `entity_completeness_missing`; the queue reads still work; down restores the table. A library migrated with existing rows fills `entity_field_state` on the boot drain. | P0-6, P0-7 (risk 5) |
+| R7 | **Boot drain in flight.** List reads return at once while the drain runs, and reflect every entity once it ends. | P0-5 |
+| R8 | **A sources reload.** Removing `provider-2` from the declared list makes an entity linked only through it read as not linked, with no data change. | P0-1 |
+
+### 42.5 API (`internal/api`, `httptest` over the real repo)
+
+| # | Case | Proves |
+|---|---|---|
+| A1 | **Written first.** `TestQueryMatchedAnyIgnoresFilename` (`query_test.go`): a video whose only shadow-store rows are `filename`'s is out of `matched:any` and in `-matched:any`. It failed against the code on 2026-11-09, which confirms the spec's premise. It is committed skipped, and the fix removes the skip. | P0-1, P0-9 (risk 4) |
+| A2 | `matched:provider-1` matches V2; V6 is not linked; a video whose only provider was cleared is not linked; suggestions after `matched:` never list `filename`. | P0-1 |
+| A3 | `has:` on `/media` composes under AND, OR and NOT, and `/media`, `/media/ids` and the count agree for each P0-2 criterion. | P0-2 |
+| A4 | People with *Birthdate missing* return exactly P2 and P3; Studios *Not linked* returns S2. Each filtered URL round-trips to the same ids and count. The Films list endpoint is unchanged by the new parameters. | P0-3 |
+| A5 | **Visitor refusal, at every entry point.** A visitor's `has:` is refused as F87 refuses `matched:` at `/media?expr=`, `/query/parse`, a public smart playlist read and MCP `search_videos`. So are the People and Studios filter parameters and an enriched sort. A visitor's list response has no count or link-state key. | P0-8 (risk 3) |
+| A6 | Making a smart playlist public is refused while it uses `has:` or an enriched sort; a frozen snapshot of it publishes. | P0-8 |
+| A7 | **Saved queries.** §40's R13 golden test, extended: every stored fixture query returns identical ids, except `matched:any` dropping filename-only videos. A playlist stored with the Completeness sort opens with the default sort. `has:` works in a smart playlist and in `search_videos`. | P0-6, P0-9 (risk 4) |
+| A8 | Detail responses carry no score; the queue keeps its groups and its split between ready to apply and needs research. | P0-6, P0-7 |
+
+### 42.6 Frontend (`cd web && npm run test`)
+
+| # | File | Case | Proves |
+|---|---|---|---|
+| W1 | `queryChips.test.ts` | The handoff's chip labels: Linked, Not linked, Linked: provider-1, Has director, No director, Has poster, No poster. `-has:` never reads "not Has …". | P0-2 |
+| W2 | new `ProviderLinkControl` and `FieldConditions` logic tests | Linked and Not linked write the condition; Any removes it; Has and Missing flip one condition in place. A query with `has:director OR has:actors`, `matched:provider-1` or a `has:` inside a NOT group leaves the controls unset, and opening or closing the panel leaves the expr byte-identical. | P0-3 (risk 7) |
+| W3 | `FieldConditions` | The add-field list: mapping order, case-insensitive substring filter, chosen fields left out, "All fields added", "No field matches". | P0-3 |
+| W4 | `listColumns.test.ts` and the sort lists | `enriched` is owner-only, 5rem and right-aligned; Studios has Name, Videos and Enriched; the owner sort group reads Most enriched and Least enriched; a saved Completeness sort maps to the default. | P0-4, P0-6 |
+| W5 | the People and Studios list schemas | Filters round-trip through the URL, and the owner is passed to `listController` up front, so an owner-only sort resolves before the first parse. | P0-3 |
+
+The ring has no test of its own: its component and modules are deleted, so a remaining import fails
+the build. QA covers what's rendered.
+
+### 42.7 Browser harnesses
+
+- **Geometry (§12):** the panel on People and Studios at 375 and 1280, the chips row and the
+  Studios Table view. No overflow, and the 375 layout is the bottom sheet.
+- **Nav (§20.6):** one scenario, `--only people-filter-back`. Under Most enriched with *Birthdate
+  missing* set, open a person, press Back: the filter, the sort and the scroll position return. Take
+  a baseline on `main` first. `main` has no filter, so its baseline is the same scenario without
+  one.
+
+### 42.8 QA checklist (`[smoke]` / `[agent]` / `[human]`)
+
+On a **copy** of the stress fixture (`backend-stress-9300` + `web-9300`, Cinémathèque), signed in as
+the owner unless an item says visitor. Run the handoff's
+[QA checklist](design/provider-and-field-filters-handoff.md#cinémathèque-qa-checklist) as well; it
+isn't restated here.
+
+1. `[smoke]` **Before and after.** Before switching backends, record every smart playlist's id
+   list. After the upgrade, only `matched:any` playlists differ, and only by filename-only videos.
+2. `[agent]` **The five questions** in the spec's Problem Statement each return a set. For ten
+   sampled results of each, the entity's page agrees.
+3. `[agent]` **Current.** Change a video's source decision for a field, and the `has:` list follows
+   on reload. Clear a video's only provider: it reads Not linked and its Enriched count drops.
+4. `[agent]` **Visitor.** Sign out. No Provider link, Fields, enriched sorts or Enriched column
+   anywhere. A pasted URL with `has:` is refused as owner-only, and no card, row or hover card has a
+   ring.
+5. `[human]` **On the real library** (`backend`, read-only), repeat item 2 for the success metrics.
+
+### 42.9 Requirement map
+
+| Item | Tests |
+|---|---|
+| P0-1 One meaning of linked | A1, A2, R8 |
+| P0-2 `has` on Media | Q1, R1, A3, W1 |
+| P0-3 Filters control | A4, W2, W3, W5, nav, QA 2 |
+| P0-4 Enriched sort and column | R1, R5, W4 |
+| P0-5 Answers are current | R2, R3, R7, QA 3 |
+| P0-6 Score retired | Q3, R6, A7, A8, W4, QA 4 |
+| P0-7 Queue and detail list | R4, R6, A8 |
+| P0-8 Owner-only | Q2, A5, A6, QA 4 |
+| P0-9 Saved queries | A1, A7, QA 1 |
+| Success metrics | QA 2, 4, 5 |
+
+### 42.10 Mutation checks (run once the code exists)
+
+| Mutation | Fails |
+|---|---|
+| Drop the declared-provider restriction from `matched` | A1, R8 |
+| Drop the trigger on `video_poster_sources` or `thumbnail_state` | R2, R3 |
+| Count the automatic slot as a poster | R1 (V7) |
+| Count `filename` or images toward the enriched count | R5 |
+| Count rows rather than distinct fields | R5 |
+| Remove the enriched sort's tiebreak | R5 paging |
+| Remove `has` from `OwnerOnly` | Q2, A5 |
+| Rewrite the expr when the panel opens | W2 |
+
+### 42.11 Standing gaps
+
+- **R1's oracle is the detail-page code.** A bug shared by the page and the cache passes R1, so QA
+  items 2 and 5 compare against what the page shows.
+- **Performance:** nothing times `has:` or the enriched sort on the `-big` fixture with a full
+  mapping. Add a case if either is reported slow.

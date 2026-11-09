@@ -219,8 +219,7 @@ There's no analytics in this product, so success is checked directly:
 
 ## Open Questions
 
-- **[engineering, non-blocking]** Whether the filename problem with `matched:any` behaves as read from
-  the code. P0-1's first test confirms it before the fix.
+None. The filename problem with `matched:any` was confirmed by P0-1's first test on 2026-11-09.
 
 ## Decisions
 
