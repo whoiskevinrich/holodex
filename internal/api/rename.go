@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -68,6 +70,19 @@ func (h *Handlers) renameDelimiter() string {
 	}
 	_, d := h.patterns.Current()
 	return d
+}
+
+// renameCharacters is the owner's P0-4 character table. A stored table that no longer validates
+// falls back to the default (nil).
+func (h *Handlers) renameCharacters() rename.Characters {
+	if h.settings == nil {
+		return nil
+	}
+	c, err := rename.DecodeCharacters(h.settings.Get(rename.KeyCharacters))
+	if err != nil {
+		return nil
+	}
+	return c
 }
 
 // renameTokenFields maps a template token to the canonical field it renders from.
@@ -137,6 +152,16 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 	if err != nil {
 		return nil, err
 	}
+	personIDs := map[int64]bool{}
+	for _, v := range videos {
+		for _, p := range v.People {
+			personIDs[p.ID] = true
+		}
+	}
+	aliases, err := h.repo.AliasesForEntities(ctx, model.EnrichEntityPerson, slices.Collect(maps.Keys(personIDs)))
+	if err != nil {
+		return nil, err
+	}
 
 	st := &renameState{titles: map[int64]string{}, locks: locks, disk: rename.Disk{Paths: map[int64]string{}, ListDir: listDirNames}}
 	for _, p := range paths {
@@ -151,7 +176,11 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 		fs = h.mergeClaims(ctx, model.EnrichEntityVideo, fs)
 		resolved := resolver.Resolve(v, extra[v.ID], injectFilmSources(enrichmentFromRows(rows), films[v.ID]),
 			curationFromRows(cur[v.ID]), fs, h.resolveOptions(decisionsFromRows(dec[v.ID])))
-		in := rename.Input{ID: v.ID, Path: v.FilePath, Values: renameValues(resolved, rows, providers),
+		vals := renameValues(resolved, rows, providers)
+		if people, ok := vals[rename.TokPeople]; ok {
+			vals[rename.TokPeople] = canonicalPeople(people, v.People, aliases)
+		}
+		in := rename.Input{ID: v.ID, Path: v.FilePath, Values: vals,
 			Locked: locks[v.ID].Locked, Held: held[v.ID]}
 		if fr, ok := last[v.ID]; ok {
 			in.Last = &rename.Record{NewName: fr.NewName, TokenValues: fr.TokenValues}
@@ -180,6 +209,34 @@ func renameValues(resolved []resolver.ResolvedField, rows []repo.EnrichmentRow, 
 		}
 	}
 	return v
+}
+
+// canonicalPeople names each of the video's linked people once, by their canonical name. The actors
+// merge folds only case and whitespace, so a file tag's alias and a source's name for the same
+// person both survive it; the links already fold them to one person. Every link counts, whatever
+// its role: a link made before roles existed has none. A value that isn't a linked person's name
+// or alias (not yet relinked) passes through. The field's order is kept.
+func canonicalPeople(values []string, linked []model.Person, aliases map[int64][]model.EntityAlias) []string {
+	key := func(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
+	names := map[string]string{}
+	for _, p := range linked {
+		names[key(p.Name)] = p.Name
+		for _, a := range aliases[p.ID] {
+			names[key(a.Alias)] = p.Name
+		}
+	}
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, v := range values {
+		if n, ok := names[key(v)]; ok {
+			v = n
+		}
+		if !seen[key(v)] {
+			seen[key(v)] = true
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // listDirNames lists a folder's entry names. A folder that can't be read lists nothing; the worker
@@ -261,12 +318,14 @@ func (h *Handlers) renamePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	texts, list := h.renameTemplates()
-	h.writePlan(w, r, texts, list)
+	h.writePlan(w, r, texts, list, h.renameCharacters())
 }
 
-// planPreview is the body of a preview: an unsaved template list (A6). Nothing is saved.
+// planPreview is the body of a preview: an unsaved template list (A6) and, when it changed, an
+// unsaved character table. Nothing is saved.
 type planPreview struct {
-	Templates []string `json:"templates"`
+	Templates  []string          `json:"templates"`
+	Characters map[string]string `json:"characters,omitempty"`
 }
 
 func (h *Handlers) renamePlanPreview(w http.ResponseWriter, r *http.Request) {
@@ -285,10 +344,20 @@ func (h *Handlers) renamePlanPreview(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": tle.Error(), "rows": tle.Rows})
 		return
 	}
-	h.writePlan(w, r, body.Templates, list)
+	chars := h.renameCharacters()
+	if body.Characters != nil {
+		c, err := rename.ParseCharacters(body.Characters)
+		var cte *rename.CharacterTableError
+		if errors.As(err, &cte) {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"error": cte.Error(), "characters": cte.Rows})
+			return
+		}
+		chars = c
+	}
+	h.writePlan(w, r, body.Templates, list, chars)
 }
 
-func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []string, list []*rename.Template) {
+func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []string, list []*rename.Template, chars rename.Characters) {
 	q := r.URL.Query()
 	reason := q.Get("reason")
 	if reason == "" {
@@ -320,7 +389,7 @@ func (h *Handlers) writePlan(w http.ResponseWriter, r *http.Request, texts []str
 		h.fail(w, "rename plan", err)
 		return
 	}
-	rows := rename.Plan(list, h.renameDelimiter(), st.inputs, st.disk, nil)
+	rows := rename.Plan(list, h.renameDelimiter(), chars, st.inputs, st.disk, nil)
 
 	view := planView{Mode: h.settings.Get(rename.KeyMode), Templates: texts, Providers: h.RenameProviders(),
 		Total: len(rows), Reason: reason, Counts: map[string]int{}, TemplateCounts: make([]templateCount, len(list)),

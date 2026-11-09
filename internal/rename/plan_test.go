@@ -28,7 +28,7 @@ func TestPlanReasons(t *testing.T) {
 	for _, in := range inputs {
 		disk.Paths[in.ID] = in.Path
 	}
-	rows := Plan(list, "", inputs, disk, nil)
+	rows := Plan(list, "", nil, inputs, disk, nil)
 	want := map[int64]string{1: ReasonWillRename, 2: ReasonAlreadyNamed, 3: ReasonNoTemplate, 4: ReasonWontReadBack,
 		5: ReasonClash, 6: ReasonBadName, 7: ReasonLocked, 8: ReasonHeld, 9: ReasonOutOfDate, 10: ReasonWillRename}
 	for _, r := range rows {

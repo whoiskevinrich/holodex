@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 1050" width="960" height="1050" role="img" aria-labelledby="t d">
+<title id="t">File names (F86, HOLODEX-633): the Renaming card's Characters section</title>
+<desc id="d">Owner → File names, Renaming card in the Cinémathèque look. Panel 1: the Characters section below Templates, with one row per character: the character in monospace, an editable stand-in input and a live example. The nine characters a file name can't hold come first, with no remove button. The default rows for semicolon and exclamation mark follow, then an owner-added ampersand row whose stand-in is " and ". An added row for the at sign has a stand-in containing a slash, so it has a warn border and the error "A stand-in can't contain /". Below the rows: + Add character and Reset to defaults. The card's unsaved-changes footer has Discard, Preview and a withdrawn Save characters. Panel 2: + Add character opens a draft row whose character input refuses a letter with "Add a symbol, not a letter, digit or space." Panel 3: the folded card line now counts characters.</desc>
+<style>
+text{font-family:"Archivo",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+.mono{font-family:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace}
+.ttl{font-size:12px;font-weight:600;fill:#2c2c2a}
+.cap{font-size:11px;fill:#5f5e5a}
+.h{font-size:12px;letter-spacing:.72px;fill:#9b9082}
+.mu{font-size:12px;fill:#9b9082}
+.ink{font-size:14px;fill:#f3ece1}
+.ch{font-size:14px;fill:#f3ece1}
+.warn{font-size:12px;fill:#e2603f}
+</style>
+<rect width="960" height="1050" fill="#ffffff"/>
+
+<text class="ttl" x="16" y="22">1 · Renaming card, Characters section with a draft: an added row and one refused stand-in</text>
+<text class="cap" x="16" y="37">The section sits under Templates and shares the card's draft footer. Errors appear on Preview or Save, not per keystroke.</text>
+<rect x="16" y="48" width="928" height="722" rx="2" fill="#0c0a09"/>
+<rect x="40" y="68" width="880" height="682" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text class="h" x="56" y="94">RENAMING</text>
+<text class="mu" x="56" y="114">Mode, settle window and Templates, unchanged (file-rename-settings-mockup.svg).</text>
+<line x1="40" y1="130" x2="920" y2="130" stroke="#2a2622"/>
+<text class="h" x="56" y="154">CHARACTERS</text>
+<text class="mu" x="56" y="174">Each value swaps these characters before it becomes a file name. Leave the stand-in empty to remove the character.</text>
+<text class="mu" x="56" y="200">Character</text><text class="mu" x="132" y="200">Stand-in</text><text class="mu" x="262" y="200">Example</text>
+
+<g>
+<text class="mono ch" x="62" y="228">:</text><rect x="132" y="212" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="230">-</text><text class="mu" x="262" y="229">Star Wars: Episode IV → Star Wars- Episode IV</text>
+<text class="mono ch" x="62" y="260">"</text><rect x="132" y="244" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="262">'</text><text class="mu" x="262" y="261">The "Thing" → The 'Thing'</text>
+<text class="mono ch" x="62" y="292">/</text><rect x="132" y="276" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="294">+</text><text class="mu" x="262" y="293">AC/DC → AC+DC</text>
+<text class="mono ch" x="62" y="324">\</text><rect x="132" y="308" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="326">+</text><text class="mu" x="262" y="325">AC\DC → AC+DC</text>
+<text class="mono ch" x="62" y="356">|</text><rect x="132" y="340" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="358">-</text><text class="mu" x="262" y="357">Fire|Ice → Fire-Ice</text>
+<text class="mono ch" x="62" y="388">*</text><rect x="132" y="372" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="390">-</text><text class="mu" x="262" y="389">M*A*S*H → M-A-S-H</text>
+<text class="mono ch" x="62" y="420">?</text><rect x="132" y="404" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mu" x="142" y="421">removed</text><text class="mu" x="262" y="421">Who Goes There? → Who Goes There</text>
+<text class="mono ch" x="62" y="452">&lt;</text><rect x="132" y="436" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mu" x="142" y="453">removed</text><text class="mu" x="262" y="453">a&lt;b → ab</text>
+<text class="mono ch" x="62" y="484">&gt;</text><rect x="132" y="468" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mu" x="142" y="485">removed</text><text class="mu" x="262" y="485">a&gt;b → ab</text>
+<text class="mono ch" x="62" y="516">;</text><rect x="132" y="500" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="518">,</text><text class="mu" x="262" y="517">Love; Death → Love, Death</text><text class="ink" x="890" y="518" fill="#9b9082">×</text>
+<text class="mono ch" x="62" y="548">!</text><rect x="132" y="532" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mu" x="142" y="549">removed</text><text class="mu" x="262" y="549">Airplane! → Airplane</text><text class="ink" x="890" y="550" fill="#9b9082">×</text>
+<text class="mono ch" x="62" y="580">&amp;</text><rect x="132" y="564" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mono ch" x="142" y="582">␣and␣</text><text class="mu" x="262" y="581">Fast &amp; Furious → Fast and Furious</text><text class="ink" x="890" y="582" fill="#9b9082">×</text>
+<text class="mono ch" x="62" y="612">@</text><rect x="132" y="596" width="96" height="26" rx="2" fill="#0c0a09" stroke="#e2603f"/><text class="mono ch" x="142" y="614">a/t</text><text class="warn" x="262" y="613">A stand-in can't contain /.</text><text class="ink" x="890" y="614" fill="#9b9082">×</text>
+</g>
+<text class="mu" x="56" y="646">The nine characters a file name can't hold always have a row and no ×. Their stand-in can change, but the character is never kept.</text>
+<text class="ink" x="56" y="676">+ Add character</text>
+<text class="ink" x="790" y="676">Reset to defaults</text>
+<line x1="40" y1="694" x2="920" y2="694" stroke="#2a2622"/>
+<text class="mu" x="56" y="725">Unsaved changes. The plan shows them after Preview.</text>
+<text class="warn" x="384" y="725">Fix the @ row to save.</text>
+<text class="ink" x="600" y="726">Discard</text>
+<rect x="672" y="707" width="80" height="28" rx="2" fill="none" stroke="#2a2622"/><text class="ink" x="687" y="726">Preview</text>
+<text class="ink" x="776" y="726" fill="#9b9082">Save characters</text>
+
+<text class="ttl" x="16" y="802">2 · + Add character: a draft row, refused when its character is a letter</text>
+<rect x="16" y="812" width="928" height="96" rx="2" fill="#0c0a09"/>
+<rect x="40" y="824" width="880" height="72" rx="2" fill="#15110e" stroke="#2a2622"/>
+<rect x="52" y="840" width="40" height="26" rx="2" fill="#0c0a09" stroke="#e2603f"/><text class="mono ch" x="65" y="858">a</text>
+<rect x="132" y="840" width="96" height="26" rx="2" fill="#0c0a09" stroke="#2a2622"/><text class="mu" x="142" y="857">removed</text>
+<text class="warn" x="262" y="857">Add a symbol, not a letter, digit or space.</text><text class="ink" x="890" y="858" fill="#9b9082">×</text>
+<text class="mu" x="52" y="886">The character input takes one character and is focused on add. A repeat is refused: "&amp; is already in the table."</text>
+
+<text class="ttl" x="16" y="940">3 · The folded card counts characters</text>
+<rect x="16" y="950" width="928" height="78" rx="2" fill="#0c0a09"/>
+<rect x="40" y="966" width="880" height="44" rx="2" fill="#15110e" stroke="#2a2622"/>
+<text class="ink" x="56" y="993">Manual</text><text class="mu" x="106" y="993" font-size="14"> · 3 templates · 12 characters · first: </text><text class="mono ch" x="352" y="993">[{studio}] {title} ({year})</text>
+<text class="ink" x="796" y="993">Edit templates ▾</text>
+</svg>

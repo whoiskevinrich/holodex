@@ -29,40 +29,81 @@ var (
 	ErrNotLocal    = errors.New("does not stay in its folder")
 )
 
-// forbidden are the characters P0-4 removes from every value. Braces are removed from values but
-// allowed in a whole name, where only the builder's own markers put them.
+// forbidden are the characters no file name may hold. P0-4 substitutes or removes them in every
+// value. Braces are removed from values but allowed in a whole name, where only the builder's own
+// markers put them.
 const forbidden = `<>:"/\|?*`
 
-// removedRune reports a rune P0-4 removes from a value: the forbidden set, braces, control
-// characters (C0, DEL, C1) and invisible formatting characters (zero-width, text direction).
+// Characters is P0-4's character table: each character a value may not keep, and its stand-in. An
+// empty stand-in removes the character. A nil table is the default.
+type Characters map[rune]string
+
+// defaultCharacters is the table a library starts with. `!` and `;` are legal file-name
+// characters, but values don't keep them by default.
+var defaultCharacters = Characters{
+	':': "-", '|': "-", '*': "-",
+	'"': "'",
+	'/': "+", '\\': "+",
+	';': ",",
+	'!': "", '?': "", '<': "", '>': "",
+}
+
+// isSpace reports a rune that separates words. ASCII tabs and newlines do; the C1 control NEL is
+// removed like any other control.
+func isSpace(r rune) bool { return unicode.IsSpace(r) && (r < 0x80 || !unicode.IsControl(r)) }
+
+// removedRune reports a rune P0-4 removes from a value and refuses in template text: the forbidden
+// set, braces, control characters (C0, DEL, C1) and invisible formatting characters (zero-width,
+// text direction).
 func removedRune(r rune) bool {
 	return strings.ContainsRune(forbidden, r) || r == '{' || r == '}' ||
 		unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
 }
 
-// SanitizeValue applies P0-4 to one token value: removed characters go, each whitespace run left
-// behind becomes one space, the ends are trimmed, and the result is NFC. A value that isn't valid
-// UTF-8 is refused. An empty result means the token has no value.
-func SanitizeValue(s string) (string, error) {
+// SanitizeValue applies P0-4 to one token value with the character table chars (nil for the
+// default). Each character in the table becomes its stand-in, in one pass: a stand-in is never
+// itself substituted. Other removed characters are dropped. A `-` stand-in joins the word before
+// it, so `Ada : Love` becomes `Ada- Love` and never ` - `, which is common template text. With no
+// word before it, the stand-in is dropped, so a name never starts with `-`. Each whitespace run
+// left behind, a stand-in's own spaces included, becomes one space, the ends are trimmed, and the
+// result is NFC. A value that isn't valid UTF-8 is refused. An empty result means the token has no
+// value.
+func SanitizeValue(s string, chars Characters) (string, error) {
 	if !utf8.ValidString(s) {
 		return "", ErrInvalidText
 	}
+	if chars == nil {
+		chars = defaultCharacters
+	}
 	var b strings.Builder
 	space := false
-	for _, r := range s {
-		// ASCII tabs and newlines separate words; the C1 control NEL is removed like any other.
-		if unicode.IsSpace(r) && (r < 0x80 || !unicode.IsControl(r)) {
+	put := func(r rune) {
+		if isSpace(r) {
 			space = true
-			continue
-		}
-		if removedRune(r) {
-			continue
+			return
 		}
 		if space && b.Len() > 0 {
 			b.WriteByte(' ')
 		}
 		space = false
 		b.WriteRune(r)
+	}
+	for _, r := range s {
+		out, inTable := chars[r]
+		switch {
+		case inTable && out == "-":
+			if b.Len() > 0 {
+				space = false
+				b.WriteByte('-')
+			}
+		case inTable:
+			for _, o := range out {
+				put(o)
+			}
+		case !isSpace(r) && removedRune(r):
+		default:
+			put(r)
+		}
 	}
 	return norm.NFC.String(b.String()), nil
 }

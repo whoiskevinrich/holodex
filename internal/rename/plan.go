@@ -94,14 +94,14 @@ type Disk struct {
 
 // Plan computes every input's row. inRun reports whether a video that wants a new name is part of
 // this run (a name it gives up counts as free); nil means every such video is.
-func Plan(list []*Template, delimiter string, inputs []Input, disk Disk, inRun func(id int64) bool) []Row {
+func Plan(list []*Template, delimiter string, chars Characters, inputs []Input, disk Disk, inRun func(id int64) bool) []Row {
 	rows := make([]Row, len(inputs))
 	wantsByDir := map[string][]Want{}
 	idx := map[int64]int{}
 	for i, in := range inputs {
 		cur := filepath.Base(in.Path)
 		row := Row{VideoID: in.ID, Path: in.Path, Current: cur, Template: -1}
-		n, err := Build(list, in.Values, delimiter, filepath.Ext(cur))
+		n, err := Build(list, in.Values, delimiter, chars, filepath.Ext(cur))
 		row.Written = n.Written
 		if n.Name != "" {
 			row.Name, row.Template = n.Name, n.Index

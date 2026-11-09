@@ -204,30 +204,34 @@ export interface ReadBackLine {
 	readsAs: string;
 }
 
+// A token holding its breaker is the cause; the tokens after it only read back wrong because of it,
+// so it is named ahead of an earlier token that merely differs.
 export function readBack(row: RenamePlanRow, templates: string[]): ReadBackLine | null {
 	const written = row.written ?? {};
 	const parsed = row.parsed ?? {};
+	const text = row.template != null ? templates[row.template] : undefined;
+	let first: ReadBackLine | null = null;
 	for (const token of Object.keys(written)) {
 		const value = joinValues(written[token]);
 		const readsAs = joinValues(parsed[token]);
 		if (value === readsAs) continue;
 		const line: ReadBackLine = { token, value, readsAs };
-		const text = row.template != null ? templates[row.template] : undefined;
 		if (text) {
 			// The literal that ends the token: everything up to the next token or the end.
-			const at = text.indexOf(`{${token}}`);
-			const rest = at >= 0 ? text.slice(at + token.length + 2) : '';
+			const mark = [`{${token}}`, `{${token}?}`].find((s) => text.includes(s));
+			const rest = mark ? text.slice(text.indexOf(mark) + mark.length) : '';
 			const brace = rest.indexOf('{');
 			const literal = brace >= 0 ? rest.slice(0, brace) : rest;
 			const breaker = [literal, literal.trim()].find((s) => s && value.includes(s));
 			if (breaker) {
 				line.breaker = breaker;
 				line.template = row.template! + 1;
+				return line;
 			}
 		}
-		return line;
+		first ??= line;
 	}
-	return null;
+	return first;
 }
 
 // badNameLine spells out a bad-name refusal (spec P0-4).
@@ -284,6 +288,153 @@ export function storeDraft(draft: string[] | null): void {
 	try {
 		if (draft) localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
 		else localStorage.removeItem(DRAFT_KEY);
+	} catch {
+		// best-effort: a blocked store only loses the draft on reload
+	}
+}
+
+// The character table (spec P0-4, HOLODEX-633): each character a value may not keep, and its
+// stand-in ('' removes it). Stored as the `rename.characters` setting, a JSON object.
+export type CharacterTable = Record<string, string>;
+
+// An unsaved draft the plan previews: the template list, and the character table when it changed.
+export interface RenamePreview {
+	templates: string[];
+	characters?: CharacterTable;
+}
+
+// The nine characters a file name can't hold, in the order the table lists them. Each always has a
+// row; its stand-in can change but the character is never kept.
+export const FORBIDDEN_CHARACTERS = [':', '"', '/', '\\', '|', '*', '?', '<', '>'];
+
+export const DEFAULT_CHARACTERS: CharacterTable = {
+	':': '-',
+	'"': "'",
+	'/': '+',
+	'\\': '+',
+	'|': '-',
+	'*': '-',
+	'?': '',
+	'<': '',
+	'>': '',
+	';': ',',
+	'!': ''
+};
+
+// parseCharacters reads the stored setting; anything that isn't an object of strings is the default.
+export function parseCharacters(raw: string | undefined): CharacterTable {
+	try {
+		const v = JSON.parse(raw ?? '');
+		if (v && typeof v === 'object' && !Array.isArray(v) && Object.values(v).every((s) => typeof s === 'string')) return v;
+	} catch {
+		// fall through to the default
+	}
+	return { ...DEFAULT_CHARACTERS };
+}
+
+// characterOrder is the table's row order: the nine first, then the others in their table order.
+export function characterOrder(table: CharacterTable): string[] {
+	return [...FORBIDDEN_CHARACTERS, ...Object.keys(table).filter((c) => !FORBIDDEN_CHARACTERS.includes(c))];
+}
+
+// draftTable is the table a list of rows stands for, or null while a row has no character or two
+// rows share one (a draft that can't be sent).
+export function draftTable(rows: { char: string; standIn: string }[]): CharacterTable | null {
+	const table: CharacterTable = {};
+	for (const r of rows) {
+		if (!r.char || Object.hasOwn(table, r.char)) return null;
+		table[r.char] = r.standIn;
+	}
+	return table;
+}
+
+export function sameTable(a: CharacterTable, b: CharacterTable): boolean {
+	const keys = Object.keys(a);
+	return keys.length === Object.keys(b).length && keys.every((k) => k in b && a[k] === b[k]);
+}
+
+// internal/rename/name.go's isSpace: JS \s matches U+FEFF, which Go doesn't count as space, and
+// already leaves out NEL, which Go's isSpace drops.
+const isSpace = (c: string) => /\s/u.test(c) && c !== '﻿';
+const removedChar = (c: string) => FORBIDDEN_CHARACTERS.includes(c) || c === '{' || c === '}' || /[\p{Cc}\p{Cf}]/u.test(c);
+
+// sanitizeValue mirrors internal/rename/name.go's SanitizeValue for the example column: one pass,
+// a stand-in is never itself substituted; a `-` stand-in joins the word before it (dropped with no
+// word before it); other removed characters go; whitespace runs collapse to one space; trimmed.
+export function sanitizeValue(s: string, table: CharacterTable): string {
+	let out = '';
+	let space = false;
+	const put = (c: string) => {
+		if (isSpace(c)) {
+			space = true;
+			return;
+		}
+		if (space && out) out += ' ';
+		space = false;
+		out += c;
+	};
+	for (const c of s) {
+		const standIn = Object.hasOwn(table, c) ? table[c] : undefined;
+		if (standIn === '-') {
+			if (out) {
+				space = false;
+				out += '-';
+			}
+		} else if (standIn !== undefined) {
+			for (const o of standIn) put(o);
+		} else if (!isSpace(c) && removedChar(c)) {
+			// removed
+		} else {
+			put(c);
+		}
+	}
+	return out.normalize('NFC');
+}
+
+const SAMPLES: Record<string, string> = {
+	':': 'Star Wars: Episode IV',
+	'"': 'The "Thing"',
+	'/': 'AC/DC',
+	'\\': 'AC\\DC',
+	'|': 'Fire|Ice',
+	'*': 'M*A*S*H',
+	'?': 'Who Goes There?',
+	'<': 'a<b',
+	'>': 'a>b',
+	';': 'Love; Death',
+	'!': 'Airplane!',
+	'&': 'Fast & Furious'
+};
+
+// characterExample is a row's live example: its sample run through that row's stand-in alone.
+export function characterExample(char: string, standIn: string): { sample: string; result: string } {
+	const sample = SAMPLES[char] ?? `a${char}b`;
+	return { sample, result: sanitizeValue(sample, { [char]: standIn }) };
+}
+
+// The draft character rows survive a reload like the template draft, in their on-screen order.
+const CHARACTER_DRAFT_KEY = 'holodex.rename.characterDraft';
+
+export interface CharacterDraftRow {
+	char: string;
+	standIn: string;
+	added?: boolean;
+}
+
+export function loadCharacterDraft(): CharacterDraftRow[] | null {
+	try {
+		const raw = localStorage.getItem(CHARACTER_DRAFT_KEY);
+		const v = raw ? JSON.parse(raw) : null;
+		return Array.isArray(v) && v.every((r) => r && typeof r.char === 'string' && typeof r.standIn === 'string') ? v : null;
+	} catch {
+		return null;
+	}
+}
+
+export function storeCharacterDraft(draft: CharacterDraftRow[] | null): void {
+	try {
+		if (draft) localStorage.setItem(CHARACTER_DRAFT_KEY, JSON.stringify(draft));
+		else localStorage.removeItem(CHARACTER_DRAFT_KEY);
 	} catch {
 		// best-effort: a blocked store only loses the draft on reload
 	}

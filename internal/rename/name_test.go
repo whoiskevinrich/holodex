@@ -9,10 +9,10 @@ import (
 
 // N8: every removed character, one subtest each.
 func TestSanitizeValueRemoves(t *testing.T) {
-	for _, r := range []rune{'<', '>', ':', '"', '/', '\\', '|', '?', '*', '{', '}',
+	for _, r := range []rune{'<', '>', '?', '!', '{', '}',
 		0x00, 0x1F, 0x7F, 0x85, 0x9F, 0x200B, 0x200E, 0x202E, 0x2066, 0xFEFF} {
 		t.Run(string(r), func(t *testing.T) {
-			got, err := SanitizeValue("Ada" + string(r) + "Love")
+			got, err := SanitizeValue("Ada"+string(r)+"Love", nil)
 			if err != nil || got != "AdaLove" {
 				t.Fatalf("SanitizeValue(%U) = %q, %v; want %q", r, got, err, "AdaLove")
 			}
@@ -20,24 +20,70 @@ func TestSanitizeValueRemoves(t *testing.T) {
 	}
 }
 
+// HOLODEX-632: every substituted character, one subtest each.
+func TestSanitizeValueSubstitutes(t *testing.T) {
+	for r, want := range map[rune]string{
+		':': "Ada-Love", '|': "Ada-Love", '*': "Ada-Love",
+		'"': "Ada'Love", '/': "Ada+Love", '\\': "Ada+Love", ';': "Ada,Love",
+	} {
+		t.Run(string(r), func(t *testing.T) {
+			got, err := SanitizeValue("Ada"+string(r)+"Love", nil)
+			if err != nil || got != want {
+				t.Fatalf("SanitizeValue(%q) = %q, %v; want %q", r, got, err, want)
+			}
+		})
+	}
+}
+
+// HOLODEX-633: an owner's table replaces the default. A stand-in's spaces collapse with the value's,
+// substitution is one pass, and a forbidden character outside the table is still removed.
+func TestSanitizeValueOwnerTable(t *testing.T) {
+	chars := Characters{':': " - ", '&': " and ", '!': ";", ';': "!", '-': "-"}
+	for in, want := range map[string]string{
+		"Fast & Furious": "Fast and Furious",
+		"Fast&Furious":   "Fast and Furious",
+		"a: b":           "a - b",
+		"Wow!":           "Wow;", // one pass: the ; stand-in isn't itself substituted
+		"a;b":            "a!b",
+		"a?b":            "ab", // not in this table, but no file name may hold it
+		"a - b":          "a- b",
+	} {
+		if got, err := SanitizeValue(in, chars); err != nil || got != want {
+			t.Errorf("SanitizeValue(%q) = %q, %v; want %q", in, got, err, want)
+		}
+	}
+}
+
 func TestSanitizeValueWhitespaceAndNFC(t *testing.T) {
 	cases := map[string]string{
-		"a\t\n b":     "a b",
-		"  Ada  ":     "Ada",
-		"a : b":       "a b",
-		"a{b}c":       "abc",
-		"a:b*c?":      "abc",
-		"Café":       "Café", // NFD é composes
-		"../etc":      "..etc",
-		"{edition-x}": "edition-x",
+		"a\t\n b": "a b",
+		"  Ada  ": "Ada",
+		"a{b}c":   "abc",
+		"Café":   "Café", // NFD é composes
+		"../etc":  "..+etc",
+		// A substituted dash joins the word before it, so it never forms " - ".
+		"Star Wars: Episode IV": "Star Wars- Episode IV",
+		"a : b":                 "a- b",
+		"Fire | Ice":            "Fire- Ice",
+		"a - b":                 "a - b", // a dash the value already had is kept as is
+		"M*A*S*H":               "M-A-S-H",
+		`The "Thing"`:           "The 'Thing'",
+		"AC/DC":                 "AC+DC",
+		"Love; Death":           "Love, Death",
+		"Airplane!":             "Airplane",
+		"Who Goes There?":       "Who Goes There",
+		"a:b*c?":                "a-b-c",
+		" : a":                  "a",
+		"*batteries":            "batteries", // no word before the dash, so a name never starts with "-"
+		"{edition-x}":           "edition-x",
 	}
 	for in, want := range cases {
-		got, err := SanitizeValue(in)
+		got, err := SanitizeValue(in, nil)
 		if err != nil || got != want {
 			t.Errorf("SanitizeValue(%q) = %q, %v; want %q", in, got, err, want)
 		}
 	}
-	if _, err := SanitizeValue("a\xffb"); !errors.Is(err, ErrInvalidText) {
+	if _, err := SanitizeValue("a\xffb", nil); !errors.Is(err, ErrInvalidText) {
 		t.Errorf("invalid UTF-8: err = %v, want ErrInvalidText", err)
 	}
 }

@@ -24,12 +24,22 @@ type fakeMaint struct {
 	pf     maintenance.Preflight
 	checks int
 	kicks  int
+
+	captureRoot            string
+	kept                   float64
+	mode, edition, current string
 }
 
 func (f *fakeMaint) CheckFlip(context.Context, string) (maintenance.Preflight, error) {
 	f.checks++
 	return f.pf, nil
 }
+func (f *fakeMaint) CheckTrim(_ context.Context, _ string, kept float64, mode, edition, current string) (maintenance.Preflight, error) {
+	f.checks++
+	f.kept, f.mode, f.edition, f.current = kept, mode, edition, current
+	return f.pf, nil
+}
+func (f *fakeMaint) CaptureRoot() string { return f.captureRoot }
 func (f *fakeMaint) Hold() time.Duration { return 7 * 24 * time.Hour }
 func (f *fakeMaint) Kick()               { f.kicks++ }
 
@@ -45,7 +55,7 @@ func maintServer(t *testing.T, token string) (*httptest.Server, *repo.Repo, int6
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetAuth(api.NewAuth(token), false)
-	fm := &fakeMaint{pf: maintenance.Preflight{OK: true, NeedBytes: 150, FreeBytes: 1 << 30}}
+	fm := &fakeMaint{pf: maintenance.Preflight{OK: true, NeedBytes: 150, FreeBytes: 1 << 30}, captureRoot: filepath.Join(dir, "maintenance")}
 	h.SetMaintenance(fm)
 	srv := httptest.NewServer(api.Router(log, api.NewHealth(), h, nil))
 	t.Cleanup(srv.Close)

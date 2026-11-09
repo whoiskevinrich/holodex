@@ -4,7 +4,14 @@
 	import { onMount } from 'svelte';
 	import { api } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
-	import { parseMode, type RenameMode, type RenamePlan as Plan } from '#lib/rename.ts';
+	import {
+		parseCharacters,
+		parseMode,
+		type CharacterTable,
+		type RenameMode,
+		type RenamePlan as Plan,
+		type RenamePreview
+	} from '#lib/rename.ts';
 	import RenamingCard from '#lib/components/rename/RenamingCard.svelte';
 	import RenamePlan from '#lib/components/rename/RenamePlan.svelte';
 
@@ -13,10 +20,12 @@
 	let mode = $state<RenameMode>('off');
 	let settleDays = $state(7);
 	let saved = $state<string[]>([]);
+	let savedCharacters = $state<CharacterTable>({});
+	let saveLabel = $state('Save templates');
 	let latest = $state<Plan | null>(null);
 	let planView = $state<RenamePlan>();
 	let card = $state<RenamingCard>();
-	// Whether the plan shows an unsaved template list, so Discard reloads only then.
+	// Whether the plan shows an unsaved draft, so Discard reloads only then.
 	let previewing = false;
 
 	async function loadSettings() {
@@ -31,6 +40,7 @@
 			} catch {
 				saved = [];
 			}
+			savedCharacters = parseCharacters(s['rename.characters']);
 			loaded = true;
 		} catch (e) {
 			error = toMessage(e);
@@ -39,8 +49,8 @@
 
 	onMount(loadSettings);
 
-	async function preview(list: string[]) {
-		await planView?.reload(list);
+	async function preview(draft: RenamePreview) {
+		await planView?.reload(draft);
 		previewing = true;
 	}
 
@@ -49,8 +59,9 @@
 		planView?.reload(null);
 	}
 
-	function onsaved(list: string[]) {
-		saved = list;
+	function onsaved(wrote: { templates?: string[]; characters?: CharacterTable }) {
+		if (wrote.templates) saved = wrote.templates;
+		if (wrote.characters) savedCharacters = wrote.characters;
 		showSaved();
 	}
 </script>
@@ -73,6 +84,8 @@
 			{mode}
 			{settleDays}
 			{saved}
+			{savedCharacters}
+			bind:saveLabel
 			providers={latest?.providers ?? []}
 			counted={latest ? { templates: latest.templates, counts: latest.template_counts } : null}
 			onmode={(m) => (mode = m)}
@@ -82,7 +95,7 @@
 			{onsaved}
 		/>
 		{#if mode !== 'off'}
-			<RenamePlan bind:this={planView} {mode} onloaded={(p) => (latest = p)} onsavetemplates={() => card?.save()} />
+			<RenamePlan bind:this={planView} {mode} onloaded={(p) => (latest = p)} onsavetemplates={() => card?.save()} {saveLabel} />
 		{/if}
 	{/if}
 </div>

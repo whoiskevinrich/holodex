@@ -19,7 +19,8 @@ import (
 
 // Payload is a maintenance job's queue payload.
 type Payload struct {
-	Op string `json:"op"` // OpHFlip, OpRestore or OpDiscard
+	Op   string      `json:"op"`             // OpHFlip, OpTrim, OpRestore or OpDiscard
+	Trim *TrimParams `json:"trim,omitempty"` // OpTrim only
 }
 
 // Held-original operations, queued like a picture operation so they serialize with tag
@@ -46,6 +47,9 @@ type Worker struct {
 	pollEvery time.Duration
 
 	runFlip func(ctx context.Context, family, path string) error // w.flip; a test stubs the re-encode
+	// runTrim is w.trim; a test stubs the cut. It writes dst and returns the skipped screen checks.
+	runTrim   func(ctx context.Context, family, path, dst string, t *TrimParams, edition string) ([]SkippedCheck, error)
+	trimHooks TrimHooks
 }
 
 // NewWorker builds the maintenance worker. encoders is DetectEncoders' result.
@@ -54,7 +58,36 @@ func NewWorker(r *repo.Repo, s *Swapper, t Tools, encoders map[string]bool, post
 	w := &Worker{repo: r, swap: s, tools: t, encoders: encoders, postWrite: postWrite, kickWrite: kickWrite,
 		log: log, notify: make(chan struct{}, 1), pollEvery: 5 * time.Second}
 	w.runFlip = w.flip
+	w.runTrim = w.trim
 	return w
+}
+
+// CheckTrim runs the trim preflight (F88). kept is the share of the file the range keeps, which
+// sizes the free space; edition and current are the new name and the video's edition now, on an
+// edition only.
+func (w *Worker) CheckTrim(ctx context.Context, path string, kept float64, mode, edition, current string) (Preflight, error) {
+	pf, err := checkOp(ctx, w.tools, w.encoders, path, kept, true)
+	if err != nil || !pf.OK || mode != TrimEdition {
+		return pf, err
+	}
+	target, name, ok := EditionTarget(path, edition)
+	if !ok {
+		return Preflight{Reason: ReasonEditionName, NeedBytes: pf.NeedBytes, FreeBytes: pf.FreeBytes}, nil
+	}
+	pf.Target, pf.Edition = filepath.Base(target), name
+	if name == current {
+		pf.OK, pf.Reason = false, ReasonEditionSame
+		return pf, nil
+	}
+	if err := w.targetFree(ctx, target); err != nil {
+		var re *RefusalError
+		if errors.As(err, &re) {
+			pf.OK, pf.Reason = false, re.Reason
+			return pf, nil
+		}
+		return Preflight{}, err
+	}
+	return pf, nil
 }
 
 // CheckFlip runs the flip preflight against path with this worker's tools and encoders.
@@ -174,9 +207,12 @@ func (w *Worker) process(ctx context.Context, job *repo.WritebackJob) {
 	started := time.Now()
 	var p Payload
 	err := json.Unmarshal([]byte(job.Payload), &p)
-	if err != nil {
+	switch {
+	case err != nil:
 		err = fmt.Errorf("corrupt maintenance payload: %w", err)
-	} else {
+	case p.Op == string(OpTrim):
+		err = w.runTrimJob(ctx, job, p.Trim)
+	default:
 		err = w.do(ctx, job.VideoID, p.Op)
 	}
 	if err != nil && ctx.Err() != nil {
@@ -233,10 +269,15 @@ func (w *Worker) do(ctx context.Context, videoID int64, op string) error {
 			return err
 		}
 	case OpDiscard:
-		return w.swap.Discard(ctx, videoID, path) // the file at path is unchanged
+		if err := w.swap.Discard(ctx, videoID, path); err != nil { // the file at path is unchanged
+			return err
+		}
+		w.endReplaceOutcome(ctx, videoID)
+		return nil
 	default:
 		return fmt.Errorf("unknown maintenance operation %q", op)
 	}
+	w.endReplaceOutcome(ctx, videoID)
 
 	// The picture changed: re-read the file, and regenerate a frame-derived thumbnail. A
 	// thumbnail from embedded cover art or an owner upload shows no video frame, so it stays.
@@ -249,6 +290,15 @@ func (w *Worker) do(ctx context.Context, videoID int64, op string) error {
 		}
 	}
 	return nil
+}
+
+// endReplaceOutcome clears a trimmed replace's notice once its hold is over or a later operation
+// owns it. Its lines describe that one trim and must not attach to another operation's held notice.
+// A saved edition's notice is the owner's to dismiss.
+func (w *Worker) endReplaceOutcome(ctx context.Context, videoID int64) {
+	if err := w.repo.ClearReplaceTrimResult(ctx, videoID); err != nil {
+		w.log.Warn("clear trim outcome", "video", videoID, "err", err)
+	}
 }
 
 // flip rebuilds path into NewPath(path) and verifies it. On any failure the candidate is gone

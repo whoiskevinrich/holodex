@@ -21,11 +21,13 @@ const putSetting = vi.fn(async (key: string, value: string) => ({ key, value }))
 vi.mock('#lib/api.ts', () => ({ ApiError, api: { putSetting: (k: string, v: string) => putSetting(k, v) } }));
 
 const { default: RenamingCard } = await import('./RenamingCard.svelte');
+const { DEFAULT_CHARACTERS } = await import('#lib/rename.ts');
 
 const base = () => ({
 	mode: 'manual' as const,
 	settleDays: 7,
 	saved: ['[{studio}] {title}', '{title}'],
+	savedCharacters: { ...DEFAULT_CHARACTERS },
 	onmode: vi.fn(),
 	onpreview: vi.fn(async () => {}),
 	onsaved: vi.fn()
@@ -37,7 +39,7 @@ afterEach(() => putSetting.mockReset().mockImplementation(async (key, value) => 
 describe('RenamingCard', () => {
 	it('folds to one line once saved, and opens on Edit templates', async () => {
 		const screen = await render(RenamingCard, base());
-		await expect.element(screen.getByText(/Manual · 2 templates · first:/)).toBeInTheDocument();
+		await expect.element(screen.getByText(/Manual · 2 templates · 11 characters · first:/)).toBeInTheDocument();
 		await expect.element(screen.getByRole('radiogroup')).not.toBeInTheDocument();
 		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
 		await expect.element(screen.getByRole('radiogroup', { name: 'Renaming mode' })).toBeInTheDocument();
@@ -50,7 +52,8 @@ describe('RenamingCard', () => {
 		await screen.getByRole('textbox', { name: 'Template 2' }).fill('{title} ({year})');
 		await expect.element(screen.getByText('Unsaved changes. The plan shows these templates after Preview.')).toBeInTheDocument();
 		await screen.getByRole('button', { name: 'Preview' }).click();
-		expect(props.onpreview).toHaveBeenCalledWith(['[{studio}] {title}', '{title} ({year})']);
+		// Characters unchanged: the preview carries the templates alone.
+		expect(props.onpreview).toHaveBeenCalledWith({ templates: ['[{studio}] {title}', '{title} ({year})'] });
 		screen.unmount();
 
 		const again = await render(RenamingCard, base());
@@ -75,6 +78,83 @@ describe('RenamingCard', () => {
 		await expect.element(screen.getByRole('button', { name: 'Save templates' })).toBeDisabled();
 		await expect.element(screen.getByRole('textbox', { name: 'Template 2' })).toHaveValue('{studio} {year}');
 		expect(props.onsaved).not.toHaveBeenCalled();
+	});
+
+	it('previews and saves a character change as Save characters', async () => {
+		const props = base();
+		const screen = await render(RenamingCard, props);
+		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
+		await expect.element(screen.getByRole('heading', { name: 'Characters' })).toBeInTheDocument();
+		await screen.getByRole('textbox', { name: 'Stand-in for :' }).fill(' -');
+		await expect.element(screen.getByText('Unsaved changes. The plan shows these characters after Preview.')).toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Preview' }).click();
+		const characters = { ...DEFAULT_CHARACTERS, ':': ' -' };
+		expect(props.onpreview).toHaveBeenCalledWith({ templates: props.saved, characters });
+		await screen.getByRole('button', { name: 'Save characters' }).click();
+		expect(putSetting).toHaveBeenCalledTimes(1);
+		expect(putSetting).toHaveBeenCalledWith('rename.characters', JSON.stringify(characters));
+		expect(props.onsaved).toHaveBeenCalledWith({ characters });
+	});
+
+	it('labels Save changes when both changed and writes both', async () => {
+		const props = base();
+		const screen = await render(RenamingCard, props);
+		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
+		await screen.getByRole('textbox', { name: 'Template 2' }).fill('{title} ({year})');
+		await expect.element(screen.getByRole('button', { name: 'Save templates' })).toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Remove !' }).click();
+		await expect.element(screen.getByText('Unsaved changes. The plan shows these changes after Preview.')).toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Save changes' }).click();
+		const characters = Object.fromEntries(Object.entries(DEFAULT_CHARACTERS).filter(([c]) => c !== '!'));
+		expect(putSetting).toHaveBeenCalledWith('rename.templates', JSON.stringify(['[{studio}] {title}', '{title} ({year})']));
+		expect(putSetting).toHaveBeenCalledWith('rename.characters', JSON.stringify(characters));
+		expect(props.onsaved).toHaveBeenCalledWith({ templates: ['[{studio}] {title}', '{title} ({year})'], characters });
+	});
+
+	it('refuses an empty or repeated character before sending', async () => {
+		const props = base();
+		const screen = await render(RenamingCard, props);
+		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
+		await screen.getByRole('button', { name: '+ Add character' }).click();
+		await screen.getByRole('button', { name: 'Preview' }).click();
+		await expect.element(screen.getByText('Add one character.')).toBeInTheDocument();
+		await expect.element(screen.getByText('Fix the new row to save.')).toBeInTheDocument();
+		await screen.getByRole('textbox', { name: 'Character' }).fill(';');
+		await screen.getByRole('button', { name: 'Save characters' }).click();
+		await expect.element(screen.getByText('; is already in the table.')).toBeInTheDocument();
+		await expect.element(screen.getByRole('button', { name: 'Save characters' })).toBeDisabled();
+		expect(props.onpreview).not.toHaveBeenCalled();
+		expect(putSetting).not.toHaveBeenCalled();
+	});
+
+	it("maps the server's character refusals back to their rows", async () => {
+		putSetting.mockRejectedValueOnce(
+			new ApiError(422, '/admin/settings/rename.characters', 'the character table has errors', {
+				characters: { '@': "A stand-in can't contain /." }
+			})
+		);
+		const props = base();
+		const screen = await render(RenamingCard, props);
+		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
+		await screen.getByRole('button', { name: '+ Add character' }).click();
+		await screen.getByRole('textbox', { name: 'Character' }).fill('@');
+		await screen.getByRole('textbox', { name: 'Stand-in for @' }).fill('a/t');
+		await screen.getByRole('button', { name: 'Save characters' }).click();
+		await expect.element(screen.getByText("A stand-in can't contain /.")).toBeInTheDocument();
+		await expect.element(screen.getByRole('textbox', { name: 'Stand-in for @' })).toHaveAttribute('aria-invalid', 'true');
+		await expect.element(screen.getByText('Fix the @ row to save.')).toBeInTheDocument();
+		await expect.element(screen.getByRole('button', { name: 'Save characters' })).toBeDisabled();
+		expect(props.onsaved).not.toHaveBeenCalled();
+	});
+
+	it('discards the character draft with the templates', async () => {
+		const props = { ...base(), ondiscard: vi.fn() };
+		const screen = await render(RenamingCard, props);
+		await screen.getByRole('button', { name: 'Edit templates ▾' }).click();
+		await screen.getByRole('textbox', { name: 'Stand-in for :' }).fill('_');
+		await screen.getByRole('button', { name: 'Discard' }).click();
+		await expect.element(screen.getByRole('textbox', { name: 'Stand-in for :' })).toHaveValue('-');
+		expect(props.ondiscard).toHaveBeenCalled();
 	});
 
 	it('saves the mode at once, and shows the settle window only for Job', async () => {

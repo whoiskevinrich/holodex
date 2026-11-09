@@ -38,12 +38,12 @@ func TestBuildFirstFittingTemplate(t *testing.T) {
 		{Values{"title": {"Ada Lovelace"}, "provider-1-id": {"42"}}, "Ada Lovelace {provider-1-42}.mkv"},
 	}
 	for _, c := range cases {
-		n, err := Build(list, c.v, "", ".mkv")
+		n, err := Build(list, c.v, "", nil, ".mkv")
 		if err != nil || n.Name != c.want {
 			t.Errorf("Build(%v) = %q, %v; want %q", c.v, n.Name, err, c.want)
 		}
 	}
-	if _, err := Build(list, Values{"studio": {"Acme"}}, "", ".mkv"); !errors.Is(err, ErrNoTemplate) {
+	if _, err := Build(list, Values{"studio": {"Acme"}}, "", nil, ".mkv"); !errors.Is(err, ErrNoTemplate) {
 		t.Errorf("no title, no id: err = %v, want ErrNoTemplate", err)
 	}
 }
@@ -59,7 +59,7 @@ func TestBuildSpecExample(t *testing.T) {
 		{Values{"title": {"Ada Lovelace"}, "year": {"2023"}}, "Ada Lovelace (2023).mkv"},
 		{Values{"title": {"Ada Lovelace"}}, "Ada Lovelace.mkv"},
 	} {
-		if n, err := Build(list, c.v, "", ".mkv"); err != nil || n.Name != c.want {
+		if n, err := Build(list, c.v, "", nil, ".mkv"); err != nil || n.Name != c.want {
 			t.Errorf("got %q, %v; want %q", n.Name, err, c.want)
 		}
 	}
@@ -79,11 +79,11 @@ func TestBuildOptionalTokens(t *testing.T) {
 		{Values{"title": {"My Title"}}, "My Title.mkv"},
 		{Values{"title": {"My Title"}, "people": {"Person One"}, "edition": {"Final"}}, "My Title (Person One) {edition-Final}.mkv"},
 	} {
-		if n, err := Build(list, c.v, ", ", ".mkv"); err != nil || n.Name != c.want {
+		if n, err := Build(list, c.v, ", ", nil, ".mkv"); err != nil || n.Name != c.want {
 			t.Errorf("Build(%v) = %q, %v; want %q", c.v, n.Name, err, c.want)
 		}
 	}
-	if _, err := Build(list, Values{"studio": {"My Studio"}}, "", ".mkv"); !errors.Is(err, ErrNoTemplate) {
+	if _, err := Build(list, Values{"studio": {"My Studio"}}, "", nil, ".mkv"); !errors.Is(err, ErrNoTemplate) {
 		t.Errorf("no title: err = %v, want ErrNoTemplate", err)
 	}
 }
@@ -160,7 +160,7 @@ func TestBuildChecksWholeName(t *testing.T) {
 	p, _ := ParseTemplate("{title}", nil)
 	tmpl := &Template{Text: "{title}: x", ids: p.ids,
 		variants: []*variant{{text: "{title}: x", pattern: p.variants[0].pattern}}}
-	if _, err := Build([]*Template{tmpl}, Values{"title": {"Ada"}}, "", ".mkv"); !errors.Is(err, ErrBadChar) {
+	if _, err := Build([]*Template{tmpl}, Values{"title": {"Ada"}}, "", nil, ".mkv"); !errors.Is(err, ErrBadChar) {
 		t.Fatalf("err = %v, want ErrBadChar", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestBuildChecksWholeName(t *testing.T) {
 // N4: read-back refusal does not fall through.
 func TestBuildReadBackRefuses(t *testing.T) {
 	list := mustList(t, "{title} - {studio}", "{title}")
-	_, err := Build(list, Values{"title": {"Ada - Redux"}, "studio": {"Acme"}}, "", ".mkv")
+	_, err := Build(list, Values{"title": {"Ada - Redux"}, "studio": {"Acme"}}, "", nil, ".mkv")
 	var rb *ReadBackError
 	if !errors.As(err, &rb) {
 		t.Fatalf("err = %v, want ReadBackError", err)
@@ -180,10 +180,10 @@ func TestBuildReadBackRefuses(t *testing.T) {
 	// not, because the lazy capture still ends at the right "] " (spec P0-3's rule; its `]` example
 	// is loosely worded).
 	list = mustList(t, "[{studio}] {title}", "{title}")
-	if _, err := Build(list, Values{"title": {"Ada"}, "studio": {"Acme] X"}}, "", ".mkv"); !errors.As(err, &rb) {
+	if _, err := Build(list, Values{"title": {"Ada"}, "studio": {"Acme] X"}}, "", nil, ".mkv"); !errors.As(err, &rb) {
 		t.Errorf("studio `Acme] X`: err = %v, want ReadBackError", err)
 	}
-	if _, err := Build(list, Values{"title": {"Ada"}, "studio": {"Acme]"}}, "", ".mkv"); err != nil {
+	if _, err := Build(list, Values{"title": {"Ada"}, "studio": {"Acme]"}}, "", nil, ".mkv"); err != nil {
 		t.Errorf("studio `Acme]` reads back exactly: err = %v", err)
 	}
 }
@@ -192,7 +192,7 @@ func TestBuildReadBackRefuses(t *testing.T) {
 func TestBuildEarlierTemplateRefuses(t *testing.T) {
 	list := mustList(t, "{title} - {studio}", "{title}")
 	// No studio, so template 2 names it; template 1 would read "Ada - Redux" as title Ada.
-	_, err := Build(list, Values{"title": {"Ada - Redux"}}, "", ".mkv")
+	_, err := Build(list, Values{"title": {"Ada - Redux"}}, "", nil, ".mkv")
 	var rb *ReadBackError
 	if !errors.As(err, &rb) {
 		t.Fatalf("err = %v, want ReadBackError", err)
@@ -202,7 +202,7 @@ func TestBuildEarlierTemplateRefuses(t *testing.T) {
 // N3 is the caller's: an unconfirmed id never reaches Values. Here, a missing id doesn't fit.
 func TestBuildIdentityNeedsValue(t *testing.T) {
 	list := mustList(t, "{title} {provider-1-id}")
-	if _, err := Build(list, Values{"title": {"Ada"}}, "", ".mkv"); !errors.Is(err, ErrNoTemplate) {
+	if _, err := Build(list, Values{"title": {"Ada"}}, "", nil, ".mkv"); !errors.Is(err, ErrNoTemplate) {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -211,7 +211,7 @@ func TestBuildIdentityNeedsValue(t *testing.T) {
 func TestBuildMarkers(t *testing.T) {
 	list := mustList(t, "{title} {edition} {part} {provider-1-id}", "{title}")
 	v := Values{"title": {"Ada {edition-x}"}, "edition": {"Final Cut"}, "part": {"2"}, "provider-1-id": {"tt42"}}
-	n, err := Build(list, v, "", ".mkv")
+	n, err := Build(list, v, "", nil, ".mkv")
 	if err != nil || n.Name != "Ada edition-x {edition-Final Cut} {part-2} {provider-1-tt42}.mkv" {
 		t.Fatalf("got %q, %v", n.Name, err)
 	}
@@ -223,7 +223,7 @@ func TestBuildMarkers(t *testing.T) {
 
 // N16: the extension never changes.
 func TestBuildKeepsExtension(t *testing.T) {
-	n, err := Build(mustList(t, "{title}"), Values{"title": {"Ada"}}, "", ".MKV")
+	n, err := Build(mustList(t, "{title}"), Values{"title": {"Ada"}}, "", nil, ".MKV")
 	if err != nil || n.Name != "Ada.MKV" {
 		t.Fatalf("got %q, %v", n.Name, err)
 	}
@@ -231,7 +231,7 @@ func TestBuildKeepsExtension(t *testing.T) {
 
 // N11: bytes, not characters.
 func TestBuildTooLong(t *testing.T) {
-	_, err := Build(mustList(t, "{title}"), Values{"title": {strings.Repeat("é", 126)}}, "", ".mkv")
+	_, err := Build(mustList(t, "{title}"), Values{"title": {strings.Repeat("é", 126)}}, "", nil, ".mkv")
 	if !errors.Is(err, ErrTooLong) {
 		t.Fatalf("err = %v, want ErrTooLong", err)
 	}
@@ -239,7 +239,7 @@ func TestBuildTooLong(t *testing.T) {
 
 // N10 through the builder: a value that leaves a reserved name is refused.
 func TestBuildReserved(t *testing.T) {
-	_, err := Build(mustList(t, "{title}"), Values{"title": {"CON"}}, "", ".mkv")
+	_, err := Build(mustList(t, "{title}"), Values{"title": {"CON"}}, "", nil, ".mkv")
 	if !errors.Is(err, ErrReserved) {
 		t.Fatalf("err = %v, want ErrReserved", err)
 	}
@@ -276,7 +276,7 @@ func TestRoundTripProperty(t *testing.T) {
 	list := mustList(t, "[{studio}] {title} ({people})", "{title}")
 	check := func(title, studio string) bool {
 		v := Values{"title": {title}, "studio": {studio}, "people": {studio, title}}
-		n, err := Build(list, v, ", ", ".mkv")
+		n, err := Build(list, v, ", ", nil, ".mkv")
 		if err != nil {
 			return true // refused, never wrong
 		}
@@ -307,8 +307,8 @@ func TestRoundTripProperty(t *testing.T) {
 		t.Error(err)
 	}
 	// Exactness is Build's own read-back comparison; prove a plain value round-trips.
-	n, err := Build(list, Values{"title": {"a:b*c?"}}, "", ".mkv")
-	if err != nil || !reflect.DeepEqual(n.Written["title"], []string{"abc"}) {
+	n, err := Build(list, Values{"title": {"a:b*c?"}}, "", nil, ".mkv")
+	if err != nil || !reflect.DeepEqual(n.Written["title"], []string{"a-b-c"}) {
 		t.Errorf("got %v, %v", n.Written, err)
 	}
 }

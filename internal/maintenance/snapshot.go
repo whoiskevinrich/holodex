@@ -243,18 +243,55 @@ func PrepareTrackTags(ctx context.Context, t Tools, src string, p Probe) (string
 	if !ok {
 		return "", refuse(ReasonNoVideo, "")
 	}
-	id, err := identifyMKV(ctx, t.Mkvmerge, src)
+	files, err := prepareTrackTagFiles(ctx, t, src, p, []Stream{v})
 	if err != nil {
 		return "", err
 	}
-	uid, ok := id.trackUID(mkvTrackID(p, v))
-	if !ok {
-		return "", fmt.Errorf("track tags: no mkvmerge track for stream %d", v.Index)
+	return files[0], nil
+}
+
+// prepareTrackTagFiles is PrepareTrackTags for each of streams, reading src's tracks and tags once.
+// files[i] is streams[i]'s file, or "" when it has no tags. On error none are left behind.
+func prepareTrackTagFiles(ctx context.Context, t Tools, src string, p Probe, streams []Stream) (files []string, err error) {
+	id, err := identifyMKV(ctx, t.Mkvmerge, src)
+	if err != nil {
+		return nil, err
+	}
+	uids := make([]string, len(streams))
+	for i, s := range streams {
+		uid, ok := id.trackUID(mkvTrackID(p, s))
+		if !ok {
+			return nil, fmt.Errorf("track tags: no mkvmerge track for stream %d", s.Index)
+		}
+		uids[i] = uid
 	}
 	doc, err := writeback.ExistingTagsXML(ctx, src)
 	if err != nil {
-		return "", fmt.Errorf("track tags: %w", err)
+		return nil, fmt.Errorf("track tags: %w", err)
 	}
+	defer func() {
+		if err != nil {
+			for _, f := range files {
+				if f != "" {
+					os.Remove(f)
+				}
+			}
+			files = nil
+		}
+	}()
+	for _, uid := range uids {
+		f, err := writeTrackTags(doc, uid)
+		if err != nil {
+			return files, err
+		}
+		files = append(files, f)
+	}
+	return files, nil
+}
+
+// writeTrackTags writes the tags doc holds for the track uid to a temp file, or returns "" when it
+// holds none.
+func writeTrackTags(doc, uid string) (string, error) {
 	xmlDoc, has, err := trackTagsXML(doc, uid)
 	if err != nil || !has {
 		return "", err

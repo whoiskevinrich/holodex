@@ -1,7 +1,8 @@
 <script lang="ts">
-	// The File names tab's Renaming card: the mode, the settle window (Job only) and the ordered
-	// template editor with its unsaved draft (handoff "Renaming card"). Folds to one line once the
-	// templates are saved and valid; open while a draft exists or a template has an error.
+	// The File names tab's Renaming card: the mode, the settle window (Job only), and the ordered
+	// template editor and character table sharing one unsaved draft (handoff "Renaming card",
+	// "Characters"). Folds to one line once both are saved and valid; open while a draft exists or a
+	// row has an error.
 	import { untrack } from 'svelte';
 	import { api, ApiError } from '#lib/api.ts';
 	import { toMessage } from '#lib/format.ts';
@@ -9,20 +10,30 @@
 	import {
 		MODES,
 		MODE_LINES,
+		characterOrder,
+		draftTable,
+		loadCharacterDraft,
 		loadDraft,
 		sameList,
+		sameTable,
 		sentence,
+		storeCharacterDraft,
 		storeDraft,
-		type RenameMode
+		type CharacterTable as Table,
+		type RenameMode,
+		type RenamePreview
 	} from '#lib/rename.ts';
 	import TemplateList, { type TemplateItem } from './TemplateList.svelte';
+	import CharacterTable, { type CharacterError, type CharacterRow } from './CharacterTable.svelte';
 
 	let {
 		mode,
 		settleDays,
 		saved,
+		savedCharacters,
 		providers = [],
 		counted = null,
+		saveLabel = $bindable('Save templates'),
 		onmode,
 		onsettle,
 		onpreview,
@@ -32,28 +43,47 @@
 		mode: RenameMode;
 		settleDays: number;
 		saved: string[];
+		savedCharacters: Table;
 		providers?: string[];
 		// The plan's template list and its per-template counts, for the rows whose text matches.
 		counted?: { templates: string[]; counts: { names: number; wont_read_back: number }[] } | null;
+		// Out: what Save writes (Save templates, Save characters or Save changes), for the plan bar.
+		saveLabel?: string;
 		onmode: (mode: RenameMode) => void;
 		onsettle?: (days: number) => void;
-		// Recomputes the plan from the draft; rejects with ApiError 422 (`body.rows`) on a refusal.
-		onpreview: (templates: string[]) => Promise<void>;
+		// Recomputes the plan from the draft (characters only when they changed); rejects with
+		// ApiError 422 (`body.rows` or `body.characters`) on a refusal.
+		onpreview: (draft: RenamePreview) => Promise<void>;
 		ondiscard?: () => void;
-		onsaved: (templates: string[]) => void;
+		// What a save wrote: the templates, the characters or both.
+		onsaved: (wrote: { templates?: string[]; characters?: Table }) => void;
 	} = $props();
 
 	let ids = 0;
 	const toItems = (list: string[]): TemplateItem[] => list.map((text) => ({ id: ++ids, text }));
+	const toRows = (table: Table): CharacterRow[] =>
+		characterOrder(table)
+			.filter((char) => Object.hasOwn(table, char))
+			.map((char) => ({ id: ++ids, char, standIn: table[char] }));
 
-	// Seeded once from a stored draft, else the saved list; a save or discard resets it explicitly.
+	// Seeded once from a stored draft, else the saved settings; a save or discard resets it explicitly.
 	let items = $state<TemplateItem[]>(
 		untrack(() => {
 			const draft = loadDraft();
 			return toItems(draft && !sameList(draft, saved) ? draft : saved);
 		})
 	);
+	let charRows = $state<CharacterRow[]>(
+		untrack(() => {
+			const draft = loadCharacterDraft();
+			const table = draft && draftTable(draft);
+			return draft && !(table && sameTable(table, savedCharacters))
+				? draft.map((r) => ({ ...r, id: ++ids }))
+				: toRows(savedCharacters);
+		})
+	);
 	let errors = $state<string[]>([]);
+	let charErrors = $state<Record<number, CharacterError>>({});
 	let opened = $state(false);
 	let busy = $state(false);
 	let message = $state('');
@@ -61,14 +91,29 @@
 	let settleError = $state('');
 
 	const list = $derived(items.map((t) => t.text));
-	const dirty = $derived(!sameList(list, saved));
+	const table = $derived(draftTable(charRows));
+	const templatesDirty = $derived(!sameList(list, saved));
+	const charsDirty = $derived(!table || !sameTable(table, savedCharacters));
+	const dirty = $derived(templatesDirty || charsDirty);
 	const errorRows = $derived(errors.flatMap((e, i) => (e ? [i + 1] : [])));
-	const open = $derived(opened || dirty || errorRows.length > 0 || saved.length === 0);
+	const charErrorRows = $derived(charRows.filter((r) => charErrors[r.id]));
+	const blocked = $derived(errorRows.length > 0 || charErrorRows.length > 0);
+	const open = $derived(opened || dirty || blocked || saved.length === 0);
 	const counts = $derived(
 		list.map((t, i) => (counted && counted.templates[i] === t ? (counted.counts[i] ?? null) : null))
 	);
+	const label = $derived(
+		templatesDirty && charsDirty ? 'Save changes' : charsDirty ? 'Save characters' : 'Save templates'
+	);
+	const noun = $derived(templatesDirty && charsDirty ? 'changes' : charsDirty ? 'characters' : 'templates');
 
-	$effect(() => storeDraft(dirty ? list : null));
+	$effect(() => {
+		saveLabel = label;
+	});
+	$effect(() => storeDraft(templatesDirty ? list : null));
+	$effect(() =>
+		storeCharacterDraft(charsDirty ? charRows.map(({ char, standIn, added }) => ({ char, standIn, added })) : null)
+	);
 
 	function edited(i: number) {
 		message = '';
@@ -76,19 +121,59 @@
 		else if (errors[i]) errors[i] = '';
 	}
 
+	function charEdited(id: number | null) {
+		message = '';
+		if (id === null) charErrors = {};
+		else if (charErrors[id]) charErrors = Object.fromEntries(Object.entries(charErrors).filter(([k]) => Number(k) !== id));
+	}
+
+	// checkCharacters refuses what can't be sent: a draft row with no character (or more than one),
+	// and a character already in the table (object keys would collide).
+	function checkCharacters(): boolean {
+		const found: Record<number, CharacterError> = {};
+		const seen = new Set<string>();
+		for (const r of charRows) {
+			if ([...r.char].length !== 1) found[r.id] = { message: 'Add one character.', on: 'character' };
+			else if (seen.has(r.char)) found[r.id] = { message: `${r.char} is already in the table.`, on: 'character' };
+			seen.add(r.char);
+		}
+		charErrors = found;
+		return Object.keys(found).length === 0;
+	}
+
 	function refusal(e: unknown): boolean {
-		const rows = e instanceof ApiError && e.status === 422 ? e.body?.rows : undefined;
-		if (!Array.isArray(rows)) return false;
-		errors = rows.map((r) => (typeof r === 'string' && r ? sentence(r) : ''));
-		return true;
+		if (!(e instanceof ApiError && e.status === 422)) return false;
+		const rows = e.body?.rows;
+		const chars = e.body?.characters;
+		let handled = false;
+		if (Array.isArray(rows)) {
+			errors = rows.map((r) => (typeof r === 'string' && r ? sentence(r) : ''));
+			handled = true;
+		}
+		if (chars && typeof chars === 'object') {
+			const found: Record<number, CharacterError> = {};
+			const unplaced: string[] = [];
+			for (const [char, msg] of Object.entries(chars as Record<string, unknown>)) {
+				if (typeof msg !== 'string') continue;
+				const row = charRows.find((r) => r.char === char);
+				// A draft row's character can be refused too; everything else is about the stand-in.
+				if (row) found[row.id] = { message: msg, on: row.added && !msg.startsWith('A stand-in') ? 'character' : 'stand-in' };
+				else unplaced.push(msg);
+			}
+			charErrors = found;
+			if (unplaced.length) message = unplaced.join(' ');
+			handled = true;
+		}
+		return handled;
 	}
 
 	async function preview() {
+		if (!checkCharacters()) return;
 		busy = true;
 		message = '';
 		try {
 			errors = [];
-			await onpreview(list);
+			await onpreview(charsDirty && table ? { templates: list, characters: table } : { templates: list });
 		} catch (e) {
 			if (!refusal(e)) message = toMessage(e);
 		} finally {
@@ -96,27 +181,43 @@
 		}
 	}
 
-	// save is also the plan bar's Save templates while a preview is showing.
+	// save is also the plan bar's Save button while a preview is showing. It writes whichever of the
+	// templates and characters changed; a refusal of the second keeps the first saved.
 	export async function save() {
-		if (errorRows.length > 0 || busy) return;
+		if (blocked || busy || !checkCharacters()) return;
 		busy = true;
 		message = '';
+		const tpl = list;
+		const chars = charsDirty ? table : null;
+		const wrote: { templates?: string[]; characters?: Table } = {};
 		try {
-			await api.putSetting('rename.templates', JSON.stringify(list));
+			if (templatesDirty || !chars) {
+				await api.putSetting('rename.templates', JSON.stringify(tpl));
+				wrote.templates = tpl;
+			}
+			if (chars) {
+				await api.putSetting('rename.characters', JSON.stringify(chars));
+				wrote.characters = chars;
+				charRows = toRows(chars);
+			}
 			errors = [];
+			charErrors = {};
 			opened = false;
 			storeDraft(null);
-			onsaved(list);
+			storeCharacterDraft(null);
 		} catch (e) {
 			if (!refusal(e)) message = toMessage(e);
 		} finally {
 			busy = false;
+			if (wrote.templates || wrote.characters) onsaved(wrote);
 		}
 	}
 
 	function discard() {
 		items = toItems(saved);
+		charRows = toRows(savedCharacters);
 		errors = [];
+		charErrors = {};
 		message = '';
 		ondiscard?.();
 	}
@@ -165,13 +266,20 @@
 		}
 	}
 
+	const charCount = $derived(Object.keys(savedCharacters).length);
 	const modeLabel = $derived(MODES.find((m) => m.value === mode)?.label ?? mode);
+	const andList = (xs: (string | number)[]) => (xs.length === 1 ? `${xs[0]}` : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 	const fixHint = $derived(
-		errorRows.length === 0
-			? ''
-			: errorRows.length === 1
-				? `Fix template ${errorRows[0]} to save.`
-				: `Fix templates ${errorRows.slice(0, -1).join(', ')} and ${errorRows.at(-1)} to save.`
+		[
+			errorRows.length === 0
+				? ''
+				: `Fix ${errorRows.length === 1 ? 'template' : 'templates'} ${andList(errorRows)} to save.`,
+			charErrorRows.length === 0
+				? ''
+				: `Fix the ${andList(charErrorRows.map((r) => r.char || 'new'))} ${charErrorRows.length === 1 ? 'row' : 'rows'} to save.`
+		]
+			.filter(Boolean)
+			.join(' ')
 	);
 </script>
 
@@ -180,7 +288,9 @@
 		<div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
 			<p class="min-w-0 text-sm text-ink">
 				{modeLabel}
-				<span class="text-muted"> · {saved.length} {saved.length === 1 ? 'template' : 'templates'} · first: </span>
+				<span class="text-muted">
+					· {saved.length} {saved.length === 1 ? 'template' : 'templates'} · {charCount} {charCount === 1 ? 'character' : 'characters'} · first:
+				</span>
 				<span class="font-mono wrap-anywhere">{saved[0]}</span>
 			</p>
 			<button type="button" class="btn-quiet rounded-theme px-2 py-1 text-sm" aria-expanded="false" onclick={() => (opened = true)}
@@ -191,7 +301,7 @@
 		<div class="space-y-2 px-4 py-3">
 			<div class="flex items-center justify-between gap-2">
 				<h2 class="text-xs uppercase tracking-wide text-muted">Renaming</h2>
-				{#if opened && !dirty && errorRows.length === 0 && saved.length > 0}
+				{#if opened && !dirty && !blocked && saved.length > 0}
 					<button type="button" class="btn-quiet rounded-theme px-2 py-1 text-sm" aria-expanded="true" onclick={() => (opened = false)}
 						>Edit templates ▴</button
 					>
@@ -248,9 +358,16 @@
 				</p>
 				<TemplateList bind:items {errors} {counts} {providers} onedit={edited} />
 			</div>
+			<div class="space-y-2 border-t border-rule px-4 py-3">
+				<h3 class="text-xs uppercase tracking-wide text-muted">Characters</h3>
+				<p class="text-xs text-muted">
+					Each value swaps these characters before it becomes a file name. Leave the stand-in empty to remove the character.
+				</p>
+				<CharacterTable bind:rows={charRows} errors={charErrors} onedit={charEdited} />
+			</div>
 			{#if dirty}
 				<div class="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
-					<p class="text-sm text-muted">Unsaved changes. The plan shows these templates after Preview.</p>
+					<p class="text-sm text-muted">Unsaved changes. The plan shows these {noun} after Preview.</p>
 					<div class="flex flex-wrap items-center gap-2">
 						{#if fixHint}<span class="text-xs text-warn">{fixHint}</span>{/if}
 						<button type="button" class="btn-quiet rounded-theme px-2 py-1.5 text-sm" onclick={discard}>Discard</button>
@@ -260,9 +377,9 @@
 						<button
 							type="button"
 							class="btn-accent rounded-theme px-3 py-1.5 text-sm"
-							disabled={errorRows.length > 0}
+							disabled={blocked}
 							aria-busy={busy}
-							onclick={save}>Save templates</button
+							onclick={save}>{label}</button
 						>
 					</div>
 				</div>

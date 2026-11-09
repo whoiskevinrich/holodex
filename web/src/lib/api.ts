@@ -5,7 +5,7 @@ import type { ParsedQuery, QueryError, QueryFieldInfo, QueryParseResult } from '
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
 import type { MaintenancePreflight } from './maintenance';
-import type { RenameHistoryEntry, RenamePlan, RenameReason, RenameStatus } from './rename';
+import type { RenameHistoryEntry, RenamePlan, RenamePreview, RenameReason, RenameStatus } from './rename';
 import type {
 	MediaBrief,
 	CarryPreview,
@@ -296,12 +296,13 @@ async function sendMaintenance(
 	path: string,
 	body?: unknown
 ): Promise<{ refused?: MaintenancePreflight }> {
+	const multipart = body instanceof FormData; // the browser sets the boundary
 	const res = await fetch(`${BASE}${path}`, {
 		method: 'POST',
 		credentials: CREDS,
 		redirect: 'manual',
-		headers: { ...(body ? { 'Content-Type': 'application/json' } : {}) },
-		body: body ? JSON.stringify(body) : undefined
+		headers: { ...(body && !multipart ? { 'Content-Type': 'application/json' } : {}) },
+		body: multipart ? body : body ? JSON.stringify(body) : undefined
 	});
 	checkRedirect(res, true);
 	if (res.status === 409) {
@@ -1403,6 +1404,24 @@ export const api = {
 	maintenancePreflight: (id: number) =>
 		getAuthed<MaintenancePreflight>(`/media/${id}/maintenance/preflight?op=hflip`),
 	flipMedia: (id: number) => sendMaintenance(`/media/${id}/maintenance`, { op: 'hflip' }),
+	// Trimming (F88): the same preflight for the review step, and one multipart request carrying
+	// the range, the save choice and both captures, so a job never exists without them.
+	trimPreflight: (id: number, t: { inTime: number; outTime: number; mode: string; edition: string }) => {
+		const q = new URLSearchParams({ op: 'trim', in: String(t.inTime), out: String(t.outTime), mode: t.mode, edition: t.edition });
+		return getAuthed<MaintenancePreflight>(`/media/${id}/maintenance/preflight?${q}`);
+	},
+	trimMedia: (id: number, t: { inTime: number; outTime: number; mode: string; edition: string; captureIn: File; captureOut: File }) => {
+		const form = new FormData();
+		form.append('in_time', String(t.inTime));
+		form.append('out_time', String(t.outTime));
+		form.append('mode', t.mode);
+		form.append('edition', t.edition);
+		form.append('capture_in', t.captureIn);
+		form.append('capture_out', t.captureOut);
+		return sendMaintenance(`/media/${id}/maintenance/trim`, form);
+	},
+	dismissTrimOutcome: (id: number) =>
+		sendAuthed<{ dismissed: boolean }>('POST', `/media/${id}/maintenance/trim/dismiss`),
 	restoreOriginal: (id: number) => sendMaintenance(`/media/${id}/maintenance/restore`),
 	discardOriginal: (id: number) => sendMaintenance(`/media/${id}/maintenance/discard`),
 	retryMaintenance: (id: number) =>
@@ -1417,10 +1436,11 @@ export const api = {
 		sendAuthed<{ key: string; value: string }>('PUT', `/admin/settings/${encodeURIComponent(key)}`, { value }),
 
 	// File names (F86, internal/api/rename.go). The plan is computed per request; `preview` is an
-	// unsaved template list and saves nothing (422 with `body.rows` when a template is refused).
-	renamePlan: (q: RenamePlanQuery = {}, preview?: string[]) =>
+	// unsaved template list, plus the character table when it changed, and saves nothing (422 with
+	// `body.rows` when a template is refused, `body.characters` when a table row is).
+	renamePlan: (q: RenamePlanQuery = {}, preview?: RenamePreview) =>
 		preview
-			? sendAuthed<RenamePlan>('POST', `/rename/plan/preview${renamePlanQuery(q)}`, { templates: preview })
+			? sendAuthed<RenamePlan>('POST', `/rename/plan/preview${renamePlanQuery(q)}`, preview)
 			: getAuthed<RenamePlan>(`/rename/plan${renamePlanQuery(q)}`),
 	renameApply: (videoIds: number[]) =>
 		sendAuthed<{ batch_id: string; queued: number; not_renamed: Record<string, number> }>('POST', '/rename/apply', {
