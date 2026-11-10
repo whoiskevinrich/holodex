@@ -1342,6 +1342,7 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, "reload sources", err)
 			return
 		}
+		h.repo.SetDeclaredProviders(h.enrich.Store().Current().Names())
 		// Re-sync provider brand icons to the reloaded registry (ADR-059): a newly added
 		// provider gets its icon, a removed one is pruned. Off the request path — a
 		// provider describe/fetch must not block the reload response — and best-effort.

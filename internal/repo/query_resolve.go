@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"holodex/internal/model"
@@ -187,9 +188,11 @@ func playlistVisibleClause(publicOnly bool) string {
 	return ""
 }
 
-// QueryProviders returns the providers any video is matched to: the names a
-// `matched:` condition may use.
+// QueryProviders returns the declared providers any video is matched to: the names a
+// `matched:` condition may use and suggests. Filename parsing's rows never count
+// (F90 P0-1).
 func (r *Repo) QueryProviders(ctx context.Context) ([]string, error) {
+	declared := r.declaredProviders()
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT DISTINCT provider FROM entity_enrichment WHERE entity_type = ? ORDER BY provider`, model.EnrichEntityVideo)
 	if err != nil {
@@ -202,7 +205,9 @@ func (r *Repo) QueryProviders(ctx context.Context) ([]string, error) {
 		if err := rows.Scan(&p); err != nil {
 			return nil, err
 		}
-		out = append(out, p)
+		if slices.Contains(declared, p) {
+			out = append(out, p)
+		}
 	}
 	return out, rows.Err()
 }

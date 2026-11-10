@@ -2,6 +2,7 @@ package repo
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -102,12 +103,20 @@ func wordClause(text string) (string, []any) {
 	return "(" + title + " OR " + tags + ")", append(args, text, text)
 }
 
-// matchedClause is `matched:` (P0-3): the video has enrichment rows in the shadow store
-// (metadata-providers.md), from any provider or the named one.
-func matchedClause(provider string) (string, []any) {
+// matchedClause is `matched:` (F87 P0-3, F90 P0-1): the video has enrichment rows in the
+// shadow store (metadata-providers.md) from a declared provider, any or the named one.
+// Rows under any other name, such as filename parsing's, never count, so with no
+// declared provider nothing is matched.
+func matchedClause(provider string, declared []string) (string, []any) {
 	const base = "EXISTS (SELECT 1 FROM entity_enrichment ee WHERE ee.entity_type = '" + model.EnrichEntityVideo + "' AND ee.entity_id = v.id"
 	if provider == query.MatchedAny {
-		return base + ")", nil
+		if len(declared) == 0 {
+			return "0", nil
+		}
+		return base + " AND ee.provider IN (" + placeholders(len(declared)) + "))", toAnySlice(declared)
+	}
+	if !slices.Contains(declared, provider) {
+		return "0", nil
 	}
 	return base + " AND ee.provider = ?)", []any{provider}
 }
@@ -162,8 +171,9 @@ type PlaylistRef struct {
 // compileEnv is what an expression compiles against beyond the tree: the clock relative
 // dates count from, and the referenced playlists.
 type compileEnv struct {
-	now  time.Time
-	refs map[int64]*PlaylistRef
+	now       time.Time
+	refs      map[int64]*PlaylistRef
+	providers []string // declared provider names, for matched:
 }
 
 // compileExpr compiles a canonical F87 tree to one predicate: AND / OR / NOT nest as
@@ -211,6 +221,8 @@ func (e compileEnv) cond(c *query.Cond) (string, []any) {
 		return resolvedClause(query.ReleaseDateKey, query.KindDate, c, e.now)
 	case query.FieldPlaylist:
 		return e.playlistClause(e.refs[c.ID])
+	case query.FieldMatched:
+		return matchedClause(c.Value, e.providers)
 	case query.FieldWatched:
 		return watchedClause(c.Value)
 	case query.FieldPlays:
@@ -239,7 +251,7 @@ func (e compileEnv) playlistClause(ref *PlaylistRef) (string, []any) {
 	}
 	inner := ref.Filter
 	inner.Now = e.now
-	where, args := inner.build()
+	where, args := inner.build(e.providers)
 	sub := "SELECT v.id FROM videos v " + where
 	if ref.Filter.Cap > 0 {
 		order, orderArgs := ref.Filter.orderBy()
@@ -271,8 +283,6 @@ func compileCond(c *query.Cond) (string, []any) {
 		return durationClause(c.Op, c.Lo)
 	case query.FieldYear:
 		return yearCond(c)
-	case query.FieldMatched:
-		return matchedClause(c.Value)
 	}
 	return "0", nil
 }

@@ -44,9 +44,28 @@ type Repo struct {
 	// SetClaim/ClearClaim, so the per-detail-resolve visitor read path never queries
 	// the table.
 	claims atomic.Pointer[map[string][]ClaimRow]
+	// providers is the provider names metadata-sources.yaml declares (field-resolution.md,
+	// entity_field_state "Linked"): `matched:` counts only these, so an internal
+	// namespace such as filename parsing never makes a video linked.
+	providers atomic.Pointer[[]string]
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
+
+// SetDeclaredProviders records the declared provider names, at boot and on each
+// sources reload.
+func (r *Repo) SetDeclaredProviders(names []string) {
+	names = slices.Clone(names)
+	r.providers.Store(&names)
+}
+
+// declaredProviders is the last SetDeclaredProviders list; none before the first call.
+func (r *Repo) declaredProviders() []string {
+	if p := r.providers.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
 
 // SetGalleryCap overrides the per-person 'extra' gallery cap (F25). A value < 1 is
 // ignored, leaving the built-in default. Called once at startup from config.
@@ -462,7 +481,7 @@ func (f VideoFilter) orderBy() (string, []any) {
 // CountVideos is the total ListVideos reports, alone: the live item_count of a smart
 // playlist on the playlists list (ADR-121 D3) needs the count, not a page.
 func (r *Repo) CountVideos(ctx context.Context, f VideoFilter) (int, error) {
-	where, args := f.build()
+	where, args := f.build(r.declaredProviders())
 	var total int
 	if err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
@@ -489,7 +508,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if err != nil {
 		return nil, 0, err
 	}
-	where, args := f.build()
+	where, args := f.build(r.declaredProviders())
 
 	limit := f.Limit
 	if limit <= 0 {
@@ -551,7 +570,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 // by this app's personal-library scale, the same assumption the extraction review
 // queue's full-table read (ExtractionQueue) already leans on.
 func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video, error) {
-	where, args := f.build()
+	where, args := f.build(r.declaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -592,7 +611,7 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 // ListAllVideos scans and hydrates full rows. Same build()/orderBy() as both, so
 // the snapshot's membership and order can never disagree with browse's.
 func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error) {
-	where, args := f.build()
+	where, args := f.build(r.declaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	qArgs := make([]any, 0, len(args)+len(orderArgs))
 	qArgs = append(qArgs, args...)
@@ -631,8 +650,9 @@ func ValidSort(s string) bool {
 	return false
 }
 
-// build assembles the shared WHERE clause + args for list and count queries.
-func (f VideoFilter) build() (string, []any) {
+// build assembles the shared WHERE clause + args for list and count queries. providers
+// is the declared provider list a `matched:` condition counts.
+func (f VideoFilter) build(providers []string) (string, []any) {
 	var clauses []string
 	var args []any
 	// Library visibility: a row is visible only when on disk (active, ADR-018) AND
@@ -729,7 +749,7 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, mf.Value)
 	}
 	if f.Expr != nil {
-		env := compileEnv{now: f.Now, refs: f.Refs}
+		env := compileEnv{now: f.Now, refs: f.Refs, providers: providers}
 		if env.now.IsZero() {
 			env.now = time.Now()
 		}

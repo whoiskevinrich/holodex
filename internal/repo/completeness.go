@@ -278,7 +278,7 @@ func (r *Repo) MissingFacetCounts(ctx context.Context, entityType string) ([]Mis
 // chip's counts reflect the subset the owner is looking at (F55.6). Limit,
 // Offset and Sort are ignored.
 func (r *Repo) MissingFacetCountsForVideos(ctx context.Context, f VideoFilter) ([]MissingFacetCount, error) {
-	where, args := f.build()
+	where, args := f.build(r.declaredProviders())
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT m.canonical, m.band, COUNT(*)
 		FROM entity_completeness_missing m

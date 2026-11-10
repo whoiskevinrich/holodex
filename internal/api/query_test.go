@@ -32,6 +32,7 @@ type queryFixture struct {
 func newQueryFixture(t *testing.T) *queryFixture {
 	t.Helper()
 	srv, r, sqlDB := filmEntityServer(t)
+	r.SetDeclaredProviders([]string{"provider-1"}) // filename is never declared (F90 P0-1)
 	ctx := context.Background()
 	fx := &queryFixture{base: srv.URL + "/api/v1", r: r, db: sqlDB, v: map[string]int64{}, tag: map[string]int64{}}
 	exec := func(q string, args ...any) sql.Result {
@@ -240,9 +241,8 @@ func TestQueryNegationAndEmpty(t *testing.T) {
 
 // F90 P0-1: filename parsing writes shadow-store rows under its own provider name, but a
 // video whose only data came from its filename is not linked to a provider.
-// It failed against the code on 2026-11-09 (testing-strategy §42.5 A1); the fix removes the skip.
+// It failed against the code before the fix (testing-strategy §42.5 A1).
 func TestQueryMatchedAnyIgnoresFilename(t *testing.T) {
-	t.Skip("F90 build: matched:any still counts filename rows; remove this skip with the fix")
 	fx := newQueryFixture(t)
 	id := fx.v["Other Unmatched"]
 	if err := fx.r.UpsertEnrichment(context.Background(), model.EnrichEntityVideo, id, extract.Provider, "", map[string][]string{"title": {"Other Unmatched"}}); err != nil {

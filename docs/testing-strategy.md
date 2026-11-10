@@ -6857,7 +6857,7 @@ data.
 
 | # | Case | Proves |
 |---|---|---|
-| A1 | **Written first.** `TestQueryMatchedAnyIgnoresFilename` (`query_test.go`): a video whose only shadow-store rows are `filename`'s is out of `matched:any` and in `-matched:any`. It failed against the code on 2026-11-09, which confirms the spec's premise. It is committed skipped, and the fix removes the skip. | P0-1, P0-9 (risk 4) |
+| A1 | **Written first.** `TestQueryMatchedAnyIgnoresFilename` (`query_test.go`): a video whose only shadow-store rows are `filename`'s is out of `matched:any` and in `-matched:any`. It failed against the code on 2026-11-09, which confirmed the spec's premise, and passes with the fix. Its fixture and MCP's `TestSearchVideosExpr` declare `provider-1`. | P0-1, P0-9 (risk 4) |
 | A2 | `matched:provider-1` matches V2; V6 is not linked; a video whose only provider was cleared is not linked; suggestions after `matched:` never list `filename`. | P0-1 |
 | A3 | `has:` on `/media` composes under AND, OR and NOT, and `/media`, `/media/ids` and the count agree for each P0-2 criterion. | P0-2 |
 | A4 | People with *Birthdate missing* return exactly P2 and P3; Studios *Not linked* returns S2. Each filtered URL round-trips to the same ids and count. The Films list endpoint is unchanged by the new parameters. | P0-3 |
