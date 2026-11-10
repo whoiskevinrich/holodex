@@ -180,6 +180,11 @@ func (h *Handlers) loadRenameState(ctx context.Context, only map[int64]bool) (*r
 		if people, ok := vals[rename.TokPeople]; ok {
 			vals[rename.TokPeople] = canonicalPeople(people, v.People, aliases)
 		}
+		// FilmsForVideos orders by canonical name, so the first is stable; FilmName then holds the
+		// display spelling filmsForVideos attached.
+		if fa := films[v.ID]; len(fa) > 0 {
+			vals[rename.TokFilm] = []string{fa[0].FilmName}
+		}
 		in := rename.Input{ID: v.ID, Path: v.FilePath, Values: vals,
 			Locked: locks[v.ID].Locked, Held: held[v.ID]}
 		if fr, ok := last[v.ID]; ok {

@@ -353,8 +353,9 @@
 					The first template whose every required token has a value names the file. The extension never changes.
 				</p>
 				<p class="text-xs text-muted">
-					Add ? to make a token optional: {'[{studio?}]'} drops, brackets and all, when a video has no studio. {'{part}'}
-					and {'{edition}'} write their own braces: {'{part}'} becomes {'{part-2}'}.
+					Add ? to make a token optional: {'[{studio?}]'} drops, brackets and all, when a video has no studio. {'{part}'},
+					{'{edition}'} and {'{film}'} write their own braces: {'{part}'} becomes {'{part-2}'}, and {'{film}'} names the
+					linked film, as {'{film-Film Name}'}.
 				</p>
 				<TemplateList bind:items {errors} {counts} {providers} onedit={edited} />
 			</div>
