@@ -60,6 +60,7 @@ func renameServer(t *testing.T, token string) *renameFixture {
 	h := api.NewHandlers(r, log, nil, filepath.Join(dir, "thumbnails"), nil, nil)
 	h.SetMetadataFields(store, cache.Noop{})
 	h.SetAuth(api.NewAuth(token), false)
+	h.SetFilmsEnabled(true)
 	st := settings.New(r, rename.SettingKeys(h.RenameProviders)...)
 	if err := st.Load(context.Background()); err != nil {
 		t.Fatal(err)
@@ -281,6 +282,32 @@ func TestRenamePeopleUseCanonicalName(t *testing.T) {
 	}
 	if name := rows[0].(map[string]any)["name"]; name != "Gala - Jane Doe, Ray Roe.mkv" {
 		t.Errorf("name = %v, want Gala - Jane Doe, Ray Roe.mkv", name)
+	}
+}
+
+// {film} renders the first linked film by name as a {film-<name>} marker; a video with no film
+// drops an optional {film?}.
+func TestRenameFilmMarker(t *testing.T) {
+	f := renameServer(t, "secret")
+	ctx := context.Background()
+	vid := f.ids["junk2.mkv"]
+	for _, name := range []string{"Zed", "Ada Lovelace"} {
+		fid, err := f.r.CreateFilm(ctx, name, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.r.AttachFilmVideo(ctx, fid, vid, nil, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	f.put(t, rename.KeyTemplates, `["{title} {film?}"]`)
+	f.put(t, rename.KeyMode, rename.ModePlan)
+
+	for id, want := range map[int64]string{vid: "Bob {film-Ada Lovelace}.mkv", f.ids["junk1.mkv"]: "Ada Lovelace.mkv"} {
+		rows := f.plan(t, "?reason=all&video_id="+itoa(id))["rows"].([]any)
+		if len(rows) != 1 || rows[0].(map[string]any)["name"] != want {
+			t.Errorf("video %d rows = %v, want %s", id, rows, want)
+		}
 	}
 }
 

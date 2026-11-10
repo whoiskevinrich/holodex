@@ -22,7 +22,22 @@ const (
 	TokYear    = "year"
 	TokEdition = "edition"
 	TokPart    = "part"
+	TokFilm    = "film"
 )
+
+// filmMarkerRe matches the `{film-<name>}` marker {film} renders. A value never holds a brace
+// (P0-4), so the marker can't be forged from one.
+var filmMarkerRe = regexp.MustCompile(`\s*\{film-([^{}]+)\}\s*`)
+
+// liftFilm removes the first film marker from stem, the way extract.LiftMarkers removes edition
+// and part markers, and returns the film's name.
+func liftFilm(stem string) (rest, film string) {
+	loc := filmMarkerRe.FindStringSubmatchIndex(stem)
+	if loc == nil {
+		return stem, ""
+	}
+	return strings.TrimSpace(stem[:loc[0]] + " " + stem[loc[1]:]), stem[loc[2]:loc[3]]
+}
 
 // plainTokens are the tokens the F48 compiler captures itself, by the field it reads back as.
 var plainTokens = map[string]string{TokTitle: "title", TokStudio: "studio", TokPeople: "people", TokYear: "release_date"}
@@ -70,6 +85,7 @@ func parseTemplate(text string, providers []string, ids *extract.IdentityLifter)
 	}
 	known[TokEdition] = "{edition-e}"
 	known[TokPart] = "{part-1}"
+	known[TokFilm] = "{film-x}"
 	for _, p := range providers {
 		known[IdentityToken(p)] = "{" + p + "-x}"
 	}
@@ -145,6 +161,7 @@ func compileVariant(text string, known map[string]string, ids *extract.IdentityL
 	}
 	pat.WriteString(text[last:])
 	rest, _ := ids.Lift(pat.String())
+	rest, _ = liftFilm(rest)
 	rest, _ = extract.LiftMarkers(rest)
 	if !templateTokenRe.MatchString(rest) {
 		v.rest = rest
@@ -306,6 +323,8 @@ func (vr *variant) render(v Values, delimiter string, chars Characters) (stem st
 			b.WriteString("{edition-" + vals[0] + "}")
 		case tok == TokPart:
 			b.WriteString("{part-" + vals[0] + "}")
+		case tok == TokFilm:
+			b.WriteString("{film-" + vals[0] + "}")
 		case plainTokens[tok] != "":
 			b.WriteString(vals[0])
 		default: // identity
@@ -367,11 +386,15 @@ func delimiterOr(d string) string {
 // per token.
 func (t *Template) read(stem, delimiter string) (map[string][]string, bool) {
 	rest, ids := t.ids.Lift(stem)
+	rest, film := liftFilm(rest)
 	rest, markers := extract.LiftMarkers(rest)
 	for _, vr := range t.variants {
 		if out, ok := vr.read(rest, delimiter); ok {
 			for f, v := range markers {
 				out[f] = []string{v}
+			}
+			if film != "" {
+				out[TokFilm] = []string{film}
 			}
 			for p, id := range ids {
 				out[IdentityToken(p)] = []string{id}

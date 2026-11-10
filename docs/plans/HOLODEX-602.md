@@ -88,6 +88,10 @@ file ever being overwritten.
 - handoff: the sentence the next session should wake up to
 -->
 
+### 2026-11-10 · {film} token
+- skills: code-review
+- handoff: Templates take a `{film}` token, which renders the first linked film (by name, in its display spelling) as a `{film-<name>}` marker that reads back but never makes a film link (spec P0-1, testing N22), with a `{film}` chip in the editor; the design handoff's chip list doesn't name it yet, left alone so the design sign-off stays current.
+
 ### 2026-11-01 · frontend gate (Plan and Manual)
 - skills: code-review, handoff
 - handoff: Plan and Manual are complete: the File names tab and the video page's File name row are built (`9b3b546d`, plan fields in `c9112f31`), the owner said the build matches the mockups and re-pinned the design at `86dfb519`, so every gate is settled and PR #575 is marked ready; next is Up next 1 (F1/F8 in CI), with On-writeback and Job still waiting on the owner's watch-state test and three backend follow-ups filed (HOLODEX-616/617/618).

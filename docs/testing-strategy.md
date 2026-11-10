@@ -6092,6 +6092,7 @@ is thin over a computed plan. Risks, ranked by how quietly and how permanently t
 | N19 | Identity tokens are always read, echo or not, and each reaches its own provider as a hint. A hand-made name carrying `{provider-1-../../x}` or an over-long id yields no hint. | P0-11 |
 | N20 | Optional tokens (HOLODEX-621): the spec's `[{studio?}] {title} ({people?}) {year?} {part?} {edition?}` example gives every value, then `My Title 2026`, then `My Title`. A dropped token takes its touching brackets and literal text up to a space or a neighbouring token (`{title}-{part?}` → `{title}`), and leaves no double or edge space. Every built name reads back to the values written. | P0-1 |
 | N21 | Optional-token refusals: `{title?} {studio}` (no required title or identity), more than six optional tokens, and `{part} {part?}` (repeated) are refused when saved. `{title?} {provider-1-id}` is accepted. | P0-1 |
+| N22 | The film token: `{title} {film?} {part?}` renders `{film-<name>}` from a sanitised film name (`Ada: Lovelace - Redux` becomes `{film-Ada- Lovelace - Redux}`) and reads it back as written; with no film it drops; `{film}` alone is refused, since it isn't an identity token (`TestBuildFilmMarker`). End to end, a video linked to two films takes the first by name, and a video with none drops `{film?}` (`TestRenameFilmMarker`). | P0-1 |
 
 ### 39.3 Go unit: the no-overwrite primitive (`internal/rename`)
 

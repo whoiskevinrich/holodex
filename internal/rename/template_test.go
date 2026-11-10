@@ -221,6 +221,25 @@ func TestBuildMarkers(t *testing.T) {
 	}
 }
 
+// {film} renders a {film-<name>} marker that reads back as the film, kept or dropped; it isn't an
+// identity token, so it can't stand in for {title}.
+func TestBuildFilmMarker(t *testing.T) {
+	list := mustList(t, "{title} {film?} {part?}")
+	n, err := Build(list, Values{"title": {"Ada"}, "film": {"Ada: Lovelace - Redux"}, "part": {"2"}}, "", nil, ".mkv")
+	if err != nil || n.Name != "Ada {film-Ada- Lovelace - Redux} {part-2}.mkv" {
+		t.Fatalf("got %q, %v", n.Name, err)
+	}
+	if got, _, ok := ReadBack(list, "Ada {film-Ada- Lovelace - Redux} {part-2}", ""); !ok || !reflect.DeepEqual(got, n.Written) {
+		t.Errorf("read back = %v, want %v", got, n.Written)
+	}
+	if n, err := Build(list, Values{"title": {"Ada"}}, "", nil, ".mkv"); err != nil || n.Name != "Ada.mkv" {
+		t.Errorf("no film: got %q, %v", n.Name, err)
+	}
+	if _, err := ParseTemplate("{film}", providers); err == nil {
+		t.Error("{film} alone was accepted")
+	}
+}
+
 // N16: the extension never changes.
 func TestBuildKeepsExtension(t *testing.T) {
 	n, err := Build(mustList(t, "{title}"), Values{"title": {"Ada"}}, "", nil, ".MKV")

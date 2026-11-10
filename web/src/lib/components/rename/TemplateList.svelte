@@ -35,6 +35,7 @@
 		'{year}',
 		'{edition}',
 		'{part}',
+		'{film}',
 		...providers.map((p) => `{${p}-id}`)
 	]);
 
