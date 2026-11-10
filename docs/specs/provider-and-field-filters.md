@@ -193,7 +193,11 @@ present or missing status, the not-applicable toggle, and the jump to an empty f
 **P0-9 Saved queries keep working.**
 - [ ] `has` works in smart playlists and in the search tool, like any other condition.
 - [ ] A saved `matched:any` playlist whose videos have only filename data loses them, since that's the
-      corrected meaning. This is the one deliberate exception to F87 P0-10, and the release note says so.
+      corrected meaning. This is a deliberate exception to F87 P0-10, and the release note says so.
+- [ ] `matched:` names only providers the owner has declared, switched off or not. A saved query that
+      names anything else, such as `matched:filename`, is refused as naming an unknown provider, and
+      its playlist is stale until the owner edits it, as a field removed from the mapping makes one
+      (F89). This is the second deliberate exception to F87 P0-10, and the release note says so too.
 
 ### Nice-to-Have (P1)
 

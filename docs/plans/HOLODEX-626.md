@@ -66,15 +66,14 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [spec] Owner to decide: a saved `matched:<undeclared name>` (e.g. `matched:filename`) is now refused as an unknown provider; record it under P0-9 or keep it valid — `docs/specs/provider-and-field-filters.md`
-2. [ ] [backend] `entity_field_state` migration 0073, its drain writer and triggers, then `has:` in the parser and compiler — `internal/db/migrations/`
-3. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
-4. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
-5. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-6. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-7. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-8. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
-9. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
+1. [ ] [backend] `entity_field_state` migration 0073, its drain writer and triggers, then `has:` in the parser and compiler — `internal/db/migrations/`
+2. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+3. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
+4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
+6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
+8. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -88,7 +87,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 
 ### 2026-11-10 · design-stage security review
 - skills: security-review, handoff, code-review
-- handoff: Perimeter rules SEC-12 to SEC-15 are written, and `matched:` now counts only providers declared in metadata-sources.yaml (A1 green, mutation-checked); next is the owner's call on refusing `matched:<undeclared>`, then the `entity_field_state` cache.
+- handoff: Perimeter rules SEC-12 to SEC-15 are written, and `matched:` now counts only providers declared in metadata-sources.yaml (A1 green, mutation-checked); the owner chose to refuse a saved `matched:<undeclared>` (recorded under spec P0-9); next is the `entity_field_state` cache.
 
 ### 2026-11-09 · testing strategy
 - skills: handoff
