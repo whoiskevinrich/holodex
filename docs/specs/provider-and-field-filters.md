@@ -183,7 +183,8 @@ present or missing status, the not-applicable toggle, and the jump to an empty f
 - [ ] An entity's list of fields shows no score, and the jump to an empty field still opens that field.
 - [ ] Marking a field not applicable removes the entity from that queue group, but not from `-has:` (RD4).
 
-**P0-8 Owner-only.** All of this is owner-only, and enforced by the server as well as hidden.
+**P0-8 Owner-only.** All of this is owner-only, and enforced by the server as well as hidden
+([SEC-12 to SEC-15](../architecture/security-perimeter.md#field-and-link-filters-has-the-enriched-sort-and-the-people-and-studios-filters-are-owner-only)).
 - [ ] A visitor's query or shared link using `has` or `matched` is refused as F87 refuses `matched`.
 - [ ] Visitors see no new filters, sorts or columns, and their list responses carry no count or link state.
 - [ ] Making a smart playlist public is refused while it uses `has` or an enriched sort, as F89 refuses

@@ -357,3 +357,46 @@ reference. **Rejected:** a separate permission check per new field. As the query
 one forgotten caller leaks, so the new fields join the one `OwnerOnly` set.
 
 Decided in: pending squash (HOLODEX-619).
+
+## Field and link filters: `has:`, the enriched sort and the People and Studios filters are owner-only
+
+HOLODEX-626 adds a `has:` condition, link and field filters on People and Studios, and an enriched
+count shown as a sort and a column. All of it reads the
+[`entity_field_state` cache](field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types),
+which records what the owner sees, including what's missing, so none of it reaches a visitor. The
+spec cites these rules by number.
+
+- **SEC-12 — `has:` and the enriched sorts join the one `OwnerOnly` set** (spec P0-8).
+  - They join `matched:`, the watch conditions and the retired completeness sorts, so every
+    entry point the [query perimeter](#query-expressions-are-untrusted-input-bounded-before-any-lookup)
+    names refuses them for a visitor with the same `401`.
+  - A public smart playlist can't store them, directly or through a reference (SEC-2), and a frozen
+    snapshot can still be published.
+- **SEC-13 — The People and Studios filters are a second entry point, and one check gates it**
+  (spec P0-3, P0-8).
+  - Their link, field and enriched-sort parameters are URL parameters, not an `expr`, so they never
+    pass through `internal/query`.
+  - `listPeople` and `listStudios` call one shared check that refuses any of them for a visitor
+    before any SQL, with the `401` that `missing_facet` and the completeness sorts get today.
+  - They are refused, not ignored. An ignored filter would hand a visitor an unfiltered list that
+    looks filtered, and it hides a handler that forgot the check.
+- **SEC-14 — A field or provider name reaches SQL only as a bound value from an allowlist**
+  (spec P0-1, P0-2).
+  - A `has:` field, a People or Studios field condition, and the enriched sort's field set come from
+    a lookup in the mapping's field list for that entity type, plus `released`, `poster`, `photo` and
+    `branding`. They are never request text.
+  - `_` keys and computed fields fail the lookup.
+  - Linked binds the names `metadata-sources.yaml` declares as parameters, and
+    `matched:<name>` binds its name. Neither is ever spliced into SQL.
+- **SEC-15 — Visitor responses carry no link state or count** (spec P0-8).
+  - The enriched count and any link state are added to a list or detail item only when the request
+    is the owner's, at the same read gate as file-metadata redaction.
+  - A visitor's JSON has no such key, not even an empty one.
+  - The suggestions after `has:` and the field list behind the Filters panel are owner-only reads.
+
+**Rejected:** a separate permission check in each list handler, for the query section's reason:
+one forgotten caller leaks. **Rejected:** letting visitors use `has:` on fields a visitor
+can already see. It would tell a visitor which fields the owner has left empty, and it would split
+one rule into a per-field one.
+
+Decided in: pending squash (HOLODEX-626).

@@ -49,7 +49,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [ ] backend → `{cmd,internal,providers}/**`
 - [ ] frontend → `web/src/**`
 - [ ] testing `testing-strategy` — §42 strategy written; A1 committed skipped; the rest is written with the build
-- [ ] security `security-review`
+- [/] security `security-review` — design-stage rules SEC-12 to SEC-15 in security-perimeter.md; the code review waits for the build
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
      (as a fresh up-next item or its own issue — the gate itself stays settled):
@@ -66,13 +66,13 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [security] Review the owner-only rules at design stage — `docs/architecture/security-perimeter.md`
-2. [ ] [backend] Restrict `matched` to declared providers, remove A1's skip, declare `provider-1` in §38.2's fixture — `internal/repo/query_compile.go`
-3. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+1. [ ] [backend] Restrict `matched` to declared providers, remove A1's skip, declare `provider-1` in §38.2's fixture — `internal/repo/query_compile.go`
+2. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+3. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
 4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
 5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
 6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`
+7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
 8. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
@@ -84,6 +84,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-10 · design-stage security review
+- skills: security-review, handoff
+- handoff: The branch review found nothing (docs and one skipped test only), and F90's perimeter rules SEC-12 to SEC-15 are written; the security gate stays open for a code review after the build. Start the build at the `matched` declared-provider fix, which removes A1's skip.
 
 ### 2026-11-09 · testing strategy
 - skills: handoff

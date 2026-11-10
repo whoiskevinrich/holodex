@@ -6772,7 +6772,8 @@ MP4, a variable-rate MKV and MP4, and an MP4 with a real edit list.
 ## 42. Provider link and field filters, the enriched count, the score retired (F90, HOLODEX-626)
 
 [Spec](specs/provider-and-field-filters.md) · [handoff](design/provider-and-field-filters-handoff.md) ·
-[presence cache](architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types).
+[presence cache](architecture/field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types) ·
+[perimeter, SEC-12 to SEC-15](architecture/security-perimeter.md#field-and-link-filters-has-the-enriched-sort-and-the-people-and-studios-filters-are-owner-only).
 This extends §38 (F87), §40 (F89), §20 (F73) and §33 (F82's Table view). It also retires the
 score, ring and Done-column tests in §4. Those rows go with the code they cover, at build, not
 before.
@@ -6918,6 +6919,10 @@ isn't restated here.
 | P0-7 Queue and detail list | R4, R6, A8 |
 | P0-8 Owner-only | Q2, A5, A6, QA 4 |
 | P0-9 Saved queries | A1, A7, QA 1 |
+| SEC-12 `has:` and enriched sorts owner-only | Q2, A5, A6 |
+| SEC-13 People and Studios filters refused for visitors | A5 |
+| SEC-14 Names from an allowlist, bound | Q1, A2 |
+| SEC-15 No link state or count for visitors | A5, QA 4 |
 | Success metrics | QA 2, 4, 5 |
 
 ### 42.10 Mutation checks (run once the code exists)
