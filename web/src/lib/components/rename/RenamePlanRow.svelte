@@ -127,8 +127,8 @@
 			{#if row.reason === 'out-of-date' && row.changes?.length}
 				<p class="text-xs text-muted max-sm:hidden">
 					Since Holodex named it, {changedFields(row.changes)} changed:
-					{#each row.changes as c, i (c.token)}{#if i > 0}, {/if}<span class="font-mono text-ink">{c.recorded.join(', ')}</span>
-						→ <span class="font-mono text-ink">{c.current.join(', ')}</span>{/each}
+					{#each row.changes as c, i (c.token)}{#if i > 0}, {/if}<span class="font-mono text-ink">{c.recorded?.join(', ') || '—'}</span>
+						→ <span class="font-mono text-ink">{c.current?.join(', ') || '—'}</span>{/each}
 				</p>
 				<p class="text-xs text-muted sm:hidden">{changedSince(row.changes)}</p>
 			{:else if row.holder_id && row.name}

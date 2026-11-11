@@ -189,9 +189,17 @@ func changes(recorded, current map[string][]string) []Change {
 	var out []Change
 	for k := range keys {
 		if !reflect.DeepEqual(recorded[k], current[k]) {
-			out = append(out, Change{Token: k, Recorded: recorded[k], Current: current[k]})
+			// A token on one side only must encode as [], not null (HOLODEX-635).
+			out = append(out, Change{Token: k, Recorded: nonNil(recorded[k]), Current: nonNil(current[k])})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Token < out[j].Token })
 	return out
+}
+
+func nonNil(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
 }
