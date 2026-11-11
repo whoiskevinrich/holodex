@@ -59,8 +59,8 @@ func (r *Repo) SetDeclaredProviders(names []string) {
 	r.providers.Store(&names)
 }
 
-// declaredProviders is the last SetDeclaredProviders list; none before the first call.
-func (r *Repo) declaredProviders() []string {
+// DeclaredProviders is the last SetDeclaredProviders list; none before the first call.
+func (r *Repo) DeclaredProviders() []string {
 	if p := r.providers.Load(); p != nil {
 		return *p
 	}
@@ -481,7 +481,7 @@ func (f VideoFilter) orderBy() (string, []any) {
 // CountVideos is the total ListVideos reports, alone: the live item_count of a smart
 // playlist on the playlists list (ADR-121 D3) needs the count, not a page.
 func (r *Repo) CountVideos(ctx context.Context, f VideoFilter) (int, error) {
-	where, args := f.build(r.declaredProviders())
+	where, args := f.build(r.DeclaredProviders())
 	var total int
 	if err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
@@ -508,7 +508,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if err != nil {
 		return nil, 0, err
 	}
-	where, args := f.build(r.declaredProviders())
+	where, args := f.build(r.DeclaredProviders())
 
 	limit := f.Limit
 	if limit <= 0 {
@@ -570,7 +570,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 // by this app's personal-library scale, the same assumption the extraction review
 // queue's full-table read (ExtractionQueue) already leans on.
 func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video, error) {
-	where, args := f.build(r.declaredProviders())
+	where, args := f.build(r.DeclaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -611,7 +611,7 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 // ListAllVideos scans and hydrates full rows. Same build()/orderBy() as both, so
 // the snapshot's membership and order can never disagree with browse's.
 func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error) {
-	where, args := f.build(r.declaredProviders())
+	where, args := f.build(r.DeclaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	qArgs := make([]any, 0, len(args)+len(orderArgs))
 	qArgs = append(qArgs, args...)

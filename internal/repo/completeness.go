@@ -26,6 +26,9 @@ type CompletenessRow struct {
 	Missing    []MissingFacet
 	// Values is a video's resolved-value index rows, written by the drain only.
 	Values []ResolvedValue
+	// Fields is the entity's cached field presence and provider contribution (F90), written
+	// by the drain only.
+	Fields []FieldState
 }
 
 // MissingFacet is one absent scored facet: its canonical name and the band
@@ -168,6 +171,11 @@ func (r *Repo) writeCompleteness(ctx context.Context, entityType string, ids []i
 			return err
 		}
 	}
+	if clearDirty && cachesFieldState(entityType) {
+		if err := writeFieldState(ctx, tx, entityType, ids, rows); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
@@ -278,7 +286,7 @@ func (r *Repo) MissingFacetCounts(ctx context.Context, entityType string) ([]Mis
 // chip's counts reflect the subset the owner is looking at (F55.6). Limit,
 // Offset and Sort are ignored.
 func (r *Repo) MissingFacetCountsForVideos(ctx context.Context, f VideoFilter) ([]MissingFacetCount, error) {
-	where, args := f.build(r.declaredProviders())
+	where, args := f.build(r.DeclaredProviders())
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT m.canonical, m.band, COUNT(*)
 		FROM entity_completeness_missing m

@@ -192,7 +192,7 @@ func playlistVisibleClause(publicOnly bool) string {
 // `matched:` condition may use and suggests. Filename parsing's rows never count
 // (F90 P0-1).
 func (r *Repo) QueryProviders(ctx context.Context) ([]string, error) {
-	declared := r.declaredProviders()
+	declared := r.DeclaredProviders()
 	rows, err := r.db.QueryContext(ctx,
 		`SELECT DISTINCT provider FROM entity_enrichment WHERE entity_type = ? ORDER BY provider`, model.EnrichEntityVideo)
 	if err != nil {

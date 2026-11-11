@@ -13,6 +13,7 @@ import (
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/personimage"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 	"holodex/internal/thumbnail"
@@ -109,6 +110,22 @@ func (h *Handlers) localPosters(ctx context.Context, id int64) map[string]resolv
 		}
 	}
 	return out
+}
+
+// withPosterOptions is how the owner's view of a video resolves: offered empty fields, and
+// every poster Holodex holds (F85), so the Poster row is kept whenever the video has any
+// poster image at all. The detail page and the field-state drain (F90) both use it, so
+// has:poster answers what the page shows.
+func (h *Handlers) withPosterOptions(ctx context.Context, id int64, opts resolver.Options) resolver.Options {
+	opts.Offer = registry.OffersWhenEmpty
+	opts.LocalPosters = h.localPosters(ctx, id)
+	opts.FileCover = h.fileCoverHash(id)
+	if len(opts.LocalPosters) > 0 || opts.FileCover != "" {
+		opts.Offer = func(canonical string) bool {
+			return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
+		}
+	}
+	return opts
 }
 
 // stampPosterTileImages sets image_url on the poster_url candidates whose value is

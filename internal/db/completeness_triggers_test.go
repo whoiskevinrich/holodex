@@ -45,6 +45,10 @@ var completenessInputs = []struct {
 	{"field_promotions", `INSERT INTO field_promotions (entity_type, field_key, created_at, updated_at) VALUES ('person', 'height', '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z')`, "person", 1},
 	{"field_claims", `INSERT INTO field_claims (entity_type, provider, field_key, canonical, created_at, updated_at) VALUES ('studio', 'tmdb', 'hq', 'country', '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z')`, "studio", 1},
 	{"provider_field_hints", `INSERT INTO provider_field_hints (provider, field_key, updated_at) VALUES ('tmdb', 'height', '2026-09-18T00:00:00Z')`, "video", 1},
+	// F90 (0073): the poster is a cached field, so the held slots and the file slot's
+	// lifecycle are inputs too.
+	{"video_poster_sources", `INSERT INTO video_poster_sources (video_id, kind, hash, updated_at) VALUES (1, 'frame', 'h', '2026-09-18T00:00:00Z')`, "video", 1},
+	{"videos", `UPDATE videos SET thumbnail_state = 'ready' WHERE id = 1`, "video", 1},
 }
 
 func seedCompletenessFixture(t *testing.T, db *sql.DB) {
@@ -75,6 +79,28 @@ func TestMigration0049_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
 				t.Errorf("write to %s left %d dirty rows for %s/%d, want 1", tc.table, n, tc.entityType, tc.entityID)
 			}
 		})
+	}
+}
+
+// Migration 0073: entity_field_state has no foreign key, so deleting an entity must take
+// its rows, and only its own type's.
+func TestMigration0073_DeletingAnEntityClearsItsFieldState(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	for _, et := range []string{"video", "person", "studio"} {
+		mustExec(t, db, `INSERT INTO entity_field_state (entity_type, entity_id, field_key, shown) VALUES ('`+et+`', 1, 'title', 1)`)
+	}
+	mustExec(t, db, `DELETE FROM people WHERE id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM entity_field_state WHERE entity_type = 'person'`); n != 0 {
+		t.Errorf("person delete left %d rows", n)
+	}
+	mustExec(t, db, `DELETE FROM studios WHERE id = 1`)
+	mustExec(t, db, `DELETE FROM videos WHERE id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM entity_field_state`); n != 0 {
+		t.Errorf("deletes left %d rows", n)
 	}
 }
 

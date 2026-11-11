@@ -33,18 +33,22 @@ type VideoCompleteness struct {
 	Completeness resolver.Completeness `json:"completeness"`
 	// Resolved is the same pass's field list, which the drain also indexes (F89 P0-6).
 	Resolved []resolver.ResolvedField `json:"-"`
+	// Fields is the drain's entity_field_state rows (F90); nil outside the drain.
+	Fields []repo.FieldState `json:"-"`
 }
 
 // PersonCompleteness pairs one person with its computed completeness.
 type PersonCompleteness struct {
 	Person       model.Person          `json:"person"`
 	Completeness resolver.Completeness `json:"completeness"`
+	Fields       []repo.FieldState     `json:"-"` // F90, as VideoCompleteness.Fields
 }
 
 // StudioCompleteness pairs one studio with its computed completeness.
 type StudioCompleteness struct {
 	Studio       model.Studio          `json:"studio"`
 	Completeness resolver.Completeness `json:"completeness"`
+	Fields       []repo.FieldState     `json:"-"` // F90, as VideoCompleteness.Fields
 }
 
 // injectSyntheticFacet appends a synthetic field/resolved-row pair for a scored facet
@@ -84,7 +88,10 @@ func injectSyntheticFacet(fields []mapping.Field, resolved []resolver.ResolvedFi
 //
 // f carries the caller's existing browse filters (tags/person/studio/query/
 // duration/year/mapped); f.Limit/Offset are ignored (ListAllVideos).
-func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter) ([]VideoCompleteness, error) {
+//
+// forDrain also resolves each poster as the owner's detail page does, which reads the
+// video's poster slots, and fills Fields (F90). The queue's whole-library scan leaves it off.
+func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter, forDrain bool) ([]VideoCompleteness, error) {
 	if h.mappings == nil {
 		return nil, nil
 	}
@@ -131,6 +138,7 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 
 	m := h.mappings.Current()
 	baseFields := m.Fields()
+	declared := h.repo.DeclaredProviders()
 	out := make([]VideoCompleteness, len(videos))
 	for i, v := range videos {
 		rows := enrByVideo[v.ID]
@@ -139,7 +147,11 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 
 		fields, promoted := h.mergePromotions(ctx, model.EnrichEntityVideo, baseFields, rows)
 		fields = h.mergeClaims(ctx, model.EnrichEntityVideo, fields)
-		resolved := resolver.Resolve(&v, extraByVideo[v.ID], injectFilmSources(enrichmentFromRows(rows), filmsByVideo[v.ID]), cur, fields, h.resolveOptions(dec))
+		opts := h.resolveOptions(dec)
+		if forDrain {
+			opts = h.withPosterOptions(ctx, v.ID, opts)
+		}
+		resolved := resolver.Resolve(&v, extraByVideo[v.ID], injectFilmSources(enrichmentFromRows(rows), filmsByVideo[v.ID]), cur, fields, opts)
 		h.markPromoted(resolved, promoted)
 		resolved = h.appendAutoRegistered(ctx, rows, fields, resolved)
 		// P0-10 (F50, ADR-075 RD9): same genre-writeback union getMedia applies
@@ -159,6 +171,9 @@ func (h *Handlers) completenessForVideos(ctx context.Context, f repo.VideoFilter
 			Video:        v,
 			Completeness: resolver.Complete(fields, resolved, notApplicableByVideo[v.ID]),
 			Resolved:     resolved,
+		}
+		if forDrain {
+			out[i].Fields = append(fieldStates(fields, resolved, rows, declared), repo.FieldState{Key: posterStateKey, Shown: posterShown(resolved)})
 		}
 	}
 	return out, nil
@@ -221,6 +236,7 @@ func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFi
 		return nil, err
 	}
 
+	declared := h.repo.DeclaredProviders()
 	photoLabel := registry.Lookup("photo").Label
 	aliasLabel := registry.Lookup("alternate_names").Label
 	out := make([]PersonCompleteness, len(people))
@@ -236,6 +252,7 @@ func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFi
 		h.markPromoted(resolved, promoted)
 		resolved = h.appendAutoRegistered(ctx, rows, fields, personizeResolved(resolved))
 		resolved = resolver.Derive(resolved, h.clock())
+		states := append(fieldStates(fields, resolved, rows, declared), repo.FieldState{Key: photoStateKey, Shown: p.HeadshotVersion != 0})
 		// photo is delivered as an asset (person_images), never a field value
 		// (personFields deliberately excludes it) — score it off HeadshotVersion,
 		// the default-avatar role the singular "Portrait image" facet maps to.
@@ -248,6 +265,7 @@ func (h *Handlers) completenessForPeople(ctx context.Context, f repo.NamedListFi
 		out[i] = PersonCompleteness{
 			Person:       p,
 			Completeness: resolver.Complete(fields, resolved, batch.notApplicable[p.ID]),
+			Fields:       states,
 		}
 	}
 	return out, nil
@@ -275,6 +293,7 @@ func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListF
 		return nil, err
 	}
 
+	declared := h.repo.DeclaredProviders()
 	brandingLabel := registry.Lookup("branding_image").Label
 	aliasLabel := registry.Lookup("alternate_names").Label
 	out := make([]StudioCompleteness, len(studios))
@@ -289,6 +308,7 @@ func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListF
 		resolved := resolver.ResolveFields(resolver.NewStudioBaseline(&s), enrichmentFromRows(rows), cur, fields, h.resolveOptions(dec))
 		h.markPromoted(resolved, promoted)
 		resolved = h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved))
+		states := append(fieldStates(fields, resolved, rows, declared), repo.FieldState{Key: brandingStateKey, Shown: len(s.ImageVersions) > 0})
 		// branding_image is delivered as an asset (studio_images), never a field
 		// value — resolved if any of the icon/logo/poster roles is set (spec
 		// F55.13), which ListStudios already batches onto s.ImageVersions.
@@ -302,6 +322,7 @@ func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListF
 		out[i] = StudioCompleteness{
 			Studio:       s,
 			Completeness: resolver.Complete(fields, resolved, batch.notApplicable[s.ID]),
+			Fields:       states,
 		}
 	}
 	return out, nil
@@ -370,7 +391,7 @@ func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 		var rows []repo.CompletenessRow
 		switch entityType {
 		case model.EnrichEntityVideo:
-			scored, err := h.completenessForVideos(ctx, repo.VideoFilter{IDs: ids})
+			scored, err := h.completenessForVideos(ctx, repo.VideoFilter{IDs: ids}, true)
 			if err != nil {
 				return nil, err
 			}
@@ -378,6 +399,7 @@ func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 			for _, vc := range scored {
 				row := completenessRow(entityType, vc.Video.ID, vc.Completeness)
 				row.Values = resolvedValueRows(fields, vc.Resolved)
+				row.Fields = vc.Fields
 				rows = append(rows, row)
 			}
 		case model.EnrichEntityPerson:
@@ -386,7 +408,9 @@ func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 				return nil, err
 			}
 			for _, pc := range scored {
-				rows = append(rows, completenessRow(entityType, pc.Person.ID, pc.Completeness))
+				row := completenessRow(entityType, pc.Person.ID, pc.Completeness)
+				row.Fields = pc.Fields
+				rows = append(rows, row)
 			}
 		case model.EnrichEntityStudio:
 			scored, err := h.completenessForStudios(ctx, repo.NamedListFilter{IDs: ids})
@@ -394,7 +418,9 @@ func (h *Handlers) drainCompletenessStrict(ctx context.Context) error {
 				return nil, err
 			}
 			for _, sc := range scored {
-				rows = append(rows, completenessRow(entityType, sc.Studio.ID, sc.Completeness))
+				row := completenessRow(entityType, sc.Studio.ID, sc.Completeness)
+				row.Fields = sc.Fields
+				rows = append(rows, row)
 			}
 			// default: nothing scores this entity type (a film's shadow-store
 			// write lands here) — no rows, and the drain clears the flags.

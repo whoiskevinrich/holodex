@@ -35,11 +35,7 @@ func (h *Handlers) queryFields() query.Fields {
 
 func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 	def := registry.Lookup(f.Canonical)
-	display := f.Display
-	if display == "" {
-		display = def.Display
-	}
-	if strings.HasPrefix(f.Canonical, "_") || query.IsBuiltin(f.Canonical) || def.Computed || display == "image_url" {
+	if !holdsValue(f) || query.IsBuiltin(f.Canonical) {
 		return query.FieldSpec{}, false
 	}
 	spec := query.FieldSpec{Kind: query.KindText, Label: f.Label, OwnerOnly: registry.HiddenFromVisitors(f.Canonical)}
@@ -53,6 +49,17 @@ func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 		spec.Kind = query.KindList
 	}
 	return spec, true
+}
+
+// holdsValue reports whether a mapped field carries a value the owner reads, rather than an
+// internal `_` key, a computed field or an image (field-resolution.md, "Which fields").
+func holdsValue(f mapping.Field) bool {
+	def := registry.Lookup(f.Canonical)
+	display := f.Display
+	if display == "" {
+		display = def.Display
+	}
+	return !strings.HasPrefix(f.Canonical, "_") && !def.Computed && display != "image_url"
 }
 
 // resolvedValueRows is what one video's resolve puts in the index.

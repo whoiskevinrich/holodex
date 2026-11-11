@@ -32,7 +32,12 @@ const (
 	FieldWatched    = "watched"  // F89 P0-8: yes or no, the owner's mark first
 	FieldPlays      = "plays"    // F89 P0-8: how many counted plays
 	FieldPlayed     = "played"   // F89 P0-8: when the last counted play happened
+	FieldHas        = "has"      // F90 P0-2: the video shows a value for the named field
 )
+
+// HasPoster is `has:poster` (F90 P0-2): a real poster, not the automatic thumbnail. The
+// poster's mapped field is an image, so it is named only this way in a query.
+const HasPoster = "poster"
 
 // The two values of `watched:`.
 const (
@@ -88,7 +93,7 @@ var knownFields = map[string]bool{
 	FieldTag: true, FieldPerson: true, FieldStudio: true, FieldCategory: true,
 	FieldResolution: true, FieldYear: true, FieldDuration: true, FieldMatched: true,
 	FieldAdded: true, FieldPlaylist: true, FieldUpdated: true, FieldReleased: true,
-	FieldWatched: true, FieldPlays: true, FieldPlayed: true,
+	FieldWatched: true, FieldPlays: true, FieldPlayed: true, FieldHas: true,
 }
 
 // IsBuiltin reports whether a name belongs to the grammar, so a mapped field of that name
@@ -117,7 +122,8 @@ type Not struct{ X Node }
 // keeps the typed name until then); year and duration carry Lo (and Hi for a range),
 // durations in seconds; a date field carries its value as written in Value (dates.go);
 // resolution carries the bucket in Value; matched carries
-// `any` or a provider name in Value. A mapped field carries its Kind, and its value by
+// `any` or a provider name in Value; has carries the field's key in Value and its label in
+// FieldLabel. A mapped field carries its Kind, and its value by
 // kind: text, list or date in Value, a number in Lo (and Hi). Owner marks a condition on a
 // field hidden from visitors. Pos and End are byte offsets into the source.
 type Cond struct {
@@ -184,7 +190,7 @@ func Conds(n Node) []*Cond {
 // ownerOnly reports whether one condition is the owner's alone.
 func (c *Cond) ownerOnly() bool {
 	switch c.Field {
-	case FieldMatched, FieldWatched, FieldPlays, FieldPlayed:
+	case FieldMatched, FieldWatched, FieldPlays, FieldPlayed, FieldHas:
 		return true
 	}
 	return c.Owner
@@ -202,11 +208,11 @@ func OwnerOnly(n Node) bool {
 	return false
 }
 
-// NeedsIndex reports whether n reads the resolved-value index or the change stamp, which
-// the dirty set's drain keeps current (field-resolution.md, "Drain").
+// NeedsIndex reports whether n reads the resolved-value index, the field-state cache or the
+// change stamp, which the dirty set's drain keeps current (field-resolution.md, "Drain").
 func NeedsIndex(n Node) bool {
 	for _, c := range Conds(n) {
-		if c.Kind != "" || c.Field == FieldUpdated || c.Field == FieldReleased {
+		if c.Kind != "" || c.Field == FieldUpdated || c.Field == FieldReleased || c.Field == FieldHas {
 			return true
 		}
 	}
@@ -217,7 +223,10 @@ func NeedsIndex(n Node) bool {
 func GoneFields(n Node) []string {
 	var out []string
 	for _, c := range Conds(n) {
-		if c.Kind == KindGone {
+		switch {
+		case c.Kind == KindGone && c.Field == FieldHas:
+			out = append(out, c.Value) // has: names its field in the value
+		case c.Kind == KindGone:
 			out = append(out, c.Field)
 		}
 	}

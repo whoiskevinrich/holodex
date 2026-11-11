@@ -121,6 +121,22 @@ func matchedClause(provider string, declared []string) (string, []any) {
 	return base + " AND ee.provider = ?)", []any{provider}
 }
 
+// hasClause is `has:` (F90 P0-2) over the drain's field-state cache (field-resolution.md,
+// "Reads"). A video not yet drained has no rows, so it reads as missing every field, never
+// as having one. `released` reads the release-date field it stands for, so every video
+// `released:` matches also has it. A field gone from the mapping matches nothing.
+func hasClause(c *query.Cond) (string, []any) {
+	if c.Kind == query.KindGone {
+		return "0", nil
+	}
+	key := c.Value
+	if key == query.FieldReleased {
+		key = query.ReleaseDateKey
+	}
+	return "EXISTS (SELECT 1 FROM entity_field_state efs WHERE efs.entity_type = '" + model.EnrichEntityVideo +
+		"' AND efs.entity_id = v.id AND efs.field_key = ? AND efs.shown = 1)", []any{key}
+}
+
 // instantClause is `added:` or `updated:` (F89 P0-1) over a video column of RFC3339 UTC
 // text, so the bounds compare as strings. A video with no value (a row written by a path
 // other than the scanner) matches no date, and so its negation includes it. col is a
@@ -223,6 +239,8 @@ func (e compileEnv) cond(c *query.Cond) (string, []any) {
 		return e.playlistClause(e.refs[c.ID])
 	case query.FieldMatched:
 		return matchedClause(c.Value, e.providers)
+	case query.FieldHas:
+		return hasClause(c)
 	case query.FieldWatched:
 		return watchedClause(c.Value)
 	case query.FieldPlays:

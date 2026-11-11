@@ -962,17 +962,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// so a visitor's resolved[] is unchanged. Resolved before markWriteTargets
 			// below, so an offered row is writable in the dialog.
 			if authorized {
-				opts.Offer = registry.OffersWhenEmpty
 				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
-				// F85: the owner's chooser offers every poster Holodex holds, so the
-				// Poster row is kept whenever the video has any poster image at all.
-				opts.LocalPosters = h.localPosters(r.Context(), id)
-				opts.FileCover = h.fileCoverHash(id)
-				if len(opts.LocalPosters) > 0 || opts.FileCover != "" {
-					opts.Offer = func(canonical string) bool {
-						return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
-					}
-				}
+				opts = h.withPosterOptions(r.Context(), id, opts)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			if authorized {

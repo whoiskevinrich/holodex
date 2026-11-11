@@ -46,9 +46,9 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [x] spec `write-spec` → `docs/specs/**` — F90 written; F55, F73 and F87 point to it
 - [x] architecture `architecture` → `docs/architecture/**` — `entity_field_state` cache and declared-provider `matched` in field-resolution.md
 - [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
-- [ ] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers (A1 green); `entity_field_state` and `has:` not started
+- [/] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers; `entity_field_state` (0073) is drained for all three types and `has:` works on Media; People/Studios filters, enriched sorts and the score's retirement remain
 - [ ] frontend → `web/src/**`
-- [ ] testing `testing-strategy` — §42 strategy written; A1 passes with the fix; the rest is written with the build
+- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, A3, R3, R4 and the drain half of R1/R5 pass and are mutation-checked; the rest is written with the build
 - [/] security `security-review` — design-stage rules SEC-12 to SEC-15 in security-perimeter.md; the code review waits for the build
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,14 +66,17 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] `entity_field_state` migration 0073, its drain writer and triggers, then `has:` in the parser and compiler — `internal/db/migrations/`
-2. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
-3. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
-4. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-5. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
-8. [ ] [backend] Migrations start at 0073 (main's 0072 is video trim); re-check against origin/main before adding one — `internal/db/migrations/`
+1. [ ] [backend] People and Studios filter params (Provider link, has/missing) and Most/Least enriched sorts over `entity_field_state`, owner-only per SEC-12/13 — `internal/api/`, `internal/repo/`
+2. [ ] [backend] `has:` in MCP `search_videos` (P0-9): the tool refuses every index-reading query because it cannot drain; give it the drain or a catalogue — `internal/mcp/mcp.go`
+3. [ ] [spec] Owner to decide: `has:studio` is refused because `studio` is also a built-in condition; widen the `has:` catalogue to every mapped field? — `internal/query/parse.go`
+4. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
+5. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+6. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
+7. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+8. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
+9. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+10. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
+11. [ ] [backend] F90 has 0073 (`entity_field_state`); the next is 0074. Re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,6 +87,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-11 · field-state cache and has:
+- skills: code-review, handoff
+- handoff: `entity_field_state` (migration 0073) is drained for videos, people and studios, and `has:` works on Media, owner-only and mutation-checked; next is the People and Studios filter params and the enriched sorts., handoff
 
 ### 2026-11-10 · design-stage security review
 - skills: security-review, handoff, code-review

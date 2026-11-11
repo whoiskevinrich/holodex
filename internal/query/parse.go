@@ -331,6 +331,10 @@ func (p *parser) term(t token) (Node, error) {
 		if strings.EqualFold(value, MatchedAny) {
 			c.Value = MatchedAny
 		}
+	case field == FieldHas:
+		if err := p.hasField(c, strings.ToLower(value)); err != "" {
+			return nil, bad(CodeUnknownField, err)
+		}
 	default: // entity fields: an unquoted number is an id, anything else a name
 		c.Value = value
 		if !c.Quoted {
@@ -340,6 +344,27 @@ func (p *parser) term(t token) (Node, error) {
 		}
 	}
 	return c, nil
+}
+
+// hasField binds `has:` to the field it names (F90 P0-2): a queryable mapped field,
+// `released` or `poster`. Images other than the poster, computed fields and `_` keys are
+// never in the catalogue, so they are refused. A stored definition keeps a field later
+// removed from the mapping as KindGone, so its playlist reads as stale.
+func (p *parser) hasField(c *Cond, key string) string {
+	c.Value = key
+	switch spec, ok := p.fields[key]; {
+	case key == HasPoster:
+		c.FieldLabel = "Poster"
+	case key == FieldReleased:
+		c.FieldLabel = "Released"
+	case ok:
+		c.FieldLabel = spec.Label
+	case p.stored:
+		c.Kind = KindGone
+	default:
+		return fmt.Sprintf("%q isn't something you can search by.", key)
+	}
+	return ""
 }
 
 // splitField splits `field:value` when the text before the first colon is a field-like
