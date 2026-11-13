@@ -20,7 +20,8 @@ import (
 
 // fsMappings adds the poster, and maps director from a provider that is never declared.
 var fsMappings = strings.Replace(rvMappings, "[fake:director, file:Director]", "[fake:director, gone:director, file:Director]", 1) +
-	"  - canonical: poster_url\n    label: Poster\n    display: image_url\n    sources: [fake:poster_url]\n"
+	"  - canonical: poster_url\n    label: Poster\n    display: image_url\n    sources: [fake:poster_url]\n" +
+	"  - canonical: studio\n    label: Studio\n    sources: [file:Publisher]\n"
 
 func newFSEnv(t *testing.T) *rvEnv {
 	t.Helper()
@@ -210,5 +211,37 @@ func TestDrainWritesFieldStateForEveryEntityType(t *testing.T) {
 	}
 	if _, ok := state("person", person)["photo"]; ok {
 		t.Error("a person with no headshot has a photo row")
+	}
+}
+
+// P0-2 (owner, 2026-11-12): a mapped field named like a built-in condition is still a
+// field has: can check. studio: stays the built-in condition, and its values are never
+// put in the value index.
+func TestHasStudioWhileStudioStaysBuiltin(t *testing.T) {
+	e := newFSEnv(t)
+	with := e.video(t, "/m/s.mkv", tag("Publisher", "Acme"))
+	without := e.video(t, "/m/n.mkv")
+	e.want(t, `has:studio`, with)
+	e.want(t, `-has:studio`, without)
+
+	var n int
+	if err := e.db.QueryRow(`SELECT COUNT(*) FROM resolved_values WHERE field_key = 'studio'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("resolved_values holds %d studio rows", n)
+	}
+	// studio: names a studio entity, so an unknown name is refused as one, not compared as text.
+	if code, body := getJSONTok(t, e.srv.URL+"/api/v1/media/ids?expr="+url.QueryEscape(`studio:Acme`), "s3cret"); code != http.StatusBadRequest {
+		t.Errorf("studio:Acme with no such studio = %d %v, want 400", code, body)
+	}
+	code, body := getJSONTok(t, e.srv.URL+"/api/v1/query/fields", "s3cret")
+	if code != http.StatusOK {
+		t.Fatalf("query fields: %d", code)
+	}
+	for _, f := range body["fields"].([]any) {
+		if f.(map[string]any)["field"] == "studio" {
+			t.Error("studio is offered as a value field")
+		}
 	}
 }

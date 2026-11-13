@@ -6836,7 +6836,7 @@ data.
 
 | # | Case | Proves |
 |---|---|---|
-| Q1 | `has:director`, `-has:poster` and `has:released` parse and print canonically. `has:_x`, a computed field, `has:cover` and an unmapped name are each F87's unknown-field error at the right offset. | P0-2 |
+| Q1 | `has:director`, `-has:poster` and `has:released` parse and print canonically. `has:_x`, a computed field, `has:cover` and an unmapped name are each F87's unknown-field error at the right offset. A mapped field named like a condition (`studio`) is a `has:` field, while `studio:` stays the entity condition and its values never enter `resolved_values`. | P0-2 |
 | Q2 | `OwnerOnly` is true for `has:` and for each enriched sort, alone, under NOT and inside an OR group. | P0-8 (risk 3) |
 | Q3 | A stored Completeness sort key reads as the list's default sort, with no error. | P0-6 (risk 5) |
 

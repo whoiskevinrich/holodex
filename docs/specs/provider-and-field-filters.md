@@ -138,6 +138,8 @@ has:director -has:actors
       still counts as having a value, though `released:` can't match it.
 - [ ] Computed fields and internal provider data aren't accepted. The poster's name in a query is `poster`
       only.
+- [ ] A mapped field that shares a name with a condition is accepted: `has:studio` matches a video showing
+      a studio, while `studio:` keeps naming a studio.
 - [ ] An unknown field is refused with F87's message for an unknown field, and a field later removed
       from the mapping makes a saved playlist stale, as F89 P0-6 does.
 - [ ] A `has` condition shows as a chip; `-has` as F87's NOT chip. Both read in words ("No poster").

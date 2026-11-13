@@ -11,6 +11,7 @@ import (
 var hasFields = Fields{
 	FieldReleased: {Kind: KindDate},
 	"director":    {Kind: KindList, Label: "Director"},
+	FieldStudio:   {Kind: KindList, Label: "Studio"}, // a mapped field named like a built-in
 }
 
 // Q1: has: parses and prints canonically, and anything it can't check is F87's
@@ -79,5 +80,21 @@ func TestHasIsOwnerOnly(t *testing.T) {
 		if err := q.CheckOwner(false); !errors.As(err, &e) || e.Code != CodeOwnerOnly {
 			t.Errorf("%s: visitor check = %v", src, err)
 		}
+	}
+}
+
+// A mapped field named like a built-in condition is a has: field, and the built-in
+// condition keeps its own meaning.
+func TestHasBuiltinNamedField(t *testing.T) {
+	q, err := ParseWith(`has:studio studio:Acme`, hasFields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cs := Conds(q.Root)
+	if cs[0].Field != FieldHas || cs[0].Value != FieldStudio || cs[0].FieldLabel != "Studio" {
+		t.Errorf("has:studio = %+v", cs[0])
+	}
+	if cs[1].Field != FieldStudio || cs[1].Kind != "" || !IsEntityField(cs[1].Field) {
+		t.Errorf("studio:Acme = %+v, want the built-in entity condition", cs[1])
 	}
 }
