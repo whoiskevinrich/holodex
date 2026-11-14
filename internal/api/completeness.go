@@ -507,6 +507,40 @@ func attachCompleteness[T any](ctx context.Context, h *Handlers, entityType stri
 	return nil
 }
 
+// attachEnriched stamps the owner-only enriched count (F90 P0-4) onto one page of list
+// items, 0 where nothing was contributed. Like attachCompleteness, the caller gates on the
+// owner, so a visitor's items never carry the field.
+func attachEnriched[T any](ctx context.Context, h *Handlers, entityType string, items []T, id func(*T) int64, slot func(*T) **int) error {
+	ids := make([]int64, len(items))
+	for i := range items {
+		ids[i] = id(&items[i])
+	}
+	counts, err := h.repo.EnrichedCounts(ctx, entityType, ids)
+	if err != nil {
+		return err
+	}
+	for i := range items {
+		n := counts[id(&items[i])]
+		*slot(&items[i]) = &n
+	}
+	return nil
+}
+
+func (h *Handlers) attachVideoEnriched(ctx context.Context, items []model.Video) error {
+	return attachEnriched(ctx, h, model.EnrichEntityVideo, items,
+		func(v *model.Video) int64 { return v.ID }, func(v *model.Video) **int { return &v.Enriched })
+}
+
+func (h *Handlers) attachPersonEnriched(ctx context.Context, items []model.Person) error {
+	return attachEnriched(ctx, h, model.EnrichEntityPerson, items,
+		func(p *model.Person) int64 { return p.ID }, func(p *model.Person) **int { return &p.Enriched })
+}
+
+func (h *Handlers) attachStudioEnriched(ctx context.Context, items []model.Studio) error {
+	return attachEnriched(ctx, h, model.EnrichEntityStudio, items,
+		func(s *model.Studio) int64 { return s.ID }, func(s *model.Studio) **int { return &s.Enriched })
+}
+
 func (h *Handlers) attachVideoCompleteness(ctx context.Context, items []model.Video) error {
 	return attachCompleteness(ctx, h, model.EnrichEntityVideo, items,
 		func(v *model.Video) int64 { return v.ID },

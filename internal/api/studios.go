@@ -169,6 +169,10 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, "list studios", err)
 			return
 		}
+		if err := h.attachStudioEnriched(r.Context(), studios); err != nil {
+			h.fail(w, "list studios", err)
+			return
+		}
 	}
 	extra, err := letterExtra(q, func() (map[string]int, error) { return h.repo.StudioLetterOffsets(r.Context(), f) })
 	if err != nil {

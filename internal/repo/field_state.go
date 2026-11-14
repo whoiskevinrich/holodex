@@ -89,3 +89,28 @@ func enrichedOrder(entityType, idCol, dir string) string {
 	return "(SELECT COUNT(*) FROM entity_field_state efs WHERE efs.entity_type = '" + entityType + "' AND efs.entity_id = " + idCol +
 		" AND efs.enriched = 1) " + dir
 }
+
+// EnrichedCounts is the enriched count (F90 P0-4) of each of ids that has one. An entity
+// with no provider-contributed field, or not yet drained, is absent: its count is 0.
+func (r *Repo) EnrichedCounts(ctx context.Context, entityType string, ids []int64) (map[int64]int, error) {
+	out := make(map[int64]int, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `SELECT entity_id, COUNT(*) FROM entity_field_state
+		WHERE entity_type = ? AND enriched = 1 AND entity_id IN (`+placeholders(len(ids))+`) GROUP BY entity_id`,
+		append([]any{entityType}, toAnySlice(ids)...)...)
+	if err != nil {
+		return nil, fmt.Errorf("enriched counts: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}

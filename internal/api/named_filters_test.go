@@ -146,3 +146,45 @@ func TestNamedListFiltersAreOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// P0-4, P0-8: the owner's list items carry the enriched count the Table view shows, 0 where
+// nothing was contributed; a visitor's carry no count at all.
+func TestListItemsCarryEnrichedCountForOwnerOnly(t *testing.T) {
+	e := newNamedEnv(t)
+	counts := func(path, token string) map[string]any {
+		t.Helper()
+		code, body := getJSONTok(t, e.srv.URL+"/api/v1/"+path, token)
+		if code != http.StatusOK {
+			t.Fatalf("%s: %d", path, code)
+		}
+		out := map[string]any{}
+		for _, it := range body["items"].([]any) {
+			m := it.(map[string]any)
+			name, _ := m["name"].(string)
+			if name == "" {
+				name, _ = m["title"].(string)
+			}
+			out[name] = m["enriched"]
+		}
+		return out
+	}
+	got := counts("people", "s3cret")
+	for name, want := range map[string]float64{"Ann Lee": 2, "Di Park": 1, "Bo Diaz": 0, "Cy Moss": 0} {
+		if got[name] != want {
+			t.Errorf("owner %s enriched = %v, want %v", name, got[name], want)
+		}
+	}
+	if s := counts("studios", "s3cret"); s["Acme"] != float64(1) || s["Brio"] != float64(0) {
+		t.Errorf("owner studios enriched = %v", s)
+	}
+	if m := counts("media", "s3cret"); len(m) != 1 || m["n.mkv"] != float64(0) {
+		t.Errorf("owner media enriched = %v", m)
+	}
+	for _, path := range []string{"people", "studios", "media"} {
+		for name, v := range counts(path, "") {
+			if v != nil {
+				t.Errorf("visitor %s %s carries enriched = %v", path, name, v)
+			}
+		}
+	}
+}

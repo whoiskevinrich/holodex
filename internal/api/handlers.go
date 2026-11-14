@@ -590,6 +590,9 @@ func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwne
 		if err := h.attachVideoCompleteness(ctx, items); err != nil {
 			return err
 		}
+		if err := h.attachVideoEnriched(ctx, items); err != nil {
+			return err
+		}
 		if err := h.attachWatched(ctx, items); err != nil {
 			return err
 		}
@@ -1464,6 +1467,10 @@ func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	}
 	if isOwner {
 		if err := h.attachPersonCompleteness(r.Context(), people); err != nil {
+			h.fail(w, "list people", err)
+			return
+		}
+		if err := h.attachPersonEnriched(r.Context(), people); err != nil {
 			h.fail(w, "list people", err)
 			return
 		}
