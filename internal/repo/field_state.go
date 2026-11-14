@@ -52,3 +52,40 @@ func writeFieldState(ctx context.Context, tx *sql.Tx, entityType string, ids []i
 	}
 	return nil
 }
+
+// The People and Studios Provider link filter (F90 P0-3): linked or not linked. Empty is any.
+const (
+	LinkLinked   = "linked"
+	LinkUnlinked = "unlinked"
+)
+
+// The enriched sorts (F90 P0-4) on Media, People and Studios.
+const (
+	SortEnrichedDesc = "enriched_desc"
+	SortEnrichedAsc  = "enriched_asc"
+)
+
+// linkedClause is "a declared provider has data for this entity itself" (F90 P0-1), the one
+// meaning of linked: `matched:any` on Media, the Provider link filter on People and Studios.
+// With no declared provider nothing is linked. entityType and idCol are trusted constants.
+func linkedClause(entityType, idCol string, declared []string) (string, []any) {
+	if len(declared) == 0 {
+		return "0", nil
+	}
+	return "EXISTS (SELECT 1 FROM entity_enrichment ee WHERE ee.entity_type = '" + entityType + "' AND ee.entity_id = " + idCol +
+		" AND ee.provider IN (" + placeholders(len(declared)) + "))", toAnySlice(declared)
+}
+
+// shownClause is "the entity's page shows a value for field ?" over the drain's cache
+// (field-resolution.md, "Reads"): an entity not yet drained reads as missing the field.
+func shownClause(entityType, idCol string) string {
+	return "EXISTS (SELECT 1 FROM entity_field_state efs WHERE efs.entity_type = '" + entityType + "' AND efs.entity_id = " + idCol +
+		" AND efs.field_key = ? AND efs.shown = 1)"
+}
+
+// enrichedOrder orders by the enriched count (F90 P0-4): how many fields a declared
+// provider contributed to. The caller appends the list's default order as the tiebreak.
+func enrichedOrder(entityType, idCol, dir string) string {
+	return "(SELECT COUNT(*) FROM entity_field_state efs WHERE efs.entity_type = '" + entityType + "' AND efs.entity_id = " + idCol +
+		" AND efs.enriched = 1) " + dir
+}

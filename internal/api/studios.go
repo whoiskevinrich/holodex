@@ -144,7 +144,7 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio,
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
-	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+	if !h.gateNamedList(w, r, f, studioFilterFields) {
 		return
 	}
 	isOwner := h.auth.authorized(r)

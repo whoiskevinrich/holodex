@@ -108,17 +108,13 @@ func wordClause(text string) (string, []any) {
 // Rows under any other name, such as filename parsing's, never count, so with no
 // declared provider nothing is matched.
 func matchedClause(provider string, declared []string) (string, []any) {
-	const base = "EXISTS (SELECT 1 FROM entity_enrichment ee WHERE ee.entity_type = '" + model.EnrichEntityVideo + "' AND ee.entity_id = v.id"
-	if provider == query.MatchedAny {
-		if len(declared) == 0 {
+	if provider != query.MatchedAny {
+		if !slices.Contains(declared, provider) {
 			return "0", nil
 		}
-		return base + " AND ee.provider IN (" + placeholders(len(declared)) + "))", toAnySlice(declared)
+		declared = []string{provider}
 	}
-	if !slices.Contains(declared, provider) {
-		return "0", nil
-	}
-	return base + " AND ee.provider = ?)", []any{provider}
+	return linkedClause(model.EnrichEntityVideo, "v.id", declared)
 }
 
 // hasClause is `has:` (F90 P0-2) over the drain's field-state cache (field-resolution.md,
@@ -133,8 +129,7 @@ func hasClause(c *query.Cond) (string, []any) {
 	if key == query.FieldReleased {
 		key = query.ReleaseDateKey
 	}
-	return "EXISTS (SELECT 1 FROM entity_field_state efs WHERE efs.entity_type = '" + model.EnrichEntityVideo +
-		"' AND efs.entity_id = v.id AND efs.field_key = ? AND efs.shown = 1)", []any{key}
+	return shownClause(model.EnrichEntityVideo, "v.id"), []any{key}
 }
 
 // instantClause is `added:` or `updated:` (F89 P0-1) over a video column of RFC3339 UTC

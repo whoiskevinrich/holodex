@@ -333,7 +333,11 @@ func (h *Handlers) completenessForStudios(ctx context.Context, f repo.NamedListF
 // for it, or any missing_facet is present — so a visitor is rejected rather
 // than silently served the default order.
 func wantsCompleteness(sort string, missingFacets []string) bool {
-	return sort == repo.SortCompletenessAsc || sort == repo.SortCompletenessDesc || len(missingFacets) > 0
+	switch sort {
+	case repo.SortCompletenessAsc, repo.SortCompletenessDesc, repo.SortEnrichedDesc, repo.SortEnrichedAsc:
+		return true
+	}
+	return len(missingFacets) > 0
 }
 
 // drainCompleteness recomputes every entity in completeness_dirty and writes

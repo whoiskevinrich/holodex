@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -73,4 +75,33 @@ func posterShown(resolved []resolver.ResolvedField) bool {
 	}
 	automatic := fieldsource.LocalToken(fieldsource.LocalAutomatic, "") // the value is "local:automatic#<hash>"
 	return slices.ContainsFunc(resolved[i].Values, func(v string) bool { return v != "" && !strings.HasPrefix(v, automatic) })
+}
+
+// The fields the People and Studios filters may name (SEC-14): the entity's fields, plus its
+// image. Never taken from request text.
+var (
+	personFilterFields = append([]string{"name", photoStateKey}, personScalarFields...)
+	studioFilterFields = append([]string{"name", brandingStateKey}, studioScalarFields...)
+)
+
+// gateNamedList is the one check the People and Studios lists run before any SQL (SEC-13):
+// a visitor asking for missing_facet, link, has, missing or an owner-only sort gets the 401
+// missing_facet has always had, refused rather than ignored. The owner's link value and field
+// names must be ones the list knows, else 400. It reports whether the read may go on.
+func (h *Handlers) gateNamedList(w http.ResponseWriter, r *http.Request, f repo.NamedListFilter, fields []string) bool {
+	ownerOnly := wantsCompleteness(f.Sort, f.MissingFacets) || f.Link != "" || len(f.Has) > 0 || len(f.Missing) > 0
+	if ownerOnly && !h.requireOwnerInline(w, r) {
+		return false
+	}
+	if f.Link != "" && f.Link != repo.LinkLinked && f.Link != repo.LinkUnlinked {
+		writeError(w, http.StatusBadRequest, "link is linked or unlinked")
+		return false
+	}
+	for _, k := range slices.Concat(f.Has, f.Missing) {
+		if !slices.Contains(fields, k) {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("%q isn't a field this list can filter by", k))
+			return false
+		}
+	}
+	return true
 }

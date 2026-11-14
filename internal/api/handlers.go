@@ -1445,7 +1445,7 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
-	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+	if !h.gateNamedList(w, r, f, personFilterFields) {
 		return
 	}
 	isOwner := h.auth.authorized(r)
@@ -1556,6 +1556,7 @@ func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {
 		f.Sort = "name" // tags have no completeness sort
 	}
 	f.MissingFacets = nil
+	f.Link, f.Has, f.Missing = "", nil, nil // F90's filters are People and Studios only
 	tags, err := h.repo.ListTagsFiltered(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list tags", err)

@@ -46,9 +46,9 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [x] spec `write-spec` → `docs/specs/**` — F90 written; F55, F73 and F87 point to it
 - [x] architecture `architecture` → `docs/architecture/**` — `entity_field_state` cache and declared-provider `matched` in field-resolution.md
 - [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
-- [/] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers; `entity_field_state` (0073) is drained for all three types and `has:` works on Media; People/Studios filters, enriched sorts and the score's retirement remain
+- [/] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers; `entity_field_state` (0073) is drained for all three types; `has:` works on Media; People and Studios take `link`, `has`, `missing`; Most/Least enriched sorts on all three; the per-item count and the score's retirement remain
 - [ ] frontend → `web/src/**`
-- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, A3, R3, R4 and the drain half of R1/R5 pass and are mutation-checked; the rest is written with the build
+- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, A3, A4, R3, R4, R5 and parts of R1 and A5 pass and are mutation-checked; the rest is written with the build
 - [/] security `security-review` — design-stage rules SEC-12 to SEC-15 in security-perimeter.md; the code review waits for the build
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,16 +66,18 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] People and Studios filter params (Provider link, has/missing) and Most/Least enriched sorts over `entity_field_state`, owner-only per SEC-12/13 — `internal/api/`, `internal/repo/`
-2. [ ] [backend] `has:` in MCP `search_videos` (P0-9): the tool refuses every index-reading query because it cannot drain; give it the drain or a catalogue — `internal/mcp/mcp.go`
-3. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
-4. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
-5. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
-6. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-7. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
-8. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
-9. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
-10. [ ] [backend] F90 has 0073 (`entity_field_state`); the next is 0074. Re-check against origin/main before adding one — `internal/db/migrations/`
+1. [ ] [backend] Owner-only `enriched` count on Media, People and Studios list items for the Table view's Enriched column, attached where `completeness` is today — `internal/api/completeness.go`
+2. [ ] [frontend] Filters panel (Provider link, add-a-field Has/Missing) on People and Studios over `link=`, `has=`, `missing=`; Media's writes `matched:`/`has:` chips; Most/Least enriched sorts (`enriched_desc`/`enriched_asc`) — `web/src/`
+3. [ ] [backend] Let the People and Studios filters name fields the owner promoted for that entity; the allowlist is the fixed set plus the image today — `internal/api/field_state.go`
+4. [ ] [backend] `has:` in MCP `search_videos` (P0-9): the tool refuses every index-reading query because it cannot drain; give it the drain or a catalogue — `internal/mcp/mcp.go`
+5. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
+6. [ ] [testing] Retire §4's score, ring and Done-column rows with the code they cover — `docs/testing-strategy.md`
+7. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
+8. [ ] [backend] At build, confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+9. [ ] [spec] At build, rewrite the F55 spec to the retired state, removing the score, ring and sort rules — `docs/specs/entity-completeness-score.md`
+10. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot once P0-6 removes the ring; close it with F90's merge if not fixed first
+11. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
+12. [ ] [backend] F90 has 0073 (`entity_field_state`); the next is 0074. Re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -86,6 +88,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-13 · People and Studios filters, enriched sorts
+- skills: code-review, handoff
+- handoff: People and Studios take `link=`, `has=` and `missing=`, and all three lists sort by `enriched_desc`/`enriched_asc`, owner-only through one shared check (SEC-13) and mutation-checked; next is the per-item enriched count for the Table column, then the frontend.
 
 ### 2026-11-12 · has:studio allowed
 - skills: code-review, handoff
