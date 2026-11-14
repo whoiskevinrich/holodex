@@ -44,9 +44,28 @@ type Repo struct {
 	// SetClaim/ClearClaim, so the per-detail-resolve visitor read path never queries
 	// the table.
 	claims atomic.Pointer[map[string][]ClaimRow]
+	// providers is the provider names metadata-sources.yaml declares (field-resolution.md,
+	// entity_field_state "Linked"): `matched:` counts only these, so an internal
+	// namespace such as filename parsing never makes a video linked.
+	providers atomic.Pointer[[]string]
 }
 
 func New(db *sql.DB) *Repo { return &Repo{db: db} }
+
+// SetDeclaredProviders records the declared provider names, at boot and on each
+// sources reload.
+func (r *Repo) SetDeclaredProviders(names []string) {
+	names = slices.Clone(names)
+	r.providers.Store(&names)
+}
+
+// DeclaredProviders is the last SetDeclaredProviders list; none before the first call.
+func (r *Repo) DeclaredProviders() []string {
+	if p := r.providers.Load(); p != nil {
+		return *p
+	}
+	return nil
+}
 
 // SetGalleryCap overrides the per-person 'extra' gallery cap (F25). A value < 1 is
 // ignored, leaving the built-in default. Called once at startup from config.
@@ -454,6 +473,10 @@ func (f VideoFilter) orderBy() (string, []any) {
 		return completenessOrder("video", "v.id", "ASC") + ", v.id DESC", nil
 	case SortCompletenessDesc:
 		return completenessOrder("video", "v.id", "DESC") + ", v.id DESC", nil
+	case SortEnrichedDesc:
+		return enrichedOrder(model.EnrichEntityVideo, "v.id", "DESC") + ", v.id DESC", nil
+	case SortEnrichedAsc:
+		return enrichedOrder(model.EnrichEntityVideo, "v.id", "ASC") + ", v.id DESC", nil
 	default: // "added_desc" and anything unrecognized
 		return "v.id DESC", nil
 	}
@@ -462,7 +485,7 @@ func (f VideoFilter) orderBy() (string, []any) {
 // CountVideos is the total ListVideos reports, alone: the live item_count of a smart
 // playlist on the playlists list (ADR-121 D3) needs the count, not a page.
 func (r *Repo) CountVideos(ctx context.Context, f VideoFilter) (int, error) {
-	where, args := f.build()
+	where, args := f.build(r.DeclaredProviders())
 	var total int
 	if err := r.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM videos v `+where, args...).Scan(&total); err != nil {
@@ -489,7 +512,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 	if err != nil {
 		return nil, 0, err
 	}
-	where, args := f.build()
+	where, args := f.build(r.DeclaredProviders())
 
 	limit := f.Limit
 	if limit <= 0 {
@@ -551,7 +574,7 @@ func (r *Repo) ListVideos(ctx context.Context, f VideoFilter) ([]model.Video, in
 // by this app's personal-library scale, the same assumption the extraction review
 // queue's full-table read (ExtractionQueue) already leans on.
 func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video, error) {
-	where, args := f.build()
+	where, args := f.build(r.DeclaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	q := `SELECT v.id, v.file_path, v.file_size, v.title, v.duration_sec, v.width,
 	             v.height, v.video_codec, v.audio_codec, v.bitrate_kbps, v.container,
@@ -592,7 +615,7 @@ func (r *Repo) ListAllVideos(ctx context.Context, f VideoFilter) ([]model.Video,
 // ListAllVideos scans and hydrates full rows. Same build()/orderBy() as both, so
 // the snapshot's membership and order can never disagree with browse's.
 func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error) {
-	where, args := f.build()
+	where, args := f.build(r.DeclaredProviders())
 	orderClause, orderArgs := f.orderBy()
 	qArgs := make([]any, 0, len(args)+len(orderArgs))
 	qArgs = append(qArgs, args...)
@@ -625,14 +648,15 @@ func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error)
 func ValidSort(s string) bool {
 	switch s {
 	case "added_desc", "added_asc", "updated_desc", "updated_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
-		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc:
+		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc, SortEnrichedDesc, SortEnrichedAsc:
 		return true
 	}
 	return false
 }
 
-// build assembles the shared WHERE clause + args for list and count queries.
-func (f VideoFilter) build() (string, []any) {
+// build assembles the shared WHERE clause + args for list and count queries. providers
+// is the declared provider list a `matched:` condition counts.
+func (f VideoFilter) build(providers []string) (string, []any) {
 	var clauses []string
 	var args []any
 	// Library visibility: a row is visible only when on disk (active, ADR-018) AND
@@ -729,7 +753,7 @@ func (f VideoFilter) build() (string, []any) {
 		args = append(args, mf.Value)
 	}
 	if f.Expr != nil {
-		env := compileEnv{now: f.Now, refs: f.Refs}
+		env := compileEnv{now: f.Now, refs: f.Refs, providers: providers}
 		if env.now.IsZero() {
 			env.now = time.Now()
 		}
@@ -1194,8 +1218,8 @@ func idByName(ctx context.Context, db *sql.DB, table, name string) (int64, bool,
 //
 // The query selects a fourth column, lbl: the spelling the row is shown and name-sorted
 // by (labelExpr). A set f.Limit pages it (F80); zero reads every row.
-func namedCountQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (string, []any) {
-	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, true)
+func namedCountQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero bool, declared []string) (string, []any) {
+	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, true, declared)
 	order, orderArgs := f.orderBy(entityType, "b.id")
 	q := `SELECT b.id, b.name, b.cnt, b.lbl FROM (` + base + `) b ORDER BY ` + order
 	args = append(args, orderArgs...)
@@ -1209,7 +1233,7 @@ func namedCountQuery(table, junction, fk, entityType string, f NamedListFilter, 
 // namedBaseQuery is namedCountQuery's unordered, unpaged row set, which namedCount
 // also counts. withLabel=false selects a NULL lbl, sparing a count the person label's
 // per-row correlated subquery.
-func namedBaseQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero, withLabel bool) (string, []any) {
+func namedBaseQuery(table, junction, fk, entityType string, f NamedListFilter, includeZero, withLabel bool, declared []string) (string, []any) {
 	joinKind := "JOIN"
 	if includeZero {
 		joinKind = "LEFT JOIN"
@@ -1218,7 +1242,7 @@ func namedBaseQuery(table, junction, fk, entityType string, f NamedListFilter, i
 	if withLabel {
 		label = labelExpr(entityType, "e.id")
 	}
-	where, args := f.build(entityType, "e.id")
+	where, args := f.build(entityType, "e.id", declared)
 	return fmt.Sprintf(`
 		SELECT e.id AS id, e.name AS name, COUNT(v.id) AS cnt, %s AS lbl
 		FROM %s e
@@ -1240,7 +1264,7 @@ func labelExpr(entityType, idCol string) string {
 // namedCount is the number of rows namedCountQuery reads with f's paging removed:
 // the list's total (F80 EL2).
 func (r *Repo) namedCount(ctx context.Context, table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (int, error) {
-	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, false)
+	base, args := namedBaseQuery(table, junction, fk, entityType, f, includeZero, false, r.DeclaredProviders())
 	var n int
 	if err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM (`+base+`)`, args...).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count %s: %w", table, err)
@@ -1254,7 +1278,7 @@ func (r *Repo) namedCount(ctx context.Context, table, junction, fk, entityType s
 func (r *Repo) namedLetterOffsets(ctx context.Context, table, junction, fk, entityType string, f NamedListFilter, includeZero bool) (map[string]int, error) {
 	f.Sort, f.Limit, f.Offset = "name", 0, 0
 	// Read the ordered query itself: a subquery's ORDER BY isn't guaranteed to survive.
-	q, args := namedCountQuery(table, junction, fk, entityType, f, includeZero)
+	q, args := namedCountQuery(table, junction, fk, entityType, f, includeZero, r.DeclaredProviders())
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("letter offsets %s: %w", table, err)
@@ -1310,13 +1334,19 @@ type NamedListFilter struct {
 	// Query keeps the rows whose name, or a person's shown spelling, contains it
 	// (case-insensitive; the list pages' in-place search, F80 EL5).
 	Query string
+	// Link, Has and Missing are the People and Studios filters (F90 P0-3): the Provider
+	// link (LinkLinked, LinkUnlinked or empty for any), and fields whose value the page
+	// must show or must not. The api layer allowlists the field keys (SEC-14).
+	Link         string
+	Has, Missing []string
 	// Seed fixes the "random" sort's shuffle (ADR-045), so pages tile.
 	Seed int64
 	// Limit pages the read (F80); zero reads every row. Offset skips rows.
 	Limit, Offset int
 }
 
-func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
+// build is the WHERE for f; declared is the declared provider list the Provider link reads.
+func (f NamedListFilter) build(entityType, idCol string, declared []string) (string, []any) {
 	var clauses []string
 	var args []any
 	if q := strings.TrimSpace(f.Query); q != "" {
@@ -1331,6 +1361,20 @@ func (f NamedListFilter) build(entityType, idCol string) (string, []any) {
 	for _, c := range f.MissingFacets {
 		clauses = append(clauses, missingFacetClause(entityType, idCol))
 		args = append(args, c)
+	}
+	switch f.Link {
+	case LinkLinked, LinkUnlinked:
+		clause, a := linkedClause(entityType, idCol, declared)
+		if f.Link == LinkUnlinked {
+			clause = "NOT " + clause
+		}
+		clauses, args = append(clauses, clause), append(args, a...)
+	}
+	for _, k := range f.Has {
+		clauses, args = append(clauses, shownClause(entityType, idCol)), append(args, k)
+	}
+	for _, k := range f.Missing {
+		clauses, args = append(clauses, "NOT "+shownClause(entityType, idCol)), append(args, k)
 	}
 	if len(f.IDs) > 0 {
 		clauses = append(clauses, idCol+" IN ("+placeholders(len(f.IDs))+")")
@@ -1356,6 +1400,10 @@ func (f NamedListFilter) orderBy(entityType, idCol string) (string, []any) {
 		return completenessOrder(entityType, idCol, "ASC") + ", " + name, nil
 	case SortCompletenessDesc:
 		return completenessOrder(entityType, idCol, "DESC") + ", " + name, nil
+	case SortEnrichedDesc:
+		return enrichedOrder(entityType, idCol, "DESC") + ", " + name, nil
+	case SortEnrichedAsc:
+		return enrichedOrder(entityType, idCol, "ASC") + ", " + name, nil
 	default:
 		return name, nil
 	}
@@ -1409,7 +1457,7 @@ func countSortFilter(sortByCount bool) NamedListFilter {
 }
 
 func (r *Repo) ListPeopleFiltered(ctx context.Context, f NamedListFilter) ([]model.Person, error) {
-	q, args := namedCountQuery("people", "video_people", "person_id", model.EnrichEntityPerson, f, false)
+	q, args := namedCountQuery("people", "video_people", "person_id", model.EnrichEntityPerson, f, false, r.DeclaredProviders())
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list people: %w", err)
@@ -1537,7 +1585,7 @@ func (r *Repo) CountTags(ctx context.Context, f NamedListFilter) (int, error) {
 // ListTagsFiltered is ListTags with the full NamedListFilter (search, seeded random,
 // paging — F80).
 func (r *Repo) ListTagsFiltered(ctx context.Context, f NamedListFilter) ([]model.Tag, error) {
-	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", f, true)
+	q, args := namedCountQuery("tags", "video_tags", "tag_id", "tag", f, true, r.DeclaredProviders())
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)

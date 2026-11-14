@@ -27,7 +27,7 @@ import (
 // renamed in turn, and a drain that then fails shows it reads that input.
 
 // drainOutputs are written by the drain, not read as inputs.
-var drainOutputs = []string{"completeness_dirty", "entity_completeness", "entity_completeness_missing", "resolved_values"}
+var drainOutputs = []string{"completeness_dirty", "entity_completeness", "entity_completeness_missing", "resolved_values", "entity_field_state"}
 
 // notInputs are read along the way but decide no value: studio_image_halo says how a studio
 // image is drawn, and it comes along with the studio's images.

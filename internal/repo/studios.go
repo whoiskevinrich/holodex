@@ -123,7 +123,7 @@ func (r *Repo) ListStudios(ctx context.Context, sortByCount bool) ([]model.Studi
 // ListStudiosFiltered is ListStudios with the full NamedListFilter (completeness
 // sort, missing-facet chip, id restriction — F65).
 func (r *Repo) ListStudiosFiltered(ctx context.Context, f NamedListFilter) ([]model.Studio, error) {
-	q, args := namedCountQuery("studios", "video_studios", "studio_id", model.EnrichEntityStudio, f, false)
+	q, args := namedCountQuery("studios", "video_studios", "studio_id", model.EnrichEntityStudio, f, false, r.DeclaredProviders())
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list studios: %w", err)

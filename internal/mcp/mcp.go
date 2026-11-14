@@ -197,7 +197,7 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		}
 		// Nor does it drain the index these read, so it would answer from stale values.
 		if query.NeedsIndex(q.Root) {
-			return mcp.NewToolResultError("updated: and released: conditions aren't available in search_videos."), nil
+			return mcp.NewToolResultError("updated:, released: and has: conditions aren't available in search_videos."), nil
 		}
 		f.Expr, canonical = q.Root, q.String()
 	}

@@ -1,6 +1,7 @@
 # Spec: Entity Completeness Score (F55)
 
 **Status**: Draft
+**Being retired by [F90](provider-and-field-filters.md)** ([HOLODEX-626](https://whoiskevinrich.atlassian.net/browse/HOLODEX-626), not built yet): the score, the extras number, the ring and the Completeness sort go away, and filtering on a missing field moves to F90. The remediation queue and the per-entity list of fields stay, without a number. This spec describes what's live until then.
 **Phase**: 4 (Curation tooling)
 **Issue**: [HOLODEX-260](https://whoiskevinrich.atlassian.net/browse/HOLODEX-260) (F55, shipped) · [HOLODEX-412](https://whoiskevinrich.atlassian.net/browse/HOLODEX-412) (F65 amendment)
 **Amended**: 2026-09-20 — **F65.8** ([HOLODEX-435](https://whoiskevinrich.atlassian.net/browse/HOLODEX-435)):

@@ -16,7 +16,9 @@ import (
 // Mapped fields in queries (F89 P0-6, SEC-8; field-resolution.md, "Which fields").
 
 // queryFields is the catalogue of queryable fields: the owner's mapping, less anything
-// that isn't a value to compare. Nothing outside it is indexed or compiled.
+// that isn't a value to compare. Nothing outside it is indexed or compiled. A field named
+// like a built-in condition (studio) is listed for has: only (F90 P0-2): `studio:` stays
+// the built-in condition, so its values are never indexed or offered.
 func (h *Handlers) queryFields() query.Fields {
 	out := query.Fields{query.FieldReleased: {
 		Kind:      query.KindDate,
@@ -35,11 +37,7 @@ func (h *Handlers) queryFields() query.Fields {
 
 func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 	def := registry.Lookup(f.Canonical)
-	display := f.Display
-	if display == "" {
-		display = def.Display
-	}
-	if strings.HasPrefix(f.Canonical, "_") || query.IsBuiltin(f.Canonical) || def.Computed || display == "image_url" {
+	if !holdsValue(f) {
 		return query.FieldSpec{}, false
 	}
 	spec := query.FieldSpec{Kind: query.KindText, Label: f.Label, OwnerOnly: registry.HiddenFromVisitors(f.Canonical)}
@@ -55,12 +53,23 @@ func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 	return spec, true
 }
 
+// holdsValue reports whether a mapped field carries a value the owner reads, rather than an
+// internal `_` key, a computed field or an image (field-resolution.md, "Which fields").
+func holdsValue(f mapping.Field) bool {
+	def := registry.Lookup(f.Canonical)
+	display := f.Display
+	if display == "" {
+		display = def.Display
+	}
+	return !strings.HasPrefix(f.Canonical, "_") && !def.Computed && display != "image_url"
+}
+
 // resolvedValueRows is what one video's resolve puts in the index.
 func resolvedValueRows(fields query.Fields, resolved []resolver.ResolvedField) []repo.ResolvedValue {
 	var out []repo.ResolvedValue
 	for _, r := range resolved {
 		spec, ok := fields[r.Canonical]
-		if !ok {
+		if !ok || query.IsBuiltin(r.Canonical) {
 			continue
 		}
 		for _, v := range r.Values {

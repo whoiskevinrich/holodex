@@ -114,9 +114,17 @@ func runMCPStdio(configPath string, overrides config.Overrides) error {
 		return err
 	}
 
+	// matched: counts only declared providers, so the tool needs the same registry.
+	sources, err := enrich.NewStore(cfg.MetadataSourcesPath, log)
+	if err != nil {
+		return fmt.Errorf("load metadata sources: %w", err)
+	}
+	r := repo.New(database)
+	r.SetDeclaredProviders(sources.Current().Names())
+
 	log.Info("mcp stdio server starting", "database", cfg.DatabasePath)
 	auth := api.NewAuth(cfg.AdminToken)
-	return mcp.New(repo.New(database), log, mappings, auth, cfg.FilmsEnabled).ServeStdio()
+	return mcp.New(r, log, mappings, auth, cfg.FilmsEnabled).ServeStdio()
 }
 
 // version is the build identifier surfaced in the activity read-model (F21.1).
@@ -253,6 +261,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if err != nil {
 		return fmt.Errorf("load metadata sources: %w", err)
 	}
+	repository.SetDeclaredProviders(sources.Current().Names())
 	enrichSvc := enrich.NewService(sources, repository, log)
 	log.Info("metadata source providers loaded", "path", cfg.MetadataSourcesPath, "enabled", len(sources.Current().Enabled()))
 

@@ -1,0 +1,9 @@
+DROP TRIGGER IF EXISTS efs_studios_ad;
+DROP TRIGGER IF EXISTS efs_people_ad;
+DROP TRIGGER IF EXISTS efs_videos_ad;
+DROP TRIGGER IF EXISTS cd_videos_thumbnail_au;
+DROP TRIGGER IF EXISTS cd_video_poster_sources_ad;
+DROP TRIGGER IF EXISTS cd_video_poster_sources_au;
+DROP TRIGGER IF EXISTS cd_video_poster_sources_ai;
+DROP INDEX IF EXISTS idx_entity_field_state_field;
+DROP TABLE IF EXISTS entity_field_state;
