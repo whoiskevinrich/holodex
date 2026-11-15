@@ -86,7 +86,7 @@
 		error = '';
 		try {
 			await fn();
-			forgetFilterFields(); // the People/Studios Fields control lists promoted fields (F90)
+			forgetFilterFields(); // every Fields control lists promoted fields (F90)
 			await onchanged();
 			onclose();
 		} catch (e) {

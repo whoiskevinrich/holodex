@@ -65,6 +65,9 @@ type FieldSpec struct {
 	Label string
 	// OwnerOnly: hidden from visitors, so an owner-only condition (SEC-8).
 	OwnerOnly bool
+	// HasOnly: named only by has: (F90 P0-2), like a field the owner promoted. Its values
+	// are never indexed, compared or suggested.
+	HasOnly bool
 }
 
 // Fields is the catalogue of queryable mapped fields, from the owner's mapping and the

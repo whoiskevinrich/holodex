@@ -37,7 +37,7 @@ export function loadFilterFields(list: FilterList): Promise<FilterField[]> {
 	return p;
 }
 
-/** Drop the loaded Fields choices: a promotion just changed which fields People or Studios offer. */
+/** Drop the loaded Fields choices: a promotion just changed which fields a list offers. */
 export function forgetFilterFields(): void {
 	loaded.clear();
 }

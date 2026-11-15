@@ -127,8 +127,8 @@ has:director -has:actors
 - [ ] A person or studio with data from provider-1 reads as linked in the Filters control.
 
 **P0-2 The `has` condition on Media.** `has:<field>` is true when the video has a value for that field;
-`-has:<field>` when it doesn't. It accepts any field in the owner's mapping, plus `released` and
-`poster`. It composes with every F87 condition under AND, OR and NOT.
+`-has:<field>` when it doesn't. It accepts any field in the owner's mapping, any field the owner promoted
+on videos, plus `released` and `poster`. It composes with every F87 condition under AND, OR and NOT.
 - [ ] `has:director` matches a video whose director comes only from a provider, and one whose director
       comes only from its file tags.
 - [ ] A video where the owner removed the only value of a field matches `-has:` for that field.
@@ -140,6 +140,8 @@ has:director -has:actors
       only.
 - [ ] A mapped field that shares a name with a condition is accepted: `has:studio` matches a video showing
       a studio, while `studio:` keeps naming a studio.
+- [ ] A field the owner promoted on videos is accepted by `has:` only: searching for one of its values
+      is refused, as for any field outside the mapping.
 - [ ] An unknown field is refused with F87's message for an unknown field, and a field later removed
       from the mapping makes a saved playlist stale, as F89 P0-6 does.
 - [ ] A `has` condition shows as a chip; `-has` as F87's NOT chip. Both read in words ("No poster").

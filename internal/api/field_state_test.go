@@ -214,6 +214,61 @@ func TestDrainWritesFieldStateForEveryEntityType(t *testing.T) {
 	}
 }
 
+// §42.5 A10, P0-2/P0-3: a field the owner promoted on videos joins has: and Media's Fields
+// control under the promotion's label, has: only: its values are never indexed or compared.
+func TestPromotedFieldJoinsHas(t *testing.T) {
+	e := newFSEnv(t)
+	ctx := context.Background()
+	with := e.video(t, "/m/a.mkv")
+	if err := e.repo.UpsertEnrichment(ctx, "video", with, "fake", "x", map[string][]string{"aspect": {"2.39"}}); err != nil {
+		t.Fatal(err)
+	}
+	without := e.video(t, "/m/b.mkv")
+	refused := func(expr string) {
+		t.Helper()
+		if code, body := getJSONTok(t, e.srv.URL+"/api/v1/media/ids?expr="+url.QueryEscape(expr), "s3cret"); code != http.StatusBadRequest {
+			t.Errorf("%s = %d %v, want 400", expr, code, body)
+		}
+	}
+	offered := func() map[string]string {
+		t.Helper()
+		_, body := getJSONTok(t, e.srv.URL+"/api/v1/filter-fields?list=media", "s3cret")
+		out := map[string]string{}
+		for _, f := range body["fields"].([]any) {
+			m := f.(map[string]any)
+			out[m["key"].(string)] = m["label"].(string)
+		}
+		return out
+	}
+	refused(`has:aspect`)
+	if _, ok := offered()["aspect"]; ok {
+		t.Error("media offers aspect before it is promoted")
+	}
+
+	if err := e.repo.SetPromotion(ctx, "video", "aspect", "Aspect ratio", "text", "", 0); err != nil {
+		t.Fatal(err)
+	}
+	if got := offered()["aspect"]; got != "Aspect ratio" {
+		t.Errorf("media offers aspect as %q, want the promotion's label", got)
+	}
+	e.want(t, `has:aspect`, with)
+	e.want(t, `-has:aspect`, without)
+	refused(`aspect:2.39`)
+	var n int
+	if err := e.db.QueryRow(`SELECT COUNT(*) FROM resolved_values WHERE field_key = 'aspect'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("resolved_values holds %d aspect rows", n)
+	}
+	_, body := getJSONTok(t, e.srv.URL+"/api/v1/query/fields", "s3cret")
+	for _, f := range body["fields"].([]any) {
+		if f.(map[string]any)["field"] == "aspect" {
+			t.Error("aspect is offered as a value field")
+		}
+	}
+}
+
 // P0-2 (owner, 2026-11-12): a mapped field named like a built-in condition is still a
 // field has: can check. studio: stays the built-in condition, and its values are never
 // put in the value index.

@@ -62,7 +62,7 @@ func (h *Handlers) canonicalPlaylistQuery(ctx context.Context, q url.Values) (st
 			if strings.TrimSpace(v) == "" {
 				continue
 			}
-			parsed, err := ParseExpr(ctx, h.repo, v, h.queryFields(), true)
+			parsed, err := ParseExpr(ctx, h.repo, v, h.parseFields(ctx), true)
 			if err != nil {
 				return "", fmt.Errorf("expr: %w", err)
 			}
@@ -166,7 +166,7 @@ func (h *Handlers) smartFilterAt(ctx context.Context, p *model.Playlist, isOwner
 		case key == "expr":
 			// Stored canonical, so it is parsed, never re-canonicalised: an id that no
 			// longer exists must be a stale ref, not re-read as a name of those digits.
-			if expr, err = query.ParseStored(q.Get(key), h.queryFields()); err != nil {
+			if expr, err = query.ParseStored(q.Get(key), h.parseFields(ctx)); err != nil {
 				return repo.VideoFilter{}, []staleRef{{Kind: staleInvalid, Key: key}}, nil
 			}
 			for _, field := range query.GoneFields(expr.Root) {

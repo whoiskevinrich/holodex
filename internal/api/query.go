@@ -128,7 +128,7 @@ func (h *Handlers) applyExpr(ctx context.Context, f *repo.VideoFilter, q url.Val
 	if strings.TrimSpace(src) == "" {
 		return nil
 	}
-	parsed, err := ParseExpr(ctx, h.repo, src, h.queryFields(), isOwner)
+	parsed, err := ParseExpr(ctx, h.repo, src, h.parseFields(ctx), isOwner)
 	if err != nil {
 		return err
 	}
@@ -170,9 +170,9 @@ func (h *Handlers) parseQuery(w http.ResponseWriter, r *http.Request) {
 		// A stored definition is already canonical (ids): it is parsed, never re-bound, so
 		// a deleted entity reads as itself, marked missing, not as a name of those digits
 		// (F89 "in: #14"). The owner's only: a visitor never sees a definition.
-		q, err = query.ParseStored(r.URL.Query().Get("expr"), h.queryFields())
+		q, err = query.ParseStored(r.URL.Query().Get("expr"), h.parseFields(r.Context()))
 	} else {
-		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), h.queryFields(), isOwner)
+		q, err = ParseExpr(r.Context(), h.repo, r.URL.Query().Get("expr"), h.parseFields(r.Context()), isOwner)
 	}
 	if err != nil {
 		h.writeQueryError(w, "parse query", err)

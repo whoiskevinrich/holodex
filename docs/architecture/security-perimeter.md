@@ -385,7 +385,8 @@ spec cites these rules by number.
   - A `has:` field, a People or Studios field condition, and the enriched sort's field set come from
     a lookup in the mapping's field list for that entity type, plus `released`, `poster`, `photo` and
     `branding`. On People and Studios that list is the entity's own fields plus the owner's stored
-    promotions for that type. They are never request text.
+    promotions for that type; Media's `has:` adds the stored video promotions as has-only entries,
+    whose values are never indexed or compared. They are never request text.
   - `_` keys and computed fields fail the lookup.
   - Linked binds the names `metadata-sources.yaml` declares as parameters, and
     `matched:<name>` binds its name. Neither is ever spliced into SQL.

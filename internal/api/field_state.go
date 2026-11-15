@@ -139,6 +139,7 @@ func (h *Handlers) filterFieldList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		out = append(out, filterField{query.FieldReleased, "Released"}, filterField{query.HasPoster, "Poster"})
+		out = append(out, h.promotedVideoFields(r.Context(), h.queryFields())...)
 	case "people":
 		out = h.entityFilterFields(r.Context(), model.EnrichEntityPerson)
 	case "studios":

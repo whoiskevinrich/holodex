@@ -256,6 +256,7 @@ func (p *parser) term(t token) (Node, error) {
 		return &Word{Text: text, Pos: t.pos, End: t.end}, nil
 	}
 	spec, mapped := p.fields[field]
+	mapped = mapped && !spec.HasOnly
 	if !knownFields[field] && !mapped && !p.stored {
 		e := newError(p.src, CodeUnknownField, fmt.Sprintf("%q isn't something you can search by.", field), t.pos, t.pos+len(field))
 		e.Field = field
@@ -346,10 +347,11 @@ func (p *parser) term(t token) (Node, error) {
 	return c, nil
 }
 
-// hasField binds `has:` to the field it names (F90 P0-2): a queryable mapped field,
-// `released` or `poster`. Images other than the poster, computed fields and `_` keys are
-// never in the catalogue, so they are refused. A stored definition keeps a field later
-// removed from the mapping as KindGone, so its playlist reads as stale.
+// hasField binds `has:` to the field it names (F90 P0-2): a queryable mapped field, a
+// has-only one (a promoted field), `released` or `poster`. Images other than the poster,
+// computed fields and `_` keys are never in the catalogue, so they are refused. A stored
+// definition keeps a field later removed from the mapping, or a promotion later removed, as
+// KindGone, so its playlist reads as stale.
 func (p *parser) hasField(c *Cond, key string) string {
 	c.Value = key
 	switch spec, ok := p.fields[key]; {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"holodex/internal/mapping"
+	"holodex/internal/model"
 	"holodex/internal/query"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
@@ -31,6 +32,35 @@ func (h *Handlers) queryFields() query.Fields {
 		if spec, ok := queryFieldSpec(f); ok {
 			out[f.Canonical] = spec
 		}
+	}
+	return out
+}
+
+// parseFields is queryFields plus every field the owner promoted on videos (F44) that holds a
+// value, as has-only entries (F90 P0-2): has: may name them, their values are never indexed
+// or compared, and a promotion's own label wins. The drain already caches their presence.
+func (h *Handlers) parseFields(ctx context.Context) query.Fields {
+	out := h.queryFields()
+	for _, f := range h.promotedVideoFields(ctx, out) {
+		out[f.Key] = query.FieldSpec{Kind: query.KindText, Label: f.Label, HasOnly: true}
+	}
+	return out
+}
+
+// promotedVideoFields is the owner's promoted video fields that hold a value and aren't
+// already in mapped, in promotion order.
+func (h *Handlers) promotedVideoFields(ctx context.Context, mapped query.Fields) []filterField {
+	var out []filterField
+	merged, promoted := h.mergePromotions(ctx, model.EnrichEntityVideo, nil, nil)
+	for _, f := range merged {
+		if _, ok := mapped[f.Canonical]; ok || !promoted[f.Canonical] || !holdsValue(f) {
+			continue
+		}
+		l := f.Label
+		if l == "" {
+			l = registry.Lookup(f.Canonical).Label
+		}
+		out = append(out, filterField{f.Canonical, l})
 	}
 	return out
 }
