@@ -17,8 +17,8 @@ release_note: Owners can now filter and sort videos, people and studios by provi
                              # gates [x] but this empty.
 approved:
   design:
-    on: 2026-11-09
-    at: f6e95759
+    on: 2026-11-14
+    at: a12967f9
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
