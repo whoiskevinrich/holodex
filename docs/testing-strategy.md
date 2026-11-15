@@ -6865,6 +6865,7 @@ data.
 | A6 | Making a smart playlist public is refused while it uses `has:` or an enriched sort; a frozen snapshot of it publishes. | P0-8 |
 | A7 | **Saved queries.** §40's R13 golden test, extended: every stored fixture query returns identical ids, except `matched:any` dropping filename-only videos. A playlist stored with the Completeness sort opens with the default sort. `has:` works in a smart playlist and in `search_videos`. | P0-6, P0-9 (risk 4) |
 | A8 | Detail responses carry no score; the queue keeps its groups and its split between ready to apply and needs research. **Green** for the detail response (`TestCompletenessScoreIsRetired`); the queue tests (`completeness_queue_test.go`) pass unchanged. | P0-6, P0-7 |
+| A9 | **Promoted fields filter.** A field the owner promoted on People is refused by `has=` and absent from the Fields control before promotion; after it, the control offers it under the promotion's label, `has=` and `missing=` narrow by it, and Studios still refuses it. **Green** (`TestPromotedFieldJoinsEntityFilters`, mutation-checked). | P0-3, SEC-14 |
 
 ### 42.6 Frontend (`cd web && npm run test`)
 

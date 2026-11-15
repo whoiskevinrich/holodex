@@ -37,6 +37,11 @@ export function loadFilterFields(list: FilterList): Promise<FilterField[]> {
 	return p;
 }
 
+/** Drop the loaded Fields choices: a promotion just changed which fields People or Studios offer. */
+export function forgetFilterFields(): void {
+	loaded.clear();
+}
+
 /** The query's top-level conditions with their AND-level index; an OR or deeper tree has none. */
 function topLevel(tree: QueryNode): QueryNode[] {
 	return tree.kind === 'and' ? (tree.items ?? []) : [tree];

@@ -1442,7 +1442,7 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
-	if !h.gateNamedList(w, r, f, personFilterFields) {
+	if !h.gateNamedList(w, r, f, model.EnrichEntityPerson) {
 		return
 	}
 	isOwner := h.auth.authorized(r)

@@ -1,11 +1,14 @@
 // F90 Filters panel conditions (testing-strategy §42; provider-and-field-filters-handoff.md,
 // "States and interactions"): what Media's panel reads from a parsed query, how it writes
 // back, and People and Studios' URL params.
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { api } from './api';
 import {
 	entityConds,
 	entityFilterCount,
 	entityFiltersToParams,
+	forgetFilterFields,
+	loadFilterFields,
 	panelConds,
 	parseEntityFilters,
 	withEntityConds,
@@ -105,5 +108,19 @@ describe('People and Studios URL params', () => {
 		const rows = [...entityConds(q), { key: 'birthdate', has: false }];
 		expect(withEntityConds(q, rows)).toEqual({ link: 'linked', has: ['bio'], missing: ['birthdate'] });
 		expect(withEntityConds(q, [])).toEqual({ link: 'linked' });
+	});
+});
+
+describe('loadFilterFields', () => {
+	it('loads each list once, and again after a promotion forgets them', async () => {
+		const spy = vi.spyOn(api, 'filterFields').mockResolvedValue({ fields: [{ key: 'name', label: 'Name' }] });
+		forgetFilterFields();
+		await loadFilterFields('people');
+		await loadFilterFields('people');
+		expect(spy).toHaveBeenCalledTimes(1);
+		forgetFilterFields();
+		await loadFilterFields('people');
+		expect(spy).toHaveBeenCalledTimes(2);
+		spy.mockRestore();
 	});
 });

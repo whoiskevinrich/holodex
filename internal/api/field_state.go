@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -8,6 +9,7 @@ import (
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
+	"holodex/internal/model"
 	"holodex/internal/query"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
@@ -79,18 +81,44 @@ func posterShown(resolved []resolver.ResolvedField) bool {
 	return slices.ContainsFunc(resolved[i].Values, func(v string) bool { return v != "" && !strings.HasPrefix(v, automatic) })
 }
 
-// The fields the People and Studios filters may name (SEC-14): the entity's fields, plus its
-// image. Never taken from request text.
-var (
-	personFilterFields = append([]string{"name", photoStateKey}, personScalarFields...)
-	studioFilterFields = append([]string{"name", brandingStateKey}, studioScalarFields...)
-)
-
 // filterField is one row of a list's Fields control (F90 P0-3): the key a has/missing
 // condition names, and its label.
 type filterField struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
+}
+
+// entityFilterFields is what the People or Studios filters may name (SEC-14): the name, the
+// image and the entity's own fields, then every field the owner promoted for that entity type
+// (F44) that holds a value, which the drain already caches like any other. Never taken from
+// request text. A promotion's own label wins, else the registry's title-case floor.
+func (h *Handlers) entityFilterFields(ctx context.Context, entityType string) []filterField {
+	keys := append([]string{"name", photoStateKey}, personScalarFields...)
+	labels := map[string]string{"name": "Name", photoStateKey: "Photo"}
+	if entityType == model.EnrichEntityStudio {
+		keys = append([]string{"name", brandingStateKey}, studioScalarFields...)
+		labels = map[string]string{"name": "Name", brandingStateKey: "Branding"}
+	}
+	out := make([]filterField, 0, len(keys))
+	for _, k := range keys {
+		l := labels[k]
+		if l == "" {
+			l = registry.Lookup(k).Label
+		}
+		out = append(out, filterField{k, l})
+	}
+	merged, promoted := h.mergePromotions(ctx, entityType, nil, nil)
+	for _, f := range merged {
+		if !promoted[f.Canonical] || !holdsValue(f) || slices.ContainsFunc(out, func(o filterField) bool { return o.Key == f.Canonical }) {
+			continue
+		}
+		l := f.Label
+		if l == "" {
+			l = registry.Lookup(f.Canonical).Label
+		}
+		out = append(out, filterField{f.Canonical, l})
+	}
+	return out
 }
 
 // filterFieldList handles GET /filter-fields?list=media|people|studios, owner-only like
@@ -101,15 +129,6 @@ func (h *Handlers) filterFieldList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var out []filterField
-	labelled := func(keys []string, labels map[string]string) {
-		for _, k := range keys {
-			l := labels[k]
-			if l == "" {
-				l = registry.Lookup(k).Label
-			}
-			out = append(out, filterField{k, l})
-		}
-	}
 	switch r.URL.Query().Get("list") {
 	case "media":
 		if h.mappings != nil {
@@ -121,9 +140,9 @@ func (h *Handlers) filterFieldList(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, filterField{query.FieldReleased, "Released"}, filterField{query.HasPoster, "Poster"})
 	case "people":
-		labelled(personFilterFields, map[string]string{"name": "Name", photoStateKey: "Photo"})
+		out = h.entityFilterFields(r.Context(), model.EnrichEntityPerson)
 	case "studios":
-		labelled(studioFilterFields, map[string]string{"name": "Name", brandingStateKey: "Branding"})
+		out = h.entityFilterFields(r.Context(), model.EnrichEntityStudio)
 	default:
 		writeError(w, http.StatusBadRequest, "list is media, people or studios")
 		return
@@ -134,8 +153,9 @@ func (h *Handlers) filterFieldList(w http.ResponseWriter, r *http.Request) {
 // gateNamedList is the one check the People and Studios lists run before any SQL (SEC-13):
 // a visitor asking for missing_facet, link, has, missing or an owner-only sort gets the 401
 // missing_facet has always had, refused rather than ignored. The owner's link value and field
-// names must be ones the list knows, else 400. It reports whether the read may go on.
-func (h *Handlers) gateNamedList(w http.ResponseWriter, r *http.Request, f repo.NamedListFilter, fields []string) bool {
+// names must be ones the list knows (entityFilterFields), else 400. It reports whether the
+// read may go on.
+func (h *Handlers) gateNamedList(w http.ResponseWriter, r *http.Request, f repo.NamedListFilter, entityType string) bool {
 	ownerOnly := wantsCompleteness(f.Sort, f.MissingFacets) || f.Link != "" || len(f.Has) > 0 || len(f.Missing) > 0
 	if ownerOnly && !h.requireOwnerInline(w, r) {
 		return false
@@ -144,8 +164,12 @@ func (h *Handlers) gateNamedList(w http.ResponseWriter, r *http.Request, f repo.
 		writeError(w, http.StatusBadRequest, "link is linked or unlinked")
 		return false
 	}
+	if len(f.Has)+len(f.Missing) == 0 {
+		return true
+	}
+	fields := h.entityFilterFields(r.Context(), entityType)
 	for _, k := range slices.Concat(f.Has, f.Missing) {
-		if !slices.Contains(fields, k) {
+		if !slices.ContainsFunc(fields, func(ff filterField) bool { return ff.Key == k }) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("%q isn't a field this list can filter by", k))
 			return false
 		}

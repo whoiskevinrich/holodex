@@ -189,6 +189,47 @@ func TestListItemsCarryEnrichedCountForOwnerOnly(t *testing.T) {
 	}
 }
 
+// P0-3 (§42.5 A9): a field the owner promoted on People (F44) joins People's filter
+// allowlist and Fields control once promoted, and only People's.
+func TestPromotedFieldJoinsEntityFilters(t *testing.T) {
+	e := newNamedEnv(t)
+	ctx := context.Background()
+	if err := e.repo.UpsertEnrichment(ctx, model.EnrichEntityPerson, e.person["Ann Lee"], "fake", "x", map[string][]string{"birthdate": {"1970-01-01"}, "bio": {"An actor."}, "height": {"180"}}); err != nil {
+		t.Fatal(err)
+	}
+	offered := func(list string) map[string]string {
+		t.Helper()
+		_, body := getJSONTok(t, e.srv.URL+"/api/v1/filter-fields?list="+list, "s3cret")
+		out := map[string]string{}
+		for _, f := range body["fields"].([]any) {
+			m := f.(map[string]any)
+			out[m["key"].(string)] = m["label"].(string)
+		}
+		return out
+	}
+	if code, _ := getJSONTok(t, e.srv.URL+"/api/v1/people?has=height", "s3cret"); code != http.StatusBadRequest {
+		t.Errorf("unpromoted has=height = %d, want 400", code)
+	}
+	if _, ok := offered("people")["height"]; ok {
+		t.Error("people offers height before it is promoted")
+	}
+
+	if err := e.repo.SetPromotion(ctx, model.EnrichEntityPerson, "height", "Height (cm)", "text", "", 0); err != nil {
+		t.Fatal(err)
+	}
+	if got := offered("people")["height"]; got != "Height (cm)" {
+		t.Errorf("people offers height as %q, want the promotion's label", got)
+	}
+	e.wantNames(t, "people?has=height", "Ann Lee")
+	e.wantNames(t, "people?missing=height", "Bo Diaz", "Cy Moss", "Di Park")
+	if _, ok := offered("studios")["height"]; ok {
+		t.Error("studios offers a field promoted on people")
+	}
+	if code, _ := getJSONTok(t, e.srv.URL+"/api/v1/studios?has=height", "s3cret"); code != http.StatusBadRequest {
+		t.Errorf("studios has=height = %d, want 400", code)
+	}
+}
+
 // P0-3: each list's Fields control offers exactly the fields its filters accept, in
 // mapping order with the image last on Media; only the owner may ask.
 func TestFilterFieldsListEachListsFields(t *testing.T) {

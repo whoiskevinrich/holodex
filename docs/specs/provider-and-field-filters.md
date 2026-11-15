@@ -146,7 +146,8 @@ has:director -has:actors
 
 **P0-3 Filters control on Media, People and Studios.** The owner's Filters panel gains a **Provider link**
 control (any, linked, not linked) and a way to pick fields and require each to have a value or be missing.
-The fields offered are the ones that apply to that entity, including its image. Everything narrows with
+The fields offered are the ones that apply to that entity, including its image and any field the owner
+promoted for that entity type, under the promotion's label. Everything narrows with
 AND, and the state lives in the URL like other filters.
 - [ ] People: choosing *Birthdate: missing* lists exactly the people whose page shows no birthdate.
 - [ ] Studios: choosing *Not linked* lists exactly the studios with no provider link.
