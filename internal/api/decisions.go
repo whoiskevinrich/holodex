@@ -140,7 +140,7 @@ func (h *Handlers) setFieldDecision(w http.ResponseWriter, r *http.Request) {
 	if field.Canonical == "title" && body.Source == fieldsource.Manual {
 		var check func() (*repo.VideoCollision, error)
 		if !body.Override {
-			check = func() (*repo.VideoCollision, error) { return h.repo.FindTitleCollision(r.Context(), id, manualValue) }
+			check = func() (*repo.VideoCollision, error) { return h.repo.FindTitleCollision(r.Context(), id, manualValue, h.partsFor) }
 		}
 		collision, err := h.repo.SetDecisionChecked(r.Context(), model.EnrichEntityVideo, id, field.Canonical, body.Source, manualValue, check)
 		if err != nil {
@@ -256,7 +256,7 @@ func (h *Handlers) decideStudioForVideo(ctx context.Context, videoID int64, fiel
 	if err != nil {
 		return nil, nil, err
 	}
-	check := func() (*repo.VideoCollision, error) { return h.repo.FindStudioCollision(ctx, videoID, names) }
+	check := func() (*repo.VideoCollision, error) { return h.repo.FindStudioCollision(ctx, videoID, names, h.partsFor) }
 	if override {
 		check = nil
 	} else if collision, err = check(); err != nil {

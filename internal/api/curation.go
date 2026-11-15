@@ -120,7 +120,7 @@ func (h *Handlers) setCuration(w http.ResponseWriter, r *http.Request) {
 			for i, l := range links {
 				names[i] = l.Name
 			}
-			return h.repo.FindPeopleCollision(r.Context(), id, names)
+			return h.repo.FindPeopleCollision(r.Context(), id, names, h.partsFor)
 		}
 		// Runs under the same writeMu lock as check() and the curation write, right
 		// after the write succeeds (ADR-084) — closing the HOLODEX-277 race where two

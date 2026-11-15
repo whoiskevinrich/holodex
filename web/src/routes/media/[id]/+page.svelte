@@ -4,7 +4,7 @@
 	import { PlayCounter } from '#lib/playCount.ts';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { exitAfterRemoval } from '#lib/listState.ts';
-	import { api, ApiError } from '#lib/api.ts';
+	import { api, ApiError, collisionMessage } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import type { Completeness, DecisionSource, EnrichedField, EnrichSource, ExternalLink, ExtraMetadata, EntityRef, FilmAttachment, MappedField, MediaDetailResponse, Person, RefreshReport, RelatedResponse, ResolvedField, Studio, Tag, Video, VideoCollisionRef, VideoWritebackStatus } from '#lib/types.ts';
 	import {
@@ -938,7 +938,7 @@
 			// WritebackFormDialog only expect ok-or-throw, so surface it as a thrown error instead
 			// of silently proceeding to reloadDetail() (HOLODEX-270 review fix).
 			if (res.conflict) {
-				throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+				throw new Error(collisionMessage(canonical, manualValue, res.conflict));
 			}
 		}
 		await reloadDetail();
@@ -3035,7 +3035,7 @@
 				// submit() aborts before writeback() commits the colliding value to the file
 				// (HOLODEX-270 review fix).
 				if (res.conflict) {
-					throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+					throw new Error(collisionMessage(canonical, manualValue, res.conflict));
 				}
 			}}
 			onclose={() => (writebackOpen = false)}

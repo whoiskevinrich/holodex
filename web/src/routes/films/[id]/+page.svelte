@@ -2,7 +2,7 @@
 	import { tick } from 'svelte';
 	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
-	import { api } from '#lib/api.ts';
+	import { api, collisionMessage } from '#lib/api.ts';
 	import { exitAfterRemoval } from '#lib/listState.ts';
 	import { dismissable } from '#lib/actions/dismissable.ts';
 	import {
@@ -1160,7 +1160,7 @@
 				source,
 				...(source === 'manual' ? { manual_value: manualValue ?? '' } : {})
 			});
-			if (res.conflict) throw new Error(`"${manualValue}" already matches another video: ${res.conflict.title}`);
+			if (res.conflict) throw new Error(collisionMessage(canonical, manualValue, res.conflict));
 		}}
 		onclose={() => (writebackVideoId = null)}
 		onenqueued={() => {

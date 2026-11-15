@@ -262,6 +262,36 @@ func TestQueues_CarryPart(t *testing.T) {
 	}
 }
 
+// TestCollision_PartsAreNotDuplicates: the parts of one recording share title, people,
+// date and studio by construction, so the composite-key gate must tell them apart by
+// their resolved part. Parts here come from three different sources (tag, filename,
+// decision), and two part-less copies still collide.
+func TestCollision_PartsAreNotDuplicates(t *testing.T) {
+	f := partsServer(t)
+	ctx := context.Background()
+	decide := func(id int64) int {
+		return sendDecision(t, "PUT", f.srv.URL+"/api/v1/media/"+itoa(id)+"/fields/title/decision", "tok",
+			map[string]any{"source": "manual", "manual_value": "Live at Budokan"})
+	}
+	for _, id := range []int64{f.tagOnly, f.filenameOnly, f.decided} {
+		if code := decide(id); code != 204 {
+			t.Errorf("part video %d: title decision = %d, want 204 (other parts are not duplicates)", id, code)
+		}
+	}
+
+	twin, err := f.r.UpsertVideo(ctx, &model.Video{
+		FilePath: "/m/solo-copy.mkv", FileSize: 1, Title: "Live at Budokan",
+		FileMtime: time.Now().UTC().Truncate(time.Second),
+	}, nil)
+	if err != nil {
+		t.Fatalf("seed twin: %v", err)
+	}
+	linkPeopleAs(t, f.r, twin, "actor", "Alice")
+	if code := decide(f.no); code != 409 {
+		t.Errorf("part-less twin: title decision = %d, want 409", code)
+	}
+}
+
 // TestEnrichment_NeverWritesPart is the RD10 triplet invariance: the same provider
 // record adopted on all three parts, with the provider's title decided as the
 // precedence winner (ADR-051 — the file layer stays the default until a decision
