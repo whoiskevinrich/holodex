@@ -90,6 +90,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 
 ### 2026-11-14 · frontend filters panel
 - skills: code-review, handoff
+- merged origin/main (a24c6286) for Auto-fix: one api.test.ts conflict, both appended describe blocks kept; web and Go tests green
 - handoff: The owner's Filters panel (Provider link, add-a-field Has/Missing), the enriched sorts, the Enriched column, a Studios Table view and the ring removal are built and browser-checked; the owner chose "Label: has/missing" chips over "No born"; next is retiring the score itself (P0-6), with CompletenessPanel's score and bar.
 
 ### 2026-11-14 · enriched count on list items
