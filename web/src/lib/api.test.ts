@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { api, ApiError, ENRICH_ENTITY_BASE } from './api';
+import { api, ApiError, collisionMessage, ENRICH_ENTITY_BASE } from './api';
 import { runEnrichRefresh, runEnrichRefreshAll } from './enrichRefresh';
 
 // Person image serving URLs (F25, ADR-038). The query is the `?v=` cache-buster, appended
@@ -807,5 +807,17 @@ describe('entity list filters', () => {
 		expect(url.searchParams.get('link')).toBe('unlinked');
 		expect(url.searchParams.getAll('has')).toEqual(['country', 'website']);
 		expect(url.searchParams.getAll('missing')).toEqual(['branding']);
+	});
+});
+
+// A source pick has no Custom text to quote, so the collision names the field instead of
+// printing "undefined" (production report: writing a film part's studio to file).
+describe('collisionMessage', () => {
+	const conflict = { id: 2, title: 'Other', people: [], recorded_at: null, studios: [] };
+	it('quotes a Custom value', () => {
+		expect(collisionMessage('title', 'Ada', conflict)).toBe('"Ada" already matches another video: Other');
+	});
+	it('names the field for a source pick', () => {
+		expect(collisionMessage('studio', undefined, conflict)).toBe('This studio already matches another video: Other');
 	});
 });

@@ -103,6 +103,7 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
 | `{year}` | the year of the release date, four digits | the release year |
 | `{edition}`, `{part}` | the F48 markers `{edition-…}` and `{part-N}` | the same field |
 | `{provider-1-id}` (one per provider) | an identity marker, `{provider-1-<id>}` | an identity hint (P0-11) |
+| `{film}` | a film marker, `{film-<name>}`, naming the video's linked film by its name | the film's name, never a film link |
 
 - A template with no `{title}` and no identity token is refused when saved, because it could name
   many unrelated videos the same.
@@ -113,6 +114,15 @@ grammar (F48) can read back, so a name Holodex writes is also a name Holodex can
   silently. `!` and `;` are allowed in a template's own text: the owner typed them on purpose.
 - An identity token renders only from an id the video's provider match has confirmed. A video
   without one doesn't fit that template.
+- **The film token** (decided 2026-11-10). `{film}` takes the video's linked film, the owner's
+  assertion, never a resolved field, spelled as the film's page shows it. A video linked to more
+  than one film takes the first by name. A video with none, or every video while films are turned
+  off, doesn't fit, unless the token is `{film?}`. Its value follows P0-4 like any
+  other. A film link is never made or changed from a name: the marker is read back only so the name
+  passes P0-3. `{film}` is not an identity token, because one film names many scenes, so it can't
+  stand in for `{title}`.
+  - Given template `{title} {film?}`, a video titled `My Title` linked to films `Zed` and
+    `Ada Lovelace` is named `My Title {film-Ada Lovelace}`.
 - **Optional tokens** (decided 2026-11-01). A token written with `?`, such as `{studio?}`, is
   optional: a video without its value still fits the template. The token is dropped together with
   the literal text touching it, up to the nearest space or neighbouring token, so the brackets in

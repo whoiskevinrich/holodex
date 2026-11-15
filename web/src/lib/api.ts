@@ -289,6 +289,18 @@ async function sendConflictable<TReq, TConflict = VideoCollisionRef>(
 	return {};
 }
 
+// collisionMessage words a setFieldDecision collision for callers with no verdict card
+// to show it in. Only a Custom value has text to quote; a source pick (a provider's
+// studio, say) names the field instead.
+export function collisionMessage(
+	canonical: string,
+	manualValue: string | undefined,
+	conflict: VideoCollisionRef
+): string {
+	const what = manualValue === undefined ? `This ${canonical}` : `"${manualValue}"`;
+	return `${what} already matches another video: ${conflict.title}`;
+}
+
 // sendMaintenance queues a maintenance job (F77). A 409 carrying a refusal reason (the
 // re-run preflight, or another job already in flight) resolves as `{ refused }`; any other
 // failure throws like sendAuthed.

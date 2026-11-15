@@ -85,6 +85,28 @@ describe('RenamePlanRow', () => {
 		await expect.element(screen.getByText('Nothern Lights')).toBeInTheDocument();
 	});
 
+	// HOLODEX-635: a token added to the template after the file was named has no
+	// recorded value; an older server sent null, which crashed the whole page.
+	it('shows a dash for a token with no recorded value', async () => {
+		const screen = await render(
+			RenamePlanRow,
+			{
+				row: row({
+					reason: 'out-of-date',
+					changes: [
+						{ token: 'edition', recorded: [], current: ['Upscaled'] },
+						{ token: 'film', recorded: null as unknown as string[], current: ['Gala'] }
+					]
+				}),
+				templates: [],
+				selectable: true
+			}
+		);
+		await expect.element(screen.getByText('Upscaled')).toBeInTheDocument();
+		await expect.element(screen.getByText('Gala')).toBeInTheDocument();
+		expect(screen.container.textContent).toContain('—');
+	});
+
 	it('replaces the checkbox with the job state and offers Refresh plan for a stale name', async () => {
 		const onrefresh = vi.fn();
 		const screen = await render(

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"holodex/internal/repo"
 )
 
 func TestFindTitleCollision(t *testing.T) {
@@ -35,7 +37,7 @@ func TestFindTitleCollision(t *testing.T) {
 
 	// Renaming b to a's exact normalized title (case/whitespace-insensitive) with an
 	// otherwise identical composite key collides with a.
-	collision, err := r.FindTitleCollision(ctx, bID, "  session ONE  ")
+	collision, err := r.FindTitleCollision(ctx, bID, "  session ONE  ", nil)
 	if err != nil {
 		t.Fatalf("find collision: %v", err)
 	}
@@ -60,7 +62,7 @@ func TestFindTitleCollision(t *testing.T) {
 	}
 
 	// A genuinely distinct title produces no collision.
-	if collision, err := r.FindTitleCollision(ctx, bID, "Session Three"); err != nil || collision != nil {
+	if collision, err := r.FindTitleCollision(ctx, bID, "Session Three", nil); err != nil || collision != nil {
 		t.Errorf("distinct title: collision=%v err=%v", collision, err)
 	}
 
@@ -72,7 +74,7 @@ func TestFindTitleCollision(t *testing.T) {
 		t.Fatalf("seed c: %v", err)
 	}
 	linkPeople(t, r, cID, "Carol")
-	if collision, err := r.FindTitleCollision(ctx, cID, "Session One"); err != nil || collision != nil {
+	if collision, err := r.FindTitleCollision(ctx, cID, "Session One", nil); err != nil || collision != nil {
 		t.Errorf("different people: collision=%v err=%v", collision, err)
 	}
 
@@ -87,7 +89,7 @@ func TestFindTitleCollision(t *testing.T) {
 	if err := r.ReconcileVideoStudios(ctx, dID, []string{"Other Studio"}, nil); err != nil {
 		t.Fatalf("link studio d: %v", err)
 	}
-	if collision, err := r.FindTitleCollision(ctx, dID, "Session One"); err != nil || collision != nil {
+	if collision, err := r.FindTitleCollision(ctx, dID, "Session One", nil); err != nil || collision != nil {
 		t.Errorf("different studio: collision=%v err=%v", collision, err)
 	}
 
@@ -95,7 +97,7 @@ func TestFindTitleCollision(t *testing.T) {
 	if err := r.SoftDelete(ctx, aID); err != nil {
 		t.Fatalf("soft delete a: %v", err)
 	}
-	if collision, err := r.FindTitleCollision(ctx, bID, "Session One"); err != nil || collision != nil {
+	if collision, err := r.FindTitleCollision(ctx, bID, "Session One", nil); err != nil || collision != nil {
 		t.Errorf("soft-deleted source excluded: collision=%v err=%v", collision, err)
 	}
 }
@@ -119,7 +121,7 @@ func TestFindTitleCollision_NoPeople(t *testing.T) {
 		t.Fatalf("seed b: %v", err)
 	}
 
-	collision, err := r.FindTitleCollision(ctx, bID, "Solo Session")
+	collision, err := r.FindTitleCollision(ctx, bID, "Solo Session", nil)
 	if err != nil {
 		t.Fatalf("find collision: %v", err)
 	}
@@ -168,7 +170,7 @@ func TestFindStudioCollision(t *testing.T) {
 
 	// Reassigning b's studio to a's studio name (by name, not id — the create-new
 	// path has no id yet) collides.
-	collision, err := r.FindStudioCollision(ctx, bID, []string{"  ACME  "})
+	collision, err := r.FindStudioCollision(ctx, bID, []string{"  ACME  "}, nil)
 	if err != nil {
 		t.Fatalf("find collision: %v", err)
 	}
@@ -182,8 +184,22 @@ func TestFindStudioCollision(t *testing.T) {
 		t.Errorf("collision studios = %v", collision.Studios)
 	}
 
+	// Different parts of one recording are not duplicates (HOLODEX-636); the same
+	// part still collides.
+	partsAre := func(pa, pb string) repo.PartLookup {
+		return func(context.Context, []int64) (map[int64]string, error) {
+			return map[int64]string{aID: pa, bID: pb}, nil
+		}
+	}
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Acme"}, partsAre("1", "3")); err != nil || collision != nil {
+		t.Errorf("different parts: collision=%v err=%v", collision, err)
+	}
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Acme"}, partsAre("2", "2")); err != nil || collision == nil {
+		t.Errorf("same part: want a collision, got collision=%v err=%v", collision, err)
+	}
+
 	// A distinct proposed studio name produces no collision.
-	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Nonexistent Studio"}); err != nil || collision != nil {
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Nonexistent Studio"}, nil); err != nil || collision != nil {
 		t.Errorf("distinct studio: collision=%v err=%v", collision, err)
 	}
 
@@ -198,7 +214,7 @@ func TestFindStudioCollision(t *testing.T) {
 	if err := r.ReconcileVideoStudios(ctx, cID, []string{"Other"}, nil); err != nil {
 		t.Fatalf("link studio c: %v", err)
 	}
-	if collision, err := r.FindStudioCollision(ctx, cID, []string{"Acme"}); err != nil || collision != nil {
+	if collision, err := r.FindStudioCollision(ctx, cID, []string{"Acme"}, nil); err != nil || collision != nil {
 		t.Errorf("different people: collision=%v err=%v", collision, err)
 	}
 
@@ -206,7 +222,7 @@ func TestFindStudioCollision(t *testing.T) {
 	if err := r.SoftDelete(ctx, aID); err != nil {
 		t.Fatalf("soft delete a: %v", err)
 	}
-	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Acme"}); err != nil || collision != nil {
+	if collision, err := r.FindStudioCollision(ctx, bID, []string{"Acme"}, nil); err != nil || collision != nil {
 		t.Errorf("soft-deleted source excluded: collision=%v err=%v", collision, err)
 	}
 }
@@ -242,7 +258,7 @@ func TestFindPeopleCollision(t *testing.T) {
 
 	// The proposed set is compared by name (case/whitespace-insensitive), not id —
 	// the picker's create-new path has no id yet at check time.
-	collision, err := r.FindPeopleCollision(ctx, bID, []string{"  ALICE  ", "bob"})
+	collision, err := r.FindPeopleCollision(ctx, bID, []string{"  ALICE  ", "bob"}, nil)
 	if err != nil {
 		t.Fatalf("find collision: %v", err)
 	}
@@ -258,7 +274,7 @@ func TestFindPeopleCollision(t *testing.T) {
 	}
 
 	// A genuinely distinct proposed set produces no collision.
-	if collision, err := r.FindPeopleCollision(ctx, bID, []string{"Alice", "Carol"}); err != nil || collision != nil {
+	if collision, err := r.FindPeopleCollision(ctx, bID, []string{"Alice", "Carol"}, nil); err != nil || collision != nil {
 		t.Errorf("distinct people: collision=%v err=%v", collision, err)
 	}
 
@@ -274,7 +290,7 @@ func TestFindPeopleCollision(t *testing.T) {
 	if err := r.ReconcileVideoStudios(ctx, cID, []string{"Other Studio"}, nil); err != nil {
 		t.Fatalf("link studio c: %v", err)
 	}
-	if collision, err := r.FindPeopleCollision(ctx, cID, []string{"Alice", "Bob"}); err != nil || collision != nil {
+	if collision, err := r.FindPeopleCollision(ctx, cID, []string{"Alice", "Bob"}, nil); err != nil || collision != nil {
 		t.Errorf("different studio: collision=%v err=%v", collision, err)
 	}
 
@@ -282,7 +298,7 @@ func TestFindPeopleCollision(t *testing.T) {
 	if err := r.SoftDelete(ctx, aID); err != nil {
 		t.Fatalf("soft delete a: %v", err)
 	}
-	if collision, err := r.FindPeopleCollision(ctx, bID, []string{"Alice", "Bob"}); err != nil || collision != nil {
+	if collision, err := r.FindPeopleCollision(ctx, bID, []string{"Alice", "Bob"}, nil); err != nil || collision != nil {
 		t.Errorf("soft-deleted source excluded: collision=%v err=%v", collision, err)
 	}
 }

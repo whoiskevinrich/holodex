@@ -36,6 +36,13 @@ type compositeKeyCandidate struct {
 	title string
 }
 
+// PartLookup resolves `part` for a batch of videos ({id → part}, absent when a video
+// has none). Part is a resolved field, so the repo can't read it from a column; the
+// API supplies its resolver-backed lookup. Two parts of one recording share title,
+// people, date and studio by construction, so a candidate whose part differs from the
+// source video's is never a duplicate. nil skips the part comparison.
+type PartLookup func(ctx context.Context, ids []int64) (map[int64]string, error)
+
 // FindTitleCollision reports whether renaming videoID's title to proposedTitle would
 // produce a composite-key collision {title, people, date, studio} against another
 // active video. People and Studio are read from videoID's *current* links since only
@@ -43,7 +50,7 @@ type compositeKeyCandidate struct {
 // title fixed). Comparison is exact-normalized only (lower+trim on title, exact match
 // on date/people-set/studio-set) — no fuzzy/near-miss matching, per the spec's "no
 // merge verb, no third option" posture.
-func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTitle string) (*VideoCollision, error) {
+func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTitle string, partOf PartLookup) (*VideoCollision, error) {
 	recordedAt, err := r.recordedAtOf(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("find title collision: source video: %w", err)
@@ -59,7 +66,7 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 		return nil, fmt.Errorf("find title collision: studios: %w", err)
 	}
 
-	collision, err := r.scanCollisionCandidates(ctx, videoID, proposedTitle, recordedAt, peopleKey, studioKey,
+	collision, err := r.scanCollisionCandidates(ctx, videoID, proposedTitle, recordedAt, peopleKey, studioKey, partOf,
 		idKeyOf(r, `SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`),
 		idKeyOf(r, `SELECT studio_id FROM video_studios WHERE video_id = ? ORDER BY studio_id`))
 	if err != nil {
@@ -75,7 +82,7 @@ func (r *Repo) FindTitleCollision(ctx context.Context, videoID int64, proposedTi
 // Comparison is by normalized studio *name*, not id, so a proposed studio that
 // doesn't exist yet — the picker's create-new path — still collides correctly
 // against an existing video's linked studio names.
-func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedStudioNames []string) (*VideoCollision, error) {
+func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedStudioNames []string, partOf PartLookup) (*VideoCollision, error) {
 	title, recordedAt, err := r.titleAndRecordedAtOf(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("find studio collision: source video: %w", err)
@@ -87,7 +94,7 @@ func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedS
 	}
 	studioKey := normalizedNameKey(proposedStudioNames)
 
-	collision, err := r.scanCollisionCandidates(ctx, videoID, title, recordedAt, peopleKey, studioKey,
+	collision, err := r.scanCollisionCandidates(ctx, videoID, title, recordedAt, peopleKey, studioKey, partOf,
 		idKeyOf(r, `SELECT person_id FROM video_people WHERE video_id = ? ORDER BY person_id`),
 		nameKeyOf(r, `SELECT s.name FROM video_studios vs JOIN studios s ON s.id = vs.studio_id WHERE vs.video_id = ?`))
 	if err != nil {
@@ -105,7 +112,7 @@ func (r *Repo) FindStudioCollision(ctx context.Context, videoID int64, proposedS
 // person (the picker's create-new path) has no id yet at check time.
 // proposedPersonNames is the caller's full resulting set (current links plus the one
 // being added, or minus the one being removed), not a delta.
-func (r *Repo) FindPeopleCollision(ctx context.Context, videoID int64, proposedPersonNames []string) (*VideoCollision, error) {
+func (r *Repo) FindPeopleCollision(ctx context.Context, videoID int64, proposedPersonNames []string, partOf PartLookup) (*VideoCollision, error) {
 	title, recordedAt, err := r.titleAndRecordedAtOf(ctx, videoID)
 	if err != nil {
 		return nil, fmt.Errorf("find people collision: source video: %w", err)
@@ -117,7 +124,7 @@ func (r *Repo) FindPeopleCollision(ctx context.Context, videoID int64, proposedP
 	}
 	peopleKey := normalizedNameKey(proposedPersonNames)
 
-	collision, err := r.scanCollisionCandidates(ctx, videoID, title, recordedAt, peopleKey, studioKey,
+	collision, err := r.scanCollisionCandidates(ctx, videoID, title, recordedAt, peopleKey, studioKey, partOf,
 		nameKeyOf(r, `SELECT p.name FROM video_people vp JOIN people p ON p.id = vp.person_id WHERE vp.video_id = ?`),
 		idKeyOf(r, `SELECT studio_id FROM video_studios WHERE video_id = ? ORDER BY studio_id`))
 	if err != nil {
@@ -199,13 +206,27 @@ func (r *Repo) compositeKeyCandidates(ctx context.Context, videoID int64, title 
 // collision checks. Only the source-side key computation differs between them
 // (which axis is read from the current row vs. supplied as the caller's proposed
 // value), so peopleKeyOf/studioKeyOf let each Find*Collision plug in its own
-// per-candidate id-key or name-key lookup.
-func (r *Repo) scanCollisionCandidates(ctx context.Context, videoID int64, title string, recordedAt sql.NullString, peopleKey, studioKey string, peopleKeyOf, studioKeyOf func(context.Context, int64) (string, error)) (*VideoCollision, error) {
+// per-candidate id-key or name-key lookup. A candidate with a different resolved part
+// (partOf) is skipped before either set comparison.
+func (r *Repo) scanCollisionCandidates(ctx context.Context, videoID int64, title string, recordedAt sql.NullString, peopleKey, studioKey string, partOf PartLookup, peopleKeyOf, studioKeyOf func(context.Context, int64) (string, error)) (*VideoCollision, error) {
 	candidates, err := r.compositeKeyCandidates(ctx, videoID, title, recordedAt)
 	if err != nil {
 		return nil, err
 	}
+	var parts map[int64]string
+	if partOf != nil && len(candidates) > 0 {
+		ids := []int64{videoID}
+		for _, c := range candidates {
+			ids = append(ids, c.id)
+		}
+		if parts, err = partOf(ctx, ids); err != nil {
+			return nil, fmt.Errorf("candidate parts: %w", err)
+		}
+	}
 	for _, cand := range candidates {
+		if parts[cand.id] != parts[videoID] {
+			continue
+		}
 		ck, err := peopleKeyOf(ctx, cand.id)
 		if err != nil {
 			return nil, fmt.Errorf("candidate people: %w", err)

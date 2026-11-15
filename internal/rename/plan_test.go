@@ -1,10 +1,29 @@
 package rename
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+// A token on only one side (added to the template after the file was named, or
+// dropped since) must encode as [] — never null, which crashed the plan page
+// (HOLODEX-635).
+func TestChangesOneSidedTokenEncodesEmpty(t *testing.T) {
+	got := changes(
+		map[string][]string{"title": {"Old"}, "studio": {"Acme"}},
+		map[string][]string{"title": {"Old"}, "edition": {"Upscaled"}},
+	)
+	b, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[{"token":"edition","recorded":[],"current":["Upscaled"]},{"token":"studio","recorded":["Acme"],"current":[]}]`
+	if string(b) != want {
+		t.Errorf("changes JSON =\n %s\nwant\n %s", b, want)
+	}
+}
 
 func TestPlanReasons(t *testing.T) {
 	list := mustList(t, "{title} - {studio}", "{title}")
