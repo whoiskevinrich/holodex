@@ -117,6 +117,12 @@ with no record of which edit caused it.
 - **Exact-match only.** The check compares normalized-exact keys (case/whitespace-insensitive
   title, exact date, exact people-set, exact studio) — no fuzzy/near-miss logic. Acceptance: a
   one-character title difference does not trigger the panel.
+- **Different parts are never duplicates.** The parts of one recording share title, people, date
+  and studio by construction, so two videos whose part numbers differ (as the media page shows
+  them) never collide, whichever edit triggers the check. Two videos with the same part, or with
+  no part at all, still do. A video with a part and one without are different. Acceptance:
+  writing Part 3 of a film to file, or editing its title, studio or people, never names Part 1 or
+  Part 2 as a duplicate.
 
 ### Nice-to-Have (P1)
 
@@ -146,6 +152,9 @@ check a month after launch.
 
 ## Open Questions
 
+- **Multi-part recordings were the predicted false positive, and it happened.** Writing Part 3 of
+  a film to file was blocked as a duplicate of an earlier part, and the write dialog had no "Save
+  anyway". Resolved by the "Different parts are never duplicates" rule above.
 - **Real-world false-positive rate is unverified** (engineering, non-blocking). No live DB exists
   in this worktree to check whether two legitimately distinct videos commonly already share the
   full composite key (e.g. multi-part recordings from one session, which might share date+people
