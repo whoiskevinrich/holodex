@@ -18,7 +18,7 @@ release_note: Owners can now filter and sort videos, people and studios by provi
 approved:
   design:
     on: 2026-11-14
-    at: a12967f9
+    at: 3d486061
 # approved:                  # the owner's sign-offs on `approve: true` gates (ADR-007). [x] means the
 #   design:                  # artifact is committed; THIS means the owner looked and said yes. Written
 #     on: 2026-09-20         # only by /implement (which asks) or /handoff (for a yes given this session);
@@ -88,7 +88,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 
 ### 2026-11-14 · score retired
 - skills: code-review, handoff
-- handoff: The Completeness score is retired: migration 0074 drops its table, the completeness sorts read as the default, list items and the person card carry no bands, and the detail panel is the field list behind Show fields / Hide fields; the F55 spec, §4 rows and §42 Q3/R6/A8 are updated; the design sign-off is stale until the owner confirms the panel label.
+- handoff: The Completeness score is retired: migration 0074 drops its table, the completeness sorts read as the default, list items and the person card carry no bands, and the detail panel is the field list behind Show fields / Hide fields; the F55 spec, §4 rows and §42 Q3/R6/A8 are updated; the owner confirmed the Show fields label and the design sign-off is re-pinned at 3d486061; next is the promoted-field allowlist for People and Studios filters.
 
 ### 2026-11-14 · frontend filters panel
 - skills: code-review, handoff
