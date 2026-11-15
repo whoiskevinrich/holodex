@@ -101,14 +101,15 @@ The shipped chips row and `FilterChip`. New and changed labels:
 | `matched:any` | Linked | solid |
 | `-matched:any` | Not linked | NOT (outlined) |
 | `matched:provider-1` | Linked: provider-1 | solid |
-| `has:director` | Has director | solid |
-| `-has:director` | No director | NOT (outlined) |
-| `has:poster` / `-has:poster` | Has poster / No poster | solid / NOT |
-| People, Studios: Birthdate missing | No birthdate | NOT (outlined) |
+| `has:director` | Director: has | solid |
+| `-has:director` | Director: missing | NOT (outlined) |
+| `has:poster` / `-has:poster` | Poster: has / Poster: missing | solid / NOT |
+| People, Studios: Born missing | Born: missing | NOT (outlined) |
 
-The field word is the field's label, lower-cased after "Has" and "No". All of these carry the
-existing owner-only key glyph. `-has:` drops the generic "not " prefix: "No director", never
-"not Has director".
+A field chip is the field's label as the list shows it, then "has" or "missing", the words of the
+panel's toggle. A lower-cased label after "Has" or "No" was dropped on 2026-11-14 because labels
+like Born and Died made "No born". All of these carry the existing owner-only key glyph. `-has:`
+drops the generic "not " prefix: "Director: missing", never "not Director: has".
 
 ### 5. Sort menu
 
@@ -221,11 +222,11 @@ None new. The panel and list keep their current open and close behaviour.
 
 1. [agent] Media: choose Linked, then Not linked, then Any; the chip appears, flips to "Not linked"
    outlined, then disappears.
-2. [agent] Media: add Director (Has) and Poster (Missing); the chips read "Has director" and "No
-   poster" with the key glyph, and match typing `has:director -has:poster`.
+2. [agent] Media: add Director (Has) and Poster (Missing); the chips read "Director: has" and
+   "Poster: missing" with the key glyph, and match typing `has:director -has:poster`.
 3. [agent] Media: type `has:director OR has:actors`; open and close the panel; the query is
    unchanged and no row is drawn.
-4. [agent] People: Birthdate Missing; the URL carries it; reload and Back restore it.
+4. [agent] People: Born Missing; the URL carries it; reload and Back restore it.
 5. [agent] Studios: the Table view shows Name, Videos and Enriched; the header sorts both ways.
 6. [agent] No ring on any card, row or hover card, for owner or visitor.
 7. [agent] Below `sm`: the bottom sheet holds both controls and the add-field list.

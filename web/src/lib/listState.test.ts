@@ -66,23 +66,23 @@ describe('U1 sort precedence: URL → saved → default', () => {
 });
 
 describe('U2 owner-only sorts never reach a visitor', () => {
-	it('drops a completeness sort from the URL for a visitor, keeps it for the owner', () => {
-		expect(parseList(peopleSchema, q('sort=completeness_asc'), false).state.sort).toBe('name');
-		expect(parseList(peopleSchema, q('sort=completeness_asc'), true).state.sort).toBe('completeness_asc');
+	it('drops an enriched sort from the URL for a visitor, keeps it for the owner', () => {
+		expect(parseList(peopleSchema, q('sort=enriched_asc'), false).state.sort).toBe('name');
+		expect(parseList(peopleSchema, q('sort=enriched_asc'), true).state.sort).toBe('enriched_asc');
 	});
-	it('drops a saved completeness sort for a visitor', () => {
-		localStorage.setItem('holodex:sort:studios', 'completeness_desc');
+	it('drops a saved enriched sort for a visitor', () => {
+		localStorage.setItem('holodex:sort:studios', 'enriched_desc');
 		expect(parseList(studiosSchema, q(''), false).state.sort).toBe('name');
-		expect(parseList(studiosSchema, q(''), true).state.sort).toBe('completeness_desc');
+		expect(parseList(studiosSchema, q(''), true).state.sort).toBe('enriched_desc');
 	});
 	it('leaves an owner-only URL sort in place while capabilities may still be loading', () => {
 		// An owner is briefly indistinguishable from a visitor; rewriting the URL then would
 		// lose the owner's sort before their capabilities resolve.
-		expect(parseList(peopleSchema, q('sort=completeness_asc'), false).syncUrl).toBe(false);
+		expect(parseList(peopleSchema, q('sort=enriched_asc'), false).syncUrl).toBe(false);
 	});
 	it('Media applies the same rule to its owner-only entries', () => {
-		expect(parseList(mediaSchema, q('sort=completeness_desc'), false).state.sort).toBe('added_desc');
-		expect(parseList(mediaSchema, q('sort=completeness_desc'), true).state.sort).toBe('completeness_desc');
+		expect(parseList(mediaSchema, q('sort=enriched_desc'), false).state.sort).toBe('added_desc');
+		expect(parseList(mediaSchema, q('sort=enriched_desc'), true).state.sort).toBe('enriched_desc');
 	});
 });
 
@@ -140,7 +140,7 @@ describe('U5 serialize is canonical and round-trips', () => {
 	it('round-trips parse(serialize(state)) for every schema', () => {
 		const cases = [
 			[peopleSchema, { sort: 'count', query: {} }],
-			[studiosSchema, { sort: 'completeness_asc', query: {} }],
+			[studiosSchema, { sort: 'enriched_asc', query: {} }],
 			[filmsSchema, { sort: 'random', query: {} }],
 			[tagsSchema, { sort: 'count', query: { type: 'categories' } }]
 		] as const;
@@ -174,8 +174,8 @@ describe('Entity video grids', () => {
 		expect(parseList(entityVideosSchema, q('sort=title_asc&person=4'), false).state.query).toEqual({});
 	});
 	it('drop an owner-only sort for a visitor', () => {
-		expect(parseList(entityVideosSchema, q('sort=completeness_asc'), false).state.sort).toBe('added_desc');
-		expect(parseList(entityVideosSchema, q('sort=completeness_asc'), true).state.sort).toBe('completeness_asc');
+		expect(parseList(entityVideosSchema, q('sort=enriched_asc'), false).state.sort).toBe('added_desc');
+		expect(parseList(entityVideosSchema, q('sort=enriched_asc'), true).state.sort).toBe('enriched_asc');
 	});
 });
 
@@ -271,13 +271,13 @@ describe('S1–S3 sort lists', () => {
 			for (const s of list) expect(s.label.length, `${name}: ${s.label}`).toBeLessThanOrEqual(20);
 		}
 	});
-	it('S2 completeness is owner-only everywhere it appears, and absent from Tags', () => {
+	it('S2 enriched is owner-only everywhere it appears, and absent from Tags', () => {
 		for (const list of [MEDIA_SORTS, ENTITY_SORTS]) {
-			const c = list.filter((s) => s.value.startsWith('completeness'));
+			const c = list.filter((s) => s.value.startsWith('enriched'));
 			expect(c).toHaveLength(2);
 			expect(c.every((s) => s.ownerOnly)).toBe(true);
 		}
-		expect(TAG_SORTS.some((s) => s.ownerOnly || s.value.startsWith('completeness'))).toBe(false);
+		expect(TAG_SORTS.some((s) => s.ownerOnly || s.value.startsWith('enriched'))).toBe(false);
 	});
 	it('S4 the public Updated pair follows the Date added pair on Media (HOLODEX-567)', () => {
 		expect(MEDIA_SORTS.slice(0, 4).map((s) => s.value)).toEqual([

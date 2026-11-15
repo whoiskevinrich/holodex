@@ -6870,11 +6870,11 @@ data.
 
 | # | File | Case | Proves |
 |---|---|---|---|
-| W1 | `queryChips.test.ts` | The handoff's chip labels: Linked, Not linked, Linked: provider-1, Has director, No director, Has poster, No poster. `-has:` never reads "not Has …". | P0-2 |
-| W2 | new `ProviderLinkControl` and `FieldConditions` logic tests | Linked and Not linked write the condition; Any removes it; Has and Missing flip one condition in place. A query with `has:director OR has:actors`, `matched:provider-1` or a `has:` inside a NOT group leaves the controls unset, and opening or closing the panel leaves the expr byte-identical. | P0-3 (risk 7) |
-| W3 | `FieldConditions` | The add-field list: mapping order, case-insensitive substring filter, chosen fields left out, "All fields added", "No field matches". | P0-3 |
-| W4 | `listColumns.test.ts` and the sort lists | `enriched` is owner-only, 5rem and right-aligned; Studios has Name, Videos and Enriched; the owner sort group reads Most enriched and Least enriched; a saved Completeness sort maps to the default. | P0-4, P0-6 |
-| W5 | the People and Studios list schemas | Filters round-trip through the URL, and the owner is passed to `listController` up front, so an owner-only sort resolves before the first parse. | P0-3 |
+| W1 | `fieldConditions.test.ts` (chips) | The handoff's chip labels, in the owner's 2026-11-14 wording: Linked, Not linked, Linked: provider-1, Director: has, Poster: missing, each with the key glyph. `-has:` never reads "not Director: has". **Green.** | P0-2 |
+| W2 | `fieldConditions.test.ts` (Media panel) | Linked and Not linked write the condition; Any removes it; Has and Missing flip one condition in place. A query with `has:director OR has:actors`, `matched:provider-1` or a `has:` inside a NOT group leaves the controls unset and is rewritten byte-identical; before a parse returns, a write appends rather than drops text. **Green**; opening and closing the panel was checked in the browser. | P0-3 (risk 7) |
+| W3 | `FieldConditions` | The add-field list: mapping order, case-insensitive substring filter, chosen fields left out, "All fields added", "No field matches". Checked in the browser on 2026-11-14; no component test yet. The order and the allowlist come from `GET /filter-fields`, pinned by `TestFilterFieldsListEachListsFields`. | P0-3 |
+| W4 | `listColumns.test.ts` and the sort lists | `enriched` is owner-only, 5rem and right-aligned; Studios has Name, Videos and Enriched; the owner sort group reads Most enriched and Least enriched. **Green**, except that a saved Completeness sort mapping to the default waits for the score's retirement. | P0-4, P0-6 |
+| W5 | `fieldConditions.test.ts`, `api.test.ts` | Filters round-trip through the URL; repeated `has`/`missing` reach the server; the owner is passed to `listController` up front, so an owner-only sort resolves before the first parse. **Green.** | P0-3 |
 
 The ring has no test of its own: its component and modules are deleted, so a remaining import fails
 the build. QA covers what's rendered.

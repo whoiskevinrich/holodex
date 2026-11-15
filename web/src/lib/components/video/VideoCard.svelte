@@ -5,7 +5,6 @@
 	import { formatDuration, resolutionBucket } from '#lib/format.ts';
 	import { sceneBadgeLabel } from '#lib/components/film/sceneNumber.ts';
 	import { partBadgeLabel } from '#lib/components/video/partBadge.ts';
-	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import { ThumbnailLoad } from './thumbnailLoad.svelte.ts';
 	import { CardMontage } from './montagePlayback.svelte.ts';
 
@@ -159,34 +158,14 @@
 			{#if watched}<span class="sr-only">, watched</span>{/if}
 		</div>
 	</a>
-	{#if video.completeness || video.part}
-		<!-- Bottom-left group: the completeness ring chip (F65.4, HOLODEX-412) then the
-		     part badge (HOLODEX-389), both in the duration badge's neutral treatment so
-		     they read as facts along the bottom edge. The ring is owner-only by payload
-		     — it mounts iff the list item carries `completeness` (the API strips it for
-		     visitors), so a visitor's part badge sits exactly where it did before the
-		     ring existed: the wrapper's inset equals the badge's old inset. Since F65.8
-		     the ring is a <button>, so the group lives in a sibling of the <a> — an
-		     overlay that mirrors .video-frame's box (app.css) — rather than inside it;
-		     only the ring takes pointer events, the part badge falls through to the link
-		     (the media page row is still its only edit mount, RD8). -->
+	{#if video.part}
+		<!-- The part badge (HOLODEX-389), in the duration badge's neutral treatment, bottom-left.
+		     A sibling of the <a>, an overlay mirroring .video-frame's box (app.css); it takes
+		     no pointer events, so a click falls through to the link (the media page row is
+		     still its only edit mount, RD8). -->
 		<div class="video-frame-overlay pointer-events-none absolute inset-x-0 top-0 z-[2]">
-			<span class="absolute bottom-1.5 left-1.5 flex items-center gap-1">
-				{#if video.completeness}
-					<span class="completeness-chip pointer-events-auto inline-flex items-center rounded-theme bg-black/70 px-1 py-[3px]">
-						<CompletenessRing
-							required={video.completeness.required}
-							extras={video.completeness.extras}
-							size="card"
-							entity={{ kind: 'video', id: video.id }}
-						/>
-					</span>
-				{/if}
-				{#if video.part}
-					<span class="part-badge rounded-theme bg-black/70 px-1.5 py-0.5 text-xs text-ink">
-						{partBadgeLabel(video.part)}
-					</span>
-				{/if}
+			<span class="part-badge absolute bottom-1.5 left-1.5 rounded-theme bg-black/70 px-1.5 py-0.5 text-xs text-ink">
+				{partBadgeLabel(video.part)}
 			</span>
 		</div>
 	{/if}

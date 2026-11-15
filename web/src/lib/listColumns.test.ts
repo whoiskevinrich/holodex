@@ -23,21 +23,21 @@ describe('V7 the column lists are the handoff’s', () => {
 	const shape = (cols: readonly ColumnSpec<string>[]) =>
 		cols.map((c) => [c.header, c.align ?? 'left', c.keepBelow ?? 'always', c.ownerOnly ? 'owner' : 'all']);
 
-	it('Media: title, duration, res, added, size and done', () => {
+	it('Media: title, duration, res, added, size and enriched', () => {
 		expect(shape(MEDIA_COLUMNS)).toEqual([
 			['Title', 'left', 'always', 'all'],
 			['Duration', 'right', 'always', 'all'],
 			['Res', 'left', 'sm', 'all'],
 			['Added', 'left', 'sm', 'all'],
 			['Size', 'right', 'lg', 'owner'],
-			['Done', 'left', 'lg', 'owner']
+			['Enriched', 'right', 'lg', 'owner']
 		]);
 	});
-	it('People: name, videos and done', () => {
+	it('People: name, videos and enriched', () => {
 		expect(shape(PEOPLE_COLUMNS)).toEqual([
 			['Name', 'left', 'always', 'all'],
 			['Videos', 'right', 'always', 'all'],
-			['Done', 'left', 'always', 'owner']
+			['Enriched', 'right', 'always', 'owner']
 		]);
 	});
 	it('Tags: name, videos and parent', () => {

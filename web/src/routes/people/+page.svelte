@@ -19,7 +19,10 @@
 	import { PEOPLE_COLUMNS } from '#lib/listColumns.ts';
 	import MergeCanonicalDialog from '#lib/components/entity/MergeCanonicalDialog.svelte';
 	import AlphaIndex from '#lib/components/entity/AlphaIndex.svelte';
-	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
+	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
+	import FilterChip from '#lib/components/sort/FilterChip.svelte';
+	import LinkFieldFilters from '#lib/components/sort/LinkFieldFilters.svelte';
+	import { EntityFilters } from '#lib/entityFilters.svelte.ts';
 	import DuplicatesBanner from '#lib/components/duplicates/DuplicatesBanner.svelte';
 	import SweepStatusLine from '#lib/components/activity/SweepStatusLine.svelte';
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
@@ -29,19 +32,21 @@
 	import DensitySlider from '#lib/components/sort/DensitySlider.svelte';
 
 	// People index. Controls are the F73 list toolbar; the sort is one value held by
-	// ListController (ADR-114) — completeness is an owner-only entry in it, never a second
+	// ListController (ADR-114) — the enriched sorts are owner-only entries in it, never a second
 	// control, which is what let two sorts show as active at once (HOLODEX-473).
 	const list = listController(peopleSchema, '/people', () => activity.effectiveOwner);
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	const sortBy = $derived(list.state.sort);
+	// The owner's Filters panel (F90): provider link and field conditions, in the URL.
+	const ownerFilters = new EntityFilters('people', () => list.state.query, (q) => list.setQuery(q), () => isOwner);
 
 	// List/Poster display mode, persisted per page (F55 RD1) — a sibling key to sort's own
 	// holodex:sort:people. Only the toggle's change handler writes it (F73 R7).
 	let activeView = $state<PersonView>(readView('people'));
 	const tableColumns = PEOPLE_COLUMNS.map((c) => ({
 		...c,
-		cell: { name: nameCell, videos: videosCell, done: doneCell }[c.id]!
+		cell: { name: nameCell, videos: videosCell, enriched: enrichedCell }[c.id]!
 	}));
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
@@ -51,7 +56,7 @@
 	const query = $derived(search.value);
 
 	// One list as tall as the whole library, fetched a page at a time where it's viewed
-	// (F80 EL11, HOLODEX-601): name, count, completeness, or Random with the session seed so
+	// (F80 EL11, HOLODEX-601): name, count, enriched, or Random with the session seed so
 	// pages tile (SP2, ADR-045). The A–Z index needs the name sort and no search, in every
 	// view; its letters come with the first read of each list.
 	const people = new SparseList<Person>((offset, limit, fresh) =>
@@ -61,7 +66,8 @@
 			seed: shuffleSeed.value,
 			limit,
 			offset,
-			letters: fresh && sortBy === 'name' && !query
+			letters: fresh && sortBy === 'name' && !query,
+			...ownerFilters.query
 		})
 	);
 	const showIndex = $derived(sortBy === 'name' && !query);
@@ -105,10 +111,13 @@
 		restartOn: () => {
 			void sortBy;
 			void query;
+			void ownerFilters.query;
 			if (sortBy === 'random') void shuffleSeed.value;
 		},
 		root: () => listEl
 	});
+
+	const peopleCount = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'person' : 'people'}`;
 
 	function toggle(p: Person) {
 		selectedPeople = selectedIds.includes(p.id)
@@ -139,9 +148,23 @@
 		actions={isOwner && !selecting ? [{ label: 'Merge people…', onselect: startSelect }] : []}
 		count={selecting ? selectHint : countLine}
 		mode={selecting ? selectBar : undefined}
+		chipCount={ownerFilters.chips.length}
+		onclear={ownerFilters.clear}
 	>
 		{#snippet sort()}
 			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
+		{/snippet}
+		{#snippet filters()}
+			{#if isOwner}
+				<FilterPanel count={ownerFilters.count} resultLabel={people.loading ? '' : peopleCount(people.total)} onclear={ownerFilters.clear}>
+					<LinkFieldFilters list="people" link={ownerFilters.link} conds={ownerFilters.conds} onlink={ownerFilters.setLink} onconds={ownerFilters.setConds} />
+				</FilterPanel>
+			{/if}
+		{/snippet}
+		{#snippet chips()}
+			{#each ownerFilters.chips as c (c.id)}
+				<FilterChip label={c.label} negated={c.negated} ownerOnly onremove={c.remove} />
+			{/each}
 		{/snippet}
 		{#snippet view()}
 			<ViewToggle options={PAGE_VIEWS.people} bind:view={activeView} onchange={(v) => writeView('people', v)} />
@@ -152,8 +175,7 @@
 	</ListToolbar>
 
 	{#snippet countLine()}
-		{#if !people.loading && !people.error}{people.total.toLocaleString()}
-			{people.total === 1 ? 'person' : 'people'}{/if}<DuplicatesBanner
+		{#if !people.loading && !people.error}{peopleCount(people.total)}{/if}<DuplicatesBanner
 			entityType="person"
 			inline
 		/>
@@ -182,6 +204,11 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if people.error}
 		<p class="py-16 text-center text-sm text-warn">Couldn’t load people: {people.error}</p>
+	{:else if people.total === 0 && ownerFilters.count}
+		<div class="py-16 text-center text-sm text-muted">
+			<p>No people match these filters.</p>
+			<button type="button" class="btn-quiet mt-2 px-3 py-1.5 text-sm" onclick={ownerFilters.clear}>Clear filters</button>
+		</div>
 	{:else if people.total === 0 && !query}
 		<p class="py-16 text-center text-sm text-muted">No people indexed yet.</p>
 	{:else if people.total === 0}
@@ -212,7 +239,7 @@
 				{/snippet}
 			</VirtualRows>
 		{:else if activeView === 'table' && !selecting}
-			<!-- pr-6 keeps the phone A–Z rail clear of the Done ring (handoff, "At 375px"). -->
+			<!-- pr-6 keeps the phone A–Z rail clear of the last column (handoff, "At 375px"). -->
 			<div class={showIndex ? 'pr-6 sm:pr-0' : ''}>
 				<ListTable
 					columns={tableColumns}
@@ -229,27 +256,13 @@
 		{:else}
 			<!-- Shared row body for both modes — the only difference between select mode and
 			     nav mode is the wrapper (checkbox label vs link), so the avatar/name live here
-			     once. The trailing ring + count sit OUTSIDE the wrapper (rowTrail): since F65.8
-			     the ring is a <button>, which may neither nest in the link nor toggle the
-			     checkbox, so the wrapper is a stretched link/label (its ::after covers the
-			     row) and the ring rides above the stretch as a sibling. -->
+			     once. The trailing count sits outside the wrapper (rowTrail), which is a stretched
+			     link/label (its ::after covers the row). -->
 			{#snippet personRow(p: Person, i: number)}
 				<PersonAvatar personId={p.id} name={p.display_name ?? p.name} version={p.headshot_version} size="sm" eager={i < 6} />
 				<span class="flex-1 truncate">{p.display_name ?? p.name}</span>
 			{/snippet}
 			{#snippet rowTrail(p: Person)}
-				{#if p.completeness}
-					<!-- Owner-only by payload (F65.4/F65.5): trailing, before the count, so names
-					     don't move between visitor and owner mode. -->
-					<span class="relative z-[1] inline-flex">
-						<CompletenessRing
-							required={p.completeness.required}
-							extras={p.completeness.extras}
-							size="row"
-							entity={{ kind: 'person', id: p.id }}
-						/>
-					</span>
-				{/if}
 				<span class="text-xs text-muted">{p.video_count}</span>
 			{/snippet}
 			<VirtualRows
@@ -319,16 +332,7 @@
 	</span>
 {/snippet}
 {#snippet videosCell(p: Person)}{p.video_count}{/snippet}
-{#snippet doneCell(p: Person)}
-	{#if p.completeness}
-		<CompletenessRing
-			required={p.completeness.required}
-			extras={p.completeness.extras}
-			size="card"
-			entity={{ kind: 'person', id: p.id }}
-		/>
-	{/if}
-{/snippet}
+{#snippet enrichedCell(p: Person)}<span class="tabular-nums {p.enriched ? 'text-ink' : 'text-muted'}">{p.enriched ?? ''}</span>{/snippet}
 
 <!-- "Keep which name?" — pick the survivor for a multi-select merge, then fold the rest in. -->
 {#if choosing}

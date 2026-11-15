@@ -4,6 +4,7 @@ import { filtersToParams } from './filters';
 import type { ParsedQuery, QueryError, QueryFieldInfo, QueryParseResult } from './query';
 import { reauth, editing } from './reauth.svelte';
 import { markDataChanged } from './navSnapshot.svelte';
+import type { FilterField, FilterList } from './fieldConditions';
 import type { MaintenancePreflight } from './maintenance';
 import type { RenameHistoryEntry, RenamePlan, RenamePreview, RenameReason, RenameStatus } from './rename';
 import type {
@@ -15,7 +16,6 @@ import type {
 	Capabilities,
 	MontageStatus,
 	Category,
-	CompletenessSummary,
 	PersonCard,
 	EnrichCandidate,
 	EnrichedField,
@@ -350,10 +350,13 @@ function buildQuery(f: MediaFilters): string {
 }
 
 // queueQuery builds an owner queue's query string (HOLODEX-587): limit/offset plus the
-// queue's own narrowing params, dropping the unset ones.
-function queueQuery(params: Record<string, string | number | undefined>): string {
+// queue's own narrowing params, dropping the unset ones. A list value repeats its key.
+function queueQuery(params: Record<string, string | number | readonly string[] | undefined>): string {
 	const p = new URLSearchParams();
-	for (const [k, v] of Object.entries(params)) if (v !== undefined) p.set(k, String(v));
+	for (const [k, v] of Object.entries(params)) {
+		if (Array.isArray(v)) for (const x of v) p.append(k, x);
+		else if (v !== undefined) p.set(k, String(v));
+	}
 	const s = p.toString();
 	return s ? `?${s}` : '';
 }
@@ -361,12 +364,17 @@ function queueQuery(params: Record<string, string | number | undefined>): string
 // The paged entity-list read (F80): People, Studios, Tags, and the /tags categories and
 // /films pages. sort 'name' is the server default, so it's left off the URL.
 export interface EntityListOpts {
-	sort?: PeopleTagSort | 'completeness_asc' | 'completeness_desc';
+	sort?: PeopleTagSort | 'enriched_asc' | 'enriched_desc';
 	q?: string;
 	seed?: number;
 	limit?: number;
 	offset?: number;
 	letters?: boolean;
+	// People and Studios' owner-only filters (F90 P0-3): provider link, and fields that
+	// show a value (has) or don't (missing). The server 401s them for anyone else.
+	link?: 'linked' | 'unlinked';
+	has?: readonly string[];
+	missing?: readonly string[];
 }
 export type EntityListPage<T> = QueuePage<T> & { letters?: Record<string, number> };
 
@@ -377,7 +385,10 @@ function entityListQuery(o: EntityListOpts): string {
 		seed: o.sort === 'random' ? o.seed : undefined,
 		limit: o.limit,
 		offset: o.offset || undefined,
-		letters: o.letters ? 1 : undefined
+		letters: o.letters ? 1 : undefined,
+		link: o.link,
+		has: o.has,
+		missing: o.missing
 	});
 }
 
@@ -869,6 +880,9 @@ export const api = {
 	// `stored`: expr is a saved definition, already canonical; the server marks a deleted
 	// entity instead of re-reading its id as a name (the owner's only, F89).
 	queryFields: () => get<{ fields: QueryFieldInfo[] }>('/query/fields'),
+	// The Fields control's choices for one list (F90 P0-3), owner-only.
+	filterFields: (list: FilterList) =>
+		getAuthed<{ fields: FilterField[] }>(`/filter-fields?list=${list}`),
 	queryValues: (field: string, q: string) =>
 		get<{ values: string[] }>(`/query/values?${new URLSearchParams({ field, q })}`),
 	parseQuery: async (expr: string, stored = false): Promise<QueryParseResult> => {
@@ -1336,11 +1350,6 @@ export const api = {
 	personCard: (id: number, signal?: AbortSignal) =>
 		get<PersonCard>(`/people/${id}/card`, fetch, { signal, credentials: CREDS }),
 
-	// The ring badge's own bands for one entity (F65.8): read by CompletenessRing
-	// right after its refresh-all so it can redraw without the list re-fetching.
-	// Owner-gated like the list field; drains the store first, as a list read does.
-	entityCompleteness: (kind: EnrichEntityKind, id: number) =>
-		getAuthed<CompletenessSummary>(`/${ENRICH_ENTITY_BASE[kind]}/${id}/completeness`),
 
 	// Media soft-delete / purge / restore / Trash (F24, ADR-037). All owner-gated.
 	// deleteMedia soft-deletes (the item moves to Trash, restorable within the grace

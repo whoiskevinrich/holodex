@@ -10,7 +10,7 @@ export const DEFAULT_SORT: SortOrder = 'added_desc';
 // order (F12.1). SortDropdown renders this; SORT_ORDERS derives the value set used
 // to validate a persisted preference (SP1) so a stale/unknown localStorage value
 // safely falls back to DEFAULT_SORT. "random" is a seeded shuffle (ADR-045).
-// completeness_asc/desc (F55.5) carry an `ownerOnly` flag — the server 401s a
+// enriched_desc/asc (F90 P0-4) carry an `ownerOnly` flag — the server 401s a
 // non-owner request using them, so SortDropdown filters them out unless owner=true.
 export const MEDIA_SORTS: readonly { value: SortOrder; label: string; ownerOnly?: boolean }[] = [
 	{ value: 'added_desc', label: 'Date added — newest' },
@@ -24,8 +24,8 @@ export const MEDIA_SORTS: readonly { value: SortOrder; label: string; ownerOnly?
 	{ value: 'resolution_desc', label: 'Resolution — highest' },
 	{ value: 'resolution_asc', label: 'Resolution — lowest' },
 	{ value: 'random', label: 'Random' },
-	{ value: 'completeness_desc', label: 'Completeness — most', ownerOnly: true },
-	{ value: 'completeness_asc', label: 'Completeness — least', ownerOnly: true }
+	{ value: 'enriched_desc', label: 'Most enriched', ownerOnly: true },
+	{ value: 'enriched_asc', label: 'Least enriched', ownerOnly: true }
 ];
 
 export const SORT_ORDERS: readonly SortOrder[] = MEDIA_SORTS.map((s) => s.value);

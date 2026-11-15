@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="560" viewBox="0 0 1040 560" font-family="'Archivo Variable', Archivo, system-ui, sans-serif" role="img" aria-labelledby="t d">
   <title id="t">F90 Filters panel on Media and People</title>
-  <desc id="d">Media: the toolbar with Filters · 3, the chips row with Linked, Has director and No poster chips carrying the owner key glyph, and the 320px Filters panel open with Provider link set to Linked and two field rows. People: the toolbar gains Filters · 1, a chips row with a No birthdate chip, and the panel with the field picker open on its search list.</desc>
+  <desc id="d">Media: the toolbar with Filters · 3, the chips row with Linked, Director: has and Poster: missing chips carrying the owner key glyph, and the 320px Filters panel open with Provider link set to Linked and two field rows. People: the toolbar gains Filters · 1, a chips row with a Born: missing chip, and the panel with the field picker open on its search list.</desc>
   <rect width="1040" height="560" fill="#0c0a09"/>
 
   <!-- ===== Media (left) ===== -->
@@ -22,12 +22,12 @@
     <text x="32" y="107" fill="#1a1206">⚿ Linked</text>
     <text x="84" y="107" fill="#1a1206">×</text>
     <rect x="100" y="92" width="104" height="22" rx="2" fill="#e8a33d"/>
-    <text x="108" y="107" fill="#1a1206">⚿ Has director</text>
+    <text x="108" y="107" fill="#1a1206">⚿ Director: has</text>
     <text x="194" y="107" fill="#1a1206">×</text>
-    <rect x="210" y="92" width="94" height="22" rx="2" fill="none" stroke="#e8a33d"/>
-    <text x="218" y="107" fill="#e8a33d">⚿ No poster</text>
-    <text x="294" y="107" fill="#e8a33d">×</text>
-    <text x="316" y="107" fill="#9b9082">Clear</text>
+    <rect x="210" y="92" width="116" height="22" rx="2" fill="none" stroke="#e8a33d"/>
+    <text x="218" y="107" fill="#e8a33d">⚿ Poster: missing</text>
+    <text x="316" y="107" fill="#e8a33d">×</text>
+    <text x="338" y="107" fill="#9b9082">Clear</text>
     <text x="356" y="107" fill="#9b9082">Edit as text</text>
   </g>
 
@@ -81,7 +81,7 @@
 
   <g font-size="12">
     <rect x="564" y="92" width="104" height="22" rx="2" fill="none" stroke="#e8a33d"/>
-    <text x="572" y="107" fill="#e8a33d">⚿ No birthdate</text>
+    <text x="572" y="107" fill="#e8a33d">⚿ Born: missing</text>
     <text x="658" y="107" fill="#e8a33d">×</text>
   </g>
 
@@ -94,7 +94,7 @@
   <text x="932" y="178" font-size="12" fill="#9b9082">Not linked</text>
 
   <text x="722" y="210" font-size="12" fill="#9b9082">Fields</text>
-  <text x="722" y="236" font-size="14" fill="#f3ece1">Birthdate</text>
+  <text x="722" y="236" font-size="14" fill="#f3ece1">Born</text>
   <rect x="874" y="222" width="110" height="22" rx="2" fill="none" stroke="#2a2622"/>
   <text x="884" y="237" font-size="12" fill="#9b9082">Has</text>
   <rect x="916" y="223" width="67" height="20" fill="#e8a33d"/>

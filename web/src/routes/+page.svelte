@@ -31,7 +31,8 @@
 	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
 	import ListTable from '#lib/components/sort/ListTable.svelte';
 	import VideoThumb from '#lib/components/video/VideoThumb.svelte';
-	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
+	import LinkFieldFilters from '#lib/components/sort/LinkFieldFilters.svelte';
+	import { panelConds, withField, withLink, type FieldCond, type LinkState } from '#lib/fieldConditions.ts';
 	import { mediaSchema, type MediaQuery } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
 	import { MEDIA_COLUMNS } from '#lib/listColumns.ts';
@@ -81,7 +82,7 @@
 	let activeView = $state(readView('media'));
 	const tableColumns = MEDIA_COLUMNS.map((c) => ({
 		...c,
-		cell: { title: titleCell, duration: durationCell, res: resCell, added: addedCell, size: sizeCell, done: doneCell }[
+		cell: { title: titleCell, duration: durationCell, res: resCell, added: addedCell, size: sizeCell, enriched: enrichedCell }[
 			c.id
 		]!
 	}));
@@ -169,8 +170,32 @@
 		void navSearch.editQuery(p?.ok ? printNames(p.tree) : (expr ?? ''));
 	}
 
+	// The owner's Provider link and Fields (F90): read from the query's top-level conditions
+	// and written back into ?expr=, so a panel chip is the one typed. A query it can't show
+	// (an OR, matched:provider-1, a has inside a group) draws nothing and stays as typed.
+	// Only the current expr's own parse: a write built on the previous one would drop the
+	// change still in flight. Before it lands, a write appends to the text instead.
+	const exprTree = $derived(parsedQuery.tree);
+	// What the panel draws may lag a beat behind, like the chips.
+	const panel = $derived(panelConds(parsedQuery.parsed?.ok ? parsedQuery.parsed.tree : null));
+	function setLink(v: LinkState) {
+		setQuery({ expr: withLink(expr, exprTree, v) });
+	}
+	function setConds(next: FieldCond[]) {
+		let e = expr;
+		let tree = exprTree;
+		// One change at a time: the row that changed, or the one removed.
+		const changed = next.find((c) => panel.fields.find((f) => f.key === c.key)?.has !== c.has);
+		const removed = panel.fields.find((f) => !next.some((c) => c.key === f.key));
+		if (changed) e = withField(e, tree, changed.key, changed.has);
+		else if (removed) e = withField(e, tree, removed.key, null);
+		setQuery({ expr: e });
+	}
+
 	// The Filters button counts what its panel holds — not entity scope, which has no field.
-	const filterCount = $derived(activeChips.filter((c) => c.kind === 'filter').length);
+	const filterCount = $derived(
+		activeChips.filter((c) => c.kind === 'filter').length + (isOwner ? (panel.link === 'any' ? 0 : 1) + panel.fields.length : 0)
+	);
 
 	// Save as playlist… (F75 handoff "Save form"; was F69 P0-8 in the ⋯ menu): the count
 	// line's form saves the current filters + sort, smart or snapshot. No filter = the
@@ -311,6 +336,10 @@
 		{/snippet}
 		{#snippet filters()}
 			<FilterPanel count={filterCount} resultLabel={loading ? '' : videoCount(total)} onclear={clearAll}>
+				{#if isOwner}
+					<LinkFieldFilters list="media" link={panel.link} conds={panel.fields} onlink={setLink} onconds={setConds} />
+					<hr class="border-rule" />
+				{/if}
 				<MediaFilterFields {query} set={setQuery} onfacets={(f) => (facets = f)} />
 			</FilterPanel>
 		{/snippet}
@@ -424,13 +453,4 @@
 {/snippet}
 {#snippet addedCell(v: Video)}{shortDate(v.indexed_at)}{/snippet}
 {#snippet sizeCell(v: Video)}{v.file_size ? formatBytes(v.file_size) : ''}{/snippet}
-{#snippet doneCell(v: Video)}
-	{#if v.completeness}
-		<CompletenessRing
-			required={v.completeness.required}
-			extras={v.completeness.extras}
-			size="card"
-			entity={{ kind: 'video', id: v.id }}
-		/>
-	{/if}
-{/snippet}
+{#snippet enrichedCell(v: Video)}<span class="tabular-nums {v.enriched ? 'text-ink' : 'text-muted'}">{v.enriched ?? ''}</span>{/snippet}

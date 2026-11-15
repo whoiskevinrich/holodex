@@ -11,6 +11,7 @@
 export const PAGE_VIEWS = {
 	media: ['grid', 'table'],
 	people: ['list', 'poster', 'table'],
+	studios: ['list', 'table'],
 	tags: ['chips', 'posters', 'table']
 } as const;
 

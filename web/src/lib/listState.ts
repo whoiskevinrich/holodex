@@ -14,6 +14,7 @@
 import { goto, replaceState } from '$app/navigation';
 import { readSort, writeSort } from './sortPreference.svelte';
 import { DEFAULT_SORT, MEDIA_SORTS, filtersToParams, paramsToFilters } from './filters';
+import { entityFiltersToParams, parseEntityFilters, type EntityFilterQuery } from './fieldConditions';
 import type { MediaFilters, PeopleTagSort, SortOrder } from './types';
 
 export interface SortOption<S extends string> {
@@ -129,12 +130,12 @@ export function purgeLegacyFilters(): void {
 // Labels are "Field — direction" and at most 20 characters: a native <select> is as wide
 // as its widest option, and 20 is what fits the 375px toolbar in the widest skin
 // (design handoff, Responsive).
-const COMPLETENESS_SORTS = [
-	{ value: 'completeness_desc', label: 'Completeness — most', ownerOnly: true },
-	{ value: 'completeness_asc', label: 'Completeness — least', ownerOnly: true }
+const ENRICHED_SORTS = [
+	{ value: 'enriched_desc', label: 'Most enriched', ownerOnly: true },
+	{ value: 'enriched_asc', label: 'Least enriched', ownerOnly: true }
 ] as const;
 
-export type EntitySort = PeopleTagSort | 'completeness_asc' | 'completeness_desc';
+export type EntitySort = PeopleTagSort | 'enriched_asc' | 'enriched_desc';
 export type FilmSort = 'name' | 'random';
 export type TagType = 'all' | 'tags' | 'categories';
 
@@ -142,9 +143,9 @@ export const ENTITY_SORTS: readonly SortOption<EntitySort>[] = [
 	{ value: 'name', label: 'Name — A→Z' },
 	{ value: 'count', label: 'Videos — most' },
 	{ value: 'random', label: 'Random' },
-	...COMPLETENESS_SORTS
+	...ENRICHED_SORTS
 ];
-// Tags carry no completeness score, so no Owner entries.
+// Tags carry no enriched count, so no Owner entries.
 export const TAG_SORTS: readonly SortOption<PeopleTagSort>[] = ENTITY_SORTS.filter(
 	(s): s is SortOption<PeopleTagSort> => !s.ownerOnly
 );
@@ -159,17 +160,20 @@ const noQuery = {
 	toParams: () => new URLSearchParams()
 };
 
-export const peopleSchema: ListSchema<EntitySort, NoQuery> = {
+// People and Studios carry the owner's F90 filters (?link=&has=&missing=); a visitor's
+// page sends none of them (the server 401s them).
+const entityFilters = { parseQuery: parseEntityFilters, toParams: entityFiltersToParams };
+export const peopleSchema: ListSchema<EntitySort, EntityFilterQuery> = {
 	page: 'people',
 	sorts: ENTITY_SORTS,
 	defaultSort: 'name',
-	...noQuery
+	...entityFilters
 };
-export const studiosSchema: ListSchema<EntitySort, NoQuery> = {
+export const studiosSchema: ListSchema<EntitySort, EntityFilterQuery> = {
 	page: 'studios',
 	sorts: ENTITY_SORTS,
 	defaultSort: 'name',
-	...noQuery
+	...entityFilters
 };
 // The person, tag and studio video grids (HOLODEX-38, spec SP6): the media sorts, one
 // preference shared by all three entity kinds. The facet is the route's, not the URL's.

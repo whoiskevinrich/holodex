@@ -25,8 +25,8 @@ const done: ColumnSpec<string> = {
 	header: 'Done',
 	ownerOnly: true,
 	sorts: [
-		{ value: 'completeness_asc', dir: 'ascending' },
-		{ value: 'completeness_desc', dir: 'descending' }
+		{ value: 'enriched_asc', dir: 'ascending' },
+		{ value: 'enriched_desc', dir: 'descending' }
 	]
 };
 const size: ColumnSpec<string> = { id: 'size', header: 'Size', ownerOnly: true, keepBelow: 'lg' };
@@ -52,7 +52,7 @@ describe('V4 a header click maps to the one toolbar sort', () => {
 		expect(headerClick(ghost, 'added_desc', MEDIA_SORTS, true)).toBeNull();
 	});
 	it('an owner-only sort is clickable for the owner only', () => {
-		expect(headerClick(done, 'name', ENTITY_SORTS, true)).toBe('completeness_asc');
+		expect(headerClick(done, 'name', ENTITY_SORTS, true)).toBe('enriched_asc');
 		expect(headerClick(done, 'name', ENTITY_SORTS, false)).toBeNull();
 	});
 	it("Tags' list has no completeness, so the same column is plain there", () => {

@@ -92,11 +92,8 @@
 		measure();
 	}
 
-	// `replace` re-fetches over a card already shown (after the ring refreshed the
-	// person): the stale card stays mounted until the fresh one lands, so nothing —
-	// including the ring the owner just pressed, and its focus — unmounts meanwhile.
-	function fetchCard(replace = false) {
-		if ((card && !replace) || inflight) return;
+	function fetchCard() {
+		if (card || inflight) return;
 		const mine = loadPersonCard(id);
 		inflight = mine;
 		mine.promise
@@ -109,7 +106,7 @@
 			.catch(() => {
 				// Quiet: a failed or released fetch closes nothing loudly. With no card to
 				// show the chip stays a plain link and the next hover retries (the cache
-				// dropped the entry); with a stale card it simply keeps it.
+				// dropped the entry).
 				if (inflight === mine && !card && hoverCard.openToken === token) hoverCard.openToken = null;
 			})
 			.finally(() => {
@@ -170,11 +167,6 @@
 			window.innerHeight
 		);
 	}
-
-	// The ring refreshed the person (F65.8): re-fetch over the card in place.
-	function onRefreshed() {
-		fetchCard(true);
-	}
 </script>
 
 <script module lang="ts">
@@ -206,7 +198,7 @@
 			class="person-hover-card-motion absolute left-0 z-50 {placement.above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}"
 			style:transform={placement.shiftX ? `translateX(${placement.shiftX}px)` : undefined}
 		>
-			<PersonHoverCard {id} {name} {card} {cardId} onrefreshed={onRefreshed} />
+			<PersonHoverCard {id} {name} {card} {cardId} />
 		</div>
 	{/if}
 </span>

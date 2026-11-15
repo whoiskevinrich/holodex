@@ -422,6 +422,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/query/parse", h.parseQuery)
 	r.Get("/query/fields", h.queryFieldList)
 	r.Get("/query/values", h.queryFieldValues)
+	r.Get("/filter-fields", h.filterFieldList) // F90 Fields control, owner-only
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)

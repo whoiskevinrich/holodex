@@ -7,7 +7,6 @@
 	// the person-detail PersonPoster are unaffected.
 	import type { Person } from '#lib/types.ts';
 	import PersonImageFrame from './PersonImageFrame.svelte';
-	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 
 	// `sizes` is the grid column's width, which only the page knows (the People Poster view).
 	let { person, eager = false, sizes }: { person: Person; eager?: boolean; sizes: string } = $props();
@@ -18,9 +17,7 @@
 </script>
 
 <!-- Stretched link (F65.8): the <a> is unpositioned and its ::after covers the whole
-     card, so the poster, the name AND the count line all navigate — while the
-     completeness ring, a <button> since F65.8, sits as a sibling above the stretch
-     (`relative z-[1]`) instead of nesting inside the link. `.poster-card` moves to the
+     card, so the poster, the name AND the count line all navigate. `.poster-card` moves to the
      wrapper so the hover-lift and the `:has(a:focus-visible)` focus-lift in app.css
      still key off the whole card. -->
 <div class="poster-card relative">
@@ -39,18 +36,6 @@
 		</h3>
 	</a>
 	<span class="flex items-center gap-1.5 pt-0.5">
-		{#if person.completeness}
-			<!-- Owner-only by payload (F65.4/F65.5): the row rule applied to the caption —
-			     trailing, before the count, so the caption's name line never moves. -->
-			<span class="relative z-[1] inline-flex">
-				<CompletenessRing
-					required={person.completeness.required}
-					extras={person.completeness.extras}
-					size="row"
-					entity={{ kind: 'person', id: person.id }}
-				/>
-			</span>
-		{/if}
 		<span class="text-xs text-muted">{person.video_count}</span>
 	</span>
 </div>

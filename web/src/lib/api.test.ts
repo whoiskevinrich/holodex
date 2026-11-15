@@ -791,3 +791,21 @@ describe('smart playlist and run clients (F75)', () => {
 		);
 	});
 });
+
+// F90 P0-3: People and Studios send the owner's filters as repeated params, so the server
+// sees every field, not only the last.
+describe('entity list filters', () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it('repeats has and missing, and sends link', async () => {
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], total: 0 }), { status: 200 }));
+		vi.stubGlobal('fetch', fetchMock);
+		await api.listStudios({ sort: 'enriched_desc', link: 'unlinked', has: ['country', 'website'], missing: ['branding'] });
+		const url = new URL(String(fetchMock.mock.calls[0][0]), 'http://x');
+		expect(url.pathname).toBe('/api/v1/studios');
+		expect(url.searchParams.get('sort')).toBe('enriched_desc');
+		expect(url.searchParams.get('link')).toBe('unlinked');
+		expect(url.searchParams.getAll('has')).toEqual(['country', 'website']);
+		expect(url.searchParams.getAll('missing')).toEqual(['branding']);
+	});
+});

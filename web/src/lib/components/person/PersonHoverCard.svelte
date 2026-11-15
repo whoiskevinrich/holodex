@@ -2,32 +2,25 @@
 	// The person hover card (F68, HOLODEX-431, design handoff § The card): mounted
 	// only by PersonLinkChip, which owns open/close and placement. Header block
 	// (headshot + name + meta + aliases) is the profile link for everyone — the
-	// owner's edit path; the F65.8 CompletenessRing beside the name is the card's
-	// one action and sits as a SIBLING of that link (a button may not nest in an
-	// anchor); the link row is Videos · Films · provider badges. Absent facts leave
+	// owner's edit path; the link row is Videos · Films · provider badges. Absent facts leave
 	// no trace (no "—"), and `card` null is the loading state: name line only.
 	import type { PersonCard } from '#lib/types.ts';
 	import { videoCount, sortExternalLinks } from '#lib/format.ts';
 	import PersonImageFrame from './PersonImageFrame.svelte';
 	import NationalityFlags from './NationalityFlags.svelte';
-	import CompletenessRing from '#lib/components/completeness/CompletenessRing.svelte';
 	import ProviderLinkBadge from '#lib/components/enrichment/ProviderLinkBadge.svelte';
-	import { invalidatePersonCard } from './personCard.svelte';
 
 	let {
 		id,
 		name,
 		card,
-		cardId,
-		onrefreshed
+		cardId
 	}: {
 		id: number;
 		/** The chip's own name — drawn while `card` is still loading. */
 		name: string;
 		card: PersonCard | null;
 		cardId: string;
-		/** The ring refreshed the person: the chip re-fetches and replaces `card`. */
-		onrefreshed?: () => void;
 	} = $props();
 
 	const shownName = $derived(card?.display_name ?? card?.name ?? name);
@@ -88,21 +81,6 @@
 				{/if}
 			</span>
 		</a>
-		{#if card?.completeness}
-			<!-- Owner-only by payload (F65.5); a sibling of the header link (F65.8). -->
-			<span class="shrink-0 pt-0.5">
-				<CompletenessRing
-					required={card.completeness.required}
-					extras={card.completeness.extras}
-					size="row"
-					entity={{ kind: 'person', id }}
-					onrefreshed={() => {
-						invalidatePersonCard(id);
-						onrefreshed?.();
-					}}
-				/>
-			</span>
-		{/if}
 	</div>
 	{#if card}
 		<div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-rule pt-2 text-xs">

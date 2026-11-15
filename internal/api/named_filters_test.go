@@ -188,3 +188,41 @@ func TestListItemsCarryEnrichedCountForOwnerOnly(t *testing.T) {
 		}
 	}
 }
+
+// P0-3: each list's Fields control offers exactly the fields its filters accept, in
+// mapping order with the image last on Media; only the owner may ask.
+func TestFilterFieldsListEachListsFields(t *testing.T) {
+	e := newNamedEnv(t)
+	keys := func(list string) []string {
+		t.Helper()
+		code, body := getJSONTok(t, e.srv.URL+"/api/v1/filter-fields?list="+list, "s3cret")
+		if code != http.StatusOK {
+			t.Fatalf("%s: %d %v", list, code, body)
+		}
+		var out []string
+		for _, f := range body["fields"].([]any) {
+			m := f.(map[string]any)
+			if m["label"] == "" {
+				t.Errorf("%s %v has no label", list, m["key"])
+			}
+			out = append(out, m["key"].(string))
+		}
+		return out
+	}
+	if got := keys("people"); !slices.Equal(got, []string{"name", "photo", "bio", "birthdate", "deathdate", "nationality", "website"}) {
+		t.Errorf("people = %v", got)
+	}
+	if got := keys("studios"); !slices.Equal(got, []string{"name", "branding", "description", "country", "website"}) {
+		t.Errorf("studios = %v", got)
+	}
+	media := keys("media")
+	if n := len(media); n < 3 || media[n-2] != "released" || media[n-1] != "poster" || !slices.Contains(media, "director") || !slices.Contains(media, "studio") || slices.Contains(media, "poster_url") {
+		t.Errorf("media = %v", media)
+	}
+	if code, _ := getJSONTok(t, e.srv.URL+"/api/v1/filter-fields?list=people", ""); code != http.StatusUnauthorized {
+		t.Errorf("visitor = %d, want 401", code)
+	}
+	if code, _ := getJSONTok(t, e.srv.URL+"/api/v1/filter-fields?list=tags", "s3cret"); code != http.StatusBadRequest {
+		t.Errorf("tags = %d, want 400", code)
+	}
+}

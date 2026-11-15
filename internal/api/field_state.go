@@ -8,6 +8,8 @@ import (
 
 	"holodex/internal/fieldsource"
 	"holodex/internal/mapping"
+	"holodex/internal/query"
+	"holodex/internal/registry"
 	"holodex/internal/repo"
 	"holodex/internal/resolver"
 )
@@ -83,6 +85,51 @@ var (
 	personFilterFields = append([]string{"name", photoStateKey}, personScalarFields...)
 	studioFilterFields = append([]string{"name", brandingStateKey}, studioScalarFields...)
 )
+
+// filterField is one row of a list's Fields control (F90 P0-3): the key a has/missing
+// condition names, and its label.
+type filterField struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+// filterFieldList handles GET /filter-fields?list=media|people|studios, owner-only like
+// every condition it feeds: the fields that list's Fields control offers, in mapping order.
+// Media's are the fields has: accepts, with released: standing in for the release date.
+func (h *Handlers) filterFieldList(w http.ResponseWriter, r *http.Request) {
+	if !h.requireOwnerInline(w, r) {
+		return
+	}
+	var out []filterField
+	labelled := func(keys []string, labels map[string]string) {
+		for _, k := range keys {
+			l := labels[k]
+			if l == "" {
+				l = registry.Lookup(k).Label
+			}
+			out = append(out, filterField{k, l})
+		}
+	}
+	switch r.URL.Query().Get("list") {
+	case "media":
+		if h.mappings != nil {
+			for _, f := range h.mappings.Current().Fields() {
+				if spec, ok := queryFieldSpec(f); ok && f.Canonical != query.ReleaseDateKey {
+					out = append(out, filterField{f.Canonical, spec.Label})
+				}
+			}
+		}
+		out = append(out, filterField{query.FieldReleased, "Released"}, filterField{query.HasPoster, "Poster"})
+	case "people":
+		labelled(personFilterFields, map[string]string{"name": "Name", photoStateKey: "Photo"})
+	case "studios":
+		labelled(studioFilterFields, map[string]string{"name": "Name", brandingStateKey: "Branding"})
+	default:
+		writeError(w, http.StatusBadRequest, "list is media, people or studios")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"fields": out})
+}
 
 // gateNamedList is the one check the People and Studios lists run before any SQL (SEC-13):
 // a visitor asking for missing_facet, link, has, missing or an owner-only sort gets the 401

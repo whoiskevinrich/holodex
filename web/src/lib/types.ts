@@ -164,8 +164,8 @@ export interface Person {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
-	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
-	completeness?: CompletenessSummary;
+	// Owner-only count of fields a declared provider contributed to (F90 P0-4); absent for a visitor.
+	enriched?: number;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results, the people
 	// list, and the video/film Cast grids (HOLODEX-461). `name` stays canonical everywhere — it is what
 	// pickers send back for linking.
@@ -297,8 +297,8 @@ export interface Studio {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	name: string;
-	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
-	completeness?: CompletenessSummary;
+	// Owner-only count of fields a declared provider contributed to (F90 P0-4); absent for a visitor.
+	enriched?: number;
 	// The spelling a standing decision on `name` selects (F60 RD9); search results only.
 	// `name` stays canonical everywhere — it is what pickers send back for linking.
 	display_name?: string;
@@ -337,8 +337,8 @@ export interface Video {
 	id: number;
 	ref: string; // `kind:id` reference handle, server-produced (F60 RD1)
 	file_path: string;
-	// Owner-only ring-badge bands from the list endpoint (F65.5); absent for a visitor.
-	completeness?: CompletenessSummary;
+	// Owner-only count of fields a declared provider contributed to (F90 P0-4); absent for a visitor.
+	enriched?: number;
 	file_size: number;
 	title: string;
 	duration_sec: number;
@@ -1338,8 +1338,8 @@ export interface ExternalLink {
 export type Resolution = 'All' | 'SD' | 'HD' | 'FHD' | '4K';
 
 // Sort keys accepted by GET /media?sort= (F12.1). Mirrors repo.VideoFilter.orderBy.
-// "random" is a seeded shuffle paired with a ?seed= param (ADR-045). completeness_asc/
-// desc (F55.5) are owner-only — the server 401s a non-owner request using them, so the
+// "random" is a seeded shuffle paired with a ?seed= param (ADR-045). enriched_asc/
+// desc (F90) are owner-only — the server 401s a non-owner request using them, so the
 // frontend must only ever offer/send them when isOwner is true.
 export type SortOrder =
 	| 'added_desc'
@@ -1353,8 +1353,8 @@ export type SortOrder =
 	| 'resolution_desc'
 	| 'resolution_asc'
 	| 'random'
-	| 'completeness_asc'
-	| 'completeness_desc';
+	| 'enriched_asc'
+	| 'enriched_desc';
 
 // Sort options for the unpaged People/Tags indexes — the single source of truth for
 // both pages. 'name'/'count' map to the server toggle; 'random' is a client-side
@@ -1396,17 +1396,10 @@ export interface Completeness {
 	facets: CompletenessFacet[];
 }
 
-// CompletenessSummary is the owner-only ring-badge payload on a list item
-// (F65.5, ADR-099 D5) — mirrors model.CompletenessSummary. Absent for a
-// visitor: the card renders the ring iff the item has the field.
-export interface CompletenessSummary {
-	required: number | null;
-	extras: number | null;
-}
 
 // PersonCard is GET /people/{id}/card (F68, HOLODEX-431): the hover card's payload.
 // Absent facts are absent keys — the card drops the segment, never renders "—".
-// `completeness` rides the owner gate exactly like the list field (F65.5).
+// `completeness` rides the owner gate (F65.5): absent for a visitor.
 export interface PersonCard {
 	id: number;
 	ref: string;
@@ -1420,7 +1413,6 @@ export interface PersonCard {
 	nationality?: string[];
 	aliases?: string[];
 	external_links?: ExternalLink[];
-	completeness?: CompletenessSummary;
 }
 
 // CompletenessQueueRow is one (entity, missing facet) pair in the facet-first
@@ -1478,7 +1470,7 @@ export interface MediaFilters {
 	seed?: number;
 	mapped?: Record<string, string>; // configurable mapped-field filters (F20.5)
 	// Missing-facet filter (F55.6): canonical facet keys the video must be missing
-	// (AND semantics across multiple). Owner-only, like the completeness sorts above.
+	// (AND semantics across multiple). Owner-only, like the enriched sorts above.
 	missing_facet?: string[];
 	limit?: number;
 	offset?: number;
