@@ -2,27 +2,25 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
 	"holodex/internal/model"
 )
 
-// Materialized completeness store (F65, ADR-099 D3/D4). entity_completeness and
-// entity_completeness_missing cache resolver.Complete's output per entity so the
-// list surfaces can sort, filter and badge in SQL; completeness_dirty is the
+// Materialized completeness store (F65, ADR-099 D3/D4). entity_completeness_missing caches
+// resolver.Complete's missing facets per entity so the list surfaces can filter and count
+// in SQL (the score table was dropped in 0074, F90 P0-6); completeness_dirty is the
 // trigger-fed set of entities whose inputs changed since they were last scored
 // (migration 0049 owns the trigger list). The API layer drains the dirty set on
 // owner reads through DrainCompleteness, supplying the resolve + Complete pass.
 
-// CompletenessRow is one entity's scored bands plus the scored facets it is
-// missing — what the drain writes and the detail self-heal compares against.
+// CompletenessRow is the scored facets one entity is missing — what the drain writes and
+// the detail self-heal compares against — plus the drain's derived rows. The score itself
+// was retired (F90 P0-6, migration 0074).
 type CompletenessRow struct {
 	EntityType string
 	EntityID   int64
-	Required   *int
-	Extras     *int
 	Missing    []MissingFacet
 	// Values is a video's resolved-value index rows, written by the drain only.
 	Values []ResolvedValue
@@ -137,10 +135,7 @@ func (r *Repo) writeCompleteness(ctx context.Context, entityType string, ids []i
 	// reload drain clears thousands of ids under writeMu.
 	in := " WHERE entity_type = ? AND entity_id IN (" + placeholders(len(ids)) + ")"
 	args := append([]any{entityType}, toAnySlice(ids)...)
-	clears := []string{
-		`DELETE FROM entity_completeness` + in,
-		`DELETE FROM entity_completeness_missing` + in,
-	}
+	clears := []string{`DELETE FROM entity_completeness_missing` + in}
 	if clearDirty {
 		clears = append(clears, `DELETE FROM completeness_dirty`+in)
 	}
@@ -151,12 +146,6 @@ func (r *Repo) writeCompleteness(ctx context.Context, entityType string, ids []i
 	}
 	now := time.Now().UTC().Format(timeLayout)
 	for _, row := range rows {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO entity_completeness (entity_type, entity_id, required, extras, computed_at)
-			VALUES (?, ?, ?, ?, ?)`,
-			entityType, row.EntityID, nullInt(row.Required), nullInt(row.Extras), now); err != nil {
-			return fmt.Errorf("write completeness: insert %s/%d: %w", entityType, row.EntityID, err)
-		}
 		for _, m := range row.Missing {
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO entity_completeness_missing (entity_type, entity_id, canonical, band)
@@ -197,22 +186,11 @@ func (r *Repo) MarkAllCompletenessDirty(ctx context.Context) error {
 	return nil
 }
 
-// StoredCompleteness reads one entity's cached row plus its missing facets —
-// what the detail page compares its live result against before self-healing
-// (ADR-099 D3). ErrNotFound when the entity has never been scored.
-func (r *Repo) StoredCompleteness(ctx context.Context, entityType string, entityID int64) (*CompletenessRow, error) {
-	row := &CompletenessRow{EntityType: entityType, EntityID: entityID}
-	var required, extras sql.NullInt64
-	err := r.db.QueryRowContext(ctx, `
-		SELECT required, extras FROM entity_completeness
-		WHERE entity_type = ? AND entity_id = ?`, entityType, entityID).Scan(&required, &extras)
-	if err == sql.ErrNoRows {
-		return nil, ErrNotFound
-	}
-	if err != nil {
-		return nil, fmt.Errorf("stored completeness: %w", err)
-	}
-	row.Required, row.Extras = intPtr(required), intPtr(extras)
+// StoredMissing reads one entity's stored missing facets, ordered by canonical — what the
+// detail page compares its live result against before self-healing (ADR-099 D3). An entity
+// never drained, or missing nothing, has none.
+func (r *Repo) StoredMissing(ctx context.Context, entityType string, entityID int64) ([]MissingFacet, error) {
+	var out []MissingFacet
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT canonical, band FROM entity_completeness_missing
 		WHERE entity_type = ? AND entity_id = ? ORDER BY canonical`, entityType, entityID)
@@ -225,34 +203,7 @@ func (r *Repo) StoredCompleteness(ctx context.Context, entityType string, entity
 		if err := rows.Scan(&m.Canonical, &m.Band); err != nil {
 			return nil, err
 		}
-		row.Missing = append(row.Missing, m)
-	}
-	return row, rows.Err()
-}
-
-// CompletenessForEntities batch-reads the stored bands for a page of list
-// items (the ring-badge payload, F65.5). Entities with no row are absent from
-// the map — the item then carries no completeness, and the card draws nothing.
-func (r *Repo) CompletenessForEntities(ctx context.Context, entityType string, ids []int64) (map[int64]model.CompletenessSummary, error) {
-	out := make(map[int64]model.CompletenessSummary, len(ids))
-	if len(ids) == 0 {
-		return out, nil
-	}
-	args := append([]any{entityType}, toAnySlice(ids)...)
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT entity_id, required, extras FROM entity_completeness
-		WHERE entity_type = ? AND entity_id IN (`+placeholders(len(ids))+`)`, args...)
-	if err != nil {
-		return nil, fmt.Errorf("completeness for entities: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id int64
-		var required, extras sql.NullInt64
-		if err := rows.Scan(&id, &required, &extras); err != nil {
-			return nil, err
-		}
-		out[id] = model.CompletenessSummary{Required: intPtr(required), Extras: intPtr(extras)}
+		out = append(out, m)
 	}
 	return out, rows.Err()
 }
@@ -307,19 +258,4 @@ func (r *Repo) MissingFacetCountsForVideos(ctx context.Context, f VideoFilter) (
 		out = append(out, c)
 	}
 	return out, rows.Err()
-}
-
-func nullInt(p *int) any {
-	if p == nil {
-		return nil
-	}
-	return *p
-}
-
-func intPtr(n sql.NullInt64) *int {
-	if !n.Valid {
-		return nil
-	}
-	v := int(n.Int64)
-	return &v
 }

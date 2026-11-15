@@ -469,10 +469,6 @@ func (f VideoFilter) orderBy() (string, []any) {
 		return "v.width ASC, v.height ASC, v.id ASC", nil
 	case "random":
 		return "holo_shuffle(v.id, ?), v.id ASC", []any{f.Seed}
-	case SortCompletenessAsc:
-		return completenessOrder("video", "v.id", "ASC") + ", v.id DESC", nil
-	case SortCompletenessDesc:
-		return completenessOrder("video", "v.id", "DESC") + ", v.id DESC", nil
 	case SortEnrichedDesc:
 		return enrichedOrder(model.EnrichEntityVideo, "v.id", "DESC") + ", v.id DESC", nil
 	case SortEnrichedAsc:
@@ -648,7 +644,7 @@ func (r *Repo) ListVideoIDs(ctx context.Context, f VideoFilter) ([]int64, error)
 func ValidSort(s string) bool {
 	switch s {
 	case "added_desc", "added_asc", "updated_desc", "updated_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
-		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc, SortEnrichedDesc, SortEnrichedAsc:
+		"resolution_desc", "resolution_asc", "random", SortEnrichedDesc, SortEnrichedAsc:
 		return true
 	}
 	return false
@@ -1317,15 +1313,8 @@ func IndexLetter(label string) string {
 	return "#"
 }
 
-// Completeness sort keys (F55.5) shared by every list surface; the SQL they
-// map to reads the materialized store (ADR-099 D2/D3).
-const (
-	SortCompletenessAsc  = "completeness_asc"
-	SortCompletenessDesc = "completeness_desc"
-)
-
 // NamedListFilter is the people / studios / tags list read's options: the sort
-// key ("name" default, "count", or a completeness key) plus the two store-backed
+// key ("name" default, "count", "random" or an enriched key) plus the two store-backed
 // restrictions VideoFilter also carries (MissingFacets, IDs).
 type NamedListFilter struct {
 	Sort          string
@@ -1396,10 +1385,6 @@ func (f NamedListFilter) orderBy(entityType, idCol string) (string, []any) {
 		return "b.cnt DESC, " + name, nil
 	case "random":
 		return "holo_shuffle(" + idCol + ", ?), " + idCol + " ASC", []any{f.Seed}
-	case SortCompletenessAsc:
-		return completenessOrder(entityType, idCol, "ASC") + ", " + name, nil
-	case SortCompletenessDesc:
-		return completenessOrder(entityType, idCol, "DESC") + ", " + name, nil
 	case SortEnrichedDesc:
 		return enrichedOrder(entityType, idCol, "DESC") + ", " + name, nil
 	case SortEnrichedAsc:
@@ -1421,17 +1406,6 @@ func personLabelExpr(idCol string) string {
 		      AND en.field_key = 'name' AND d.source = '%s' || en.provider
 		WHERE d.entity_type = '%s' AND d.entity_id = %s AND d.field_key = 'name' AND d.source != '%s')), ''), e.name)`,
 		fieldsource.Manual, fieldsource.ForProvider(""), model.EnrichEntityPerson, idCol, fieldsource.File)
-}
-
-// completenessOrder is the composite completeness sort (ADR-099 D2) over the
-// materialized store: primary key = required, falling back to extras where
-// required is NULL (the D1 null rule — a studio has no required band, so its
-// extras IS its score), tiebreak = extras. Correlated subqueries rather than a
-// join so every caller's FROM clause stays untouched; entityType is a trusted
-// model constant, never request input.
-func completenessOrder(entityType, idCol, dir string) string {
-	row := "(SELECT %s FROM entity_completeness ec WHERE ec.entity_type = '" + entityType + "' AND ec.entity_id = " + idCol + ")"
-	return fmt.Sprintf(row, "COALESCE(ec.required, ec.extras)") + " " + dir + ", " + fmt.Sprintf(row, "ec.extras") + " " + dir
 }
 
 // missingFacetClause is the store-backed "entity is missing facet ?" predicate

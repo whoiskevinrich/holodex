@@ -10,29 +10,10 @@ import (
 	"holodex/internal/repo"
 )
 
-// F65 (ADR-099 D3–D5): the materialized store behind the list surfaces. These
-// tests drive the public HTTP surface against completenessBrowseServer's
-// Bare / Half / Full fixture (required = 25 / 50 / 100 over the four mapped
-// critical facets; extras null — no nice_to_have facet is mapped).
-
-// completenessOf reads item["completeness"] as (required, extras) rendered
-// like the spec's worked examples, or "absent" when the key is not present.
-func completenessOf(t *testing.T, item map[string]any) string {
-	t.Helper()
-	raw, ok := item["completeness"]
-	if !ok {
-		return "absent"
-	}
-	c, _ := raw.(map[string]any)
-	f := func(v any) string {
-		if v == nil {
-			return "null"
-		}
-		n, _ := v.(float64)
-		return itoa(int64(n))
-	}
-	return f(c["required"]) + "/" + f(c["extras"])
-}
+// F65 (ADR-099 D3–D4): the store behind the queue and missing_facet, after the score was
+// retired (F90 P0-6). These tests drive the public HTTP surface against
+// completenessBrowseServer's Bare / Half / Full fixture, which has 3 / 2 / 0 of the four
+// mapped critical facets missing.
 
 func itemsByTitle(t *testing.T, body map[string]any, key string) map[string]map[string]any {
 	t.Helper()
@@ -46,23 +27,62 @@ func itemsByTitle(t *testing.T, body map[string]any, key string) map[string]map[
 	return out
 }
 
-// F65.5: every owner list item carries completeness on the default sort; a
-// visitor's items never do — the same redaction posture as file metadata.
-func TestListMedia_CompletenessOnItems_OwnerOnly(t *testing.T) {
+func storedMissing(t *testing.T, r *repo.Repo, id int64) []string {
+	t.Helper()
+	got, err := r.StoredMissing(context.Background(), model.EnrichEntityVideo, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, m := range got {
+		out = append(out, m.Canonical)
+	}
+	return out
+}
+
+// F90 P0-6 (§42.3 Q3, §42.5 A8): no list item carries a completeness summary for anyone, and
+// a retired Completeness sort in a link or saved preference reads as the list's default sort
+// with no error, for the owner and a visitor alike.
+func TestCompletenessScoreIsRetired(t *testing.T) {
 	srv, _ := completenessBrowseServerWithRepo(t, "secret")
 
-	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "secret")
-	got := itemsByTitle(t, body, "title")
-	for title, want := range map[string]string{"Bare": "25/null", "Half": "50/null", "Full": "100/null"} {
-		if c := completenessOf(t, got[title]); c != want {
-			t.Errorf("owner %s completeness = %s, want %s", title, c, want)
+	for _, tok := range []string{"secret", ""} {
+		for _, path := range []string{"media", "people", "studios"} {
+			_, body := getJSONTok(t, srv.URL+"/api/v1/"+path, tok)
+			for _, it := range body["items"].([]any) {
+				if _, ok := it.(map[string]any)["completeness"]; ok {
+					t.Errorf("%s item carries completeness (owner=%v)", path, tok != "")
+				}
+			}
+		}
+		_, def := getJSONTok(t, srv.URL+"/api/v1/media", tok)
+		for _, sort := range []string{"completeness_asc", "completeness_desc"} {
+			code, body := getJSONTok(t, srv.URL+"/api/v1/media?sort="+sort, tok)
+			if code != http.StatusOK || !slices.Equal(mediaTitles(t, body), mediaTitles(t, def)) {
+				t.Errorf("media?sort=%s (owner=%v) = %d %v, want 200 in the default order %v", sort, tok != "", code, mediaTitles(t, body), mediaTitles(t, def))
+			}
+			for _, path := range []string{"people", "studios", "media/ids"} {
+				if code, _ := getJSONTok(t, srv.URL+"/api/v1/"+path+"?sort="+sort, tok); code != http.StatusOK {
+					t.Errorf("%s?sort=%s (owner=%v) = %d, want 200", path, sort, tok != "", code)
+				}
+			}
 		}
 	}
-
-	_, body = getJSONTok(t, srv.URL+"/api/v1/media", "")
-	for title, item := range itemsByTitle(t, body, "title") {
-		if c := completenessOf(t, item); c != "absent" {
-			t.Errorf("visitor %s carries completeness %s, want absent", title, c)
+	// The ring's one-entity read went with the ring.
+	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "secret")
+	id := itoa(int64(itemsByTitle(t, body, "title")["Bare"]["id"].(float64)))
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/"+id+"/completeness", "secret"); code == http.StatusOK {
+		t.Error("GET /media/{id}/completeness still answers")
+	}
+	// A8: the detail page keeps its field list and carries no score.
+	_, detail := getJSONTok(t, srv.URL+"/api/v1/media/"+id, "secret")
+	c, _ := detail["completeness"].(map[string]any)
+	if c == nil || c["facets"] == nil {
+		t.Fatalf("detail completeness = %v, want the facet list", detail["completeness"])
+	}
+	for _, k := range []string{"score", "extras", "actionability"} {
+		if _, ok := c[k]; ok {
+			t.Errorf("detail completeness still carries %q", k)
 		}
 	}
 }
@@ -87,8 +107,8 @@ func TestListMedia_VisitorReadNeverDrains(t *testing.T) {
 	if after, _ := r.DirtyCompleteness(ctx); len(after["video"]) != 3 {
 		t.Errorf("dirty after visitor reads = %v, want the 3 seeded videos untouched", after)
 	}
-	if _, err := r.StoredCompleteness(ctx, model.EnrichEntityVideo, before["video"][0]); err != repo.ErrNotFound {
-		t.Errorf("store after visitor reads: err = %v, want ErrNotFound (nothing written)", err)
+	if got := storedMissing(t, r, before["video"][0]); len(got) != 0 {
+		t.Errorf("store after visitor reads = %v, want nothing written", got)
 	}
 
 	getJSONTok(t, srv.URL+"/api/v1/media", "secret")
@@ -98,50 +118,31 @@ func TestListMedia_VisitorReadNeverDrains(t *testing.T) {
 }
 
 // F65.6: a mutation on an input table (here the enrichment shadow store)
-// reaches the badge on the next owner read with no restart and no backfill —
+// reaches the store on the next owner read with no restart and no backfill —
 // the trigger dirties the row, the list read drains it.
 func TestListMedia_StoreRecomputesAfterMutation(t *testing.T) {
 	srv, r := completenessBrowseServerWithRepo(t, "secret")
 	ctx := context.Background()
 
 	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "secret") // fills the store
-	half := itemsByTitle(t, body, "title")["Half"]
-	if c := completenessOf(t, half); c != "50/null" {
-		t.Fatalf("Half before = %s, want 50/null", c)
+	halfID := int64(itemsByTitle(t, body, "title")["Half"]["id"].(float64))
+	if got := storedMissing(t, r, halfID); !slices.Contains(got, "poster_url") {
+		t.Fatalf("Half missing before = %v, want poster_url among them", got)
 	}
-	halfID := int64(half["id"].(float64))
 
 	if err := r.UpsertEnrichment(ctx, model.EnrichEntityVideo, halfID, "tmdb", "ext-2", map[string][]string{
 		"poster_url": {"https://cdn.example/half.jpg"},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	_, body = getJSONTok(t, srv.URL+"/api/v1/media", "secret")
-	if c := completenessOf(t, itemsByTitle(t, body, "title")["Half"]); c != "75/null" {
-		t.Errorf("Half after poster enrichment = %s, want 75/null (3 of 4 critical present)", c)
-	}
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_desc", "secret"); code != http.StatusOK {
-		t.Errorf("sort after mutation: want 200, got %d", code)
+	getJSONTok(t, srv.URL+"/api/v1/media", "secret")
+	if got := storedMissing(t, r, halfID); slices.Contains(got, "poster_url") {
+		t.Errorf("Half missing after poster enrichment = %v, want poster_url gone", got)
 	}
 }
 
-// F65.7: the completeness sort pages in SQL like every other sort — page 2 of
-// the ascending order is a LIMIT/OFFSET slice with the full total, not a
-// Go-side slice of a full-library resolve.
-func TestListMedia_CompletenessSort_Pages(t *testing.T) {
-	srv, _ := completenessBrowseServerWithRepo(t, "")
-
-	_, body := getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_asc&limit=2&offset=1", "")
-	if got, want := mediaTitles(t, body), []string{"Half", "Full"}; !slices.Equal(got, want) {
-		t.Errorf("page 2 = %v, want %v", got, want)
-	}
-	if total, _ := body["total"].(float64); total != 3 {
-		t.Errorf("total = %v, want 3", total)
-	}
-}
-
-// ADR-099 D3: the detail page computes live and rewrites a stored row that
-// disagrees with it — a stale badge cannot outlive a look at the entity.
+// ADR-099 D3: the detail page computes live and rewrites stored missing facets that
+// disagree with it — a stale queue row cannot outlive a look at the entity.
 func TestGetMedia_SelfHealsStoredCompleteness(t *testing.T) {
 	srv, r := completenessBrowseServerWithRepo(t, "secret")
 	ctx := context.Background()
@@ -151,9 +152,8 @@ func TestGetMedia_SelfHealsStoredCompleteness(t *testing.T) {
 
 	// Corrupt the cached row behind the triggers' back (no input table changes,
 	// so nothing is dirty and a list read would serve it as-is).
-	wrong := 1
 	if err := r.StoreCompleteness(ctx, repo.CompletenessRow{
-		EntityType: model.EnrichEntityVideo, EntityID: fullID, Required: &wrong,
+		EntityType: model.EnrichEntityVideo, EntityID: fullID,
 		Missing: []repo.MissingFacet{{Canonical: "title", Band: "critical"}},
 	}); err != nil {
 		t.Fatal(err)
@@ -161,48 +161,8 @@ func TestGetMedia_SelfHealsStoredCompleteness(t *testing.T) {
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/"+itoa(fullID), "secret"); code != http.StatusOK {
 		t.Fatalf("detail: want 200, got %d", code)
 	}
-	stored, err := r.StoredCompleteness(ctx, model.EnrichEntityVideo, fullID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stored.Required == nil || *stored.Required != 100 || len(stored.Missing) != 0 {
-		t.Errorf("stored after detail view = required %v, missing %v; want 100 and none (self-healed)", stored.Required, stored.Missing)
-	}
-}
-
-// F65.5 on the row lists: people and studios items carry completeness for the
-// owner (person ring = photo only → 0/…; studio required is null, extras is
-// its ring), never for a visitor; and the studio completeness sort honors the
-// D1 null rule by ordering on extras.
-func TestListPeopleAndStudios_CompletenessOnItems(t *testing.T) {
-	srv, r := completenessBrowseServerWithRepo(t, "secret")
-	ctx := context.Background()
-
-	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "secret")
-	fullID := int64(itemsByTitle(t, body, "title")["Full"]["id"].(float64))
-	if err := r.ReconcileVideoPeople(ctx, fullID, []repo.PersonRoleName{{Name: "Ada", Role: "actor"}}, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := r.ReconcileVideoStudios(ctx, fullID, []string{"Acme"}, nil); err != nil {
-		t.Fatal(err)
-	}
-
-	_, body = getJSONTok(t, srv.URL+"/api/v1/people", "secret")
-	if c := completenessOf(t, itemsByTitle(t, body, "name")["Ada"]); c != "0/0" {
-		t.Errorf("owner person completeness = %s, want 0/0 (no photo; bio/birthdate missing)", c)
-	}
-	_, body = getJSONTok(t, srv.URL+"/api/v1/people", "")
-	if c := completenessOf(t, itemsByTitle(t, body, "name")["Ada"]); c != "absent" {
-		t.Errorf("visitor person completeness = %s, want absent", c)
-	}
-
-	_, body = getJSONTok(t, srv.URL+"/api/v1/studios?sort=completeness_asc", "secret")
-	if c := completenessOf(t, itemsByTitle(t, body, "name")["Acme"]); c != "null/0" {
-		t.Errorf("owner studio completeness = %s, want null/0 (no required band; no branding)", c)
-	}
-	_, body = getJSONTok(t, srv.URL+"/api/v1/studios", "")
-	if c := completenessOf(t, itemsByTitle(t, body, "name")["Acme"]); c != "absent" {
-		t.Errorf("visitor studio completeness = %s, want absent", c)
+	if got := storedMissing(t, r, fullID); len(got) != 0 {
+		t.Errorf("stored after detail view = %v, want none (self-healed)", got)
 	}
 }
 
@@ -233,36 +193,5 @@ func TestCompletenessFacets_FromStore(t *testing.T) {
 	}
 	if _, ok := got["nationality"]; ok {
 		t.Errorf("optional facet nationality offered by the chip: %v", got)
-	}
-}
-
-// F65.8 (HOLODEX-435): the ring button re-reads its own bands after firing
-// refresh-all. The endpoint drains like a list read (the first owner touch
-// here lands the seeded dirty rows), is owner-only, and 404s for an id the
-// store does not know.
-func TestEntityCompletenessSummary(t *testing.T) {
-	srv, r := completenessBrowseServerWithRepo(t, "secret")
-	ctx := context.Background()
-
-	// A visitor list read never drains, so it is a safe way to learn the ids.
-	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "")
-	items := itemsByTitle(t, body, "title")
-	idOf := func(title string) string { return itoa(int64(items[title]["id"].(float64))) }
-	if dirty, _ := r.DirtyCompleteness(ctx); len(dirty["video"]) != 3 {
-		t.Fatalf("dirty before = %v, want the 3 seeded videos", dirty)
-	}
-
-	code, got := getJSONTok(t, srv.URL+"/api/v1/media/"+idOf("Bare")+"/completeness", "secret")
-	if code != http.StatusOK || completenessOf(t, map[string]any{"completeness": got}) != "25/null" {
-		t.Errorf("owner Bare: code %d body %v, want 200 25/null", code, got)
-	}
-	if dirty, _ := r.DirtyCompleteness(ctx); len(dirty["video"]) != 0 {
-		t.Errorf("dirty after the summary read = %v, want empty (the read drains)", dirty)
-	}
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/"+idOf("Full")+"/completeness", ""); code == http.StatusOK {
-		t.Errorf("visitor summary read: want an owner-gate refusal, got 200")
-	}
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/999999/completeness", "secret"); code != http.StatusNotFound {
-		t.Errorf("unknown id: want 404, got %d", code)
 	}
 }

@@ -543,14 +543,12 @@ func (h *Handlers) Mount(r chi.Router) {
 //	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
 //
 // sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
-// updated_asc|updated_desc|duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
-// completeness_desc; default added_desc. completeness_asc/desc, and the
-// repeatable missing_facet param, are owner-only (F55.5/F55.6) — score is an
-// owner curation signal, never public library metadata (spec "Access control &
-// security"), so a non-owner request using either is rejected rather than
-// silently ignored. Both are ordinary SQL over the materialized store (ADR-099
-// D2/D3), so they page like every other sort. For the owner, every item also
-// carries `completeness` (F65.5) — drained first so the badge is current.
+// updated_asc|updated_desc|duration_asc|duration_desc|resolution_asc|resolution_desc|enriched_asc|
+// enriched_desc; anything else, a retired completeness_* key included, reads as added_desc
+// (F90 P0-6). enriched_asc/desc and the repeatable missing_facet param are owner-only
+// (F90 P0-8, F55) — a non-owner request using either is rejected rather than silently
+// ignored. Both are ordinary SQL over the drained caches, so they page like every other
+// sort. The owner's read drains first, so the enriched counts on its items are current.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
 	if !ok {
@@ -578,7 +576,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // hydrateTiles readies a page of browse rows for the grid tile: thumbnails, browse-title
 // resolution (F27: any field with browse:true overwrites video.Title with the
 // highest-precedence source, e.g. tmdb:title before file:title), parts, the owner's
-// completeness badge, and the visitor redaction. listMedia and the playlist read share
+// enriched count and watched mark, and the visitor redaction. listMedia and the playlist read share
 // it so a tile renders, and redacts, identically on both (ADR-121 D3).
 func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
 	h.prepareThumbnails(items)
@@ -588,9 +586,6 @@ func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwne
 	}
 	h.applyPartsTo(ctx, items)
 	if isOwner {
-		if err := h.attachVideoCompleteness(ctx, items); err != nil {
-			return err
-		}
 		if err := h.attachVideoEnriched(ctx, items); err != nil {
 			return err
 		}
@@ -1440,12 +1435,10 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"keys": out})
 }
 
-// listPeople handles GET /people (F19): name-sorted (or count-sorted, or
-// completeness-sorted/filtered) people with active-video counts. sort=
-// completeness_asc|completeness_desc and the repeatable missing_facet param
-// are owner-only (F55.5/F55.6), same posture as listMedia; both read the
-// materialized store in SQL (ADR-099 D2/D3), and the owner's items carry
-// `completeness` (F65.5).
+// listPeople handles GET /people (F19): name-sorted (or count-, random- or enriched-sorted)
+// people with active-video counts. The enriched sorts, missing_facet and the F90 filters
+// (link, has, missing) are owner-only, same posture as listMedia (gateNamedList); the
+// owner's items carry `enriched`.
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
@@ -1467,10 +1460,6 @@ func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isOwner {
-		if err := h.attachPersonCompleteness(r.Context(), people); err != nil {
-			h.fail(w, "list people", err)
-			return
-		}
 		if err := h.attachPersonEnriched(r.Context(), people); err != nil {
 			h.fail(w, "list people", err)
 			return

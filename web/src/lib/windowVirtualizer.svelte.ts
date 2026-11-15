@@ -245,7 +245,7 @@ export class RovingList {
 
 	/**
 	 * Keep the list one Tab stop: every entry's link is out of the Tab order (the entry is
-	 * the stop), and its other controls (the completeness ring) are only in it on the
+	 * the stop), and its other controls are only in it on the
 	 * focused entry. Run after each render.
 	 */
 	syncTabStops(root: HTMLElement) {

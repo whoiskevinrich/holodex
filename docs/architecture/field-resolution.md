@@ -214,10 +214,11 @@ Decided in [`bf329409`](https://github.com/whoiskevinrich/holodex/commit/bf32940
 
 ## Completeness is a materialized cache invalidated by SQL triggers into a dirty set
 
-`entity_completeness` (nullable `required`, `extras`) and `entity_completeness_missing` cache
-`resolver.Complete` per `(entity_type, entity_id)`, so list sort is SQL `ORDER BY` with paging and
-facet counts are a `GROUP BY`. They are never a source of truth: the detail page computes live and
-rewrites a differing row (`selfHealCompleteness`); the remediation queue scans live.
+`entity_completeness_missing` caches `resolver.Complete`'s missing facets per `(entity_type,
+entity_id)`, so the missing-field filter is SQL with paging and facet counts are a `GROUP BY`. It is
+never a source of truth: the detail page computes live and rewrites a differing row
+(`selfHealCompleteness`); the remediation queue scans live. The score table beside it,
+`entity_completeness`, was dropped with the score (migration 0074, F90 P0-6).
 
 - **Invalidation.** `AFTER INSERT/UPDATE/DELETE` triggers on every input table insert the owner
   entity into `completeness_dirty` (`INSERT … WHERE NOT EXISTS`, not `OR IGNORE`); link tables flag
@@ -225,8 +226,7 @@ rewrites a differing row (`selfHealCompleteness`); the remediation queue scans l
   input cannot ship without a trigger.
 - **Mark-all** on promotion, claim and hint writes (in SQL), on mapping reload, and at boot when the
   fingerprint below moves.
-- **Drain** on owner-gated reads, under `writeMu`, best-effort. Visitors never drain, and the
-  owner-only `completeness` list field is dropped by the existing visitor redaction seam.
+- **Drain** on owner-gated reads, under `writeMu`, best-effort. Visitors never drain.
 
 **Rejected:** recompute at each Go write site — ~30 sites, no choke point. **Rejected:** recompute
 in the trigger — duplicates the resolver in SQL. **Rejected:** a global generation counter.
@@ -309,10 +309,9 @@ whether or not that data won.
   this cache, and the "visitors never drain" rule stands for it.
 - **Reads.** `has:x` is an `EXISTS` over `shown = 1`, and `-has:x` its `NOT EXISTS`. An entity not
   yet drained therefore reads as missing everything, never as having it. The enriched sort is a
-  correlated `COUNT` of `enriched = 1` rows, with the list's default order as tiebreak, in the
-  same pattern as the completeness sort it replaces.
-- **What outlives the score.** Retiring the score drops `entity_completeness`. The dirty set and
-  the drain stay, now owned by this cache and `resolved_values`. `entity_completeness_missing`
+  correlated `COUNT` of `enriched = 1` rows, with the list's default order as tiebreak.
+- **What outlived the score.** Retiring the score dropped `entity_completeness` (0074). The dirty
+  set and the drain stay, now owned by this cache and `resolved_values`. `entity_completeness_missing`
   stays too, because the owner's queue reads it, with its criticality bands and its not-applicable
   rule.
 

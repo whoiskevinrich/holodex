@@ -3,7 +3,7 @@
 	import { MEDIA_SORTS } from '#lib/filters.ts';
 	import type { SortOption } from '#lib/listState.ts';
 
-	// owner gates the ownerOnly entries (the Completeness sorts) — the server 401s a
+	// owner gates the ownerOnly entries (the enriched sorts) — the server 401s a
 	// non-owner request using them, so they must not even render as options; for the
 	// owner they sit in a trailing "Owner" group. extra prepends page-specific entries
 	// (the playlist page's `manual`, F69) so a page never forks the dropdown.

@@ -1,5 +1,7 @@
 # Design handoff: completeness ring badge (F65)
 
+**Retired by F90** ([HOLODEX-626](https://whoiskevinrich.atlassian.net/browse/HOLODEX-626)): the ring is gone from every card, row and hover card, with nothing in its place. Lists show the owner an Enriched count instead ([provider-and-field-filters-handoff.md](provider-and-field-filters-handoff.md)). Nothing below is built any more; it stays as the record of what was removed.
+
 **Spec**: [entity-completeness-score.md](../specs/entity-completeness-score.md) (F65.4 ring badge, F65.5 owner-only
 `completeness` on list items, § Scoring model edge rules, RD5–RD7) · **ADR**:
 [ADR-099](../architecture/archive/ADR-099-completeness-score-required-band.md) D1/D5 · Jira

@@ -111,36 +111,20 @@ func mediaTitles(t *testing.T, body map[string]any) []string {
 	return titles
 }
 
-// TestListMedia_CompletenessSort_OwnerGated covers the spec's "Access control
-// & security" requirement verbatim: score/actionability must not be reachable
-// by a non-owner, even via the otherwise-public /media list endpoint.
-func TestListMedia_CompletenessSort_OwnerGated(t *testing.T) {
+// TestListMedia_OwnerSortAndFilterGated covers the owner gate on the store-backed
+// inputs: an enriched sort (F90) and missing_facet (F55.6) are refused to a non-owner,
+// even via the otherwise-public /media list endpoint.
+func TestListMedia_OwnerSortAndFilterGated(t *testing.T) {
 	srv := completenessBrowseServer(t, "secret")
 
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_desc", ""); code != http.StatusUnauthorized {
-		t.Errorf("sort=completeness_desc without token: want 401, got %d", code)
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?sort=enriched_desc", ""); code != http.StatusUnauthorized {
+		t.Errorf("sort=enriched_desc without token: want 401, got %d", code)
 	}
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?missing_facet=poster_url", ""); code != http.StatusUnauthorized {
 		t.Errorf("missing_facet without token: want 401, got %d", code)
 	}
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_desc", "secret"); code != http.StatusOK {
-		t.Errorf("sort=completeness_desc with token: want 200, got %d", code)
-	}
-}
-
-// TestListMedia_CompletenessSort_Orders covers F55.5: completeness_desc/asc
-// rank videos by score, highest/lowest first.
-func TestListMedia_CompletenessSort_Orders(t *testing.T) {
-	srv := completenessBrowseServer(t, "")
-
-	_, body := getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_desc", "")
-	if got, want := mediaTitles(t, body), []string{"Full", "Half", "Bare"}; !slices.Equal(got, want) {
-		t.Errorf("completeness_desc order = %v, want %v", got, want)
-	}
-
-	_, body = getJSONTok(t, srv.URL+"/api/v1/media?sort=completeness_asc", "")
-	if got, want := mediaTitles(t, body), []string{"Bare", "Half", "Full"}; !slices.Equal(got, want) {
-		t.Errorf("completeness_asc order = %v, want %v", got, want)
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/media?sort=enriched_desc", "secret"); code != http.StatusOK {
+		t.Errorf("sort=enriched_desc with token: want 200, got %d", code)
 	}
 }
 
@@ -194,44 +178,44 @@ func TestCompletenessFacets(t *testing.T) {
 	}
 }
 
-// TestListPeople_CompletenessSort_OwnerGated and TestListStudios_..._OwnerGated
-// cover the same F55.5/F55.6 owner-gate requirement on the other two browse
+// TestListPeople_OwnerSortAndFilterGated and TestListStudios_..._OwnerSortAndFilterGated
+// cover the same owner-gate requirement on the other two browse
 // endpoints — the store-backed sort/filter behavior is covered by
 // completeness_store_test.go, so these stay scoped to the security-critical
 // gating behavior.
-func TestListPeople_CompletenessSort_OwnerGated(t *testing.T) {
+func TestListPeople_OwnerSortAndFilterGated(t *testing.T) {
 	srv, r := identityServer(t, "secret")
 	vid := seedStudioVideo(t, r, "/m/p.mkv", "Acme")
 	linkPeople(t, r, vid, "Hayao Miyazaki")
 
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/people?sort=completeness_desc", ""); code != http.StatusUnauthorized {
-		t.Errorf("sort=completeness_desc without token: want 401, got %d", code)
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/people?sort=enriched_desc", ""); code != http.StatusUnauthorized {
+		t.Errorf("sort=enriched_desc without token: want 401, got %d", code)
 	}
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/people?missing_facet=photo", ""); code != http.StatusUnauthorized {
 		t.Errorf("missing_facet without token: want 401, got %d", code)
 	}
-	code, body := getJSONTok(t, srv.URL+"/api/v1/people?sort=completeness_desc", "secret")
+	code, body := getJSONTok(t, srv.URL+"/api/v1/people?sort=enriched_desc", "secret")
 	if code != http.StatusOK {
-		t.Errorf("sort=completeness_desc with token: want 200, got %d", code)
+		t.Errorf("sort=enriched_desc with token: want 200, got %d", code)
 	}
 	if items, _ := body["items"].([]any); len(items) != 1 {
 		t.Errorf("items = %v, want 1 person", items)
 	}
 }
 
-func TestListStudios_CompletenessSort_OwnerGated(t *testing.T) {
+func TestListStudios_OwnerSortAndFilterGated(t *testing.T) {
 	srv, r := identityServer(t, "secret")
 	seedStudioVideo(t, r, "/m/s.mkv", "Acme")
 
-	if code, _ := getJSONTok(t, srv.URL+"/api/v1/studios?sort=completeness_desc", ""); code != http.StatusUnauthorized {
-		t.Errorf("sort=completeness_desc without token: want 401, got %d", code)
+	if code, _ := getJSONTok(t, srv.URL+"/api/v1/studios?sort=enriched_desc", ""); code != http.StatusUnauthorized {
+		t.Errorf("sort=enriched_desc without token: want 401, got %d", code)
 	}
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/studios?missing_facet=branding_image", ""); code != http.StatusUnauthorized {
 		t.Errorf("missing_facet without token: want 401, got %d", code)
 	}
-	code, body := getJSONTok(t, srv.URL+"/api/v1/studios?sort=completeness_desc", "secret")
+	code, body := getJSONTok(t, srv.URL+"/api/v1/studios?sort=enriched_desc", "secret")
 	if code != http.StatusOK {
-		t.Errorf("sort=completeness_desc with token: want 200, got %d", code)
+		t.Errorf("sort=enriched_desc with token: want 200, got %d", code)
 	}
 	if items, _ := body["items"].([]any); len(items) != 1 {
 		t.Errorf("items = %v, want 1 studio", items)

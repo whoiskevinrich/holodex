@@ -25,7 +25,7 @@ var CloneTables = struct{ Copied, Derived, History, NoVideos []string }{
 		"enrichment_dismissals", "video_poster_sources",
 	},
 	Derived: []string{
-		"video_metadata", "video_montages", "entity_completeness", "entity_completeness_missing",
+		"video_metadata", "video_montages", "entity_completeness_missing",
 		"completeness_dirty", "resolved_values", "entity_field_state",
 	},
 	History: []string{

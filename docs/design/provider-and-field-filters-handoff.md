@@ -133,7 +133,9 @@ rows, the person poster card, the person hover card and the studio list row. Not
 - on rows, the count keeps its position.
 
 Refreshing an entity is still on its own page. On detail pages, `CompletenessPanel` loses its headline
-score and bar and keeps the field list, the not-applicable toggle and the jump to an empty field. The
+score, bar and readiness line and keeps the field list, the not-applicable toggle and the jump to an
+empty field. With nothing else in its header, the list's expand button carries a label, **Show
+fields** / **Hide fields** (`btn-quiet`, `text-sm`, the chevron after it). The
 owner queue's rows keep their groups and actions with no number.
 
 ## Design tokens used

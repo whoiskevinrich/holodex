@@ -616,8 +616,8 @@ export const api = {
 
 	// The People / Studios / Tags / Films lists page server-side (F80): sort name|count|
 	// random (random with the session seed, so pages tile — ADR-045), q searches the
-	// whole library, and letters asks for the A–Z restart offsets. completeness_asc/desc
-	// (F55.5) is owner-only — the server 401s a non-owner request using it; callers gate
+	// whole library, and letters asks for the A–Z restart offsets. enriched_asc/desc
+	// (F90) is owner-only — the server 401s a non-owner request using it; callers gate
 	// on isOwner before passing it.
 	listPeople: (opts: EntityListOpts = {}, fetchFn?: typeof fetch) =>
 		get<EntityListPage<Person>>(`/people${entityListQuery(opts)}`, fetchFn),

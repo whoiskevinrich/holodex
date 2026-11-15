@@ -1364,9 +1364,8 @@ export type PeopleTagSort = (typeof PEOPLE_TAG_SORTS)[number];
 
 // CompletenessFacet is one scored facet's tier/status on the per-entity
 // breakdown panel (F55.13-15) — mirrors internal/resolver.FacetScore.
-// not_applicable is still listed (muted status), but excluded from the
-// parent Completeness's score/actionability. provider is present only when
-// actionable is true.
+// not_applicable is still listed (muted status), but is never missing or
+// actionable. provider is present only when actionable is true.
 export interface CompletenessFacet {
 	canonical: string;
 	label: string;
@@ -1380,19 +1379,11 @@ export interface CompletenessFacet {
 	provider?: string;
 }
 
-// Completeness is the F55 completeness score plus the separate actionability
-// signal for one entity — mirrors internal/resolver.Completeness. Present
-// only on an owner-authorized detail response (video/person/studio); null for
-// a visitor, mirroring enrich_queries' access-control shape. v2 (F65, ADR-099
-// D1/D5): `score` is the required band alone (the key kept its v1 name) and
-// `extras` is the separate nice-to-have band — never blended; either is null
-// when its band has no applicable facet (a studio has no required band).
+// Completeness is one entity's scored facets for the detail page's field list — mirrors
+// internal/resolver.Completeness. Present only on an owner-authorized detail response
+// (video/person/studio); null for a visitor. The score, extras and actionability it once
+// carried were retired (F90 P0-6).
 export interface Completeness {
-	score: number | null;
-	extras: number | null;
-	// undefined when there are no missing scored facets — the ratio is
-	// undefined, not zero.
-	actionability?: number;
 	facets: CompletenessFacet[];
 }
 

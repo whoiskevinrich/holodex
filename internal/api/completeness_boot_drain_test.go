@@ -7,7 +7,7 @@ import (
 )
 
 // ADR-112 D2: the boot drain empties the dirty set off the request path, and
-// the owner's first list read then serves the scores it stored.
+// the owner's first list read then finds the missing facets it stored.
 func TestDrainCompletenessInBackground_FillsStoreBeforeFirstRead(t *testing.T) {
 	srv, r, h := completenessBrowseFixture(t, "secret")
 	ctx := context.Background()
@@ -24,9 +24,9 @@ func TestDrainCompletenessInBackground_FillsStoreBeforeFirstRead(t *testing.T) {
 
 	_, body := getJSONTok(t, srv.URL+"/api/v1/media", "secret")
 	got := itemsByTitle(t, body, "title")
-	for title, want := range map[string]string{"Bare": "25/null", "Half": "50/null", "Full": "100/null"} {
-		if c := completenessOf(t, got[title]); c != want {
-			t.Errorf("%s completeness = %s, want %s", title, c, want)
+	for title, want := range map[string]int{"Bare": 3, "Half": 2, "Full": 0} {
+		if n := len(storedMissing(t, r, int64(got[title]["id"].(float64)))); n != want {
+			t.Errorf("%s missing %d facets, want %d", title, n, want)
 		}
 	}
 }

@@ -464,28 +464,6 @@
 			translate: 0 0;
 		}
 	}
-	/* F65.8: the completeness ring while its refresh is in flight — a fixed quarter
-	   arc that spins. Under reduced motion the arc holds still and the ring dims, so
-	   "busy" still reads without movement. */
-	@media (prefers-reduced-motion: no-preference) {
-		.completeness-ring .ring-busy {
-			animation: ring-busy-spin 0.9s linear infinite;
-			transform-origin: 10px 10px;
-		}
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.completeness-ring[aria-busy='true'] {
-			opacity: 0.6;
-		}
-	}
-	@keyframes ring-busy-spin {
-		from {
-			transform: rotate(-90deg);
-		}
-		to {
-			transform: rotate(270deg);
-		}
-	}
 	@keyframes portrait-fade {
 		from {
 			opacity: 0;

@@ -284,7 +284,7 @@ func (h *Handlers) freezePlaylist(w http.ResponseWriter, r *http.Request) {
 		f.Seed = parseSeedOrRandom("")
 	}
 	if wantsCompleteness(f.Sort, f.MissingFacets) {
-		h.drainCompleteness(r.Context()) // score before ranking, as listMedia does
+		h.drainCompleteness(r.Context()) // drain before ranking, as listMedia does
 	}
 	ids, err := h.repo.ListVideoIDs(r.Context(), f)
 	if err != nil {

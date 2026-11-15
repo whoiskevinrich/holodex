@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"net/http"
 
 	"holodex/internal/model"
@@ -27,10 +26,6 @@ type PersonCard struct {
 	Nationality   []string       `json:"nationality,omitempty"`
 	Aliases       []string       `json:"aliases,omitempty"`
 	ExternalLinks []ExternalLink `json:"external_links,omitempty"`
-	// Completeness is the ring badge's owner-only bands (F65.5/F65.8): present
-	// only when the requester passes the owner gate, absent (not null) otherwise —
-	// the one owner branch in this read (RD12).
-	Completeness *model.CompletenessSummary `json:"completeness,omitempty"`
 }
 
 // getPersonCard handles GET /people/{id}/card. It reuses personResolve — the
@@ -93,28 +88,10 @@ func (h *Handlers) getPersonCard(w http.ResponseWriter, r *http.Request) {
 		card.ExternalLinks = links
 	}
 
-	if h.auth.authorized(r) {
-		card.Completeness = h.storedCompleteness(ctx, model.EnrichEntityPerson, id)
-	}
-	// Private: the owner's copy carries completeness, a visitor's must not be
-	// served from a shared cache in its place.
+	// Private, as it was while the card carried the owner's ring bands (F65.8); loosening it
+	// is a change of its own.
 	w.Header().Set("Cache-Control", "private, max-age=300")
 	writeJSON(w, http.StatusOK, card)
-}
-
-// storedCompleteness reads the ring-badge bands for one entity after draining,
-// as a list read would (F65.6); nil when the store has no row.
-func (h *Handlers) storedCompleteness(ctx context.Context, entityType string, id int64) *model.CompletenessSummary {
-	h.drainCompleteness(ctx)
-	stored, err := h.repo.CompletenessForEntities(ctx, entityType, []int64{id})
-	if err != nil {
-		h.log.Warn("completeness for card", "type", entityType, "id", id, "err", err)
-		return nil
-	}
-	if c, ok := stored[id]; ok {
-		return &c
-	}
-	return nil
 }
 
 func firstValue(f resolver.ResolvedField) string {

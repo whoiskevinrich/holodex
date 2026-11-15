@@ -12,7 +12,7 @@ import (
 // as /media (ADR-121 D3/D7), so the owner-only inputs are refused for a visitor.
 func TestMediaIDs_OwnerGated(t *testing.T) {
 	srv := completenessBrowseServer(t, "secret")
-	for _, q := range []string{"sort=completeness_desc", "sort=completeness_asc", "missing_facet=poster_url"} {
+	for _, q := range []string{"sort=enriched_desc", "sort=enriched_asc", "missing_facet=poster_url"} {
 		if code, _ := getJSONTok(t, srv.URL+"/api/v1/media/ids?"+q, ""); code != http.StatusUnauthorized {
 			t.Errorf("visitor %s: want 401, got %d", q, code)
 		}

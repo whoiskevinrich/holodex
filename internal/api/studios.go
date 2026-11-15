@@ -135,12 +135,11 @@ func (h *Handlers) resolveStudio(ctx context.Context, id int64, s *model.Studio,
 	return h.appendAutoRegistered(ctx, rows, fields, recordizeResolved(resolved)), fields
 }
 
-// listStudios handles GET /studios (F38): name-sorted (or count-sorted, or
-// completeness-sorted/filtered) studios with active-video counts. Public,
-// mirroring people/tags, except sort=completeness_asc|completeness_desc and
-// the repeatable missing_facet param, which are owner-only (F55.5/F55.6,
-// ADR-099 D2/D3 via the store), same posture as listMedia/listPeople; the
-// owner's items carry `completeness` (F65.5). Empty studios never appear.
+// listStudios handles GET /studios (F38): name-sorted (or count-, random- or enriched-sorted)
+// studios with active-video counts. Public, mirroring people/tags, except the enriched
+// sorts, missing_facet and the F90 filters (link, has, missing), which are owner-only, same
+// posture as listMedia/listPeople; the owner's items carry `enriched`. Empty studios never
+// appear.
 func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
@@ -165,10 +164,6 @@ func (h *Handlers) listStudios(w http.ResponseWriter, r *http.Request) {
 		setStudioImageURLs(&studios[i])
 	}
 	if isOwner {
-		if err := h.attachStudioCompleteness(r.Context(), studios); err != nil {
-			h.fail(w, "list studios", err)
-			return
-		}
 		if err := h.attachStudioEnriched(r.Context(), studios); err != nil {
 			h.fail(w, "list studios", err)
 			return
