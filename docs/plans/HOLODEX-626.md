@@ -48,7 +48,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
 - [/] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers; `entity_field_state` (0073) is drained for all three types; `has:` works on Media; People and Studios take `link`, `has`, `missing`; Most/Least enriched sorts and an owner-only `enriched` count on every list item; the score is retired (0074 drops `entity_completeness`, completeness sorts read as the default)
 - [/] frontend → `web/src/**` — Filters panel (Provider link, add-a-field Has/Missing) on Media, People and Studios; Linked and "Label: has|missing" chips; Most/Least enriched sorts; Enriched column and a Studios Table view; the ring removed. `CompletenessPanel` is the field list behind Show fields / Hide fields. Browser-checked on the stress fixture
-- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, Q3, A3, A4, A8, R3, R4, R5, R6, W1–W5 and parts of R1 and A5 pass and are mutation-checked; the rest is written with the build
+- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, Q3, A3, A4, A8, A9, R3, R4, R5, R6, W1–W5 and parts of R1 and A5 pass and are mutation-checked; the rest is written with the build
 - [/] security `security-review` — design-stage rules SEC-12 to SEC-15 in security-perimeter.md; the code review waits for the build
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,7 +66,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] Let the People and Studios filters name fields the owner promoted for that entity; the allowlist is the fixed set plus the image today — `internal/api/field_state.go`
+1. [ ] [backend] Let Media's Fields control and `has:` name fields the owner promoted on videos, as People and Studios now do; they read only the mapping today — `internal/api/query_fields.go`
 2. [ ] [backend] `has:` in MCP `search_videos` (P0-9): the tool refuses every index-reading query because it cannot drain; give it the drain or a catalogue — `internal/mcp/mcp.go`
 3. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
 4. [ ] [backend] Confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
@@ -85,6 +85,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-14 · promoted fields filter People and Studios
+- skills: code-review, handoff
+- handoff: People and Studios filters and their Fields control now accept any field the owner promoted for that entity type, under the promotion's label (§42.5 A9, mutation-checked), and saving a promotion refreshes the web app's Fields list; next is the same for videos on Media.
 
 ### 2026-11-14 · score retired
 - skills: code-review, handoff
