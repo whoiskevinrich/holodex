@@ -5,9 +5,9 @@ import type { ColumnSpec } from './listTable';
 import type { EntitySort } from './listState';
 import type { PeopleTagSort, SortOrder } from './types';
 
-const completeness = [
-	{ value: 'completeness_desc', dir: 'descending' },
-	{ value: 'completeness_asc', dir: 'ascending' }
+const enriched = [
+	{ value: 'enriched_desc', dir: 'descending' },
+	{ value: 'enriched_asc', dir: 'ascending' }
 ] as const;
 
 export const MEDIA_COLUMNS: readonly ColumnSpec<SortOrder>[] = [
@@ -50,14 +50,17 @@ export const MEDIA_COLUMNS: readonly ColumnSpec<SortOrder>[] = [
 		]
 	},
 	{ id: 'size', header: 'Size', align: 'right', width: '5.5rem', keepBelow: 'lg', ownerOnly: true },
-	{ id: 'done', header: 'Done', width: '4rem', keepBelow: 'lg', ownerOnly: true, sorts: completeness }
+	{ id: 'enriched', header: 'Enriched', align: 'right', width: '5rem', keepBelow: 'lg', ownerOnly: true, sorts: enriched }
 ];
 
 export const PEOPLE_COLUMNS: readonly ColumnSpec<EntitySort>[] = [
 	{ id: 'name', header: 'Name', sorts: [{ value: 'name', dir: 'ascending' }] },
 	{ id: 'videos', header: 'Videos', align: 'right', width: '5.5rem', sorts: [{ value: 'count', dir: 'descending' }] },
-	{ id: 'done', header: 'Done', width: '4rem', ownerOnly: true, sorts: completeness }
+	{ id: 'enriched', header: 'Enriched', align: 'right', width: '5rem', ownerOnly: true, sorts: enriched }
 ];
+
+// Studios (F90): the People columns; a studio's count is its videos too.
+export const STUDIO_COLUMNS: readonly ColumnSpec<EntitySort>[] = PEOPLE_COLUMNS;
 
 // Tag rows and, on the All and Categories tabs, category rows share these columns: a
 // category's count is its tags, and it has no parent.

@@ -8,6 +8,8 @@ import { exprWithout, toChips, type QueryParseResult } from './query';
 /** `stored` reads expr as a saved definition (api.parseQuery). */
 export function parsedExpr(expr: () => string | undefined, stored = false) {
 	let parsed = $state<QueryParseResult | null>(null);
+	// The expr `parsed` belongs to: the previous parse stays on screen while the next loads.
+	let parsedFor = $state<string | undefined>();
 	let seq = 0;
 	$effect(() => {
 		const e = expr();
@@ -19,7 +21,10 @@ export function parsedExpr(expr: () => string | undefined, stored = false) {
 		api
 			.parseQuery(e, stored)
 			.then((r) => {
-				if (mine === seq) parsed = r;
+				if (mine === seq) {
+					parsed = r;
+					parsedFor = e;
+				}
 			})
 			.catch((err) => {
 				if (mine === seq) parsed = { ok: false, error: { code: 'error', message: toMessage(err), start: 0, end: 0 } };
@@ -36,6 +41,11 @@ export function parsedExpr(expr: () => string | undefined, stored = false) {
 		/** A refused query runs nothing. */
 		get refused() {
 			return expr() && parsed && !parsed.ok ? parsed.error : null;
+		},
+		/** The tree of the current expr's own parse; null while it loads, when refused, or empty.
+		 * Anything that rewrites the query reads this, never a previous parse. */
+		get tree() {
+			return parsed?.ok && parsedFor === expr() ? parsed.tree : null;
 		},
 		/** How many entries the chips row shows. */
 		get count() {

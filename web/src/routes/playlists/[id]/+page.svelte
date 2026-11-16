@@ -4,7 +4,7 @@
 	import { ApiError, api } from '#lib/api.ts';
 	import { activity } from '#lib/activity.svelte.ts';
 	import { toMessage, videoCount } from '#lib/format.ts';
-	import { MEDIA_SORTS } from '#lib/filters.ts';
+	import { DEFAULT_SORT, MEDIA_SORTS } from '#lib/filters.ts';
 	import { filterLabels, loadScopeNames } from '#lib/filterLabels.ts';
 	import { parsedExpr } from '#lib/parsedExpr.svelte.ts';
 	import { staleNotice } from '#lib/playlistDefinition.ts';
@@ -242,8 +242,12 @@
 	// Stale-reference notice (handoff "New notices"), by the first ref's kind.
 	const notice = $derived(staleRefs[0] ? staleNotice(staleRefs[0]) : null);
 
+	// A sort the list no longer offers (a retired Completeness sort, F90 P0-6) plays in the
+	// default order on the server, so it reads as the default here too.
 	const sortLabel = $derived(
-		sort === 'manual' ? MANUAL.label : (MEDIA_SORTS.find((s) => s.value === sort)?.label ?? sort)
+		sort === 'manual'
+			? MANUAL.label
+			: (MEDIA_SORTS.find((s) => s.value === sort) ?? MEDIA_SORTS.find((s) => s.value === DEFAULT_SORT))?.label
 	);
 	// A cap that cuts reads "31 match, showing 25" (F89 P0-2); match_count is the owner's only.
 	const count = $derived(videoCount(total));

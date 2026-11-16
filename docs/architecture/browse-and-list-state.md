@@ -80,7 +80,9 @@ playlist reads unchanged.
   cannot drift (descendant Tags included). The compiler recurses: `And` joins with `AND`, `Or` with
   `OR`, `Not` wraps `NOT (…)`, all parenthesised, with positional args. A bare word compiles to the
   title MATCH (through `ftsPrefixQuery`) `OR` an exact-Tag subtree `EXISTS`. `matched:` compiles to an
-  `EXISTS` on the enrichment store's video rows for that provider ([metadata-providers.md](metadata-providers.md)).
+  `EXISTS` on the enrichment store's video rows for that provider, limited to declared providers for
+  `any` ([field-resolution.md](field-resolution.md#field-presence-and-provider-contribution-are-cached-in-entity_field_state-for-all-three-entity-types)),
+  and `has:` to an `EXISTS` on `entity_field_state` from the same section.
 - **The client never parses.** `GET /api/v1/query/parse?expr=` returns the canonical string, a
   display tree with current names, and errors with offsets; chips and error marks render from it.
   The client keeps only a lexer that tells autocomplete which field it is in. The display tree is an

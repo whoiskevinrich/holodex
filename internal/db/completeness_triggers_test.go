@@ -45,6 +45,10 @@ var completenessInputs = []struct {
 	{"field_promotions", `INSERT INTO field_promotions (entity_type, field_key, created_at, updated_at) VALUES ('person', 'height', '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z')`, "person", 1},
 	{"field_claims", `INSERT INTO field_claims (entity_type, provider, field_key, canonical, created_at, updated_at) VALUES ('studio', 'tmdb', 'hq', 'country', '2026-09-18T00:00:00Z', '2026-09-18T00:00:00Z')`, "studio", 1},
 	{"provider_field_hints", `INSERT INTO provider_field_hints (provider, field_key, updated_at) VALUES ('tmdb', 'height', '2026-09-18T00:00:00Z')`, "video", 1},
+	// F90 (0073): the poster is a cached field, so the held slots and the file slot's
+	// lifecycle are inputs too.
+	{"video_poster_sources", `INSERT INTO video_poster_sources (video_id, kind, hash, updated_at) VALUES (1, 'frame', 'h', '2026-09-18T00:00:00Z')`, "video", 1},
+	{"videos", `UPDATE videos SET thumbnail_state = 'ready' WHERE id = 1`, "video", 1},
 }
 
 func seedCompletenessFixture(t *testing.T, db *sql.DB) {
@@ -75,6 +79,62 @@ func TestMigration0049_EveryCompletenessInputDirtiesItsEntity(t *testing.T) {
 				t.Errorf("write to %s left %d dirty rows for %s/%d, want 1", tc.table, n, tc.entityType, tc.entityID)
 			}
 		})
+	}
+}
+
+// Migration 0073: entity_field_state has no foreign key, so deleting an entity must take
+// its rows, and only its own type's.
+func TestMigration0073_DeletingAnEntityClearsItsFieldState(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	seedCompletenessFixture(t, db)
+	for _, et := range []string{"video", "person", "studio"} {
+		mustExec(t, db, `INSERT INTO entity_field_state (entity_type, entity_id, field_key, shown) VALUES ('`+et+`', 1, 'title', 1)`)
+	}
+	mustExec(t, db, `DELETE FROM people WHERE id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM entity_field_state WHERE entity_type = 'person'`); n != 0 {
+		t.Errorf("person delete left %d rows", n)
+	}
+	mustExec(t, db, `DELETE FROM studios WHERE id = 1`)
+	mustExec(t, db, `DELETE FROM videos WHERE id = 1`)
+	if n := count(t, db, `SELECT COUNT(*) FROM entity_field_state`); n != 0 {
+		t.Errorf("deletes left %d rows", n)
+	}
+}
+
+// F90 P0-6 (testing-strategy §42.4 R6): 0074 drops the score table and keeps the queue's
+// rows and the dirty set; deleting a video still clears both, the cascade's re-dirty
+// included; down restores the table and marks everything for the drain to refill.
+func TestMigration0074_RetiresTheScoreTable(t *testing.T) {
+	db, m := openAt(t)
+	if err := m.Up(); err != nil {
+		t.Fatalf("migrate up: %v", err)
+	}
+	table := func(name string) int {
+		return count(t, db, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '`+name+`'`)
+	}
+	if table("entity_completeness") != 0 || table("entity_completeness_missing") != 1 || table("completeness_dirty") != 1 {
+		t.Fatal("0074 up: want entity_completeness gone, the missing and dirty tables kept")
+	}
+	seedCompletenessFixture(t, db)
+	mustExec(t, db, `INSERT INTO entity_completeness_missing (entity_type, entity_id, canonical, band) VALUES ('video', 1, 'title', 'critical')`)
+	mustExec(t, db, `INSERT INTO entity_enrichment (entity_type, entity_id, provider, field_key, value, fetched_at) VALUES ('video', 1, 'p', 'title', 'x', 'x')`)
+	mustExec(t, db, `DELETE FROM videos WHERE id = 1`)
+	for _, tbl := range []string{"entity_completeness_missing", "completeness_dirty"} {
+		if n := count(t, db, `SELECT COUNT(*) FROM `+tbl+` WHERE entity_type = 'video' AND entity_id = 1`); n != 0 {
+			t.Errorf("%s still has %d rows for the deleted video", tbl, n)
+		}
+	}
+	if err := m.Steps(-1); err != nil {
+		t.Fatalf("0074 down: %v", err)
+	}
+	if table("entity_completeness") != 1 {
+		t.Error("0074 down did not restore entity_completeness")
+	}
+	if n := count(t, db, `SELECT COUNT(*) FROM completeness_dirty WHERE entity_type = 'person'`); n != count(t, db, `SELECT COUNT(*) FROM people`) || n == 0 {
+		t.Errorf("0074 down left %d people dirty, want all of them", n)
 	}
 }
 
@@ -264,11 +324,10 @@ func TestMigration0049_EntityDeleteDropsDerivedRows(t *testing.T) {
 		t.Fatalf("migrate up: %v", err)
 	}
 	seedCompletenessFixture(t, db)
-	mustExec(t, db, `INSERT INTO entity_completeness (entity_type, entity_id, required, extras, computed_at) VALUES ('person', 1, 0, 50, 'x')`)
 	mustExec(t, db, `INSERT INTO entity_completeness_missing (entity_type, entity_id, canonical, band) VALUES ('person', 1, 'photo', 'critical')`)
 	mustExec(t, db, `INSERT INTO completeness_dirty (entity_type, entity_id) VALUES ('person', 1)`)
 	mustExec(t, db, `DELETE FROM people WHERE id = 1`)
-	for _, tbl := range []string{"entity_completeness", "entity_completeness_missing", "completeness_dirty"} {
+	for _, tbl := range []string{"entity_completeness_missing", "completeness_dirty"} {
 		if n := count(t, db, `SELECT COUNT(*) FROM `+tbl+` WHERE entity_type = 'person' AND entity_id = 1`); n != 0 {
 			t.Errorf("%s still has %d rows for the deleted person", tbl, n)
 		}

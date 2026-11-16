@@ -1,5 +1,7 @@
 # Design Handoff: Entity Completeness Score — Remediation Queue & Breakdown Panel (HOLODEX-260)
 
+**Changed by F90** ([HOLODEX-626](https://whoiskevinrich.atlassian.net/browse/HOLODEX-626)): the panel's score, bar and actionability line, and the browse Completeness sort, are retired. The panel is now the field list behind a Show fields / Hide fields toggle; the remediation queue is unchanged ([provider-and-field-filters-handoff.md](provider-and-field-filters-handoff.md), "Ring removal").
+
 **Spec**: [entity-completeness-score.md](../specs/entity-completeness-score.md)
 **ADR**: [ADR-081](../architecture/archive/ADR-081-entity-completeness-score.md) — facet criticality, `facet_not_applicable` table, compute-on-read scoring
 **Theming contract**: [ADR-021](../architecture/archive/ADR-021-frontend-theming-and-skins.md) + [theming.md](theming.md) — **tokens only, QA Cinémathèque.**

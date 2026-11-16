@@ -37,7 +37,23 @@ type Server struct {
 	mappings     *mapping.Store // configurable mapped fields (F20.6); nil disables them
 	auth         *api.Auth      // owner gate for file-metadata redaction (HOLODEX-114 follow-up)
 	filmsEnabled bool           // gates RD6 full-film hiding on search_videos (HOLODEX-282)
+	index        QueryIndex     // the server's catalogue and drain; nil over stdio
 	mcp          *mcpserver.MCPServer
+}
+
+// QueryIndex is the in-process server's query catalogue and drain (*api.Handlers), so
+// search_videos answers has:, updated:, released: and mapped-field conditions as /media
+// does (F90 P0-9). The stdio process has none: draining there would make it a second
+// writer on the database, so it refuses those conditions instead.
+type QueryIndex interface {
+	QueryFields(ctx context.Context) query.Fields
+	DrainForQuery(ctx context.Context, expr query.Node)
+}
+
+// WithIndex gives the HTTP transport the server's catalogue and drain.
+func (s *Server) WithIndex(ix QueryIndex) *Server {
+	s.index = ix
+	return s
 }
 
 // New builds the MCP server and registers the four Phase 2 tools. mappings may be
@@ -130,7 +146,7 @@ func (s *Server) register(m *mcpserver.MCPServer) {
 		mcp.WithNumber("page", mcp.Description("1-based page number"), mcp.DefaultNumber(1)),
 		mcp.WithNumber("page_size", mcp.Description("Results per page, 1-100"), mcp.DefaultNumber(20)),
 		mcp.WithObject("fields", mcp.Description(`Filterable configurable metadata fields keyed by canonical name, e.g. {"studio":"Acme"} (F20.6)`)),
-		mcp.WithString("expr", mcp.Description(`An F87 query, ANDed with the other arguments. Conditions are field:value with fields tag, person, studio, category, resolution (SD|HD|FHD|4K), year and duration (<, <=, >, >=, or a..b; durations take s, m or h), plus matched:any or matched:<provider> for the owner. Adjacent parts must all match; OR, a leading - (or NOT) and parentheses combine them; quote names with spaces. A bare word matches the title or the Tag of exactly that name. Names may be aliases. Example: ((tag:science-fiction tag:fantasy) OR tag:action) -tag:comedy person:"Harrison Ford". The response's expr is the canonical form, with ids in place of names.`)),
+		mcp.WithString("expr", mcp.Description(`An F87 query, ANDed with the other arguments. Conditions are field:value with fields tag, person, studio, category, resolution (SD|HD|FHD|4K), year and duration (<, <=, >, >=, or a..b; durations take s, m or h), plus matched:any or matched:<provider> for the owner. Over the HTTP endpoint updated:, released: and mapped fields also work, and for the owner has:<field> (the video shows a value for it; -has: for missing). Adjacent parts must all match; OR, a leading - (or NOT) and parentheses combine them; quote names with spaces. A bare word matches the title or the Tag of exactly that name. Names may be aliases. Example: ((tag:science-fiction tag:fantasy) OR tag:action) -tag:comedy person:"Harrison Ford". The response's expr is the canonical form, with ids in place of names.`)),
 	), s.searchVideos)
 
 	m.AddTool(mcp.NewTool("get_video",
@@ -182,7 +198,11 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 	// mediaFilterFor, so it calls the shared path itself.
 	var canonical string
 	if src := req.GetString("expr", ""); strings.TrimSpace(src) != "" {
-		q, err := api.ParseExpr(ctx, s.repo, src, nil, isOwner(ctx))
+		fields := api.MappedQueryFields(s.mappings)
+		if s.index != nil {
+			fields = s.index.QueryFields(ctx)
+		}
+		q, err := api.ParseExpr(ctx, s.repo, src, fields, isOwner(ctx))
 		var qe *query.Error
 		if errors.As(err, &qe) {
 			return mcp.NewToolResultError(exprErrorText(src, qe)), nil
@@ -195,9 +215,13 @@ func (s *Server) searchVideos(ctx context.Context, req mcp.CallToolRequest) (*mc
 		if len(query.EntityIDs(q.Root)[query.FieldPlaylist]) > 0 {
 			return mcp.NewToolResultError("playlist: conditions aren't available in search_videos; open the playlist instead."), nil
 		}
-		// Nor does it drain the index these read, so it would answer from stale values.
+		// Over HTTP the server drains the index these read first, as /media does. Over
+		// stdio nothing can drain it, so it would answer from stale values: refuse.
 		if query.NeedsIndex(q.Root) {
-			return mcp.NewToolResultError("updated: and released: conditions aren't available in search_videos."), nil
+			if s.index == nil {
+				return mcp.NewToolResultError("updated:, released:, has: and mapped-field conditions need the HTTP endpoint (/mcp); this stdio tool can't bring their data up to date."), nil
+			}
+			s.index.DrainForQuery(ctx, q.Root)
 		}
 		f.Expr, canonical = q.Root, q.String()
 	}

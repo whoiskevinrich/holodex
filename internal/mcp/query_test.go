@@ -18,6 +18,7 @@ import (
 // mediaFilterFor — resolves names through aliases, and answers with the canonical form.
 func TestSearchVideosExpr(t *testing.T) {
 	s, r := newTestServer(t)
+	r.SetDeclaredProviders([]string{"provider-1"})
 	ctx := context.Background()
 	seed(t, r, "/m/a.mkv", "Sunrise", 120, 3840, []string{"Alice"}, []string{"nature"})
 	seed(t, r, "/m/b.mkv", "Sunset", 60, 1280, []string{"Bob"}, []string{"city"})

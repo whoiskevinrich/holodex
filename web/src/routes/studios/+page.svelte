@@ -18,16 +18,33 @@
 	import { shuffleSeed } from '#lib/sortPreference.svelte.ts';
 	import { ENTITY_SORTS, studiosSchema } from '#lib/listState.ts';
 	import { listController } from '#lib/listController.svelte.ts';
+	import ViewToggle from '#lib/components/sort/ViewToggle.svelte';
+	import ListTable from '#lib/components/sort/ListTable.svelte';
+	import FilterPanel from '#lib/components/sort/FilterPanel.svelte';
+	import FilterChip from '#lib/components/sort/FilterChip.svelte';
+	import LinkFieldFilters from '#lib/components/sort/LinkFieldFilters.svelte';
+	import { EntityFilters } from '#lib/entityFilters.svelte.ts';
+	import { STUDIO_COLUMNS } from '#lib/listColumns.ts';
+	import { PAGE_VIEWS, readView, writeView, type PageView } from '#lib/viewPreference.svelte.ts';
 
 	// Studio index (F38, ADR-053) — the People list pattern, minus the merge-selection mode
 	// (studios have no v1 identity ops). Rows are `StudioListRow` (HOLODEX-432: the
 	// StudioLinkCard logo box in front of the name). Controls are the F73 list toolbar; the
-	// sort is one value — completeness is an owner-only entry in it, never a second control
+	// sort is one value — the enriched sorts are owner-only entries in it, never a second control
 	// (HOLODEX-473) — held by ListController per ADR-114.
 	const list = listController(studiosSchema, '/studios', () => activity.effectiveOwner);
 
 	const isOwner = $derived(activity.effectiveOwner); // owner AND Owner view on (F29)
 	const sortBy = $derived(list.state.sort);
+	// The owner's Filters panel (F90): provider link and field conditions, in the URL.
+	const ownerFilters = new EntityFilters('studios', () => list.state.query, (q) => list.setQuery(q), () => isOwner);
+	// List or Table (F90 handoff, Studios Table view); only the toggle writes it (F73 R7).
+	let activeView = $state<PageView<'studios'>>(readView('studios'));
+	const tableColumns = STUDIO_COLUMNS.map((c) => ({
+		...c,
+		cell: { name: nameCell, videos: videosCell, enriched: enrichedCell }[c.id]!
+	}));
+	const studioCount = (n: number) => `${n.toLocaleString()} ${n === 1 ? 'studio' : 'studios'}`;
 
 	// NS2: `navSearch.inPlace` is only true while this route is mounted AND the box's
 	// tab matches this page's own scope (Studios); the search runs on the server (F80 EL5).
@@ -44,7 +61,8 @@
 			seed: shuffleSeed.value,
 			limit,
 			offset,
-			letters: fresh && sortBy === 'name' && !query
+			letters: fresh && sortBy === 'name' && !query,
+			...ownerFilters.query
 		})
 	);
 	const showIndex = $derived(sortBy === 'name' && !query);
@@ -67,6 +85,7 @@
 		restartOn: () => {
 			void sortBy;
 			void query;
+			void ownerFilters.query;
 			if (sortBy === 'random') void shuffleSeed.value;
 		},
 		root: () => listEl
@@ -76,13 +95,31 @@
 <section class="space-y-4">
 	<h1 class="skin-title text-2xl font-semibold text-ink">Studios</h1>
 
-	<ListToolbar reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}>
+	<ListToolbar
+		reroll={sortBy === 'random' ? () => shuffleSeed.reroll() : undefined}
+		chipCount={ownerFilters.chips.length}
+		onclear={ownerFilters.clear}
+	>
 		{#snippet sort()}
 			<SortDropdown compact owner={isOwner} options={ENTITY_SORTS} sort={list.state.sort} onchange={(v) => list.setSort(v)} />
 		{/snippet}
+		{#snippet filters()}
+			{#if isOwner}
+				<FilterPanel count={ownerFilters.count} resultLabel={studios.loading ? '' : studioCount(studios.total)} onclear={ownerFilters.clear}>
+					<LinkFieldFilters list="studios" link={ownerFilters.link} conds={ownerFilters.conds} onlink={ownerFilters.setLink} onconds={ownerFilters.setConds} />
+				</FilterPanel>
+			{/if}
+		{/snippet}
+		{#snippet view()}
+			<ViewToggle options={PAGE_VIEWS.studios} bind:view={activeView} onchange={(v) => writeView('studios', v)} />
+		{/snippet}
+		{#snippet chips()}
+			{#each ownerFilters.chips as c (c.id)}
+				<FilterChip label={c.label} negated={c.negated} ownerOnly onremove={c.remove} />
+			{/each}
+		{/snippet}
 		{#snippet count()}
-			{#if !studios.loading && !studios.error}{studios.total.toLocaleString()}
-				{studios.total === 1 ? 'studio' : 'studios'}{/if}<DuplicatesBanner
+			{#if !studios.loading && !studios.error}{studioCount(studios.total)}{/if}<DuplicatesBanner
 				entityType="studio"
 				inline
 			/>
@@ -97,6 +134,11 @@
 		<p class="py-16 text-center text-sm text-muted">Loading…</p>
 	{:else if studios.error}
 		<p class="py-16 text-center text-sm text-warn">Couldn’t load studios: {studios.error}</p>
+	{:else if studios.total === 0 && ownerFilters.count}
+		<div class="py-16 text-center text-sm text-muted">
+			<p>No studios match these filters.</p>
+			<button type="button" class="btn-quiet mt-2 px-3 py-1.5 text-sm" onclick={ownerFilters.clear}>Clear filters</button>
+		</div>
 	{:else if studios.total === 0 && !query}
 		<p class="py-16 text-center text-sm text-muted">No studios indexed yet.</p>
 	{:else if studios.total === 0}
@@ -106,6 +148,21 @@
 			<AlphaIndex anchors={studios.letters} active={activeLetter} onjump={jumpTo} bind:barHeight />
 		{/if}
 		<ScrollPositionChip {virt} total={studios.total} />
+		{#if activeView === 'table'}
+			<div class={showIndex ? 'pr-6 sm:pr-0' : ''}>
+				<ListTable
+					columns={tableColumns}
+					key={(s) => s.id}
+					href={(s) => `/studios/${s.id}`}
+					sort={sortBy}
+					sorts={ENTITY_SORTS}
+					owner={isOwner}
+					onsort={(s) => list.setSort(s)}
+					window={{ list: studios, virt, roving, label: 'Studios', noun: 'studios' }}
+					bind:root={listEl}
+				/>
+			</div>
+		{:else}
 		<VirtualRows
 			list={studios}
 			{virt}
@@ -126,5 +183,11 @@
 				</div>
 			{/snippet}
 		</VirtualRows>
+		{/if}
 	{/if}
 </section>
+
+<!-- Table view cells (F90 handoff, Studios Table view); the column list is STUDIO_COLUMNS. -->
+{#snippet nameCell(s: Studio)}<span class="truncate">{s.name}</span>{/snippet}
+{#snippet videosCell(s: Studio)}{s.video_count}{/snippet}
+{#snippet enrichedCell(s: Studio)}<span class="tabular-nums {s.enriched ? 'text-ink' : 'text-muted'}">{s.enriched ?? ''}</span>{/snippet}

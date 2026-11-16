@@ -13,9 +13,22 @@ func TestValidSortMatchesOrderBy(t *testing.T) {
 	if defaultClause != addedDesc {
 		t.Fatalf("orderBy default %q is not added_desc %q", defaultClause, addedDesc)
 	}
+	// F90 P0-6 (testing-strategy §42.3 Q3): a stored Completeness sort reads as the default,
+	// and a new one can't be saved.
+	for _, retired := range []string{"completeness_asc", "completeness_desc"} {
+		if ValidSort(retired) {
+			t.Errorf("ValidSort(%q) = true after the score was retired", retired)
+		}
+		if clause, _ := (VideoFilter{Sort: retired}).orderBy(); clause != defaultClause {
+			t.Errorf("orderBy(%q) = %q, want the default", retired, clause)
+		}
+		if clause, _ := (NamedListFilter{Sort: retired}).orderBy("person", "e.id"); clause != "b.lbl COLLATE NOCASE ASC, e.id ASC" {
+			t.Errorf("named orderBy(%q) = %q, want name order", retired, clause)
+		}
+	}
 	for _, key := range []string{
 		"added_asc", "updated_desc", "updated_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
-		"resolution_desc", "resolution_asc", "random", SortCompletenessAsc, SortCompletenessDesc,
+		"resolution_desc", "resolution_asc", "random", SortEnrichedDesc, SortEnrichedAsc,
 	} {
 		if !ValidSort(key) {
 			t.Errorf("ValidSort(%q) = false, but orderBy handles it", key)

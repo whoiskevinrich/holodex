@@ -135,12 +135,12 @@ describe('ListController', () => {
 	});
 
 	it('an owner-only sort in the URL applies once owner capabilities resolve', () => {
-		at('?sort=completeness_asc');
+		at('?sort=enriched_asc');
 		const c = make(peopleSchema, '/people');
 		expect(c.state.sort).toBe('name');
 		expect(nav.replaceState).not.toHaveBeenCalled();
 		c.setOwner(true);
-		expect(c.state.sort).toBe('completeness_asc');
+		expect(c.state.sort).toBe('enriched_asc');
 	});
 
 	it('key is the canonical query string', () => {

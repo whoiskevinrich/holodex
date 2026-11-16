@@ -422,6 +422,7 @@ func (h *Handlers) Mount(r chi.Router) {
 	r.Get("/query/parse", h.parseQuery)
 	r.Get("/query/fields", h.queryFieldList)
 	r.Get("/query/values", h.queryFieldValues)
+	r.Get("/filter-fields", h.filterFieldList) // F90 Fields control, owner-only
 	r.Get("/facets", h.facets)
 	// Ungated: lets the SPA discover whether it is an owner / needs a token (F21.7).
 	r.Get("/capabilities", h.capabilities)
@@ -542,14 +543,12 @@ func (h *Handlers) Mount(r chi.Router) {
 //	resolution (SD|HD|FHD|4K), year_min/max, sort, limit, offset.
 //
 // sort (F12.1) is one of title_asc|title_desc|added_asc|added_desc|
-// updated_asc|updated_desc|duration_asc|duration_desc|resolution_asc|resolution_desc|completeness_asc|
-// completeness_desc; default added_desc. completeness_asc/desc, and the
-// repeatable missing_facet param, are owner-only (F55.5/F55.6) — score is an
-// owner curation signal, never public library metadata (spec "Access control &
-// security"), so a non-owner request using either is rejected rather than
-// silently ignored. Both are ordinary SQL over the materialized store (ADR-099
-// D2/D3), so they page like every other sort. For the owner, every item also
-// carries `completeness` (F65.5) — drained first so the badge is current.
+// updated_asc|updated_desc|duration_asc|duration_desc|resolution_asc|resolution_desc|enriched_asc|
+// enriched_desc; anything else, a retired completeness_* key included, reads as added_desc
+// (F90 P0-6). enriched_asc/desc and the repeatable missing_facet param are owner-only
+// (F90 P0-8, F55) — a non-owner request using either is rejected rather than silently
+// ignored. Both are ordinary SQL over the drained caches, so they page like every other
+// sort. The owner's read drains first, so the enriched counts on its items are current.
 func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 	f, ok := h.mediaFilterFor(w, r, r.URL.Query())
 	if !ok {
@@ -577,7 +576,7 @@ func (h *Handlers) listMedia(w http.ResponseWriter, r *http.Request) {
 // hydrateTiles readies a page of browse rows for the grid tile: thumbnails, browse-title
 // resolution (F27: any field with browse:true overwrites video.Title with the
 // highest-precedence source, e.g. tmdb:title before file:title), parts, the owner's
-// completeness badge, and the visitor redaction. listMedia and the playlist read share
+// enriched count and watched mark, and the visitor redaction. listMedia and the playlist read share
 // it so a tile renders, and redacts, identically on both (ADR-121 D3).
 func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwner bool) error {
 	h.prepareThumbnails(items)
@@ -587,7 +586,7 @@ func (h *Handlers) hydrateTiles(ctx context.Context, items []model.Video, isOwne
 	}
 	h.applyPartsTo(ctx, items)
 	if isOwner {
-		if err := h.attachVideoCompleteness(ctx, items); err != nil {
+		if err := h.attachVideoEnriched(ctx, items); err != nil {
 			return err
 		}
 		if err := h.attachWatched(ctx, items); err != nil {
@@ -962,17 +961,8 @@ func (h *Handlers) getMedia(w http.ResponseWriter, r *http.Request) {
 			// so a visitor's resolved[] is unchanged. Resolved before markWriteTargets
 			// below, so an offered row is writable in the dialog.
 			if authorized {
-				opts.Offer = registry.OffersWhenEmpty
 				opts.ListRemoved = true // F30.3g: the owner's Removed (N)
-				// F85: the owner's chooser offers every poster Holodex holds, so the
-				// Poster row is kept whenever the video has any poster image at all.
-				opts.LocalPosters = h.localPosters(r.Context(), id)
-				opts.FileCover = h.fileCoverHash(id)
-				if len(opts.LocalPosters) > 0 || opts.FileCover != "" {
-					opts.Offer = func(canonical string) bool {
-						return resolver.NormKey(canonical) == fieldsource.LocalField || registry.OffersWhenEmpty(canonical)
-					}
-				}
+				opts = h.withPosterOptions(r.Context(), id, opts)
 			}
 			resolved = resolver.Resolve(v, extra, enr, cur, mfields, opts)
 			if authorized {
@@ -1342,6 +1332,7 @@ func (h *Handlers) adminReloadConfig(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, "reload sources", err)
 			return
 		}
+		h.repo.SetDeclaredProviders(h.enrich.Store().Current().Names())
 		// Re-sync provider brand icons to the reloaded registry (ADR-059): a newly added
 		// provider gets its icon, a removed one is pruned. Off the request path — a
 		// provider describe/fetch must not block the reload response — and best-effort.
@@ -1444,16 +1435,14 @@ func (h *Handlers) metadataKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"keys": out})
 }
 
-// listPeople handles GET /people (F19): name-sorted (or count-sorted, or
-// completeness-sorted/filtered) people with active-video counts. sort=
-// completeness_asc|completeness_desc and the repeatable missing_facet param
-// are owner-only (F55.5/F55.6), same posture as listMedia; both read the
-// materialized store in SQL (ADR-099 D2/D3), and the owner's items carry
-// `completeness` (F65.5).
+// listPeople handles GET /people (F19): name-sorted (or count-, random- or enriched-sorted)
+// people with active-video counts. The enriched sorts, missing_facet and the F90 filters
+// (link, has, missing) are owner-only, same posture as listMedia (gateNamedList); the
+// owner's items carry `enriched`.
 func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f, p := namedListFilterFromQuery(q)
-	if wantsCompleteness(f.Sort, f.MissingFacets) && !h.requireOwnerInline(w, r) {
+	if !h.gateNamedList(w, r, f, model.EnrichEntityPerson) {
 		return
 	}
 	isOwner := h.auth.authorized(r)
@@ -1471,7 +1460,7 @@ func (h *Handlers) listPeople(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isOwner {
-		if err := h.attachPersonCompleteness(r.Context(), people); err != nil {
+		if err := h.attachPersonEnriched(r.Context(), people); err != nil {
 			h.fail(w, "list people", err)
 			return
 		}
@@ -1564,6 +1553,7 @@ func (h *Handlers) listTags(w http.ResponseWriter, r *http.Request) {
 		f.Sort = "name" // tags have no completeness sort
 	}
 	f.MissingFacets = nil
+	f.Link, f.Has, f.Missing = "", nil, nil // F90's filters are People and Studios only
 	tags, err := h.repo.ListTagsFiltered(r.Context(), f)
 	if err != nil {
 		h.fail(w, "list tags", err)

@@ -3,6 +3,7 @@ package repo
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"holodex/internal/query"
 )
@@ -15,7 +16,7 @@ func TestCompileExpr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sql, args := compileExpr(q.Root)
+	sql, args := compileEnv{now: time.Now(), providers: []string{"provider-x"}}.expr(q.Root)
 
 	for _, input := range []string{"it's", "here", "provider-x", "1990", "1200", "3600"} {
 		if strings.Contains(sql, input) {
@@ -49,8 +50,24 @@ func TestCompileExpr(t *testing.T) {
 func TestFlatAndExprShareFragments(t *testing.T) {
 	q, _ := query.Parse("tag:5")
 	exprSQL, _ := compileExpr(q.Root)
-	flat, _ := VideoFilter{TagIDs: []int64{5}}.build()
+	flat, _ := VideoFilter{TagIDs: []int64{5}}.build(nil)
 	if !strings.Contains(flat, exprSQL) {
 		t.Errorf("tag:5 compiles to\n%s\nwhich isn't in ?tag=5's\n%s", exprSQL, flat)
+	}
+}
+
+// F90 P0-1: matched: binds the declared names, and counts nothing they don't name.
+func TestMatchedClauseDeclaredOnly(t *testing.T) {
+	sql, args := matchedClause(query.MatchedAny, []string{"provider-1", "provider-2"})
+	if !strings.Contains(sql, "ee.provider IN (?,?)") || len(args) != 2 {
+		t.Errorf("matched:any = %s %v", sql, args)
+	}
+	for _, tc := range []struct {
+		provider string
+		declared []string
+	}{{query.MatchedAny, nil}, {"provider-9", []string{"provider-1"}}, {"filename", []string{"provider-1"}}} {
+		if sql, _ := matchedClause(tc.provider, tc.declared); sql != "0" {
+			t.Errorf("matched:%s with %v = %s, want 0", tc.provider, tc.declared, sql)
+		}
 	}
 }

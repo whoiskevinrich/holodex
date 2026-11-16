@@ -67,7 +67,7 @@ describe('problems and their chips', () => {
 	it('marks the owner-only chips on an own-condition refusal, naming one in the fix', () => {
 		const e = new ApiError(400, '/playlists/1', 'x', { error: 'A public playlist can’t use owner-only conditions.', owner_only: true });
 		const p = toProblem(e, model);
-		expect(p.fix).toBe('Remove “matched”, or make the playlist private.');
+		expect(p.fix).toBe('Remove “Linked”, or make the playlist private.');
 		expect(chipAtFault(chip('matched'), p)).toBe(true);
 		expect(chipAtFault(chip('playlist'), p)).toBe(false);
 	});

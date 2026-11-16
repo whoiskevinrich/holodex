@@ -78,6 +78,8 @@ shared or bookmarked, and saved filters can come back invisibly on a later visit
 - **The Missing (completeness facet) filter on list pages.** It's removed from the People,
   Studios and Media toolbars. *(Why: it's a work queue, and the owner page already has a
   missing-facet queue. HOLODEX-262's "missing-facet filter chip" is superseded for list pages.)*
+  [F90](provider-and-field-filters.md) brings filtering on a missing field back to these three lists
+  as a way to look at a list, and adds a Filters control to People and Studios (its RD1).
 - **Tag, studio or person pickers on Media** *as toolbar controls*. *(Why: the entity pages already
   answer "show me this studio". Media receives that scope as a chip, see R5.)* Combining Tags,
   people and studios with AND, OR and NOT is F87's job: the query language
@@ -282,6 +284,7 @@ separate completeness state (see R2).
 
 - **Filters on entity pages** (People by nationality, and so on, via F46 queryable attributes).
   The sheet and chip design must take new filter types without layout changes.
+  [F90](provider-and-field-filters.md) adds the first of these: provider link and has-a-value.
 - **Undo for filter changes** (`pushState`). Keep all URL writes in one function so this could
   change in one place.
 - **Removing legacy keys** is HOLODEX-474, gated on production confirmation.

@@ -82,21 +82,12 @@ type Video struct {
 
 	People []Person `json:"people,omitempty"`
 	Tags   []Tag    `json:"tags,omitempty"`
-	// Completeness is the owner-only ring-badge payload (F65.5, ADR-099 D5),
-	// attached to list items from the materialized store; absent for a visitor.
-	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+	// Enriched is the owner-only enriched count (F90 P0-4): how many fields a declared
+	// provider contributed to, for the Table view's Enriched column. Absent for a visitor.
+	Enriched *int `json:"enriched,omitempty"`
 	// Watched is the owner's watched mark (F89 P0-9), stamped by the API layer for the
 	// owner only, so a visitor's payload never carries it (SEC-10).
 	Watched bool `json:"watched,omitempty"`
-}
-
-// CompletenessSummary is the two completeness bands a list item carries for the
-// owner (F65.5, ADR-099 D5): required is the ring, extras its overfill. Either is
-// nil when its band has no applicable facet (ADR-099 D1's null rule — a studio
-// has no required band). Read from entity_completeness, never computed inline.
-type CompletenessSummary struct {
-	Required *int `json:"required"`
-	Extras   *int `json:"extras"`
 }
 
 type Person struct {
@@ -130,8 +121,8 @@ type Person struct {
 	// two Person entries sharing the same ID. Omitted elsewhere (people-list, person
 	// detail), same convention as HeadshotVersion/PosterVersion above.
 	Role string `json:"role,omitempty"`
-	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
-	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+	// Enriched is the owner-only enriched count (F90); see Video.Enriched.
+	Enriched *int `json:"enriched,omitempty"`
 }
 
 // EntityAlias is one alternate name for a named entity — person, studio, or tag —
@@ -437,8 +428,8 @@ type Studio struct {
 	// the palette modes ("dark", "light") the halo is on for. An absent role, or an
 	// absent mode, is off — the default. Populated wherever ImageVersions is.
 	ImageHalo map[string][]string `json:"image_halo,omitempty"`
-	// Completeness is the owner-only ring-badge payload (F65.5); see Video.Completeness.
-	Completeness *CompletenessSummary `json:"completeness,omitempty"`
+	// Enriched is the owner-only enriched count (F90); see Video.Enriched.
+	Enriched *int `json:"enriched,omitempty"`
 }
 
 // Film image roles (F56/HOLODEX-280, ADR-086): poster is the self-hosted portrait

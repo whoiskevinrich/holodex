@@ -79,7 +79,7 @@ func condValue(c *Cond) string {
 		return comparison(c, "s")
 	case FieldResolution, FieldAdded, FieldUpdated, FieldReleased, FieldPlayed, FieldWatched:
 		return c.Value
-	case FieldMatched:
+	case FieldMatched, FieldHas:
 		return quoteIfNeeded(c.Value, false)
 	}
 	if c.ID > 0 {

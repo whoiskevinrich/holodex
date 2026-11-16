@@ -183,14 +183,14 @@ func TestSmartPlaylistVisibility(t *testing.T) {
 	if code, _ := patchTok(t, pub, "s3cret", map[string]any{"query": "missing_facet=poster"}); code != http.StatusBadRequest {
 		t.Errorf("missing_facet after public: %d, want 400", code)
 	}
-	if code, _ := patchTok(t, pub, "s3cret", map[string]any{"sort": repo.SortCompletenessAsc}); code != http.StatusBadRequest {
+	if code, _ := patchTok(t, pub, "s3cret", map[string]any{"sort": repo.SortEnrichedAsc}); code != http.StatusBadRequest {
 		t.Errorf("completeness sort on public: %d, want 400", code)
 	}
 
 	// A playlist that predates the rule (public, completeness sort) can still be renamed
 	// or set to always shuffle: neither changes the state D4 judges.
 	public := model.PlaylistPublic
-	completeness := repo.SortCompletenessAsc
+	completeness := repo.SortEnrichedAsc
 	_, legacy := postTok(t, base+"/playlists", "s3cret", map[string]any{"name": "legacy", "visibility": "public"})
 	legacyID := int64(legacy["playlist"].(map[string]any)["id"].(float64))
 	if err := r.UpdatePlaylist(context.Background(), legacyID, repo.PlaylistPatch{Sort: &completeness}); err != nil {
@@ -651,7 +651,7 @@ func TestSmartPlaylistPrivate404IsUnknown404(t *testing.T) {
 		t.Fatalf("unknown id: %d", codeU)
 	}
 	_, ownerOnlyID := smartAs(t, base, filmTok, "tag="+itoa(tag)+"&missing_facet=poster_url", nil)
-	_, completenessID := smartAs(t, base, filmTok, "tag="+itoa(tag)+"&sort="+repo.SortCompletenessAsc, nil)
+	_, completenessID := smartAs(t, base, filmTok, "tag="+itoa(tag)+"&sort="+repo.SortEnrichedAsc, nil)
 	_, staleID := smartAs(t, base, filmTok, "tag=999999", nil)
 	_, plainID := smartAs(t, base, filmTok, "tag="+itoa(tag), nil)
 	for name, id := range map[string]int64{"plain": plainID, "stale": staleID, "missing_facet": ownerOnlyID, "completeness sort": completenessID} {
@@ -751,7 +751,7 @@ func TestSmartPlaylistOwnerOnlyAcceptedWhenPrivate(t *testing.T) {
 		t.Errorf("missing_facet query on private: %d %v", code, resp)
 	}
 	// PATCH a completeness sort on a private playlist
-	for _, s := range []string{repo.SortCompletenessAsc, repo.SortCompletenessDesc} {
+	for _, s := range []string{repo.SortEnrichedAsc, repo.SortEnrichedDesc} {
 		if code, resp := patchTok(t, plain, "s3cret", map[string]any{"sort": s}); code != http.StatusOK {
 			t.Errorf("sort %s on private: %d %v", s, code, resp)
 		}
@@ -834,7 +834,7 @@ func TestSmartPlaylistParity(t *testing.T) {
 		"",
 	}
 	sorts := []string{"added_desc", "added_asc", "title_asc", "title_desc", "duration_desc", "duration_asc",
-		"resolution_desc", "resolution_asc", repo.SortCompletenessAsc, repo.SortCompletenessDesc}
+		"resolution_desc", "resolution_asc", repo.SortEnrichedAsc, repo.SortEnrichedDesc}
 	for _, sort := range sorts {
 		if !repo.ValidSort(sort) {
 			t.Fatalf("sort %q is not a browse sort", sort)

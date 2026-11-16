@@ -214,10 +214,11 @@ Decided in [`bf329409`](https://github.com/whoiskevinrich/holodex/commit/bf32940
 
 ## Completeness is a materialized cache invalidated by SQL triggers into a dirty set
 
-`entity_completeness` (nullable `required`, `extras`) and `entity_completeness_missing` cache
-`resolver.Complete` per `(entity_type, entity_id)`, so list sort is SQL `ORDER BY` with paging and
-facet counts are a `GROUP BY`. They are never a source of truth: the detail page computes live and
-rewrites a differing row (`selfHealCompleteness`); the remediation queue scans live.
+`entity_completeness_missing` caches `resolver.Complete`'s missing facets per `(entity_type,
+entity_id)`, so the missing-field filter is SQL with paging and facet counts are a `GROUP BY`. It is
+never a source of truth: the detail page computes live and rewrites a differing row
+(`selfHealCompleteness`); the remediation queue scans live. The score table beside it,
+`entity_completeness`, was dropped with the score (migration 0074, F90 P0-6).
 
 - **Invalidation.** `AFTER INSERT/UPDATE/DELETE` triggers on every input table insert the owner
   entity into `completeness_dirty` (`INSERT … WHERE NOT EXISTS`, not `OR IGNORE`); link tables flag
@@ -225,8 +226,7 @@ rewrites a differing row (`selfHealCompleteness`); the remediation queue scans l
   input cannot ship without a trigger.
 - **Mark-all** on promotion, claim and hint writes (in SQL), on mapping reload, and at boot when the
   fingerprint below moves.
-- **Drain** on owner-gated reads, under `writeMu`, best-effort. Visitors never drain, and the
-  owner-only `completeness` list field is dropped by the existing visitor redaction seam.
+- **Drain** on owner-gated reads, under `writeMu`, best-effort. Visitors never drain.
 
 **Rejected:** recompute at each Go write site — ~30 sites, no choke point. **Rejected:** recompute
 in the trigger — duplicates the resolver in SQL. **Rejected:** a global generation counter.
@@ -272,6 +272,69 @@ refreshes would mark untouched videos as updated. **Rejected:** comparing the re
 or a losing provider value wouldn't count, and a mapping edit would stamp the whole library.
 
 Decided in: pending squash (HOLODEX-619).
+
+## Field presence and provider contribution are cached in `entity_field_state`, for all three entity types
+
+F90 asks, for videos, people and studios alike, whether a field shows a value and how many mapped
+fields providers contributed to. `resolved_values` can't answer either. It holds videos only, keyed
+by a video foreign key. It drops images, and drops values that fail `NormValue`. It also keeps only
+the winning value, while the enriched count reads what providers stored whether or not it won.
+
+`entity_field_state(entity_type, entity_id, field_key, shown, enriched)` holds one row per mapped
+field that is shown, enriched, or both. It is keyed on all three columns, with an index on
+`(entity_type, field_key)`. `shown` is set when the resolver displays a value for the field, from
+any source. It is set even when the value fails `NormValue`, so presence never depends on
+parsability. `enriched` is set when a declared provider stored data that maps to the field,
+whether or not that data won.
+
+- **Fields.** For a video: its mapped fields, plus `released` and `poster`. For a person or studio:
+  the synthetic field set the detail pages already use (`personFields`, `studioFields`), plus
+  `photo` or `branding`. The cache leaves out `_` keys, computed fields and fields outside the
+  mapping, as `resolved_values` does. Images are never `enriched`.
+- **Images.** These come from the presence of an asset, not from a value:
+  - A person's photo: a headshot in `person_images`.
+  - A studio's branding: any `studio_images` role.
+  - A video's poster: whatever the page would present, other than the automatic slot. So the drain
+    resolves the poster with the same local-slot and file-cover options the detail page uses.
+  - Triggers on `video_poster_sources` and on `videos.thumbnail_state` mark the video dirty. Every
+    writer of the file slot must go through one of those two.
+- **Linked** stays a live `EXISTS` over `entity_enrichment` for the entity's type. The query
+  carries the provider names that `metadata-sources.yaml` declares as bound parameters. So `matched:any` and the People and Studios
+  equivalent count only declared providers, and `filename` (`internal/extract`) never counts,
+  because it isn't declared. A sources reload
+  already re-fingerprints, so a removed provider stops counting with no data change.
+- **Invalidation and drain.** It reuses `completeness_dirty`, its triggers and the drain that
+  `resolved_values` rides. One resolver pass per dirty entity rewrites that entity's rows, for all
+  three types. The `has` and enriched conditions and sorts are owner-only, so visitors never reach
+  this cache, and the "visitors never drain" rule stands for it.
+- **The search tool.** The MCP HTTP transport runs in the server process, so it gets the server's
+  catalogue and drain and answers index-reading conditions as `/media` does. The stdio transport is
+  a separate process (`docker exec`), and nothing in it may drain: that would make it a second
+  writer on the database. It refuses those conditions and names the HTTP endpoint instead.
+  **Rejected:** answering stdio from the cache as it stands. The drain is request-driven, with no
+  background pass, so the cache can be behind by any amount of time.
+- **Reads.** `has:x` is an `EXISTS` over `shown = 1`, and `-has:x` its `NOT EXISTS`. An entity not
+  yet drained therefore reads as missing everything, never as having it. The enriched sort is a
+  correlated `COUNT` of `enriched = 1` rows, with the list's default order as tiebreak.
+- **What outlived the score.** Retiring the score dropped `entity_completeness` (0074). The dirty
+  set and the drain stay, now owned by this cache and `resolved_values`. `entity_completeness_missing`
+  stays too, because the owner's queue reads it, with its criticality bands and its not-applicable
+  rule.
+
+**Rejected:** widening `resolved_values` with an `entity_type` column, plus sentinel rows for images
+and unparsable values. That loses the video foreign key's cascade, and puts rows that aren't values
+in a value index that `released:` and resolved conditions compare against. It also still has no
+place for data that lost but was stored. **Rejected:** answering `has` from
+`entity_completeness_missing`. It holds only scored, applicable gaps. An entity not yet drained
+would read as having every field, and widening it would change the queue it exists for.
+**Rejected:** resolving in memory for People and Studios, for the reason the section above gives
+for videos: SQL can't count, sort or page what Go filters afterwards. **Rejected:** a trigger-only
+or SQL-only enriched count. Mapping a provider's keys to canonical fields lives in
+`metadata-mappings.yaml`, which SQL can't see. **Rejected:** excluding `filename` by name in the
+`matched` SQL. Any later internal namespace would count until someone remembered to add it; the
+declared-provider list can't drift that way.
+
+Decided in: pending squash (HOLODEX-626).
 
 ## Boot re-scores completeness only when an input fingerprint moves, in the background
 

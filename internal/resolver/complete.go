@@ -1,7 +1,6 @@
 package resolver
 
 import (
-	"math"
 	"strings"
 
 	"holodex/internal/fieldsource"
@@ -27,28 +26,12 @@ const (
 	curatedTier  tier = TierCurated
 )
 
-// Completeness is the F55 completeness score plus the separate actionability
-// signal for one entity, computed as a pure post-pass over its resolved fields
-// (ADR-081 D3) — mirrors Derive's shape, but needs no clock since nothing here is
-// time-based. v2 (F65, ADR-099 D1): the score is the required band alone and
-// extras is a separate number; the two are never combined.
+// Completeness is one entity's scored facets — each one's tier and status, for the
+// detail page's field list and the owner queue — computed as a pure post-pass over its
+// resolved fields (ADR-081 D3). The score, extras number and actionability ratio it once
+// carried were retired with the ring and the Completeness sorts (F90 P0-6).
 type Completeness struct {
-	// Required is round(100 × present / applicable) over the entity's critical
-	// facets — THE score: the panel headline, the card ring, the primary sort
-	// key. nil when the entity has no applicable critical facet (studios; or a
-	// video with every critical facet marked not-applicable) — never a vacuous
-	// 100. Serialized as `score` so the detail payload's key is unchanged from
-	// v1 (ADR-099 D5).
-	Required *int `json:"score"`
-	// Extras is the same ratio over the nice_to_have band: the sort tiebreaker
-	// and the ring's overfill, never blended into Required. nil when there is
-	// no applicable nice_to_have facet.
-	Extras *int `json:"extras"`
-	// Actionability is the fraction of missing scored facets that have a cached,
-	// unapplied provider candidate — nil (not zero) when there are no missing
-	// scored facets, since the ratio is undefined rather than zero.
-	Actionability *float64     `json:"actionability,omitempty"`
-	Facets        []FacetScore `json:"facets"`
+	Facets []FacetScore `json:"facets"`
 }
 
 // Missing returns the scored (critical / nice_to_have), applicable facets the
@@ -67,7 +50,7 @@ func (c Completeness) Missing() []FacetScore {
 
 // FacetScore is one scored facet's tier/status for the completeness breakdown
 // panel (F55). A not-applicable facet is still listed, so the UI can render its
-// muted status, but it is excluded from both bands and from Actionability.
+// muted status, but it is never missing or actionable.
 type FacetScore struct {
 	Canonical     string `json:"canonical"`
 	Label         string `json:"label"`
@@ -94,15 +77,13 @@ type FacetScore struct {
 	Curatable bool `json:"curatable,omitempty"`
 }
 
-// Complete computes the completeness bands and actionability signal for one
-// entity from its configured fields, already-resolved values, and not-applicable
-// exclusions (F55, ADR-081 D3; formula per ADR-099 D1).
+// Complete lists one entity's scored facets from its configured fields, already-resolved
+// values, and not-applicable exclusions (F55, ADR-081 D3).
 //
 // fields is the same field list passed to ResolveFields — Complete needs it, not
 // just resolved, because ResolveFields drops an empty, undecided field entirely
 // (spec RD-adjacent behavior predating F55): a genuinely missing scored facet may
-// have no row in resolved at all, and dropping it from the band's denominator
-// would silently inflate every entity's completeness. notApplicable is keyed by
+// have no row in resolved at all, and leaving it out would hide it from the queue. notApplicable is keyed by
 // canonical, same casing FacetsNotApplicableForEntity returns.
 //
 // Presence is binary and read entirely off ResolvedField.WinningSource — a field
@@ -110,15 +91,13 @@ type FacetScore struct {
 // The provider/curated distinction survives only as FacetScore.Tier for the
 // panel's ProvenanceBadge. A field with no registry.FieldDef.Criticality tag
 // (including every Computed field, D1's invariant) is skipped entirely — never
-// scored, never listed.
+// listed.
 func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable map[string]bool) Completeness {
 	byCanonical := make(map[string]ResolvedField, len(resolved))
 	for _, rf := range resolved {
 		byCanonical[rf.Canonical] = rf
 	}
 
-	var required, extras band
-	var missing, actionable int
 	facets := make([]FacetScore, 0, len(fields))
 
 	for _, f := range fields {
@@ -148,50 +127,19 @@ func Complete(fields []mapping.Field, resolved []ResolvedField, notApplicable ma
 			continue
 		}
 
-		b := &extras
-		if def.Criticality == registry.CriticalityCritical {
-			b = &required
-		}
-		b.applicable++
 		switch t {
 		case missingTier:
-			missing++
 			if provider, ok := actionableCandidate(rf); ok {
 				fs.Actionable = true
 				fs.Provider = provider
-				actionable++
 			}
 		case providerTier:
-			b.present++
 			fs.Provider = winningNamespace(rf.WinningSource)
-		default:
-			b.present++
 		}
 		facets = append(facets, fs)
 	}
 
-	var actionability *float64
-	if missing > 0 {
-		a := float64(actionable) / float64(missing)
-		actionability = &a
-	}
-	return Completeness{Required: required.score(), Extras: extras.score(), Actionability: actionability, Facets: facets}
-}
-
-// band tallies one criticality band's applicable and present facet counts
-// (ADR-099 D1): required over critical facets, extras over nice_to_have.
-type band struct {
-	applicable, present int
-}
-
-// score is round(100 × present / applicable), or nil when the band has no
-// applicable facet — the spec's null rule, never a vacuous 100.
-func (b band) score() *int {
-	if b.applicable == 0 {
-		return nil
-	}
-	s := int(math.Round(100 * float64(b.present) / float64(b.applicable)))
-	return &s
+	return Completeness{Facets: facets}
 }
 
 // classifyTier maps a resolved field's winning source to its completeness tier

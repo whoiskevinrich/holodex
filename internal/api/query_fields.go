@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"holodex/internal/mapping"
+	"holodex/internal/model"
 	"holodex/internal/query"
 	"holodex/internal/registry"
 	"holodex/internal/repo"
@@ -16,16 +17,24 @@ import (
 // Mapped fields in queries (F89 P0-6, SEC-8; field-resolution.md, "Which fields").
 
 // queryFields is the catalogue of queryable fields: the owner's mapping, less anything
-// that isn't a value to compare. Nothing outside it is indexed or compiled.
+// that isn't a value to compare. Nothing outside it is indexed or compiled. A field named
+// like a built-in condition (studio) is listed for has: only (F90 P0-2): `studio:` stays
+// the built-in condition, so its values are never indexed or offered.
 func (h *Handlers) queryFields() query.Fields {
+	return MappedQueryFields(h.mappings)
+}
+
+// MappedQueryFields is queryFields for a caller with only the mapping, such as the stdio
+// search tool, which parses with it so it can refuse what needs the index by name.
+func MappedQueryFields(m *mapping.Store) query.Fields {
 	out := query.Fields{query.FieldReleased: {
 		Kind:      query.KindDate,
 		OwnerOnly: registry.HiddenFromVisitors(query.ReleaseDateKey),
 	}}
-	if h.mappings == nil {
+	if m == nil {
 		return out
 	}
-	for _, f := range h.mappings.Current().Fields() {
+	for _, f := range m.Current().Fields() {
 		if spec, ok := queryFieldSpec(f); ok {
 			out[f.Canonical] = spec
 		}
@@ -33,13 +42,47 @@ func (h *Handlers) queryFields() query.Fields {
 	return out
 }
 
+// QueryFields and DrainForQuery are what the in-process HTTP search tool uses to parse
+// and answer index-reading conditions as /media does (F90 P0-9): the full catalogue,
+// promotions included, and the drain before the read.
+func (h *Handlers) QueryFields(ctx context.Context) query.Fields { return h.parseFields(ctx) }
+
+func (h *Handlers) DrainForQuery(ctx context.Context, expr query.Node) {
+	h.drainForFilter(ctx, expr, "")
+}
+
+// parseFields is queryFields plus every field the owner promoted on videos (F44) that holds a
+// value, as has-only entries (F90 P0-2): has: may name them, their values are never indexed
+// or compared, and a promotion's own label wins. The drain already caches their presence.
+func (h *Handlers) parseFields(ctx context.Context) query.Fields {
+	out := h.queryFields()
+	for _, f := range h.promotedVideoFields(ctx, out) {
+		out[f.Key] = query.FieldSpec{Kind: query.KindText, Label: f.Label, HasOnly: true}
+	}
+	return out
+}
+
+// promotedVideoFields is the owner's promoted video fields that hold a value and aren't
+// already in mapped, in promotion order.
+func (h *Handlers) promotedVideoFields(ctx context.Context, mapped query.Fields) []filterField {
+	var out []filterField
+	merged, promoted := h.mergePromotions(ctx, model.EnrichEntityVideo, nil, nil)
+	for _, f := range merged {
+		if _, ok := mapped[f.Canonical]; ok || !promoted[f.Canonical] || !holdsValue(f) {
+			continue
+		}
+		l := f.Label
+		if l == "" {
+			l = registry.Lookup(f.Canonical).Label
+		}
+		out = append(out, filterField{f.Canonical, l})
+	}
+	return out
+}
+
 func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 	def := registry.Lookup(f.Canonical)
-	display := f.Display
-	if display == "" {
-		display = def.Display
-	}
-	if strings.HasPrefix(f.Canonical, "_") || query.IsBuiltin(f.Canonical) || def.Computed || display == "image_url" {
+	if !holdsValue(f) {
 		return query.FieldSpec{}, false
 	}
 	spec := query.FieldSpec{Kind: query.KindText, Label: f.Label, OwnerOnly: registry.HiddenFromVisitors(f.Canonical)}
@@ -55,12 +98,23 @@ func queryFieldSpec(f mapping.Field) (query.FieldSpec, bool) {
 	return spec, true
 }
 
+// holdsValue reports whether a mapped field carries a value the owner reads, rather than an
+// internal `_` key, a computed field or an image (field-resolution.md, "Which fields").
+func holdsValue(f mapping.Field) bool {
+	def := registry.Lookup(f.Canonical)
+	display := f.Display
+	if display == "" {
+		display = def.Display
+	}
+	return !strings.HasPrefix(f.Canonical, "_") && !def.Computed && display != "image_url"
+}
+
 // resolvedValueRows is what one video's resolve puts in the index.
 func resolvedValueRows(fields query.Fields, resolved []resolver.ResolvedField) []repo.ResolvedValue {
 	var out []repo.ResolvedValue
 	for _, r := range resolved {
 		spec, ok := fields[r.Canonical]
-		if !ok {
+		if !ok || query.IsBuiltin(r.Canonical) {
 			continue
 		}
 		for _, v := range r.Values {

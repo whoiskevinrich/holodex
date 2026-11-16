@@ -51,8 +51,8 @@ export interface ParsedQuery {
 export type QueryParseResult = ({ ok: true } & ParsedQuery) | { ok: false; error: QueryError };
 
 /** The fields a condition may name; `matched` is the owner's only. */
-export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched', 'watched', 'plays', 'played'] as const;
-export const OWNER_ONLY_FIELDS: readonly string[] = ['matched', 'watched', 'plays', 'played'];
+export const QUERY_FIELDS = ['tag', 'person', 'studio', 'category', 'duration', 'year', 'added', 'updated', 'released', 'resolution', 'playlist', 'matched', 'has', 'watched', 'plays', 'played'] as const;
+export const OWNER_ONLY_FIELDS: readonly string[] = ['matched', 'has', 'watched', 'plays', 'played'];
 
 /** Fields offered while typing, for this reader: a visitor is never offered `matched` (P0-5).
  * mapped is the reader's own list from the server, which already leaves out hidden fields. */
@@ -206,7 +206,9 @@ export function condLabel(n: QueryNode): string {
 		case 'resolution':
 			return `Resolution: ${n.value}`;
 		case 'matched':
-			return n.value === 'any' ? 'matched' : `matched: ${name}`;
+			return n.value === 'any' ? 'Linked' : `Linked: ${name}`;
+		case 'has': // F90: the field's label, then the panel toggle's word
+			return fieldChipLabel(n.field_label ?? n.value ?? '', true);
 		case 'added': // the server words it: "last 30 days", "2026-01 to 2026-06"
 		case 'updated':
 		case 'released':
@@ -230,6 +232,20 @@ export function condLabel(n: QueryNode): string {
 	return n.field_label ? `${n.field_label}: ${name}` : n.field ? `${n.field}: ${name}` : name;
 }
 
+/** A field condition's chip text (handoff "Chips row", owner's 2026-11-14 choice): the
+ * label, then the Filters panel toggle's own word. */
+export function fieldChipLabel(label: string, has: boolean): string {
+	return `${label}: ${has ? 'has' : 'missing'}`;
+}
+
+/** A NOT chip's text: `not ` before the condition, except F90's own words for the two the
+ * Filters panel writes (`-matched:any` is Not linked, `-has:x` is X: missing). */
+function negatedLabel(n: QueryNode): string {
+	if (n.field === 'matched' && n.value === 'any') return 'Not linked';
+	if (n.field === 'has') return fieldChipLabel(n.field_label ?? n.value ?? '', false);
+	return `not ${condLabel(n)}`;
+}
+
 const isLeaf = (n: QueryNode) => n.kind === 'cond' || n.kind === 'word';
 
 /** A leaf or a NOT over a leaf as a chip, else null. */
@@ -242,7 +258,7 @@ function chipOf(n: QueryNode, path: number[]): ChipCond | null {
 	});
 	if (isLeaf(n)) return { label: condLabel(n), negated: false, path, ...facts(n) };
 	if (n.kind === 'not' && n.items && isLeaf(n.items[0])) {
-		return { label: `not ${condLabel(n.items[0])}`, negated: true, path, ...facts(n.items[0]) };
+		return { label: negatedLabel(n.items[0]), negated: true, path, ...facts(n.items[0]) };
 	}
 	return null;
 }

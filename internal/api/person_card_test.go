@@ -47,10 +47,9 @@ func TestPersonCard(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("owner card = %d", code)
 	}
-	if c, ok := owner["completeness"].(map[string]any); !ok {
-		t.Errorf("owner card completeness = %v, want the ring bands", owner["completeness"])
-	} else if _, hasReq := c["required"]; !hasReq {
-		t.Errorf("owner completeness lacks required: %v", c)
+	// F90 P0-6: the ring went, so the owner's card carries no bands either.
+	if _, has := owner["completeness"]; has {
+		t.Errorf("owner card carries completeness %v, want absent", owner["completeness"])
 	}
 
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/people/999999/card", ""); code != http.StatusNotFound {

@@ -190,6 +190,16 @@ func (reg *Registry) Enabled() []Source {
 	return out
 }
 
+// Names returns every declared provider's name, switched on or not: what makes an
+// entity linked (F90 P0-1). Switching a provider off stops new fetches, not its links.
+func (reg *Registry) Names() []string {
+	out := make([]string, 0, len(reg.sources))
+	for _, s := range reg.sources {
+		out = append(out, s.Name)
+	}
+	return out
+}
+
 // ByName resolves an enabled source by name (case-insensitive). A disabled or
 // unknown name returns ok=false — the allowlist that prevents an arbitrary
 // base_url from being dialed (ADR-033 F22.2b SSRF guard).

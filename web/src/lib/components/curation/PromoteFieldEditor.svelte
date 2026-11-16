@@ -7,6 +7,7 @@
 	// (api.promoteField); Remove issues the DELETE (api.unpromoteField). Tokens only; QA Cinémathèque.
 	import { untrack } from 'svelte';
 	import { api } from '#lib/api.ts';
+	import { forgetFilterFields } from '#lib/fieldConditions.ts';
 	import { toMessage } from '#lib/format.ts';
 	import type { PromotionEntityType, PromotionRender } from '#lib/types.ts';
 
@@ -85,6 +86,7 @@
 		error = '';
 		try {
 			await fn();
+			forgetFilterFields(); // every Fields control lists promoted fields (F90)
 			await onchanged();
 			onclose();
 		} catch (e) {

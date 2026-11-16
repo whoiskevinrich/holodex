@@ -31,11 +31,13 @@ func pageFromQuery(q url.Values) page {
 }
 
 // namedListFilterFromQuery reads the People / Studios / Tags list params (F80): sort,
-// the owner's missing_facet, q (search), seed (random), and a page.
+// the owner's missing_facet, link, has and missing (F90), q (search), seed (random), and
+// a page. gateNamedList checks the owner-only ones.
 func namedListFilterFromQuery(q url.Values) (repo.NamedListFilter, page) {
 	p := pageFromQuery(q)
 	f := repo.NamedListFilter{
 		Sort: q.Get("sort"), MissingFacets: q["missing_facet"], Query: q.Get("q"),
+		Link: q.Get("link"), Has: q["has"], Missing: q["missing"],
 		Limit: p.Limit, Offset: p.Offset,
 	}
 	if f.Sort == "random" {

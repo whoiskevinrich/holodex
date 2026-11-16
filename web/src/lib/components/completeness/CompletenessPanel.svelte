@@ -20,7 +20,7 @@
 		videoId?: number;
 		/** Called after a successful not-applicable toggle so the parent can
 		 * refetch the detail response — this component doesn't own
-		 * `completeness`, so it can't recompute the score locally. */
+		 * `completeness`, so it can't redraw the facets locally. */
 		onchanged?: () => void;
 	} = $props();
 
@@ -32,13 +32,6 @@
 	let busy = $state(false);
 	let error = $state('');
 	let expanded = $state(false);
-
-	// v2 headline (F55.9, ADR-099 D1/D5): `score` is the required band and is
-	// the number; `extras` sits beside it, never blended. Where the type has no
-	// required band (studios: score null) extras *is* the number — the same
-	// rule the ring badge and the sort apply.
-	const headline = $derived(completeness?.score ?? completeness?.extras ?? 0);
-	const showExtras = $derived(completeness?.score !== null && completeness?.extras !== null && completeness?.extras !== undefined);
 
 	async function toggleNotApplicable(canonical: string, notApplicable: boolean) {
 		if (!videoId || busy) return;
@@ -64,27 +57,20 @@
 		<h2 class="text-xs uppercase tracking-wide text-muted">Completeness</h2>
 		<div class="space-y-4 rounded-theme border border-rule bg-surface p-4">
 			{#if completeness.facets.length === 0}
-				<!-- Only theoretically reachable today (every scored facet not-applicable) —
-				     spec §7 edge case: defend against a zero-denominator score render. -->
+				<!-- Only theoretically reachable today (every scored facet not-applicable). -->
 				<p class="text-sm text-muted">No scored facets.</p>
 			{:else}
-				<div class="space-y-1.5">
-					<div class="flex items-center justify-between gap-3">
-						<span class="flex items-baseline gap-2">
-							<span class="font-display text-2xl text-ink">{headline}%</span>
-							{#if showExtras}
-								<span class="text-xs text-muted">extras {completeness.extras}%</span>
-							{/if}
-						</span>
+				<!-- No score, bar or readiness line (F90 P0-6, P0-7): the field list behind one
+				     toggle is the whole panel. -->
+				<div>
 						<button
 							type="button"
 							onclick={() => (expanded = !expanded)}
 							aria-expanded={expanded}
 							aria-controls="completeness-facets"
-							aria-label={expanded ? 'Hide completeness details' : 'Show completeness details'}
-							title={expanded ? 'Hide details' : 'Show details'}
-							class="btn-quiet flex h-7 w-7 shrink-0 items-center justify-center rounded-theme hover:bg-surface-2"
+							class="btn-quiet flex items-center gap-1.5 rounded-theme px-1.5 py-1 text-sm hover:bg-surface-2"
 						>
+							{expanded ? 'Hide fields' : 'Show fields'}
 							<svg
 								class="h-4 w-4 transition-transform duration-200 motion-reduce:transition-none"
 								class:rotate-180={expanded}
@@ -97,22 +83,6 @@
 								<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
 							</svg>
 						</button>
-					</div>
-					<div
-						class="h-1.5 w-full overflow-hidden rounded-theme bg-surface-2"
-						role="img"
-						aria-label={`${headline}% complete`}
-					>
-						<div class="h-full bg-accent" style={`width: ${headline}%`}></div>
-					</div>
-					{#if completeness.actionability === undefined}
-						<p class="text-xs text-muted">Fully complete</p>
-					{:else}
-						<p class="text-xs text-muted">
-							{Math.round(completeness.actionability * 100)}% of missing facets have a cached candidate
-							ready
-						</p>
-					{/if}
 				</div>
 
 				{#if error}<p class="text-xs text-warn" role="alert">{error}</p>{/if}
