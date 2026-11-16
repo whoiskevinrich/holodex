@@ -589,7 +589,7 @@ func run(configPath string, migrateOnly bool, overrides config.Overrides) error 
 	if cfg.MCPEnabled && (cfg.MCPTransport == "http" || cfg.MCPTransport == "both") {
 		mcpAddr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.MCPPort))
 		go func() {
-			if err := mcp.New(repository, log, mappings, auth, cfg.FilmsEnabled).StartHTTP(ctx, mcpAddr); err != nil {
+			if err := mcp.New(repository, log, mappings, auth, cfg.FilmsEnabled).WithIndex(handlers).StartHTTP(ctx, mcpAddr); err != nil {
 				log.Error("mcp http server failed", "err", err)
 			}
 		}()

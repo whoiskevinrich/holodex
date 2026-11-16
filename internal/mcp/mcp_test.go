@@ -2,11 +2,14 @@ package mcp
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,11 +19,12 @@ import (
 	"holodex/internal/db"
 	"holodex/internal/mapping"
 	"holodex/internal/model"
+	"holodex/internal/query"
 	"holodex/internal/repo"
 )
 
-// F89: this tool has no drain, so it refuses what reads the index or the change stamp, and
-// knows no mapped field at all, rather than answer from stale values.
+// F89/F90 P0-9: over stdio this tool has no drain, so it refuses what reads the index or the
+// change stamp, mapped fields included, rather than answer from stale values.
 // A6: a visitor's search_videos is refused the watch conditions before any SQL.
 func TestSearchRefusesWatchConditionsForVisitor(t *testing.T) {
 	s, _ := newTestServer(t)
@@ -49,6 +53,73 @@ func TestSearchRefusesIndexConditions(t *testing.T) {
 		if !res.IsError {
 			t.Errorf("%s ran", expr)
 		}
+	}
+}
+
+// fakeIndex stands in for the server's catalogue and drain: its drain writes the field-state
+// row the real one would, so a has: answer proves the drain ran before the read.
+type fakeIndex struct {
+	db      *sql.DB
+	videoID int64
+	drains  int
+}
+
+func (f *fakeIndex) QueryFields(context.Context) query.Fields {
+	return query.Fields{"director": {Kind: query.KindText, Label: "Director"}}
+}
+
+func (f *fakeIndex) DrainForQuery(ctx context.Context, _ query.Node) {
+	f.drains++
+	_, _ = f.db.ExecContext(ctx, `INSERT OR IGNORE INTO entity_field_state (entity_type, entity_id, field_key, shown) VALUES ('video', ?, 'director', 1)`, f.videoID)
+}
+
+// §42 A11, P0-9: over HTTP the tool parses with the server's catalogue and drains before an
+// index-reading read, so has: answers as /media does; over stdio it refuses, naming /mcp.
+func TestSearchHasDrainsOverHTTP(t *testing.T) {
+	database, err := db.Open(filepath.Join(t.TempDir(), "mcp.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close() })
+	r := repo.New(database)
+	seed(t, r, "/m/a.mkv", "Sunrise", 120, 1280, nil, nil)
+	seed(t, r, "/m/b.mkv", "Sunset", 60, 1280, nil, nil)
+	ix := &fakeIndex{db: database}
+	if err := database.QueryRow(`SELECT id FROM videos WHERE file_path = '/m/a.mkv'`).Scan(&ix.videoID); err != nil {
+		t.Fatal(err)
+	}
+	stdio := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, api.NewAuth(""), false)
+	if res := call(t, stdio.searchVideos, map[string]any{"expr": "has:released"}); !res.IsError || !strings.Contains(resultText(t, res), "/mcp") {
+		t.Errorf("stdio has:released = %+v, want a refusal naming /mcp", res)
+	}
+
+	s := New(r, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, api.NewAuth(""), false).WithIndex(ix)
+	titles := func(expr string) []string {
+		t.Helper()
+		res := call(t, s.searchVideos, map[string]any{"expr": expr})
+		if res.IsError {
+			t.Fatalf("%s: %s", expr, resultText(t, res))
+		}
+		var resp searchResponse
+		if err := json.Unmarshal([]byte(resultText(t, res)), &resp); err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, it := range resp.Results {
+			out = append(out, it.Title)
+		}
+		return out
+	}
+	if got := titles("has:director"); !slices.Equal(got, []string{"Sunrise"}) {
+		t.Errorf("has:director = %v, want [Sunrise]", got)
+	}
+	if got := titles("-has:director"); !slices.Equal(got, []string{"Sunset"}) {
+		t.Errorf("-has:director = %v, want [Sunset]", got)
+	}
+	drains := ix.drains
+	titles("Sunrise")
+	if ix.drains != drains {
+		t.Error("a query that reads no index drained")
 	}
 }
 

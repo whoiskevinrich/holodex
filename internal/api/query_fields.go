@@ -21,19 +21,34 @@ import (
 // like a built-in condition (studio) is listed for has: only (F90 P0-2): `studio:` stays
 // the built-in condition, so its values are never indexed or offered.
 func (h *Handlers) queryFields() query.Fields {
+	return MappedQueryFields(h.mappings)
+}
+
+// MappedQueryFields is queryFields for a caller with only the mapping, such as the stdio
+// search tool, which parses with it so it can refuse what needs the index by name.
+func MappedQueryFields(m *mapping.Store) query.Fields {
 	out := query.Fields{query.FieldReleased: {
 		Kind:      query.KindDate,
 		OwnerOnly: registry.HiddenFromVisitors(query.ReleaseDateKey),
 	}}
-	if h.mappings == nil {
+	if m == nil {
 		return out
 	}
-	for _, f := range h.mappings.Current().Fields() {
+	for _, f := range m.Current().Fields() {
 		if spec, ok := queryFieldSpec(f); ok {
 			out[f.Canonical] = spec
 		}
 	}
 	return out
+}
+
+// QueryFields and DrainForQuery are what the in-process HTTP search tool uses to parse
+// and answer index-reading conditions as /media does (F90 P0-9): the full catalogue,
+// promotions included, and the drain before the read.
+func (h *Handlers) QueryFields(ctx context.Context) query.Fields { return h.parseFields(ctx) }
+
+func (h *Handlers) DrainForQuery(ctx context.Context, expr query.Node) {
+	h.drainForFilter(ctx, expr, "")
 }
 
 // parseFields is queryFields plus every field the owner promoted on videos (F44) that holds a

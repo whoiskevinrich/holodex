@@ -307,6 +307,12 @@ whether or not that data won.
   `resolved_values` rides. One resolver pass per dirty entity rewrites that entity's rows, for all
   three types. The `has` and enriched conditions and sorts are owner-only, so visitors never reach
   this cache, and the "visitors never drain" rule stands for it.
+- **The search tool.** The MCP HTTP transport runs in the server process, so it gets the server's
+  catalogue and drain and answers index-reading conditions as `/media` does. The stdio transport is
+  a separate process (`docker exec`), and nothing in it may drain: that would make it a second
+  writer on the database. It refuses those conditions and names the HTTP endpoint instead.
+  **Rejected:** answering stdio from the cache as it stands. The drain is request-driven, with no
+  background pass, so the cache can be behind by any amount of time.
 - **Reads.** `has:x` is an `EXISTS` over `shown = 1`, and `-has:x` its `NOT EXISTS`. An entity not
   yet drained therefore reads as missing everything, never as having it. The enriched sort is a
   correlated `COUNT` of `enriched = 1` rows, with the list's default order as tiebreak.

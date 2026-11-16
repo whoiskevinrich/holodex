@@ -196,7 +196,10 @@ present or missing status, the not-applicable toggle, and the jump to an empty f
       other owner-only conditions, and a frozen snapshot may still be published (F89 RD14).
 
 **P0-9 Saved queries keep working.**
-- [ ] `has` works in smart playlists and in the search tool, like any other condition.
+- [ ] `has` works in smart playlists and in the search tool, like any other condition. The search
+      tool's command-line connection can't bring this data up to date, so it refuses `has`,
+      `updated:`, `released:` and mapped fields and points to the web connection instead of answering
+      from out-of-date data (owner, 2026-11-15).
 - [ ] A saved `matched:any` playlist whose videos have only filename data loses them, since that's the
       corrected meaning. This is a deliberate exception to F87 P0-10, and the release note says so.
 - [ ] `matched:` names only providers the owner has declared, switched off or not. A saved query that
