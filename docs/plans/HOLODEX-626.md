@@ -48,7 +48,7 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - [x] design `design-handoff` → `docs/design/**` — provider-and-field-filters-handoff.md + two SVGs; owner picked option A and a Studios Table view, sign-off pending at /implement
 - [/] backend → `{cmd,internal,providers}/**` — `matched` counts only declared providers; `entity_field_state` (0073) is drained for all three types; `has:` works on Media; People and Studios take `link`, `has`, `missing`; Most/Least enriched sorts and an owner-only `enriched` count on every list item; the score is retired (0074 drops `entity_completeness`, completeness sorts read as the default)
 - [/] frontend → `web/src/**` — Filters panel (Provider link, add-a-field Has/Missing) on Media, People and Studios; Linked and "Label: has|missing" chips; Most/Least enriched sorts; Enriched column and a Studios Table view; the ring removed. `CompletenessPanel` is the field list behind Show fields / Hide fields. Browser-checked on the stress fixture
-- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, Q3, A3, A4, A8, A9, A10, R3, R4, R5, R6, W1–W5 and parts of R1 and A5 pass and are mutation-checked; the rest is written with the build
+- [/] testing `testing-strategy` — §42 strategy written; A1, Q1, Q2, Q3, A3, A4, A8, A9, A10, A11, R3, R4, R5, R6, W1–W5 and parts of R1 and A5 pass and are mutation-checked; the rest is written with the build
 - [/] security `security-review` — design-stage rules SEC-12 to SEC-15 in security-perimeter.md; the code review waits for the build
 
 <!-- Deliberate-skip example — always say why; `until:` records what would reopen the concern later
@@ -66,14 +66,13 @@ lack a field's value, and how much providers contributed, with the Completeness 
      (ADR-008). This queue holds LIVE work only: delete a done item, move a dropped one to
      ## Dropped at the end of this file (ADR-010). The banner counts any settled item left here. -->
 
-1. [ ] [backend] `has:` in MCP `search_videos` (P0-9): the tool refuses every index-reading query because it cannot drain; give it the drain or a catalogue — `internal/mcp/mcp.go`
-2. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
-3. [ ] [backend] Confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
-4. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, then settle the gate — `docs/architecture/security-perimeter.md`
-5. [ ] [spec] The F55 spec's H1 still says "Entity Completeness Score (F55)", and people-poster-view.md also claims F55; rename it with the owner — `docs/specs/entity-completeness-score.md`
-6. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot: the ring is gone from every list (2026-11-14). Close it with F90's merge
-7. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
-8. [ ] [backend] F90 has 0073 and 0074; the next is 0075. Re-check against origin/main before adding one — `internal/db/migrations/`
+1. [ ] [backend] The drain reads each video's cover file to hash it, under writeMu; batch `PosterSources` and consider a cheaper cover marker — `internal/api/video_poster.go`
+2. [ ] [backend] Confirm every writer of a video's file poster slot moves `thumbnail_state` or `video_poster_sources`, so the poster trigger fires — `internal/api/video_poster.go`
+3. [ ] [security] Re-run /security-review on the built code against SEC-12 to SEC-15, including the MCP HTTP tool's new drain path, then settle the gate — `docs/architecture/security-perimeter.md`
+4. [ ] [spec] The F55 spec's H1 still says "Entity Completeness Score (F55)", and people-poster-view.md also claims F55; rename it with the owner — `docs/specs/entity-completeness-score.md`
+5. [ ] [frontend] HOLODEX-628 (ring in the visitor preview) is moot: the ring is gone from every list (2026-11-14). Close it with F90's merge
+6. [ ] [architecture] On this epic's squash, replace "pending squash (HOLODEX-626)" with the commit — `docs/architecture/field-resolution.md`, `security-perimeter.md`
+7. [ ] [backend] F90 has 0073 and 0074; the next is 0075. Re-check against origin/main before adding one — `internal/db/migrations/`
 
 ## Session log — append-only (cap: last 8 sessions; older → archive/)
 
@@ -84,6 +83,10 @@ lack a field's value, and how much providers contributed, with the Completeness 
 - skills: write-spec, architecture
 - handoff: the sentence the next session should wake up to
 -->
+
+### 2026-11-15 · has: in the MCP search tool
+- skills: code-review, handoff
+- handoff: `search_videos` over HTTP now parses with the server's catalogue and drains first, so `has:`, `updated:`, `released:` and mapped fields answer as /media does; stdio still refuses them and names /mcp (owner's choice; §42.5 A11, field-resolution.md "The search tool"); next is the drain's cover-hash cost.
 
 ### 2026-11-15 · promoted video fields in has:
 - skills: code-review, handoff
