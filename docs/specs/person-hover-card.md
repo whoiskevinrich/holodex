@@ -181,14 +181,17 @@ included only when `h.auth.authorized(r)`, exactly as the list reads do (ADR-099
   `externalLinksForEntity` + **the full `personResolve`** (built: the 3-field subset was not
   worth a second resolve path — `personResolve` skips the video list and image set, and reusing
   it means the card's age, nationality and display spelling cannot drift from the profile).
-- [ ] 404 for an unknown or soft-deleted person; `Cache-Control: private, max-age=300`.
+- [ ] 404 for an unknown or soft-deleted person; `Cache-Control: private, no-cache`. A card
+  must never outlive a change to the person: after the owner adds a provider, the next card
+  shows its link (HOLODEX-637).
 - [ ] `age` and `age_at_death` are mutually exclusive, exactly as `deriveAge` emits them.
 - [ ] `completeness` is absent (not null) for an unauthenticated request; present for the
   owner, read from the F65 materialized store the list reads use.
 
 **R6 — Client fetch discipline.**
 - [ ] One request per person per session (module-level `Map<id, Promise<Card>>`); a failed
-  request is not cached, so the next hover retries.
+  request is not cached, so the next hover retries. Re-reading the person's profile drops
+  that person's cached card, so a change made there shows on the next hover.
 - [ ] The request starts at intent (250 ms), not at pointer-enter; leaving before it resolves
   aborts via `AbortController`.
 - [ ] While loading, the card shows the name line only (no spinner) and fills in when data lands.
@@ -238,7 +241,7 @@ No migration. `film_count` is computed; nothing new is stored.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/people/{id}/card` | public; `completeness` owner-only | R5 shape; 404 unknown/soft-deleted; `Cache-Control: private, max-age=300` |
+| GET | `/people/{id}/card` | public; `completeness` owner-only | R5 shape; 404 unknown/soft-deleted; `Cache-Control: private, no-cache` |
 
 Registered beside `/people/{id}/images` in `handlers.go`. Not exposed on MCP in v1.
 
