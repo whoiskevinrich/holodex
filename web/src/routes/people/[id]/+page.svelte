@@ -40,6 +40,7 @@
 	import CoreImageEditButton from '#lib/components/person/CoreImageEditButton.svelte';
 	import PersonImageFrame from '#lib/components/person/PersonImageFrame.svelte';
 	import NationalityFlags from '#lib/components/person/NationalityFlags.svelte';
+	import { invalidatePersonCard } from '#lib/components/person/personCard.svelte.ts';
 	import PersonGallery from '#lib/components/person/PersonGallery.svelte';
 	import SourceBadge from '#lib/components/curation/SourceBadge.svelte';
 	import SourceEditModal from '#lib/components/curation/SourceEditModal.svelte';
@@ -249,6 +250,9 @@
 		skippedAliases = res.skipped_aliases ?? [];
 		completeness = res.completeness ?? null;
 		externalLinks = res.external_links ?? [];
+		// Every re-read follows a possible change (an enrichment adds a provider link),
+		// so the hover card must re-read too rather than show its session copy (HOLODEX-637).
+		invalidatePersonCard(res.person.id);
 	}
 
 	function load(current: number) {

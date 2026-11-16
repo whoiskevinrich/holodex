@@ -56,6 +56,17 @@ func TestPersonCard(t *testing.T) {
 	if code, _ := getJSONTok(t, srv.URL+"/api/v1/people/999999/card", ""); code != http.StatusNotFound {
 		t.Errorf("unknown person card = %d, want 404", code)
 	}
+
+	// HOLODEX-637: the browser must revalidate, never reuse a card for a window —
+	// a card read before an enrichment otherwise hides the new provider link.
+	resp, err := http.Get(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if cc := resp.Header.Get("Cache-Control"); cc != "private, no-cache" {
+		t.Errorf("Cache-Control = %q, want %q", cc, "private, no-cache")
+	}
 }
 
 // A person with no birthdate and no aliases: the card simply omits those keys —

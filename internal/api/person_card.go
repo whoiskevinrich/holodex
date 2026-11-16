@@ -97,8 +97,11 @@ func (h *Handlers) getPersonCard(w http.ResponseWriter, r *http.Request) {
 		card.Completeness = h.storedCompleteness(ctx, model.EnrichEntityPerson, id)
 	}
 	// Private: the owner's copy carries completeness, a visitor's must not be
-	// served from a shared cache in its place.
-	w.Header().Set("Cache-Control", "private, max-age=300")
+	// served from a shared cache in its place. No-cache: a freshness window kept
+	// a card read before an enrichment for minutes, and a hard reload doesn't
+	// clear it (HOLODEX-637). The client's session cache already holds the card
+	// to one request per person.
+	w.Header().Set("Cache-Control", "private, no-cache")
 	writeJSON(w, http.StatusOK, card)
 }
 
